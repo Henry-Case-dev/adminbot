@@ -5,6 +5,10 @@
 **Карта требований:** `requirements-map.json` (72 обязательства, 42 инвентарные строки + 85 доп. строк прозы).
 **Граф срезов:** `slice-graph.json` (`openworkflow-slices-v1`).
 **Статус:** планирование; в очередь исполнения добавляет Orchestrator.
+**R0-INV закрыт (11.11.2026):** `evidence/r0/diagnosis-2.58.188.md`
+(`sha256 27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe`), 9 строк R0-VERIFIED,
+`git diff --stat` по `services/`, `web/`, `handlers/` пуст. Причина `/meme` установлена (D7), перечень
+дефектов D1-D7 разложен по срезам; по D6 добавлен под-срез **S5b**.
 
 ## 0. Обязательная поправка о кодовой базе
 
@@ -45,11 +49,31 @@ A0-ARCH остаётся точкой сверки, а не ожиданием �
 | 2 | **S3-OV** | S1-AXES | `web/app.js`, `web/index.html`, `web/static/app.css`, `tests/js/initiative_ui_rework_test.js` | Один экран: обзор с двумя карточками и пятью осями. |
 | 3 | **S4-TRACE** | S2-ID, S3-OV | `web/app.js`, `web/static/app.css`, `web/api/initiative_publications.py`, `tests/ui_initiative_rework_e2e.py`, `tests/test_initiative_publications_api.py` | Одна связная трасса попытки + защищённый доступ к полным текстам. |
 | 3 | **S5-MEME** | S2-ID | `handlers/meme_command.py`, `services/publication_coordination.py`, `tests/test_meme_command_autodelete.py` | Один механизм: ручной `/meme` от получения команды до снятия приоритета. |
-| 4 | **S6-FRESH** | S4-TRACE, S5-MEME | `web/app.js`, `services/initiative_diagnostics.py`, `web/api/initiative_vitality.py`, `services/publication_coordination.py`, `tests/test_initiative_delivery_telemetry.py` | Одна сквозная корректность: чат, время, свежесть, просроченные маркеры. |
-| 5 | **S7-ACCEPT** | S6-FRESH | `evidence/accept`, `tests/test_p0_init_meme_acceptance.py`, `tests/ui_p0_init_meme_e2e.py` | Одна независимая приёмка по матрице §8 и релизная проверка. |
+| 4 | **S5b** | S5-MEME | `services/publication_coordination.py`, `services/meme_initiative.py`, `tests/test_publication_binding_delivery.py` | Один инвариант доставки: оплаченное изображение не теряется при `publisher_not_bound`, квота и факт отправки согласованы. Сериализован с S5-MEME: тот же файл координации. |
+| 5 | **S6-FRESH** | S4-TRACE, S5-MEME, S5b | `web/app.js`, `services/initiative_diagnostics.py`, `web/api/initiative_vitality.py`, `services/publication_coordination.py`, `tests/test_initiative_delivery_telemetry.py` | Одна сквозная корректность: чат, время, свежесть, просроченные маркеры. |
+| 6 | **S7-ACCEPT** | S6-FRESH | `evidence/accept`, `tests/test_p0_init_meme_acceptance.py`, `tests/ui_p0_init_meme_e2e.py` | Одна независимая приёмка по матрице §8 и релизная проверка. |
 
 Параллельные писатели: **максимум 2** одновременно (волна 1 и волна 2/3). Причина — `web/app.js`
 один на обзор, трассу и свежесть: UI-срезы сериализованы зависимостями, а не искусственными барьерами.
+
+## 2a. Классификация дефектов R0-INV → срезы
+
+Полная таблица с файлом:строкой — в карте (`defect_classification`) и в
+`evidence/r0/diagnosis-2.58.188.md` §6-§7. Кратко:
+
+| Дефект | Срез | Что доказывает |
+|---|---|---|
+| D1 `ready=false` → «выключено» при `configuration=true` | S3-OV | `web/app.js:8280-8282`, `8381-8383` |
+| D2 истёкший `manual_priority_until` как текущая блокировка | S6-FRESH | `web/app.js:3262-3263`, `8463`, `8471-8476` |
+| D3 `job_id=""` в ранних отказах при уже созданном `jid` | S2-ID | `meme_initiative.py:2415-2435` против `2438` |
+| D4 `record_attempt` теряет строки при sqlite lock (77/24 ч, 228/7 дн) | S2-ID | `meme_initiative.py:1148-1162`, `1471-1475` |
+| D5 маркер не снимается на терминале; сбой записи только WARNING | S5-MEME | `publication_coordination.py:535-555`, `202-214` |
+| D7 отмена на стадии изображения проходит молча (`CancelledError`) | S5-MEME | рестарт 09:21:08, 0 строк журнала |
+| D6 `publisher_not_bound` выбрасывает оплаченное изображение (6/7 дн) | S5b | `meme_initiative.py:2701-2704`, `2220-2225`, `2917-2926` |
+
+Отдельно: разница между чатами (время публикации, остаток кулдауна, квота, 7/8 против 0/8 сообщений,
+зеркальные конфликты 1800 с, per-chat override) — **не дефект**; API отдаёт выбранный чат (`X-Chat-Id`
+эхом как `chat_id`, без заголовка 422 и master-only фолбэк) — утечки scope нет.
 
 ## 3. Обязательные барьеры
 
@@ -60,7 +84,8 @@ A0-ARCH остаётся точкой сверки, а не ожиданием �
 3. **S1-AXES → S3-OV.** UI не реконструирует оси из `ready`; он читает контракт.
 4. **S2-ID → S4-TRACE и S5-MEME.** Трасса и ручной путь требуют устойчивого родителя попытки.
 5. **S4-TRACE, S5-MEME → S6-FRESH.** Один и тот же UI-файл.
-6. **Все → S7-ACCEPT.**
+6. **S5-MEME → S5b.** Один и тот же `services/publication_coordination.py`; S5b не идёт параллельно.
+7. **Все → S7-ACCEPT.**
 
 ## 4. Приёмка и живое доказательство
 

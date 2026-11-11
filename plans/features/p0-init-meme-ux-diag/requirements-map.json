@@ -39,7 +39,7 @@
   "evidence_convention": "Каждая required-строка при review/release получает candidate-bound evidence: candidate_commit, type (test|ui|live|provider|production), ref (человеческое объяснение), observation (что реально наблюдалось), artifact_path (repo-relative файл), желательно artifact_sha256. Артефакты складываются в plans/features/p0-init-meme-ux-diag/evidence/<slice>/.",
   "reuse_analysis": {
     "method": "Для каждой канонической строки указан covered_by с точными req_id и delta. Строки существуют, поэтому новые клоны не создавались: несколько source-строк одного обязательства ссылаются на ОДИН req_id (разрешено гейтом), а не порождают параллельные строки.",
-    "new_rows_count": 72,
+    "new_rows_count": 75,
     "duplicates_created": 0,
     "existing_rows_checked": [
       {
@@ -194,7 +194,7 @@
         "note": "FC-07.1 берётся только как прецедент correlation_id в приватной диагностике; FCT-209/FCT-132/I-05/I-06/MEM-05.3 относятся к фактчеку, времени и памяти — пересечения по объекту нет."
       }
     ],
-    "duplicate_verdict": "Полных дублей нет: corrective меняет именно тот код, который реализует прежние VERIFIED-строки, поэтому каждое совпадающее обязательство сохранено как required с mode=regression-only и covered_by, а не переписано второй строкой. Клонированных req_id других карт: 0."
+    "duplicate_verdict": "Полных дублей нет: corrective меняет именно тот код, который реализует прежние VERIFIED-строки, поэтому каждое совпадающее обязательство сохранено как required с mode=regression-only и covered_by, а не переписано второй строкой. Клонированных req_id других карт: 0. S5b (3 строки, R0-INV): не клоны P0IM-PB-COUNT/P0IM-OV-L3 — те про показ и счётчики, S5b про поведение при publisher_not_bound и согласованность квоты с доставкой."
   },
   "axes_are_fields_not_new_state": {
     "statement": "configuration, health, readiness, last_attempt, last_delivery — логические поля существующего read-model, а не новые таблицы, не параллельная state machine и не новый сервис телеметрии.",
@@ -384,8 +384,17 @@
       "acceptance": "Оба чата сравнены в одном временном окне по конфигурации, last_attempt, last_sent, message_id, квоте, кулдауну, последнему реальному provider call и активным/просроченным броням; разница между чатами не объявлена дефектом без отдельного доказательства.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Сравнение в одном окне по конфигурации, last_attempt, last_sent, message_id, квоте, кулдауну, provider call и броням (раздел 5): пять различий (время публикации, остаток кулдауна, квота, 7/8 против 0/8 сообщений, зеркальные конфликты 1800 с) квалифицированы как обычные, не как дефект.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [
         "UI-MEME-ACCEPT"
       ],
@@ -425,8 +434,17 @@
       "acceptance": "Расследование опирается на перечисленные источники: работающий production-процесс, effective глобальные и чатовые настройки, mca_events, журналы мемов/квот/публикаций, доставленные outputs, брони и TTL, действующую модель и доступность провайдеров; для каждого вывода указан использованный источник.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Каждый вывод разделов 2-8 привязан к источнику: mca_events, проекция речи, журнал этапов, publication_claims, ledger outputs, journald, БД аналитики, код c087253d; неполученные источники перечислены в разделе 9.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [
         "P0A-INIT-DIAG"
       ],
@@ -444,8 +462,17 @@
       "acceptance": "В отчёте состояние конфигурации и состояние последнего события разделены, а нормальный пропуск (кулдаун, квота, тихие часы, нехватка сообщений) не описан как сбой.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Конфигурация (true + источник override) и состояние последнего события (маркер, бронь released, отсутствие output и message_id) разделены; кулдаун, квота, тихие часы и нехватка сообщений описаны как пропуски, а не сбой (разделы 4-5).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [
         "P0A-INIT-PROOF"
       ],
@@ -483,8 +510,17 @@
       "acceptance": "Для каждого неудачного `/meme` проверены и по отдельности подтверждены или честно помечены неизвестными все участки: получение апдейта, права, удаление команды, установка маркера, обязательные гейты, чтение сообщений, LLM A/B, image API, бронь и отправка, доставка ответа или сообщения об ошибке.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "11 участков в разделе 3: подтверждены ingestion, удаление команды, маркер, LLM A и B; гейты и чтение сообщений подтверждены косвенно; image API подтверждён как незавершённый, бронь, отправка и ответ отсутствуют; права помечены как неизвестные (debug-only лог).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [
         "MEME-CMD-MANUAL-RUN"
       ],
@@ -502,8 +538,17 @@
       "acceptance": "Отсутствующая трасса названа точным отсутствующим участком; гипотеза нигде не подана как установленный факт.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Точные отсутствующие участки (раздел 9): начало стадии изображения (нет INFO-маркера), точка отмены (нет лога CancelledError), прохождение проверки прав (debug-only), отрисовка Mini App (только код и живые payload-ы API).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: обязательное разделение «доказано» и «не доказано» в самом отчёте."
     },
@@ -519,8 +564,17 @@
       "acceptance": "Оба чата сравнены в одном временном окне по конфигурации, last_attempt, last_sent, message_id, квоте, кулдауну, последнему реальному provider call и активным/просроченным броням; разница между чатами не объявлена дефектом без отдельного доказательства.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Сравнение в одном окне по конфигурации, last_attempt, last_sent, message_id, квоте, кулдауну, provider call и броням (раздел 5): пять различий (время публикации, остаток кулдауна, квота, 7/8 против 0/8 сообщений, зеркальные конфликты 1800 с) квалифицированы как обычные, не как дефект.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L061-A",
@@ -1675,8 +1729,17 @@
       "acceptance": "Первый отчёт содержит перечень подтверждённых кодом проблем с файлом и строкой, места предполагаемых правок и очередь исполнения; неподтверждённые наблюдения вынесены отдельно как требующие проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Семь дефектов D1-D7 с файлом:строкой, перепроверенных по коду c087253d (раздел 7, включая исправление адреса D3), и классификация по срезам S2-ID/S3-OV/S5-MEME/S5b/S6-FRESH (раздел 6).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: обязательный вход в правки только после подтверждённого списка дефектов."
     },
@@ -1699,6 +1762,54 @@
         "HMF-ACC-03"
       ],
       "delta": "Формат доказательств релиза уже существует; здесь он применяется к этому кандидату."
+    },
+    {
+      "source_id": "MANUAL-L120-S5B",
+      "source_line": 120,
+      "source_text_sha256": "6fbd1773222c2541a49431964278e00d3d85606004a20305c57ae4d90c96af15",
+      "source_excerpt": "При нормальном завершении или установленном отказе проверить своевременное снятие ручного приоритета; при исключении/падении процесса — безопасное восстановление существующим durable механизмом. Не вв",
+      "disposition": "required",
+      "reason": "Доказано live: 6 случаев publisher_not_bound за 7 дней, каждый с оплаченным изображением и израсходованной квотой. Код c087253d: резерв квоты 2701-2704 до провайдера 2722-2727, терминал SKIP_PUBLISH/publisher_not_bound на 2224 и 2923. Собственный комментарий кода 2189 уже запрещает «терять оплаченную картинку» — поведение расходится с контрактом.",
+      "req_id": "P0IM-S5B-NODISCARD",
+      "slice": "S5b",
+      "acceptance": "Автоматический мем, у которого изображение уже оплачено и получено, не выбрасывается при publish_blocked/publisher_not_bound: отказ связывания либо восстанавливается существующим durable механизмом брони/отложенной публикации, либо завершается явным исходом «не доставлено» с этой причиной; байты результата не теряются молча, новый планировщик или очередь не вводятся.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "delta": "Новое: под-срез S5b введён по результату R0-INV; в исходном источнике строка 120 (запрет отмены готовых изображений) ранее не имела владельца этого класса отказов."
+    },
+    {
+      "source_id": "MANUAL-L027-S5B",
+      "source_line": 27,
+      "source_text_sha256": "695dd84488e81d97f1a90743ed017c3a73431313f412717514400c0b55ac4371",
+      "source_excerpt": "4. Когда, куда и с каким `message_id` была **последняя подтверждённая отправка**; если доставки не было — почему; если доставка неизвестна — так и написать.",
+      "disposition": "required",
+      "reason": "Источник строка 27 требует: если доставки не было — сказать почему. Сейчас терминал пишет публикационный fail-событие, но у попытки нет доставленного факта и нет явного «не доставлено» в оси доставки; отображение этой оси — S4-TRACE, здесь фиксируется сам факт данных.",
+      "req_id": "P0IM-S5B-DELIVERY-FACT",
+      "slice": "S5b",
+      "acceptance": "Для попытки мема, закрытой без отправки, read-model/API отдаёт last_delivery = «не доставлено» с точным кодом причины (в том числе publisher_not_bound), а не пустоту и не «опубликовано»; число изображений и число подтверждённых отправок в одной попытке различаются.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "delta": "Новое: отделяет ось доставки от оси попытки для отказов publisher_not_bound."
+    },
+    {
+      "source_id": "MANUAL-L083-S5B",
+      "source_line": 83,
+      "source_text_sha256": "2b7a3f1392e50e1fcdd49793c78ab19dae5c061d78d585ed06d3aa8e3cfff87e",
+      "source_excerpt": "**Строка 3:** «Последняя проверка» · «Последняя попытка и результат» · «Последняя отправка в Telegram» (разные события) · «Суточная квота» (отдельная для каждого механизма, `0` как без лимита только т",
+      "disposition": "required",
+      "reason": "Источник строка 83 требует отдельной суточной квоты на механизм и честного 0 как «без лимита». Дефект D6 делает квоту неотличимой от реальной публикации: слот списан, отправки нет.",
+      "req_id": "P0IM-S5B-QUOTA",
+      "slice": "S5b",
+      "acceptance": "Суточная автоматическая квота мемов согласована с фактами доставки: слот, израсходованный под попытку без доставки, либо не списывается, либо показывается как «израсходован без отправки» с причиной; счётчики попытки, изображения и подтверждённой отправки не смешиваются.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [],
+      "delta": "Новое: связывает квоту с фактом доставки; не дублирует P0IM-OV-L3 (показ) и P0IM-PB-COUNT (счётчики в трассе)."
     }
   ],
   "items": [
@@ -1839,8 +1950,17 @@
       "acceptance": "По каждому из двух чатов и по каждому механизму (текстовая инициатива, мемы) приложена таблица текущего состояния с раздельными полями: effective-конфигурация и её источник, готовность с причиной, последняя попытка с исходом, последняя подтверждённая отправка с message_id; каждая ячейка либо подтверждена фактом из production/БД, либо помечена «неизвестно» с указанием, чего не хватает.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Пятиосевая таблица по двум чатам и двум механизмам (раздел 4): configuration=true в обоих чатах с per-chat override, истёкшие маркеры, отсутствие доставки и 0 строк журнала у упавшего /meme; неизвестные ячейки помечены с указанием недостающего (разделы 4 и 9).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: обязательный срез по пяти осям для обоих чатов как основание для правок."
     },
@@ -2111,8 +2231,17 @@
       "acceptance": "По каждому из двух чатов и по каждому механизму (текстовая инициатива, мемы) приложена таблица текущего состояния с раздельными полями: effective-конфигурация и её источник, готовность с причиной, последняя попытка с исходом, последняя подтверждённая отправка с message_id; каждая ячейка либо подтверждена фактом из production/БД, либо помечена «неизвестно» с указанием, чего не хватает.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+          "type": "production",
+          "ref": "read-only расследование production release/2.58.188 (c087253d) без правок product-кода",
+          "observation": "Пятиосевая таблица по двум чатам и двум механизмам (раздел 4): configuration=true в обоих чатах с per-chat override, истёкшие маркеры, отсутствие доставки и 0 строк журнала у упавшего /meme; неизвестные ячейки помечены с указанием недостающего (разделы 4 и 9).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+          "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe"
+        }
+      ]
     },
     {
       "source_id": "L00041",
@@ -2428,7 +2557,8 @@
     "S5-MEME": 6,
     "S4-TRACE": 14,
     "S6-FRESH": 6,
-    "A0-ARCH": 1
+    "A0-ARCH": 1,
+    "S5b": 3
   },
   "design_ref": {
     "path": "plans/features/p0-init-meme-ux-diag/architecture.md",
@@ -2442,6 +2572,126 @@
     "S3-OV": "architecture.md §5 (обзор)",
     "S4-TRACE": "architecture.md §5 (трасса, невыполненные этапы, исторические тексты), §6 (приёмка)",
     "S5-MEME": "architecture.md §3 (finally гасит manual_priority_until)",
-    "S6-FRESH": "architecture.md §4 (epoch guard, chat_id), §5 (TZ из backend)"
+    "S6-FRESH": "architecture.md §4 (epoch guard, chat_id), §5 (TZ из backend)",
+    "S5b": "architecture.md §3 (жизненный цикл брони) — тот же durable claim, без новых таблиц и очередей"
+  },
+  "r0_closure": {
+    "slice": "R0-INV",
+    "artifact": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+    "artifact_sha256": "27377ab82c88bf8c5324dca5573503dc0065a4a89b50af4427202afa849e6fbe",
+    "closed_on": "2026-11-11",
+    "basis_commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+    "product_changes": "none",
+    "product_change_proof": "Рабочее дерево расследования (init/meme-axes @ c087253d): git status --short пусто; git diff --stat HEAD -- services web handlers пусто; untracked в этих каталогах нет.",
+    "note": "R0-INV закрыт production-наблюдением, а не реализацией: product candidate отсутствует, поэтому map candidate_commit/deployed_commit остаются пустыми. Review/release-гейт на сам R0-INV не запускается; при release зависимых срезов проверяется наличие VERIFIED + candidate-bound evidence."
+  },
+  "defect_classification": {
+    "source": "plans/features/p0-init-meme-ux-diag/evidence/r0/diagnosis-2.58.188.md",
+    "date": "2026-11-11",
+    "defects": [
+      {
+        "id": "D1",
+        "title": "ready=false рисуется как «выключено» при configuration=true",
+        "slice": "S3-OV",
+        "code_refs": [
+          "web/app.js:8280-8282",
+          "web/app.js:8381-8383"
+        ],
+        "req_ids": [
+          "P0IM-OV-L1",
+          "P0IM-BAN-ENABLED"
+        ]
+      },
+      {
+        "id": "D2",
+        "title": "истёкший manual_priority_until показан как текущая блокировка",
+        "slice": "S6-FRESH",
+        "code_refs": [
+          "web/app.js:3262-3263",
+          "web/app.js:8463",
+          "web/app.js:8471-8476"
+        ],
+        "req_ids": [
+          "P0IM-S6-EXPIRED"
+        ]
+      },
+      {
+        "id": "D3",
+        "title": "analytics.attempts с job_id=\"\" для ранних отказов при уже определённом jid",
+        "slice": "S2-ID",
+        "code_refs": [
+          "services/meme_initiative.py:2415-2435",
+          "services/meme_initiative.py:2438",
+          "services/meme_initiative.py:1457-1469"
+        ],
+        "req_ids": [
+          "P0IM-ID-RUN",
+          "P0IM-ID-FINISH"
+        ]
+      },
+      {
+        "id": "D4",
+        "title": "record_attempt теряет строки при sqlite lock (77/24 ч, 228/7 дней)",
+        "slice": "S2-ID",
+        "code_refs": [
+          "services/meme_initiative.py:1148-1162",
+          "services/meme_initiative.py:1471-1475"
+        ],
+        "req_ids": [
+          "P0IM-ID-FINISH"
+        ]
+      },
+      {
+        "id": "D5",
+        "title": "маркер приоритета не снимается на терминальном исходе; сбой записи только WARNING",
+        "slice": "S5-MEME",
+        "code_refs": [
+          "services/publication_coordination.py:535-555",
+          "services/publication_coordination.py:202-214"
+        ],
+        "req_ids": [
+          "P0IM-MM-PRIO",
+          "P0IM-MM-MARKER"
+        ]
+      },
+      {
+        "id": "D6",
+        "title": "publisher_not_bound выбрасывает оплаченное изображение, квота списана (6/7 дней)",
+        "slice": "S5b",
+        "code_refs": [
+          "services/meme_initiative.py:2701-2704",
+          "services/meme_initiative.py:2722-2727",
+          "services/meme_initiative.py:2220-2225",
+          "services/meme_initiative.py:2917-2926"
+        ],
+        "req_ids": [
+          "P0IM-S5B-NODISCARD",
+          "P0IM-S5B-DELIVERY-FACT",
+          "P0IM-S5B-QUOTA"
+        ]
+      },
+      {
+        "id": "D7",
+        "title": "отмена на стадии изображения (рестарт 09:21:08) проходит молча: CancelledError не ловится",
+        "slice": "S5-MEME",
+        "code_refs": [
+          "services/meme_initiative.py:2254-2261",
+          "services/meme_initiative.py:2737-2739",
+          "journald: Stopping admin_bot.service 09:21:08"
+        ],
+        "req_ids": [
+          "P0IM-MM-TRACE",
+          "P0IM-MM-PRIO"
+        ]
+      }
+    ],
+    "ordinary_not_defects": [
+      "разное время последней публикации и разный остаток кулдауна",
+      "разное потребление суточной квоты",
+      "7 из 8 сообщений в окне против 0 из 8",
+      "зеркальные конфликты межтипового интервала 1800 с",
+      "per-chat override присутствуют в обоих чатах",
+      "API отдаёт выбранный чат (X-Chat-Id эхом как chat_id); без заголовка 422 и master-only фолбэк — утечки нет"
+    ]
   }
 }
