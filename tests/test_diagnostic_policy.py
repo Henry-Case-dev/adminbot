@@ -1284,21 +1284,58 @@ async def test_tool_result_blocked_when_secret_sources_incomplete(
     assert "вывод заблокирован" in result
 
 
+class _ChatKeysBoomPg(FakePg):
+    """Пул отвечает как `FakePg`, но чтение таблицы `chat_keys` падает.
+
+    Именно этот двойник различает «ключа нет» (None) и «прочитать нельзя»
+    (ошибка), поэтому проверяется реальный `chat_keys.get_chat_key`.
+    """
+
+    def __init__(self, rows=None):
+        super().__init__(rows)
+        inner = self
+
+        class _Pool:
+            def acquire(self):
+                base_conn = _FakeConn(inner)
+
+                class _CM:
+                    async def __aenter__(self_cm):
+                        class _Conn:
+                            async def fetchrow(self_conn, sql, *args):
+                                if "FROM chat_keys" in sql:
+                                    raise RuntimeError("pg down")
+                                return await base_conn.fetchrow(sql, *args)
+
+                        return _Conn()
+
+                    async def __aexit__(self_cm, *exc):
+                        return False
+
+                return _CM()
+
+        self.pool = _Pool()
+
+
 @pytest.mark.asyncio
 async def test_byok_read_error_blocks_raw_output(monkeypatch, member_cache):
     """Ошибка чтения BYOK — «неизвестно», а не «ключа нет»."""
     from services import chat_keys
 
-    async def broken(*args, **kwargs):
-        raise RuntimeError("pg down")
+    boom = _ChatKeysBoomPg()
+    # Различие двух режимов строгое: strict → исключение, обычный → None.
+    with pytest.raises(RuntimeError):
+        await chat_keys.get_chat_key(boom, GROUP_A, "keys.llm_api_key",
+                                     strict=True)
+    assert await chat_keys.get_chat_key(boom, GROUP_A,
+                                        "keys.llm_api_key") is None
 
-    monkeypatch.setattr(chat_keys, "get_chat_key", broken)
     snapshot = await projection.known_secret_values_async(
-        cache=member_cache, pg=FakePg(), chat_id=GROUP_A)
+        cache=FakeCache({}), pg=boom, chat_id=GROUP_A)
     assert snapshot.complete is False
     assert "byok" in snapshot.missing
 
-    router = _router_with(monkeypatch, member_cache, FakePg(),
+    router = _router_with(monkeypatch, member_cache, boom,
                           f"ОТЧЁТ: ключ {UNPATTERNED} в конфиге")
     ctx = ToolContext(chat_id=GROUP_A, query="чекап", user_id=MEMBER_ID)
     result = await router.dispatch("get_bot_health", {}, ctx)
