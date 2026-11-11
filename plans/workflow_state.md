@@ -5,8 +5,8 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e357d26b4ffemxzNxlAh77olCq (Builder: S3-OV overview UI); ses_e357d0352ffezEIrf2bWQSX58A (PM: binding S1-AXES/S2-ID to 4c59a483); ses_e358b0029ffeSuAej0swt6A5Hr (Builder: VMQ-NEXT-02/03/04 measurement on a DB copy); ses_e357bfe98ffeVqphqEDSJbak95 (Reviewer: narrow UR-20.6/UR-20.7 verdict on d3e74eef)
-Join barriers: S4 waits for the S3 verdict; the inspector release waits on this narrow verdict. Three earlier inspector review attempts produced no verdict (two never returned, one had its work cancelled mid-flight), so this pass is deliberately narrow and self-contained.
+Active lanes: ses_e3572928affeelC4E31dLBWZ9l (DevOps: building and deploying 2.58.189 from the port f328611f); ses_e35726d4fffeVaK90lKARkzvpv (PM: binding UR-20.6/UR-20.7 and deciding parent UR-20); ses_e357d26b4ffemxzNxlAh77olCq (Builder: S3-OV overview UI); ses_e358b0029ffeSuAej0swt6A5Hr (Builder: VMQ-NEXT-02/03/04 measurement on a DB copy)
+Join barriers: S4 waits for the S3 verdict; the deployment must not start before the release gate and pin re-approval pass.
 Last verified: R0-INV closed read-only on production 2.58.188 (evidence/r0/diagnosis-2.58.188.md, 9 rows VERIFIED). S1-AXES + S2-ID APPROVED at 4c59a483 (third pass): delivery resolves the latest row with a message id, list mode comes only from the terminal row, spool never deletes an unread tail; the single residual window is both journal and spool writes failing, which is logged as `attempt LOST`. S3-OV overview UI in build on the same branch. Inspector 2.58.189 port prepared clean at f328611f (branch rel/2.58.189-inspector-prep, base c087253d, 19 files, no version bump, no DDL), pending verdict.
 Next unlocks: S3 UI verdict -> S4-TRACE then S5-MEME (incl. marker clearing and cancellation handling) then S5b; inspector verdict -> version bump over f328611f plus re-approval of ROUTES_SHA256_F11 and deployment; VMQ-NEXT-02/03/04 measurement on a DB copy in flight
 Next execution: awaiting_children
