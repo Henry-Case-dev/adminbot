@@ -33,6 +33,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from services import initiative_observer as obs
 
@@ -1516,7 +1517,11 @@ def _blocking_block(items) -> dict | None:
 AXIS_FIELDS = ("configuration", "health", "readiness", "last_attempt",
                "last_delivery")
 
-CONFIGURATION_FIELDS = ("enabled", "source", "scope", "reason")
+CONFIGURATION_FIELDS = ("enabled", "source", "scope", "reason", "layers")
+#: Один разрешающий/запрещающий гейт оси configuration с ЕГО слоем (P0IM-S6-
+#: EFFECTIVE): «что именно решает» + «из какого слоя». Это существующие части
+#: `_gate_parts`, отданные наружу без склейки в один `source`.
+CONFIGURATION_LAYER_FIELDS = ("gate", "layer", "enabled", "source", "reason")
 HEALTH_FIELDS = ("state", "dependencies")
 DEPENDENCY_FIELDS = ("name", "state", "source")
 READINESS_FIELDS = ("state", "reason", "reason_class", "next_eligible_at",
@@ -1561,6 +1566,31 @@ SOURCE_GLOBAL = "global"
 SOURCE_MEME_SETTINGS = "meme_settings"
 SOURCE_IMAGE = "image_module"
 SOURCE_READ_FAILED = "read_failed"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# P0IM-S6-EFFECTIVE / P0IM-S6-TZ — слой и пояс чата
+# ═════════════════════════════════════════════════════════════════════════════
+#: Слой, из которого реально пришло значение (`configuration.layers[].layer`).
+#: `factory` — заводское значение (settings/дефолт модуля), а не чей-то выбор;
+#: путать его с `global` запрещено: тогда «настройка не задана» читалась бы как
+#: «настройка задана глобально» (P0IM-S6-EFFECTIVE).
+LAYER_CHAT = "chat"
+LAYER_GLOBAL = "global"
+LAYER_FACTORY = "factory"
+LAYER_ENV = "env"
+LAYER_READ_FAILED = SOURCE_READ_FAILED
+
+#: Пояс чата (P0IM-S6-TZ): имя + ИСТОЧНИК имени + смещение на момент снимка.
+#: `utc_fallback` — пояс чата не задан ни на одном слое, взят названный
+#: заводской пояс по умолчанию (`default_name`), а не часы сервера.
+TZ_SOURCE_CHAT = "chat"
+TZ_SOURCE_GLOBAL = "global"
+TZ_SOURCE_FALLBACK = "utc_fallback"
+TZ_DEFAULT_NAME = "UTC"
+TIMEZONE_FIELDS = ("name", "source", "offset_seconds", "default_name",
+                   "reason")
+#: Блок времени ответа: ТОЛЬКО серверный штамп снимка и НАЗВАННЫЙ пояс.
+TIME_FIELDS = ("generated_at", "basis", "timezone")
 
 #: Классы причины readiness (закрытый словарь). Один класс — одна бытовая
 #: причина в UI; код пайплайна остаётся в `reason`.
@@ -1689,6 +1719,108 @@ def _iso_unix(value) -> int | None:
         return None
 
 
+def chat_timezone(chat_id, *, now_ts: int | None = None) -> dict:
+    """Пояс ЭТОГО чата с названным источником и смещением (P0IM-S6-TZ).
+
+    Источник ровно один — существующий `meme_initiative.resolve_timezone`
+    (тот же, что у боевого `day_window`), поэтому витрина и механизм не могут
+    разойтись. Слой чата читается в СТРОГОМ режиме: сбой чтения даёт
+    ``name=None``/``source=read_failed`` — «неизвестно», а не подставленный
+    UTC. Когда пояс не задан ни на одном слое — это ФАКТ, и он называется:
+    ``source=utc_fallback`` + ``default_name`` (часовой пояс сервера не
+    подставляется никогда).
+    """
+    stamp = _int(now_ts if now_ts is not None else _now(), 0)
+    try:
+        from services import meme_initiative as meme
+        name, source = meme.resolve_timezone(int(chat_id) if chat_id is not None
+                                             else None, strict=True)
+    except Exception:
+        logger.warning("[diag] chat timezone read failed | chat=%s",
+                       chat_id, exc_info=True)
+        return {"name": None, "source": SOURCE_READ_FAILED,
+                "offset_seconds": None, "default_name": TZ_DEFAULT_NAME,
+                "reason": "timezone_read_failed"}
+    name = str(name or "")
+    source = str(source or "")
+    if not name:
+        return {"name": None, "source": SOURCE_READ_FAILED,
+                "offset_seconds": None, "default_name": TZ_DEFAULT_NAME,
+                "reason": "timezone_empty"}
+    offset = None
+    try:
+        moment = datetime.fromtimestamp(int(stamp), timezone.utc)
+        resolved = moment.astimezone(ZoneInfo(name)).utcoffset()
+        if resolved is not None:
+            offset = int(resolved.total_seconds())
+    except Exception:
+        # Имя зоны не разрешилось в смещение: пояс назван, смещение — нет.
+        offset = None
+    return {"name": name, "source": source, "offset_seconds": offset,
+            "default_name": TZ_DEFAULT_NAME, "reason": ""}
+
+
+def time_block(chat_id, *, now_ts: int | None = None) -> dict:
+    """`time` ответа: СЕРВЕРНЫЙ штамп снимка + названный пояс чата.
+
+    Клиент не имеет права подписывать снимок часами браузера, поэтому базис
+    времени приходит здесь целиком: `generated_at` — момент сборки ответа,
+    `timezone` — что именно показывать и из какого слоя это взято.
+    """
+    stamp = _int(now_ts if now_ts is not None else _now(), 0)
+    return {
+        "generated_at": stamp,
+        "basis": "server_snapshot",
+        "timezone": chat_timezone(chat_id, now_ts=stamp),
+    }
+
+
+def _layer_of(part: dict) -> str:
+    """Слой гейта: явный `layer` части, иначе — выведенный из `source`.
+
+    Явный `layer` ставится там, где `source` о слое не говорит (настройки
+    механизма могут быть как chat, так и global, и заводским значением).
+    """
+    explicit = str(part.get("layer") or "")
+    if explicit:
+        return explicit
+    source = str(part.get("source") or "")
+    if source in (LAYER_CHAT, LAYER_GLOBAL, LAYER_FACTORY, LAYER_ENV,
+                  LAYER_READ_FAILED):
+        return source
+    if source == SOURCE_MEME_SETTINGS or source == SOURCE_IMAGE:
+        return LAYER_CHAT
+    if source == SOURCE_PRODUCT:
+        return LAYER_GLOBAL
+    if source == SOURCE_ENV:
+        return LAYER_ENV
+    if source == SOURCE_READ_FAILED:
+        return LAYER_READ_FAILED
+    return ""
+
+
+def layer_block(parts: list[dict] | None) -> list[dict]:
+    """`configuration.layers`: каждый гейт со своим слоем, без склейки.
+
+    Порядок и состав совпадают с боевым порядком гейтов (`_gate_parts` →
+    `_meme_configuration_parts`). Это НЕ вторая интерпретация status: агрегат
+    (`enabled`/`source`) считается ниже, из этих же частей.
+    """
+    out: list[dict] = []
+    for item in (parts or []):
+        if not isinstance(item, dict):
+            continue
+        enabled = item.get("enabled")
+        out.append({
+            "gate": str(item.get("name") or ""),
+            "layer": _layer_of(item),
+            "enabled": None if enabled is None else bool(enabled),
+            "source": str(item.get("source") or ""),
+            "reason": str(item.get("reason") or ""),
+        })
+    return out
+
+
 def configuration_block(parts: list[dict] | None) -> dict:
     """Ось configuration: `enabled` только из ЯВНОГО значения настройки.
 
@@ -1703,6 +1835,7 @@ def configuration_block(parts: list[dict] | None) -> dict:
     сюда не попадают ВООБЩЕ: они живут в оси readiness.
     """
     items = [item for item in (parts or []) if isinstance(item, dict)]
+    layers = layer_block(items)
     off = [item for item in items if item.get("enabled") is False]
     if off:
         first = off[0]
@@ -1711,6 +1844,7 @@ def configuration_block(parts: list[dict] | None) -> dict:
             "source": str(first.get("source") or SOURCE_READ_FAILED),
             "scope": str(first.get("scope") or "global"),
             "reason": str(first.get("reason") or ""),
+            "layers": layers,
         }
     unknown = [item for item in items if item.get("enabled") is None]
     if unknown or not items:
@@ -1720,6 +1854,7 @@ def configuration_block(parts: list[dict] | None) -> dict:
             "source": SOURCE_READ_FAILED,
             "scope": str(first.get("scope") or "global"),
             "reason": str(first.get("reason") or NO_DATA_READ_FAILED),
+            "layers": layers,
         }
     # Разрешающий слой называется честно: чатовые настройки (выбор чата,
     # `MemeSettings`) — это НЕ «global». Две чата с разными настройками обязаны
@@ -1732,12 +1867,14 @@ def configuration_block(parts: list[dict] | None) -> dict:
             "source": _chat_permit_source(chat_parts),
             "scope": "mixed" if global_parts else "chat",
             "reason": "",
+            "layers": layers,
         }
     return {
         "enabled": True,
         "source": str(global_parts[0].get("source") or SOURCE_PRODUCT),
         "scope": "global",
         "reason": "",
+        "layers": layers,
     }
 
 
@@ -2038,6 +2175,7 @@ async def _gate_parts(chat_id: int) -> list[dict]:
             "source": (SOURCE_ENV if source == "emergency_env"
                        else SOURCE_PRODUCT),
             "scope": "global",
+            "layer": (LAYER_ENV if source == "emergency_env" else LAYER_GLOBAL),
             "reason": ("" if effective else (
                 "master_off" if source == "emergency_env"
                 else "chat_disabled")),
@@ -2045,6 +2183,7 @@ async def _gate_parts(chat_id: int) -> list[dict]:
     except Exception:
         parts.append({"name": "module_gate", "enabled": None,
                       "source": SOURCE_READ_FAILED, "scope": "global",
+                      "layer": LAYER_READ_FAILED,
                       "reason": NO_DATA_READ_FAILED})
     try:
         observer_on = bool(obs.observer_enabled())
@@ -2053,11 +2192,13 @@ async def _gate_parts(chat_id: int) -> list[dict]:
             "enabled": observer_on,
             "source": SOURCE_PRODUCT,
             "scope": "global",
+            "layer": LAYER_GLOBAL,
             "reason": "" if observer_on else "master_off",
         })
     except Exception:
         parts.append({"name": "observer", "enabled": None,
                       "source": SOURCE_READ_FAILED, "scope": "global",
+                      "layer": LAYER_READ_FAILED,
                       "reason": NO_DATA_READ_FAILED})
     try:
         state = await obs.chat_capability_state(int(chat_id))
@@ -2066,15 +2207,24 @@ async def _gate_parts(chat_id: int) -> list[dict]:
     if state is None:
         parts.append({"name": "chat_toggle", "enabled": None,
                       "source": SOURCE_READ_FAILED, "scope": "chat",
+                      "layer": LAYER_READ_FAILED,
                       "reason": NO_DATA_READ_FAILED})
     else:
-        chat_selected = str(getattr(state, "source", "")) == "chat"
+        raw_source = str(getattr(state, "source", "") or "")
+        chat_selected = raw_source == "chat"
         runtime = getattr(state, "effective_runtime", None)
+        # P0IM-S6-EFFECTIVE: заводское значение (`source=default`) — это НЕ
+        # «глобальная настройка». Иначе «настройку никто не задавал» читалось
+        # бы как «её задали глобально» — разные слои, разные решения.
+        layer = (LAYER_CHAT if chat_selected
+                 else (LAYER_FACTORY if raw_source == "default"
+                       else LAYER_GLOBAL))
         parts.append({
             "name": "chat_toggle",
             "enabled": None if runtime is None else bool(runtime),
-            "source": SOURCE_CHAT if chat_selected else SOURCE_GLOBAL,
+            "source": (SOURCE_CHAT if chat_selected else SOURCE_GLOBAL),
             "scope": "chat" if chat_selected else "global",
+            "layer": layer,
             "reason": ("" if runtime else
                        str(getattr(state, "reason_code", "") or
                            "chat_disabled")),
@@ -2082,7 +2232,36 @@ async def _gate_parts(chat_id: int) -> list[dict]:
     return parts
 
 
-async def _meme_configuration_parts(chat_id: int, cfg, image_view) -> list[dict]:
+async def _meme_settings_layer(chat_id: int, cfg) -> tuple[str, bool]:
+    """Слой настройки `meme.enabled`: `chat|global|factory`, и признак «прочитано».
+
+    Читается тем же резолвером, что и боевой `load_settings`
+    (`chat_params.get_chat_param_sourced`), поэтому слой — факт, а не догадка:
+    `chat` — сохранённый override этого чата, `global` — общая настройка,
+    `factory` — заводское значение модуля. Сбой чтения слоя означает, что
+    назвать слой нельзя, — витрина обязана сказать «неизвестно»
+    (P0IM-S6-EFFECTIVE), а не «настройка не задана».
+    """
+    from services import meme_initiative as meme
+    from services import chat_params as params
+    resolver = getattr(params, "get_chat_param_sourced", None)
+    if not callable(resolver):
+        return LAYER_READ_FAILED, False
+    try:
+        sourced, layer = await resolver(
+            int(chat_id), meme.KEY_ENABLED, meme.DEFAULT_ENABLED)
+    except Exception:
+        logger.warning("[diag] meme settings layer read failed | chat=%s",
+                       chat_id, exc_info=True)
+        return LAYER_READ_FAILED, False
+    layer = str(layer or "")
+    if layer not in (LAYER_CHAT, LAYER_GLOBAL, LAYER_FACTORY):
+        return LAYER_READ_FAILED, False
+    return layer, True
+
+
+async def _meme_configuration_parts(chat_id: int, cfg, image_view, *,
+                                    own_settings: bool = True) -> list[dict]:
     """Гейты мема: те же, что у текста + `MemeSettings` + image-модуль.
 
     `image_dependency.module_enabled=false` — это КОНФИГУРАЦИЯ (source
@@ -2090,26 +2269,53 @@ async def _meme_configuration_parts(chat_id: int, cfg, image_view) -> list[dict]
     оси health. Отличить «выключено настройкой» от «сбой чтения» позволяет
     существующий код причины: деградация чтения приходит как
     `image_provider_not_configured`, а не как `image_module_off`.
+
+    ``own_settings=False`` — настройки передал вызывающий: слой настройки
+    здесь не читается (иначе резолвер описывал бы не тот объект, который
+    реально пришёл), значение остаётся тем, что у пайплайна.
     """
     from services import meme_initiative as meme
     parts = await _gate_parts(chat_id)
     if cfg is None:
         parts.append({"name": "meme_settings", "enabled": None,
                       "source": SOURCE_READ_FAILED, "scope": "chat",
+                      "layer": LAYER_READ_FAILED,
                       "reason": NO_DATA_READ_FAILED})
-    else:
+    elif not own_settings:
         enabled = bool(getattr(cfg, "enabled", False))
         parts.append({
             "name": "meme_settings",
             "enabled": enabled,
             "source": SOURCE_MEME_SETTINGS,
             "scope": "chat",
+            "layer": "",
             "reason": "" if enabled else "disabled_by_setting",
         })
+    else:
+        layer, known = await _meme_settings_layer(chat_id, cfg)
+        if not known:
+            # Настройку прочитать не удалось (или пайплайн взял fail-open
+            # дефолт). «Выключено настройкой» здесь — выдумка: ось получает
+            # `null` и причину сбоя чтения, а не `false`.
+            parts.append({"name": "meme_settings", "enabled": None,
+                          "source": SOURCE_READ_FAILED, "scope": "chat",
+                          "layer": LAYER_READ_FAILED,
+                          "reason": NO_DATA_READ_FAILED})
+        else:
+            enabled = bool(getattr(cfg, "enabled", False))
+            parts.append({
+                "name": "meme_settings",
+                "enabled": enabled,
+                "source": SOURCE_MEME_SETTINGS,
+                "scope": "chat",
+                "layer": layer,
+                "reason": "" if enabled else "disabled_by_setting",
+            })
     view = image_view if isinstance(image_view, dict) else {}
     if str(view.get("reason") or "") == meme.SKIP_IMAGE_MODULE_OFF:
         parts.append({"name": "image_module", "enabled": False,
                       "source": SOURCE_IMAGE, "scope": "chat",
+                      "layer": LAYER_GLOBAL,
                       "reason": "image_module_off"})
     return parts
 
@@ -2629,7 +2835,8 @@ def _no_chat_block(mechanism: str, output_kind: str) -> dict:
     }, {
         # Чат не выбран — осей нет, но и «выключено» здесь нет: enabled=null.
         "configuration": {"enabled": None, "source": SOURCE_READ_FAILED,
-                          "scope": "global", "reason": NO_DATA_CHAT_REQUIRED},
+                          "scope": "global", "reason": NO_DATA_CHAT_REQUIRED,
+                          "layers": []},
         "health": health_block([
             dependency("chat_scope", HEALTH_UNKNOWN, "chat_id"),
         ]),
@@ -2892,7 +3099,8 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
     # ── P0 corrective §1: пять осей (мем) ──────────────────────────────────
     image_view = avail.get("image") if isinstance(avail.get("image"), dict) else {}
     configuration = configuration_block(
-        await _meme_configuration_parts(cid, cfg, image_view))
+        await _meme_configuration_parts(cid, cfg, image_view,
+                                        own_settings=settings is None))
     journal_ok = ledger is not None
     if journal_ok:
         try:
@@ -3111,6 +3319,7 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
         "schema_version": DIAG_SCHEMA_VERSION,
         "generated_at": now_ts,
         "chat_id": _int_or_none(chat_id),
+        "time": time_block(chat_id, now_ts=now_ts),
         "text_initiative": text_block,
         "meme": meme_block,
         "degraded": _unique(degraded),

@@ -1898,8 +1898,12 @@
                     <span data-ini-overview-chat>
                       Чат: {{ iniOverviewScope.chatTitle || iniOverviewScope.chatId }}
                     </span>
-                    <span data-ini-overview-tz>{{ iniOverviewScope.timezoneLabel }}</span>
-                    <span data-ini-overview-snapshot>{{ iniOverviewScope.snapshotLabel }}</span>
+                    <span data-ini-overview-tz
+                          :data-ini-tz-source="iniOverviewScope.timezoneSource"
+                          :data-ini-tz-name="iniOverviewScope.timezone"
+                          :data-ini-tz-known="iniOverviewScope.timezoneKnown ? 'true' : 'false'">{{ iniOverviewScope.timezoneLabel }}</span>
+                    <span data-ini-overview-snapshot
+                          :data-ini-snapshot-basis="iniOverviewScope.timeBasisLabel">{{ iniOverviewScope.snapshotLabel }}</span>
                     <span class="flex-1"></span>
                     <button type="button" class="btn-ghost text-xs"
                             data-ini-refresh @click="initiativeRefresh()">Обновить</button>
@@ -1931,8 +1935,8 @@
                        data-ini-peek-label>
                     <template v-if="iniViewMode === 'other'">
                       Показан другой чат: <b>{{ iniOtherChat.title || iniOtherChat.chatId }}</b> —
-                      его собственные оси, только чтение. Время в UTC (пояс
-                      другого чата здесь не читается).
+                      его собственные оси, только чтение. Время — в поясе этого
+                      чата, пояс назван в карточке.
                     </template>
                     <template v-else>
                       Сравнение двух чатов по одним и тем же механизмам. Слева —
@@ -1976,6 +1980,14 @@
                         <span class="ini-fact__k">Разрешено</span>
                         <span class="ini-fact__v" data-ini-axis-value>{{ initiativeTextCard.configText }}</span>
                       </div>
+                      <!-- S6-EFFECTIVE: слой КАЖДОГО гейта — что решает и из
+                           какого слоя (чат / общий / заводское значение). -->
+                      <div v-if="initiativeTextCard.configLayersText"
+                           class="ini-fact" data-ini-axis="text:layers"
+                           :data-ini-layers-count="initiativeTextCard.configLayersCount">
+                        <span class="ini-fact__k">Слои решения</span>
+                        <span class="ini-fact__v" data-ini-layers-value>{{ initiativeTextCard.configLayersText }}</span>
+                      </div>
                       <div class="ini-fact" data-ini-axis="text:now"
                            :data-ini-readiness="initiativeTextCard.readinessState">
                         <span class="ini-fact__k">Сейчас</span>
@@ -2009,6 +2021,11 @@
                         <span class="ini-fact__k">Кто может изменить</span>
                         <span class="ini-fact__v">{{ initiativeTextCard.canEditLabel }}</span>
                       </div>
+                    </div>
+                    <div v-if="initiativeTextCard.sourceChatTitle" class="ini-note"
+                         data-ini-card-tz="text"
+                         :data-ini-card-tz-source="initiativeTextCard.timezoneSource">
+                      Время: {{ initiativeTextCard.timezoneLabel }}
                     </div>
                     <div class="ini-card__actions">
                       <button type="button" class="btn-ghost text-xs"
@@ -2045,6 +2062,12 @@
                         <span class="ini-fact__k">Разрешено</span>
                         <span class="ini-fact__v" data-ini-axis-value>{{ initiativeMemeCard.configText }}</span>
                       </div>
+                      <div v-if="initiativeMemeCard.configLayersText"
+                           class="ini-fact" data-ini-axis="meme:layers"
+                           :data-ini-layers-count="initiativeMemeCard.configLayersCount">
+                        <span class="ini-fact__k">Слои решения</span>
+                        <span class="ini-fact__v" data-ini-layers-value>{{ initiativeMemeCard.configLayersText }}</span>
+                      </div>
                       <div class="ini-fact" data-ini-axis="meme:now"
                            :data-ini-readiness="initiativeMemeCard.readinessState">
                         <span class="ini-fact__k">Сейчас</span>
@@ -2078,6 +2101,11 @@
                         <span class="ini-fact__k">Кто может изменить</span>
                         <span class="ini-fact__v">{{ initiativeMemeCard.canEditLabel }}</span>
                       </div>
+                    </div>
+                    <div v-if="initiativeMemeCard.sourceChatTitle" class="ini-note"
+                         data-ini-card-tz="meme"
+                         :data-ini-card-tz-source="initiativeMemeCard.timezoneSource">
+                      Время: {{ initiativeMemeCard.timezoneLabel }}
                     </div>
                     <div class="ini-card__actions">
                       <button type="button" class="btn-ghost text-xs"

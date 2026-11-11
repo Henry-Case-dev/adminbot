@@ -892,8 +892,17 @@ class DayWindow:
 
 def resolve_timezone(chat_id: int | None, *,
                      tz_name: str | None = None,
-                     tz_source: str | None = None) -> tuple[str, str]:
-    """Имя TZ и источник. Нет настроенной зоны → UTC, source=utc_fallback."""
+                     tz_source: str | None = None,
+                     strict: bool = False) -> tuple[str, str]:
+    """Имя TZ и источник. Нет настроенной зоны → UTC, source=utc_fallback.
+
+    ``strict=True`` (P0IM-S6-TZ, только витрина диагностики): сбой ЧТЕНИЯ
+    слоя настроек не выдаётся за «зона не задана» — исключение уходит
+    вызывающему, и тот честно показывает «неизвестно» вместо подставленного
+    UTC. Отсутствие настройки (ни чатовой, ни глобальной) — это факт, а не
+    сбой: и в строгом режиме возвращается ``utc_fallback``. Боевой путь
+    (`day_window`) остаётся fail-open и вызывает без ``strict``.
+    """
     if tz_name:
         return str(tz_name), str(tz_source or "explicit")
     try:
@@ -918,12 +927,18 @@ def resolve_timezone(chat_id: int | None, *,
                     chosen = str(override)
                     source = "chat"
             except Exception:
-                pass
+                # Строгий режим: нечитаемый чатовый слой НЕ означает «override
+                # отсутствует» — иначе витрина выдала бы глобальное значение за
+                # собственное значение чата.
+                if strict:
+                    raise
         if not chosen:
             return "UTC", "utc_fallback"
         name = _resolve(chosen, fallback=fallback or "UTC")
         return (name or "UTC"), (source or "utc_fallback")
     except Exception:
+        if strict:
+            raise
         return "UTC", "utc_fallback"
 
 

@@ -1183,9 +1183,17 @@ function publishedMemeDetail(over) {
 // Поздний ответ другого чата не может стать содержимым карточек: применяем
 // только при совпадении epoch И `payload.chat_id`, иначе отбрасываем.
 const OTHER_CHAT = -100999;
-function diagStub(chatId, runId) {
+function diagStub(chatId, runId, tz) {
   return {
     schema_version: 1, generated_at: NOW_TS, chat_id: chatId, degraded: [],
+    // P0IM-S6-TZ: пояс чата приходит в самом ответе вместе со слоем.
+    time: {
+      generated_at: NOW_TS, basis: 'server_snapshot',
+      timezone: (tz === undefined
+        ? { name: 'Europe/Moscow', source: 'chat', offset_seconds: 10800,
+            default_name: 'UTC', reason: '' }
+        : tz),
+    },
     text_initiative: {
       mechanism: 'text_initiative', available: true, data_state: 'ok',
       no_data_reasons: [], last_attempt: { at: NOW_TS, mode: 'auto',
@@ -1285,16 +1293,26 @@ async function chatBoundSuite() {
   });
   assert.strictEqual(scopeOther.generatedText, '',
     'снимок чужого чата подписал шапку');
-  assert.strictEqual(scopeOther.timezone, 'Europe/Moscow');
   assert.strictEqual(scopeOther.chatTitle, 'Чат A');
+  // Пояс берётся ТОЛЬКО из ответа сервера: список глобальных параметров
+  // (`configItems`) поясом чата больше не является (P0IM-S6-TZ).
+  assert.strictEqual(scopeOther.timezone, 'UTC');
+  assert.ok(scopeOther.timezoneLabel.indexOf('не прочитан') >= 0,
+    'отсутствие серверного пояса не названо: ' + scopeOther.timezoneLabel);
   const scopeOwn = computed.iniOverviewScope.call({
     activeChatId: CHAT,
     accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
-    configItems: [{ key: 'limits.chat_timezone', value: 'Europe/Moscow' }],
+    // Глобальный список ДРУГОЙ зоны: он не должен подменять пояс чата.
+    configItems: [{ key: 'limits.chat_timezone', value: 'America/New_York' }],
     memeDiag: diagStub(CHAT, 'r'),
   });
   assert.ok(scopeOwn.snapshotLabel.indexOf('снимок: ') === 0,
     'снимок своего чата не показан: ' + scopeOwn.snapshotLabel);
+  assert.strictEqual(scopeOwn.timezone, 'Europe/Moscow',
+    'пояс чата взят не из серверного ответа: ' + scopeOwn.timezone);
+  assert.strictEqual(scopeOwn.timezoneSource, 'chat');
+  assert.ok(scopeOwn.snapshotLabel.indexOf('(сервер)') > 0,
+    'штамп снимка не назван серверным: ' + scopeOwn.snapshotLabel);
   // Пояс не задан → честный UTC, а не выдуманная зона.
   const scopeNoTz = computed.iniOverviewScope.call({
     activeChatId: CHAT, accessChats: [], configItems: [],
@@ -1303,6 +1321,34 @@ async function chatBoundSuite() {
   assert.strictEqual(scopeNoTz.timezone, 'UTC');
   assert.ok(scopeNoTz.timezoneLabel.indexOf('UTC') > 0,
     'отсутствие пояса не названо: ' + scopeNoTz.timezoneLabel);
+  // Явный «пояс чата не задан» от сервера читается именно так, а НЕ как
+  // «пояс чата: UTC»: подставлять заводской пояс за настройку нельзя.
+  const scopeFallback = computed.iniOverviewScope.call({
+    activeChatId: CHAT, accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [],
+    memeDiag: diagStub(CHAT, 'r', { name: 'UTC', source: 'utc_fallback',
+                                    offset_seconds: 0, default_name: 'UTC',
+                                    reason: '' }),
+  });
+  assert.strictEqual(scopeFallback.timezone, 'UTC');
+  assert.strictEqual(scopeFallback.timezoneSource, 'utc_fallback');
+  assert.ok(scopeFallback.timezoneLabel.indexOf('не задан') > 0,
+    'отсутствие пояса чата не названо: ' + scopeFallback.timezoneLabel);
+  assert.ok(scopeFallback.timezoneLabel.indexOf('заводское') > 0,
+    'заводской пояс не назван: ' + scopeFallback.timezoneLabel);
+  // Сбой чтения пояса: время печатается как UTC с пометкой, а не как пояс чата.
+  const scopeFailed = computed.iniOverviewScope.call({
+    activeChatId: CHAT, accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [{ key: 'limits.chat_timezone', value: 'Europe/Moscow' }],
+    memeDiag: diagStub(CHAT, 'r', { name: null, source: 'read_failed',
+                                    offset_seconds: null, default_name: 'UTC',
+                                    reason: 'timezone_read_failed' }),
+  });
+  assert.strictEqual(scopeFailed.timezone, 'UTC');
+  assert.strictEqual(scopeFailed.timezoneKnown, false);
+  assert.strictEqual(scopeFailed.timezoneSource, 'read_failed');
+  assert.ok(scopeFailed.timezoneLabel.indexOf('не прочитан') >= 0,
+    'сбой чтения пояса не назван: ' + scopeFailed.timezoneLabel);
 
   // f) Настройки мемов тоже привязаны к чату ответа.
   const settingsCtx = {

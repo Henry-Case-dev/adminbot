@@ -34,8 +34,8 @@ IMAGE_OK = {"available": True, "reason": "ok", "health": "healthy",
 #: Собирается ИЗ контракта сервиса: тест падает, если появился ключ вне
 #: объявленной формы (и если ключ из формы исчез — см. тест формы блока).
 ALLOWED_KEYS = frozenset(
-    {"schema_version", "generated_at", "chat_id", "text_initiative", "meme",
-     "degraded",
+    {"schema_version", "generated_at", "chat_id", "time", "text_initiative",
+     "meme", "degraded",
      # вложенные объекты ворот (`blocking`)
      "blocked", "warned", "gate", "status", "reason_code", "state"}
     | set(diag.MECHANISM_BLOCK_FIELDS)
@@ -46,11 +46,15 @@ ALLOWED_KEYS = frozenset(
     | set(diag.SKIP_FIELDS)
     # P0 corrective §1: пять независимых осей и их вложенные формы.
     | set(diag.CONFIGURATION_FIELDS)
+    | set(diag.CONFIGURATION_LAYER_FIELDS)
     | set(diag.HEALTH_FIELDS)
     | set(diag.DEPENDENCY_FIELDS)
     | set(diag.READINESS_FIELDS)
     | set(diag.LAST_ATTEMPT_FIELDS)
     | set(diag.LAST_DELIVERY_FIELDS)
+    # P0IM-S6-FRESH: слой каждого гейта и пояс чата со СВОИМ источником.
+    | set(diag.TIME_FIELDS)
+    | set(diag.TIMEZONE_FIELDS)
 )
 
 #: Поля с ОТКРЫТЫМ набором ключей (имена ворот/счётчиков механизма: коды, а

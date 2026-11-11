@@ -4373,22 +4373,83 @@
     return String(num);
   }
 
-  //: Пояс чата из уже загруженных параметров: тот же порядок, что у серверного
-  //: `resolve_timezone` — `limits.chat_timezone` → `limits.summary_timezone`.
-  //: Оба пусты → '' (витрина покажет UTC с пометкой, а не выдуманную зону).
-  function iniChatTimezone(items) {
-    var list = items || [];
-    function pick(key) {
-      for (var i = 0; i < list.length; i++) {
-        if (list[i] && list[i].key === key) {
-          var raw = list[i].value;
-          var text = (raw == null ? '' : String(raw)).trim();
-          if (text) return text;
-        }
-      }
-      return '';
+  //: Пояс выбранного чата ИЗ СЕРВЕРНОГО ОТВЕТА (`payload.time.timezone`) —
+  //: единственный источник для времени на экранах инициативы.
+  //:
+  //: * `chat` — сохранённый override этого чата;
+  //: * `global` — чатовый пояс не задан, взят общий (он и назван);
+  //: * `utc_fallback` — не задан ни на одном слое: названный заводской пояс
+  //:   (`default_name`), а НЕ часы сервера;
+  //: * `read_failed`/`name=null` — неизвестно: время подписывается как UTC
+  //:   с явной пометкой, а не выдаётся за пояс чата.
+  var INI_TZ_UNKNOWN = 'пояс чата не прочитан — время в UTC';
+  function iniTzOf(payload) {
+    var p = (payload && typeof payload === 'object') ? payload : null;
+    var block = (p && p.time && typeof p.time === 'object') ? p.time : null;
+    var tz = (block && block.timezone && typeof block.timezone === 'object')
+      ? block.timezone : null;
+    if (!tz) {
+      return { known: false, name: '', source: '', offsetSeconds: null,
+               format: 'UTC', label: INI_TZ_UNKNOWN };
     }
-    return pick('limits.chat_timezone') || pick('limits.summary_timezone') || '';
+    var source = String(tz.source || '');
+    var name = (tz.name == null) ? '' : String(tz.name).trim();
+    var offset = (tz.offset_seconds == null) ? null : Number(tz.offset_seconds);
+    if (offset != null && !isFinite(offset)) offset = null;
+    if (!name) {
+      return { known: false, name: '', source: source || 'read_failed',
+               offsetSeconds: null, format: 'UTC', label: INI_TZ_UNKNOWN };
+    }
+    var label;
+    if (source === 'chat') label = 'пояс чата: ' + name + ' (настройка чата)';
+    else if (source === 'global') {
+      label = 'пояс чата не задан — взят общий: ' + name;
+    } else if (source === 'utc_fallback') {
+      label = 'пояс чата не задан — ' + name
+        + ' (заводское значение, не часы сервера)';
+    } else if (source === 'read_failed') {
+      label = INI_TZ_UNKNOWN;
+    } else label = 'пояс чата: ' + name;
+    return { known: source !== 'read_failed', name: name, source: source,
+             offsetSeconds: offset, format: name, label: label };
+  }
+
+  //: Слой каждого гейта «Разрешено» — из `configuration.layers` сервера.
+  //: Ни одна подпись не выводится из флагов: печатается только то, что сервер
+  //: назвал слоем (P0IM-S6-EFFECTIVE).
+  var INI_CONFIG_GATE_LABELS = {
+    module_gate: 'модуль инициативы',
+    observer: 'наблюдатель',
+    chat_toggle: 'тумблер этого чата',
+    meme_settings: 'настройки мемов',
+    image_module: 'модуль картинок',
+  };
+  var INI_CONFIG_LAYER_LABELS = {
+    chat: 'слой чата',
+    global: 'общий слой',
+    factory: 'заводское значение',
+    env: 'временная настройка',
+    read_failed: 'слой не прочитан',
+  };
+  function iniConfigLayersText(layers) {
+    var list = (Array.isArray(layers)) ? layers : [];
+    var parts = [];
+    for (var i = 0; i < list.length; i++) {
+      var row = list[i];
+      if (!row || typeof row !== 'object') continue;
+      var gate = String(row.gate || '');
+      var gateLabel = INI_CONFIG_GATE_LABELS[gate]
+        || (gate ? ('код: ' + gate) : 'гейт без имени');
+      var layer = String(row.layer || '');
+      var layerLabel = INI_CONFIG_LAYER_LABELS[layer] || '';
+      var state;
+      if (row.enabled === true) state = 'разрешает';
+      else if (row.enabled === false) state = 'запрещает';
+      else state = 'неизвестно';
+      parts.push(gateLabel + ': ' + state
+        + (layerLabel ? ' · ' + layerLabel : ' · слой не записан'));
+    }
+    return parts.join('; ');
   }
 
   //: Метка времени: только из переданного сервером штампа и в поясе чата.
@@ -4430,6 +4491,10 @@
         : (enabled === false ? 'muted' : 'warn')),
       configText: text,
       configSource: source,
+      // Слой КАЖДОГО гейта: «что решает» и «из какого слоя» (S6-EFFECTIVE).
+      // Отдельная строка, а не подмена `configText`: агрегат остаётся прежним.
+      configLayersText: iniConfigLayersText(c && c.layers),
+      configLayersCount: (c && Array.isArray(c.layers)) ? c.layers.length : 0,
     };
   }
 
@@ -4614,7 +4679,10 @@
 
   //: Жив ли приоритет ручного `/meme` (§2/блокер 2). Флаг бэкенда
   //: (`manual_priority_active`) авторитетнее; без него — сравнение дедлайна с
-  //: серверным `checked_at`, чтобы часы браузера не рисовали чужой блок.
+  //: СЕРВЕРНЫМ `checked_at`. Часы браузера здесь не участвуют вообще
+  //: (P0IM-S6-SCOPE): без серверного штампа состояние НЕИЗВЕСТНО, и живым
+  //: приоритет не объявляется — иначе витрина показывала бы ожидание, которого
+  //: нет, или скрывала живое.
   function iniManualPriorityActive(pub) {
     var p = (pub && typeof pub === 'object') ? pub : null;
     if (!p) return false;
@@ -4625,12 +4693,11 @@
       return false;
     }
     var ref = Number(p.checked_at);
-    if (p.checked_at != null && isFinite(ref) && ref > 0) {
-      return until > ref;
+    if (p.checked_at == null || !isFinite(ref) || ref <= 0) {
+      // Серверного штампа проверки нет: сравнивать не с чем.
+      return false;
     }
-    // Нет серверного штампа проверки — сравниваем с текущим временем только
-    // как крайний случай (иначе блок вообще не рисуем).
-    return until > Math.floor(Date.now() / 1000);
+    return until > ref;
   }
 
   //: Ось last_delivery: подтверждено / неизвестно / ещё не доставлял.
@@ -4891,7 +4958,10 @@
     var isOther = mode === 'other';
     var view = isOther ? (this.iniOtherDiagView || {}) : (this.memeDiagView || {});
     var block = (isText ? view.text : view.meme) || null;
-    var tz = isOther ? '' : this.iniOverviewTimezone;
+    // Пояс — из ТОГО payload'а, который показывает карточка: у своего чата из
+    // `memeDiag`, у чужого — из его собственного ответа (P0IM-S6-TZ).
+    var tz = isOther ? iniTzOf(this.iniPeek).format : this.iniOverviewTimezone;
+    var tzInfo = isOther ? iniTzOf(this.iniPeek) : iniTzOf(this.memeDiag);
     var ax = (block && block.axes)
       ? block.axes : iniAxesOf(null, tz);
     var canEdit = this.canEditConfig;
@@ -4944,6 +5014,10 @@
         : (block.lastCheckTs == null ? 'никогда'
           : (iniWhen(block.lastCheckTs, tz) || INI_NO_DATA))),
       noData: (!block || block.isNoData),
+      // Подпись пояса самой карточки: у «другого чата» он свой, и это
+      // единственный способ увидеть, в каком поясе напечатано его время.
+      timezoneLabel: tzInfo.label,
+      timezoneSource: tzInfo.source || 'unknown',
       sourceChatTitle: (isOther
         ? String((iniOtherChatOf(this.accessChats, this.activeChatId) || {})
           .title || '')
@@ -10096,12 +10170,25 @@
       },
       // ═══ P0-INIT-MEME-UX-DIAG §5: шапка обзора ═══════════════════════════
       // Чат и его ПОЯС называются над сгибом: время в карточках показывается
-      // в поясе чата, а не в поясе устройства. Пояс читается из уже
-      // загруженных параметров (`limits.chat_timezone` → `limits.summary_timezone`,
-      // тот же порядок, что у серверного `resolve_timezone`); не задан ни один
-      // — честный UTC с пометкой, а не выдуманная зона.
+      // в поясе чата, а не в поясе устройства (P0IM-S6-TZ). Пояс берётся из
+      // ОТВЕТА СЕРВЕРА (`payload.time.timezone`) — там же назван его слой:
+      // override чата / общая настройка / заводское значение. Клиентский
+      // разбор списка параметров поясом чата больше не считается.
       iniOverviewTimezone: function () {
-        return iniChatTimezone(this.configItems);
+        // Пояс подписывает время только тогда, когда снимок ПРО ЭТОТ чат:
+        // пояс чужого ответа не должен форматировать время своего чата.
+        var d = this.memeDiag;
+        var selected = this.activeChatId;
+        var same = !!(d && d.chat_id != null && selected != null
+          && String(d.chat_id) === String(selected));
+        return iniTzOf(same ? d : null).format;
+      },
+      iniOverviewTz: function () {
+        var d = this.memeDiag;
+        var selected = this.activeChatId;
+        var same = !!(d && d.chat_id != null && selected != null
+          && String(d.chat_id) === String(selected));
+        return iniTzOf(same ? d : null);
       },
       iniOverviewScope: function () {
         var chatId = this.activeChatId;
@@ -10109,25 +10196,32 @@
         (this.accessChats || []).forEach(function (row) {
           if (row && String(row.chat_id) === String(chatId)) chat = row;
         });
-        var tz = iniChatTimezone(this.configItems);
         var diag = this.memeDiag || null;
         // Снимок показывается ТОЛЬКО когда он про этот чат: поздний ответ
-        // другого чата не должен подписывать шапку.
+        // другого чата не должен подписывать шапку — ни штампом, ни поясом.
         var sameChat = !!(diag && diag.chat_id != null && chatId != null
           && String(diag.chat_id) === String(chatId));
-        var generated = sameChat && diag.generated_at != null
-          ? iniWhen(diag.generated_at, tz) : '';
+        var tz = iniTzOf(sameChat ? diag : null);
+        // Штамп снимка — СЕРВЕРНЫЙ (`time.generated_at` того же ответа).
+        var stamp = null;
+        if (sameChat) {
+          stamp = (diag.time && diag.time.generated_at != null)
+            ? diag.time.generated_at
+            : (diag.generated_at != null ? diag.generated_at : null);
+        }
+        var generated = stamp != null ? iniWhen(stamp, tz.format) : '';
         return {
           chatId: chatId,
           chatTitle: chat ? String(chat.title || '') : '',
-          timezone: tz || 'UTC',
-          timezoneKnown: !!tz,
-          timezoneLabel: (tz
-            ? ('пояс чата: ' + tz)
-            : 'пояс чата не задан — время в UTC'),
+          timezone: tz.format,
+          timezoneSource: tz.source || 'unknown',
+          timezoneOffsetSeconds: tz.offsetSeconds,
+          timezoneKnown: tz.known,
+          timezoneLabel: tz.label,
+          timeBasisLabel: 'штамп снимка — сервер',
           generatedText: generated,
           snapshotLabel: (generated
-            ? ('снимок: ' + generated)
+            ? ('снимок: ' + generated + ' (сервер)')
             : 'снимок ещё не прочитан'),
         };
       },
@@ -10163,16 +10257,22 @@
         if (d.chat_id == null || String(d.chat_id) !== String(other.chatId)) {
           return null;
         }
-        // Пояса чужого чата у нас нет (свой конфиг читается только для
-        // выбранного чата) — время второго чата показывается в UTC с пометкой.
-        var tz = '';
+        // Пояс ЧУЖОГО чата теперь приходит в его же ответе (`time.timezone`) —
+        // время второго чата показывается в ЕГО поясе, как и у своего, и
+        // подписывается тем же способом. Раньше он подменялся на UTC, и один и
+        // тот же момент на двух поверхностях расходился (P0IM-S6-TZ).
+        var tz = iniTzOf(d);
         return {
           chatId: other.chatId,
           title: other.title,
-          generatedAt: d.generated_at || null,
+          generatedAt: (d.time && d.time.generated_at != null)
+            ? d.time.generated_at : (d.generated_at || null),
+          timezone: tz.format,
+          timezoneSource: tz.source || 'unknown',
+          timezoneLabel: tz.label,
           degraded: d.degraded || [],
-          text: memeMechanismViewOf(d.text_initiative, tz),
-          meme: memeMechanismViewOf(d.meme, tz),
+          text: memeMechanismViewOf(d.text_initiative, tz.format),
+          meme: memeMechanismViewOf(d.meme, tz.format),
         };
       },
       // Сравнение: ДВА собственных набора осей, подписанных своими чатами.
@@ -15760,6 +15860,13 @@
         if (tab === 'publications') {
           if (this.activeChatId != null && !this.iniPub.loaded) {
             this.loadInitiativePublications(true);
+          }
+          // Журнал печатает время в поясе чата; пояс берётся из снимка
+          // диагностики, поэтому он должен быть прочитан и здесь — иначе одна
+          // и та же секунда на «Обзоре» и в «Публикациях» выглядела бы иначе
+          // (P0IM-S6-TZ). Новых адресов нет: тот же существующий эндпоинт.
+          if (this.activeChatId != null && !this.memeDiag) {
+            this.loadMemeDiagnostics();
           }
           return;
         }
