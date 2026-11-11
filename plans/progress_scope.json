@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T23:18:06+12:00",
+  "updated": "2026-11-12T00:15:10+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -3931,6 +3931,20 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-12-AGENT-TIMEOUTS",
+      "source_path": "plans/owner_inputs/2026-11-12-agent-timeouts-and-monitoring.md",
+      "source_sha256": "9CFFE43C7AB445E7B9DB264E732BD4FC3AA832FB25DADCB21D1666AC549B8FE6",
+      "kind": "decision",
+      "target_task_ids": [
+        "p0-init-meme-ux-diag",
+        "unified-reply",
+        "vmq-onto-01"
+      ],
+      "reconciled": true,
+      "recorded_in": "plans/owner_inputs/2026-11-12-agent-timeouts-and-monitoring.md",
+      "note": "Владелец потребовал ставить таймеры на скрипты агентов и следить за тем, что именно делают агенты, висящие больше часа. Действует как операционное правило для всех линий: ограниченное время выполнения для тестов, стендов, серверов и подпроцессов; явная остановка и частичный отчёт по истечении; обязательная остановка поднятых серверов; координатор проверяет реальные процессы, файлы и git-состояние линии после ~часа вместо пассивного ожидания. Зависшая или закрытая сессия не считается одобрением."
     }
   ],
   "source_inventory": {
