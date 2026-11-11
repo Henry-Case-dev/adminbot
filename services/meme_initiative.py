@@ -61,6 +61,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import sqlite3
 import tempfile
 import time
@@ -1025,6 +1026,24 @@ ATTEMPT_WRITE_ATTEMPTS = 3
 ATTEMPT_WRITE_DELAYS = (0.02, 0.08)
 #: Предел строк, разбираемых из спул-файла за один проход (bounded чтение).
 ATTEMPT_SPOOL_MAX_ROWS = 500
+#: Порция переноса спула в журнал: bounded работа и память за один шаг.
+ATTEMPT_SPOOL_BATCH = 200
+#: Сколько порций переносим за один вызов (остальное — следующим вызовом).
+ATTEMPT_SPOOL_MAX_BATCHES = 20
+
+
+def _parse_spool_row(line: str) -> dict | None:
+    """Строка спула → словарь попытки. Мусор/битый JSON → ``None``."""
+    text = str(line or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(parsed, dict) and parsed.get("attempt_id"):
+        return parsed
+    return None
 
 
 class SqliteQuotaLedger:
@@ -1276,47 +1295,89 @@ class SqliteQuotaLedger:
                 for index, line in enumerate(handle):
                     if index >= ATTEMPT_SPOOL_MAX_ROWS:
                         break
-                    text = line.strip()
-                    if not text:
-                        continue
-                    try:
-                        parsed = json.loads(text)
-                    except (TypeError, ValueError):
-                        continue
-                    if isinstance(parsed, dict) and parsed.get("attempt_id"):
-                        out.append(parsed)
+                    row = _parse_spool_row(line)
+                    if row is not None:
+                        out.append(row)
         except Exception:
             logger.warning("[meme] attempt spool read failed", exc_info=True)
             return []
         return out
 
     def _flush_pending_attempts(self) -> None:
-        """Перенести спул в журнал и очистить его. Никогда не бросает.
+        """Перенести спул в журнал порциями. Никогда не бросает.
 
+        Ничего НЕПРОЧИТАННОГО не удаляется: за один шаг читается не больше
+        `ATTEMPT_SPOOL_BATCH` строк, а остаток (неудачные вставки + ещё не
+        прочитанный хвост) переписывается обратно ДО удаления исходного файла.
         Запись идемпотентна (`INSERT OR IGNORE` по `attempt_id`), поэтому
         повторный перенос после сбоя не создаёт дублей.
         """
-        rows = self._read_pending()
-        if not rows:
-            return
-        remaining: list[dict] = []
-        for row in rows:
-            try:
-                self._insert_attempt(row)
-            except Exception:
-                remaining.append(row)
+        for _ in range(ATTEMPT_SPOOL_MAX_BATCHES):
+            if not self._flush_pending_batch():
+                return
+
+    def _flush_pending_batch(self) -> bool:
+        """Один ограниченный шаг переноса. True — остались ещё строки."""
         path = self.pending_path()
         try:
-            if remaining:
-                with open(path, "w", encoding="utf-8") as handle:
-                    for row in remaining:
-                        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-                    handle.flush()
-                    os.fsync(handle.fileno())
-            else:
+            if not os.path.exists(path):
+                return False
+        except OSError:
+            return False
+        failed: list[dict] = []
+        offset = 0
+        drained = False
+        try:
+            with open(path, "rb") as handle:
+                for _ in range(ATTEMPT_SPOOL_BATCH):
+                    line = handle.readline()
+                    if not line:
+                        drained = True
+                        break
+                    # Байтовое смещение: точная граница прочитанного префикса.
+                    offset = handle.tell()
+                    row = _parse_spool_row(line.decode("utf-8", "replace"))
+                    if row is None:
+                        continue
+                    try:
+                        self._insert_attempt(row)
+                    except Exception:
+                        failed.append(row)
+        except OSError:
+            logger.warning("[meme] attempt spool read failed", exc_info=True)
+            return False
+        if drained and not failed:
+            try:
                 os.remove(path)
+            except OSError:
+                logger.warning("[meme] attempt spool remove failed",
+                               exc_info=True)
+            return False
+        if failed:
+            # Журнал недоступен: не крутимся в цикле, остаток сохраняем целиком.
+            logger.warning(
+                "[meme] attempt spool not drained (journal unavailable) | "
+                "failed=%d", len(failed))
+        temp_path = path + ".tmp"
+        try:
+            with open(path, "rb") as src, open(temp_path, "wb") as dst:
+                # Остаток = неудачные строки (они старше) + непрочитанный хвост.
+                for row in failed:
+                    dst.write((json.dumps(row, ensure_ascii=False) + "\n")
+                              .encode("utf-8"))
+                src.seek(offset)
+                shutil.copyfileobj(src, dst)
+                dst.flush()
+                os.fsync(dst.fileno())
+            os.replace(temp_path, path)
         except Exception:
-            logger.warning("[meme] attempt spool cleanup failed", exc_info=True)
+            logger.warning("[meme] attempt spool rewrite failed", exc_info=True)
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+            return False
+        return not failed
 
     def attempts(self, chat_id: int | None, *, limit: int = 20) -> list[dict]:
         """Строки журнала + ещё не перенесённый спул (одна правда для витрины).
@@ -1598,6 +1659,22 @@ def parse_attempt_facts(row: dict | str) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def attempt_mode_of(facts: dict | None) -> str:
+    """Режим ПОПЫТКИ из фактов ТЕРМИНАЛЬНОЙ строки: `manual`|`auto`|`""`.
+
+    Читается только точный ключ `attempt_mode`, затем контрактный `mode`.
+    Вызывать ТОЛЬКО для терминальной строки: у этапа «прикол» ключ `mode`
+    занят бюджетом длины (`auto`/`fixed`) и режимом попытки не является.
+    """
+    data = facts if isinstance(facts, dict) else {}
+    raw = str(data.get("attempt_mode") or data.get("mode") or "")
+    if raw == "manual":
+        return "manual"
+    if raw in ("automatic", "auto"):
+        return "auto"
+    return ""
+
+
 def _finish(result: AttemptResult, *, ledger, now_ts: int,
             settings: MemeSettings) -> AttemptResult:
     """Записать журнал попытки (по строке на пройденный этап).
@@ -1628,13 +1705,17 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
             # §3 (P0 corrective): режим попытки — в СУЩЕСТВУЮЩЕМ detail JSON
             # терминальной строки. `manually_triggered` есть на результате, но
             # в журнал не попадал, поэтому read-model брал mode из позднего
-            # publication-факта (его нет у раннего отказа). Ключ `mode` у этапов
-            # занимает только бюджет прикола (`facts[STAGE_JOKE]`), а
-            # терминальными бывают skipped/failed/publish — setdefault не
-            # теряет режим попытки и не портит чужой факт.
-            payload.setdefault(
-                "mode", MODE_MANUAL if result.manually_triggered
-                else MODE_AUTOMATIC)
+            # publication-факта (его нет у раннего отказа).
+            #
+            # Ключ `attempt_mode` — ТОЧНЫЙ режим попытки; `mode` пишется рядом
+            # для §1-контракта, но у этапа «прикол» этот же ключ занимает
+            # бюджет длины (`auto`/`fixed`). Читатели берут режим ТОЛЬКО из
+            # терминальной строки и предпочитают `attempt_mode`, поэтому
+            # бюджетная подпись прикола не может выдать себя за режим попытки.
+            attempt_mode = (MODE_MANUAL if result.manually_triggered
+                            else MODE_AUTOMATIC)
+            payload["attempt_mode"] = attempt_mode
+            payload.setdefault("mode", attempt_mode)
         facts = compact_facts(payload)
         # Терминальная строка несёт факты (вместе с кодом причины внутри
         # JSON); пройденные этапы — свой JSON фактов.

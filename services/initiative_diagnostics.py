@@ -1626,9 +1626,6 @@ ATTEMPT_SCAN_ROWS = 200
 #: Окно чтения `mca_events` для `last_attempt` текста (bounded).
 TEXT_ATTEMPT_LOOKBACK_SECONDS = 30 * 86400
 TEXT_ATTEMPT_EVENT_LIMIT = 120
-#: Сколько последних записей журнала выводов смотрим на «подтверждённую
-#: доставку»: запись без id не должна стирать доказанную доставку.
-DELIVERY_SCAN_ROWS = 20
 
 #: Имена событий текстовой попытки (терминальные + публикационная семантика).
 TEXT_ATTEMPT_EVENTS = (
@@ -2117,54 +2114,67 @@ def _publication_dependency(publication: dict | None) -> dict:
                       "PublicationCoordinator.precheck")
 
 
+async def _output_row(db, chat_id, kinds, *, only_with_id: bool) -> dict | None:
+    """Одна строка журнала выводов: последняя (по времени) с id или любая.
+
+    ``only_with_id=True`` — фильтр в САМОМ запросе, поэтому подтверждённая
+    доставка не зависит от того, сколько более новых строк без id появилось
+    после неё. Ошибка чтения → ``None`` (вызывающий различает «пусто» и «сбой»
+    по флагу).
+    """
+    kinds = [str(kind) for kind in (kinds or []) if str(kind)]
+    if not kinds:
+        return None
+    sql = ("SELECT output_id, chat_id, tg_message_id, sent_at, "
+           "correlation_id, output_kind FROM mca_bot_outputs "
+           "WHERE chat_id = ? AND output_kind IN ("
+           + ",".join("?" * len(kinds)) + ")")
+    params: list = [_int(chat_id)] + kinds
+    if only_with_id:
+        # `IS NOT NULL AND <> ''` — целочисленный id ИЛИ текстовая колонка в PG.
+        sql += " AND tg_message_id IS NOT NULL AND tg_message_id <> ''"
+    sql += " ORDER BY sent_at DESC, output_id DESC LIMIT 1"
+    cursor = await db.db.execute(sql, tuple(params))
+    found = await cursor.fetchone()
+    return dict(found) if found is not None else None
+
+
 async def _last_delivery(db, chat_id, output_kinds, *,
                          sent_evidence: bool = False,
                          attempt_at=None, run_id: str = "") -> dict:
     """Последняя ПОДТВЕРЖДЁННАЯ доставка механизма в этом чате.
 
     Читается существующий журнал выводов (`mca_bot_outputs`). «Подтверждено» —
-    ТОЛЬКО запись с `tg_message_id`. Поэтому ищется последняя строка, У КОТОРОЙ
-    есть id: более новая запись без id не должна стирать уже доказанную
-    доставку (иначе подтверждённая отправка превращается в «неизвестно»).
-    Нет ни одной строки с id: строки без id вообще есть → ``unknown``;
-    журнал пуст, но есть доказательство отправки → ``unknown``; пусто →
-    ``never``.
+    ТОЛЬКО запись с `tg_message_id`, причём берётся **последняя строка, у
+    которой есть id**: фильтр стоит в запросе, поэтому любое число более новых
+    записей без id не прячет доказанную доставку (и более поздний id
+    побеждает более ранний). Нет ни одной строки с id: строки без id вообще
+    есть → ``unknown``; журнал пуст, но есть доказательство отправки →
+    ``unknown``; пусто → ``never``.
     """
-    kinds = [str(kind) for kind in (output_kinds or []) if str(kind)]
-    rows: list[dict] = []
-    failed = False
-    if kinds:
-        try:
-            sql = ("SELECT output_id, chat_id, tg_message_id, sent_at, "
-                   "correlation_id, output_kind FROM mca_bot_outputs "
-                   "WHERE chat_id = ? AND output_kind IN ("
-                   + ",".join("?" * len(kinds))
-                   # Порядок детерминированный: две записи одной секунды
-                   # (например «отправлено без id», затем «с id») не должны
-                   # давать случайный ответ.
-                   + ") ORDER BY sent_at DESC, output_id DESC LIMIT ?")
-            cursor = await db.db.execute(
-                sql, tuple([_int(chat_id)] + kinds + [DELIVERY_SCAN_ROWS]))
-            rows = [dict(row) for row in await cursor.fetchall() or ()]
-        except Exception:
-            failed = True
-            logger.warning("[diag] last delivery read failed", exc_info=True)
     confirmed = None
-    for row in rows:
-        if _int_or_none(row.get("tg_message_id")) is not None:
-            confirmed = row
-            break
+    any_row = None
+    failed = False
+    try:
+        confirmed = await _output_row(db, chat_id, output_kinds,
+                                      only_with_id=True)
+        if confirmed is None:
+            any_row = await _output_row(db, chat_id, output_kinds,
+                                        only_with_id=False)
+    except Exception:
+        failed = True
+        logger.warning("[diag] last delivery read failed", exc_info=True)
     if confirmed is not None:
         return delivery_block(
             status=DELIVERY_CONFIRMED, at=confirmed.get("sent_at"),
             destination=confirmed.get("chat_id") or chat_id,
             message_id=_int_or_none(confirmed.get("tg_message_id")),
             run_id=str(confirmed.get("correlation_id") or ""))
-    if rows:
+    if any_row is not None:
         # Записи есть, id ни у одной: отправка не доказана — не выдаём за
         # доставку, но и «никогда» сказать нельзя.
         return delivery_block(status=DELIVERY_UNKNOWN,
-                              at=rows[0].get("sent_at"), destination=chat_id,
+                              at=any_row.get("sent_at"), destination=chat_id,
                               run_id=run_id)
     if sent_evidence:
         return delivery_block(status=DELIVERY_UNKNOWN, at=attempt_at,
@@ -2214,12 +2224,15 @@ def _meme_last_attempt(rows: list[dict]) -> dict:
         facts = meme.parse_attempt_facts(terminal)
     except Exception:
         facts = {}
-    mode = str(facts.get("mode") or "")
-    if mode not in (MODE_MANUAL, MODE_AUTO):
-        mode = {"manual": MODE_MANUAL,
-                "automatic": MODE_AUTO,
-                "auto": MODE_AUTO}.get(mode, MODE_UNKNOWN)
-    if mode == MODE_UNKNOWN:
+    mode = MODE_UNKNOWN
+    try:
+        from services import meme_initiative as meme
+        raw_mode = meme.attempt_mode_of(facts)
+    except Exception:
+        raw_mode = ""
+    if raw_mode in (MODE_MANUAL, MODE_AUTO):
+        mode = raw_mode
+    else:
         for item in facts.get("events") or ():
             if not isinstance(item, dict):
                 continue

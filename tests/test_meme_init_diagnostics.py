@@ -1625,6 +1625,71 @@ def test_only_idless_sends_are_unknown_not_never(tmp_path, monkeypatch):
     assert delivery["message_id"] is None
 
 
+def test_confirmed_id_survives_a_long_run_of_idless_rows(tmp_path, monkeypatch):
+    """30+ новых строк без id не прячут подтверждённый `777`.
+
+    Подтверждение ищет ПОСЛЕДНЮЮ строку С id в самом запросе, поэтому число
+    последующих записей без id не влияет на результат (раньше `LIMIT 20`
+    скрывал доказанную доставку).
+    """
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="delivery_long.db")
+        try:
+            await _schema(svc)
+            _insert_output(svc, chat_id=CHAT, message_id=777,
+                           sent_at=NOW_TS - 3600, correlation="run-777")
+            for step in range(30):
+                _insert_output(svc, chat_id=CHAT, message_id=None,
+                               sent_at=NOW_TS - 60 + step,
+                               correlation="run-noid-%d" % step)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    delivery = asyncio.run(scenario())["meme"]["last_delivery"]
+    assert delivery["status"] == diag.DELIVERY_CONFIRMED, delivery
+    assert delivery["message_id"] == 777
+    assert delivery["at"] == NOW_TS - 3600
+    assert delivery["run_id"] == "run-777"
+
+
+def test_later_message_id_wins_over_earlier_one(tmp_path, monkeypatch):
+    """Более поздняя запись с ДРУГИМ id — именно она и есть последняя отправка."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="delivery_later.db")
+        try:
+            await _schema(svc)
+            _insert_output(svc, chat_id=CHAT, message_id=777,
+                           sent_at=NOW_TS - 900, correlation="run-777")
+            for step in range(25):
+                _insert_output(svc, chat_id=CHAT, message_id=None,
+                               sent_at=NOW_TS - 800 + step)
+            _insert_output(svc, chat_id=CHAT, message_id=888,
+                           sent_at=NOW_TS - 100, correlation="run-888")
+            _insert_output(svc, chat_id=CHAT, message_id=None,
+                           sent_at=NOW_TS - 10, correlation="run-tail")
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    delivery = asyncio.run(scenario())["meme"]["last_delivery"]
+    assert delivery["status"] == diag.DELIVERY_CONFIRMED, delivery
+    assert delivery["message_id"] == 888
+    assert delivery["run_id"] == "run-888"
+
+
 # ── блокер 2: исключение precheck ≠ отсутствие таблицы ─────────────────────
 
 def test_precheck_exception_is_unknown_not_missing_schema(tmp_path, monkeypatch):

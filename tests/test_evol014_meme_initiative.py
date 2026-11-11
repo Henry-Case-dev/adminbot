@@ -1411,13 +1411,24 @@ def test_terminal_journal_row_records_attempt_mode(tmp_path):
 
     manual_row = manual_led.attempts(-100, limit=1)[0]
     auto_row = auto_led.attempts(-100, limit=1)[0]
-    assert meme.parse_attempt_facts(manual_row).get("mode") == meme.MODE_MANUAL
-    assert meme.parse_attempt_facts(auto_row).get("mode") == \
-        meme.MODE_AUTOMATIC
+    manual_facts = meme.parse_attempt_facts(manual_row)
+    auto_facts = meme.parse_attempt_facts(auto_row)
+    assert manual_facts.get("mode") == meme.MODE_MANUAL
+    assert auto_facts.get("mode") == meme.MODE_AUTOMATIC
+    # Точный ключ режима попытки не может быть занят бюджетом этапа «прикол».
+    assert manual_facts.get("attempt_mode") == meme.MODE_MANUAL
+    assert auto_facts.get("attempt_mode") == meme.MODE_AUTOMATIC
     # Режим пишется в СУЩЕСТВУЮЩЕЕ поле detail, схемы не меняем.
-    assert set(meme.parse_attempt_facts(manual_row)) <= {
-        "mode", "detail", "events", "publish", "publication", "summary",
-        "joke", "image_generation", "eligible"}
+    assert set(manual_facts) <= {
+        "mode", "attempt_mode", "detail", "events", "publish", "publication",
+        "summary", "joke", "image_generation", "eligible"}
+    # Ось read-model читает ТУ ЖЕ терминальную строку: этап «прикол» со своим
+    # бюджетным `mode=auto` не подменяет режим ручной попытки.
+    from services import initiative_diagnostics as diag
+    axis = diag._meme_last_attempt(manual_led.attempts(-100, limit=200))
+    assert axis["mode"] == diag.MODE_MANUAL, axis
+    assert axis["run_id"] == manual.job_id
+    assert axis["outcome"] == manual.outcome
     assert manual.manually_triggered is True
     assert auto.manually_triggered is False
 
@@ -1518,6 +1529,90 @@ def test_spooled_and_journal_rows_are_merged_in_order(tmp_path, monkeypatch):
     led.attempts(-100, limit=5)
     assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
         ["newest", "fresh"]
+
+
+def test_spool_flush_never_drops_unread_rows(tmp_path, monkeypatch):
+    """Больше одной порции: КАЖДАЯ строка доезжает до таблицы, хвост не теряется."""
+    led = _ledger(tmp_path)
+    original = meme.SqliteQuotaLedger._insert_attempt
+    # Паузы между ретраями — про транзиентную блокировку, а не про логику:
+    # в тесте 501 недоступная запись не должна стоить 50 секунд сна.
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+
+    def broken(self, row):
+        raise sqlite3.OperationalError("database is locked")
+
+    total = meme.ATTEMPT_SPOOL_BATCH * 2 + 101        # 501 при BATCH=200
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", broken)
+    for index in range(total):
+        led.record_attempt(_attempt_row("spool-%03d" % index,
+                                        ts=NOW.timestamp() + index))
+    spool_path = pathlib.Path(led.pending_path())
+    assert spool_path.exists()
+    # Читатель видит строки даже при недоступном журнале (bounded чтение).
+    visible = led.attempts(-100, limit=total)
+    assert len(visible) == meme.ATTEMPT_SPOOL_MAX_ROWS or len(visible) == total
+
+    # Журнал восстановился: перенос идёт порциями, но НИ ОДНА строка не теряется.
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", original)
+    led._flush_pending_attempts()
+    assert not spool_path.exists(), "спул должен исчезнуть только после полного переноса"
+    conn = sqlite3.connect(str(tmp_path / "meme.db"))
+    try:
+        cur = conn.execute(
+            "SELECT attempt_id FROM meme_initiative_attempt ORDER BY attempt_id")
+        in_table = [row[0] for row in cur.fetchall()]
+    finally:
+        conn.close()
+    assert len(in_table) == total, (len(in_table), total)
+    assert in_table == ["spool-%03d" % index for index in range(total)]
+
+
+def test_spool_keeps_unread_tail_when_batch_is_limited(tmp_path, monkeypatch):
+    """Остаток файла сохраняется, если перенос прерван (журнал снова упал)."""
+    led = _ledger(tmp_path)
+    original = meme.SqliteQuotaLedger._insert_attempt
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+
+    def broken(self, row):
+        raise sqlite3.OperationalError("database is locked")
+
+    total = meme.ATTEMPT_SPOOL_BATCH + 5
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", broken)
+    for index in range(total):
+        led.record_attempt(_attempt_row("keep-%03d" % index,
+                                        ts=NOW.timestamp() + index))
+
+    # Один шаг переноса при «полуживом» журнале: вставилась только первая
+    # порция, остаток обязан остаться в файле.
+    state = {"n": 0}
+
+    def half_broken(self, row):
+        state["n"] += 1
+        if state["n"] > meme.ATTEMPT_SPOOL_BATCH // 2:
+            raise sqlite3.OperationalError("database is locked")
+        return original(self, row)
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", half_broken)
+    led._flush_pending_attempts()
+
+    spool_path = pathlib.Path(led.pending_path())
+    assert spool_path.exists(), "непрочитанный остаток нельзя удалять"
+    with open(spool_path, "r", encoding="utf-8") as handle:
+        left = [line for line in handle if line.strip()]
+    assert len(left) == total - meme.ATTEMPT_SPOOL_BATCH // 2, len(left)
+
+    # Журнал жив: остаток доезжает полностью, дублей нет.
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", original)
+    led._flush_pending_attempts()
+    assert not spool_path.exists()
+    conn = sqlite3.connect(str(tmp_path / "meme.db"))
+    try:
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM meme_initiative_attempt")
+        assert int(cur.fetchone()[0]) == total
+    finally:
+        conn.close()
 
 
 

@@ -317,24 +317,42 @@ async def _meme_attempt_rows(db, chat_id: int) -> tuple[list[dict], str]:
     return [dict(r) for r in rows or ()], ""
 
 
-def _fact_mode(facts: dict) -> str:
-    """Режим попытки из detail JSON строки журнала (`manual`/`auto`).
+def _terminal_facts(items: list[dict]) -> dict:
+    """Факты ТЕРМИНАЛЬНОЙ строки группы (последней по порядку этапов)."""
+    try:
+        from services import meme_initiative as mi
+        stage_order = {name: idx for idx, name in enumerate(mi.STAGES)}
+    except Exception:                       # pragma: no cover - defensive
+        stage_order = {}
+        mi = None                            # noqa: F841
+    terminal = max(
+        items,
+        key=lambda row: (stage_order.get(_str(row.get("stage")),
+                                         len(stage_order)),
+                         _int(row.get("ts"))))
+    try:
+        from services import meme_initiative as mi
+        return mi.parse_attempt_facts(terminal)
+    except Exception:
+        return {}
 
-    Пайплайн пишет его в СУЩЕСТВУЮЩЕЕ поле `detail` терминальной строки
-    (`manual`/`automatic`). Публикационный факт (`pub_facts["manual"]`) — это
-    позднее свидетельство: у раннего отказа его нет вовсе.
+
+def _attempt_mode(items: list[dict]) -> str:
+    """Режим попытки — ТОЛЬКО из терминальной строки (§3).
+
+    У этапа «прикол» ключ `mode` занят бюджетом длины (`auto`/`fixed`), поэтому
+    ранние строки группы режимом попытки не считаются: значение берётся из
+    `attempt_mode`/`mode` терминальной строки, затем из её цепочки событий.
     """
-    raw = _str((facts or {}).get("mode"))
-    if raw == "manual":
-        return "manual"
-    if raw in ("automatic", "auto"):
-        return "auto"
-    return ""
-
-
-def _event_chain_mode(facts: dict) -> str:
-    """Режим из цепочки событий попытки (`events[].mode`), если он там есть."""
-    for item in (facts or {}).get("events") or ():
+    try:
+        from services import meme_initiative as mi
+    except Exception:                        # pragma: no cover - defensive
+        return ""
+    facts = _terminal_facts(items)
+    mode = mi.attempt_mode_of(facts)
+    if mode:
+        return mode
+    for item in facts.get("events") or ():
         if not isinstance(item, dict):
             continue
         raw = _str(item.get("mode"))
@@ -368,8 +386,6 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
         published = False
         message_id = None
         manual = False
-        fact_mode = ""
-        event_mode = ""
         reason_codes: list[str] = []
         events: list[dict] = []
         deferred_seen = False
@@ -390,11 +406,6 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
             if _event_chain_has_deferred(facts):
                 deferred_seen = True
             events.extend(_event_chain(facts))
-            # §3: режим берётся из ЗАПИСИ попытки (detail JSON / цепочка
-            # событий), а не из позднего publication-факта: у раннего отказа
-            # публикационных фактов нет вообще.
-            fact_mode = fact_mode or _fact_mode(facts)
-            event_mode = event_mode or _event_chain_mode(facts)
             pub_facts = facts.get("publish")
             if not isinstance(pub_facts, dict):
                 pub_facts = facts.get("publication")
@@ -424,7 +435,9 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
                      or reason_code in ("in_flight", "publication_in_flight"))):
             outcome = OUTCOME_DEFERRED
         historical = job_id.startswith("row:")
-        mode = fact_mode or event_mode or ("manual" if manual else "auto")
+        # §3: режим — только из терминальной строки; поздний publication-факт
+        # остаётся фолбэком для строк, записанных до появления `attempt_mode`.
+        mode = _attempt_mode(items) or ("manual" if manual else "auto")
         out.append({
             "attempt_id": "meme:" + job_id,
             "kind": KIND_MEME,

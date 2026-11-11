@@ -666,6 +666,62 @@ def test_regular_attempts_are_not_marked_historical(api):
     assert row["job_id"] == "J4"
 
 
+#: Опубликованный РУЧНОЙ мем, у которого этап «прикол» пишет свой `mode`
+#: (бюджет длины: `auto`), а терминальная строка — режим попытки `manual`.
+JOKE_CAP_ATTEMPTS = (
+    ("jc-1", CHAT_A, "JOKE-CAP", NOW - 400, "considered", "passed", "",
+     _facts({"mode": "auto"}), "auto", 600, 12),
+    ("jc-2", CHAT_A, "JOKE-CAP", NOW - 390, "joke", "passed", "",
+     _facts({"chars": 40, "limit": 395, "mode": "auto", "ceiling": 600}),
+     "auto", 600, 12),
+    ("jc-3", CHAT_A, "JOKE-CAP", NOW - 380, "publish", "published", "sent",
+     _facts({"attempt_mode": "manual", "mode": "manual",
+             "publish": {"manual": True,
+                         "output": {"tg_message_id": 1234}}}),
+     "auto", 600, 12),
+)
+
+
+def _build_joke_cap_journals(path: str) -> None:
+    _build_journals(path)
+    con = sqlite3.connect(path)
+    con.executemany("INSERT INTO meme_initiative_attempt VALUES"
+                    " (?,?,?,?,?,?,?,?,?,?,?)", JOKE_CAP_ATTEMPTS)
+    con.commit()
+    con.close()
+
+
+@pytest.fixture()
+def api_joke_cap(tmp_path):
+    yield from _client_for(tmp_path, _build_joke_cap_journals)
+
+
+def test_manual_published_meme_is_manual_even_if_joke_stage_says_auto(
+        api_joke_cap):
+    """Бюджет прикола (`mode=auto` в строке этапа) не подменяет режим попытки."""
+    body = _rows(api_joke_cap, limit=100)
+    row = _row(body, "meme:JOKE-CAP")
+    assert row is not None, [r["attempt_id"] for r in body["rows"]]
+    assert row["mode"] == "manual", row
+    assert row["outcome"] == "published"
+    assert row["message_id"] == 1234
+    # Фильтр по режиму тоже честный.
+    manual = _rows(api_joke_cap, mode="manual", limit=100)
+    assert "meme:JOKE-CAP" in [r["attempt_id"] for r in manual["rows"]]
+    auto = _rows(api_joke_cap, mode="auto", limit=100)
+    assert "meme:JOKE-CAP" not in [r["attempt_id"] for r in auto["rows"]]
+
+
+def test_joke_cap_rows_do_not_leak_into_other_attempts(api_joke_cap):
+    """Соседние попытки не «заражаются» режимом из чужой группы."""
+    body = _rows(api_joke_cap, limit=100)
+    rows = {r["attempt_id"]: r for r in body["rows"]}
+    # J1/J2/J4 — авто-попытки; строка этапа «прикол» есть только у JOKE-CAP.
+    assert rows["meme:J1"]["mode"] == "auto"
+    assert rows["meme:J2"]["mode"] == "auto"
+    assert rows["meme:JOKE-CAP"]["mode"] == "manual"
+
+
 def test_missing_db_is_honest(tmp_path):
     deps_mod.settings = types.SimpleNamespace(API_TOKEN=TEST_TOKEN)
     cache = ConfigCache(pg=_FakePg(_FakePgConn()), retry_attempts=1,
