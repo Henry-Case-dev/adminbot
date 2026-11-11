@@ -3169,21 +3169,35 @@ class ExperienceReviewRunner:
             return None                        # fail-closed: предложим fresh
 
     async def _link_message_provenance(self, candidate: dict) -> None:
-        """X3 provenance: источник сообщения чата → evidence link урока."""
+        """X3 provenance: источник сообщения чата → evidence link урока.
+
+        Независимость НЕ заявляется: она выводится из происхождения самого
+        сообщения (`provenance.resolve_message_origin` — ledger выводов бота и
+        `graph_facts.origin`). Собственный ответ бота → `self_referential`,
+        неизвестное происхождение → `unknown` (основание хранится, но
+        подтверждением не считается). Раньше здесь стояло жёсткое
+        `independence="independent"`, из-за чего ссылка на вывод бота
+        засчитывалась как независимое подтверждение."""
         msg_id = candidate.get("pref_msg")
         chat_id = candidate.get("pref_chat_id")
         if msg_id is None or chat_id is None:
             return
         try:
-            from services.provenance import (EvidenceLink, SourceRef,
-                                             add_evidence_link,
-                                             resolve_source_ref)
+            from services.provenance import (
+                EvidenceLink, SourceRef, add_evidence_link,
+                independence_from_origin, resolve_message_origin,
+                resolve_source_ref)
             lesson = await self._service.get_lesson(
                 str(candidate["lesson_id"]), int(candidate["version"]))
             if lesson is None or lesson.get("source_ref_id") is None:
                 return
+            resolved = await resolve_message_origin(
+                self._db, int(chat_id), int(msg_id))
+            independence = independence_from_origin(
+                (resolved or {}).get("origin"), resolved=bool(resolved))
             src = SourceRef(store="sqlite", entity_type="message",
                             entity_id=str(int(msg_id)), chat_id=int(chat_id),
+                            tg_message_id=int(msg_id),
                             resolution="resolved")
             src_id = await resolve_source_ref(self._db, src)
             if src_id is None:
@@ -3192,8 +3206,9 @@ class ExperienceReviewRunner:
                 subject_ref_id=int(lesson["source_ref_id"]),
                 source_ref_id=int(src_id), link_type="derived_from",
                 method="direct_reference", verification="verified",
-                independence="independent", extractor_version="mca-16/d05",
-                basis="detector source message (id only)"))
+                independence=independence, extractor_version="mca-16/d06",
+                basis=("detector source message (id only; origin="
+                       + ((resolved or {}).get("source") or "unknown") + ")")))
         except Exception:
             logger.warning("[mca16] message provenance link failed",
                            exc_info=True)

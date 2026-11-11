@@ -31,6 +31,7 @@ from services import experience_diagnostics as diag
 from services import hot_config
 from services import mca_events
 from services import mca_experience as me
+from services import mca_experience_jobs as mj
 from services import provenance as prov
 from services import turn_trace
 from services.database import DatabaseService
@@ -75,14 +76,17 @@ def test_stems_shared_is_lexical_and_independence_is_provenance():
     grounds = [
         prov.ground_record(entity_type="message", entity_id="501", chat_id=CHAT,
                            tg_message_id=501, origin="chat_history",
-                           resolution="resolved", verification="verified"),
+                           resolution="resolved", verification="verified",
+                           independence="independent"),
         prov.ground_record(entity_type="message", entity_id="501", chat_id=CHAT,
                            tg_message_id=501, origin="chat_history",
-                           resolution="resolved", verification="verified"),
+                           resolution="resolved", verification="verified",
+                           independence="independent"),
         prov.ground_record(entity_type="message", entity_id="502", chat_id=CHAT,
                            tg_message_id=502,
                            origin="bot_direct_reply", resolution="resolved",
-                           verification="verified"),
+                           verification="verified",
+                           independence="independent"),
     ]
     assert prov.distinct_ground_roots(grounds) == 2
     # Дубль одного источника + собственный ответ бота независимыми не считаются.
@@ -91,6 +95,17 @@ def test_stems_shared_is_lexical_and_independence_is_provenance():
     with_stems = [dict(grounds[0], stems_shared=shared,
                        stems_shared_reason="lexical_threshold_applied")]
     assert prov.independent_grounds_count(with_stems) == 1
+
+
+def test_unknown_provenance_is_stored_but_never_independent():
+    """Неизвестное происхождение: запись есть, подтверждением не считается."""
+    ground = prov.ground_record(
+        entity_type="message", entity_id="77", chat_id=CHAT,
+        tg_message_id=77, resolution="resolved", verification="verified")
+    assert ground["independence"] == "unknown"
+    assert ground["self_referential"] is False
+    assert prov.independent_grounds_count([ground]) == 0
+    assert "origin_unknown" in prov.ground_gaps([ground])
 
 
 def test_unmeasured_stems_is_null_with_reason_not_zero():
@@ -226,6 +241,26 @@ async def test_validate_unions_new_episode_evidence_with_stored_sources(
 
 # ═══ 3. JSON диагностики содержит основания, отчёт — те же записи ══════════
 
+async def _fact_origin(db, *, chat_id=CHAT, tg_id, origin="chat_history"):
+    """Факт извлечён из сообщения `tg_id` — существующий источник происхождения."""
+    await db.db.execute(
+        "INSERT INTO graph_facts (chat_id, fact, origin, created_at, "
+        "tg_message_id) VALUES (?, ?, ?, ?, ?)",
+        (chat_id, "факт из сообщения %s" % tg_id, origin, 1_700_000_000,
+         tg_id))
+    await db.db.commit()
+
+
+async def _bot_output(db, *, chat_id=CHAT, tg_id):
+    """Вывод бота в ledger — точное доказательство авторства бота."""
+    await db.db.execute(
+        "INSERT INTO mca_bot_outputs (chat_id, tg_message_id, output_kind, "
+        "content_text, delivery_status, created_at) "
+        "VALUES (?, ?, 'direct_reply', 'ответ бота', 'delivered', ?)",
+        (chat_id, tg_id, 1_700_000_000))
+    await db.db.commit()
+
+
 @pytest.mark.asyncio
 async def test_diagnostics_json_carries_lesson_grounds(tmp_path, monkeypatch):
     monkeypatch.setattr(hot_config, "get", _FakeHot().get)
@@ -236,21 +271,124 @@ async def test_diagnostics_json_carries_lesson_grounds(tmp_path, monkeypatch):
             type="context", scope="chat", rule_key="bounded_block",
             scope_chat_id=CHAT, origin_kind="explicit",
             independent_sources=("message:12", "message:13"))
+        # Провенанс есть только у сообщения 12 → независимое основание одно.
+        await _fact_origin(db, tg_id=12)
         snapshot = await diag.experience_pipeline_snapshot(db)
         lessons = snapshot["learning_analytics"]["lessons"]
         item = next(i for i in lessons["items"]
                     if i["lesson_id"] == lid)
         assert item["version"] == ver
-        assert item["grounds_state"] == "complete"
         assert [g["entity_id"] for g in item["grounds"]] == ["12", "13"]
         assert all(g["chat_id"] == CHAT for g in item["grounds"])
         assert all(g["supports_id"] == lid for g in item["grounds"])
-        assert item["independent_grounds"] == 2
+        known, unknown = item["grounds"]
+        assert known["origin"] == "chat_history"
+        assert known["independence"] == "independent"
+        assert unknown["origin"] is None
+        assert unknown["independence"] == "unknown"
+        assert item["independent_grounds"] == 1
         # Текст и JSON — один источник данных.
         assert diag.grounds_consistency_violations(lessons) == []
         line = next(x for x in lessons["lines"] if x["lesson_id"] == lid)
         assert "message:12" in line["refs"]
         assert "message:12" in line["text"]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_link_writer_does_not_call_bot_message_independent(
+        tmp_path, monkeypatch):
+    """БЛОКЕР ревью: ссылка на СОБСТВЕННЫЙ ответ бота не даёт независимости.
+
+    Ровно форма из ревью: связь создана `_link_message_provenance`, сообщение —
+    вывод бота (ledger), происхождение восстановлено из ledger."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "bot_ground.db")
+    try:
+        svc = me.get_service(db)
+        lid, ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit", independent_sources=("message:88",))
+        await _bot_output(db, tg_id=88)
+        runner = mj.ExperienceReviewRunner(db)
+        await runner._link_message_provenance({
+            "lesson_id": lid, "version": ver,
+            "pref_msg": 88, "pref_chat_id": CHAT})
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        print("JSON:", json.dumps(ground, ensure_ascii=False))
+        assert ground["origin"] == "bot_direct_reply"
+        assert ground["self_referential"] is True
+        assert ground["independence"] == "self_referential"
+        assert item["independent_grounds"] == 0
+        # И сама связь в БД не объявляет независимость.
+        cursor = await db.db.execute(
+            "SELECT independence FROM mca_evidence_links WHERE "
+            "subject_ref_id = (SELECT source_ref_id FROM mca_lessons WHERE "
+            "lesson_id = ?)", (lid,))
+        assert [r["independence"] for r in await cursor.fetchall()] == \
+            ["self_referential"]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_link_writer_keeps_third_party_message_independent(
+        tmp_path, monkeypatch):
+    """Внешнее сообщение с установленным происхождением даёт 1 основание."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "third_party.db")
+    try:
+        svc = me.get_service(db)
+        lid, ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit", independent_sources=("message:89",))
+        await _fact_origin(db, tg_id=89)
+        runner = mj.ExperienceReviewRunner(db)
+        await runner._link_message_provenance({
+            "lesson_id": lid, "version": ver,
+            "pref_msg": 89, "pref_chat_id": CHAT})
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        assert ground["origin"] == "chat_history"
+        assert ground["independence"] == "independent"
+        assert item["independent_grounds"] == 1
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_link_writer_keeps_unknown_provenance_unknown(
+        tmp_path, monkeypatch):
+    """Происхождение не установлено: связь пишется как `unknown`, счёт = 0."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "unknown_ground.db")
+    try:
+        svc = me.get_service(db)
+        lid, ver = await svc.lesson.propose(
+            type="social_preference", scope="user_in_chat",
+            rule_key="address_form", scope_chat_id=CHAT, scope_user_id=42,
+            applicability="user:42 pref:address_form",
+            origin_kind="explicit", independent_sources=("message:90",))
+        runner = mj.ExperienceReviewRunner(db)
+        await runner._link_message_provenance({
+            "lesson_id": lid, "version": ver,
+            "pref_msg": 90, "pref_chat_id": CHAT})
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        assert ground["independence"] == "unknown"
+        assert item["independent_grounds"] == 0
     finally:
         await db.close()
 
@@ -305,8 +443,54 @@ async def test_lesson_without_grounds_is_honest_no_data(tmp_path,
         await db.close()
 
 
-# ═══ 4. Полный цикл: построение → запись → перечитывание → перезапуск ═════
+def test_selection_summary_names_pre_cap_total():
+    """Усечение называется, а не выдаётся за итог.
 
+    30 оснований одного блока: `total` обязан быть 30 (до потолков), а
+    `listed`/`dropped` — фактический остаток и честная разница."""
+    grounds = [prov.ground_record(
+        entity_type="graph_fact", entity_id="fact:%d" % i, chat_id=CHAT,
+        origin="chat_history", resolution="resolved",
+        supports_kind="rag_fact", supports_id="fact:%d" % i,
+        stems_shared=2, stems_shared_reason="lexical_threshold_applied")
+        for i in range(30)]
+    payload = turn_trace._selection_payload({
+        "blocks": [{"kind": "rag", "rendered": True, "grounds": grounds}],
+        "counts": {"available_messages": 1, "included_messages": 1},
+    })
+    summary = payload["grounds_summary"]
+    assert summary["total"] == 30                  # до потолков
+    assert summary["inspected"] <= turn_trace.SELECTION_GROUNDS_MAX
+    assert summary["listed"] == len(payload["memory_grounds"])
+    assert summary["dropped"] == 30 - summary["listed"]
+    assert summary["dropped"] > 0
+    assert payload["truncated"] is True
+
+
+@pytest.mark.asyncio
+async def test_lesson_ground_stems_null_always_carries_reason(tmp_path,
+                                                              monkeypatch):
+    """`stems_shared: null` без причины запрещён — и в JSON уроков тоже."""
+    monkeypatch.setattr(hot_config, "get", _FakeHot().get)
+    db = await _db(tmp_path, "stems_reason.db")
+    try:
+        svc = me.get_service(db)
+        lid, _ver = await svc.lesson.propose(
+            type="context", scope="chat", rule_key="bounded_block",
+            scope_chat_id=CHAT, origin_kind="explicit",
+            independent_sources=("message:12",))
+        snapshot = await diag.experience_pipeline_snapshot(db)
+        item = next(i for i in snapshot["learning_analytics"]["lessons"]
+                    ["items"] if i["lesson_id"] == lid)
+        ground = item["grounds"][0]
+        assert ground["stems_shared"] is None
+        assert ground["stems_shared_reason"]
+        assert ground["stems_shared_reason"] != "not_computed"
+    finally:
+        await db.close()
+
+
+# ═══ 4. Полный цикл: построение → запись → перечитывание → перезапуск ═════
 @pytest.mark.asyncio
 async def test_grounds_survive_serialize_reload_and_restart(tmp_path,
                                                             monkeypatch):
@@ -326,13 +510,16 @@ async def test_grounds_survive_serialize_reload_and_restart(tmp_path,
             lid, ver, evidence=me.ValidationEvidence(
                 kind="generalization",
                 independent_episode_ids=("message:12", "message:13")))
+        # Происхождение обоих сообщений установлено существующими фактами.
+        await _fact_origin(db, tg_id=12)
+        await _fact_origin(db, tg_id=13)
         first = await diag.experience_pipeline_snapshot(db)
         dump.write_text(json.dumps(first["learning_analytics"],
                                    ensure_ascii=False), encoding="utf-8")
         first_item = next(i for i in first["learning_analytics"]["lessons"]
                           ["items"] if i["lesson_id"] == lid)
         assert first_item["independent_grounds"] == 2
-        assert prov.ground_gaps(first_item["grounds"])
+        assert first_item["grounds"][0]["independence"] == "independent"
     finally:
         await db.close()
 

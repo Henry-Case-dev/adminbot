@@ -892,6 +892,8 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
 
 _LESSONS_PAGE_MAX = 50
 _LESSON_GROUNDS_MAX = 8
+#: Потолок обращений к происхождению сообщений на один снимок (bounded-чтение).
+_MESSAGE_ORIGIN_LOOKUPS_MAX = 200
 
 
 def _token_int(value):
@@ -923,53 +925,80 @@ def _stored_lesson_tokens(lesson: dict) -> list[str]:
 
 
 def _lesson_ground_from_token(token: str, lesson: dict,
-                              refs: list[dict], episodes: dict) -> dict:
+                              refs: list[dict], episodes: dict,
+                              origins: dict | None = None) -> dict:
     """Токен основания урока → запись происхождения (id + чат/сообщение/автор).
 
     Разрешение идёт по СОХРАНЁННЫМ данным: evidence-связи урока
-    (`mca_evidence_links` → `mca_source_refs`) и `mca_experience_episodes`.
+    (`mca_evidence_links` → `mca_source_refs`), `mca_experience_episodes` и
+    происхождение самого сообщения (`provenance.resolve_message_origin`).
     Если в данных ничего нет — запись остаётся с честным `unresolved`/
-    `author_unknown`, а не с придуманным адресом."""
+    `author_unknown`/`independence="unknown"`, а не с придуманным адресом и не
+    с молчаливым «независимо»."""
+    origins = origins or {}
     scope_chat = (lesson or {}).get("scope_chat_id")
     chat = None if scope_chat is None else int(scope_chat)
+
+    def _message_ground(msg_id, tg_id, author=None, ref=None) -> dict:
+        key = (chat if chat is not None else (ref or {}).get("chat_id"),
+               tg_id if tg_id is not None else msg_id)
+        resolved = origins.get(key)
+        origin = (resolved or {}).get("origin")
+        link_label = str((ref or {}).get("link_independence") or "")
+        if resolved:
+            # Происхождение установлено: метка вычисляется из него, а не из
+            # когда-то записанного значения ссылки.
+            independence = _prov.independence_from_origin(origin, resolved=True)
+        elif link_label == "self_referential":
+            independence = "self_referential"
+        else:
+            # Происхождение неизвестно → основание храним, но НЕ подтверждение.
+            independence = "unknown"
+        return _prov.ground_record(
+            store=str((ref or {}).get("store") or "sqlite"),
+            entity_type="message", entity_id=str(msg_id),
+            chat_id=(chat if chat is not None else (ref or {}).get("chat_id")),
+            tg_message_id=(tg_id if tg_id is not None
+                           else (ref or {}).get("tg_message_id")),
+            author_id=author,
+            origin=origin,
+            source_ref_id=(ref or {}).get("source_ref_id"),
+            resolution=("resolved"
+                        if (msg_id is not None and chat is not None)
+                        else "unresolved"),
+            verification="verified", independence=independence,
+            supports_kind="lesson",
+            supports_id=str(lesson.get("lesson_id") or ""),
+            channel=("evidence_link" if ref else "lesson_source_token"),
+            stems_shared=None, stems_shared_reason="not_lexical_path")
+
     for ref in refs or ():
-        if str(ref.get("entity_type")) not in ("message", "episode"):
-            continue
+        entity_type = str(ref.get("entity_type"))
         ref_id = str(ref.get("entity_id") or "")
         ref_tg = (str(ref.get("tg_message_id"))
                   if ref.get("tg_message_id") is not None else "")
         token_tail = token.split(":", 1)[1] if ":" in token else token
-        if token not in (ref_id, ref_tg) \
-                and token_tail not in (ref_id, ref_tg):
+        if token not in (ref_id, ref_tg) and token_tail not in (ref_id, ref_tg):
             continue
-        ref_chat = ref.get("chat_id")
-        author = None
-        if str(ref.get("entity_type")) == "episode":
+        if entity_type == "message":
+            return _message_ground(ref_id, ref.get("tg_message_id") or
+                                   _token_int(ref_id), ref=ref)
+        if entity_type == "episode":
             author = (episodes.get(ref_id) or {}).get("user_id")
-        return _prov.ground_record(
-            store=str(ref.get("store") or "sqlite"),
-            entity_type=str(ref.get("entity_type")),
-            entity_id=ref_id,
-            chat_id=(None if ref_chat is None else ref_chat),
-            tg_message_id=ref.get("tg_message_id"),
-            author_id=author,
-            source_ref_id=ref.get("source_ref_id"),
-            resolution=str(ref.get("resolution") or "unknown"),
-            verification="verified",
-            supports_kind="lesson",
-            supports_id=str(lesson.get("lesson_id") or ""),
-            channel="evidence_link")
+            return _prov.ground_record(
+                store=str(ref.get("store") or "sqlite"),
+                entity_type="episode", entity_id=ref_id,
+                chat_id=ref.get("chat_id"), author_id=author,
+                source_ref_id=ref.get("source_ref_id"),
+                resolution=str(ref.get("resolution") or "unknown"),
+                verification="verified", independence="independent",
+                supports_kind="lesson",
+                supports_id=str(lesson.get("lesson_id") or ""),
+                channel="evidence_link",
+                stems_shared=None, stems_shared_reason="not_lexical_path")
     if token.startswith("message:"):
         msg_id = _token_int(token.split(":", 1)[1])
-        return _prov.ground_record(
-            store="sqlite", entity_type="message",
-            entity_id=(str(msg_id) if msg_id is not None else token),
-            chat_id=chat, tg_message_id=msg_id,
-            resolution=("resolved" if chat is not None and msg_id is not None
-                        else "unresolved"),
-            verification="verified", supports_kind="lesson",
-            supports_id=str(lesson.get("lesson_id") or ""),
-            channel="lesson_source_token")
+        return _message_ground(msg_id, msg_id)
     episode = episodes.get(token)
     if episode is not None:
         return _prov.ground_record(
@@ -978,14 +1007,18 @@ def _lesson_ground_from_token(token: str, lesson: dict,
             author_id=episode.get("user_id"),
             resolution=("resolved"
                         if episode.get("chat_id") is not None else "unresolved"),
-            verification="verified", supports_kind="lesson",
+            verification="verified", independence="independent",
+            supports_kind="lesson",
             supports_id=str(lesson.get("lesson_id") or ""),
-            channel="lesson_source_token")
+            channel="lesson_source_token",
+            stems_shared=None, stems_shared_reason="not_lexical_path")
     return _prov.ground_record(
         store="unknown", entity_type="unknown", entity_id=token,
         chat_id=chat, resolution="unresolved", verification="unknown",
+        independence="unknown",
         supports_kind="lesson", supports_id=str(lesson.get("lesson_id") or ""),
-        channel="lesson_source_token")
+        channel="lesson_source_token",
+        stems_shared=None, stems_shared_reason="not_lexical_path")
 
 
 def _lesson_grounds_state(grounds: list[dict], tokens: list[str],
@@ -1066,6 +1099,32 @@ def grounds_consistency_violations(lessons_block: dict) -> list[str]:
     return violations
 
 
+async def _message_origin_map(db, pairs) -> dict:
+    """Происхождение сообщений страницы: `{(chat, tg): {origin,...}}`.
+
+    Только существующие данные (`provenance.resolve_message_origin` — ledger
+    выводов бота + `graph_facts.origin`), с кешем на вызов и жёстким потолком
+    обращений: за потолком происхождение считается неизвестным (основание
+    хранится, но не подтверждение), а не «независимым по умолчанию»."""
+    out: dict = {}
+    budget = _MESSAGE_ORIGIN_LOOKUPS_MAX
+    for chat_id, tg_id in pairs or ():
+        key = (chat_id, tg_id)
+        if key in out or tg_id is None:
+            continue
+        if budget <= 0:
+            out[key] = None
+            continue
+        budget -= 1
+        try:
+            out[key] = await _prov.resolve_message_origin(db, chat_id, tg_id)
+        except Exception:
+            logger.debug("[exp_diag] message origin unavailable",
+                         exc_info=True)
+            out[key] = None
+    return out
+
+
 async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]:
     """Основания страницы уроков (≤`_LESSONS_PAGE_MAX`) + текстовые строки.
 
@@ -1102,6 +1161,20 @@ async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]
             episodes = {str(r.get("episode_id")): r for r in rows}
         except Exception:
             episodes = {}
+    # Происхождение сообщений-оснований: без него независимость не заявляется.
+    origin_pairs: list = []
+    for row in page:
+        scope_chat = row.get("scope_chat_id")
+        for token in _stored_lesson_tokens(row):
+            if token.startswith("message:"):
+                origin_pairs.append((scope_chat, _token_int(token.split(":")[1])))
+        for ref in links.get(int(row.get("source_ref_id") or 0), []) \
+                if row.get("source_ref_id") is not None else []:
+            if str(ref.get("entity_type")) == "message":
+                origin_pairs.append((ref.get("chat_id") or scope_chat,
+                                     ref.get("tg_message_id")
+                                     or _token_int(ref.get("entity_id"))))
+    origins = await _message_origin_map(db, origin_pairs)
     items: list[dict] = []
     for row in page:
         lesson = dict(row)
@@ -1111,7 +1184,8 @@ async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]
         grounds: list[dict] = []
         seen: set = set()
         for token in tokens:
-            ground = _lesson_ground_from_token(token, lesson, refs, episodes)
+            ground = _lesson_ground_from_token(token, lesson, refs, episodes,
+                                              origins)
             root = str(ground.get("provenance_root") or "")
             if root and root in seen:
                 continue
@@ -1121,7 +1195,8 @@ async def _lesson_grounds_page(db, lesson_rows: list[dict]) -> tuple[list, list]
         # сохранено, но список ещё не починен) — тоже основания урока.
         for ref in refs:
             ground = _lesson_ground_from_token(
-                str(ref.get("entity_id") or ""), lesson, [ref], episodes)
+                str(ref.get("entity_id") or ""), lesson, [ref], episodes,
+                origins)
             root = str(ground.get("provenance_root") or "")
             if not root or root in seen:
                 continue

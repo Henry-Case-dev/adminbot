@@ -2687,6 +2687,7 @@ def _rag_ground_records(rows: list, kept: list, chat_id) -> list:
     for item in kept or ():
         key = str(_rag_item_key(item) or "")
         row = by_id.get(key) or {}
+        origin = (row.get("origin") if row else (item[0] if item else None))
         out.append(_prov.ground_record(
             store="sqlite", entity_type="graph_fact",
             entity_id=(key or str(item[0] if item else "")),
@@ -2694,10 +2695,14 @@ def _rag_ground_records(rows: list, kept: list, chat_id) -> list:
                      if row.get("chat_id") is not None else chat_id),
             tg_message_id=row.get("tg_message_id"),
             author_id=row.get("speaker_author_id"),
-            origin=(row.get("origin") if row else (item[0] if item else None)),
+            origin=origin,
             source_ref_id=row.get("subject_ref_id"),
             resolution=("resolved" if row else "unknown"),
             verification="tentative",
+            # Одна отобранная строка не является подтверждением: независимость
+            # остаётся `unknown`, кроме доказанного вывода бота.
+            independence=_prov.independence_from_origin(origin,
+                                                        resolved=False),
             supports_kind="rag_fact", supports_id=(key or None),
             channel=row.get("provenance_channel"),
             proxy=_rag_subject_proxy_of(row) if row else None,

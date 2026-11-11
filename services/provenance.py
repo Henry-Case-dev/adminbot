@@ -348,6 +348,7 @@ def ground_record(*, entity_type: str, entity_id,
                   tg_message_id=None, author_id=None, origin=None,
                   source_ref_id=None, resolution: str = "unknown",
                   verification: str = "tentative",
+                  independence: str | None = None,
                   supports_kind: str = "", supports_id=None,
                   channel: str | None = None, proxy: str | None = None,
                   period_fill: bool = False,
@@ -364,7 +365,14 @@ def ground_record(*, entity_type: str, entity_id,
     «вопрос ↔ строка» (общие основы). Она переносится сюда как есть, вместе с
     `stems_shared_reason`, и НИКОГДА не участвует в `independent_grounds_count`:
     совпадение слов не делает основание независимым подтверждением. `None` =
-    значение не вычислялось для этой строки (причина обязательна)."""
+    значение не вычислялось для этой строки (причина заполняется всегда).
+
+    `independence` — ТОЛЬКО из происхождения, три состояния:
+    `independent` (доказано, что источник внешний независимый), `self_referential`
+    (собственный вывод бота) и `unknown` (происхождение не установлено). Если
+    аргумент не передан, значение выводится из `origin`, и при неизвестном
+    происхождении остаётся `unknown` — «независимость» НЕ подразумевается по
+    умолчанию: неизвестное основание хранится, но не считается подтверждением."""
     entity = str(entity_type or "unknown")
     if entity not in ENTITY_TYPES:
         entity = "unknown"
@@ -382,6 +390,19 @@ def ground_record(*, entity_type: str, entity_id,
     author = None if author_id is None else int(author_id)
     ref_id = None if source_ref_id is None else int(source_ref_id)
     origin_text = str(origin) if origin else None
+    self_ref = is_self_referential_origin(origin_text)
+    if independence is None:
+        independence = "self_referential" if self_ref else "unknown"
+    indep = str(independence or "unknown")
+    if indep not in INDEPENDENCES:
+        indep = "unknown"
+    if self_ref and indep == "independent":
+        # Собственный вывод бота не может быть «независимым»: происхождение
+        # сильнее любой заявленной метки (в т.ч. ошибочно записанной ссылки).
+        indep = "self_referential"
+    reason = str(stems_shared_reason) if stems_shared_reason else None
+    if stems_shared is None and not reason:
+        reason = "not_computed"
     return {
         "provenance_root": ground_root(store, entity, entity_id, chat),
         "source_ref_id": ref_id,
@@ -392,7 +413,8 @@ def ground_record(*, entity_type: str, entity_id,
         "tg_message_id": tg,
         "author_id": author,
         "origin": origin_text,
-        "self_referential": is_self_referential_origin(origin_text),
+        "self_referential": self_ref,
+        "independence": indep,
         "resolution": res,
         "verification": ver,
         "supports_kind": kind,
@@ -400,11 +422,10 @@ def ground_record(*, entity_type: str, entity_id,
         "channel": (str(channel) if channel else None),
         "proxy": (str(proxy) if proxy else None),
         "period_fill": bool(period_fill),
-        # Лексическая релевантность (НЕ независимость). `None` + причина =
-        # для этой строки значение не вычислялось (не подменяем нулём).
+        # Лексическая релевантность (НЕ независимость). `None` + причина = для
+        # этой строки значение не вычислялось (нулём не подменяем).
         "stems_shared": (None if stems_shared is None else int(stems_shared)),
-        "stems_shared_reason": (str(stems_shared_reason)
-                                if stems_shared_reason else None),
+        "stems_shared_reason": reason,
     }
 
 
@@ -413,18 +434,21 @@ def grounds_as_links(grounds) -> list[dict]:
 
     `provenance_root` подставляется как `source_ref_id` — правило дедупа
     (уникальный источник, не уникальная строка) не дублируется, а
-    переиспользуется. Собственные ответы бота помечаются
-    `self_referential` и примитивом не считаются."""
+    переиспользуется. `independence` берётся из САМОЙ записи основания
+    (три состояния), поэтому `unknown` не превращается в подтверждение, а
+    собственный вывод бота остаётся `self_referential`."""
     links: list[dict] = []
     for ground in grounds or ():
         if not isinstance(ground, dict):
             continue
+        independence = str(ground.get("independence") or "")
+        if independence not in INDEPENDENCES:
+            independence = ("self_referential"
+                            if ground.get("self_referential") else "unknown")
         links.append({
             "link_type": "derived_from",
             "verification": str(ground.get("verification") or "unknown"),
-            "independence": ("self_referential"
-                             if ground.get("self_referential")
-                             else "independent"),
+            "independence": independence,
             "source_ref_id": str(ground.get("provenance_root") or ""),
         })
     return links
@@ -448,6 +472,71 @@ def distinct_ground_roots(grounds) -> int:
 
 #: Виды элементов, у которых `origin` есть по контракту (для честного пробела).
 _ORIGIN_ENTITY_TYPES = frozenset({"message", "graph_fact"})
+
+#: Происхождение сообщения, установленное по существующим данным.
+MESSAGE_ORIGIN_LEDGER = "bot_output_ledger"
+MESSAGE_ORIGIN_FACT = "graph_fact_origin"
+
+
+async def resolve_message_origin(db, chat_id, tg_message_id) -> dict | None:
+    """Происхождение сообщения по СОХРАНЁННЫМ данным (без догадок).
+
+    Порядок (сильное → слабое):
+    1. `mca_bot_outputs` (ledger выводов бота) — точное авторство самого бота;
+    2. `graph_facts.origin` факта, извлечённого из этого же сообщения
+       (`bot_direct_reply` и т.п. — существующий закрытый набор).
+
+    `None` = происхождение не установлено (тогда основание хранится, но НЕ
+    считается независимым). Новых таблиц/колонок не требуется."""
+    if chat_id is None or tg_message_id is None:
+        return None
+    try:
+        chat = int(chat_id)
+        tg = int(tg_message_id)
+    except (TypeError, ValueError):
+        return None
+    try:
+        from services import bot_output_ledger
+        record = await bot_output_ledger.resolve_bot_output_by_tg(db, chat, tg)
+        if record:
+            return {"origin": "bot_direct_reply",
+                    "self_referential": True,
+                    "source": MESSAGE_ORIGIN_LEDGER}
+    except Exception:                                     # pragma: no cover
+        logger.debug("[provenance] bot ledger lookup failed", exc_info=True)
+    try:
+        cursor = await db.db.execute(
+            "SELECT origin FROM graph_facts WHERE chat_id = ? AND "
+            "tg_message_id = ? AND origin IS NOT NULL "
+            "ORDER BY CASE WHEN origin IN ('bot_self_reply','bot_direct_reply') "
+            "THEN 0 ELSE 1 END, id LIMIT 1", (chat, tg))
+        row = await cursor.fetchone()
+    except Exception:                                     # pragma: no cover
+        logger.debug("[provenance] fact origin lookup failed", exc_info=True)
+        return None
+    if row is None:
+        return None
+    try:
+        origin = str(row["origin"] or "")
+    except (IndexError, KeyError, TypeError):              # pragma: no cover
+        origin = str(row[0] or "")
+    if not origin:
+        return None
+    return {"origin": origin,
+            "self_referential": is_self_referential_origin(origin),
+            "source": MESSAGE_ORIGIN_FACT}
+
+
+def independence_from_origin(origin, *, resolved: bool) -> str:
+    """Три состояния независимости из происхождения (без подразумевания).
+
+    `self_referential` — собственный вывод бота; `independent` — происхождение
+    установлено и это не вывод бота; `unknown` — происхождение не установлено."""
+    if is_self_referential_origin(origin):
+        return "self_referential"
+    if origin and resolved:
+        return "independent"
+    return "unknown"
 
 
 def ground_gaps(grounds) -> list[str]:

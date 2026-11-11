@@ -58,11 +58,18 @@
 | Метрика | Формирование | Сохранение |
 | --- | --- | --- |
 | `stems_shared` | `direct_chat_service._rag_subject_shared` (единственное вычисление) → `_rag_period_subject_filter` пишет значение в саму строку (`stems_shared` + `stems_shared_reason`) | `turn_trace` → `usage_json` события `direct_turn_selection`: `memory_grounds[].stems_shared` (число либо `null` + причина) и `grounds_summary.stems_shared_measured/unmeasured` |
-| `independent_grounds` | `provenance.independent_grounds_count` над записями оснований (по `provenance_root`) | `experience_diagnostics._learning_analytics.lessons.items[].independent_grounds` + `grounds[]` (id источника, чат, сообщение, автор, `supports_id`) |
+| `independent_grounds` | `provenance.independent_grounds_count` над записями оснований (по `provenance_root`); независимость — только из происхождения (`provenance.resolve_message_origin`: ledger выводов бота → `graph_facts.origin`) | `experience_diagnostics._learning_analytics.lessons.items[].independent_grounds` + `grounds[]` (id источника, чат, сообщение, автор, `origin`, `independence`, `supports_id`) |
 
 Если значение не вычислялось для строки (векторная нога, не-периодная строка,
 профильный добор), в JSON пишется `null` и причина (`vector_leg_no_threshold`,
-`not_period_row`, `not_computed`) — не выдуманный `0`.
+`not_period_row`, `not_computed`, `not_lexical_path`) — не выдуманный `0`.
+
+Независимость основания — **три состояния**, никогда не подразумевается:
+`independent` (происхождение установлено и это не вывод бота),
+`self_referential` (собственный ответ бота — ledger `mca_bot_outputs` или
+`origin ∈ BOT_ORIGINS`) и `unknown` (происхождение не установлено: запись
+хранится, но подтверждением не считается). Ссылка на собственный ответ бота не
+может дать независимое основание ни при каких условиях.
 
 ## 4. Что осталось неизменным
 

@@ -799,7 +799,8 @@ def _json_size(value) -> int:
 
 
 def _sel_block(item, *, cuts: dict | None = None,
-               out_grounds: list | None = None) -> dict | None:
+               out_grounds: list | None = None,
+               ground_stats: dict | None = None) -> dict | None:
     """Один блок контекста: kind/role/rendered/даты/ссылки/токены (без текста).
 
     `role` — НЕ авторская роль участника: здесь лежит приоритет вытеснения
@@ -840,7 +841,8 @@ def _sel_block(item, *, cuts: dict | None = None,
     # Основания идут НЕ в блок, а в отдельный bounded-список события; здесь
     # они только нормализуются — иначе allowlist снова их выбросит.
     if out_grounds is not None:
-        out_grounds.extend(_sel_grounds(item.get("grounds"), cuts=cuts))
+        out_grounds.extend(_sel_grounds(item.get("grounds"), cuts=cuts,
+                                        stats=ground_stats))
     return row
 
 
@@ -874,6 +876,13 @@ def _compact_ground(item: dict) -> dict | None:
     proxy = _code(item.get("proxy"), 16)
     if proxy:
         row["proxy"] = proxy
+    independence = _code(item.get("independence"), 16)
+    if independence:
+        row["independence"] = independence
+    elif item.get("self_referential"):
+        row["independence"] = "self_referential"
+    else:
+        row["independence"] = "unknown"
     resolution = _code(item.get("resolution"), 16)
     if resolution and resolution != "resolved":
         row["resolution"] = resolution
@@ -895,17 +904,28 @@ def _compact_ground(item: dict) -> dict | None:
     return row or None
 
 
-def _sel_grounds(items, *, cuts: dict | None = None) -> list:
+def _sel_grounds(items, *, cuts: dict | None = None,
+                 stats: dict | None = None) -> list:
     """Основания решения: id + происхождение, БЕЗ текста (≤`SELECTION_GROUNDS_MAX`).
 
     ДЕФЕКТ 12.11.2026: этот проектор собирал блок из закрытого набора ключей,
     поэтому любое новое поле продюсера (основание с происхождением) молча
     выпадало из сохранённого JSON — отчёт мог ссылаться на основание, которого
     в хранилище не было. Теперь основания проходят насквозь (id/коды), а
-    усечение списка видно через `cuts` → `truncated`.
+    усечение видно через `cuts` → `truncated`.
 
-    `stems_shared` остаётся ЛЕКСИЧЕСКОЙ метрикой и переносится как есть:
-    `None` означает «не вычислялось», причина — в `stems_shared_reason`."""
+    `stats["total"]` накапливает ИСТИННОЕ число переданных оснований (до
+    потолка списка), чтобы сводка называла усечённое, а не выдавала остаток
+    за полный итог. `stems_shared` переносится как есть: `None` + причина."""
+    if isinstance(items, (list, tuple)):
+        raw_total = len(items)
+    else:
+        try:
+            raw_total = len(list(items or ()))
+        except TypeError:
+            raw_total = 0
+    if stats is not None:
+        stats["total"] = int(stats.get("total") or 0) + int(raw_total)
     rows: list = []
     for item in _sel_items(items, SELECTION_GROUNDS_MAX * 3):
         row = _compact_ground(item)
@@ -915,6 +935,8 @@ def _sel_grounds(items, *, cuts: dict | None = None) -> list:
         if cuts is not None:
             cuts["grounds"] = True
         rows = rows[:SELECTION_GROUNDS_MAX]
+    if stats is not None:
+        stats["inspected"] = int(stats.get("inspected") or 0) + len(rows)
     return rows
 
 
@@ -1020,8 +1042,10 @@ def _selection_payload(raw) -> dict:
     if len(raw_blocks) > SELECTION_BLOCKS_MAX:
         cuts["blocks"] = True
     collected_grounds: list = []
+    ground_stats: dict = {"total": 0, "inspected": 0}
     blocks = [row for row in
-              (_sel_block(item, cuts=cuts, out_grounds=collected_grounds)
+              (_sel_block(item, cuts=cuts, out_grounds=collected_grounds,
+                          ground_stats=ground_stats)
                for item in raw_blocks[:SELECTION_BLOCKS_MAX])
               if row]
     if blocks:
@@ -1038,7 +1062,7 @@ def _selection_payload(raw) -> dict:
             continue
         seen_grounds.add(marker)
         grounds_all.append(ground)
-    if grounds_all:
+    if grounds_all or ground_stats.get("total"):
         # Приоритет сохранения — основания периода/лексического добора (у них
         # есть `stems_shared`, вокруг которого идут споры о «двух основах»).
         # Остальные идут следом; всё, что не влезло в бюджет `usage_json`,
@@ -1050,13 +1074,22 @@ def _selection_payload(raw) -> dict:
             payload["truncated"] = True
         roots = {str(g.get("provenance_root") or "") for g in grounds_all}
         roots.discard("")
-        # Сводка по ВСЕМ вычисленным основаниям (не только по усечённому
-        # списку), поэтому усечение не искажает итог.
+        # Сводка: `total` — ИСТИННОЕ число переданных оснований (до потолков),
+        # `inspected` — сколько записей попало в проекцию, `listed`/`dropped`
+        # пересчитываются после усечения бюджета (`_sync_grounds_summary`).
         payload["grounds_summary"] = {
-            "total": len(grounds_all),
+            "total": max(int(ground_stats.get("total") or 0), len(grounds_all)),
+            "inspected": len(grounds_all),
+            "listed": len(payload["memory_grounds"]),
+            "dropped": max(0, max(int(ground_stats.get("total") or 0),
+                                  len(grounds_all))
+                           - len(payload["memory_grounds"])),
             "roots": len(roots),
             "self_referential": sum(1 for g in grounds_all
                                     if g.get("self_referential")),
+            "independence_unknown": sum(
+                1 for g in grounds_all
+                if str(g.get("independence") or "") == "unknown"),
             "period_fill": sum(1 for g in grounds_all
                                if g.get("period_fill")),
             "stems_shared_measured": sum(
@@ -1107,7 +1140,26 @@ def _selection_payload(raw) -> dict:
             and _json_size(payload) > _PAYLOAD_LIMIT:
         payload["blocks"] = payload["blocks"][:-1]
         payload["truncated"] = True
+    _sync_grounds_summary(payload)
     return payload
+
+
+def _sync_grounds_summary(payload: dict) -> None:
+    """`listed`/`dropped` сводки — по ФАКТИЧЕСКИ сохранённому списку.
+
+    Считается после всех усечений (потолок списка, бюджет `usage_json`), чтобы
+    «total=30, listed=1» было видно как 29 потерянных, а не как полный итог."""
+    summary = payload.get("grounds_summary")
+    if not isinstance(summary, dict):
+        return
+    listed = len(payload.get("memory_grounds") or ())
+    total = _sel_int(summary.get("total"))
+    if total is None:
+        total = listed
+    summary["listed"] = listed
+    summary["dropped"] = max(0, int(total) - int(listed))
+    if summary["dropped"]:
+        payload["truncated"] = True
 
 
 def note_selection(correlation_id, *, chat_id=None, payload=None) -> None:
