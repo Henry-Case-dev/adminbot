@@ -1,0 +1,29 @@
+{
+ "root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\p0-init-meme-ux-diag-3d0ee4a97508-d7f7b7de",
+ "states": {
+  "real": {
+   "lastActionLines": [
+    "Последнее действие: 15.01 08:03 UTC · Текстовая инициатива — бот решил ответить"
+   ],
+   "textCheck": "никогда",
+   "textAttempt": "15.01 08:03 UTC · автоматически · бот решил ответить",
+   "memeAttempt": "15.01 07:50 UTC · автоматически · пропущено · остановилось: публикация"
+  },
+  "unavailable_but_attempt": {
+   "lastActionLines": [
+    "Последнее действие: 15.01 08:03 UTC · Текстовая инициатива — бот решил ответить"
+   ],
+   "textCheck": "никогда",
+   "textAttempt": "15.01 08:03 UTC · автоматически · бот решил ответить",
+   "memeAttempt": "попыток ещё не было"
+  },
+  "no_attempt": {
+   "lastActionLines": [
+    "Последнее действие: нет данных"
+   ],
+   "textCheck": "никогда",
+   "textAttempt": "попыток ещё не было",
+   "memeAttempt": "попыток ещё не было"
+  }
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\P0-INIT-MEME-UX-DIAG-3b3736d1b1ee-f65c17ea",
+ "webroot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\P0-INIT-MEME-UX-DIAG-3b3736d1b1ee-f65c17ea\\web",
+ "dom": {
+  "lastActionLines": [
+   "Последних действий в журнале нет"
+  ],
+  "textCheck": "никогда",
+  "textAttempt": "15.01 08:03 UTC · автоматически · бот решил ответить",
+  "textNext": "время не назначается — выключено настройкой",
+  "memeCheck": "15.01 08:04 UTC",
+  "memeAttempt": "15.01 07:50 UTC · автоматически · пропущено · остановилось: публикация",
+  "bodyHasFalseEmpty": true
+ },
+ "screenshot": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\p0-init-meme-ux-diag-3d0ee4a97508\\probe-7deb14875c\\overview-1536.png"
+}

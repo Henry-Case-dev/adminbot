@@ -41,16 +41,17 @@
     {
       "wave": 4,
       "slices": [
-        "S5b"
+        "S5b",
+        "P0IM-OV-HONEST"
       ],
-      "note": "Жизненный цикл связывания публикации: сериализован с S5-MEME, потому что пишет тот же services/publication_coordination.py. S5b выполнен на кандидате e92cdcd5 (одобрено, не выложено). Дополнительно S5b пишет services/initiative_diagnostics.py и web/app.js (одобренная поправка write-scope): S4-TRACE по web/app.js обязан идти поверх этой дельты, параллельно нельзя."
+      "note": "Жизненный цикл связывания публикации: сериализован с S5-MEME, потому что пишет тот же services/publication_coordination.py. S5b выполнен на кандидате e92cdcd5 (одобрено, не выложено). Дополнительно S5b пишет services/initiative_diagnostics.py и web/app.js (одобренная поправка write-scope): S4-TRACE по web/app.js обязан идти поверх этой дельты, параллельно нельзя. Дополнительно в этой волне P0IM-OV-HONEST: правки web/app.js и web/index.html после S4-TRACE и S5-MEME; выложено в 2.58.193. S5b остаётся невыложенным (e92cdcd5)."
     },
     {
       "wave": 5,
       "slices": [
         "S6-FRESH"
       ],
-      "note": "Свежесть/время/scope после трассы, /meme и связывания публикации — те же файлы UI и coordination."
+      "note": "Свежесть/время/scope после трассы, /meme и связывания публикации — те же файлы UI и coordination. Зависимость от P0IM-OV-HONEST добавлена после выкладки 2.58.193: S6 пишет тот же web/app.js и обязан идти поверх честной строки обзора."
     },
     {
       "wave": 6,
@@ -238,6 +239,31 @@
       "state": "APPROVED_ON_CANDIDATE (e92cdcd5, ветка init/meme-s5b), NOT_DEPLOYED, NOT_VERIFIED: три строки READY_FOR_LIVE. Живая половина — один реальный publisher_not_bound → deferred → delivered, наблюдаемый по журналу попыток и task_jobs. Причина sender=None в событийном тике не устранена (backlog BL-S5B-EVENT-TICK-SENDER)."
     },
     {
+      "id": "P0IM-OV-HONEST",
+      "title": "Честная строка последнего действия в обзоре инициативы (реальный факт вместо ложной пустоты)",
+      "role": "Builder + независимый Reviewer",
+      "risk": "R1",
+      "depends_on": [
+        "S3-OV",
+        "S4-TRACE",
+        "S5-MEME"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "tests/js/p0im_ov_honesty_test.js",
+        "tests/test_webapp_js_unit.py"
+      ],
+      "acceptance": "На живой сборке строка последнего действия называет реальный записанный факт (время, механизм, исход) или честно пишет «нет данных»; ложное «Последних действий в журнале нет» не выводится ни на одной поверхности; недоступный механизм (available:false) не отменяет записанную попытку.",
+      "exclusions": "Никаких новых источников данных, эндпоинтов, таблиц и флагов: факт берётся из уже загруженного снимка mechanism-diagnostics (ось last_attempt). Регион «Последние попытки» (5–10 строк с manual/auto) — не этот срез, он остаётся открытым как P0IM-OV-LIST.",
+      "join_barrier": "Пишет web/app.js и web/index.html после S4-TRACE и S5-MEME; S6-FRESH обязан идти поверх этой дельты (добавлено в его depends_on), параллельная работа двух писателей по web/app.js недопустима.",
+      "state": "ВЫЛОЖЕНО в 2.58.193 (7a7cd0ce): код f8846e49→cd7c1ff2 и a5d89cac→5dbe35d2, доказательства 1957c0e9→48e8d5ed и 32939c7a→e4567ddb (эти два — только документация/evidence, кода в них нет).",
+      "evidence": "plans/features/p0-init-meme-ux-diag/evidence/ov-honesty-258193.md",
+      "evidence_sha256": "5c290209d9d09a243589969224d0dd34c728af2ef3ffecfa651697a40544a528",
+      "deploy_record": "plans/features/p0-init-meme-ux-diag/release-258193/deploy.md",
+      "deploy_record_sha256": "def2841ac9d174b09c9468b30b688a22cc59feb2b69a5a3906c2d33b2e3b1b31"
+    },
+    {
       "id": "S6-FRESH",
       "title": "Effective-состояние, время и разграничение чатов",
       "role": "Builder",
@@ -245,7 +271,8 @@
       "depends_on": [
         "S4-TRACE",
         "S5-MEME",
-        "S5b"
+        "S5b",
+        "P0IM-OV-HONEST"
       ],
       "write_scope": [
         "web/app.js",
