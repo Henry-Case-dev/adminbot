@@ -3559,6 +3559,29 @@
       unfinished_answer: 'ответ остался незавершённым',
       empty_final: 'пустой текст после правок',
     },
+    // Почему текст не доставлен (turn_trace.note_delivery: reason). При
+    // закрытии трассы сюда же попадает причина остановки хода — её подпись
+    // берётся из словаря `stop_reason` (см. `turnDeliveryReasonText`).
+    delivery_reason: {
+      send_failed: 'отправка не удалась',
+      html_fallback: 'разметка для Telegram не прошла — отправлено обычным текстом',
+      too_long_for_html: 'текст длиннее одного сообщения с разметкой — обычный текст',
+      no_text_delivery: 'доставлять было нечего',
+    },
+    // Итог доставки (turn_trace.note_delivery/close: outcome).
+    delivery_outcome: {
+      success: 'доставлено',
+      failed: 'отправка не удалась',
+      skipped: 'доставка пропущена',
+      silent: 'без отправки — ход промолчал',
+    },
+    // Почему трассы хода нет (web/api/routes.py turn-diagnostics: reason).
+    diag_reason: {
+      no_turn_traces: 'прогонов с трассой не найдено',
+      telemetry_unavailable: 'телеметрия недоступна',
+    },
+    // Поток обработки хода (context.flow).
+    flow: { direct: 'Direct' },
     // Стадии часов хода (turn_trace.CLOCK_STAGE_ORDER).
     stage: { l1: 'L1', tool: 'инструменты', l2: 'ответ' },
     // Слот модели, которым считался запрос (model_slots / auto_budget).
@@ -15689,7 +15712,11 @@
           factory: 'заводской дефолт',
           utc_fallback: 'UTC (зона недоступна на сервере)',
         };
-        return labels[source] || (source || 'неизвестный источник');
+        if (source == null || source === '') return 'неизвестный источник';
+        // Неизвестный код источника — «код: …», а не голый токен бэкенда.
+        var key = String(source);
+        if (Object.prototype.hasOwnProperty.call(labels, key)) return labels[key];
+        return TURN_UNKNOWN_CODE + key;
       },
       timeConfiguredLine: function () {
         var st = this.timeState;
@@ -15824,7 +15851,9 @@
         this.loadTurnDiagnostics(true);
       },
       turnFlowLabel: function (flow) {
-        return flow === 'direct' ? 'Direct' : (flow || '—');
+        // Поток — код бэкенда: известный подписан, неизвестный назван
+        // «код: …», а не выведен сырым токеном.
+        return flow ? turnCodeText('flow', flow) : '—';
       },
       turnClockLine: function (ctx) {
         // UR-20.8/UR-29.3: одной строкой — IANA, ЛОКАЛЬНЫЕ дата/время с
@@ -15946,6 +15975,15 @@
           return turnCodeWord('ops', code) + ' (' + code + ')';
         }).filter(function (part) { return !!part; }).join(', ');
       },
+      // Причина недоставки: свой словарь, затем словарь причин остановки хода
+      // (закрытие трассы кладёт в reason ту же причину). Неизвестное —
+      // «код: <значение>», не голый токен бэкенда.
+      turnDeliveryReasonText: function (reason) {
+        if (reason == null || reason === '') return '';
+        return turnLabelOf('delivery_reason', reason)
+          ? turnCodeText('delivery_reason', reason)
+          : turnCodeText('stop_reason', reason);
+      },
       turnDeliveryLabel: function (delivery, outcome) {
         var d = delivery || {};
         if (d.outcome === 'success' && d.digest_match === true) {
@@ -15955,10 +15993,18 @@
           return 'текст менялся при доставке: '
             + this.turnDivergenceText(d.divergence_reason);
         }
-        if (outcome && outcome !== 'success') {
-          return 'без доставки текста: ' + (d.reason || outcome);
+        var result = d.outcome || outcome || '';
+        // Причина есть в двух местах: событие закрытия трассы кладёт её на
+        // верхний уровень, реальная отправка — во вложенный итог доставки.
+        var reason = d.reason || (d.delivery && d.delivery.reason) || '';
+        if (result && result !== 'success') {
+          var why = this.turnDeliveryReasonText(reason);
+          return 'без доставки текста: '
+            + (why || turnCodeText('delivery_outcome', result));
         }
-        return 'итог: ' + (d.outcome || outcome || 'нет данных');
+        return 'итог: ' + (result
+          ? turnCodeText('delivery_outcome', result)
+          : 'нет данных');
       },
 
       // ═══ UR-F шаг 3 (§5): подписи, строки карточек, сворачивание ═════════
@@ -15985,6 +16031,16 @@
         var stages = (this.turnDiag && this.turnDiag.stages) || null;
         if (stages && stages[kind] === false) return TURN_NO_DATA;
         return 'нет данных';
+      },
+      // Почему трассы хода нет: причина — кодом бэкенда, поэтому подпись из
+      // словаря; неизвестная — «код: …», а не сырой токен.
+      turnDiagReasonText: function (reason) {
+        if (reason === 'no_turn_traces') {
+          return 'для этого чата прогоны с трассой не найдены (старее '
+            + 'ретенции или телеметрия выключена)';
+        }
+        if (reason == null || reason === '') return 'данные недоступны';
+        return turnCodeText('diag_reason', reason);
       },
       // «часы поданы на этапах: L1, инструменты, ответ» (UR-20.8).
       turnClockStagesLine: function (clock) {

@@ -553,6 +553,61 @@ const vm = (extra) => Object.assign({
   assert.strictEqual(m.turnCodeLine('refused_reason', 'odd_reason'),
     'код: odd_reason');
 
+  // (5b) Доставка: причина недоставки и итог — словами, не кодами.
+  const failed = m.turnDeliveryLabel.call({ turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText },
+  { outcome: 'failed', digest_match: false, reason: 'html_fallback' }, 'failed');
+  assert.strictEqual(failed,
+    'без доставки текста: разметка для Telegram не прошла — отправлено '
+    + 'обычным текстом (html_fallback)', failed);
+  // Причина остановки хода в поле причины — тем же словарём.
+  assert(m.turnDeliveryLabel.call({ turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText },
+  { outcome: 'silent', digest_match: false, reason: 'l1_silent' }, 'silent')
+    .indexOf('решение L1 — промолчать (l1_silent)') >= 0);
+  // Неизвестная причина — «код: …», а не голый токен бэкенда.
+  const unknownWhy = m.turnDeliveryLabel.call({
+    turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText,
+  }, { outcome: 'failed', digest_match: false,
+    reason: 'mystery_delivery' }, 'failed');
+  assert.strictEqual(unknownWhy, 'без доставки текста: код: mystery_delivery',
+    unknownWhy);
+  // Нет причины — итог доставки словами; неизвестный итог — «код: …».
+  assert(m.turnDeliveryLabel.call({ turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText },
+  { outcome: 'skipped', digest_match: false }, 'skipped')
+    .indexOf('доставка пропущена (skipped)') >= 0);
+  assert(m.turnDeliveryLabel.call({ turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText },
+  { outcome: 'mystery_outcome', digest_match: false }, 'x')
+    .indexOf('код: mystery_outcome') >= 0);
+  // Успешная доставка как написана — прежняя формулировка (не «код»).
+  assert.strictEqual(m.turnDeliveryLabel.call({
+    turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText,
+  }, { outcome: 'success', digest_match: true }, 'success'),
+  'доставлен как написан (digest совпал)');
+  // Пустая доставка — честное «нет данных», не пустая строка и не код.
+  assert.strictEqual(m.turnDeliveryLabel.call({
+    turnDivergenceText: m.turnDivergenceText,
+    turnDeliveryReasonText: m.turnDeliveryReasonText,
+  }, {}, ''), 'итог: нет данных');
+
+  // (5c) Поток, причина отсутствия трассы и источник часов — тоже коды.
+  assert.strictEqual(m.turnFlowLabel('direct'), 'Direct (direct)');
+  assert.strictEqual(m.turnFlowLabel('mystery_flow'), 'код: mystery_flow');
+  assert.strictEqual(m.turnFlowLabel(''), '—');
+  assert.strictEqual(m.turnDiagReasonText('telemetry_unavailable'),
+    'телеметрия недоступна (telemetry_unavailable)');
+  assert.strictEqual(m.turnDiagReasonText('mystery_reason'),
+    'код: mystery_reason');
+  assert.strictEqual(m.turnDiagReasonText(''), 'данные недоступны');
+  assert(m.turnDiagReasonText('no_turn_traces')
+    .indexOf('прогоны с трассой не найдены') >= 0);
+  assert.strictEqual(m.timeSourceLabel('mystery_source'),
+    'код: mystery_source');
+
   // (6) Разметка: ни одного JSON.stringify служебного значения в карточке.
   ['JSON.stringify(turnDiag.context.llm_calls',
     'JSON.stringify(turnDiag.writer.completion.checks'].forEach(function (raw) {

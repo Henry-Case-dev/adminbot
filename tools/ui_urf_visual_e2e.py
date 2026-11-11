@@ -24,6 +24,7 @@
 Артефакты по умолчанию: plans/features/unified-reply/evidence/urf/
 """
 import datetime
+import copy
 import json
 import os
 import re
@@ -356,6 +357,28 @@ class _Handler(M._Handler):
     pass
 
 
+def _delivery_variant(*, outcome: str, reason: str) -> dict:
+    """Тот же ход, но с итогом доставки — для проверки строки причины.
+
+    Карточка обязана назвать причину словами (и «код: …» для неизвестной),
+    поэтому нужны три состояния: успех, известная причина, неизвестная."""
+    data = copy.deepcopy(TURN_DIAG_STUB)
+    data["delivery"]["outcome"] = outcome
+    data["delivery"]["digest_match"] = False
+    data["delivery"]["delivery"]["outcome"] = outcome
+    data["delivery"]["delivery"]["reason"] = reason
+    data["delivery"]["delivery"].pop("tg_message_ids", None)
+    return data
+
+
+#: `?turn=N` → вариант стаба (1 — успешная доставка, 2 — известная причина,
+#: 3 — неизвестная причина: карточка обязана дать «код: …»).
+TURN_DIAG_BY_TURN = {
+    2: _delivery_variant(outcome="failed", reason="html_fallback"),
+    3: _delivery_variant(outcome="failed", reason="mystery_delivery"),
+}
+
+
 def _start_server():
     httpd = ThreadingHTTPServer(("127.0.0.1", PORT), _Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
@@ -397,8 +420,13 @@ def _routes():
                           body=json.dumps(payload))
             return
         if url.endswith("/api/direct/turn-diagnostics"):
+            turn = 1
+            found = re.search(r"[?&]turn=(\d+)", route.request.url)
+            if found:
+                turn = int(found.group(1))
+            data = TURN_DIAG_BY_TURN.get(turn, TURN_DIAG_STUB)
             route.fulfill(status=200, content_type="application/json",
-                          body=json.dumps(TURN_DIAG_STUB))
+                          body=json.dumps(data))
             return
         payload = M._stub_for(route.request.url)
         route.fulfill(status=200, content_type="application/json",
@@ -531,11 +559,11 @@ async () => {
     'line_breaks', 'one_word', 'dash_replaced', 'line_breaks_exceeded',
     'protected_verbatim', 'l2_writer', 'p0', 'p1', 'p2', 'p3',
     // UR-20.3/20.6/20.7/20.8: коды LLM-вызовов, остановки, источника текста,
-    // проверок, инструмента и его ошибки — та же норма (подпись/«код: …»).
+    // проверок, инструмента, его ошибки и причины недоставки — та же норма.
     'l1_silent', 'source_restored', 'execute_web_search', 'search_timeout',
     'planning', 'final', 'provider_retry', 'continuation',
     'form_guard', 'form_guard_leak_blocked', 'numeric_mismatch',
-    'cliche_observed'];
+    'cliche_observed', 'html_fallback'];
   const unexplained = [];
   rawCodes.forEach((code) => {
     let at = text.indexOf(code);
@@ -616,6 +644,22 @@ async () => {
       '[data-turn-more-rules]'].filter(q).length,
     hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
   };
+  // ── Строка доставки: успех, известная причина и неизвестная причина
+  // (последняя обязана прийти как «код: …», а не сырым токеном бэкенда).
+  const lineAtTurn = async (turn) => {
+    const btn = q('[data-turn-btn="' + turn + '"]');
+    if (btn) {
+      btn.click();
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return flat(q('[data-turn-delivery-line]'));
+  };
+  out.deliveryLineFailed = await lineAtTurn(2);
+  out.deliveryLineUnknown = await lineAtTurn(3);
+  await lineAtTurn(1);
+  if (!out.deliveryLine) {
+    out.deliveryLine = flat(q('[data-turn-delivery-line]'));
+  }
   return out;
 }
 """
@@ -964,6 +1008,22 @@ def main() -> int:
             if part not in tool_line:
                 failures.append(label + ": tool line lacks " + part
                                 + ": " + tool_line)
+        # Причина недоставки — словами, код в скобках; неизвестная — «код: …».
+        delivery_line = r.get("deliveryLine") or ""
+        if "доставлен как написан" not in delivery_line:
+            failures.append(label + ": successful delivery line missing: "
+                            + delivery_line)
+        failed_line = r.get("deliveryLineFailed") or ""
+        for part in ("без доставки текста:",
+                     "разметка для Telegram не прошла",
+                     "(html_fallback)"):
+            if part not in failed_line:
+                failures.append(label + ": delivery line lacks " + part
+                                + ": " + failed_line)
+        unknown_line = r.get("deliveryLineUnknown") or ""
+        if "код: mystery_delivery" not in unknown_line:
+            failures.append(label + ": unknown delivery reason not labelled: "
+                            + unknown_line)
         if r.get("unexplained"):
             failures.append(label + ": raw code without label "
                             + json.dumps(r.get("unexplained"),

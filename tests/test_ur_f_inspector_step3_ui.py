@@ -255,6 +255,35 @@ class TestServiceValuesLabelled:
         assert "TURN_UNKNOWN_CODE" in checks, "неизвестный код — «код: …»"
         assert "turnCodeText('form_guard'" in checks
 
+    def test_delivery_reason_and_outcome_use_dictionaries(self):
+        block = _code_block("turnDeliveryLabel: function")
+        assert "turnDeliveryReasonText(reason)" in block, \
+            "причина — через словарь"
+        assert "delivery_outcome" in block, "итог — через словарь"
+        assert "'без доставки текста: ' + (d.reason" not in block, \
+            "причина недоставки не печатается как есть"
+        reason = _code_block("turnDeliveryReasonText: function")
+        assert "delivery_reason" in reason, "свой словарь причин"
+        assert "stop_reason" in reason, \
+            "причина остановки хода в этом поле тоже расшифрована"
+
+    def test_delivery_dictionary_entries(self):
+        block = _code_block("delivery_reason: {")
+        for code in ("send_failed", "html_fallback", "too_long_for_html",
+                     "no_text_delivery"):
+            assert code + ":" in block, code
+        outcome = _code_block("delivery_outcome: {")
+        for code in ("success", "failed", "skipped", "silent"):
+            assert code + ":" in outcome, code
+
+    def test_flow_and_missing_trace_reasons(self):
+        assert "turnDiagReasonText(turnDiag.reason)" in SECTION
+        assert "turnDiag.reason ||" not in SECTION, \
+            "причина отсутствия трассы не печатается как есть"
+        assert "diag_reason" in _code_block("turnDiagReasonText: function")
+        assert "turnCodeText('flow'" in _code_block("turnFlowLabel: function")
+        assert "TURN_UNKNOWN_CODE" in _code_block("timeSourceLabel: function")
+
 
 class TestHonestEmptiness:
     """`null`/`stages.*=false` → «нет данных», никогда 0 вместо «неизвестно»."""
@@ -472,6 +501,14 @@ class TestLiveViewports:
             assert "поиск в интернете (execute_web_search)" in tool_row, tool_row
             assert "источник не ответил вовремя (search_timeout)" in tool_row, \
                 tool_row
+            delivery_line = data["deliveryLine"]
+            assert "доставлен как написан" in delivery_line, delivery_line
+            failed_line = data["deliveryLineFailed"]
+            assert "без доставки текста:" in failed_line, failed_line
+            assert "(html_fallback)" in failed_line, failed_line
+            assert "разметка для Telegram не прошла" in failed_line, failed_line
+            unknown_line = data["deliveryLineUnknown"]
+            assert "код: mystery_delivery" in unknown_line, unknown_line
             rects = data["cardRects"]
             assert len(rects) == 4
             lefts = {row["left"] for row in rects}

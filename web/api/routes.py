@@ -1863,6 +1863,10 @@ _TURN_WRITER_SCHEMA = {
 _TURN_DELIVERY_SCHEMA = {
     "outcome": ("code", 32),
     "ts": "int",
+    # Причина итога доставки: `note_delivery(reason=...)` на реальной отправке
+    # и причина остановки хода, которой `turn_trace.close()` закрывает
+    # трассу без текста. Код закрытого набора, поэтому те же enum-правила.
+    "reason": ("code", 64),
     "ops": ("list", ("dict", {
         "op": ("code", 40),
         "digest": ("code", 64),

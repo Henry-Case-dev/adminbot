@@ -1666,8 +1666,8 @@
                         <div v-if="turnDiag.delivery.digest_match === false"
                              class="text-xs text-amber-300 mt-1 turn-wrap"
                              data-turn-divergence>
-                          raw_final ≠ delivered — причина: {{
-                            turnDivergenceText(
+                          доставленный текст отличается от написанного —
+                          причина: {{ turnDivergenceText(
                               turnDiag.delivery.divergence_reason)
                             || 'не объяснено' }}
                         </div>
@@ -1716,10 +1716,7 @@
                 </template>
                 <template v-else-if="turnDiag && !turnDiag.available">
                   <div class="text-xs text-gray-500" data-turn-unavailable>
-                    Трассы хода нет: {{ turnDiag.reason === 'no_turn_traces'
-                      ? 'для этого чата прогоны с трассой не найдены '
-                        + '(старее ретенции или телеметрия выключена)'
-                      : (turnDiag.reason || 'данные недоступны') }}.
+                    Трассы хода нет: {{ turnDiagReasonText(turnDiag.reason) }}.
                   </div>
                 </template>
               </div>
