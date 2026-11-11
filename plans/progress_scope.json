@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T16:55:00+12:00",
+  "updated": "2026-11-11T17:50:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1237,7 +1237,16 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "inspector step 3 under review; do not interrupt"
+      "queue_note": "inspector step 3 under review; do not interrupt",
+      "release_state": "inspector slice released as 2.58.185 @ 40d52954; product healthy, no errors, DDL 0; two live items await the first ordinary turn (a real direct_turn_selection row and populated selection/style/clock sections) — a read-only script is ready and the check repeats on that event",
+      "postdeploy_monitoring": {
+        "blocking": false,
+        "why": "the only unresolved live items require a real chat turn; sending test messages into working chats is forbidden",
+        "trigger": "first ordinary direct turn in any chat after 2026-11-11T05:27Z",
+        "owner_action": "none",
+        "resume": "read-only run of the prepared script"
+      },
+      "test_debt": "tests/test_auto_budget_asap31.py double was stale after the adapter contract change; fixed in b457ad0e, not yet released (test-only). Five pre-existing failures in test_direct_fallback_recompose_asap32.py share the same class (double missing the `sent=` kwarg) and are still open."
     },
     {
       "id": "pvr-fc-corrective-01",
