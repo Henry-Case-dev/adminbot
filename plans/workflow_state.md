@@ -5,9 +5,9 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e3525d274ffepKMBImKQlCSZI1 (Reviewer: d55abf0d five overview blockers); ses_e34f16b57ffeUiiHZUZQ2Wyl4e (DevOps: building and deploying 2.58.190 with the grounds fix); ses_e34f13973ffeeNzutXmiTG3f0q (PM: recording the repair and the established VMQ-NEXT-04 semantics)
-Join barriers: S4-TRACE waits for the overview verdict; the grounds fix must be approved before any deployment and before the production repair run; two earlier review sessions for the inspector produced no verdict, so every lane now carries hard timeouts.
-Last verified: 2.58.189 DEPLOYED and verified at release `edd7d472` (tree `ba196a9b`), schema v47, no DDL, rollback `c087253d`; the post-deploy live probe is trace 71a18f9a, chat -1004482340693, recorded 2026-11-11T12:38:16Z UTC (= 2026-11-12 00:38 local) and returned `context.l1.slot="main"` from the actual record, while an older 2.58.188 turn honestly returns nulls for the newer fields. UR-F slice after binding: 24 of 29 rows VERIFIED, 165 of 262 required rows VERIFIED in that map. Earlier: R0-INV closed (9 rows), S1-AXES + S2-ID approved at 4c59a483, 12 rows bound.
+Active lanes: ses_e357d26b4ffemxzNxlAh77olCq (Builder: compare switcher on the overview); ses_e34d4aaedffeOQBCFcnbUfMoLD (PM: binding the 2.58.190 deployed record)
+Join barriers: S4-TRACE waits for the overview verdict; the 2.58.190 record must be bound before the epic accounting is reported.
+Last verified: 2.58.190 DEPLOYED at `7c3c01b2` (grounds fix; base `edd7d472`/2.58.189), schema v47, no DDL, rollback `edd7d472`; live diagnostics show a real lesson with `grounds[]` (primary source id, provenance, `tg_message_id` resolved separately from the row id), `independent_grounds` computed, `stems_shared=null` with `not_lexical_path`, and zero consistency violations. 2.58.189 earlier brought the inspector slice; the post-deploy probe trace 71a18f9a returned `context.l1.slot="main"` from the actual record. Earlier: R0-INV closed (9 rows), S1-AXES + S2-ID approved at 4c59a483, 12 rows bound.
 Next unlocks: PM binding UR-20.6/20.7/UR-20 to edd7d472 closes the inspector slice; S3 UI verdict -> S4-TRACE; evidence-grounds repair -> independent Reviewer check on the actual JSON incl. restart; then S5-MEME and S5b
 Next execution: awaiting_children
 Review: pending
