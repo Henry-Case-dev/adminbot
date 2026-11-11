@@ -1645,3 +1645,113 @@ async def test_no_config_cache_keeps_primary_path_but_still_redacts_settings(
     result = await router.dispatch("fetch_article", {"url": "u"}, ctx)
     assert "вывод заблокирован" not in result        # основная функция жива
     assert "текст статьи" in result
+
+
+# ── 15. Секреты, живущие ТОЛЬКО в окружении процесса ───────────────────────
+
+#: Эти значения не имеют ни поля в `Settings`, ни строки в `bot_settings`:
+#: единственный их источник — окружение процесса (`os.environ`).
+ENV_ONLY_SECRETS = {
+    "POSTGRES_DSN":
+        "postgresql://reviewer:EnvOnlySecret246813579@db.internal:5432/admin",
+    "SENTRY_DSN": "https://envonly246813579@sentry.example/42",
+    "LOGTAIL_SOURCE_TOKEN": "logtail-envonly-246813579",
+    "TELEGRAM_API_HASH": "envonlyhash246813579",
+}
+
+#: Значение из конфиг-кэша для проверки «отравления» TTL-кэша.
+TTL_POISON_SECRET = "ttl-poison-secret-246813579"
+
+
+def _patch_env(monkeypatch, mapping):
+    for name, value in mapping.items():
+        monkeypatch.setenv(name, value)
+
+
+def _cache_for(state):
+    """`None` — кэша нет; `FakeCache` — кэш есть, но `get` всегда пуст."""
+    return None if state == "absent" else FakeCache({})
+
+
+@pytest.mark.parametrize("cache_state", ["absent", "miss"])
+@pytest.mark.parametrize("kind", ["tool_result", "traceback"])
+def test_env_only_secret_is_redacted_without_cache(monkeypatch, kind,
+                                                   cache_state):
+    """Env-секрет вычищается и без кэша, и при промахе `cache.get`.
+
+    Дефект: эти ключи собирались только через конфиг-кэш, поэтому при
+    отсутствии кэша (или пустом ответе) снимок объявлял себя полным, а
+    значение из окружения уходило в сырой вывод.
+    """
+    _patch_env(monkeypatch, ENV_ONLY_SECRETS)
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(cache=_cache_for(cache_state),
+                                              use_cache=False)
+    assert snapshot.complete is True
+    for name, value in ENV_ONLY_SECRETS.items():
+        assert value in snapshot.values, name
+        result = projection.sanitize(f"сырой текст: {value}", kind=kind,
+                                     secrets=snapshot)
+        assert result.allowed is True, name
+        assert value not in result.text, name
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cache_state", ["absent", "miss"])
+async def test_env_only_secret_never_leaks_through_dispatch(monkeypatch,
+                                                            cache_state):
+    """Сквозной путь инструмента: DSN из окружения не доходит до результата."""
+    _patch_env(monkeypatch, ENV_ONLY_SECRETS)
+    dsn = ENV_ONLY_SECRETS["POSTGRES_DSN"]
+    cache = _cache_for(cache_state)
+    pg = None if cache is None else FakePg()
+    router = _router_with(monkeypatch, cache, pg, "unused")
+
+    async def fake_article(arguments, ctx):
+        return f"traceback: подключение отклонено ({dsn})"
+
+    router._fetch_article = fake_article
+    projection.reset_secret_cache()
+    ctx = ToolContext(chat_id=GROUP_A, query="статья", user_id=MEMBER_ID)
+    result = await router.dispatch("fetch_article", {"url": "u"}, ctx)
+    assert dsn not in result
+    assert "«скрыто:POSTGRES_DSN»" in result
+
+
+def test_empty_env_secret_is_not_a_secret(monkeypatch):
+    """Пустое значение окружения не считается секретом и ничего не прячет."""
+    _patch_env(monkeypatch, {name: "" for name in ENV_ONLY_SECRETS})
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(cache=FakeCache({}),
+                                              use_cache=False)
+    assert snapshot.complete is True
+    assert "" not in snapshot.values
+    assert not any(name in snapshot.values.values()
+                   for name in ENV_ONLY_SECRETS)
+    result = projection.sanitize("обычный текст: всё в порядке",
+                                 kind="tool_result", secrets=snapshot)
+    assert result.allowed is True
+    assert result.text == "обычный текст: всё в порядке"
+    assert "скрыто" not in result.text
+
+
+def test_snapshot_without_cache_is_not_reused_by_live_cache():
+    """Снимок без кэша не «отравляет» TTL-кэш для следующего вызова с кэшем.
+
+    Дефект: набор, собранный без конфиг-кэша, кэшировался на 60 секунд, и
+    следующий вызов с живым кэшем получал его же — кэш-секрет в нём
+    отсутствовал, при `complete=True`.
+    """
+    projection.reset_secret_cache()
+    without_cache = projection.known_secret_values(cache=None)
+    assert without_cache.complete is True
+    assert TTL_POISON_SECRET not in without_cache.values
+
+    cache = FakeCache({}, values={"keys.direct_l1_api_key": TTL_POISON_SECRET})
+    second = projection.known_secret_values(cache=cache)
+    assert second.complete is True
+    assert TTL_POISON_SECRET in second.values, "снимок без кэша отравил TTL-кэш"
+
+    result = projection.sanitize(f"вывод инструмента: {TTL_POISON_SECRET}",
+                                 kind="tool_result", secrets=second)
+    assert TTL_POISON_SECRET not in result.text

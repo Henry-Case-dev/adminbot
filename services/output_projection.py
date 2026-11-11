@@ -250,16 +250,27 @@ def known_secret_values(cache=None, *, use_cache: bool = True,
       2) секретные поля каталога параметров с `settings_field` (страховка,
          если каталог расширили без правки реестра);
       3) токен бота (`settings.API_TOKEN`);
-      4) ДЕЙСТВУЮЩИЕ значения ВСЕХ секретных ключей конфиг-кэша: реестра
+      4) значения секретов, объявленных в каталоге с env-именем, — ВСЕГДА
+         из `os.environ` (`POSTGRES_DSN`, `SENTRY_DSN`,
+         `LOGTAIL_SOURCE_TOKEN`, `TELEGRAM_API_ID/HASH`,
+         `COBALT_HTTP_PROXY` и другие). Для части из них поля в `Settings`
+         нет, и в конфиг-кэше их тоже нет: промах кэша не должен скрывать
+         значение окружения;
+      5) ДЕЙСТВУЮЩИЕ значения ВСЕХ секретных ключей конфиг-кэша: реестра
          credential-полей (переопределяемых через админку —
          `keys.llm_api_key` и другие) и каталога, включая cache-only ключи
          без `settings_field` (`keys.direct_l1_api_key`,
-         `keys.summary_l1_api_key`, инфра-секреты каталога), плюс глобальные
-         секреты `services.chat_keys`.
+         `keys.summary_l1_api_key`), плюс глобальные секреты
+         `services.chat_keys`.
 
     `SecretSnapshot.complete=False` — часть источников прочитать не удалось;
     для сырого вывода это отказ (см. `sanitize`). Ключ конкретного чата
     (BYOK) добавляет `known_secret_values_async`.
+
+    Кэш значений (`_SECRET_CACHE_TTL`) наполняется только ПОЛНЫМ набором,
+    собранным С конфиг-кэшем: снимок без кэша не объявляет себя полным для
+    последующего вызова, у которого кэш есть, иначе первый (бедный) набор
+    «отравлял» бы TTL-кэш и прятал кэш-секрет на следующие 60 секунд.
     """
     global _secret_cache
     now = time.monotonic()
@@ -274,6 +285,16 @@ def known_secret_values(cache=None, *, use_cache: bool = True,
         logger.warning("[diag-secrets] сбор источников секретов "
                        "не удался", exc_info=True)
         return SecretSnapshot({}, False, ("settings",))
+    try:
+        # Окружение процесса читается ВСЕГДА (до и независимо от кэша):
+        # часть секретов каталога живёт только в env, и промах конфиг-кэша
+        # не должен скрывать их значение.
+        for name, value in _env_secret_values().items():
+            values.setdefault(name, value)
+    except Exception:
+        logger.warning("[diag-secrets] окружение процесса недоступно — "
+                       "полнота источников секретов неизвестна", exc_info=True)
+        missing.append("env")
 
     if cache is None:
         # Отсутствие конфиг-кэша — не ошибка (прецедент BYOK/`pg` выше: «без
@@ -316,7 +337,10 @@ def known_secret_values(cache=None, *, use_cache: bool = True,
     # Ключ конкретного чата (BYOK) читается только асинхронно —
     # см. `known_secret_values_async`.
     snapshot = SecretSnapshot(values, not missing, tuple(missing))
-    if use_cache and snapshot.complete:
+    # Только полный набор, собранный С конфиг-кэшем, годится как общий
+    # TTL-кэш: снимок без кэша не содержит значений `bot_settings` и,
+    # будучи закэшированным, отравил бы следующий вызов с живым кэшем.
+    if use_cache and cache is not None and snapshot.complete:
         _secret_cache = (now + _SECRET_CACHE_TTL, dict(values))
     return snapshot
 
@@ -369,6 +393,29 @@ def _settings_secret_values() -> dict[str, str]:
                   spec.pg_key)
     # Токен бота — секрет даже если поле не помечено в каталоге.
     _remember(values, getattr(settings, "API_TOKEN", None), "settings.API_TOKEN")
+    return values
+
+
+def _env_secret_values() -> dict[str, str]:
+    """Секреты каталога, объявленные с env-именем, — из `os.environ`.
+
+    Части секретов нет ни в `Settings`, ни в `bot_settings`
+    (`postgres_dsn`, `postgres_password`, `sentry_dsn`,
+    `logtail_source_token`, `telegram_api_id`, `telegram_api_hash`,
+    `cobalt_http_proxy`): их рантайм-значение живёт только в окружении
+    процесса. Поэтому окружение читается всегда, а не через конфиг-кэш, и
+    промах кэша не может спрятать значение. Пустое/короткое значение
+    секретом не считается (`_remember` отсекает).
+    """
+    import os
+
+    from services import param_catalog as catalog
+
+    values: dict[str, str] = {}
+    for spec in catalog.REGISTRY.values():
+        if not spec.secret or not spec.env_name:
+            continue
+        _remember(values, os.environ.get(spec.env_name), spec.env_name)
     return values
 
 
