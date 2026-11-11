@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
   "source_sha256": "ba12833aebc259039c7c198f596346880639618d9eafdb2e76d8ede17d0eb400",
-  "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+  "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -74,12 +74,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-06",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-06",
           "observation": "Проверка выполняется в момент решения (decide/open_gate → resolve_actor(check_admin=True)); bot отсутствует → bot_unavailable/unverified, исключение API → telegram_api_error/unverified без raise (telegram_role_check.py:132-146). test_auth_unverified_denies_protected_only: prompts/view → unverified, bot_server_state/view → allow.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -105,12 +105,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-07",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-07",
           "observation": "DATA_CLASSES = PUBLIC_TECH/CHAT_SCOPED/PROMPT_CONTENT/OTHER_CHAT_DATA/SECRET_VALUE; default_diag_matrix() задаёт строку по классу (public/chat_scoped → user+local_admin, prompt_content → только local_admin, secret → пусто). Тесты: test_default_matrix_role_by_class, test_member_reads_public_tech_but_not_prompts, test_other_chat_data_rule, test_secret_value_class_never_allowed.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -136,12 +136,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-31",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-31",
           "observation": "Техническое обсуждение не блокируется: keyword-роутов и списков фраз не добавлено, публичные классы открыты участнику (test_member_reads_public_tech_but_not_prompts), а запрос промпта гасится правилом класса (R_DENY_PROMPT_MEMBER), а не запретом «внутренностей сервера».",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -168,12 +168,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-GRAL-05",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-05",
           "observation": "Общая маска на исходный код не введена: capability source_code — PUBLIC_TECH с view/run для user (test_member_reads_public_tech_but_not_prompts: run read_source_code → allow); защищаются значения секретов и содержимое промптов/чужих чатов (SECRET_VALUE/PROMPT_CONTENT/OTHER_CHAT_DATA).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -528,15 +528,15 @@
       "acceptance": "Матрица поддерживает обычных участников, администраторов конкретного Telegram-чата и владельца бота и учитывает числовой Telegram user ID, реальный статус администратора через Telegram API, chat scope и актуальные настройки; текстовые заявления о правах, никнеймы, пересланные сообщения и Reply не учитываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-02",
-          "observation": "roles_legend() отдаёт user/local_admin/global_admin, MATRIX_ROLE_OF_ACTOR сопоставляет актора со строкой существующей матрицы; чат-админ подтверждается только getChatMember по числовым (chat_id, from_user.id): test_chat_admin_verified_by_telegram_api (bot.calls == [(GROUP_A, ADMIN_ID)]), test_nickname_and_claims_do_not_grant_admin, test_matrix_override_cannot_open_prompts_to_member.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-02",
+          "observation": "Матрица различает участника, администратора конкретного чата и владельца; админство подтверждается только getChatMember по числовым (chat_id, from_user.id) (test_chat_admin_verified_by_telegram_api), никнеймы и текстовые заявления прав не дают (test_nickname_and_claims_do_not_grant_admin). После fef70398 строка local_admin действует во всех классах через dispatch (test_local_admin_row_is_enforced_for_public_tech_via_dispatch, test_local_admin_row_is_enforced_for_chat_scoped_via_dispatch), статус перепроверяется живой проверкой (test_local_admin_row_rechecks_live_status_before_output), а при недоступном Telegram доступ закрывается (test_local_admin_row_denies_when_admin_check_unavailable).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -547,15 +547,32 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L11",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-01"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Матрица не учитывает реального админа чата для PUBLIC_TECH/CHAT_SCOPED: check_admin=True только для PROTECTED_CLASSES ({PROMPT_CONTENT, OTHER_CHAT_DATA}), поэтому актор остаётся member (matrix_role=\"user\") и getChatMember не вызывается — реальный админ чата получает решение как участник.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-01"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Матрица не учитывает реального админа чата для PUBLIC_TECH/CHAT_SCOPED: check_admin=True только для PROTECTED_CLASSES ({PROMPT_CONTENT, OTHER_CHAT_DATA}), поэтому актор остаётся member (matrix_role=\"user\") и getChatMember не вызывается — реальный админ чата получает решение как участник.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -616,15 +633,15 @@
       "acceptance": "Выдача credential values через чат запрещена абсолютно и неотключаемо: никому, включая владельца, не тумблером и не настройкой; проверка выполняется на уровне backend/tool results и итоговой доставки; настройки показывают наличие и статус секрета, но не значение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-05",
-          "observation": "SECRET_VALUE разбирается ветвью hard_rule до матрицы: deny участнику и владельцу, текст содержит «включая владельца» (test_secret_value_class_never_allowed); snapshot.secret_policy = {effect: deny, configurable: false}; project_secret_value() отдаёт name/configured/last4/status без значения (test_secret_projection_never_returns_value); значения вычищаются из tool result и финальной доставки (test_tool_result_never_leaks_secret, test_checkup_report_redacts_secrets).",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-05",
+          "observation": "Абсолютный запрет держится на всех путях: SECRET_VALUE — deny до матрицы, включая владельца (test_secret_value_class_never_allowed); snapshot.secret_policy = {effect: deny, configurable: false}; значения вычищаются из tool result и финальной доставки, а при неполных или недоступных источниках сырой вывод блокируется (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_checkup_report_blocked_when_sources_incomplete, test_byok_read_error_blocks_raw_output); project_secret_value() отдаёт статус без значения (test_secret_projection_never_returns_value).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -635,15 +652,32 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L15",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Абсолютный запрет не выполняется на всех путях: при недоступных источниках секретов sanitize(kind=tool_result|final) отдаёт allowed=True с исходным текстом, а чекап при исключении слоя прав публикует отчёт вообще без санитайзера.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Абсолютный запрет не выполняется на всех путях: при недоступных источниках секретов sanitize(kind=tool_result|final) отдаёт allowed=True с исходным текстом, а чекап при исключении слоя прав публикует отчёт вообще без санитайзера.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -684,12 +718,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-07",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-07",
           "observation": "test_audit_records_decisions_without_secrets: события decision/denial/gate_open/publication/policy_change/role_check с actor_id, chat_id, capability, role, effect, reason_code, source; policy_change несёт changed_by/before/after; секрет и текст промпта отсутствуют и в снапшоте, и в caplog. test_prompt_disclosure_audit_without_text: disclosure_actor/chat_id/prompt_id/prompt_revision/destination=group и нет полей text/prompt_text/body. Белый список полей — services/diagnostic_policy.py:260-267.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -716,13 +750,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-08",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-08",
           "observation": "Отзыв прав на уже запущенную проверку доказан тестами: test_admin_status_changed_mid_session, test_revocation_blocks_publication_of_running_check, test_policy_change_revokes_running_chat_admin_check, test_publish_allows_when_rights_survive, test_checkup_entry_publishes_after_recheck (отчёт не публикуется), плюс разные чаты, личный диалог, живая смена настроек без рестарта, конкурентные запросы и обход через инструмент/пересказ. Живой сценарий требует выката.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -976,13 +1010,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-10",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-10",
           "observation": "Политическая часть доказана: участнику разрешены публичные классы и запрещён prompt readback (test_member_reads_public_tech_but_not_prompts, test_dm_scope_is_member_not_admin, SD1-D2-31). Сам живой ответ публичному пользователю на произвольный технический вопрос без «чекап» требует выката и реального чата.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1012,13 +1046,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-11",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-11",
           "observation": "Политическая часть доказана: участнику промпт запрещён жёстким правилом, tool result и финальная доставка проходят перепроверку и санитизацию, переиспользования между акторами нет (test_member_reads_public_tech_but_not_prompts, test_matrix_override_cannot_open_prompts_to_member, test_concurrent_admin_and_member_do_not_share_data, test_tool_result_never_leaks_secret). Живые попытки через реальный чат и prompt injection требуют выката.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1089,16 +1123,16 @@
       "acceptance": "Token, API key, password, private key и session secret не раскрываются никому через Telegram, включая owner/admin; проверены все error/caching/source/tool/replay маршруты, включая prompt, лог, config и исходники.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "FAILED",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-14",
-          "observation": "Тестовая часть доказана: значения секретов не появляются в tool result (включая немаркированные инструменты), в финальной доставке чекапа, в аудите и в логах (test_tool_result_never_leaks_secret, test_non_diagnostic_tool_result_is_sanitized, test_checkup_report_redacts_secrets, test_audit_records_decisions_without_secrets, test_secret_value_class_never_allowed). Проверка «всех маршрутов» на реальном Telegram требует выката.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-14",
+          "observation": "Политическая часть доказана на этом кандидате: значения не появляются в tool result (включая немаркированные инструменты), в финальной доставке чекапа, в аудите и в логах; при неполных источниках сырой вывод блокируется (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_checkup_report_blocked_when_sources_incomplete, test_audit_records_decisions_without_secrets, test_secret_value_class_never_allowed). Живая проверка «ноль раскрытий» на всех маршрутах (error/caching/source/tool/replay, промпт, лог, конфиг, исходники) возможна только после выката — условие в postdeploy_condition.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1112,15 +1146,32 @@
       "rollback_ref": "откат — возврат на предыдущий неизменяемый релиз 2.58.184 @ 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (родитель портированного кандидата, release/2.58.184), без переноса состояния",
       "boundary": "живая приёмка не может быть выполнена до выката; политическая часть доказана тестами кандидата, живая часть — обязательство после деплоя",
       "blocker_class": "не дефект D2: живая приёмка Telegram невозможна до выката; строка ждёт деплоя кандидата и снятия postdeploy-доказательства (см. postdeploy_condition и rollback_ref)",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "READY_FOR_LIVE",
+          "reason": "Живая приёмка «ноль раскрытий» не может быть выдана на этом кандидате: найдены реальные пути утечки (fail-open projection, обход публикации), поэтому строка переведена из READY_FOR_LIVE в FAILED до исправления.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "READY_FOR_LIVE",
-        "reason": "Живая приёмка «ноль раскрытий» не может быть выдана на этом кандидате: найдены реальные пути утечки (fail-open projection, обход публикации), поэтому строка переведена из READY_FOR_LIVE в FAILED до исправления.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301; живая проверка остаётся обязательством после выката"
       }
     },
     {
@@ -1135,15 +1186,15 @@
       "acceptance": "Авторизация действует на стороне backend до чтения, перед ToolResult и перед отправкой и не определяется текстом «я админ» или verdict модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-15",
-          "observation": "Отказ выдаётся до чтения и до отправки: test_checkup_entry_respects_policy_without_reading_logs (fetcher.fetch и service.checkup не вызывались, ушёл короткий отказ с reason_code), test_tool_call_is_denied_by_policy (dispatch вернул отказ без содержимого отчёта), публикация перепроверяется в publish(); текст «я админ» и verdict модели не участвуют: test_paraphrased_request_and_args_do_not_elevate.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-15",
+          "observation": "Проверка стоит до чтения и до отправки: отказ по политике не читает логи и не формирует отчёт (test_checkup_entry_respects_policy_without_reading_logs), dispatch возвращает отказ без содержимого отчёта (test_tool_call_is_denied_by_policy). После 89882aef недоступность слоя прав — отказ, а не обход (test_checkup_denies_when_policy_layer_unavailable), публикация перепроверяется в publish(); текст «я админ» и verdict модели не участвуют (test_paraphrased_request_and_args_do_not_elevate).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1153,16 +1204,34 @@
           "description": "наблюдаемый артефакт проверки SD1-AC-15"
         }
       ],
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-01",
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Гарантия «перед отправкой» не выполняется для чекапа: handlers/checkup.py:123-126 при исключении слоя прав возвращает gate=None, и отчёт уходит без проверки прав и без очистки секретов.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-01",
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Гарантия «перед отправкой» не выполняется для чекапа: handlers/checkup.py:123-126 при исключении слоя прав возвращает gate=None, и отчёт уходит без проверки прав и без очистки секретов.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -1180,12 +1249,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AC-16",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AC-16",
           "observation": "Класс данных задаётся структурно (CAPABILITIES.data_class, DATA_CLASSES), права считает существующий слой param_permissions/perm_overrides, секреты — типизированный каталог param_catalog (sensitivity_of_pg_key), вывод проходит общий sanitize(); pattern-правила объявлены второй линией и не единственной защитой (services/output_projection.py:53-64). Тесты: test_secret_projection_never_returns_value, test_sanitize_secondary_patterns, test_matrix_snapshot_has_inheritance_and_legend.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1500,12 +1569,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-GRAL-03",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-03",
           "observation": "Скрытия по признаку «внутренности сервера» нет: запрет строится только на data_class/PROTECTED_CLASSES/OTHER_CHAT_DATA, публичный класс по умолчанию открыт участнику (test_member_reads_public_tech_but_not_prompts, test_default_matrix_role_by_class).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1683,15 +1752,15 @@
       "acceptance": "Промпт-readback и секретные данные не попадают в общий evidence-буфер, не кэшируются как публичные и фильтруются до модели и до Telegram.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-01",
-          "observation": "Секреты и текст промпта не пишутся в аудит, лог или результат инструмента: sanitize() применяется к любому tool result (ToolRouter._diagnostic_output, в т.ч. немаркированным инструментам — test_non_diagnostic_tool_result_is_sanitized) и к финальному отчёту чекапа (publish → projection.sanitize(kind='final')); prompt_digest() отдаёт только prompt_chars/prompt_digest (test_prompt_digest_has_no_text). Общий evidence-буфер в кандидате ещё не существует — эта часть обязательства живёт в SD1-EVD-04 (D3), промпт-readback — в D5.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-01",
+          "observation": "Проекция применяется до модели и до Telegram: `ToolRouter._diagnostic_output` санитизирует любой tool result (в т.ч. немаркированные инструменты — test_non_diagnostic_tool_result_is_sanitized), `publish()` — финальный отчёт. С 89882aef/02e9d301 `tool_result` и `final` входят в RAW_OUTPUT_KINDS, поэтому при неполных источниках секретов сырой вывод блокируется целиком (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_publish_blocks_final_when_sources_incomplete). prompt_digest() отдаёт только prompt_chars/prompt_digest (test_prompt_digest_has_no_text). Общий evidence-буфер — SD1-EVD-04 (D3), промпт-readback — D5.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -1702,15 +1771,32 @@
         }
       ],
       "boundary": "общий evidence-буфер (SD1-EVD-04) и промпт-readback (D5) на этом кандидате отсутствуют; доказана фильтрация до модели и до Telegram",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "«Фильтруются до модели и до Telegram» опровергнуто: fail-open в output projection для tool_result/final и обход publish в handlers/checkup.py:123-126.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "«Фильтруются до модели и до Telegram» опровергнуто: fail-open в output projection для tool_result/final и обход publish в handlers/checkup.py:123-126.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -1890,12 +1976,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-SEM-05",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-SEM-05",
           "observation": "Маркировка инструментов структурная: TOOL_CAPABILITIES (tool → capability), без regex по описанию и по тексту запроса; проверка ACL и аргументов идёт после выбора инструмента в ToolRouter.dispatch → _diagnostic_guard (test_tool_call_is_denied_by_policy, test_indirect_tool_bypass_is_blocked).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2650,12 +2736,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-02",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-02",
           "observation": "resolve_actor() возвращает ROLE_MEMBER для любого удостоверяемого участника, включая личный диалог (chat_id>0 → STATUS_MEMBER в telegram_role_check); публичные классы разрешены: test_member_reads_public_tech_but_not_prompts (bot_server_state/view и source_code/run → allow), test_dm_scope_is_member_not_admin.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2681,13 +2767,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-03",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-03",
           "observation": "Политическая часть доказана: единственный источник роли — getChatMember по числовым (chat_id, from_user.id), статусы administrator/creator; test_chat_admin_verified_by_telegram_api, test_nickname_and_claims_do_not_grant_admin, test_admin_status_changed_mid_session. Живое подтверждение невозможно до выката.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2718,12 +2804,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-04",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-04",
           "observation": "Роль владельца берётся из существующего контура: resolve_actor → roles.access_for(...).is_global_admin → ROLE_PROJECT_OWNER/VERIFIED_OWNER, имя и username не участвуют. test_project_owner_from_existing_owner_contour (allow на prompts/edit для настроенного OWNER_ID), explain_for(OWNER_ID) показывает allow для edit.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2749,12 +2835,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-05",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-05",
           "observation": "telegram_id=None → Actor(member, unverified, R_DENY_NO_IDENTITY), а для PROTECTED_CLASSES срабатывает hard_rule deny: test_anonymous_sender_gets_no_prompt_rights; sender_chat/канал в resolve_actor не участвует — principal только from_user.id (services/diagnostic_policy.py:337-339, services/telegram_role_check.py:108-110).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2818,12 +2904,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-09",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-09",
           "observation": "denial_message()/explain_reason() отдают короткий отказ по отсутствию права без фрагментов промпта и без перечня инструкций (текст R_DENY_PROMPT_MEMBER); test_member_reads_public_tech_but_not_prompts проверяет отказ вместе с сохранённым доступом к публичной технике, test_explain_is_plain_language_and_secret_aware — объяснение без содержимого.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2849,12 +2935,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-10",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-10",
           "observation": "test_admin_of_chat_a_gets_no_chat_b_prompt: админ A, действующий в чате B, получает deny и проверка идёт именно по (GROUP_B, ADMIN_ID); для чужих данных отдельное hard_rule R_DENY_OTHER_CHAT (test_other_chat_data_rule — deny даже владельцу при resource_chat_id другого чата). Чужой chat_id в запросе ресурса не параметризован, поэтому «точный prompt_id» другого чата не имеет входного пути.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2900,15 +2986,15 @@
       "acceptance": "Секреты не выдаются под видом настройки, исходника, лога, env, сырого конфига, diff или части промпта; для секретного поля возвращаются только configured/not_configured, masked fingerprint и health status.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-12",
-          "observation": "project_secret_value() возвращает только name/sensitivity/configured/last4/status — значение не встречается в сериализованном ответе (test_secret_projection_never_returns_value); sanitize() снимает значения и из логов, и из traceback, и из любого tool result, включая немаркированные инструменты (test_non_diagnostic_tool_result_is_sanitized); pattern-правила работают второй линией. Поля key health (last_success/last_error_code) — отдельное обязательство SD1-D2-24, остаётся PENDING.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-12",
+          "observation": "project_secret_value() отдаёт только name/sensitivity/configured/last4/status — значение не встречается в ответе (test_secret_projection_never_returns_value). Реестр известных секретов покрывает все секретные поля каталога, включая env-only и cache-only ключи, поэтому значение не проходит под видом настройки, лога, env или diff (test_credential_registry_covers_every_secret_settings_field, test_every_credential_source_value_is_redacted, test_cache_only_secret_key_is_in_consulted_set, test_working_value_from_admin_panel_is_redacted). Поля key health (last_success/last_error_code) — SD1-D2-24, остаётся PENDING.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2919,15 +3005,32 @@
         }
       ],
       "boundary": "набор возвращаемых полей трактуется как разрешающий список («не более»): значение не возвращается ни на одном маршруте; расширенные key-health поля не реализованы и отслеживаются в SD1-D2-24",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Реестр известных секретов неполон (нет SOURCE_READ_GITHUB_TOKEN, SUMMARY_L1_API_KEY, SUMMARY_L2_API_KEY, EMBEDDING_EXTRA_API_KEYS), поэтому такие значения не снимаются и остаётся только pattern-линия, которая защитой не считается.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Реестр известных секретов неполон (нет SOURCE_READ_GITHUB_TOKEN, SUMMARY_L1_API_KEY, SUMMARY_L2_API_KEY, EMBEDDING_EXTRA_API_KEYS), поэтому такие значения не снимаются и остаётся только pattern-линия, которая защитой не считается.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -2960,12 +3063,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-13",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-13",
           "observation": "PROMPT_CONTENT — отдельный класс и отдельная пара действий (view/edit) в CAPABILITIES; sensitivity_of_pg_key('prompts.checkup_system_prompt') == PROMPT_CONTENT, а не SECRET_VALUE (test_secret_projection_never_returns_value); отказ участнику идёт кодом R_DENY_PROMPT_MEMBER, не секретным.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -2988,15 +3091,15 @@
       "acceptance": "Credential values недоступны в output при любом статусе роли; project_owner управляет ими через админку и не получает текст ключа обратно в Telegram.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-14",
-          "observation": "Значение недоступно при любой роли: SECRET_VALUE deny в evaluate() до матрицы, включая владельца (test_secret_value_class_never_allowed); project_secret_value не содержит значения; финальная доставка проходит sanitize — секрет вырезан из публикации (test_audit_records_decisions_without_secrets). Существующая админка ключей этим кандидатом не менялась.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-14",
+          "observation": "Значение недоступно при любой роли: SECRET_VALUE — deny в hard_rule до матрицы, включая владельца (test_secret_value_class_never_allowed). При неполных или недоступных источниках секретов сырой вывод блокируется, а не отдаётся как есть (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_checkup_report_blocked_when_sources_incomplete), аудит пишется без значений (test_audit_records_decisions_without_secrets). Существующая админка ключей этим кандидатом не менялась.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3006,15 +3109,32 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-14"
         }
       ],
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Credential values достижимы в output при недоступных или неполных источниках секретов: санитайзер возвращает allowed=True с неизменённым текстом.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Credential values достижимы в output при недоступных или неполных источниках секретов: санитайзер возвращает allowed=True с неизменённым текстом.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -3029,15 +3149,15 @@
       "acceptance": "Промпт, содержащий credential value, отдаётся только с удалённым/замаскированным фрагментом, статусом partially_redacted и предупреждением о риске.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-15",
-          "observation": "sanitize() возвращает STATUS_PARTIALLY_REDACTED и маркер «скрыто:<имя>» на месте credential value (test_sanitize_removes_values_and_fails_closed_for_raw_logs проверяет и статус, и маркер); при недоступных источниках kind='prompt' → allowed=False (fail-closed). Пользовательский текст предупреждения формирует слой выдачи промпта (D5, SD1-D5-08).",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-15",
+          "observation": "sanitize() возвращает STATUS_PARTIALLY_REDACTED и маркер «скрыто:<имя>» на месте credential value (test_sanitize_removes_values_and_fails_closed_for_raw_logs); при неполных или недоступных источниках kind='prompt' даёт allowed=False. Пользовательский текст предупреждения формирует слой выдачи промпта (D5, SD1-D5-08).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3048,15 +3168,32 @@
         }
       ],
       "boundary": "маска и статус partially_redacted доказаны здесь; текст предупреждения — слой доставки D5",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Маскирование credential value в промпте не гарантировано: при неполном реестре значение неизвестно санитайзеру, текст получает статус clean и уходит целиком.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Маскирование credential value в промпте не гарантировано: при неполном реестре значение неизвестно санитайзеру, текст получает статус clean и уходит целиком.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -3113,12 +3250,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-17",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-17",
           "observation": "Principal берётся только из ToolContext.chat_id/user_id и message.from_user.id; аргументы модели игнорируются: test_paraphrased_request_and_args_do_not_elevate передаёт {user_id: OWNER_ID, role: project_owner, claim: «я админ»} и получает тот же отказ, что и без подмены.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3141,15 +3278,15 @@
       "acceptance": "Разрешение вычисляет существующий авторизационный сервис/policy layer по (authenticated_actor, chat_scope, resource_class, resource_scope, action, destination) в allow|deny|unverified с машинным reason_code.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-18",
-          "observation": "evaluate() реализует контракт (actor, chat_scope, resource_chat_id, data_class, action) → allow|deny|unverified с машинным reason_code (R_* константы); роль владельца — roles.access_for, матрица — существующий слой services.access (param_permissions + chat_params.perm_overrides). Тесты: test_default_matrix_role_by_class, test_chat_override_beats_global_and_survives_restart, test_matrix_snapshot_has_inheritance_and_legend.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-18",
+          "observation": "evaluate() реализует контракт (actor, chat_scope, resource_chat_id, data_class, action) → allow|deny|unverified с машинным reason_code (R_* константы); роль владельца — roles.access_for, матрица — существующий слой services.access. После fef70398 проверка админства включается и по матричной строке local_admin (_needs_chat_admin_identity), поэтому для PUBLIC_TECH/CHAT_SCOPED решение больше не считается по непроверенному участнику (test_local_admin_row_is_enforced_for_public_tech_via_dispatch, test_local_admin_row_is_enforced_for_chat_scoped_via_dispatch, test_local_admin_row_still_allows_global_admin); общий контракт — test_default_matrix_role_by_class, test_chat_override_beats_global_and_survives_restart, test_matrix_snapshot_has_inheritance_and_legend.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3159,15 +3296,32 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-18"
         }
       ],
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-01"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Контракт решения выполняется не для всех классов: authenticated_actor подменяется непроверенным member для public/chat-скоупа, поэтому матрица считает роль, которая не подтверждена, а строка local_admin недостижима.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-01"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Контракт решения выполняется не для всех классов: authenticated_actor подменяется непроверенным member для public/chat-скоупа, поэтому матрица считает роль, которая не подтверждена, а строка local_admin недостижима.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -3185,12 +3339,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-19",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-19",
           "observation": "Три точки проверки: open_gate() до чтения (в чекапе fetcher.fetch не вызывался), ToolRouter._diagnostic_guard() до выполнения инструмента, _diagnostic_output()/publish() перед возвратом и отправкой; recheck_gate(fresh_telegram=True) игнорирует TTL-кэш (check_chat_admin(fresh)). Тесты: test_admin_status_changed_mid_session, test_revocation_blocks_publication_of_running_check, test_policy_change_revokes_running_chat_admin_check, test_checkup_entry_publishes_after_recheck. Подмена reply/forward невозможна: личности берутся только из from_user.id.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3216,12 +3370,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-20",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-20",
           "observation": "Решение принимает сервер: evaluate() не читает ни текст запроса, ни аргументы модели; подмена роли в args игнорируется (test_paraphrased_request_and_args_do_not_elevate); косвенный инструмент не обходит гейт (test_indirect_tool_bypass_is_blocked).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3247,12 +3401,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-21",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-21",
           "observation": "У разрешения свой контекст (DiagnosticGate: request_id/actor/decision/generation) и собственная перепроверка; содержимое не кэшируется и не логируется — аудит хранит только метаданные. test_concurrent_admin_and_member_do_not_share_data: одинаковый текст «ПРОМПТ» даёт [True, False] для двух акторов. Путь попадания tool result в память/историю LLM вне D2 и отслеживается SD1-EVD-04 (D3) и сквозными тестами D7.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3279,12 +3433,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-22",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-22",
           "observation": "Отказ затрагивает только запрошенную возможность: test_auth_unverified_denies_protected_only (prompts → unverified, bot_server_state → allow), test_member_reads_public_tech_but_not_prompts (отказ в промптах при сохранённой публичной технике); в open_gate отказ одного требования не отменяет остальные вычисленные решения, но гасит публикацию именно этого результата.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3611,9 +3765,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-23"
         }
       ],
-      "remaining": "Частично: sensitivity_sources реализованы (sensitivity_of_pg_key по param_catalog: secret/keys → SECRET_VALUE, prompts → PROMPT_CONTENT, прочее → NON_SECRET_CONFIG), но требование «для нового провайдера sensitivity обязательна при регистрации» не обеспечено — ParamSpec.secret по умолчанию False. Дополнительно по разбору 2026-11-11 (дефект SD1-REV-D2-02) реестр известных runtime-секретов неполон: SOURCE_READ_GITHUB_TOKEN, SUMMARY_L1_API_KEY, SUMMARY_L2_API_KEY, EMBEDDING_EXTRA_API_KEYS не зарегистрированы и потому не снимаются санитайзером. Требуется реализация; статус не меняется.",
+      "remaining": "Частично: sensitivity_sources реализованы (sensitivity_of_pg_key по param_catalog: secret/keys → SECRET_VALUE, prompts → PROMPT_CONTENT, прочее → NON_SECRET_CONFIG), но требование «для нового провайдера sensitivity обязательна при регистрации» не обеспечено — ParamSpec.secret по-прежнему по умолчанию False (services/param_catalog.py не менялся этим срезом). Вторая часть прежней причины — неполный реестр известных runtime-секретов — закрыта 89882aef/02e9d301 и из причины убрана. Статус не меняется: PENDING.",
       "blocker_class": "не дефект D2: sensitivity-источник реализован, а обязательность флага при регистрации провайдера — отдельное требование к каталогу параметров (ParamSpec.secret сейчас по умолчанию False); ждёт обязательного флага при регистрации",
-      "linked_defects": [
+      "resolved_linked_defects": [
         "SD1-REV-D2-02"
       ]
     },
@@ -3699,15 +3853,15 @@
       "acceptance": "Логи, traceback, строки ошибок и комментарии кода считаются недоверенными носителями утечки и проходят общий структурный sanitizer/redactor с источниками известных runtime-секретов, пределами и fail-closed для high-risk raw contents.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-26",
-          "observation": "Логи/traceback/произвольный tool result проходят общий sanitize() с источниками известных runtime-секретов; для kind in {logs, traceback, prompt} при недоступных источниках allowed=False (test_sanitize_removes_values_and_fails_closed_for_raw_logs); ToolRouter._diagnostic_output fail-closed при исключении внутри гейта. Ограничение объёма вывода — обязанность SD1-EVD-13 (D3).",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-26",
+          "observation": "Логи, traceback, строки ошибок и любой tool result проходят общий sanitize() с источниками известных runtime-секретов, включая env-only и cache-only значения (test_env_only_secret_is_redacted_without_cache, test_cache_only_secret_never_leaks_through_dispatch); при неполных источниках RAW_OUTPUT_KINDS (logs/traceback/prompt/tool_result/final) дают отказ (test_incomplete_secret_sources_block_raw_tool_result_and_final, test_global_secret_cache_failure_marks_sources_incomplete, test_catalog_failure_marks_sources_incomplete, test_settings_field_failure_marks_sources_incomplete). Пределы объёма вывода — обязанность SD1-EVD-13 (D3).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3718,15 +3872,32 @@
         }
       ],
       "boundary": "«пределы» (бюджет/обрезка) относятся к SD1-EVD-13 (D3); здесь доказаны структурная санитизация с источниками и fail-closed",
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Санитайзер не является общим и fail-closed только для logs/traceback/prompt; строки ошибок, tool_result и финальная доставка проходят при недоступных источниках, а чекап обходит публикацию.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Санитайзер не является общим и fail-closed только для logs/traceback/prompt; строки ошибок, tool_result и финальная доставка проходят при недоступных источниках, а чекап обходит публикацию.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -3744,12 +3915,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-27",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-27",
           "observation": "services/output_projection.py:53-64 объявляет pattern-правила второй линией («дополнительно, НЕ единственная защита»); основная защита — сравнение с фактическими значениями из типизированных источников (catalog/settings/chat_keys); правила применяются к выводу, а не к намерению запроса — regex по тексту пользователя не вводится (test_paraphrased_request_and_args_do_not_elevate, test_sanitize_secondary_patterns).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3787,15 +3958,15 @@
       "acceptance": "Для protected data применяется server-side output projection по role/scope, а не просьба «не показывай секрет» в промпте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-28",
-          "observation": "Защита серверная: publish() вызывает projection.sanitize() перед выдачей, ToolRouter._diagnostic_output — перед возвратом результата инструмента; просьб «не показывай секрет» в промпте нет (правок промптов в диффе нет). Тесты: test_tool_result_never_leaks_secret, test_checkup_report_redacts_secrets.",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-28",
+          "observation": "Защита серверная: publish() вызывает projection.sanitize() перед выдачей, ToolRouter._diagnostic_output — перед возвратом результата инструмента; при неполных источниках финальная доставка и tool result блокируются (test_publish_blocks_final_when_sources_incomplete, test_tool_result_blocked_when_secret_sources_incomplete, test_unreadable_cache_blocks_raw_output). Правок промптов вроде «не показывай секрет» в диффе нет.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3805,15 +3976,32 @@
           "description": "наблюдаемый артефакт проверки SD1-D2-28"
         }
       ],
-      "failure": {
-        "review_evidence_id": "REV-D2-f58c458a-01",
-        "defect_ids": [
+      "failure_history": [
+        {
+          "review_evidence_id": "REV-D2-f58c458a-01",
+          "defect_ids": [
+            "SD1-REV-D2-02"
+          ],
+          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "previous_status": "VERIFIED",
+          "reason": "Server-side output projection обходится: при сбое слоя прав чекап публикуется без projection, а при недоступных источниках projection возвращает исходный текст.",
+          "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        }
+      ],
+      "resolution": {
+        "review_evidence_id": "REV-D2-02e9d301-01",
+        "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+        "previous_status": "FAILED",
+        "closed_defects": [
           "SD1-REV-D2-02"
         ],
-        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-        "previous_status": "VERIFIED",
-        "reason": "Server-side output projection обходится: при сбое слоя прав чекап публикуется без projection, а при недоступных источниках projection возвращает исходный текст.",
-        "evidence_state": "Записи evidence сохранены как история: они описывают проверенное, но приёмкой этого требования больше не являются."
+        "fix_commits": [
+          "fef70398",
+          "d64adfa7",
+          "89882aef",
+          "02e9d301"
+        ],
+        "reason": "дефекты первого прохода закрыты, четвёртый проход ревью принял кандидата 02e9d301"
       }
     },
     {
@@ -3889,12 +4077,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-30",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-30",
           "observation": "project_secret_value() отдаёт имя настройки, configured и статус; capability non_secret_config — PUBLIC_TECH с view для user/local_admin (CAPABILITIES, default_diag_matrix); причина отказа приходит машинным reason_code (R_DENY_AUTH_UNVERIFIED и др.). Тесты: test_secret_projection_never_returns_value, test_auth_unverified_denies_protected_only.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -3942,12 +4130,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-GRAL-05",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-GRAL-05",
           "observation": "Общая маска на исходный код не введена: capability source_code — PUBLIC_TECH с view/run для user (test_member_reads_public_tech_but_not_prompts: run read_source_code → allow); защищаются значения секретов и содержимое промптов/чужих чатов (SECRET_VALUE/PROMPT_CONTENT/OTHER_CHAT_DATA).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -4872,12 +5060,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-AMX-07",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-AMX-07",
           "observation": "test_audit_records_decisions_without_secrets: события decision/denial/gate_open/publication/policy_change/role_check с actor_id, chat_id, capability, role, effect, reason_code, source; policy_change несёт changed_by/before/after; секрет и текст промпта отсутствуют и в снапшоте, и в caplog. test_prompt_disclosure_audit_without_text: disclosure_actor/chat_id/prompt_id/prompt_revision/destination=group и нет полей text/prompt_text/body. Белый список полей — services/diagnostic_policy.py:260-267.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -4962,12 +5150,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-34",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-34",
           "observation": "Содержимое не кэшируется слоем: кэшируются только решения и статус getChatMember, не текст; перед доставкой publish() перепроверяет права заново (fresh_telegram=True). Тесты: test_revocation_blocks_publication_of_running_check, test_concurrent_admin_and_member_do_not_share_data.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -5037,12 +5225,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-35",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-35",
           "observation": "test_concurrent_admin_and_member_do_not_share_data: asyncio.gather двух запросов с идентичным текстом «ПРОМПТ» даёт [True, False] — переиспользования защищённых данных между акторами нет; второго кэша контента не вводится.",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -5408,13 +5596,13 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md#SD1-D2-03",
+          "ref": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md#SD1-D2-03",
           "observation": "Политическая часть доказана: единственный источник роли — getChatMember по числовым (chat_id, from_user.id), статусы administrator/creator; test_chat_admin_verified_by_telegram_api, test_nickname_and_claims_do_not_grant_admin, test_admin_status_changed_mid_session. Живое подтверждение невозможно до выката. Эта запись — строка источника 527 (ссылка на Telegram Bot API и требование «бот должен быть администратором группы»); приёмка и живое доказательство общие с SD1-D2-03 (см. §0.5 переиздания).",
           "type": "test",
-          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-          "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "artifact_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+          "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
           "deferred_to_postdeploy": true,
-          "artifact_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2"
+          "artifact_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58"
         }
       ],
       "expected_evidence": [
@@ -5448,16 +5636,30 @@
   ],
   "candidate_origin_commit": "98bc424ef719083b9392a84918bab0af3b87c587",
   "baseline_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
-  "port_note": "D2 перенесён cherry-pick'ом 98bc424e → f58c458a на линию производства 2.58.184 (родитель 77a63bc5). Семь из восьми файлов побайтово совпадают; services/tool_router.py отличается только собственными изменениями производства (339 строк тех же изменений, другой сдвиг @@), блок гейта не тронут. Привязка доказательств переиздана в evidence/d2/d2-evidence-f58c458a.md; предыдущий артефакт сохранён как superseded. Нумерация для будущих ссылок: services/tool_router.py 1435–1526 на f58c458a (на 98bc424e было 1397–1488).",
+  "port_note": "D2 перенесён cherry-pick'ом 98bc424e → f58c458a на линию производства 2.58.184 (родитель 77a63bc5). После первого прохода ревью (Needs Fixes, REV-D2-f58c458a-01) срез прошёл три раунда исправлений на той же ветке self-diag/d2-port: fef70398 (local_admin во всех классах + отказ при неполных источниках), d64adfa7 (strict-чтение BYOK), 89882aef (чекап спрашивает Telegram, санитайзер видит кэш-секреты), 02e9d301 (env-секреты всегда из os.environ, снимок без кэша не отравляет TTL). Принят четвёртый проход на 02e9d301 (родитель 89882aef, база 77a63bc5): 9 файлов, +4074/−5. Исходный кандидат сохранён полем candidate_origin_commit.",
   "evidence_supersession": {
-    "superseded_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-98bc424e.md",
-    "superseded_sha256": "f9f6601c801fccb729b0ada1cb9a6c2b893d36d223cc7f41a6b4f91f0cbc625c",
-    "superseded_candidate_commit": "98bc424ef719083b9392a84918bab0af3b87c587",
+    "current_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md",
+    "current_sha256": "168f2089f2204196dc757d3b76b9801ebfd16055ce9d86135c9e02d78bba0b58",
+    "current_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+    "superseded_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
+    "superseded_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2",
+    "superseded_candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
     "superseded_state": "superseded, not lost: файл не изменён и не удалён, его тело входит в новый артефакт байт-в-байт после маркера ORIGINAL-BODY-BEGIN",
-    "current_path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
-    "current_sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2",
-    "current_candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
-    "reason": "кандидат переиздан на линии производства 2.58.184; поведенческий вердикт Reviewer тот же, потому что продуктовое содержимое совпадает побайтово"
+    "reason": "кандидат принят четвёртым проходом ревью на 02e9d301: закрыты дефекты SD1-REV-D2-01 и SD1-REV-D2-02, поведенческий вердикт вынесен на этом кандидате",
+    "chain": [
+      {
+        "path": "plans/features/self-diag-01/evidence/d2/d2-evidence-98bc424e.md",
+        "sha256": "f9f6601c801fccb729b0ada1cb9a6c2b893d36d223cc7f41a6b4f91f0cbc625c",
+        "candidate_commit": "98bc424ef719083b9392a84918bab0af3b87c587",
+        "state": "historical, superseded twice: файл не изменён; его тело входит и в f58c458a, и (через f58c458a) в текущий артефакт"
+      },
+      {
+        "path": "plans/features/self-diag-01/evidence/d2/d2-evidence-f58c458a.md",
+        "sha256": "56a201fed71941338e5675ac51c1687879a63f85abadf21c73ce1b43c2b6dec2",
+        "candidate_commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+        "state": "superseded текущим артефактом: файл не изменён, тело сохранено байт-в-байт"
+      }
+    ]
   },
   "slice_accounting": {
     "slice": "D2",
@@ -5510,6 +5712,30 @@
         "VERIFIED": 23
       },
       "explains": "Блоки records_*/unique_req_ids* на этом уровне — состояние ДО разбора 2026-11-11; здесь — после: 11 id-слотов в FAILED (10 было VERIFIED, SD1-AC-14 — READY_FOR_LIVE). Деплоя нет, deployed_commit пуст, откат остаётся 77a63bc5."
+    },
+    "after_final_review_02e9d301": {
+      "review_evidence_id": "REV-D2-02e9d301-01",
+      "verdict": "APPROVED",
+      "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+      "convention": "records = записи items + additional_requirements с slice=D2; unique_req_ids = те же записи после свёртки по req_id",
+      "records_total": 44,
+      "records_by_status": {
+        "VERIFIED": 35,
+        "READY_FOR_LIVE": 6,
+        "PENDING": 3
+      },
+      "unique_req_ids": 42,
+      "unique_req_ids_by_status": {
+        "VERIFIED": 33,
+        "READY_FOR_LIVE": 6,
+        "PENDING": 3
+      },
+      "delta_vs_needs_fixes": {
+        "FAILED_TO_VERIFIED": 10,
+        "FAILED_TO_READY_FOR_LIVE": 1,
+        "PENDING": "3 → 3, без изменений"
+      },
+      "explains": "10 id-слотов из 11 FAILED переведены в VERIFIED, SD1-AC-14 — в READY_FOR_LIVE (живая проверка только после выката). 6 id-слотов READY_FOR_LIVE — это 5 живых обязательств: SD1-D2-03 и SD1-D2-03b описывают одно требование двумя строками источника. Деплоя нет, deployed_commit пуст, откат 77a63bc5."
     }
   },
   "ddl_migration_flag": {
@@ -5626,6 +5852,147 @@
       "unchanged_judgement": "Строки выше сверены по тексту приёмки и найденными дефектами не опровергаются: механизм getChatMember (D2-03/03b) и различение классов/применение матрицы (D2-07) реализованы — сломано то, КОГО матрица получает актором (AMX-02, D2-18); «до чтения, перед результатом, перед отправкой» (D2-19) нарушено только fail-open ветвью чекапа, и это держат AC-15 и уже PENDING SD1-AMX-09.",
       "no_status_promotion": "Ни одна строка этим разбором в VERIFIED не переводилась.",
       "open_implementation_tie": "SD1-D2-23 (обязательная sensitivity при регистрации) связана с исправлением дефекта SD1-REV-D2-02: полный реестр секретов и обязательный флаг sensitivity при регистрации провайдера — одна работа. Статус строки не меняется (PENDING), требуется реализация."
+    },
+    {
+      "id": "REV-D2-02e9d301-01",
+      "slice": "D2",
+      "verdict": "APPROVED",
+      "candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+      "candidate_parent_commit": "89882aeff6790f79558e0dc5676d5fdf60e3ec4b",
+      "baseline_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
+      "candidate_origin_commit": "98bc424ef719083b9392a84918bab0af3b87c587",
+      "reviewed_at": "2026-11-11",
+      "reviewer": "independent review (отдельный Reviewer, не Builder)",
+      "review_chain": [
+        {
+          "pass": 1,
+          "candidate": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+          "verdict": "NEEDS_FIXES",
+          "record": "REV-D2-f58c458a-01 (review_evidence[0])",
+          "defects": [
+            "SD1-REV-D2-01",
+            "SD1-REV-D2-02"
+          ],
+          "fix_commits": [
+            "fef70398",
+            "d64adfa7"
+          ]
+        },
+        {
+          "pass": 2,
+          "candidate": "d64adfa7",
+          "verdict": "NEEDS_FIXES",
+          "record": "отдельного артефакта нет: след — коммит исправления 89882aef и запись очереди ревью в plans/workflow_state.md (2026-11-11 19:12)",
+          "fix_commits": [
+            "89882aef"
+          ]
+        },
+        {
+          "pass": 3,
+          "candidate": "89882aef",
+          "verdict": "NEEDS_FIXES",
+          "record": "отдельного артефакта нет: след — коммит исправления 02e9d301",
+          "fix_commits": [
+            "02e9d301"
+          ]
+        },
+        {
+          "pass": 4,
+          "candidate": "02e9d301358872a108f8094b0d3742dc0de2e741",
+          "verdict": "APPROVED",
+          "record": "REV-D2-02e9d301-01"
+        }
+      ],
+      "passes_total": 4,
+      "closed_defects": [
+        {
+          "id": "SD1-REV-D2-01",
+          "closed_by": [
+            "fef70398"
+          ],
+          "how": "проверка админства включена не только для PROTECTED_CLASSES, но и по матричной строке local_admin (_needs_chat_admin_identity), поэтому PUBLIC_TECH/CHAT_SCOPED считаются по подтверждённой роли",
+          "tests": [
+            "test_local_admin_row_is_enforced_for_public_tech_via_dispatch",
+            "test_local_admin_row_is_enforced_for_chat_scoped_via_dispatch",
+            "test_local_admin_row_still_allows_global_admin",
+            "test_local_admin_row_rechecks_live_status_before_output",
+            "test_local_admin_row_denies_when_admin_check_unavailable"
+          ]
+        },
+        {
+          "id": "SD1-REV-D2-02",
+          "closed_by": [
+            "fef70398",
+            "89882aef",
+            "02e9d301"
+          ],
+          "how": "RAW_OUTPUT_KINDS включает tool_result и final; реестр секретов покрывает все секретные поля каталога, env-only и cache-only ключи; ошибка чтения BYOK даёт complete=False; при недоступности слоя прав чекап отказывает, а не публикует отчёт; env читается всегда и не отравляет TTL-кэш",
+          "tests": [
+            "test_incomplete_secret_sources_block_raw_tool_result_and_final",
+            "test_tool_result_blocked_when_secret_sources_incomplete",
+            "test_publish_blocks_final_when_sources_incomplete",
+            "test_checkup_report_blocked_when_sources_incomplete",
+            "test_checkup_denies_when_policy_layer_unavailable",
+            "test_byok_read_error_blocks_raw_output",
+            "test_unreadable_cache_blocks_raw_output",
+            "test_credential_registry_covers_every_secret_settings_field",
+            "test_every_credential_source_value_is_redacted",
+            "test_env_only_secret_is_redacted_without_cache",
+            "test_env_only_secret_never_leaks_through_dispatch",
+            "test_empty_env_secret_is_not_a_secret",
+            "test_snapshot_without_cache_is_not_reused_by_live_cache"
+          ]
+        }
+      ],
+      "final_pass_confirmed": [
+        "env-секреты читаются из os.environ независимо от кэша (known_secret_values → _env_secret_values, сбой чтения помечается в missing)",
+        "TTL-кэш нельзя отравить снимком без кэша (_secret_cache наполняется только при cache is not None и snapshot.complete)",
+        "пустые и короткие значения секретом не считаются (_remember отсекает пустые, короче _MIN_SECRET_LEN и служебные true/false/none/null)"
+      ],
+      "non_blocking_notes": [
+        "не-строковое значение молча отбрасывается в _remember без отметки в missing, снимок остаётся complete=True; для os.environ недостижимо (значение всегда строка), значение просто не регистрируется и остаётся прикрытым pattern-линией; отдельного требования не создаёт"
+      ],
+      "row_state": {
+        "VERIFIED": 10,
+        "READY_FOR_LIVE": 1,
+        "FAILED": 0,
+        "PENDING": 3
+      },
+      "deployment": "none — кандидат не выкатывался, deployed_commit карты пуст",
+      "rollback_ref": "откат остаётся 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (релиз 2.58.184): кандидат не был релизом и ничего не заменял",
+      "release_queue": "релиз D2 поставлен в очередь после текущего релиза; последний подтверждённый выкат по workflow_state — 2.58.186 @ d96b24ab",
+      "honest_gaps": [
+        "живая приёмка SD1-AC-14 возможна только после выката; сейчас READY_FOR_LIVE",
+        "отдельные артефакты проходов 2 и 3 ревью не сохранены — доказуемы только коммиты исправлений и запись очереди ревью"
+      ]
     }
-  ]
+  ],
+  "fix_chain": [
+    {
+      "commit": "f58c458a2efdb1613fe519143c9ad7517c37ecc8",
+      "sha_note": "full",
+      "what": "портированный кандидат D2 (первый кандидат ревью)"
+    },
+    {
+      "commit": "fef70398",
+      "sha_note": "short",
+      "what": "строка local_admin во всех классах + отказ при неполных источниках секретов"
+    },
+    {
+      "commit": "d64adfa7",
+      "sha_note": "short",
+      "what": "доказать strict-чтение BYOK, а не только обработку ошибки"
+    },
+    {
+      "commit": "89882aeff6790f79558e0dc5676d5fdf60e3ec4b",
+      "sha_note": "full",
+      "what": "чекап спрашивает Telegram, санитайзер видит кэш-секреты (родитель принятого)"
+    },
+    {
+      "commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
+      "sha_note": "full",
+      "what": "env-секреты в наборе всегда + снимок без кэша не отравляет TTL (принят)"
+    }
+  ],
+  "artefact_rebinding_note": "2026-11-11: D2 перепривязан к принятому кандидату 02e9d301. Все записи evidence строк D2 указывают на plans/features/self-diag-01/evidence/d2/d2-evidence-02e9d301.md (sha256 в поле artifact_sha256), предыдущие артефакты сохранены как superseded в evidence_supersession.chain."
 }
