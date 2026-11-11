@@ -2,10 +2,10 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
   "source_sha256": "68ef29be4ac838b80ade0507e76c94eb1ec8046fb9b3bca99d293aefc121f25a",
-  "candidate_commit": "d82705170367cef0f5e5c5e5d1412f03dce2d441",
+  "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
   "deployed_commit": "77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7",
   "deployed_release": "2.58.184",
-  "candidate_note": "candidate_commit — последний проверенный кандидат: срез UR-F, шаг 2 (проекция API), d82705170367cef0f5e5c5e5d1412f03dce2d441, ветка ur/f-inspector-step1, родитель 6a7276af84b02e506b3566f1124550146d6d0ccf, база 92070d0e, ревью Approved; закрыты шаг 1 (durable events, c9ef6e7281fe8cbdfdb4039af66f56fc6c4673da) и шаг 2 (API-проекция, d8270517), открыт только шаг 3 (UI: подписи, карточки, сворачивание, mobile-first приёмка), поэтому срез UR-F как срез НЕ закрыт. Предыдущий кандидат поля — UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit — фактический выкат: 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7, ветка release/2.58.184 (релиз 2.58.184), собранный из 0fed584598cbf103017a401a117eee236e2be0e5 (2.58.183) переносом среза combined-diff'ом 92070d0e..7cf8e169 (продуктовый коммит 5e85f990). Это семантический перенос кандидата на релизную линию, а не равенство SHA: одиночный cherry-pick 7cf8e169 конфликтовал и терял импорт services.search_aggregator в direct_execution.py. Идентичность среза подтверждена побайтово по tests/test_search_source_dates.py (sha256 fa3e3cae…, как в кандидате); DDL нет (user_version=47 до и после); security-блобы (permissions.py, avatars.py, deps.py) и text_morphology.py/summary_memory.py/mca_retrieval_context.py не изменены относительно 0fed5845.",
+  "candidate_note": "candidate_commit — последний проверенный кандидат: срез UR-F, шаг 3 (UI инспектора хода), dbf89a96bf1979b515dc1294d20ce75125100f4f, ветка ur/f-inspector-step1, родитель d82705170367cef0f5e5c5e5d1412f03dce2d441, база 92070d0e, ревью Approved. Закрыты все три шага среза: шаг 1 (durable events, c9ef6e7281fe8cbdfdb4039af66f56fc6c4673da), шаг 2 (проекция API, d8270517) и шаг 3 (UI: подписи, карточки, сворачивание, mobile-first приёмка). Шаг 3 закрыт по UI, но срез НЕ выложен: ветка не влита, переноса на текущую прод-линию и деплоя не было (см. notes[NOTE-2026-11-11-UR-F-STEP3-NOT-RELEASED]); строки UR-20.4/20.5/20.6/20.8 остаются PENDING по недопоставленным частям, UR-20.7 — VERIFIED. Предыдущий кандидат поля — UR-SRC-DATE: 7cf8e1699d2a689c5a4249da9478ac4215e5701d (ветка fix/search-source-dates, родитель 82d21889, база 92070d0e), ревью Approved с DONE на уровне строки UR-SRC-DATE. deployed_commit — фактический выкат: 77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7, ветка release/2.58.184 (релиз 2.58.184), собранный из 0fed584598cbf103017a401a117eee236e2be0e5 (2.58.183) переносом среза combined-diff'ом 92070d0e..7cf8e169 (продуктовый коммит 5e85f990). Это семантический перенос кандидата на релизную линию, а не равенство SHA: одиночный cherry-pick 7cf8e169 конфликтовал и терял импорт services.search_aggregator в direct_execution.py. Идентичность среза подтверждена побайтово по tests/test_search_source_dates.py (sha256 fa3e3cae…, как в кандидате); DDL нет (user_version=47 до и после); security-блобы (permissions.py, avatars.py, deps.py) и text_morphology.py/summary_memory.py/mca_retrieval_context.py не изменены относительно 0fed5845.",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "owner_input_id": "2026-11-05-unified-reply",
@@ -24,7 +24,7 @@
     "UR-F"
   ],
   "placement": "Наивысший приоритет среди НОВЫХ непринятых пакетов; не вытесняет уже идущую работу. Backend-пакеты стартуют параллельно CMV-D/E в свободных слотах; UI-пакет UR-F ждёт освобождения web/app.js, web/index.html, web/static/app.css (один писатель на файл).",
-  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23; +2 слайс 57349e6d — UR-26.3/26.4, merge 6d7c30b9; +1 слайс 4dca6439 — UR-26.5, merge db46fba2; итого 16/27 собственно среза, 17/27 с учётом UR-24.2 из UR-F), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 33/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 7 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED. Биндинг UR-26.3/UR-26.4 (approved unmerged slice 57349e6d, ветка ur/26-init-fc-payloads, прецедент PVR-UI; approved unmerged slice, кандидат содержит tests/test_ur26_init_fc_payloads.py и services/turn_payload_events.py, которых ещё нет в рабочем дереве evol/impl до merge): +2 строки VERIFIED — payload-observability стадий инициативы (initiative_l1_decision/tool_phase/initiative_recheck/nostalgia_text) и фактчека (factcheck_stage1/stage2/short_reply, temporal_verdict/validator/verbalize); оговорки ревьюера сохранены: REACT покрывается тем же SILENT-тестом ветки, зеркало usage_json в durable-колонке срезано до 2000 символов (mca_events.py:597). Итого по карте 151/261 required VERIFIED. Биндинг payload-observability (2026-11-06, один писатель, карта): оба слайса слиты в evol/impl — db46fba2 (4dca6439: summary-стадии, tests/test_ur26_summary_payloads.py + services/summary_stage_events.py) и 6d7c30b9 (57349e6d: initiative/factcheck; суммарно 22 теста зелёные); +3 строки VERIFIED — UR-26.5 (verified_scope = матрица stage1/stage2/reviewer/revision/repair/supervisor, дайджест-only, decision-коды; честные подсаб-итемы в pending_reason: deferred-generator answer_as_of_utc/summary_window_end_utc — кода и теста нет, и chunked-L1 overflow без события l1_plan), UR-30.4 и UR-ACC-E4 (UR-G, обе ноги payload-тестов слиты). Итого по карте 154/261 required VERIFIED. Биндинг UR-B evidence (2026-11-10, один писатель, карта): кандидат 6099cc17 (tests-only, ветка ur/b-evidence, родитель 92070d0e = прод 2.58.181; diff 92070d0e..6099cc17 = ровно 3 тест-файла, +293/−0, продукт байт-в-байт, деплой не требуется), ревью Approved. +4 строки VERIFIED: UR-03 (один tool-этап у обоих call-site), UR-RES-02 (ответ инициативы несёт настоящий поиск и tool event), UR-BAN-01 (0 поиска на реакцию/молчание/проверку Observer), UR-07.5 (нет LLM-надзирателя на гейте поиска); evidence привязан к blob-байтам tests/test_ur_b_live_wiring.py (e8635d62…), tests/test_asap8_v6_wc_direct_d04.py (81267ec2…), tests/test_evol_evidence_routing.py (a958ce93…), внешние прогоны — WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/. Поле candidate_commit карты переведено на 6099cc17 (последний принятый кандидат); строки сохраняют собственный candidate_commit, старые привязки не переписаны. Остались PENDING с уточнённой причиной: UR-07.3 (дата источника в результатах поиска отсутствует как данные — нужен слайс), UR-BAN-02 (нет продуктового порога «prompt без полезного материала»); прочие открытые строки UR-B (UR-17.7/UR-17.8/UR-03.1/UR-06.5/UR-08.2) не менялись.",
+  "merge_state": "partial: UR-A (4cc99286, merge dc296207), UR-B (da6299e9) и UR-C (9ac64a61) влиты; привязано 15/21 (UR-A), 13/24 (UR-B), 21/66 (UR-C), 13/27 (UR-C-CLOCK: кандидат 7632fdb6, merge aad47f23; +2 слайс 57349e6d — UR-26.3/26.4, merge 6d7c30b9; +1 слайс 4dca6439 — UR-26.5, merge db46fba2; итого 16/27 собственно среза, 17/27 с учётом UR-24.2 из UR-F), 18/19 (UR-D: кандидат 6374eedc, acceptance-коммит тестов 2ac2764d, merge 9a996c79) VERIFIED. Открытые строки UR-A оставлены PENDING с причиной: UR-RES-01 (весь контур L1→отправка), UR-02.7 (L2), UR-01.7 (недоверенность промпта), UR-30.1/UR-PKG-PARALLEL/UR-INTEG-MERGE (эпический и процессный объём за пределами среза). UR-E: кандидат b2738117 (merge 2ca390c0), привязано 9/20 VERIFIED (UR-14, UR-RES-06, UR-15, UR-15.1, UR-15.2, UR-15.3, UR-16, UR-16.1, UR-BAN-07; evidence tests/test_ur_e_speech.py + evidence/ur-e-evidence.md + services/direct_chat_service.py). Остальные 11 строк PENDING с причинами: UR-17/UR-17.1/UR-17.2/UR-17.4/UR-17.9 (fixture «диалог.txt» вне репо, поведение модели — preprod), UR-17.3 (детерминируемая часть доказана UR-D TestDeliveryBoundary), UR-17.6 (enforcing-ветка superseded_by REMOVE-LEGACY-REPHRASING R-04/R-05.1, осталось наблюдение DIRECT_FINAL_REPEATED_TEXT), UR-16.2 (живость — preprod), UR-14.1 (полноценный участник истории → UR-C/UR-23), UR-14.2/UR-21.13 (catalog/UI → UR-F). UR-F: кандидат 95e5815d (merge 1ee6a010 в evol/impl) — 21 строка VERIFIED привязана (UI-волна + UI-половина BGS-06-ADMIN/R-ADM); открытые строки остальной карты не менялись. UR-G: кандидат 7edcb2b4 (merge 9e3af353 в evol/impl) — привязано 33/40 VERIFIED (28 proven-existing + 3 proven-new; evidence plans/features/unified-reply/evidence/ur-g-acceptance.md + tests/test_ur_g_acceptance.py + цитированные existing-тесты; сьют 709 passed / 0 failed). 7 строк PENDING с точными зависимостями: UR-30.2 (UR-23.4 — factcheck-доставка не пишет ledger), UR-30.5 (UR-C-SCHED per-chat scheduler), UR-ACC-B2 (preprod-прогон размеченного набора), UR-ACC-D6 (fixture диалог.txt + live-модель), UR-ACC-E5/UR-ACC-E6 (UR-C-SCHED: UR-28.5), UR-ACC-E9 (postdeploy live-наблюдение после деплоя). Эпические строки UR-G в additional_requirements (UR-30.7, UR-SAVETY, UR-DONE-CRITERION, UR-EXEC-RULE, UR-BAN-10, UR-EXEC-WORKFLOW, UR-ACC-TRACE) не менялись. Биндинг UR-23.4 (2026-11-06, один писатель, карта): кандидаты 38f60f2d (factcheck-доставка пишет ledger; tests/test_ur234_factcheck_ledger.py — 7 passed) и d4116ed7 (summary пишет полный доставленный текст; tests/test_summary_ledger_full_text.py — 3 passed; ревью Approved: пункт «без молчаливого preview по [:20000]» закрыт полностью — publication-gate барьер соответствует сохранённому полному тексту), merge 42900fce в evol/impl — строка VERIFIED. UR-30.2: зависимость от UR-23.4 снята, остаётся PENDING только на композитный acceptance-прогон Direct→Initiative→Factcheck→Summary (тест не написан/не запущен). Итого по карте 142/261 required VERIFIED. Биндинг UR-26.3/UR-26.4 (approved unmerged slice 57349e6d, ветка ur/26-init-fc-payloads, прецедент PVR-UI; approved unmerged slice, кандидат содержит tests/test_ur26_init_fc_payloads.py и services/turn_payload_events.py, которых ещё нет в рабочем дереве evol/impl до merge): +2 строки VERIFIED — payload-observability стадий инициативы (initiative_l1_decision/tool_phase/initiative_recheck/nostalgia_text) и фактчека (factcheck_stage1/stage2/short_reply, temporal_verdict/validator/verbalize); оговорки ревьюера сохранены: REACT покрывается тем же SILENT-тестом ветки, зеркало usage_json в durable-колонке срезано до 2000 символов (mca_events.py:597). Итого по карте 151/261 required VERIFIED. Биндинг payload-observability (2026-11-06, один писатель, карта): оба слайса слиты в evol/impl — db46fba2 (4dca6439: summary-стадии, tests/test_ur26_summary_payloads.py + services/summary_stage_events.py) и 6d7c30b9 (57349e6d: initiative/factcheck; суммарно 22 теста зелёные); +3 строки VERIFIED — UR-26.5 (verified_scope = матрица stage1/stage2/reviewer/revision/repair/supervisor, дайджест-only, decision-коды; честные подсаб-итемы в pending_reason: deferred-generator answer_as_of_utc/summary_window_end_utc — кода и теста нет, и chunked-L1 overflow без события l1_plan), UR-30.4 и UR-ACC-E4 (UR-G, обе ноги payload-тестов слиты). Итого по карте 154/261 required VERIFIED. Биндинг UR-B evidence (2026-11-10, один писатель, карта): кандидат 6099cc17 (tests-only, ветка ur/b-evidence, родитель 92070d0e = прод 2.58.181; diff 92070d0e..6099cc17 = ровно 3 тест-файла, +293/−0, продукт байт-в-байт, деплой не требуется), ревью Approved. +4 строки VERIFIED: UR-03 (один tool-этап у обоих call-site), UR-RES-02 (ответ инициативы несёт настоящий поиск и tool event), UR-BAN-01 (0 поиска на реакцию/молчание/проверку Observer), UR-07.5 (нет LLM-надзирателя на гейте поиска); evidence привязан к blob-байтам tests/test_ur_b_live_wiring.py (e8635d62…), tests/test_asap8_v6_wc_direct_d04.py (81267ec2…), tests/test_evol_evidence_routing.py (a958ce93…), внешние прогоны — WorkspaceData/reports/unified-reply/ur-b-evidence-2.58.181/. Поле candidate_commit карты переведено на 6099cc17 (последний принятый кандидат); строки сохраняют собственный candidate_commit, старые привязки не переписаны. Остались PENDING с уточнённой причиной: UR-07.3 (дата источника в результатах поиска отсутствует как данные — нужен слайс), UR-BAN-02 (нет продуктового порога «prompt без полезного материала»); прочие открытые строки UR-B (UR-17.7/UR-17.8/UR-03.1/UR-06.5/UR-08.2) не менялись. UR-F инспектор хода: шаг 3 (UI) закрыт на dbf89a96 (ветка ur/f-inspector-step1, в интеграцию не влита, ревью Approved) — см. review_evidence[UR-F / шаг 3]; выкладки не было: прод остаётся на 77a63bc5 (2.58.184), срез требует переноса на текущую прод-линию и деплоя. По шагу 3 переведена ровно одна строка — UR-20.7 (VERIFIED); UR-20.4/20.5/20.6/20.8 остались PENDING с точной недопоставленной частью.",
   "additional_requirements": [
     {
       "source_id": "M-00047",
@@ -4826,9 +4826,9 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "partially_satisfied": "events+api",
-      "remaining_scope": "шаг 3 (UI)",
-      "remaining_requirements": "Уровни событий и API закрыты. Шаг 1: durable `reply_to_message_id`, `reply_to_author_id`, `source_message_ts`, `alias_source_author`, `alias_reply_parent` и правдивые `counts{available_messages,included_messages}`. Шаг 2 (d8270517): те же факты отдаются в `source{message_id,author_id,author_alias,message_ts,reply_to_id,reply_to_author_id,reply_to_alias}` и `selection.counts{available_messages,included_messages,window_messages}` существующего `GET /api/direct/turn-diagnostics` через allowlist проекции. Осталось ровно шаг 3 (UI): карточка «Планирование (L1)» с «отвечал: <алиас> (сообщение N, время)» / «в ответ на: <алиас> (сообщение M)» / «не ответ на сообщение».",
+      "partially_satisfied": "events+api+ui-partial",
+      "remaining_scope": "время reply-parent (сообщения, на которое отвечали)",
+      "remaining_requirements": "Шаги 1–3 приняты (события c9ef6e72, API d8270517, UI dbf89a96): карточка «Планирование (L1)» показывает «отвечал: <алиас> (сообщение N, dd.mm hh:mm)», «в ответ на: <алиас> (сообщение M)» / «не ответ на сообщение», «доступно сообщений N · вошло в запрос M». Не закрыто ровно одно: у reply-parent нет времени — строка «в ответ на: … (сообщение M)» без даты (urf-step3-visual-report.json, sourceLine), потому что в контекст-событии нет `reply_to_message_ts` (есть только `reply_to_message_id`/`reply_to_author_id`), тогда как исходная реплика дату имеет. Нужно: durable `reply_to_message_ts` (шаг 1) → allowlist-проекция (шаг 2) → дата в строке (шаг 3) и новое ревью; без этого показ reply-parent остаётся неполным.",
       "evidence": [
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
@@ -4848,6 +4848,16 @@
           "artifact_sha256": "e061176b3dc79f39a75fe3012f02c2568f304004b21f3ace849959e67565ae34",
           "artifact_blob": "06e16950f18fce34e613c89277a7930245eb5556",
           "candidate_commit": "c9ef6e72"
+        },
+        {
+          "ref": "UR-F шаг 3 (UI): tests/test_ur_f_inspector_step3_ui.py + tests/js/ur_f_inspector_step3_test.js; вердикт — review_evidence[UR-F / шаг 3 / dbf89a96] (Approved)",
+          "observation": "UI-уровень строки закрыт частично на dbf89a96: «отвечал: Анна (сообщение 987654321012, 17.10 12:38)» и «в ответ на: Борис (сообщение 987654321000)» с честным «не ответ на сообщение», счётчики «доступно сообщений 25 · вошло в запрос 12 · в окне 40»; id и даты не обрезаны. Даты у reply-parent нет — в событии отсутствует reply_to_message_ts, поэтому строка остаётся PENDING.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json",
+          "artifact_sha256": "906483224c381ddadf181bd3be04411fbf14bf8c6a8f1f56dbee9d2df2ef898c",
+          "artifact_blob": "2b615e5c261efc8dc601f8515d84d91405793459",
+          "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
         }
       ]
     },
@@ -4864,9 +4874,9 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "partially_satisfied": "events+api",
-      "remaining_scope": "шаг 3 (UI)",
-      "remaining_requirements": "Уровни событий и API закрыты. Шаг 1: durable `blocks[]{kind,role,rendered,skip_reason,source_ids,first_ts,last_ts,tokens}` и `dropped[]{reason_code,kind,count}`; текст контекста в `mca_events` не пишется. Шаг 2: `selection{policy_version,counts,budget,blocks[],dropped[],self_outputs[]}` проецируются в ответ; оригинальный текст отдаётся только при `include_text=1` после `can_access_chat` на том же `chat_id` (иначе 403, не пустая строка), каждое чтение ограничено `chat_id`. Осталось ровно шаг 3 (UI): вертикальные строки блоков с датами (`dd.mm hh:mm` в поясе чата), source-ссылками и ролью как приоритетом вытеснения (`p0`…`p3`, не авторская роль) плюс список «не вошло, потому что …».",
+      "partially_satisfied": "events+api+ui-partial",
+      "remaining_scope": "дата и source id у блока «конспект» (global_head)",
+      "remaining_requirements": "Шаги 1–3 приняты: блоки L2 строками с понятным именем, датами в поясе чата, токенами, приоритетом вытеснения и ссылками на id, плюс «не вошло, потому что …» из `dropped[]` и текст только по праву на свой чат (UI текст не запрашивает вовсе). Не закрыто: у блока «конспект» (`global_head`) нет ни даты, ни source id — в `_sel_block` строки передаются только для `global_tail`/`global_middle`, а для `global_head` `first_ts`/`last_ts`=0 и `source_ids`=[]; контракт §5 требует «конспект до <дата>», приёмка — «конспекты» среди блоков с датами и source IDs. Нужно: дата/идентификатор конспекта в событии шага 1 (или явное решение владельца, что дата конспекта не требуется) → проекция → строка UI. Честно ограничено и не блокирует: при `truncated` у блоков и своих реплик нет тотала (`blocks_total`/`self_outputs_total`), поэтому «показаны первые N из M» есть только у потерянных.",
       "evidence": [
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
@@ -4886,6 +4896,16 @@
           "artifact_sha256": "e061176b3dc79f39a75fe3012f02c2568f304004b21f3ace849959e67565ae34",
           "artifact_blob": "06e16950f18fce34e613c89277a7930245eb5556",
           "candidate_commit": "c9ef6e72"
+        },
+        {
+          "ref": "UR-F шаг 3 (UI): tests/test_ur_f_inspector_step3_ui.py + tests/js/ur_f_inspector_step3_test.js; вердикт — review_evidence[UR-F / шаг 3 / dbf89a96] (Approved)",
+          "observation": "UI-уровень строки закрыт частично на dbf89a96: строка блока = «свежие сообщения / даты: 17.10 12:20 — 17.10 12:38 / ≈800 токенов / приоритет вытеснения: вытесняется последним / вошло: сообщение 987654321012, …», список «не вошло, потому что: не поместилось в окно модели · подобранные сообщения · 3 шт.», усечение объяснено словами. Конспект остаётся без даты и без source id, поэтому строка PENDING.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json",
+          "artifact_sha256": "906483224c381ddadf181bd3be04411fbf14bf8c6a8f1f56dbee9d2df2ef898c",
+          "artifact_blob": "2b615e5c261efc8dc601f8515d84d91405793459",
+          "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
         }
       ]
     },
@@ -4902,9 +4922,9 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "partially_satisfied": "events+api",
-      "remaining_scope": "шаг 3 (UI)",
-      "remaining_requirements": "Уровни событий и API закрыты. Шаг 1: durable `budget{slot,window,window_source,output_reserve,available,budget,policy_mode,payload_tokens,fallback_window}` и `policy_version`; `completion{finish_reason,attempt,fallback_used,usage,continuation_calls}` уже были в трассе. Шаг 2: `budget`, `policy_version`, `request{provider,model,fallback_model,max_output_tokens}` и `completion{…,usage{…},max_output_tokens_sent,continuation_calls}` отдаются вместе; невалидные числа → `null`, а `fallback_window:null` читается как «fallback-окна не было». Осталось ровно шаг 3 (UI): одна строка «окно модели N · запас на ответ M · вошло K из бюджета B · режим» и рендер `finish_reason`/числа продолжений (в API есть, в index.html не рендерится).",
+      "partially_satisfied": "events+api+ui-partial",
+      "remaining_scope": "модель и слот L2; слот и fallback L1",
+      "remaining_requirements": "Шаги 1–3 приняты: одна строка «окно модели N (откуда) · запас на ответ M · вошло K из бюджета B · режим», «Завершение: <подпись finish_reason>», «использован fallback», «попыток: N», «продолжений: N», честные «неизвестно» вместо 0. Не закрыто: модель/слот L2 не выводятся вовсе — API отдаёт `writer.request{provider,model,fallback_model,max_output_tokens}` и `selection.budget.slot`, но в разделе инспектора рендерится только `context.l1.model` (grep по web/index.html: других полей request/model/slot нет); у L1 не показаны слот и fallback-модель. Данных достаточно — шаги 1–2 менять не нужно, нужна строка «модель L2: … · слот: …» (+ слот/fallback L1) и новое ревью UI.",
       "evidence": [
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
@@ -4924,6 +4944,16 @@
           "artifact_sha256": "e061176b3dc79f39a75fe3012f02c2568f304004b21f3ace849959e67565ae34",
           "artifact_blob": "06e16950f18fce34e613c89277a7930245eb5556",
           "candidate_commit": "c9ef6e72"
+        },
+        {
+          "ref": "UR-F шаг 3 (UI): tests/test_ur_f_inspector_step3_ui.py + tests/js/ur_f_inspector_step3_test.js; вердикт — review_evidence[UR-F / шаг 3 / dbf89a96] (Approved)",
+          "observation": "UI-уровень строки закрыт частично на dbf89a96: бюджет одной строкой, finish_reason подписью, fallback/попытки/продолжения на месте (urf-step3-visual-report.json budget/completion). Модель и слот L2 в карточках отсутствуют, поэтому строка PENDING.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json",
+          "artifact_sha256": "906483224c381ddadf181bd3be04411fbf14bf8c6a8f1f56dbee9d2df2ef898c",
+          "artifact_blob": "2b615e5c261efc8dc601f8515d84d91405793459",
+          "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
         }
       ]
     },
@@ -4939,10 +4969,7 @@
       "acceptance": "Для хода показано решение поиска, реальный tool call, результат/недоступность и ссылки, а отдельно — включённые реплики бота с tg_message_id, датой и функцией «история разговора» с исключением из стилевых инструкций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "partially_satisfied": "events+api",
-      "remaining_scope": "шаг 3 (UI)",
-      "remaining_requirements": "Уровни событий и API закрыты. Шаг 1: durable `reply_search_evidence` с `trace_id` и `source_links[]{source_id,source_url,source_title,published_at}` (allow-ветка `_LINK_KEYS`), `self_outputs[]{source_id,tg_message_id,ts}`. Шаг 2: `reply_search_evidence`/`tool_phase`/`style_policy` входят в `_TURN_DETAIL_EVENTS` и приклеиваются по `trace_id`; в ответе `search{decision,called,status,skip_reason,evidence_class,required,source_count,source_ids[],links[]}` и `selection.self_outputs[]`; ссылка без `http(s)` или с управляющими символами не выводится, пустая дата публикации не выдумывается. Осталось ровно шаг 3 (UI): формулировки «поиск обязателен / полезен / не нужен», список ссылок, «поиск не дал ссылок», «дата публикации не сообщается источником» и блок «свои реплики в истории разговора (не образец стиля)».",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
@@ -4962,8 +4989,29 @@
           "artifact_sha256": "e061176b3dc79f39a75fe3012f02c2568f304004b21f3ace849959e67565ae34",
           "artifact_blob": "06e16950f18fce34e613c89277a7930245eb5556",
           "candidate_commit": "c9ef6e72"
+        },
+        {
+          "ref": "UR-F шаг 3 (UI): словари и строки поиска/своих реплик — tests/js/ur_f_inspector_step3_test.js (повторный прогон UR-F-STEP3-OK); вердикт — review_evidence[UR-F / шаг 3 / dbf89a96] (Approved)",
+          "observation": "turnSearchDecisionWord/turnSearchActionLine дают русские формулировки решения и итога, неизвестное — «код: <значение>»; turnLinkWhen не выдумывает дату; turnSelfOutputLines печатает «сообщение 4242 · 17.10 12:36»; в разметке есть заголовок «свои реплики в истории разговора (не образец стиля)» и «поиск не дал ссылок».",
+          "type": "test",
+          "artifact_path": "tests/js/ur_f_inspector_step3_test.js",
+          "artifact_sha256": "a07c639d04d8e65c614bc3b673d5600c95cd59191b84a31012f41496dee20590",
+          "artifact_blob": "ee352238422841633361f981d088ab933ddd69f5",
+          "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "ref": "UR-F шаг 3 (UI), живой прогон: urf-step3-visual-report.json (inspector3-desktop-1440, inspector3-mobile-390); вердикт — review_evidence[UR-F / шаг 3 / dbf89a96] (Approved)",
+          "observation": "В живом прогоне на 1440×900 и 390×844: searchDecision «поиск обязателен (required)», searchAction «поиск выполнялся · итог: источники найдены · источников в выдаче: 5», linkRows=3 с «→ адрес» и «опубликовано 01.11.2026», selfOutputs «• сообщение 4242 · 17.10 12:36» под заголовком «не образец стиля», unexplained=[] (ни одного голого кода).",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json",
+          "artifact_sha256": "906483224c381ddadf181bd3be04411fbf14bf8c6a8f1f56dbee9d2df2ef898c",
+          "artifact_blob": "2b615e5c261efc8dc601f8515d84d91405793459",
+          "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
         }
-      ]
+      ],
+      "verified_scope": "Решение поиска словами с кодом рядом («поиск обязателен (required)»), реальный tool call строками («web_search · выполнен (success) · источников: 3 · символов: 800»), итог/недоступность/причина пропуска по-русски («источники найдены», «поиск не выполнялся · причина: внешний поиск выключен в чате»), ссылки «заголовок → адрес» с датой публикации или «дата публикации не сообщается источником», «поиск не дал ссылок» при пустой выдаче. Отдельным блоком — «свои реплики в истории разговора (не образец стиля)» с tg id и датой («сообщение 4242 · 17.10 12:36»). Ссылка без http(s)/с управляющими символами не выводится, пустая дата не выдумывается (проекция шага 2 + turnLinkWhen)."
     },
     {
       "source_id": "L00283",
@@ -4978,9 +5026,9 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "partially_satisfied": "events+api",
-      "remaining_scope": "шаг 3 (UI)",
-      "remaining_requirements": "Уровни событий и API закрыты. Шаг 1: durable `style{revision,source,applied,counts,rules[]}` (одно событие `style_policy` с `trace_id`) и `clock.stages[]`. Шаг 2: отдаются `style` (статусы только из `style_policy.STATUSES`, правило с необъявленным статусом не рендерится) и расширенный `clock{timezone,as_of_utc,timezone_source,config_version,stages[]}`, включая `context.clock`; `clock.stages = null` означает «неизвестно», а не «часы не подавались». Осталось ровно шаг 3 (UI): «сработало правило: <понятное имя> · причина <код>» без секретов и текста правил, строка «часы поданы на этапах: L1, инструменты, ответ» и цепочка L2 → правила → доставленный текст.",
+      "partially_satisfied": "events+api+ui-partial",
+      "remaining_scope": "локальные дата/время момента хода (и offset) в строке часов",
+      "remaining_requirements": "Шаги 1–3 приняты: «часы поданы на этапах: L1, инструменты, ответ» (различается `stages=null` — неизвестно — и `[]` — не подавались), цепочка операций доставки с понятными именами и честным «текст изменился/без изменений», причина расхождения digest расшифровкой, правила стиля «сработало правило: <имя> · итог · причина (код)» без текста правил, `pass` показан как «правило проверено, нарушений нет» и никогда как применённое. Не закрыто: в строке часов нет локальных даты/времени момента хода — «Время хода: Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата» (urf-step3-visual-report.json, clockLine), offset не показан; локальное время есть только на экране «Модули → Время» (UR-29.1), не в инспекторе. Нужна одна честная строка «локальное время хода» (as_of_utc → пояс чата) в карточке L1; данные на шагах 1–2 уже есть.",
       "evidence": [
         {
           "ref": "UR-F шаг 2 (API-проекция): tests/test_ur_f_inspector_step2.py; design note — plans/features/unified-reply/evidence/ur-f-step2-api-projection.md; вердикт — review_evidence[UR-F / шаг 2 / d8270517] (Approved)",
@@ -5000,6 +5048,16 @@
           "artifact_sha256": "e061176b3dc79f39a75fe3012f02c2568f304004b21f3ace849959e67565ae34",
           "artifact_blob": "06e16950f18fce34e613c89277a7930245eb5556",
           "candidate_commit": "c9ef6e72"
+        },
+        {
+          "ref": "UR-F шаг 3 (UI): tests/test_ur_f_inspector_step3_ui.py + tests/js/ur_f_inspector_step3_test.js; вердикт — review_evidence[UR-F / шаг 3 / dbf89a96] (Approved)",
+          "observation": "UI-уровень строки закрыт частично на dbf89a96: «часы поданы на этапах: L1, инструменты, ответ», правила стиля с подписью статуса и причины, pass не выдаётся за сработавшее, цепочка операций доставки с причиной расхождения digest (urf-step3-visual-report.json styleHead/styleCounts/ruleFirst/opRow/deliveryLine). Локального времени хода в строке часов нет, поэтому строка PENDING.",
+          "type": "ui",
+          "artifact_path": "plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json",
+          "artifact_sha256": "906483224c381ddadf181bd3be04411fbf14bf8c6a8f1f56dbee9d2df2ef898c",
+          "artifact_blob": "2b615e5c261efc8dc601f8515d84d91405793459",
+          "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+          "artifact_note": "Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
         }
       ]
     },
@@ -8089,7 +8147,7 @@
     "UR-E": "b2738117",
     "UR-C-SCHED": "5d8c8598",
     "UR-SRC-DATE": "7cf8e1699d2a689c5a4249da9478ac4215e5701d",
-    "UR-F": "d8270517"
+    "UR-F": "dbf89a96"
   },
   "notes": [
     {
@@ -8108,7 +8166,8 @@
         "Playwright + Browser Use на 390×844 и на десктопе, снимки до/после"
       ],
       "scope_note": "Файлы шага 3: web/app.js + web/index.html (плюс существующая таблица стилей); каркас 3 уровня / 4 карточки не перестраивается. Мобильный вьюпорт 320/430 из среза UR-F остаётся в силе по solve-графу, приёмка шага 3 закреплена на 390×844 и десктопе.",
-      "source": "evidence/ur-f-inspector-contract.md §6, notes[NOTE-2026-11-11-UR-F-REMAINING-STEPS], независимое ревью d8270517"
+      "source": "evidence/ur-f-inspector-contract.md §6, notes[NOTE-2026-11-11-UR-F-REMAINING-STEPS], независимое ревью d8270517",
+      "superseded_by_note": "NOTE-2026-11-11-UR-F-STEP3-CLOSED — шаг 3 закрыт и принят на dbf89a96; поле оставлено как исторический снимок состояния до закрытия, актуальный статус шага 3 — в этой заметке и в review_evidence[UR-F / шаг 3]."
     },
     {
       "id": "NOTE-2026-11-11-UR-F-STEP2-PROJECTION-INVARIANTS",
@@ -8186,11 +8245,116 @@
             "сворачивание: blocks>5, links>3, rules>4 — кнопкой «показать ещё», по умолчанию не раскрыто",
             "mobile-first: без таблиц, `flex flex-col` + `break-words`, никакого горизонтального скролла и `truncate` на id/датах, на <768px одна колонка",
             "приёмка: Playwright + Browser Use на мобильном вьюпорте 390×844 и на десктопе, снимок до/после, ни одного неизвестного кода и ни одного горизонтального скролла"
-          ]
+          ],
+          "superseded_by": "NOTE-2026-11-11-UR-F-STEP3-CLOSED (dbf89a96, Approved)"
         }
       ],
       "order_note": "Порядок обязателен: шаг 2 после шага 1, шаг 3 после шага 2; шаги 2 и 3 не идут параллельно на тех же файлах.",
-      "source": "evidence/ur-f-inspector-contract.md §4–§6 и evidence/ur-f-step1-delivery-snapshot.md раздел «Граница шагов»"
+      "source": "evidence/ur-f-inspector-contract.md §4–§6 и evidence/ur-f-step1-delivery-snapshot.md раздел «Граница шагов»",
+      "superseded_by_note": "NOTE-2026-11-11-UR-F-STEP3-CLOSED — шаг 3 закрыт и принят на dbf89a96; поле оставлено как исторический снимок состояния до закрытия, актуальный статус шага 3 — в этой заметке и в review_evidence[UR-F / шаг 3]."
+    },
+    {
+      "id": "NOTE-2026-11-11-UR-F-STEP3-CLOSED",
+      "slice": "UR-F",
+      "step": 3,
+      "kind": "step_closed",
+      "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+      "branch": "ur/f-inspector-step1",
+      "statement": "Шаг 3 (UI инспектора хода) закрыт и принят на dbf89a96. Все три шага среза закрыты: события c9ef6e72, проекция API d8270517, UI dbf89a96. Срез UR-F по шагам закрыт; по строкам переведена одна UR-20.7.",
+      "acceptance_checklist": [
+        {
+          "item": "четыре карточки (планирование L1, инструменты и поиск, что видел ответ, операции и доставка)",
+          "result": "met",
+          "proof": "urf-step3-visual-report.json inspector3-*: titles в нужном порядке; stages l1/tools/writer/delivery"
+        },
+        {
+          "item": "ни одного нерасшифрованного кода, неизвестное — «код: <значение>»",
+          "result": "met",
+          "proof": "tests/js/ur_f_inspector_step3_test.js п.1; report hasUnknownFallback=true, unexplained=[]"
+        },
+        {
+          "item": "честная пустота: «нет данных (трасса старше версии)», «неизвестно» вместо 0",
+          "result": "met",
+          "proof": "JS-тест п.2 (turnBudgetLine/turnCountsLine/turnMissing/clock.stages=null)"
+        },
+        {
+          "item": "сворачивание blocks>5 / links>3 / rules>4, по умолчанию свёрнуто",
+          "result": "met",
+          "proof": "JS-тест п.4; report collapsedByDefault=true, moreButtons=3, afterExpand 7/4/6"
+        },
+        {
+          "item": "mobile-first: без таблиц, без truncate на id/датах, <768px одна колонка, без горизонтального скролла",
+          "result": "met",
+          "proof": "pytest 32 (test_no_tables/test_date_and_id_not_truncated/test_single_column_below_768); report hScroll=false на 1440 и 390, blockFirst содержит даты и id целиком"
+        },
+        {
+          "item": "приёмка Playwright + Browser Use на 1440×900 и 390×844, снимки до/после",
+          "result": "met",
+          "proof": "urf-step3-visual-report.json (inspector3-*), снимки urf-step3-before-* / urf-step3-after-* / urf-step3-bu-*"
+        },
+        {
+          "item": "`pass` не выдаётся за сработавшее правило; repaired/failed/denied/conflict — сработало",
+          "result": "met",
+          "proof": "app.js turnRuleLine; JS-тест п.1 «pass-правило не выдаёт себя за сработавшее»"
+        },
+        {
+          "item": "«показаны первые N из M» для потерянных записей",
+          "result": "met_only_for_dropped",
+          "proof": "turnTruncNote: M есть только у dropped (dropped_total); для blocks/self_outputs тотала в событии нет — честная формулировка без M"
+        },
+        {
+          "item": "время reply-parent рядом с идентификатором",
+          "result": "not_met",
+          "proof": "report sourceLine: «в ответ на: Борис (сообщение 987654321000)» без даты; в событии нет reply_to_message_ts (шаг 3 §«Чего не хватило», п.1)"
+        },
+        {
+          "item": "дата у блока «конспект»",
+          "result": "not_met",
+          "proof": "шаг 3 §«Чего не хватило», п.2: стабильный id summary:<chat>:<level> даты не несёт; контракт §5 требует «конспект до <дата>»"
+        },
+        {
+          "item": "модель/слот L2 в карточках",
+          "result": "not_met",
+          "proof": "в разделе инспектора web/index.html выводится только context.l1.model; writer.request{provider,model,fallback_model,max_output_tokens} и budget.slot не рендерятся нигде"
+        },
+        {
+          "item": "локальные дата/время момента хода в строке часов",
+          "result": "not_met",
+          "proof": "turnClockLine: IANA · as_of_utc · источник; report clockLine «Время хода: Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата»"
+        }
+      ],
+      "disclosed_backend_gaps": [
+        "reply_to_message_ts — дата сообщения, на которое отвечали (нужна в контекст-событии шага 1)",
+        "date-поле конспекта (сейчас только id summary:<chat>:<level>)",
+        "blocks_total / self_outputs_total — точное «показаны N из M» для блоков и своих реплик",
+        "единый словарь имён блоков манифеста Writer'а (layer:block_id и машинный тег без композера)",
+        "style.rules[] содержит и не сработавшие правила — фильтр FIRED_STATUSES, если карточка должна быть короче"
+      ],
+      "source": "evidence/ur-f-step3-ui.md, plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json, tests/test_ur_f_inspector_step3_ui.py, независимое ревью dbf89a96 (Approved)"
+    },
+    {
+      "id": "NOTE-2026-11-11-UR-F-STEP3-NOT-RELEASED",
+      "slice": "UR-F",
+      "kind": "release_state",
+      "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+      "branch": "ur/f-inspector-step1",
+      "statement": "Выкладки инспектора НЕ было. Ветка ur/f-inspector-step1 (шаги 1–3, голова dbf89a96) не влита: `git merge-base --is-ancestor dbf89a96 77a63bc5` = нет; ни один из трёх шагов не входит в прод-коммит. Прод остаётся 77a63bc5 (2.58.184; ветка release/2.58.185 заведена от того же коммита, релиз 2.58.185 в работе независимо от этого среза). deployed_commit/deployed_release карты не менялись.",
+      "what_is_needed": [
+        "перенос среза на текущую прод-линию (combined-diff 92070d0e..dbf89a96 или серия из трёх шагов), как это уже делалось для UR-SRC-DATE: одиночный cherry-pick конфликтует",
+        "сборка релиза и деплой по штатной процедуре (git pull --ff-only + systemctl restart admin_bot), DDL нет",
+        "после выката — проверка на проде: инспектор хода на реальном прогоне (карточки, словари, сворачивание, мобильный вьюпорт), effective-state и отсутствие регрессий в логах"
+      ],
+      "blocked_rows_after_release": "Успешный деплой сам по себе НЕ делает UR-20.4/20.5/20.6/20.8 VERIFIED: недопоставленные части (время reply-parent, дата конспекта, модель/слот L2, локальное время хода) требуют доработки и нового ревью, а не только выкладки.",
+      "source": "git: dbf89a96 не предок 77a63bc5; карта deployed_commit=77a63bc523ce3e5f5537cf11e8d0a3a9737e01f7 (2.58.184)"
+    },
+    {
+      "id": "NOTE-2026-11-11-UR-29-3-CLOCK-LINE-DRIFT",
+      "slice": "UR-F",
+      "kind": "status_drift_candidate",
+      "status_left_unchanged": "UR-29.3 остаётся VERIFIED (95e5815d), статус не менялся и ревью не переоткрывалось",
+      "observation": "UR-29.3 принята с формулировкой «показаны UTC timestamp и местное время момента генерации, IANA, offset, clock_included по L1/L2/Factcheck/Summary», но её же evidence — turnClockLine и urf-visual-report.json — даёт только «Europe/Moscow · 2026-11-06T12:00:00+00:00 · источник: настройки чата»: локального времени момента, offset и clock_included по стадиям в этой строке нет. Это расхождение прежней волны, обнаружено при разборе UR-20.8 (та же строка часов).",
+      "why_not_changed_here": "Задача этого захода — закрытие шага 3 и строк среза; понижение чужой принятой строки без нового ревью было бы переписыванием приёмки. Расхождение вынесено оркестратору как кандидат на проверку доказательств, не как факт дефекта.",
+      "source": "plans/features/unified-reply/requirements-map.json (UR-29.3), урф-отчёт inspector-desktop-1440"
     }
   ],
   "review_evidence": [
@@ -8285,6 +8449,69 @@
         "meaning": "Review-гейт на уровне всего среза UR-F не может быть зелёным, пока шаги 2–3 не закрыты: это ожидаемое состояние, а не дефект шага 1."
       },
       "not_claimed": "Не заявляется: шаг 2 (проекция API — join по chat_id+trace_id, дедупликация, old-trace → null/«нет подтверждения», include_text за правами), шаг 3 (формулировки, карточки, сворачивание, mobile-first с Playwright и Browser Use), выкладка шага 1 (deployed_commit не менялся), интеграция ветки ur/f-inspector-step1 в релизную линию и закрытие среза UR-F."
+    },
+    {
+      "slice": "UR-F",
+      "step": "шаг 3 — UI (закрыт)",
+      "candidate_commit": "dbf89a96bf1979b515dc1294d20ce75125100f4f",
+      "branch": "ur/f-inspector-step1",
+      "parent_commit": "d82705170367cef0f5e5c5e5d1412f03dce2d441",
+      "base_commit": "92070d0e",
+      "verdict": "Approved",
+      "row_verdict": "UR-F шаг 3: CLOSED на уровне UI. Ровно одна строка переведена в VERIFIED — UR-20.7 (решение поиска, tool call, ссылки, свои реплики с tg id и датой). UR-20.4, UR-20.5, UR-20.6, UR-20.8 сохранены PENDING: их приёмка требует частей, которых UI не отдаёт (время reply-parent, дата конспекта, модель/слот L2, локальное время хода) — см. remaining_requirements строк. Срез UR-F закрыт по шагам, но не выложен.",
+      "closing_criterion": "Четыре карточки инспектора показывают данные выбранного хода по-русски (ни одного нерасшифрованного кода, неизвестное — «код: <значение>»), честная пустота вместо нулей, длинные списки свёрнуты по порогам 5/3/4 кнопкой «показать ещё», id и даты не обрезаны, на 390×844 одна колонка без горизонтального скролла; приёмка — Playwright и Browser Use на 1440×900 и 390×844.",
+      "verified_scope": "Словари TURN_CODE_DICTS (block/ops/search_decision/search_status/search_skip/rule_status/rule_kind/rule_reason/drop_reason/tool_status/action/trigger/finish/stage/priority/policy_mode/window_source/id_ns/style_source/writer_name/prompt_key) с fallback «код: <значение>»; «отвечал: <алиас> (сообщение N, dd.mm hh:mm)» / «в ответ на: <алиас> (сообщение M)» / «не ответ на сообщение»; «окно модели N · запас на ответ M · вошло K из бюджета B · режим»; «доступно сообщений N · вошло в запрос M»; блоки L2 строками (имя, даты в поясе чата, токены, приоритет вытеснения, ссылки на id), «не вошло, потому что …»; «свои реплики в истории разговора (не образец стиля)» с tg id и датой; решение о поиске словами + код моно, ссылки «заголовок → адрес», «дата публикации не сообщается источником»; `pass` показан как «правило проверено, нарушений нет», сработавшие (repaired/conflict/failed/denied) — «сработало правило: …», текста правил и секретов нет; «часы поданы на этапах: L1, инструменты, ответ»; сворачивание 5/3/4 с локальным состоянием turnDiagOpen; mobile-first без таблиц, без truncate на id/датах, .turn-wrap/overflow-wrap:anywhere; один прогон Playwright + Browser Use на 1440×900 и 390×844 — 0 сырых кодов, 0 горизонтального скролла, консоль чиста.",
+      "test_counts": {
+        "step3_ui": "32 passed (tests/test_ur_f_inspector_step3_ui.py, включая живой Playwright-прогон 1440x900 и 390x844)",
+        "step3_js": "UR-F-STEP3-OK (node tests/js/ur_f_inspector_step3_test.js; повторный прогон при записи закрытия)",
+        "step1_2": "53 + 19 passed (tests/test_ur_f_inspector_step1.py, test_ur_f_inspector_step2.py)",
+        "regression": "78 passed (test_ur_c_clock, test_ur_d_writer, test_ur_e_speech, test_ur_turn_engine)",
+        "known_failures": "4 падения test_webapp_js_unit.py (glass/heartbeat/aurora-пины) и 1 test_mca23_planned_vs_actual::test_routes_pin_untouched — падают одинаково на базе 92070d0e и на d8270517, к шагу 3 отношения не имеют"
+      },
+      "reviewed_artifacts": [
+        {
+          "path": "tests/test_ur_f_inspector_step3_ui.py",
+          "blob": "2f16a999d904a2b653d8a43867b067774991cfaa",
+          "sha256": "52c4892128ad7626358d105746bf69334bffe8e7403d0705d4942059219f5dd5",
+          "note": "32 теста: структура/подписи/честная пустота/сворачивание/мобильность + живой Playwright-прогон. Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "path": "tests/js/ur_f_inspector_step3_test.js",
+          "blob": "ee352238422841633361f981d088ab933ddd69f5",
+          "sha256": "a07c639d04d8e65c614bc3b673d5600c95cd59191b84a31012f41496dee20590",
+          "note": "Реальный JS-unit на web/app.js: словари, честная пустота, однострочники бюджета/счётчиков, id без обрезки, пороги 5/3/4, слова вместо флага truncated. Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "path": "plans/features/unified-reply/evidence/ur-f-step3-ui.md",
+          "blob": "6af5df928c847d001320e74da2ba6e88c19af173",
+          "sha256": "2fef68f240a8dda5ed3231fc5f0ed537e3de0a708d42f533b6b3231fa94632e6",
+          "note": "Отчёт шага 3: что изменено, четыре карточки, словари, честная пустота, сворачивание/мобильность, таблица прогонов и раздел «Чего не хватило из бэкенда» (5 пунктов). Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "path": "plans/features/unified-reply/evidence/urf/urf-step3-visual-report.json",
+          "blob": "2b615e5c261efc8dc601f8515d84d91405793459",
+          "sha256": "906483224c381ddadf181bd3be04411fbf14bf8c6a8f1f56dbee9d2df2ef898c",
+          "note": "Живой отчёт Playwright: пробы inspector3-desktop-1440 и inspector3-mobile-390 (ok=true), sourceLine, clockStages, budget, counts, blockRows, dropped, selfOutputs, searchDecision/Action, linkRows, styleHead/Counts, ruleRows, collapsedByDefault, moreButtons=3, afterExpand 7/4/6, hScroll=false на обоих вьюпортах. Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "path": "plans/features/unified-reply/evidence/urf/urf-step3-after-inspector-desktop-1440.png",
+          "blob": "e1d6f5d66bca2c422cdecfb4e48fb1457540b674",
+          "sha256": "83c4420ecee6a675200f6b70b69c40a9dbf998c7ebe8d65d6b549c1e6ad86a45",
+          "note": "Снимок «после» на 1440×900 (инспектор). Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        },
+        {
+          "path": "plans/features/unified-reply/evidence/urf/urf-step3-after-inspector-mobile-390.png",
+          "blob": "c57421aadada1a9fee4a1e4fd3c5cf74a8c1630f",
+          "sha256": "353472dc8845dab1ba11a29a98222a254fdd0c24a1af72d9f73b080d33896bf0",
+          "note": "Снимок «после» на 390×844 (одна колонка, без горизонтального скролла). Блоб и sha256 — содержимое файла в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию не влита, поэтому в рабочем дереве master файла нет (состояние переноса, не отсутствие доказательства)."
+        }
+      ],
+      "gate_run": {
+        "plan": "stage=plan inventory=206 manual=140 scoped=0 errors=0 (exit 0). Гейт плана зелёный: инвентарь и обязательные строки на месте.",
+        "review": "stage=review inventory=206 manual=140 scoped=29 errors=47 (exit 1). Полный дословный вывод — plans/features/unified-reply/evidence/gate-ur-f-step3-2026-11-11.txt (sha256 54e2280a1ac16a0dbf0abfad504ada82707d4d1a451eb795d6996ed59119b91d). Состав ошибок: (а) 10 строк «mandatory not ['VERIFIED']» — UR-RES-07, UR-20, UR-20.4/20.5/20.6/20.8 (у каждой осталась одна недопоставленная часть), UR-21, UR-22, UR-29, UR-BAN-08 — законно открытый объём, не шаг 3; (б) 1 ошибка UR-20.7 «no candidate-bound evidence points to an existing repo artifact» — артефакты шага 3 есть только в кандидате dbf89a96, в рабочем дереве master их нет, потому что ветка не влита (состояние переноса, как у шагов 1–2; снимается переносом среза); (в) 18 ранее принятых VERIFIED-строк дают по две ошибки, потому что их evidence привязан короткими sha (95e5815d), а гейт требует точного совпадения с --candidate (requirements_gate.py:309) — slice-wide расхождение соглашения, не зависящее от шага 3. Ошибок candidate mismatch, «Git commit does not exist», «live requirement lacks evidence», графа и write-scope нет.",
+        "meaning": "Ревью-гейт среза UR-F не может быть зелёным, пока открыты четыре строки шага 3 с недопоставленными частями и остальные строки раздела; покраснение вызвано законным открытым объёмом и состоянием переноса, а не дефектом шага 3. Шаг 3 закрыт по своему критерию (UI), о чём и записано в row_verdict."
+      },
+      "not_claimed": "Не заявляется: выкладка шага 3 и всего среза (deployed_commit не менялся), слияние ветки ur/f-inspector-step1 с прод-линией, закрытие UR-20.4/20.5/20.6/20.8 (см. их remaining_requirements), родительская UR-20 и строки UR-RES-07/UR-21/UR-22/UR-29/UR-BAN-08, живая проверка на рабочем развёртывании."
     }
   ],
   "architecture_note": "Барьер UR-A снят и реализован: plans/features/unified-reply/arch/unified-reply-contract.md (53 KB, коммит 4359b966) имеет статус ARCHITECT_VALIDATED и фиксирует контракт модулей (§2), карту владения файлами (§2.6) и checkpoint-1 «контракты сфризены». По этому контракту срезом UR-A создан ровно один новый файл — services/turn_types.py (фрозен-датаклассы/enums, без логики исполнения); файла services/turn_request.py в проекте никогда не существовало, имя в графе исправлено. Датаклассы §2.2/§2.3 намеренно не дублируются: ContextSelection/ContextFragment — services/direct_context_composer.py (UR-C), ToolEvidence/SourceRecord — services/direct_execution.py (UR-B).",

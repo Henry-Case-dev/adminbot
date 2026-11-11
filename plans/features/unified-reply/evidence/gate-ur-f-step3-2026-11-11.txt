@@ -1,0 +1,112 @@
+UR-F шаг 3 — прогоны гейта требований (2026-11-11)
+==================================================
+Кандидат: dbf89a96bf1979b515dc1294d20ce75125100f4f (ветка ur/f-inspector-step1,
+родитель d8270517, база 92070d0e)
+Карта: plans/features/unified-reply/requirements-map.json
+Карта: strict_evidence: true, slice_graph_path: slice-graph.json
+Гейт: C:\Users\main\.config\opencode\tools\requirements_gate.py
+Рабочий каталог: C:\Code\Python\adminbot (master 93348b81)
+
+План (барьер перед закрытием шага)
+----------------------------------
+$ py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py check \
+    --map plans/features/unified-reply/requirements-map.json --stage plan
+stage=plan inventory=206 manual=140 scoped=0 errors=0
+exit 0
+
+Ревью среза UR-F
+----------------
+$ py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py check \
+    --map plans/features/unified-reply/requirements-map.json --stage review \
+    --slice UR-F --candidate dbf89a96bf1979b515dc1294d20ce75125100f4f
+
+FAIL: UR-RES-07: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.7: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.8: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-22: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-21: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-29: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-BAN-08: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.1: no evidence bound to reviewed candidate
+FAIL: UR-20.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.2: no evidence bound to reviewed candidate
+FAIL: UR-20.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.3: no evidence bound to reviewed candidate
+FAIL: UR-20.3: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.9: no evidence bound to reviewed candidate
+FAIL: UR-20.9: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.01: no evidence bound to reviewed candidate
+FAIL: UR-21.01: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.15: no evidence bound to reviewed candidate
+FAIL: UR-21.15: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.17: no evidence bound to reviewed candidate
+FAIL: UR-21.17: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.19: no evidence bound to reviewed candidate
+FAIL: UR-21.19: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.20: no evidence bound to reviewed candidate
+FAIL: UR-21.20: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.21: no evidence bound to reviewed candidate
+FAIL: UR-21.21: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.22: no evidence bound to reviewed candidate
+FAIL: UR-21.22: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.23: no evidence bound to reviewed candidate
+FAIL: UR-21.23: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.24: no evidence bound to reviewed candidate
+FAIL: UR-21.24: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-22.1: no evidence bound to reviewed candidate
+FAIL: UR-22.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-22.2: no evidence bound to reviewed candidate
+FAIL: UR-22.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.1: no evidence bound to reviewed candidate
+FAIL: UR-29.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.2: no evidence bound to reviewed candidate
+FAIL: UR-29.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.3: no evidence bound to reviewed candidate
+FAIL: UR-29.3: no candidate-bound evidence points to an existing repo artifact
+stage=review inventory=206 manual=140 scoped=29 errors=47
+exit 1
+
+Разбор каждого класса ошибок
+----------------------------
+1) 10 ошибок «mandatory not ['VERIFIED']» — законно открытые строки, НЕ дефект шага 3:
+   UR-RES-07 (действующий режим/источник настройки в разделе «Ответы в чате»),
+   UR-20 (пересборка раздела по трём уровням целиком), UR-20.4/20.5/20.6/20.8
+   (у каждой осталась одна недопоставленная часть: время reply-parent, дата
+   конспекта, модель/слот L2, локальное время хода — см. remaining_requirements),
+   UR-21 и UR-22 (полная применимость параметров и фронтенд от backend-контракта),
+   UR-29 (поле IANA в «Модули → Время» как отдельный срез), UR-BAN-08.
+   Ни одна из них не закрывается шагом 3, поэтому гейт среза зелёным быть не может.
+
+2) 1 ошибка UR-20.7 «no candidate-bound evidence points to an existing repo artifact» —
+   устаревшая привязка пути, а не отсутствие доказательства: артефакты шага 3
+   (tests/test_ur_f_inspector_step3_ui.py, tests/js/ur_f_inspector_step3_test.js,
+   evidence/ur-f-step3-ui.md, evidence/urf/urf-step3-visual-report.json, снимки)
+   существуют только в кандидате dbf89a96; ветка ur/f-inspector-step1 в прод-линию
+   не влита, поэтому в рабочем дереве master этих файлов нет. Гейт проверяет
+   artifact_path в рабочем дереве (requirements_gate.py:475), а не в коммите,
+   поэтому strict-проверка даёт «missing». Это ровно то состояние переноса, которое
+   уже зафиксировано для шагов 1–2 (artifact_note), и оно снимается переносом
+   среза на прод-линию.
+
+3) 18 ранее принятых VERIFIED-строк (UR-20.1/20.2/20.3/20.9, UR-21.01/21.15/21.17/
+   21.19/21.20/21.21/21.22/21.23/21.24, UR-22.1, UR-22.2, UR-29.1, UR-29.2, UR-29.3)
+   дают по две ошибки: их evidence привязан коротким sha (95e5815d), а гейт требует
+   точного совпадения с --candidate (requirements_gate.py:309). Это slice-wide
+   расхождение соглашения о привязке, оно не зависит от шага 3: те же 36 ошибок
+   были и на предыдущем кандидате. Перепривязка 18 строк — отдельная работа, а не
+   результат этого захода.
+
+Отсутствуют: «candidate mismatch» (candidate_commit карты переведён на
+dbf89a96bf19…), «Git commit does not exist», «live requirement lacks evidence»
+(live_required у строк шага 3 — false), ошибки графа и write-scope.
+
+Итог
+----
+План-гейт зелёный (errors=0). Ревью-гейт среза UR-F остаётся красным по трём
+законным причинам выше и позеленеет только после: (а) закрытия UR-20.4/20.5/20.6/
+20.8 и остальных открытых строк раздела, (б) переноса ветки на прод-линию,
+(в) slice-wide перепривязки evidence к полному sha кандидата.
