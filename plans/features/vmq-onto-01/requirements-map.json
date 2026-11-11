@@ -4,7 +4,7 @@
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
   "candidate_commit": "709865f6dbae508843b9f1b3ec73d33705621589",
   "deployed_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
-  "deployed_commit_note_2026_11_11": "Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю.",
+  "deployed_commit_note_2026_11_11": "Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю. [2026-11-11, продолжение] Прод после этого ушёл на 2.58.188 @ c087253d (ступень SELF-DIAG-01 D2, рестарт 09:21:08Z): 952b9ebd — его предок, файлы памяти 2.58.188 не меняет. Верхнеуровневый deployed_commit оставлен 952b9ebd как привязка ИМЕННО этой ступени памяти, а не как «текущая версия прода»; фактическая версия прода фиксируется в deployment_evidence.follow_up_2_58_187.prod_after_2026_11_11.",
   "candidate_note": "candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING. [2026-11-11: верхнеуровневый deployed_commit переведён на 952b9ebd (2.58.187, следующая ступень памяти); привязки слайса VMQ-MEM-TIME к 709865f6 и запись follow_up_2_58_183 сохранены без переоценки — см. deployment_evidence.follow_up_2_58_187.]",
   "deployment_note_2_58_183": {
     "slice": "VMQ-MEM-TIME",
@@ -302,17 +302,26 @@
         "unchanged_by_release": true
       },
       "index_compat_live": {
-        "where": "embedding_control_plane.resolve_index_compat(current_fp=<живой MSI>, current_dims=3072) на проде",
-        "state": "insufficient",
-        "reason_code": "compat_not_proven",
-        "action": "retry_canary",
-        "class": "COMPATIBILITY_UNKNOWN",
-        "needs_probe": true,
-        "rows": 1,
-        "active_generation": "gen 1, gemini-embedding-001, dims 3072, status=active, fingerprint 96f80838…",
+        "where": "живой процесс бота: журнал `SmartModule: embedding index serviceable` + read-only резолв стража с живым hot-кэшем (сторонний процесс без кэша даёт другой PCI и о состоянии прода не свидетельствует)",
+        "state": "compatible",
+        "reason_code": "",
+        "action": "none",
+        "class": "ADMITTED_COMPATIBLE",
+        "needs_probe": false,
+        "rows": 0,
+        "active_generation": "gen 1, gemini-embedding-001, dims 3072, status=active, fingerprint 96f80838…4337d, activated_at=2026-10-23T05:53:35Z",
         "embedding_space": "совпадает: e540d4ad890e121d",
-        "connection_identity": "текущая d2e6314e3586c547, в admission — a93485483697c3c3",
-        "guard_effect": "векторная нога ступени НЕ принимается: state == compatible не выполнен, поэтому периодный добор в проде идёт лексическим путём и пишет причину"
+        "connection_identity": "живой PCI = допущенный a93485483697c3c3. Отличие d2e6314e3586c547 — ТОЛЬКО метка quota-group: `primary` (авто-alias в процессе без hot-кэша) вместо `apinet_paid` (keys.embedding_quota_group_labels). Provider family, host apinet.cloud, path /v1, credential alias и embedding space идентичны",
+        "guard_effect": "векторная нога ступени допущена в проде: ADMITTED_COMPATIBLE, needs_probe=false; передопуск (ensure_index_compat/adopt) не требовался и не выполнялся, пересборки не было",
+        "admission_record": "adopt1:e540d4ad890e121d:a93485483697c3c3:12:1.000000:1.000000:1.0000:1792734815 — поколение 1, status=active",
+        "smart_archive": "source_empty / COMPATIBILITY_UNKNOWN: ACTIVE-поколения нет, 0 векторов, 0 фактов в источнике — встраивать нечего, расхождения с допуском нет",
+        "evidence_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md (раздел «Живой замер 11.11.2026» и блок CORRECTION)",
+        "superseded": {
+          "previous_claim": "state=insufficient, reason_code=compat_not_proven, action=retry_canary, class=COMPATIBILITY_UNKNOWN, needs_probe=true, rows=1; «текущая d2e6314e3586c547, в admission — a93485483697c3c3»",
+          "reason": "измерение выполнено СТОРОННИМ процессом без hot-кэша: `keys.embedding_quota_group_labels` не читались, группа падала в авто-alias `primary` и PCI отличался одной меткой. Живой процесс считает `apinet_paid` и всё это время был допущен: 1700 строк `class=ADMITTED_COMPATIBLE` для graph_facts_vec с 01.11 (11 различных PID), 0 строк `compat_not_proven`, 0 строк `not serviceable | index=graph_facts_vec`. То есть блок был артефактом замера, а не состоянием прода",
+          "not_a_connection_change": "провайдер, host, path, credential alias и embedding space не менялись; MSI e540d4ad890e121d одинаков в обоих замерах",
+          "superseded_at": "2026-11-11"
+        }
       },
       "traffic_window": {
         "window": "08:24 → 09:04 UTC после рестарта",
@@ -324,25 +333,45 @@
         "honest": "реального хода direct-чата в окне не было: «одна векторная нога на ход, k=32, ноль на operative-проходе», честные period_kept/subject_proxy и p50/p95 сборки блока НЕ измерены; отсутствие чисел фиксируется вместо подстановки"
       },
       "blocker_classification": {
-        "reason_code": "compat_not_proven",
-        "class": "IN_SCOPE_TECHNICAL_BLOCKER",
-        "why": "это не дефект выкладки и не дефект кода релиза: guard ступени по своему контракту не активирует семантическую ногу до доказанной совместимости поколения индекса. Это технический блокер приёмки ИМЕННО семантической части этой ступени (VMQ-NEXT-01..05), потому что пока совместимость не доказана, соответствующие строки не могут стать VERIFIED.",
+        "reason_code": "per_turn_observation_missing",
+        "class": "SCOPE_OBSERVATION_PENDING",
+        "why": "Технического блокера нет. Допуск индекса в проде открыт (graph_facts_vec = compatible / ADMITTED_COMPATIBLE / needs_probe=false), поэтому векторная нога на ходе доступна. Не хватает только НАБЛЮДЕНИЯ поведения на реальном ходе: строк period_vector_leg=0, реального direct-чата с периодным вопросом после выкатки не было. Поэтому строки VMQ-NEXT-01..05 остаются PENDING — из-за отсутствия per-turn доказательства, а не из-за совместимости индекса.",
+        "admission_proven": "да: допуск adopt1:e540d4ad890e121d:a93485483697c3c3… (gen 1, active) подтверждён живым процессом — 1700 строк `class=ADMITTED_COMPATIBLE` для graph_facts_vec с 01.11.2026 (11 различных PID), 0 строк `compat_not_proven`, 0 строк `not serviceable | index=graph_facts_vec`",
+        "per_turn_unobserved": "да: `period_vector_leg=…` за весь период — 0 строк; turn_events=0, period_fill_events=0",
         "not": [
           "дефект выкладки 2.58.187",
+          "несовместимость или неисправность индекса",
           "пункт backlog",
           "вопрос владельцу",
           "причина отката"
         ],
-        "owner": "Architect (диагностика identity/admission) → Builder/DevOps (доказательство совместимости или повторный canary) → Reviewer (приёмка после появления векторной ноги на живом ходе)",
-        "diagnosis_in_flight": {
+        "owner": "DevOps (первый реальный ход: mca_events с period_vector_leg + журнал) → Builder (прогон порогов доставки/релевантности и латентности на копии прод-БД) → Reviewer (независимое подтверждение)",
+        "diagnosis_closed": {
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md",
-          "state": "running",
-          "expects": "почему identity соединения d2e6314e3586c547 отличается от admitted a93485483697c3c3 при совпадающем embedding space e540d4ad890e121d, что делает retry_canary допустимым и какое доказательство переводит state в compatible",
-          "note": "артефакт ещё не существует; строка его не выдумывает и не подменяет рассуждением"
+          "state": "closed",
+          "result": "R1 подтверждён: PCI различался только меткой quota-group (apinet_paid у живого процесса с hot-кэшем, primary у стороннего процесса без кэша). Передопуск и пересборка не нужны и не выполнялись",
+          "note": "артефакт существует; блок CORRECTION 11.11.2026 фиксирует живой замер"
         },
-        "rollback_not_required": "откат не нужен: лексический путь штатный, прод-поведение деградирует к нему по контракту guard'а, ошибок в путях памяти нет"
+        "superseded_claims": [
+          {
+            "claim": "reason_code=compat_not_proven, class=IN_SCOPE_TECHNICAL_BLOCKER, action=retry_canary, needs_probe=true; «строки не могут стать VERIFIED, пока совместимость не доказана»",
+            "superseded_at": "2026-11-11",
+            "reason": "совместимость доказана ещё 23.10.2026 записью допуска, а с 01.11.2026 подтверждается живым журналом на каждом старте. Заявленный блокер был артефактом замера сторонним процессом без hot-кэша, а не состоянием прода",
+            "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md (раздел «Живой замер 11.11.2026» + CORRECTION)"
+          }
+        ],
+        "rollback_not_required": "откат не нужен: ошибок в путях памяти нет, healthz 200, schema 47; откат по-прежнему не требуется и не обсуждается"
       },
-      "coverage_effect": "Строки ступени созданы как VMQ-NEXT-01..05 в статусе PENDING: реализовано и выкачено, но семантическая часть UNVERIFIED из-за compat_not_proven и отсутствия реального хода. Лексическая деградация активна и названа честно. Ни одна строка VMQ-TIME-01..09 и VMQ-MEM-01..08 не переведена в VERIFIED этим выкатом; замороженный кандидат 709865f6 не переоценивается.",
+      "coverage_effect": "Строки ступени созданы как VMQ-NEXT-01..05 и остаются PENDING: реализовано, выкачено, отревьюено, допуск индекса в проде открыт — но per-turn поведение не наблюдалось (0 строк period_vector_leg, реального хода после выкатки не было). Это различие («допуск доказан, поведение на ходе не наблюдено») записано явно, чтобы не выдавать допуск за приёмку. Ни одна строка VMQ-TIME-01..09 и VMQ-MEM-01..08 не переведена в VERIFIED этим выкатом; замороженный кандидат 709865f6 не переоценивается.",
+      "prod_after_2026_11_11": {
+        "version": "2.58.188",
+        "commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
+        "previous": "952b9ebd (2.58.187) — предок c087253d",
+        "restart": "09:21:08Z",
+        "index_after_restart": "graph_facts_vec по-прежнему `class=ADMITTED_COMPATIBLE` в журнале (новый PID, 11.11 09:21:12)",
+        "vectors_after_restart": "graph_facts_vec 25652 строки, 315 211 776 байт, digest b2fff47fa132ffa9 — идентичен срезу до рестарта; smart_archive 0 строк; новых поколений и переэмбеддинга нет",
+        "note": "ступень памяти этим релизом не менялась: 2.58.188 несёт срез SELF-DIAG-01 D2, файлы памяти побайтово равны 952b9ebd"
+      },
       "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
       "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
       "artifact_note": "байт-идентичная копия записи DevOps из коммита 57df2287 (release/2.58.187); в основной линии файл приведён PM как durable evidence, содержимое не переписывалось"
@@ -350,10 +379,16 @@
   },
   "next_executable": {
     "slice": "VMQ-MEM-NEXT",
-    "owner": "Architect (диагностика index compat, артефакт index-compat-diagnosis.md) → DevOps (доказательство совместимости/повторный canary и первый живой ход) → Builder (прогон порогов и латентности) → Reviewer (независимое подтверждение)",
-    "action": "Сначала снять блокер совместимости индекса (compat_not_proven: identity соединения d2e6314e3586c547 против admitted a93485483697c3c3 при совпадающем space e540d4ad890e121d). Как только векторная нога становится доступной, одним read-only прогоном закрыть VMQ-NEXT-01..05: одна нога на ход с k=32 и честными period_kept/subject_proxy, доставка ≥ 6/15 и явно нерелевантных < 28 % на тех же 15+2 вопросах, защита от пустого вердикта, C1/C2 и измеренные p50/p95.",
-    "blocked_by": "compat_not_proven (IN_SCOPE технический блокер семантической части ступени; артефакт диагностики evidence/vmq-mem/index-compat-diagnosis.md ещё не создан) — и первый реальный ход direct-чата после снятия блокера",
-    "not_blocked": "строки VMQ-MEM-01..03 по-прежнему собираются своим baseline'ом «после» и от этой ступени не зависят; лексическая деградация прода штатна и не требует вмешательства",
+    "owner": "DevOps (первый реальный ход direct-чата: mca_events с period_vector_leg/period_kept/subject_proxy + строки `direct: rag block`; effective-state стража) → Builder (прогон 15+2 вопросов на копии прод-БД: доставка, релевантность, пустой вердикт, C1/C2, латентность) → Reviewer (независимое подтверждение)",
+    "action": "Технический блокер снят: допуск индекса открыт, векторная нога доступна. Осталось НАБЛЮДЕНИЕ на ходе: поймать первый реальный direct-ход с периодным вопросом после выкатки и одним read-only прогоном закрыть VMQ-NEXT-01..05 — одна нога на ход с k=32 и честными period_kept/subject_proxy, доставка ≥ 6/15 и явно нерелевантных < 28 % на тех же 15+2 вопросах, защита от пустого вердикта, C1/C2 и измеренные p50/p95.",
+    "blocked_by": "только отсутствие реального хода: строк `period_vector_leg=…` — 0, реального direct-чата с периодным вопросом после выкатки не было. Совместимость индекса больше не блокер (ADMITTED_COMPATIBLE, needs_probe=false)",
+    "blocked_by_superseded": {
+      "previous": "compat_not_proven (IN_SCOPE технический блокер семантической части ступени; артефакт диагностики ещё не создан)",
+      "superseded_at": "2026-11-11",
+      "reason": "замер сторонним процессом без hot-кэша дал PCI с меткой `primary` вместо `apinet_paid`; живой процесс всё время был допущен (1700 строк ADMITTED_COMPATIBLE с 01.11, 0 строк compat_not_proven), артефакт диагностики создан и закрыт",
+      "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md (CORRECTION 11.11.2026)"
+    },
+    "not_blocked": "строки VMQ-MEM-01..03 по-прежнему собираются своим baseline'ом «после» и от этой ступени не зависят; прод в норме, лексическая половина периодного добора работает",
     "previous_2026_11_11": {
       "slice": "VMQ-MEM",
       "action": "Снять baseline «после» тем же read-only способом и оформить formulation-class-matrix.json, run-retrieval-trace.json, metrics-comparison.json — только они закрывают VMQ-MEM-01..03",
@@ -2346,12 +2381,12 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "нет живого хода и нет доказанной совместимости индекса (compat_not_proven); per-turn поля существуют только в коде и тестах.",
+      "unverified_reason": "Допуск индекса в проде доказан (graph_facts_vec = ADMITTED_COMPATIBLE, needs_probe=false), поэтому единственная причина PENDING — отсутствие живого хода: строк `period_vector_leg=…` ноль, per-turn поля существуют только в коде и тестах. Допуск ≠ наблюдение поведения на ходе.",
       "evidence": [
         {
           "type": "production",
           "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
-          "observation": "Код ноги выкачен (952b9ebd), но живого хода в окне наблюдения не было (turn_events=0, period_fill=0), а guard индекса возвращает compat_not_proven — векторная нога не активируется. Ни одна per-turn величина не измерена.",
+          "observation": "Код ноги выкачен (952b9ebd) и векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false; живой журнал: 1700 строк с 01.11.2026, 0 строк compat_not_proven), но живого хода в окне наблюдения не было (turn_events=0, period_fill=0). Ни одна per-turn величина не измерена.",
           "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
           "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
@@ -2389,7 +2424,7 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "измерение требует активной векторной ноги и копии прод-БД; при compat_not_proven измерялся бы только лексический путь, то есть не контракт строки.",
+      "unverified_reason": "измерение требует прогона 15+2 вопросов на копии прод-БД и живого хода с активной векторной ногой; допуск индекса открыт (ADMITTED_COMPATIBLE), но ни прогона, ни хода после выкатки не было.",
       "evidence": [
         {
           "type": "production",
@@ -2476,7 +2511,7 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "нужен реальный прогон на копии прод-БД; без активной векторной ноги проверяется только лексическая половина правила.",
+      "unverified_reason": "нужен реальный прогон на копии прод-БД: правила C1/C2 этой ступенью не перепроверялись, а векторная нога при этом уже допущена (ADMITTED_COMPATIBLE) — то есть проверять нужно обе половины правила, а не только лексическую.",
       "evidence": [
         {
           "type": "production",
@@ -2519,12 +2554,12 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "без активной векторной ноги и живого хода замер прод-пути вектора невозможен; подставлять оценку вместо измерения запрещено контрактом ступени.",
+      "unverified_reason": "векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false), но замер прод-пути вектора не снят: живого хода не было и прогон на копии прод-БД не выполнялся; подставлять оценку вместо измерения запрещено контрактом ступени.",
       "evidence": [
         {
           "type": "production",
           "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
-          "observation": "Латентность векторной ноги на проде не измерена: в окне не было ходов, а guard не активирует вектор. Единственная измеренная величина ступени — лексические +110 мс (+8 %) на прежнем кандидате, и она не является замером прод-пути вектора.",
+          "observation": "Латентность векторной ноги на проде не измерена: в окне не было ходов, прогон на копии прод-БД не выполнялся. Допуск при этом открыт (нужно не «включить», а измерить): единственная измеренная величина ступени — лексические +110 мс (+8 %) на прежнем кандидате, и она не является замером прод-пути вектора.",
           "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
           "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
@@ -8365,10 +8400,16 @@
       "episodes_messages": "NOT VIABLE семантически: в проекте две vec0-таблицы (graph_facts_vec, smart_archive) и нет эмбеддингов сообщений/эпизодов; индексация — новая инфраструктура."
     },
     "recommended": "узкий вариант 1: вектор в периодном канале с ограниченно-глубоким пулом и пост-фильтром по rag_ts, плюс парная дешёвая правка — SQL-окно года в search_graph_facts_fts (фильтр до LIMIT)",
-    "cost": "+1 KNN и +1 retrieve на ход, доминирует MMR O(limit×k); латентность прод-вектора не измерена, потому что поколение индекса на снимке было compat_not_proven",
+    "cost": "+1 KNN и +1 retrieve на ход, доминирует MMR O(limit×k); латентность прод-вектора не измерена — причина в отсутствии живого хода и прогона на копии прод-БД, а НЕ в несовместимости индекса (см. correction_2026_11_11)",
     "acceptance": "(1) замер на копии прод-БД: известный старый факт доходит до финального блока, а доля 2026 не растёт; (2) измеренная латентность прод-пути вектора, а не оценка; без этих двух замеров строка не принимается",
     "status": "PENDING",
     "status_effect": "строка отложена в следующую ступень памяти и НЕ помечена VERIFIED; замороженный слайс VMQ-MEM-TIME @709865f6 не расширяется",
+    "correction_2026_11_11": {
+      "what": "Формулировки «поколение индекса было compat_not_proven» в этой записи описывали замер СТОРОННИМ процессом без hot-кэша и не отражали состояние прода. На проде векторная нога была допущена и активна всё время (ADMITTED_COMPATIBLE, needs_probe=false; 1700 строк в журнале с 01.11.2026, 0 строк compat_not_proven).",
+      "kept": "Остаточные ограничения NEXT-1..NEXT-6 по существу не отменены: замер латентности прод-пути вектора и прогон на копии прод-БД по-прежнему не выполнены, поэтому строка остаётся PENDING",
+      "original_claims_visible": "исходные утверждения сохранены в superseded_claim у NEXT-5 и в superseded у deployment_evidence.follow_up_2_58_187.index_compat_live",
+      "evidence_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md (раздел «Живой замер 11.11.2026» и CORRECTION)"
+    },
     "not_blocking": "не блокирует вердикт по замороженному кандидату 709865f6: остаточные ограничения слайса фиксируются, а не чинятся в нём",
     "review_709865f6_residuals": [
       {
@@ -8405,10 +8446,16 @@
       },
       {
         "id": "NEXT-5-production-vector-latency",
-        "ref": "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md §5 (стоимость) и §6; old-period-semantic-recheck.md (compat_not_proven)",
-        "observation": "Латентность прод-пути вектора не измерена: поколение индекса на снимке было compat_not_proven, поэтому стоимость оценена только по лексическому маршруту (+110 мс, +8 %). Планировать включение векторного канала по оценке нельзя.",
+        "ref": "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md §5 (стоимость) и §6; old-period-semantic-recheck.md (compat_not_proven — снято 11.11.2026)",
+        "observation": "Латентность прод-пути вектора не измерена, поэтому стоимость оценена только по лексическому маршруту (+110 мс, +8 %). Планировать включение векторного канала по оценке нельзя. Причина — отсутствие живого хода и прогона на копии прод-БД, а не совместимость индекса: на проде допуск открыт (ADMITTED_COMPATIBLE, needs_probe=false) с 23.10.2026.",
+        "superseded_claim": {
+          "previous": "«поколение индекса на снимке было compat_not_proven» как причина отсутствия замера",
+          "superseded_at": "2026-11-11",
+          "reason": "на снимке/в стороннем процессе PCI получал метку quota-group `primary` вместо прод-значения `apinet_paid`; это артефакт замера. Живой процесс: 1700 строк ADMITTED_COMPATIBLE с 01.11.2026, 0 строк compat_not_proven",
+          "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md (CORRECTION 11.11.2026)"
+        },
         "scope": "измеренный замер прод-конфигурации вектора (KNN + retrieve на ход, влияние MMR O(limit×k))",
-        "why_deferred": "требует прод-конфигурации индекса, которой на момент ревью не было; без замера следующая ступень не принимается",
+        "why_deferred": "требует живого хода и/или прогона на копии прод-БД: индексная конфигурация на проде как раз есть (допуск открыт), а замера нагрузки нет; без замера следующая ступень не принимается",
         "next_stage_acceptance": "измеренные p50/p95 латентности реального прод-пути до и после включения векторного канала на одном и том же профиле нагрузки"
       },
       {
@@ -8435,17 +8482,27 @@
     "design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
     "deployment_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
     "deployment_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
-    "state": "IMPLEMENTED_AND_DEPLOYED / SEMANTIC_LEG_UNVERIFIED",
-    "state_ru": "Реализовано, отревьюено и выкачено на прод (952b9ebd, 2.58.187), но семантическая нога не подтверждена: guard индекса не пускает вектор в периодный добор, поэтому периодная доливка идёт лексическим путём. Это честное штатное поведение, а не сбой.",
+    "state": "IMPLEMENTED_AND_DEPLOYED / INDEX_ADMITTED / PER_TURN_UNOBSERVED",
+    "state_ru": "Реализовано, отревьюено и выкачено на прод (952b9ebd, 2.58.187; прод далее 2.58.188 @ c087253d). Допуск индекса в проде ОТКРЫТ: векторная нога периодного добора доступна и активна (ADMITTED_COMPATIBLE, needs_probe=false). Не наблюдалось только поведение на реальном ходе: строк period_vector_leg ноль, ходов с периодным вопросом после выкатки не было. Допуск доказан, per-turn поведение — нет.",
+    "distinction": {
+      "admission": "PROVEN — живой процесс: graph_facts_vec `class=ADMITTED_COMPATIBLE`, needs_probe=false, допуск adopt1:e540d4ad890e121d:a93485483697c3c3… (gen 1, active, activated_at 2026-10-23T05:53:35Z); 1700 строк ADMITTED_COMPATIBLE с 01.11.2026, 11 различных PID, 0 строк compat_not_proven, 0 строк not serviceable",
+      "per_turn_behaviour": "UNOBSERVED — строк `period_vector_leg=…` 0, turn_events=0, period_fill_events=0; ни одна per-turn величина (period_kept, subject_proxy, vector_pool_miss, k, knn_ms) на реальном ходе не измерена",
+      "why_it_matters": "открытый допуск означает «нога доступна», а не «нога доказана на ходе». Строки VMQ-NEXT-01..05 остаются PENDING именно из-за второго, а не из-за первого"
+    },
     "live_blocker": {
-      "state": "UNVERIFIED",
-      "reason_code": "compat_not_proven",
-      "class": "IN_SCOPE_TECHNICAL_BLOCKER",
-      "details": "index guard: state=insufficient, reason_code=compat_not_proven, action=retry_canary, class=COMPATIBILITY_UNKNOWN, needs_probe=true, rows=1; поколение gen 1 (gemini-embedding-001, dims 3072, fingerprint 96f80838…) активно, embedding space совпадает (e540d4ad890e121d), но identity соединения d2e6314e3586c547 отличается от admitted a93485483697c3c3",
+      "state": "NONE",
+      "reason_code": "",
+      "class": "NO_TECHNICAL_BLOCKER",
+      "details": "Технического блокера нет: graph_facts_vec = compatible / ADMITTED_COMPATIBLE / needs_probe=false. smart_archive = source_empty / COMPATIBILITY_UNKNOWN, но ACTIVE-поколения там нет, векторов 0 и фактов в источнике 0 — встраивать нечего, расхождения с допуском нет и взяться ему неоткуда.",
       "diagnosis_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md",
-      "diagnosis_state": "running",
+      "diagnosis_state": "closed (R1 подтверждён: PCI различался только меткой quota-group)",
       "not_a_backlog_item": true,
-      "why_in_scope": "без подтверждённой совместимости индекса семантическая часть приёмки этой ступени не может быть доказана вообще; это контрактное предусловие строк VMQ-NEXT-01..05, а не отдельный независимый дефект"
+      "superseded_blocker": {
+        "previous": "state=UNVERIFIED, reason_code=compat_not_proven, class=IN_SCOPE_TECHNICAL_BLOCKER, needs_probe=true, rows=1; «identity d2e6314e3586c547 отличается от admitted a93485483697c3c3»",
+        "superseded_at": "2026-11-11",
+        "reason": "замер выполнен сторонним процессом без hot-кэша: `keys.embedding_quota_group_labels` не читались, quota_group падал в авто-alias `primary`, PCI отличался одной меткой. Живой процесс считает `apinet_paid` и был допущен всё время; реальной смены соединения не было (провайдер, host apinet.cloud, path /v1, credential alias, space e540d4ad890e121d — идентичны)",
+        "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md (раздел «Живой замер 11.11.2026» + CORRECTION)"
+      }
     },
     "live_acceptance_owed": {
       "what": [
@@ -8457,10 +8514,10 @@
       ],
       "cannot_exist_yet_because": [
         "в окне наблюдения не было ни одного реального хода direct-чата (turn_events=0, period_fill=0, строк 'direct: rag block' 0)",
-        "векторная нога не активируется до доказанной совместимости индекса (compat_not_proven)"
+        "прогон 15+2 вопросов на копии прод-БД после выкатки не выполнялся"
       ],
-      "trigger": "первый реальный ход direct-чата в одном из трёх чатов ПОСЛЕ доказанной совместимости индекса: read-only проба (mca_events с period_fill/period_vector_leg + journalctl 'direct: rag block') даёт per-turn поля и тайминги без новых изменений; для доставки и релевантности — прогон тех же 15+2 вопросов на копии прод-БД с активной векторной ногой",
-      "evidence_owner": "агенты, не владелец: DevOps — живой ход и effective-state (guard, поля хода, логи); Architect — диагноз index-compat и доказательство совместимости; Builder — прогон порогов доставки/релевантности и латентности; Reviewer — независимое подтверждение",
+      "trigger": "первый реальный ход direct-чата в одном из трёх чатов: read-only проба (mca_events с period_fill/period_vector_leg + journalctl 'direct: rag block') даёт per-turn поля и тайминги без новых изменений; совместимость индекса для этого больше не требуется (допуск открыт с 23.10.2026); для доставки и релевантности — прогон тех же 15+2 вопросов на копии прод-БД",
+      "evidence_owner": "агенты, не владелец: DevOps — живой ход и effective-state (допуск стража, поля хода, логи); Builder — прогон порогов доставки/релевантности и латентности на копии прод-БД; Reviewer — независимое подтверждение",
       "owner_not_qa": "владелец не привлекается ни к одному из этих шагов: у агентов есть доступ к проду, БД, логам и копии архива",
       "expected_artifacts": [
         "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/vector-leg-live-turn.json",
@@ -8471,7 +8528,13 @@
       ],
       "status_effect": "ни один из этих artefacts не создан; строки VMQ-NEXT-01..05 остаются PENDING до их появления. VERIFIED не выставляется ни одной строке по факту выката."
     },
-    "observable_now": "Лексическая деградация активна и наблюдаема: guard возвращает compat_not_proven, периодная доливка остаётся лексической, ошибок в путях памяти нет, healthz 2.58.187, ADR-1019 зелёный, реранк эффективен True. Пользовательская выдача на исторических вопросах этой выкладкой не расширена семантически — она лишь не сломана.",
+    "observable_now": "Допуск и целостность наблюдаемы: страж по живому процессу даёт graph_facts_vec = compatible / ADMITTED_COMPATIBLE / needs_probe=false, smart_archive = source_empty (встраивать нечего); векторы не переписаны — graph_facts_vec 25652 строки, 315 211 776 байт, digest b2fff47fa132ffa9 одинаков до и после рестарта 2.58.188; новых поколений и переэмбеддинга нет; ошибок в путях памяти нет, ADR-1019 зелёный, реранк эффективен True. Что НЕ наблюдаемо: поведение ноги на ходе — строк period_vector_leg ноль.",
+    "prod_lineage_2026_11_11": {
+      "prod_version": "2.58.188 @ c087253d (ступень SELF-DIAG-01 D2), предыдущий прод 952b9ebd (2.58.187) — предок",
+      "restart": "09:21:08Z; в журнале 11.11 09:21:12 новый PID снова пишет `embedding index serviceable | index=graph_facts_vec | class=ADMITTED_COMPATIBLE`",
+      "hazard": "рабочая ветка (master @ 88ebd845 на момент записи) НЕ содержит коммитов 952b9ebd/c087253d: они в ветках release/2.58.187 и release/2.58.188. Это наблюдённый lineage-риск, а не дефект прода: слияние релизных линий в рабочую — отдельный осознанный шаг интеграции, автоматически не выполняется",
+      "scan_evidence": "обе фиксации только читались: никаких изменений кода, индексов, поколений и эмбеддингов не выполнялось"
+    },
     "not_this_stage": "не закрывает VMQ-TIME-01..09 и VMQ-MEM-01..08; не переключает флаг реранка; не делает DDL/переиндексацию; не поднимает k выше 32; не вводит третий retrieve"
   }
 }
