@@ -1,0 +1,19 @@
+﻿[
+ {"key":"A1","anchor":1753,"year":2022,"kind":"dispute","question":"почему Vasek был недоволен отношением к себе в чате?"},
+ {"key":"A2","anchor":1801,"year":2022,"kind":"event (concert)","question":"что было с концертом органной музыки?"},
+ {"key":"A3","anchor":1713,"year":2022,"kind":"renovation","question":"что там с ремонтом ванной?"},
+ {"key":"A4","anchor":2358,"year":2023,"kind":"project (market)","question":"что было с рыночком на болту?"},
+ {"key":"A5","anchor":3222,"year":2023,"kind":"rule/traditions","question":"что говорили про традиции сообщества?"},
+ {"key":"A6","anchor":2753,"year":2023,"kind":"money/job","question":"что говорили про зарплату айтишников в Перми?"},
+ {"key":"A7","anchor":2580,"year":2023,"kind":"rule/health","question":"что говорили про ОРВИ и лекарства?"},
+ {"key":"A8","anchor":4000,"year":2024,"kind":"purchase (tickets)","question":"что было с покупкой билетов на концерты?"},
+ {"key":"A9","anchor":3790,"year":2024,"kind":"decision (pet)","question":"что было с собакой?"},
+ {"key":"A10","anchor":4864,"year":2024,"kind":"technical (server)","question":"что говорили про вайп сервера?"},
+ {"key":"A11","anchor":4469,"year":2024,"kind":"technical (ML)","question":"что было с алгоритмом BPR?"},
+ {"key":"A12","anchor":6000,"year":2025,"kind":"event (food)","question":"что было с шаурмой?"},
+ {"key":"A13","anchor":5358,"year":2025,"kind":"purchase (vitamins)","question":"что было с витаминами?"},
+ {"key":"A14","anchor":6074,"year":2025,"kind":"event (meeting)","question":"что было со встречей с Пюрской?"},
+ {"key":"A15","anchor":7037,"year":2025,"kind":"dispute (relations)","question":"что говорили про предпочтения Тани?"},
+ {"key":"C1","anchor":null,"year":2026,"kind":"control: current state","question":"что сейчас происходит в чате?"},
+ {"key":"C2","anchor":null,"year":2026,"kind":"control: current plan","question":"какие сейчас планы на выходные?"}
+]
