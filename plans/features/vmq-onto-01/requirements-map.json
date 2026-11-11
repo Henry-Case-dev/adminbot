@@ -66,7 +66,8 @@
     }
   },
   "notes": [
-    "2026-11-11 — причина ошибки учёта (одна запись, bookkeeping): ключ хранится в bot_settings с префиксом «flags.» — flags.chat_rag_rerank_enabled. Поиск по имени настройки/переменной (CHAT_RAG_RERANK_ENABLED) или по ключу без префикса (chat_rag_rerank_enabled) не находит строку и даёт ложный вывод «строки нет, эффективное значение False». Это ошибка учёта, а не дефект продукта; исправленное значение — в config_fact_2026_11_11 этой карты."
+    "2026-11-11 — причина ошибки учёта (одна запись, bookkeeping): ключ хранится в bot_settings с префиксом «flags.» — flags.chat_rag_rerank_enabled. Поиск по имени настройки/переменной (CHAT_RAG_RERANK_ENABLED) или по ключу без префикса (chat_rag_rerank_enabled) не находит строку и даёт ложный вывод «строки нет, эффективное значение False». Это ошибка учёта, а не дефект продукта; исправленное значение — в config_fact_2026_11_11 этой карты.",
+    "2026-11-11 (после 11:15Z) — граница окна для всех утверждений вида «ходов не было / period_fill=0 / строк period_vector_leg ноль»: они написаны по наблюдательным окнам ДО 11:15:41Z (последнее такое окно — 08:24→11:11Z) и остаются верными только для своих окон. Первый реальный прямой ход — 11:15:41Z, первый ход с исполненной векторной ногой — 11:16:50Z, первая durable-строка period_fill — 11:16:49Z (и единственная за историю таблицы). Повторять эти утверждения как текущие нельзя; подробности и что именно доказано — per_turn_observation_2026_11_11 и evidence/vmq-mem/next-stage/prod-turns-2026-11-11.md."
   ],
   "lineage_divergence_2026_11_11": {
     "observed": "2026-11-11",
@@ -337,7 +338,7 @@
         "class": "SCOPE_OBSERVATION_PENDING",
         "why": "Технического блокера нет. Допуск индекса в проде открыт (graph_facts_vec = compatible / ADMITTED_COMPATIBLE / needs_probe=false), поэтому векторная нога на ходе доступна. Не хватает только НАБЛЮДЕНИЯ поведения на реальном ходе: строк period_vector_leg=0, реального direct-чата с периодным вопросом после выкатки не было. Поэтому строки VMQ-NEXT-01..05 остаются PENDING — из-за отсутствия per-turn доказательства, а не из-за совместимости индекса.",
         "admission_proven": "да: допуск adopt1:e540d4ad890e121d:a93485483697c3c3… (gen 1, active) подтверждён живым процессом — 1700 строк `class=ADMITTED_COMPATIBLE` для graph_facts_vec с 01.11.2026 (11 различных PID), 0 строк `compat_not_proven`, 0 строк `not serviceable | index=graph_facts_vec`",
-        "per_turn_unobserved": "да: `period_vector_leg=…` за весь период — 0 строк; turn_events=0, period_fill_events=0",
+        "per_turn_unobserved": "частично: два реальных хода состоялись (11:15:41Z `period_vector_leg=n/a` — штатный пропуск; 11:16:50Z `period_vector_leg=ok`, но `vector_rows=0`), поэтому НЕ наблюдались только subject_proxy на реальной векторной строке, доставка старой строки и operative-паритет; k и knn_ms/fts_ms не наблюдаемы в принципе — таких полей в телеметрии нет",
         "not": [
           "дефект выкладки 2.58.187",
           "несовместимость или неисправность индекса",
@@ -379,9 +380,9 @@
   },
   "next_executable": {
     "slice": "VMQ-MEM-NEXT",
-    "owner": "DevOps (первый реальный ход direct-чата: mca_events с period_vector_leg/period_kept/subject_proxy + строки `direct: rag block`; effective-state стража) → Builder (прогон 15+2 вопросов на копии прод-БД: доставка, релевантность, пустой вердикт, C1/C2, латентность) → Reviewer (независимое подтверждение)",
-    "action": "Технический блокер снят: допуск индекса открыт, векторная нога доступна. Осталось НАБЛЮДЕНИЕ на ходе: поймать первый реальный direct-ход с периодным вопросом после выкатки и одним read-only прогоном закрыть VMQ-NEXT-01..05 — одна нога на ход с k=32 и честными period_kept/subject_proxy, доставка ≥ 6/15 и явно нерелевантных < 28 % на тех же 15+2 вопросах, защита от пустого вердикта, C1/C2 и измеренные p50/p95.",
-    "blocked_by": "только отсутствие реального хода: строк `period_vector_leg=…` — 0, реального direct-чата с периодным вопросом после выкатки не было. Совместимость индекса больше не блокер (ADMITTED_COMPATIBLE, needs_probe=false)",
+    "owner": "DevOps (read-only проба: следующий ход с НЕПУСТОЙ векторной ногой → subject_proxy=knn, и operative-ход для паритета) → Builder (read-only прогон на копии прод-БД: 17 вопросов, пустой вердикт на реальном архиве, C1/C2 — класс (a), правок продукта не требует) → отдельная утверждённая ступень для аддитивных knn_ms/fts_ms (класс (b)) → Reviewer (независимое подтверждение)",
+    "action": "Наблюдение на ходе началось, но не закончено. Сделано на проде 11.11.2026 (c087253d, два реальных хода): доказано, что векторная нога исполняется (period_vector_leg=ok), что периодный вызов один на ход и что промах пула пишется честно (vector_pool_miss=1 при 0 строк). Осталось: (1) живое наблюдение — ход, где нога вернёт хотя бы одну строку, чтобы получить subject_proxy=knn, и operative-ход для паритета; (2) измеримая на копии прод-БД работа — прогон 17 вопросов (VMQ-NEXT-02), двойник пустого вердикта на реальном архиве (VMQ-NEXT-03), C1/C2 (VMQ-NEXT-04) — всё это класс (a), правок продукта не требует; (3) отдельная ступень — латентность с раздельными knn_ms/fts_ms (VMQ-NEXT-05, класс (b): таких полей в продукте нет). k=32 на ходе не проверяем по телеметрии: поля vector_pool в usage_json нет.",
+    "blocked_by": "технического блокера нет (ADMITTED_COMPATIBLE, needs_probe=false; реальный ход состоялся). Остаточные ограничения не блокеры, а разные способы закрытия: VMQ-NEXT-01 ждёт живого хода с непустой векторной ногой и operative-хода; VMQ-NEXT-02/03/04 закрываются read-only прогоном на копии прод-БД и могут идти сейчас; VMQ-NEXT-05 не закрывается замером вообще — нужны аддитивные knn_ms/fts_ms либо решение ступени о harness-таймингах. Устаревшее «строк period_vector_leg — 0 / реального хода не было» верно только до 11:15Z 11.11.2026.",
     "blocked_by_superseded": {
       "previous": "compat_not_proven (IN_SCOPE технический блокер семантической части ступени; артефакт диагностики ещё не создан)",
       "superseded_at": "2026-11-11",
@@ -2381,18 +2382,53 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "Допуск индекса в проде доказан (graph_facts_vec = ADMITTED_COMPATIBLE, needs_probe=false), поэтому единственная причина PENDING — отсутствие живого хода: строк `period_vector_leg=…` ноль, per-turn поля существуют только в коде и тестах. Допуск ≠ наблюдение поведения на ходе.",
+      "unverified_reason": "Допуск индекса в проде доказан (graph_facts_vec = ADMITTED_COMPATIBLE, needs_probe=false) и с 11.11.2026 есть два реальных прямых хода, значит причина PENDING больше НЕ «живого хода не было»: на ходе 11:16:46→11:17:00 векторная нога исполнена (period_vector_leg=ok, vector_rows=0) с честным period_kept=0 и записанным vector_pool_miss=1, т.е. часть клауз закрыта наблюдением. Строка остаётся PENDING по трём конкретным незакрытым условиям приёмки: (1) subject_proxy для РЕАЛЬНОЙ векторной строки не наблюдён — нога вернула 0 строк, а поле заполняется только по периодным/векторным строкам; (2) k=32 на ходе не проверяем — `stats['vector_pool']` не попадает в durable `usage_json.period_fill` (только vector_leg/vector_rows/vector_pool_miss/subject_proxy); (3) доставка старой строки и operative-паритет не наблюдались (period_kept=0 на обоих ходах, operative-ходов в окне нет).",
       "evidence": [
         {
           "type": "production",
           "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
-          "observation": "Код ноги выкачен (952b9ebd) и векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false; живой журнал: 1700 строк с 01.11.2026, 0 строк compat_not_proven), но живого хода в окне наблюдения не было (turn_events=0, period_fill=0). Ни одна per-turn величина не измерена.",
+          "observation": "Код ноги выкачен (952b9ebd) и векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false; живой журнал: 1700 строк с 01.11.2026, 0 строк compat_not_proven), но живого хода в окне наблюдения не было (turn_events=0, period_fill=0). Ни одна per-turn величина не измерена. [Окно этой записи — 08:24→11:11Z 11.11.2026; с 11:15:41Z утверждение устарело: два хода состоялись, см. запись от 11.11.2026 выше и per_turn_observation_2026_11_11.]",
           "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
           "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
           "covers_row_acceptance": false
+        },
+        {
+          "type": "production",
+          "ref": "Два реальных прямых хода после выкатки ступени (11.11.2026, прод c087253d): одна векторная нога на ход, честный period_kept=0, записанный vector_pool_miss=1 — частичная привязка строки, не приёмка",
+          "observation": "Ход 11:16:46→11:17:00: period_vector_leg=ok, vector_rows=0, vector_pool_miss=1, period_kept=0, period_vector_knn=0, subject_proxy пустое; durable-строка period_fill одна на ход (11:16:49Z, success) и первая за всю историю таблицы; строка журнала и usage_json согласованы; индекс ADMITTED_COMPATIBLE (40 строк в окне, 0 строк compat_not_proven). Ход 11:15:38→11:15:52: period_vector_leg=n/a, добор не запускался (usable < limit//2 = 4 при facts=2) — нормальный пропуск, не деградация. Не наблюдалось: subject_proxy для векторной строки (нога вернула 0 строк), k=32 (в телеметрии нет поля vector_pool), доставка старой строки (period_kept=0 на обоих ходах), operative-паритет (operative-ходов в окне нет).",
+          "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/prod-turns-2026-11-11.md",
+          "artifact_sha256": "c57c389374e2cd410cd99d555b13ae52616e20d46b5655a085aa0ef548637493",
+          "observed_on_prod": "c087253dd7afdbcfa0c5ee96927324dc349627b2 (2.58.188), 952b9ebd — предок",
+          "covers_row_acceptance": false
         }
       ],
+      "partial_binding_2026_11_11": {
+        "observed_on_prod": "c087253dd7afdbcfa0c5ee96927324dc349627b2 (2.58.188, service 0 restarts, один read-only коннект)",
+        "turns": [
+          "b5353cfe93da452998a4e300b5e08073 — 11:15:38→11:15:52",
+          "602da61219884954a6c5026d6c3789e2 — 11:16:46→11:17:00"
+        ],
+        "proved": [
+          "векторная нога исполняется на реальном ходе (period_vector_leg=ok, vector_rows=0)",
+          "один периодный вызов на ход, второй ноги нет (одна durable-строка period_fill, period_fill_rows_per_trace {None: 1}; 'period vector leg' в журнале = 0)",
+          "честный period_kept=0 согласован с period_vector_knn=0 и пустым subject_proxy",
+          "vector_pool_miss записывается честно: 1 при vector_leg=ok и 0 строк; 0 при n/a",
+          "пропуск добора на первом ходу — штатное правило usable < limit//2, а не ошибка",
+          "индекс допущен: 40 строк ADMITTED_COMPATIBLE, 0 compat_not_proven, 0 not serviceable по graph_facts_vec"
+        ],
+        "not_observed": [
+          "subject_proxy=knn на реальной векторной строке (нога вернула 0 строк)",
+          "доставка старой строки в финальный блок (period_kept=0)",
+          "operative-ход и его байт-паритет без векторной ноги"
+        ],
+        "not_observable_in_current_telemetry": [
+          "k=32: stats['vector_pool']='32' существует только в процессе; durable usage_json.period_fill несёт только vector_leg/vector_rows/vector_pool_miss/subject_proxy (services/mca_retrieval_context.py:1921-1929), строка журнала k тоже не печатает"
+        ],
+        "why_status_stays_pending": "приёмка требует subject_proxy именно на реальной векторной строке и не допускает подстановку «нашлось» без трассы; плюс k не проверяем по телеметрии, а доставка не наблюдалась. Частичное наблюдение не превращается в VERIFIED.",
+        "evidence_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/prod-turns-2026-11-11.md"
+      },
       "expected_evidence": [
         {
           "type": "live",
@@ -2424,7 +2460,16 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "измерение требует прогона 15+2 вопросов на копии прод-БД и живого хода с активной векторной ногой; допуск индекса открыт (ADMITTED_COMPATIBLE), но ни прогона, ни хода после выкатки не было.",
+      "unverified_reason": "измерение требует прогона 15+2 вопросов на копии прод-БД; такого прогона на 2.58.187 не выполнялось, а единственный реальный ход с исполненной векторной ногой (11:16:50Z) вернул 0 строк, поэтому ни доставки, ни векторной трассы для A6/A9/A13/A15 не наблюдалось. Допуск индекса открыт (ADMITTED_COMPATIBLE), но это допуск, а не замер.",
+      "measurement_class_2026_11_11": {
+        "class": "a",
+        "closable_by_read_only_copy_measurement": true,
+        "measurement": "прогон 17 вопросов (A1–A15, C1, C2) на копии прод-БД тем же путём _rag_unified_rows → _build_rag_block, чат -1002661910336, эффективное значение rerank печатается в отчёте; считать доставку якоря (≥ 6/15), долю 2026 против 709865f6, «по теме» (≥ 8/18), долю явно нерелевантных (< 28 %), и по A6/A9/A13/A15 — пришло ли векторной ногой либо в трассе честный vector_pool_miss",
+        "needs_product_change": "нет: harness тот же, что в evidence/vmq-mem/time/independent-sample-709865f6.md; правок продукта и релиза не требуется",
+        "shared_session": "тот же прогон 17 вопросов даёт материал и для VMQ-NEXT-04 (C1/C2 входят в набор)",
+        "not_run_yet": "прогон не выполнялся; строка не закрывается до фактического замера",
+        "note": "класс (a) не делает строку измеренной: живого хода с векторной ногой, вернувшей ≥ 1 строку, по-прежнему нет, а приёмка требует хотя бы один A6/A9/A13/A15 с векторной ногой или честным vector_pool_miss"
+      },
       "evidence": [
         {
           "type": "production",
@@ -2469,11 +2514,19 @@
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
       "unverified_reason": "риск-сценарий требует реального реранка и реального блока; фикстура двойника не заменяет живое наблюдение по контракту приёмки.",
+      "measurement_class_2026_11_11": {
+        "class": "a",
+        "closable_by_read_only_copy_measurement": true,
+        "measurement": "на копии прод-БД прогнать тот же путь с двойником memory.rerank_rag_facts, возвращающим валидный {\"selected\": []}: сверить набор защищённых периодных строк до/после, счётчик period_kept_despite_empty и число пустых блоков на реальном архиве при уже находившейся в пуле периодной строке (ожидание 0); отдельно — что пустой вердикт по непериодному срезу не защищает строки ниже порога двух основ",
+        "needs_product_change": "нет: двойник — часть harness на копии БД, продукт не правится",
+        "not_run_yet": "прогон не выполнялся; строка не закрывается до фактического замера",
+        "note": "класс (a) означает «закрываемо замером», а не «измерено»; подстановка тестовой фикстуры вместо наблюдения на реальном архиве приёмкой не считается"
+      },
       "evidence": [
         {
           "type": "production",
           "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
-          "observation": "Поведение реализовано и покрыто тестами ступени (18/18), но на реальном архиве не наблюдалось: реального хода не было, а на прежнем кандидате 709865f6 блоки были пусты в 7 из 34 прогонов именно из-за пустого вердикта.",
+          "observation": "Поведение реализовано и покрыто тестами ступени (18/18), но на реальном архиве не наблюдалось: реального хода с НЕПУСТОЙ векторной ногой не было (единственный ход с исполненной ногой вернул 0 строк), а на прежнем кандидате 709865f6 блоки были пусты в 7 из 34 прогонов именно из-за пустого вердикта.",
           "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
           "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
@@ -2512,6 +2565,14 @@
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
       "unverified_reason": "нужен реальный прогон на копии прод-БД: правила C1/C2 этой ступенью не перепроверялись, а векторная нога при этом уже допущена (ADMITTED_COMPATIBLE) — то есть проверять нужно обе половины правила, а не только лексическую.",
+      "measurement_class_2026_11_11": {
+        "class": "a",
+        "closable_by_read_only_copy_measurement": true,
+        "measurement": "C1/C2 под auto на копии прод-БД: число периодных строк (C1 — ноль), число строк, не прошедших порог двух основ (C2 — ноль), доля текущего года не в меньшинстве; плюс контроль, что исторические вопросы не теряют доставку — тот же прогон 17 вопросов, что у VMQ-NEXT-02",
+        "needs_product_change": "нет: только прогон на копии, правок продукта не требуется",
+        "shared_session": "выполняется вместе с VMQ-NEXT-02 (C1/C2 уже входят в набор 17 вопросов)",
+        "not_run_yet": "прогон не выполнялся; строка не закрывается до фактического замера"
+      },
       "evidence": [
         {
           "type": "production",
@@ -2554,7 +2615,16 @@
       "status": "PENDING",
       "deployment_state": "implemented_and_deployed",
       "acceptance_state": "UNVERIFIED",
-      "unverified_reason": "векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false), но замер прод-пути вектора не снят: живого хода не было и прогон на копии прод-БД не выполнялся; подставлять оценку вместо измерения запрещено контрактом ступени.",
+      "unverified_reason": "векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false), но замер прод-пути вектора не снят: живого хода с вектором не было (единственный ход с ногой вернул 0 строк) и прогон на копии прод-БД не выполнялся; подставлять оценку вместо измерения запрещено контрактом ступени.",
+      "measurement_class_2026_11_11": {
+        "class": "b",
+        "closable_by_read_only_copy_measurement": false,
+        "why": "приёмка требует «отдельно knn_ms и fts_ms», а таких полей в продукте нет: git grep по 952b9ebd в services/ не находит ни knn_ms, ни fts_ms, в журнале ступени их тоже нет (`direct: rag block` печатает только счётчики; `usage_json.period_fill` — vector_leg/vector_rows/vector_pool_miss/subject_proxy). Раздельные тайминги ног поэтому не снимаются измерением на копии — нужны либо аддитивные поля в телеметрии, либо явное решение ступени, что harness-тайминги обёрткой вокруг двух awaited-ног считаются «измерением». То и другое — акт утверждённой ступени, а не замер.",
+        "what_is_measurable_today": "p50/p95 сборки блока (_build_rag_block) до и после включения векторной ноги и p95 периодного вызова против лексического на той же копии (потолок +400 мс) — это часть клаузы, но не вся",
+        "what_requires_new_stage": "аддитивные knn_ms/fts_ms в usage_json либо решение о приёме harness-таймингов как «измерения»",
+        "not_close_by_estimate": "«+110 мс лексики» на прежнем кандидате 709865f6 замером прод-пути вектора не является",
+        "not_run_yet": "даже измеряемая сейчас часть не снята; строка не закрывается ни по одной половине"
+      },
       "evidence": [
         {
           "type": "production",
@@ -8482,12 +8552,46 @@
     "design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
     "deployment_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
     "deployment_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
-    "state": "IMPLEMENTED_AND_DEPLOYED / INDEX_ADMITTED / PER_TURN_UNOBSERVED",
-    "state_ru": "Реализовано, отревьюено и выкачено на прод (952b9ebd, 2.58.187; прод далее 2.58.188 @ c087253d). Допуск индекса в проде ОТКРЫТ: векторная нога периодного добора доступна и активна (ADMITTED_COMPATIBLE, needs_probe=false). Не наблюдалось только поведение на реальном ходе: строк period_vector_leg ноль, ходов с периодным вопросом после выкатки не было. Допуск доказан, per-turn поведение — нет.",
+    "state": "IMPLEMENTED_AND_DEPLOYED / INDEX_ADMITTED / PER_TURN_PARTIALLY_OBSERVED",
+    "state_ru": "Реализовано, отревьюено и выкачено на прод (952b9ebd, 2.58.187; прод далее 2.58.188 @ c087253d). Допуск индекса в проде ОТКРЫТ: векторная нога периодного добора доступна и активна (ADMITTED_COMPATIBLE, needs_probe=false). С 11.11.2026 есть два реальных прямых хода (11:15:41Z и 11:16:50Z): на втором векторная нога исполнена (period_vector_leg=ok, vector_rows=0) с честным period_kept=0 и записанным vector_pool_miss=1, durable-строка period_fill одна на ход и первая за всю историю таблицы; на первом добор штатно не запускался (usable < limit//2). Доказано: нога исполняется, один вызов на ход, промах пишется честно. Не доказано: subject_proxy на реальной векторной строке (нога вернула 0 строк), k=32 (в телеметрии нет поля vector_pool), доставка старой строки, operative-паритет. Допуск доказан, per-turn поведение доказано частично.",
     "distinction": {
       "admission": "PROVEN — живой процесс: graph_facts_vec `class=ADMITTED_COMPATIBLE`, needs_probe=false, допуск adopt1:e540d4ad890e121d:a93485483697c3c3… (gen 1, active, activated_at 2026-10-23T05:53:35Z); 1700 строк ADMITTED_COMPATIBLE с 01.11.2026, 11 различных PID, 0 строк compat_not_proven, 0 строк not serviceable",
-      "per_turn_behaviour": "UNOBSERVED — строк `period_vector_leg=…` 0, turn_events=0, period_fill_events=0; ни одна per-turn величина (period_kept, subject_proxy, vector_pool_miss, k, knn_ms) на реальном ходе не измерена",
+      "per_turn_behaviour": "PARTIALLY_OBSERVED (11.11.2026, прод c087253d) — два реальных прямых хода: 11:15:41Z `period_vector_leg=n/a` (добор не запускался, usable < limit//2 при facts=2 — штатный пропуск) и 11:16:50Z `period_vector_leg=ok | vector_rows=0 | period_kept=0 | vector_pool_miss=1 | period_vector_knn=0 | subject_proxy=`; durable-строка `period_fill` одна на ход (11:16:49Z, success) и первая за всю историю таблицы. Доказано: нога исполняется, один периодный вызов на ход, промах пула пишется честно, `period_kept=0` не врёт. НЕ измерено: `subject_proxy` на реальной векторной строке (нога вернула 0 строк), `k` (в телеметрии нет `vector_pool`), доставка старой строки (period_kept=0), `knn_ms`/`fts_ms` (таких полей в продукте нет), operative-паритет (operative-ходов в окне нет).",
       "why_it_matters": "открытый допуск означает «нога доступна», а не «нога доказана на ходе». Строки VMQ-NEXT-01..05 остаются PENDING именно из-за второго, а не из-за первого"
+    },
+    "per_turn_observation_2026_11_11": {
+      "observed_at": "2026-11-11T11:33:47Z (server UTC), одно read-only подключение",
+      "observed_on_prod": "c087253dd7afdbcfa0c5ee96927324dc349627b2 (2.58.188), service 0 restarts",
+      "turns": [
+        {
+          "trace": "b5353cfe93da452998a4e300b5e08073",
+          "window": "11:15:38→11:15:52",
+          "chat": "-1004482340693",
+          "rag_block": "facts=2 | period_kept=0 | period_rejected_subject=0 | period_kept_despite_empty=0 | vector_pool_miss=0 | period_vector_knn=0 | period_vector_leg=n/a | subject_proxy=",
+          "reading": "добор не запускался: usable < limit//2 (2 факта против порога 4 при limit=8) — штатный пропуск правила auto, не деградация"
+        },
+        {
+          "trace": "602da61219884954a6c5026d6c3789e2",
+          "window": "11:16:46→11:17:00",
+          "chat": "-1004482340693",
+          "rag_block": "facts=4 | period_kept=0 | period_rejected_subject=0 | period_kept_despite_empty=0 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=",
+          "durable_period_fill": "11:16:49Z mca07_retrieval success vector_leg=ok vector_rows=0 pool_miss=1 subject_proxy={} — одна строка на ход и первая за всю историю таблицы",
+          "reading": "векторная нога исполнена и вернула 0 строк; промах записан честно (vector_pool_miss=1), period_kept=0 согласован с period_vector_knn=0"
+        }
+      ],
+      "also_observed": "40 строк `SmartModule: embedding index serviceable | index=graph_facts_vec | class=ADMITTED_COMPATIBLE`, 0 строк `compat_not_proven`, 0 `not serviceable` по graph_facts_vec; 8 WARNING — только `smart_archive status=superseded ... source empty` (прежний известный источник пустоты); ошибок ступени памяти (unified rag retrieval failed / rag facts failed / fail-open / TimeoutError / asyncio.Timeout / CancelledError) — 0",
+      "cannot_show": [
+        "subject_proxy=knn на реальной векторной строке — нога вернула 0 строк",
+        "k=32 — в durable usage_json.period_fill поля vector_pool нет, в строке журнала k тоже нет",
+        "доставка старой строки в финальный блок — period_kept=0 на обоих ходах",
+        "operative-паритет — operative-ходов в окне нет",
+        "knn_ms/fts_ms — таких полей в продукте нет",
+        "детали style_policy WARN 09:56:17Z — проба брала только не-INFO строки и не раскрывала error_json (он пуст)"
+      ],
+      "unattributed_generic_counters": "общие счётчики журнала за сутки: Traceback 23, 'database is locked' 23, ' ERROR ' 12 — контекст пробой не извлекался, к ступени памяти не отнесены; утверждение «в окне нет ни одной ошибки вообще» не делается",
+      "evidence_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/prod-turns-2026-11-11.md",
+      "evidence_sha256": "c57c389374e2cd410cd99d555b13ae52616e20d46b5655a085aa0ef548637493",
+      "correction": "Прежние формулировки «turn_events=0», «period_fill=0», «строк period_vector_leg=… — 0», «реального хода не было» (release-2.58.187.md §6, next_executable.blocked_by, distinction.per_turn_behaviour) были верны ТОЛЬКО до 11:15Z 11.11.2026: первая строка `direct: rag block` — 11:15:41Z, первая строка с `period_vector_leg=ok` — 11:16:50Z, первая durable-строка `period_fill` — 11:16:49Z. После этих моментов повторять их нельзя; сами прежние записи не переписаны и остаются верными для своих окон наблюдения."
     },
     "live_blocker": {
       "state": "NONE",
@@ -8513,10 +8617,11 @@
         "явно нерелевантных строк строго < 28 % нового набора, «по теме» не хуже 8/18"
       ],
       "cannot_exist_yet_because": [
-        "в окне наблюдения не было ни одного реального хода direct-чата (turn_events=0, period_fill=0, строк 'direct: rag block' 0)",
+        "живой ход больше не является причиной: два реальных хода состоялись (11:15:41Z и 11:16:50Z), на одном нога исполнилась (period_vector_leg=ok), но вернула 0 строк — поэтому subject_proxy=knn, доставка старой строки и operative-паритет всё ещё не наблюдались",
+        "k и knn_ms/fts_ms в телеметрии отсутствуют вовсе (нет поля vector_pool в usage_json, нет таймингов ног): это не «ещё не наблюдали», а «нет поля»",
         "прогон 15+2 вопросов на копии прод-БД после выкатки не выполнялся"
       ],
-      "trigger": "первый реальный ход direct-чата в одном из трёх чатов: read-only проба (mca_events с period_fill/period_vector_leg + journalctl 'direct: rag block') даёт per-turn поля и тайминги без новых изменений; совместимость индекса для этого больше не требуется (допуск открыт с 23.10.2026); для доставки и релевантности — прогон тех же 15+2 вопросов на копии прод-БД",
+      "trigger": "следующий реальный ход direct-чата с НЕПУСТОЙ векторной ногой (даёт subject_proxy=knn) и operative-ход (паритет) — read-only проба без новых изменений; для доставки/релевантности — прогон тех же 15+2 вопросов на копии прод-БД (класс (a), правок продукта не требует); для раздельных knn_ms/fts_ms — аддитивная телеметрия будущей утверждённой ступени (класс (b))",
       "evidence_owner": "агенты, не владелец: DevOps — живой ход и effective-state (допуск стража, поля хода, логи); Builder — прогон порогов доставки/релевантности и латентности на копии прод-БД; Reviewer — независимое подтверждение",
       "owner_not_qa": "владелец не привлекается ни к одному из этих шагов: у агентов есть доступ к проду, БД, логам и копии архива",
       "expected_artifacts": [
@@ -8528,7 +8633,7 @@
       ],
       "status_effect": "ни один из этих artefacts не создан; строки VMQ-NEXT-01..05 остаются PENDING до их появления. VERIFIED не выставляется ни одной строке по факту выката."
     },
-    "observable_now": "Допуск и целостность наблюдаемы: страж по живому процессу даёт graph_facts_vec = compatible / ADMITTED_COMPATIBLE / needs_probe=false, smart_archive = source_empty (встраивать нечего); векторы не переписаны — graph_facts_vec 25652 строки, 315 211 776 байт, digest b2fff47fa132ffa9 одинаков до и после рестарта 2.58.188; новых поколений и переэмбеддинга нет; ошибок в путях памяти нет, ADR-1019 зелёный, реранк эффективен True. Что НЕ наблюдаемо: поведение ноги на ходе — строк period_vector_leg ноль.",
+    "observable_now": "Допуск и целостность наблюдаемы: страж по живому процессу даёт graph_facts_vec = compatible / ADMITTED_COMPATIBLE / needs_probe=false, smart_archive = source_empty (встраивать нечего); векторы не переписаны — graph_facts_vec 25652 строки, 315 211 776 байт, digest b2fff47fa132ffa9 одинаков до и после рестарта 2.58.188; новых поколений и переэмбеддинга нет; ошибок в путях памяти нет, ADR-1019 зелёный, реранк эффективен True. Что НЕ наблюдаемо: subject_proxy на реальной векторной строке (нога вернула 0 строк), k=32 (нет поля vector_pool), knn_ms/fts_ms (нет таймингов ног), operative-паритет (operative-ходов не было); доставка старой строки не наблюдалась (period_kept=0 на обоих ходах).",
     "prod_lineage_2026_11_11": {
       "prod_version": "2.58.188 @ c087253d (ступень SELF-DIAG-01 D2), предыдущий прод 952b9ebd (2.58.187) — предок",
       "restart": "09:21:08Z; в журнале 11.11 09:21:12 новый PID снова пишет `embedding index serviceable | index=graph_facts_vec | class=ADMITTED_COMPATIBLE`",
