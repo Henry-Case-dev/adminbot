@@ -3,8 +3,9 @@
   "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
   "candidate_commit": "709865f6dbae508843b9f1b3ec73d33705621589",
-  "deployed_commit": "0fed584598cbf103017a401a117eee236e2be0e5",
-  "candidate_note": "candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING.",
+  "deployed_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+  "deployed_commit_note_2026_11_11": "Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю.",
+  "candidate_note": "candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING. [2026-11-11: верхнеуровневый deployed_commit переведён на 952b9ebd (2.58.187, следующая ступень памяти); привязки слайса VMQ-MEM-TIME к 709865f6 и запись follow_up_2_58_183 сохранены без переоценки — см. deployment_evidence.follow_up_2_58_187.]",
   "deployment_note_2_58_183": {
     "slice": "VMQ-MEM-TIME",
     "shipped_in": "2.58.182 @ 446cbf0b (с линии 92070d0e), затем 2.58.183 @ 0fed5845",
@@ -37,7 +38,32 @@
     "classification": "это факт конфигурации, а не дефект кода; код защиты существует, работает и измерен в тех же условиях, в которых работает прод",
     "recheck_trigger": "перечитать эффективное значение перед следующей приёмкой, если изменится строка bot_settings, заводской дефолт или появится чатовый override; отдельного замера «после включения флага» не требуется — флаг был включён на всём измеренном интервале",
     "evidence": "три независимых read-only чтения прод-БД 11.11.2026; подтверждение в репозитории: plans/docs/prod-params-audit-2026-09.md:38 и октябрьские снапшоты plans/features/soul-1/evidence/soul-prep/ev_live_snapshot_2026-10-17.txt:43, plans/features/soul-1/evidence/release-soul-25886/final-verification.txt:48",
-    "affects_req_ids": ["VMQ-TIME-01", "VMQ-TIME-02", "VMQ-TIME-03", "VMQ-TIME-04", "VMQ-TIME-05", "VMQ-TIME-06", "VMQ-TIME-07", "VMQ-TIME-08", "VMQ-TIME-09"]
+    "affects_req_ids": [
+      "VMQ-TIME-01",
+      "VMQ-TIME-02",
+      "VMQ-TIME-03",
+      "VMQ-TIME-04",
+      "VMQ-TIME-05",
+      "VMQ-TIME-06",
+      "VMQ-TIME-07",
+      "VMQ-TIME-08",
+      "VMQ-TIME-09",
+      "VMQ-NEXT-01",
+      "VMQ-NEXT-02",
+      "VMQ-NEXT-03",
+      "VMQ-NEXT-04",
+      "VMQ-NEXT-05"
+    ],
+    "unchanged_by_2_58_187": {
+      "checked": "2026-11-11",
+      "fact": "Выкладка 2.58.187 не меняет эффективное значение реранка памяти: заводской дефолт settings.CHAT_RAG_RERANK_ENABLED=True (введён 2.58.186), переменная окружения отсутствует, глобальная строка bot_settings flags.chat_rag_rerank_enabled=true от 2026-09-06 14:48:01.866578+00 на месте, чатовых переопределений нет ни в одном из трёх профилей (chat_params → rerank_override=False ×3), реальный resolver отдаёт True с источником global.",
+      "effective_production_value": true,
+      "consequence": "Реранк в проде действует и на 2.58.187; отсев векторных строк моделью и защита лексических строк (порог §2, потолок limit//5) реально работают, а не существуют только в тесте.",
+      "source": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md §5 (значения и их источник после выкладки); независимая read-only сверка строки bot_settings 11.11.2026",
+      "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+      "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+      "recheck_trigger": "перечитать эффективное значение перед следующей приёмкой строк VMQ-NEXT-*, если изменится строка bot_settings, заводской дефолт или появится чатовый override"
+    }
   },
   "notes": [
     "2026-11-11 — причина ошибки учёта (одна запись, bookkeeping): ключ хранится в bot_settings с префиксом «flags.» — flags.chat_rag_rerank_enabled. Поиск по имени настройки/переменной (CHAT_RAG_RERANK_ENABLED) или по ключу без префикса (chat_rag_rerank_enabled) не находит строку и даёт ложный вывод «строки нет, эффективное значение False». Это ошибка учёта, а не дефект продукта; исправленное значение — в config_fact_2026_11_11 этой карты."
@@ -111,7 +137,12 @@
         "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
         "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
         "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
-        "unblocks_req_ids": ["VMQ-MEM-01", "VMQ-MEM-02", "VMQ-MEM-03", "VMQ-TIME-04"],
+        "unblocks_req_ids": [
+          "VMQ-MEM-01",
+          "VMQ-MEM-02",
+          "VMQ-MEM-03",
+          "VMQ-TIME-04"
+        ],
         "closes_req_ids": []
       },
       {
@@ -122,7 +153,10 @@
         "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
         "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
         "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
-        "unblocks_req_ids": ["VMQ-MEM-02", "VMQ-MEM-03"],
+        "unblocks_req_ids": [
+          "VMQ-MEM-02",
+          "VMQ-MEM-03"
+        ],
         "closes_req_ids": []
       },
       {
@@ -133,7 +167,11 @@
         "candidate_commit": "721bab1000a36c55b59794c36b6aefa6322a367c",
         "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/deployment-2.58.180.md",
         "artifact_sha256": "e6fc4da5a46c270752bbd0120d916a369e145b449ccf85e08fc70fbd4767224a",
-        "unblocks_req_ids": ["VMQ-MEM-03", "VMQ-TIME-03", "VMQ-TIME-07"],
+        "unblocks_req_ids": [
+          "VMQ-MEM-03",
+          "VMQ-TIME-03",
+          "VMQ-TIME-07"
+        ],
         "closes_req_ids": []
       }
     ],
@@ -204,13 +242,123 @@
       "artifact_sha256": "759d43872db9077ca0a02a42da0e36fe642743675149500bafe59fe623aa88fe",
       "artifact_sha256_note": "перепривязан 2026-11-11 после добавления блока CORRECTION (2026-11-11) в конец артефакта; исходный текст записи не переписывался, прежний хеш 96b8ae55… относился к версии без поправки",
       "coverage_effect": "0 строк переведено в VERIFIED: выкат исправляет нарушенный инвариант ADR-1019 и не меняет поведения слайса, поэтому девять строк VMQ-TIME-01..09 остаются PENDING с прежними evidence на 709865f6"
+    },
+    "follow_up_2_58_187": {
+      "stage": "VMQ-MEM-NEXT — семантическая (векторная) нога периодного добора",
+      "version": "2.58.187",
+      "deployed_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+      "candidate_commit": "c698618a0c812ec51f5ffd9bcb3f5e179e3cc990",
+      "candidate_note": "одобренный кандидат ступени c698618a (ветка vmq/next-stage, база 77a63bc5); на прод-линию перенесён cherry-pick'ами e347b517 (из eca808c6) и 2fc1cac0 (из c698618a) плюс адаптация порта 95cc5d37; выкачено 952b9ebd. Кандидат замороженного слайса VMQ-MEM-TIME 709865f6 этим не затрагивается.",
+      "release_branch": "release/2.58.187",
+      "release_record_commit": "57df228716f51b53c1e53091af00f4e97ba9e58c",
+      "base_commit": "d96b24abac2ae988dd675e1347bf116767be7f16",
+      "base_version": "2.58.186",
+      "previous_deployment": "2.58.186 @ d96b24ab (прод-линия release/2.58.186)",
+      "rollback": "cd /var/www/admin_bot && git checkout --detach d96b24ab && systemctl restart admin_bot; коммит отката на сервере существует (git cat-file -e → ok); данные и схема откатом не затрагиваются (v47, DDL=0)",
+      "port_integrity": "список файлов diff(c698618a, 952b9ebd) == список файлов diff(77a63bc5, d96b24ab): 67 == 67, различий нет — порт добавил к дереву 2.58.186 только шесть файлов слайса; непериодные файлы слайса побайтово равны кандидату",
+      "delta": {
+        "files": 36,
+        "slice_files": [
+          "services/database.py (+28/-2)",
+          "services/direct_chat_service.py (+281/-46)",
+          "services/mca_retrieval_context.py (+177/-34)",
+          "services/summary_memory.py (+155/-0)",
+          "tests/test_mem_time_policy.py (+47/-11)",
+          "tests/test_memory_period_vector_leg.py (+708, новый файл)"
+        ],
+        "version_pins": "config/settings.py (APP_VERSION и описание релиза), plans/docs/param-registry-round1025.meta.md, 24 python-пина и 4 JS-пина версии",
+        "pin_note": "24 python-пина перезаписаны целиком со сменой переводов строк CRLF → LF; смысловое изменение — одна строка версии на файл, доказано сравнением AST базы с выкаченным деревом после обратной замены версии: AST_EQUAL=24/24; 858 пин-тестов зелёные"
+      },
+      "invariants": {
+        "security_blobs": "web/api/avatars.py 3b8be940, web/api/deps.py 509b387d, services/permissions.py e20d46eb — равны базе и кандидату",
+        "inspector_content": "web/api/routes.py 532fda00, web/app.js 118d5eae, web/index.html 0e665210, services/turn_trace.py cca4233a, tests/test_ur_f_inspector_step3_ui.py 2f16a999 — равны базе",
+        "rerank_gate": "гейт остался per-chat цепочкой _cp_g(chat_id, ...) версии 2.58.186, ровно одно вхождение; старого hot.get(...) в дереве нет",
+        "ddl": 0,
+        "schema": "user_version=47 на выкаченном дереве и 47 в БД после рестарта; CONST _SCHEMA_VERSION_SEMANTIC_SCHEDULE=47",
+        "migrations": "шага миграции не было"
+      },
+      "tests_on_deployed_tree": {
+        "vmq_time_four_files": "78 passed (test_mem_time_asof/l1_scope/policy/profile), ожидалось 78",
+        "new_file": "tests/test_memory_period_vector_leg.py — 18 passed (16 + 2 после адаптации порта), 18/18 и на собственной базе кандидата",
+        "wide_set": "direct/memory/recall/summary/retrieval, 121 файл: 3129 passed / 15 failed; те же 15 падают на d96b24ab (3110 passed) — все предсуществующие",
+        "wide_set_failures": "test_direct_fallback_recompose_asap32 (5), test_graphrag_rebuild_asap32 (1), test_nostalgia_layer_a (2), test_summary_coverage_ledger_asap41 (1), test_summary_generator (2), test_summary_source_window_asap41 (1), test_summary_two_call_round1022 (3)",
+        "version_pins": "858 passed / 2 failed — оба структурные diff-vs-baseline guard'ы (test_tool_coordinator_round1026, test_unified_image_request_round1026), красные и на базе"
+      },
+      "live_checks": {
+        "healthz": "{\"status\":\"ok\",\"version\":\"2.58.187\"} публично и через loopback",
+        "unit": "active, NRestarts=0",
+        "log": "ноль строк в путях памяти/recall; единственные две строки ошибок — anticliche_worker (fetch wikipedia), тот же рисунок до выкладки",
+        "adr_1019": "1 passed на выкаченном дереве",
+        "snapshot": "backups/predeploy-258187-20261111T082439Z.db, 2 315 640 832 байта, sha256 5569ac51eddec4dc9e8a0d86c1b38f78da6c32fd3e570cdbe3a1079f8e5543cf; read-back integrity_check=ok, user_version=47, таблиц 130, graph_facts=25539"
+      },
+      "effective_config": {
+        "flag": "flags.chat_rag_rerank_enabled",
+        "factory_default": true,
+        "env": "переменная окружения отсутствует",
+        "global_row": "true, 2026-09-06 14:48:01.866578+00, категория flags",
+        "chat_overrides": "нет ни в одном из 3 профилей (rerank_override=False ×3)",
+        "effective_value": true,
+        "source": "services.chat_params.get_chat_param(-1002661910336) — источник global",
+        "unchanged_by_release": true
+      },
+      "index_compat_live": {
+        "where": "embedding_control_plane.resolve_index_compat(current_fp=<живой MSI>, current_dims=3072) на проде",
+        "state": "insufficient",
+        "reason_code": "compat_not_proven",
+        "action": "retry_canary",
+        "class": "COMPATIBILITY_UNKNOWN",
+        "needs_probe": true,
+        "rows": 1,
+        "active_generation": "gen 1, gemini-embedding-001, dims 3072, status=active, fingerprint 96f80838…",
+        "embedding_space": "совпадает: e540d4ad890e121d",
+        "connection_identity": "текущая d2e6314e3586c547, в admission — a93485483697c3c3",
+        "guard_effect": "векторная нога ступени НЕ принимается: state == compatible не выполнен, поэтому периодный добор в проде идёт лексическим путём и пишет причину"
+      },
+      "traffic_window": {
+        "window": "08:24 → 09:04 UTC после рестарта",
+        "retrieval_events": 4,
+        "retrieval_detail": "3 success (все policy=auto) и одно skipped/embedding_generation_changed от фонового пути",
+        "period_fill_events": 0,
+        "rag_block_lines": 0,
+        "turn_events": 0,
+        "honest": "реального хода direct-чата в окне не было: «одна векторная нога на ход, k=32, ноль на operative-проходе», честные period_kept/subject_proxy и p50/p95 сборки блока НЕ измерены; отсутствие чисел фиксируется вместо подстановки"
+      },
+      "blocker_classification": {
+        "reason_code": "compat_not_proven",
+        "class": "IN_SCOPE_TECHNICAL_BLOCKER",
+        "why": "это не дефект выкладки и не дефект кода релиза: guard ступени по своему контракту не активирует семантическую ногу до доказанной совместимости поколения индекса. Это технический блокер приёмки ИМЕННО семантической части этой ступени (VMQ-NEXT-01..05), потому что пока совместимость не доказана, соответствующие строки не могут стать VERIFIED.",
+        "not": [
+          "дефект выкладки 2.58.187",
+          "пункт backlog",
+          "вопрос владельцу",
+          "причина отката"
+        ],
+        "owner": "Architect (диагностика identity/admission) → Builder/DevOps (доказательство совместимости или повторный canary) → Reviewer (приёмка после появления векторной ноги на живом ходе)",
+        "diagnosis_in_flight": {
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md",
+          "state": "running",
+          "expects": "почему identity соединения d2e6314e3586c547 отличается от admitted a93485483697c3c3 при совпадающем embedding space e540d4ad890e121d, что делает retry_canary допустимым и какое доказательство переводит state в compatible",
+          "note": "артефакт ещё не существует; строка его не выдумывает и не подменяет рассуждением"
+        },
+        "rollback_not_required": "откат не нужен: лексический путь штатный, прод-поведение деградирует к нему по контракту guard'а, ошибок в путях памяти нет"
+      },
+      "coverage_effect": "Строки ступени созданы как VMQ-NEXT-01..05 в статусе PENDING: реализовано и выкачено, но семантическая часть UNVERIFIED из-за compat_not_proven и отсутствия реального хода. Лексическая деградация активна и названа честно. Ни одна строка VMQ-TIME-01..09 и VMQ-MEM-01..08 не переведена в VERIFIED этим выкатом; замороженный кандидат 709865f6 не переоценивается.",
+      "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+      "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+      "artifact_note": "байт-идентичная копия записи DevOps из коммита 57df2287 (release/2.58.187); в основной линии файл приведён PM как durable evidence, содержимое не переписывалось"
     }
   },
   "next_executable": {
-    "slice": "VMQ-MEM",
-    "owner": "Builder (матрица и след) + Architect (обновить e2e после изменения пула/год-окна) + Reviewer (независимое сравнение)",
-    "action": "Снять baseline «после» на дереве 2.58.180 тем же read-only способом и оформить три отсутствующих артефакта: formulation-class-matrix.json (5 классов x прогоны), run-retrieval-trace.json (эпизоды/периоды/источники/связи), metrics-comparison.json (coverage, хронологическая точность, релевантность, выдуманные связи). Только они закрывают VMQ-MEM-01..03; паритет VMQ-MEM-04 остаётся условием (пересказ 2026, профиль пуст по ёмкости среза, RAG 2026x10).",
-    "blocked_by": "нет (P0-корректив выкачен); строго не смешивать с VMQ-MEM-TIME"
+    "slice": "VMQ-MEM-NEXT",
+    "owner": "Architect (диагностика index compat, артефакт index-compat-diagnosis.md) → DevOps (доказательство совместимости/повторный canary и первый живой ход) → Builder (прогон порогов и латентности) → Reviewer (независимое подтверждение)",
+    "action": "Сначала снять блокер совместимости индекса (compat_not_proven: identity соединения d2e6314e3586c547 против admitted a93485483697c3c3 при совпадающем space e540d4ad890e121d). Как только векторная нога становится доступной, одним read-only прогоном закрыть VMQ-NEXT-01..05: одна нога на ход с k=32 и честными period_kept/subject_proxy, доставка ≥ 6/15 и явно нерелевантных < 28 % на тех же 15+2 вопросах, защита от пустого вердикта, C1/C2 и измеренные p50/p95.",
+    "blocked_by": "compat_not_proven (IN_SCOPE технический блокер семантической части ступени; артефакт диагностики evidence/vmq-mem/index-compat-diagnosis.md ещё не создан) — и первый реальный ход direct-чата после снятия блокера",
+    "not_blocked": "строки VMQ-MEM-01..03 по-прежнему собираются своим baseline'ом «после» и от этой ступени не зависят; лексическая деградация прода штатна и не требует вмешательства",
+    "previous_2026_11_11": {
+      "slice": "VMQ-MEM",
+      "action": "Снять baseline «после» тем же read-only способом и оформить formulation-class-matrix.json, run-retrieval-trace.json, metrics-comparison.json — только они закрывают VMQ-MEM-01..03",
+      "state": "остаётся в силе и независимо от VMQ-MEM-NEXT"
+    }
   },
   "deployment_note": "Почему строки не закрыты: строки VMQ-MEM-01..08 требуют матрицы пяти классов, следа retrieve(), четырёх метрик, паритета «факт не хуже рассказа», e2e Architect и независимого сравнения Reviewer — выкат доказывает только три исправленных дефекта; строки VMQ-TIME-01..09 требуют реализованного временнóго охвата по time/fix-contract.md. Три дефекта и три честные границы зафиксированы в deployment_evidence.defect_bindings/honest_boundaries с unblocks_req_ids и closes_req_ids=[]; отдельные строки под дефекты не создаются, потому что дефекты найдены измерением 2.58.179, а не сформулированы владельцем, и выдумывать им source_line нельзя.",
   "strict_evidence": true,
@@ -2179,6 +2327,222 @@
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
       }
+    },
+    {
+      "source_id": "MAN-NEXT-01",
+      "source_line": 32,
+      "source_text_sha256": "844557fe7ba9aebe1191f514370163798117b2b94b8fc5556bb741f531b2668b",
+      "source_excerpt": "- Просят вспомнить старый конфликт, изменение позиции или общую историю двух собеседников — бот находит целую последоват",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-NEXT-01",
+      "slice": "VMQ-MEM-NEXT",
+      "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
+      "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §1 и §4",
+      "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
+      "acceptance": "На каждом реальном прямом ходе исторического маршрута периодный добор выполняет ровно ОДНУ периодную ногу с векторным каналом (k=32), и событие хода несёт честные period_kept и subject_proxy (для векторной строки — ближайший сосед в окне, не оракул предмета), а также period_vector_leg и vector_pool_miss; operative-проход остаётся байт-идентичным, векторной ноги в нём нет. Старая строка считается доставленной только при попадании в финальный блок в пределах k=32 или при честно записанном vector_pool_miss — подстановка «нашлось» без трассы отклоняется. Строка отклоняется, если векторная нога активна при state != compatible либо если k поднят выше 32.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "deployment_state": "implemented_and_deployed",
+      "acceptance_state": "UNVERIFIED",
+      "unverified_reason": "нет живого хода и нет доказанной совместимости индекса (compat_not_proven); per-turn поля существуют только в коде и тестах.",
+      "evidence": [
+        {
+          "type": "production",
+          "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
+          "observation": "Код ноги выкачен (952b9ebd), но живого хода в окне наблюдения не было (turn_events=0, period_fill=0), а guard индекса возвращает compat_not_proven — векторная нога не активируется. Ни одна per-turn величина не измерена.",
+          "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+          "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+          "covers_row_acceptance": false
+        }
+      ],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/vector-leg-live-turn.json",
+          "description": "один реальный ход: поля period_vector_leg, period_kept, subject_proxy, vector_pool_miss, k=32, ноль на operative"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+      "extends_req_ids": [
+        "VMQ-TIME-01",
+        "VMQ-TIME-03"
+      ]
+    },
+    {
+      "source_id": "MAN-NEXT-02",
+      "source_line": 474,
+      "source_text_sha256": "e361ad3d4b26fbe0bb2d87a7535e4adaa01e03bd795635df41d31e8a94776f3b",
+      "source_excerpt": "- Многолетний person overview включает несколько независимых временных областей, характерные эпизоды и контрпримеры; Wri",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-NEXT-02",
+      "slice": "VMQ-MEM-NEXT",
+      "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
+      "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §2 и §5",
+      "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
+      "acceptance": "На тех же 15 исторических вопросах A1–A15 и двух контрольных C1/C2, что в time/independent-sample-709865f6.md (та же копия прод-БД, чат -1002661910336, путь _rag_unified_rows → _build_rag_block), якорь доходит до финального блока не реже 6/15 при эффективном реранке True (значение флага печатается в отчёте), доля 2026 на этих 15 не выше, чем на 709865f6, «по теме» не хуже 8/18, а явно нерелевантных строк строго меньше 28 % нового набора; хотя бы один из A6, A9, A13, A15 доходит векторной ногой либо в трассе стоит честный vector_pool_miss. Провал: рост явно нерелевантных строк при формальном временнóм разнообразии или засчитывание доставки без векторной ноги.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "deployment_state": "implemented_and_deployed",
+      "acceptance_state": "UNVERIFIED",
+      "unverified_reason": "измерение требует активной векторной ноги и копии прод-БД; при compat_not_proven измерялся бы только лексический путь, то есть не контракт строки.",
+      "evidence": [
+        {
+          "type": "production",
+          "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
+          "observation": "Пороги доставки и релевантности этой ступенью не измерялись: доставка 6/15 и гистограмма 8/5/5 (44/28/28 %) относятся к прежнему кандидату 709865f6, а на 2.58.187 прогон не выполнялся.",
+          "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+          "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+          "covers_row_acceptance": false
+        }
+      ],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/relevance-delivery-17q.json",
+          "description": "17 прогонов: доставка якоря, распределение 2026, гистограмма по теме / тот же предмет / нерелевантно, признак vector-ноги или vector_pool_miss, эффективный флаг"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+      "extends_req_ids": [
+        "VMQ-TIME-01",
+        "VMQ-TIME-02",
+        "VMQ-MEM-01"
+      ]
+    },
+    {
+      "source_id": "MAN-NEXT-03",
+      "source_line": 32,
+      "source_text_sha256": "844557fe7ba9aebe1191f514370163798117b2b94b8fc5556bb741f531b2668b",
+      "source_excerpt": "- Просят вспомнить старый конфликт, изменение позиции или общую историю двух собеседников — бот находит целую последоват",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-NEXT-03",
+      "slice": "VMQ-MEM-NEXT",
+      "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
+      "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §3 и §5",
+      "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
+      "acceptance": "Пустой вердикт реранка не гасит уже найденные защищённые периодные строки: при двойнике memory.rerank_rag_facts, возвращающем валидный {\"selected\":[]}, строка 2023–2024, прошедшая порог двух разных основ, остаётся в финальном блоке, а на реальном архиве число пустых блоков при уже находившейся в пуле такой строке равно нулю. Пустой вердикт по непериодному срезу по-прежнему означает «в этом срезе нет релевантного» и не защищает строки, порог не прошедшие.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "deployment_state": "implemented_and_deployed",
+      "acceptance_state": "UNVERIFIED",
+      "unverified_reason": "риск-сценарий требует реального реранка и реального блока; фикстура двойника не заменяет живое наблюдение по контракту приёмки.",
+      "evidence": [
+        {
+          "type": "production",
+          "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
+          "observation": "Поведение реализовано и покрыто тестами ступени (18/18), но на реальном архиве не наблюдалось: реального хода не было, а на прежнем кандидате 709865f6 блоки были пусты в 7 из 34 прогонов именно из-за пустого вердикта.",
+          "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+          "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+          "covers_row_acceptance": false
+        }
+      ],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/empty-verdict-protection.json",
+          "description": "двойник rerank_rag_facts → []: набор защищённых строк до/после, счётчик period_kept_despite_empty, пустые блоки на реальном архиве"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+      "extends_req_ids": [
+        "VMQ-TIME-04",
+        "VMQ-TIME-06"
+      ]
+    },
+    {
+      "source_id": "MAN-NEXT-04",
+      "source_line": 246,
+      "source_text_sha256": "9fd9f5a17eb4d4fe4e313ab61e1b5cfd4b12a0ca8414410ebfe3d18de958c702",
+      "source_excerpt": "- Конфликтующие версии сведений не стирать: хранить изменения, контрпримеры и временное состояние. Локально неактуальное",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-NEXT-04",
+      "slice": "VMQ-MEM-NEXT",
+      "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
+      "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §4 и §5",
+      "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
+      "acceptance": "На контрольных вопросах о текущем состоянии старые строки не выдаются за действующее: C1 («что сейчас происходит в чате?») под auto даёт ноль периодных строк, C2 под auto не содержит ни одной строки, не прошедшей порог двух основ, а текущий год не оказывается в меньшинстве, при этом исторические вопросы не теряют доставку. Провал: периодная строка попадает в ответ о текущем состоянии либо исторический вопрос теряет доставку из-за усиления правила актуальности.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "deployment_state": "implemented_and_deployed",
+      "acceptance_state": "UNVERIFIED",
+      "unverified_reason": "нужен реальный прогон на копии прод-БД; без активной векторной ноги проверяется только лексическая половина правила.",
+      "evidence": [
+        {
+          "type": "production",
+          "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
+          "observation": "Регрессия прежнего кандидата (C1 auto получил строку 2025 года при 3×2026 в блоке) этой ступенью не перепроверена: прогона на 2.58.187 не было.",
+          "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+          "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+          "covers_row_acceptance": false
+        }
+      ],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/current-state-regression.json",
+          "description": "C1/C2 под auto: число периодных строк, строки ниже порога, доля текущего года; плюс контроль сохранения доставки на исторических вопросах"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+      "extends_req_ids": [
+        "VMQ-TIME-05",
+        "VMQ-TIME-08"
+      ]
+    },
+    {
+      "source_id": "MAN-NEXT-05",
+      "source_line": 464,
+      "source_text_sha256": "50a7e0ecd7f994e08c69542e4f5396a89288fb56afdf7bf764c9e3f0a3bc8baf",
+      "source_excerpt": "6. `ONTO-R` **Reviewer + production evidence**: проверить реальные вопросы, Writer payload, корректные source refs, mobi",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "VMQ-NEXT-05",
+      "slice": "VMQ-MEM-NEXT",
+      "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
+      "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §1 и §5",
+      "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
+      "acceptance": "Латентность измерена, а не оценена: на тех же 17 вопросах сняты p50 и p95 сборки блока (_build_rag_block) до и после включения векторной ноги, отдельно knn_ms и fts_ms, при эффективном реранке True (значение флага в отчёте), и p95 периодного вызова не превышает +400 мс к текущему периодному вызову на той же копии; при превышении ступень не принимается, а k не увеличивается. Оценка «+110 мс лексики» вместо замера прод-пути вектора не принимается.",
+      "live_required": true,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "deployment_state": "implemented_and_deployed",
+      "acceptance_state": "UNVERIFIED",
+      "unverified_reason": "без активной векторной ноги и живого хода замер прод-пути вектора невозможен; подставлять оценку вместо измерения запрещено контрактом ступени.",
+      "evidence": [
+        {
+          "type": "production",
+          "ref": "Запись DevOps о выкладке 2.58.187 и значениях после неё (не приёмка строки)",
+          "observation": "Латентность векторной ноги на проде не измерена: в окне не было ходов, а guard не активирует вектор. Единственная измеренная величина ступени — лексические +110 мс (+8 %) на прежнем кандидате, и она не является замером прод-пути вектора.",
+          "candidate_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+          "artifact_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+          "covers_row_acceptance": false
+        }
+      ],
+      "expected_evidence": [
+        {
+          "type": "live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/latency-period-block.json",
+          "description": "p50/p95 блока до/после, knn_ms/fts_ms раздельно, потолок +400 мс, эффективный флаг"
+        }
+      ],
+      "amendment_ref": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+      "extends_req_ids": [
+        "VMQ-TIME-07",
+        "VMQ-MEM-05"
+      ]
     }
   ],
   "items": [
@@ -8057,5 +8421,57 @@
       }
     ],
     "review_709865f6_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md"
+  },
+  "stage_2_58_187_2026_11_11": {
+    "stage": "VMQ-MEM-NEXT",
+    "rows": [
+      "VMQ-NEXT-01",
+      "VMQ-NEXT-02",
+      "VMQ-NEXT-03",
+      "VMQ-NEXT-04",
+      "VMQ-NEXT-05"
+    ],
+    "design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md",
+    "design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
+    "deployment_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/release-2.58.187.md",
+    "deployment_sha256": "51a1593e07c0edfbbf9b9921ece7d7438dc204610ced2fb399a8ba5c85a451aa",
+    "state": "IMPLEMENTED_AND_DEPLOYED / SEMANTIC_LEG_UNVERIFIED",
+    "state_ru": "Реализовано, отревьюено и выкачено на прод (952b9ebd, 2.58.187), но семантическая нога не подтверждена: guard индекса не пускает вектор в периодный добор, поэтому периодная доливка идёт лексическим путём. Это честное штатное поведение, а не сбой.",
+    "live_blocker": {
+      "state": "UNVERIFIED",
+      "reason_code": "compat_not_proven",
+      "class": "IN_SCOPE_TECHNICAL_BLOCKER",
+      "details": "index guard: state=insufficient, reason_code=compat_not_proven, action=retry_canary, class=COMPATIBILITY_UNKNOWN, needs_probe=true, rows=1; поколение gen 1 (gemini-embedding-001, dims 3072, fingerprint 96f80838…) активно, embedding space совпадает (e540d4ad890e121d), но identity соединения d2e6314e3586c547 отличается от admitted a93485483697c3c3",
+      "diagnosis_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md",
+      "diagnosis_state": "running",
+      "not_a_backlog_item": true,
+      "why_in_scope": "без подтверждённой совместимости индекса семантическая часть приёмки этой ступени не может быть доказана вообще; это контрактное предусловие строк VMQ-NEXT-01..05, а не отдельный независимый дефект"
+    },
+    "live_acceptance_owed": {
+      "what": [
+        "одна векторная нога периодного добора на полный реальный ход, k=32, ноль на operative-проходе",
+        "честные поля хода period_kept и subject_proxy (ближайший сосед в окне, не оракул предмета), плюс period_vector_leg и vector_pool_miss",
+        "p50/p95 сборки блока (_build_rag_block) до/после, отдельно knn_ms и fts_ms, при эффективном реранке True; потолок периодного вызова p95 ≤ +400 мс к текущему",
+        "доставка якоря ≥ 6/15 на тех же 15 вопросах A1–A15 и якорях time/independent-sample-709865f6.md",
+        "явно нерелевантных строк строго < 28 % нового набора, «по теме» не хуже 8/18"
+      ],
+      "cannot_exist_yet_because": [
+        "в окне наблюдения не было ни одного реального хода direct-чата (turn_events=0, period_fill=0, строк 'direct: rag block' 0)",
+        "векторная нога не активируется до доказанной совместимости индекса (compat_not_proven)"
+      ],
+      "trigger": "первый реальный ход direct-чата в одном из трёх чатов ПОСЛЕ доказанной совместимости индекса: read-only проба (mca_events с period_fill/period_vector_leg + journalctl 'direct: rag block') даёт per-turn поля и тайминги без новых изменений; для доставки и релевантности — прогон тех же 15+2 вопросов на копии прод-БД с активной векторной ногой",
+      "evidence_owner": "агенты, не владелец: DevOps — живой ход и effective-state (guard, поля хода, логи); Architect — диагноз index-compat и доказательство совместимости; Builder — прогон порогов доставки/релевантности и латентности; Reviewer — независимое подтверждение",
+      "owner_not_qa": "владелец не привлекается ни к одному из этих шагов: у агентов есть доступ к проду, БД, логам и копии архива",
+      "expected_artifacts": [
+        "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/vector-leg-live-turn.json",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/relevance-delivery-17q.json",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/empty-verdict-protection.json",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/current-state-regression.json",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/latency-period-block.json"
+      ],
+      "status_effect": "ни один из этих artefacts не создан; строки VMQ-NEXT-01..05 остаются PENDING до их появления. VERIFIED не выставляется ни одной строке по факту выката."
+    },
+    "observable_now": "Лексическая деградация активна и наблюдаема: guard возвращает compat_not_proven, периодная доливка остаётся лексической, ошибок в путях памяти нет, healthz 2.58.187, ADR-1019 зелёный, реранк эффективен True. Пользовательская выдача на исторических вопросах этой выкладкой не расширена семантически — она лишь не сломана.",
+    "not_this_stage": "не закрывает VMQ-TIME-01..09 и VMQ-MEM-01..08; не переключает флаг реранка; не делает DDL/переиндексацию; не поднимает k выше 32; не вводит третий retrieve"
   }
 }
