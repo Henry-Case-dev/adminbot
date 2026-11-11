@@ -75,6 +75,9 @@ CLAIM_TTL_SECONDS = 90
 #: TTL после перехода в `sending` (отправка в процессе/упала в полёте).
 SENDING_TTL_SECONDS = 120
 #: Сколько живёт приоритет ручного `/meme` (срок жизни брони, не пауза).
+#: P0IM-MM-MARKER: это СТРАХОВКА на случай падения процесса, а не механизм:
+#: штатно маркер снимается в терминальном исходе запуска
+#: (``release_manual_priority``), поэтому секунды ожидания не «догорают».
 MANUAL_PRIORITY_SECONDS = 600
 
 #: Ключ межтипового интервала. Дефолт — СУЩЕСТВУЮЩАЯ константа инициативы
@@ -226,6 +229,17 @@ VALUES (:chat, '', 'manual', '', 'cancelled', :now, NULL, NULL, '', '', :until,
         :now)
 ON CONFLICT(chat_id) DO UPDATE SET
     manual_priority_until = :until, updated_at = :now
+"""
+
+#: Снятие СВОЕГО маркера приоритета в терминальном исходе (P0IM-MM-MARKER).
+#: ``:until`` — ровно то значение, что поставил этот запуск: чужой/более
+#: свежий маркер (параллельный `/meme`) не гасится, гонки нет. Поле живёт в
+#: существующей строке брони, поэтому отдельного стейтмента-очистки таблицы
+#: (`_RELEASE_SQL`) не требуется и его семантика не меняется.
+_MANUAL_PRIORITY_CLEAR_SQL = f"""
+UPDATE {CLAIM_TABLE}
+   SET manual_priority_until = NULL, updated_at = :now
+ WHERE chat_id = :chat AND manual_priority_until = :until
 """
 
 #: Освобождение брони по in-process событию (ручной `/meme`): событие
@@ -558,6 +572,32 @@ class SqliteClaimStore:
             conn.close()
         return until
 
+    def release_manual_priority(self, *, chat_id: int, now: int,
+                                until: int) -> bool:
+        """Снять СВОЙ маркер приоритета в терминальном исходе (P0IM-MM-MARKER).
+
+        Снимается ровно значение, поставленное этим запуском: маркер другого
+        (более свежего) `/meme` остаётся в силе. ``True`` — маркер снят этим
+        стейтментом, ``False`` — снимать было нечего либо запись не удалась
+        (тогда честно работает TTL-страховка, а не тишина).
+        """
+        mark = _as_int(until, 0)
+        if not mark:
+            return False
+        conn = _connect(self.path)
+        try:
+            cursor = conn.execute(_MANUAL_PRIORITY_CLEAR_SQL,
+                                  {"chat": int(chat_id), "now": int(now),
+                                   "until": mark})
+            cleared = int(cursor.rowcount or 0) >= 1
+        except Exception:
+            logger.warning("[publish] manual priority clear failed | chat=%s",
+                           chat_id, exc_info=True)
+            return False
+        finally:
+            conn.close()
+        return cleared
+
     # ── helpers ───────────────────────────────────────────────────────────
     @staticmethod
     def _age(now: int, stamp) -> int | None:
@@ -864,6 +904,20 @@ class PublicationCoordinator:
             return 0
         return self._store.claim_manual_priority(chat_id=int(chat_id),
                                                  now=stamp, ttl=ttl)
+
+    async def release_manual_priority(self, chat_id: int, *, until: int,
+                                      now: int | None = None) -> bool:
+        """Снять маркер `/meme` в терминальном исходе (P0IM-MM-MARKER).
+
+        Вызывается из ``finally`` обработчика, поэтому не бросает и не ждёт
+        ничего, кроме одного стейтмента: снимается ТОЛЬКО значение ``until``,
+        поставленное этим запуском.
+        """
+        stamp = int(now if now is not None else self._now_fn())
+        if not self.available() or not _as_int(until, 0):
+            return False
+        return self._store.release_manual_priority(chat_id=int(chat_id),
+                                                   now=stamp, until=int(until))
 
     async def snapshot(self, chat_id: int, *, now: int | None = None) -> dict:
         """Диагностика брони чата (read-only, для payload/аналитики)."""

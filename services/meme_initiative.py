@@ -191,6 +191,13 @@ SKIP_DEFERRED_EXPIRED = "deferred_publication_expired"
 #: Факт «исход отправки неизвестен» (существующий ярлык/протокол координации).
 #: Не политика пропуска: так помечается только реально неизвестная доставка.
 REASON_DELIVERY_UNKNOWN = "delivery_unknown"
+#: P0IM-D7 / S5-MEME: попытка ОБОРВАНА извне (рестарт сервиса, отмена задачи).
+#: ``asyncio.CancelledError`` — ``BaseException``, его не видит ни один
+#: ``except Exception`` пайплайна: без явной обработки запуск исчезал молча
+#: (ни строки журнала, ни ответа пользователю). Это НЕ пропуск по логике
+#: мемов и не «устаревание»: свой код, а реальный этап остановки — рядом,
+#: в поле ``stage`` той же терминальной строки.
+REASON_RUN_INTERRUPTED = "run_interrupted"
 #: INIT-COORD (03.11.2026): координация публикаций двух механизмов.
 SKIP_PUBLICATION_CONFLICT = "publication_conflict"
 SKIP_PUBLICATION_IN_FLIGHT = "publication_in_flight"
@@ -1631,6 +1638,33 @@ def _remember(row: dict) -> None:
     _PROCESS_ATTEMPTS.append(dict(row))
 
 
+@dataclass
+class RunTrace:
+    """Идентичность и МЕСТО текущей попытки (P0IM-D7 / S5-MEME).
+
+    Живёт рядом с самой попыткой и обновляется по ходу: ``job_id`` mint-ится
+    до первого гейта, ``stage`` — реальный этап, на котором попытка находится
+    сейчас. По этой трассе пишется терминальная строка при ОБРЫВЕ процесса,
+    когда обычный возврат результата уже невозможен.
+
+    ``counters``/``facts`` — те же изменяемые словари, что пишет сама попытка:
+    запись об обрыве видит РЕАЛЬНО пройденные этапы, а не догадку о них.
+    """
+
+    chat_id: int = 0
+    job_id: str = ""
+    stage: str = STAGE_CONSIDERED
+    now_ts: int = 0
+    counters: dict = field(default_factory=dict)
+    facts: dict = field(default_factory=dict)
+    settings: "MemeSettings | None" = None
+    ledger: Any = None
+    manual: bool = False
+    #: Изображение уже ушло в чат (sender подтвердил отправку). Отмена после
+    #: этого — публикация, а не провал.
+    delivered: bool = False
+
+
 def compact_facts(facts: dict | None) -> str:
     """Компактный JSON фактов этапа для поля ``detail`` (без текстов прикола)."""
     if not facts:
@@ -1742,6 +1776,55 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
             except Exception:
                 logger.warning("[meme] attempt journal failed", exc_info=True)
     result.window_messages = settings.window_messages
+    return result
+
+
+def record_run_interrupted(trace: RunTrace) -> AttemptResult:
+    """Терминальная запись ОБРЫВА попытки (рестарт сервиса/отмена процесса).
+
+    Пишет ТУ ЖЕ строку журнала, что и любой терминальный исход, с реальным
+    этапом остановки (``trace.stage``) и причиной ``run_interrupted``: вместо
+    «попытка не запускалась» в трассе появляется «остановилась на шаге …».
+    Идентичность (``job_id``) — та, что попытка уже получила, поэтому строка
+    склеивается с остальными строками этого же запуска.
+
+    Ничего не бросает: запись об обрыве не подменяет саму отмену и не мешает
+    остановке процесса. ``CancelledError`` внутри неё не глотается — здесь нет
+    ни одного ``await``, только один стейтмент журнала.
+    """
+    chat_id = int(trace.chat_id or 0)
+    counters = dict(trace.counters or {})
+    facts = dict(trace.facts or {})
+    settings = trace.settings if isinstance(trace.settings, MemeSettings) \
+        else MemeSettings()
+    if trace.delivered:
+        # Картинка уже доставлена: обрыв после отправки — публикация, а не
+        # провал. Выдавать «не отправлено» за правду нельзя.
+        counters[STAGE_PUBLISH] = max(1, int(counters.get(STAGE_PUBLISH) or 0))
+        publish_facts = facts.get(STAGE_PUBLISH)
+        if not isinstance(publish_facts, dict):
+            publish_facts = {}
+            facts[STAGE_PUBLISH] = publish_facts
+        publish_facts["delivery"] = "sent"
+        result = AttemptResult(
+            chat_id=chat_id, stage=STAGE_PUBLISH, outcome="published",
+            reason="sent", detail="sent_before_cancellation",
+            job_id=trace.job_id, published=True, generated=True,
+            counters=counters, stage_facts=facts,
+            manually_triggered=bool(trace.manual))
+    else:
+        result = AttemptResult(
+            chat_id=chat_id, stage=str(trace.stage or STAGE_CONSIDERED),
+            outcome="failed", reason=REASON_RUN_INTERRUPTED,
+            detail="process_cancelled", job_id=trace.job_id,
+            counters=counters, stage_facts=facts,
+            manually_triggered=bool(trace.manual))
+    try:
+        _finish(result, ledger=trace.ledger, now_ts=int(trace.now_ts or 0),
+                settings=settings)
+    except Exception:
+        logger.warning("[meme] interrupted attempt journaling failed",
+                       exc_info=True)
     return result
 
 
@@ -2594,7 +2677,34 @@ async def _default_publish_gate(db, chat_id: int, now_ts: int):
         return False, "recheck_unavailable"
 
 
-async def consider_chat(
+async def consider_chat(db, chat_id: int, *,
+                        trace: "RunTrace | None" = None,
+                        **kwargs) -> AttemptResult:
+    """Одна попытка мема в одном чате: входная точка пайплайна.
+
+    P0IM-D7 / S5-MEME: ОТМЕНА процесса (рестарт сервиса) — тоже терминальный
+    исход. ``asyncio.CancelledError`` относится к ``BaseException``, поэтому
+    ни один ``except Exception`` пайплайна его не видит: попытка исчезала молча
+    (строк журнала нет, пользователю ничего не приходит). Здесь обрыв ловится
+    ЯВНО: пишется терминальная строка с реальным этапом остановки и той же
+    идентичностью запуска, после чего отмена пробрасывается дальше — это
+    остановка процесса, а не повод её глушить.
+
+    ``trace`` передаёт вызывающий слой, когда по месту остановки нужно принять
+    решение (обработчик ``/meme``: уведомлять ли пользователя). Остальные
+    аргументы — как у одиночного прохода (см. ``_consider_once``).
+    """
+    run = trace if isinstance(trace, RunTrace) else RunTrace()
+    if not run.chat_id:
+        run.chat_id = int(chat_id)
+    try:
+        return await _consider_once(db, chat_id, trace=run, **kwargs)
+    except asyncio.CancelledError:
+        record_run_interrupted(run)
+        raise
+
+
+async def _consider_once(
         db, chat_id: int, *,
         settings: MemeSettings | None = None,
         ledger: SqliteQuotaLedger | None = None,
@@ -2625,6 +2735,8 @@ async def consider_chat(
         source_check: Callable[..., Awaitable[tuple]] | None = None,
         rights_check: Callable[..., Awaitable[tuple]] | None = None,
         permission_check: Callable[[], Awaitable[bool]] | None = None,
+        manual_priority: dict | None = None,
+        trace: RunTrace | None = None,
 ) -> AttemptResult:
     """Одна попытка мема в одном чате. Дорогое — только после дешёвых гейтов.
 
@@ -2656,7 +2768,6 @@ async def consider_chat(
     if stamp.tzinfo is None:
         stamp = stamp.replace(tzinfo=timezone.utc)
     ts = int(now_ts if now_ts is not None else stamp.timestamp())
-    cfg = settings if settings is not None else await load_settings(chat_id)
     # ── P0 corrective (§3): родитель попытки mint ДО ПЕРВОГО гейта ──────────
     # Отказ на раннем гейте (`initiative_disabled`, выключенные настройки,
     # image/schema, квота, кулдаун, тихие часы, бронь) — тоже ПОПЫТКА: у неё
@@ -2666,6 +2777,17 @@ async def consider_chat(
     # `stamp`, поэтому вычисляется здесь, до любого `skipped()`.
     day = day_window(chat_id, stamp, tz_name=tz_name, tz_source=tz_source)
     jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
+    # P0IM-D7 / S5-MEME: идентичность попытки уезжает в трассу ДО первого
+    # ``await`` — по ней пишется честная терминальная строка, если процесс
+    # оборвётся посреди прогона (в т.ч. на загрузке настроек).
+    run_trace = trace if isinstance(trace, RunTrace) else None
+    if run_trace is not None:
+        run_trace.chat_id = int(chat_id)
+        run_trace.job_id = jid
+        run_trace.stage = STAGE_CONSIDERED
+        run_trace.now_ts = int(ts)
+        run_trace.manual = bool(manual)
+    cfg = settings if settings is not None else await load_settings(chat_id)
     mode = MODE_MANUAL if manual else MODE_AUTOMATIC
     purpose = PURPOSE_MANUAL if manual else PURPOSE_AUTOMATIC
     #: Тот же родитель для ранних ``skipped()`` (см. параметр ``jid`` ниже).
@@ -2673,6 +2795,16 @@ async def consider_chat(
     counters = {stage: 0 for stage in STAGES}
     counters[STAGE_CONSIDERED] = 1
     facts: dict[str, dict] = {}
+    if run_trace is not None:
+        run_trace.settings = cfg
+        run_trace.ledger = ledger
+        run_trace.counters = counters
+        run_trace.facts = facts
+    if manual_priority:
+        # P0IM-MM-TRACE: «запись приоритета» — ФАКТ попытки, а не только
+        # WARNING в логе: неудачная запись маркера ручного `/meme` видна в
+        # журнале этого же запуска.
+        facts[STAGE_CONSIDERED] = {"priority_marker": dict(manual_priority)}
 
     def skipped(reason: str, *, stage: str = STAGE_SKIPPED,
                 detail: str = "", limit: MemeBudget | None = None,
@@ -2880,6 +3012,8 @@ async def consider_chat(
          detail=f"messages:{snapshot.message_count}")
 
     # ── этап A — выжимка: БЕЗ потолка длины (ни цели, ни обрезки) ───────────
+    if run_trace is not None:
+        run_trace.stage = STAGE_SUMMARY
     try:
         if summarizer is None:
             _summary_speech = SpeechProjection(run_id=str(jid))
@@ -2917,6 +3051,8 @@ async def consider_chat(
         str(joke_prompt.get("text") or MEME_JOKE_PROMPT),
         budget.joke_budget if budget.known else None)
     joke_speech: dict = {}
+    if run_trace is not None:
+        run_trace.stage = STAGE_JOKE
     try:
         if joke_generator is None:
             raw_joke, joke_speech = await _default_joke(
@@ -3000,6 +3136,8 @@ async def consider_chat(
             return skipped(reserved.reason, limit=budget, jid=jid)
 
     called = False
+    if run_trace is not None:
+        run_trace.stage = STAGE_IMAGE
     try:
         if image_provider is None:
             provider_result = await _default_image(prompt, int(chat_id), jid)
@@ -3039,6 +3177,8 @@ async def consider_chat(
     if not manual:
         ledger.mark(jid, "provider_called", "")
     counters[STAGE_IMAGE] = 1
+    if run_trace is not None:
+        run_trace.stage = STAGE_PUBLISH
     try:
         image_bytes = len(content) if content is not None else 0
     except Exception:
@@ -3239,6 +3379,10 @@ async def consider_chat(
         # Доставка не меняется: sender получает ТОЛЬКО изображение; prompt и
         # прикол остаются внутренними (никогда не caption и не сообщение).
         message = await sender(int(chat_id), content, prompt)
+        if run_trace is not None:
+            # Отправка подтверждена транспортом: обрыв ПОСЛЕ этого — уже
+            # публикация, а не провал (см. `record_run_interrupted`).
+            run_trace.delivered = True
     except Exception:
         logger.warning("[meme] publish failed", exc_info=True)
         counters[STAGE_FAILED] = 1

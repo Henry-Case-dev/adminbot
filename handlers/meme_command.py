@@ -16,9 +16,19 @@
 4. Маркер приоритета ``manual_priority_until`` ОДНИМ стейтментом — ДО
    генерации (INIT-COORD §6): с этого момента автоматический путь не может
    перейти в ``sending``, приоритет заявлен атомарно, а не «после отправки».
+   P0IM-MM-MARKER: маркер СНИМАЕТСЯ в ``finally`` на ЛЮБОМ терминальном
+   исходе (успех, отказ, ошибка, отмена запуска); TTL 600 с остаётся
+   страховкой на случай падения процесса, а не механизмом. Неудачная запись
+   маркера — факт журнала попытки, а не только WARNING.
 5. Пайплайн: ``consider_chat(db, chat_id, manual=True, ...)``.
 6. Доставка: успех — только изображение (путь ``sender`` не меняется), сбой —
    ровно одно короткое сообщение без кодов, промпта, выжимки и прикола.
+7. Отмена процесса (рестарт сервиса) — тоже терминальный исход (P0IM-D7):
+   ``asyncio.CancelledError`` ловится явно (это ``BaseException``, поэтому
+   ``except Exception`` его не видит), пайплайн пишет терминальную строку с
+   реальным этапом остановки, пользователь получает одно короткое сообщение
+   о прерванном запуске — только если изображение не ушло. Чистый запуск
+   такого сообщения не получает.
 
 Автоудаление best-effort: ровно ОДИН ``message.delete()`` с ограниченным
 ожиданием; любой исход (403, >48 ч, сеть, уже удалено, таймаут) переживаем,
@@ -78,6 +88,10 @@ _FAILURE_TEXT = {
 }
 #: Ничего конкретного сказать нельзя — общая короткая фраза без внутренностей.
 _GENERIC_FAILURE = "Мем не получился. Попробуйте позже."
+#: P0IM-D7: запуск ОБОРВАН (рестарт сервиса/отмена процесса). Короткая
+#: честная фраза без кодов и внутренностей. Отправляется ТОЛЬКО когда прогон
+#: реально прерван и изображение не ушло; чистый запуск её не получает.
+_INTERRUPTED_TEXT = "Мем не успел: запуск прервался. Попробуйте ещё раз."
 
 _db = None
 _llm = None
@@ -153,28 +167,67 @@ def _sender(bot):
     return InitiativeObserverRunner(None, bot=bot)._meme_sender()
 
 
-async def claim_manual_priority(chat_id: int) -> int:
+async def claim_manual_priority(chat_id: int) -> dict:
     """Маркер приоритета ручного запуска ДО генерации (INIT-COORD §6).
 
     Один стейтмент по таблице брони: автоматический путь в этом чате не сможет
     перейти ``claimed → sending``, пока маркер жив (``MANUAL_PRIORITY_SECONDS``).
-    Нет БД/таблицы → 0: приоритет не заявлен, и это видно в логе, а не
-    превращается в тихую блокировку ручной команды.
+
+    Возвращается ЗАПИСЬ о фактической записи маркера (``ok``/``until``/
+    ``detail``), а не голое число: P0IM-MM-MARKER требует, чтобы неудачная
+    запись была видна в записи попытки, а не только WARNING-ом в логе.
+    ``until`` — ровно то значение, которое поставил ЭТОТ запуск: по нему же
+    маркер снимается в терминальном исходе (чужой маркер не гасится).
     """
     if _db is None:
-        return 0
+        return {"ok": False, "until": 0, "detail": "no_db"}
     try:
         from services import publication_coordination as pub
         coordinator = pub.PublicationCoordinator(_db)
-        return await coordinator.claim_manual_priority(int(chat_id))
-    except Exception:
+        until = await coordinator.claim_manual_priority(int(chat_id))
+    except Exception as exc:
         logger.warning("[/meme] manual priority marker failed | chat=%s",
                        chat_id, exc_info=True)
-        return 0
+        return {"ok": False, "until": 0,
+                "detail": f"exception:{type(exc).__name__}"}
+    if not until:
+        logger.warning("[/meme] manual priority marker not written | chat=%s",
+                       chat_id)
+        return {"ok": False, "until": 0, "detail": "marker_not_written"}
+    return {"ok": True, "until": int(until), "detail": ""}
+
+
+async def release_manual_priority(chat_id: int, until) -> bool:
+    """Снять СВОЙ маркер приоритета в терминальном исходе (P0IM-MM-MARKER).
+
+    Вызывается из ``finally`` обработчика, поэтому снимает маркер и при успехе,
+    и при отказе, и при ошибке, и при отмене запуска. ``MANUAL_PRIORITY_SECONDS``
+    остаётся СТРАХОВКОЙ на случай падения процесса, а не механизмом снятия.
+    """
+    try:
+        mark = int(until or 0)
+    except (TypeError, ValueError):
+        mark = 0
+    if _db is None or not mark:
+        return False
+    try:
+        from services import publication_coordination as pub
+        coordinator = pub.PublicationCoordinator(_db)
+        cleared = await coordinator.release_manual_priority(int(chat_id),
+                                                           until=mark)
+    except Exception:
+        logger.warning("[/meme] manual priority clear failed | chat=%s",
+                       chat_id, exc_info=True)
+        return False
+    if not cleared:
+        logger.warning("[/meme] manual priority not cleared | chat=%s "
+                       "until=%s", chat_id, mark)
+    return bool(cleared)
 
 
 async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = "",
-                              permission_check=None):
+                              permission_check=None, manual_priority=None,
+                              trace=None):
     """Один ручной проход существующего пайплайна (``manual=True``).
 
     ``manual=True`` обходит суточную квоту, кулдаун, минимум сообщений,
@@ -186,6 +239,13 @@ async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = "",
     (B2): обработчик передаёт сюда тот же ``is_meme_admin``, что и на входе.
     Права, отозванные за время генерации, дают свой код ``rights_revoked``, а
     не общий «publish blocked».
+
+    ``manual_priority`` — факт записи маркера приоритета (P0IM-MM-MARKER):
+    попадает в журнал попытки, поэтому неудачная запись маркера — видимая
+    запись, а не только WARNING в логе.
+
+    ``trace`` — ``meme_initiative.RunTrace`` этого запуска: обработчик по нему
+    узнаёт реальный этап остановки и факт доставки, если прогон оборвётся.
 
     ``request_ref`` — id сообщения ``/meme``: попадает в снапшот источника и
     в события попытки (run/correlation). Сам мем уходит НОВЫМ сообщением:
@@ -204,6 +264,8 @@ async def run_manual_pipeline(chat_id: int, bot, *, request_ref: str = "",
         "ledger": meme.open_ledger(_db) if _db is not None else None,
         "request_ref": str(request_ref or ""),
         "permission_check": permission_check,
+        "manual_priority": manual_priority,
+        "trace": trace,
     }
     params.update(_pipeline_seams)
     return await meme.consider_chat(_db, int(chat_id), **params)
@@ -220,6 +282,32 @@ async def _report_failure(bot, chat_id: int, reason: str = "") -> None:
     except Exception as exc:
         logger.warning("[/meme] failure notice not delivered (%s) | chat=%s",
                        type(exc).__name__, chat_id)
+
+
+async def _report_interrupted(bot, chat_id: int) -> None:
+    """Одно короткое сообщение о ПРЕРВАННОМ запуске (P0IM-D7).
+
+    Пользователь не должен остаться в тишине после того, как его ``/meme``
+    убил рестарт сервиса. Фраза бытовая, без кодов, промпта и выжимки; сбой
+    доставки (сессия бота уже закрывается) остаётся одним WARNING.
+    """
+    if bot is None:
+        logger.warning("[/meme] no bot to report interruption | chat=%s",
+                       chat_id)
+        return
+    try:
+        await bot.send_message(chat_id=chat_id, text=_INTERRUPTED_TEXT)
+    except Exception as exc:
+        logger.warning("[/meme] interruption notice not delivered (%s) | "
+                       "chat=%s", type(exc).__name__, chat_id)
+
+
+def _log_interruption(chat_id: int, run) -> None:
+    """След обрыва в логе: чат, реальный этап, идентичность запуска."""
+    logger.warning("[/meme] run interrupted | chat=%s | stage=%s | run=%s | "
+                   "delivered=%s", chat_id, getattr(run, "stage", ""),
+                   getattr(run, "job_id", ""), bool(getattr(run, "delivered",
+                                                            False)))
 
 
 @meme_command_router.message(Command("meme"))
@@ -241,8 +329,11 @@ async def cmd_meme(message: types.Message) -> None:
     await delete_command_message(message)
 
     # Приоритет заявлен ДО генерации: автоматический путь уже не сможет
-    # перейти в `sending`, пока маркер жив (INIT-COORD §6).
-    await claim_manual_priority(chat_id)
+    # перейти в `sending`, пока маркер жив (INIT-COORD §6). Запись о факте
+    # записи маркера (в т.ч. неудачной) уходит в журнал попытки.
+    from services import meme_initiative as meme
+    marker = await claim_manual_priority(chat_id)
+    marker_until = marker.get("until") if isinstance(marker, dict) else marker
 
     bot = _bot if _bot is not None else getattr(message, "bot", None)
     request_ref = str(getattr(message, "message_id", 0) or "")
@@ -251,10 +342,25 @@ async def cmd_meme(message: types.Message) -> None:
     async def _permission_check() -> bool:
         return await is_meme_admin(user_id, chat_id)
 
+    # P0IM-D7: трасса ЭТОГО запуска — по ней видно реальный этап остановки и
+    # факт доставки, если прогон оборвётся отменой.
+    run = meme.RunTrace(chat_id=chat_id)
     try:
         result = await run_manual_pipeline(chat_id, bot,
                                            request_ref=request_ref,
-                                           permission_check=_permission_check)
+                                           permission_check=_permission_check,
+                                           manual_priority=marker,
+                                           trace=run)
+    except asyncio.CancelledError:
+        # Отмена (рестарт сервиса) — ТЕРМИНАЛЬНЫЙ исход, а не тишина:
+        # терминальную строку с реальным этапом уже записал пайплайн, а
+        # пользователь получает одно короткое честное сообщение — только если
+        # картинка действительно не ушла. Отмену пробрасываем дальше: это
+        # остановка процесса.
+        _log_interruption(chat_id, run)
+        if not bool(getattr(run, "delivered", False)):
+            await _report_interrupted(bot, chat_id)
+        raise
     except Exception as exc:
         # Пайплайн обязан деградировать сам; сюда приходит только сбой моста
         # (журнал/БД) — в чат уходит одно короткое сообщение, без внутренностей.
@@ -262,6 +368,11 @@ async def cmd_meme(message: types.Message) -> None:
                        type(exc).__name__, chat_id)
         await _report_failure(bot, chat_id)
         return
+    finally:
+        # P0IM-MM-MARKER: маркер приоритета снимается на КАЖДОМ терминальном
+        # исходе (успех/отказ/ошибка/отмена). TTL 600 с — страховка на случай
+        # падения процесса, а не механизм снятия.
+        await release_manual_priority(chat_id, marker_until)
 
     if result is not None and bool(getattr(result, "published", False)):
         return  # успех = только изображение, отправленное sender'ом пайплайна

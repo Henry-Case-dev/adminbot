@@ -948,26 +948,39 @@ def test_foreign_sending_yields_publication_in_flight(tmp_path):
 
 
 def test_command_marks_priority_before_generation(monkeypatch):
-    """Обработчик `/meme` ставит маркер ДО запуска пайплайна (§6)."""
+    """Обработчик `/meme` ставит маркер ДО пайплайна и снимает его после (§6).
+
+    P0IM-MM-MARKER: маркер не «доживает» до TTL — он снимается в терминальном
+    исходе. Мутация: убрать снятие — последовательность теряет ``clear``.
+    """
     from handlers import meme_command
 
-    order: list[str] = []
+    order: list[tuple] = []
+    until = NOW_TS + pub.MANUAL_PRIORITY_SECONDS
+    marker = {"ok": True, "until": until, "detail": ""}
 
     async def _priority(chat_id):
-        order.append("priority")
-        return NOW_TS + pub.MANUAL_PRIORITY_SECONDS
+        order.append(("priority", chat_id))
+        return marker
 
-    async def _pipeline(chat_id, bot, *, request_ref="", permission_check=None):
-        order.append("pipeline")
+    async def _clear(chat_id, mark):
+        order.append(("clear", chat_id, mark))
+        return True
+
+    async def _pipeline(chat_id, bot, *, request_ref="", permission_check=None,
+                        manual_priority=None, trace=None):
+        order.append(("pipeline", request_ref))
         assert request_ref == "5"          # id сообщения /meme в снапшоте/событиях
         assert callable(permission_check)  # B2: реальная перепроверка прав
+        assert manual_priority == marker   # факт записи маркера -> в журнал
+        assert trace is not None           # P0IM-D7: трасса запуска
         return SimpleNamespace(published=True, reason="sent")
 
     async def _admin(_uid, _cid):
         return True
 
     async def _delete(_message):
-        order.append("delete")
+        order.append(("delete",))
         return True
 
     class _Message:
@@ -981,6 +994,7 @@ def test_command_marks_priority_before_generation(monkeypatch):
     monkeypatch.setattr(meme_command, "is_meme_admin", _admin)
     monkeypatch.setattr(meme_command, "delete_command_message", _delete)
     monkeypatch.setattr(meme_command, "claim_manual_priority", _priority)
+    monkeypatch.setattr(meme_command, "release_manual_priority", _clear)
     monkeypatch.setattr(meme_command, "run_manual_pipeline", _pipeline)
     monkeypatch.setattr(meme_command, "setup_meme_command", lambda *a, **k: None)
     bot = SimpleNamespace(send_message=None)
@@ -988,7 +1002,8 @@ def test_command_marks_priority_before_generation(monkeypatch):
 
     asyncio.run(meme_command.cmd_meme(_Message()))
 
-    assert order == ["delete", "priority", "pipeline"]
+    assert order == [("delete",), ("priority", CHAT), ("pipeline", "5"),
+                     ("clear", CHAT, until)], order
 
 
 # ═══ 8. разные чаты независимы (R6) ═════════════════════════════════════════
