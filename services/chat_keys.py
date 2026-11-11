@@ -90,8 +90,14 @@ def _pool(pg):
     return getattr(pg, "pool", None) if pg is not None else None
 
 
-async def get_chat_key(pg, chat_id: int, key_name: str) -> str | None:
-    """Сырое значение ТОЛЬКО для сервисов (llm_client); None — нет."""
+async def get_chat_key(pg, chat_id: int, key_name: str, *,
+                       strict: bool = False) -> str | None:
+    """Сырое значение ТОЛЬКО для сервисов (llm_client); None — нет.
+
+    `strict=True` — ошибка чтения НЕ маскируется под «ключа нет»: исключение
+    пробрасывается вызывающему. Нужно там, где «не знаю» обязано отличаться
+    от «пусто» (проекция секретов: неизвестность → отказ в сыром выводе).
+    """
     pool = _pool(pg)
     if pool is None:
         return None
@@ -99,6 +105,11 @@ async def get_chat_key(pg, chat_id: int, key_name: str) -> str | None:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(SELECT_KEY_SQL, chat_id, key_name)
     except Exception:
+        if strict:
+            logger.warning("[chat_keys] read failed — strict, ошибка "
+                           "пробрасывается | chat=%s key=%s",
+                           chat_id, key_name, exc_info=True)
+            raise
         logger.warning("[chat_keys] read failed — fail-open | chat=%s key=%s",
                        chat_id, key_name, exc_info=True)
         return None

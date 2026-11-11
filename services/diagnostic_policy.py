@@ -112,6 +112,8 @@ R_DENY_OTHER_CHAT = "denied_other_chat_scope"
 R_DENY_ACTION_UNSUPPORTED = "denied_action_not_supported"
 R_DENY_UNKNOWN_CAPABILITY = "denied_unknown_capability"
 R_DENY_NO_IDENTITY = "denied_anonymous_sender"
+#: Слой прав недоступен: проверить запрет нельзя → данные не выдаются.
+R_DENY_POLICY_UNAVAILABLE = "denied_policy_unavailable"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -501,6 +503,68 @@ def _action_field(action: str) -> str:
     return access_srv.DIAG_ACTION_FIELD.get(action, "view_roles")
 
 
+#: Строки матрицы, различия между которыми требуют живой проверки личности.
+_MATRIX_ROLE_USER = "user"
+_MATRIX_ROLE_LOCAL_ADMIN = "local_admin"
+
+
+async def _policy_overrides(*, pg=None, chat_id: int | None = None,
+                            ) -> tuple[dict, dict]:
+    """Перекрытия матрицы (глобальные + чат) — один чтение на решение."""
+    from services import access as access_srv
+    global_overrides: dict = {}
+    chat_overrides: dict = {}
+    if pg is not None:
+        global_overrides = await access_srv.diag_global_overrides(pg)
+        if chat_id is not None:
+            chat_overrides = await access_srv.diag_chat_overrides(chat_id,
+                                                                  pg=pg)
+    return global_overrides or {}, chat_overrides or {}
+
+
+def _needs_chat_admin_identity(requirements: tuple[tuple[str, str], ...],
+                               global_overrides: dict,
+                               chat_overrides: dict) -> bool:
+    """Нужна ли живая проверка «админ именно этого чата».
+
+    Проверка нужна там, где решение РАЗЛИЧАЕТ участника и админа чата: то
+    есть в эффективной матрице `local_admin` разрешён, а `user` — нет. Это
+    выполняется для всех классов данных, а не только для PROMPT_CONTENT:
+    настраиваемая строка `local_admin` обязана работать в любом классе.
+    """
+    for capability_id, action in requirements:
+        capability = CAPABILITY_MAP.get(capability_id)
+        if capability is None or action not in capability.actions:
+            continue
+        matrix = effective_diag_matrix(
+            capability, global_overrides.get(capability_id),
+            chat_overrides.get(capability_id))
+        roles = matrix.get(_action_field(action)) or []
+        if _MATRIX_ROLE_LOCAL_ADMIN in roles \
+                and _MATRIX_ROLE_USER not in roles:
+            return True
+    return False
+
+
+async def _resolve_actor_for(requirements: tuple[tuple[str, str], ...], *,
+                             telegram_id: int | None, chat_id: int | None,
+                             cache=None, bot=None, pg=None,
+                             fresh_telegram: bool = False,
+                             ) -> tuple[Actor, dict, dict]:
+    """Актор с учётом эффективной матрицы + прочитанные перекрытия."""
+    global_overrides, chat_overrides = await _policy_overrides(
+        pg=pg, chat_id=chat_id)
+    caps = [CAPABILITY_MAP.get(capability) for capability, _act in requirements]
+    protected = any(c is not None and c.data_class in PROTECTED_CLASSES
+                    for c in caps)
+    check_admin = protected or _needs_chat_admin_identity(
+        requirements, global_overrides, chat_overrides)
+    actor = await resolve_actor(telegram_id, chat_id, cache=cache, bot=bot,
+                                check_admin=check_admin,
+                                fresh_telegram=fresh_telegram)
+    return actor, global_overrides, chat_overrides
+
+
 def _decision(effect: str, reason: str, actor: Actor, capability: str,
               action: str, data_class: str, *, source: str = SOURCE_HARD_RULE,
               ) -> Decision:
@@ -549,6 +613,9 @@ _EXPLANATIONS: dict[str, str] = {
     R_DENY_NO_IDENTITY: ("Отправителя нельзя достоверно определить "
                          "(анонимный админ/сообщение канала), поэтому "
                          "защищённые данные не выдаются."),
+    R_DENY_POLICY_UNAVAILABLE: ("Слой прав недоступен, поэтому проверить "
+                                "разрешение нельзя: диагностические данные "
+                                "не выдаются."),
 }
 
 
@@ -570,16 +637,22 @@ async def decide(capability_id: str, action: str, *, telegram_id: int | None,
                  destination: str = "reply",
                  request_id: str | None = None,
                  resource_chat_id: int | None = None) -> Decision:
-    """Полный путь «актор → матрица → решение» с записью в аудит."""
-    capability = CAPABILITY_MAP.get(capability_id)
-    check_admin = bool(capability
-                       and capability.data_class in PROTECTED_CLASSES)
-    actor = await resolve_actor(telegram_id, chat_id, cache=cache, bot=bot,
-                                check_admin=check_admin,
-                                fresh_telegram=fresh_telegram)
+    """Полный путь «актор → матрица → решение» с записью в аудит.
+
+    Живая проверка Telegram выполняется не только для protected-классов, но
+    и везде, где эффективная матрица различает `user` и `local_admin`:
+    иначе настраиваемая строка «админ этого чата» не работала бы в
+    публичных/чатовых классах.
+    """
+    requirements = ((capability_id, action),)
+    actor, global_overrides, chat_overrides = await _resolve_actor_for(
+        requirements, telegram_id=telegram_id, chat_id=chat_id, cache=cache,
+        bot=bot, pg=pg, fresh_telegram=fresh_telegram)
     decision = await evaluate(capability_id, action, actor, pg=pg,
                               cache=cache, chat_id=chat_id,
-                              resource_chat_id=resource_chat_id)
+                              resource_chat_id=resource_chat_id,
+                              global_overrides=global_overrides,
+                              chat_overrides=chat_overrides)
     _audit("decision", request_id=request_id, actor_id=actor.telegram_id,
            chat_id=chat_id, capability=capability_id, action=action,
            role=actor.role, verification=actor.verification,
@@ -597,17 +670,21 @@ async def decide(capability_id: str, action: str, *, telegram_id: int | None,
 async def check_tool_call(tool_name: str, *, telegram_id: int | None,
                           chat_id: int | None, cache=None, bot=None, pg=None,
                           request_id: str | None = None,
-                          destination: str = "tool") -> Decision | None:
-    """Проверка инструмента перед выполнением.
+                          destination: str = "tool",
+                          fresh_telegram: bool = False) -> Decision | None:
+    """Проверка инструмента перед выполнением и перед возвратом результата.
 
     `None` — инструмент не диагностический (политика его не гейтит).
+    `fresh_telegram=True` на перепроверке: отзыв админства действует на уже
+    запущенный вызов, поэтому кэш Telegram не используется.
     """
     capability_id = TOOL_CAPABILITIES.get(tool_name)
     if capability_id is None:
         return None
     decision = await decide(capability_id, "run", telegram_id=telegram_id,
                             chat_id=chat_id, cache=cache, bot=bot, pg=pg,
-                            request_id=request_id, destination=destination)
+                            request_id=request_id, destination=destination,
+                            fresh_telegram=fresh_telegram)
     _audit("diag_call", tool=tool_name, request_id=request_id,
            actor_id=telegram_id, chat_id=chat_id,
            capability=capability_id, action="run", role=decision.role,
@@ -620,6 +697,21 @@ def denial_message(decision: Decision, *, tool_name: str | None = None) -> str:
     """Короткий отказ для чата: без фрагментов защищённых данных."""
     prefix = f"ОШИБКА {tool_name}: " if tool_name else "Отказано: "
     return f"{prefix}{decision.message_ru} [{decision.reason_code}]"
+
+
+def policy_unavailable_denial(capability_id: str, action: str, *,
+                              chat_id: int | None = None) -> Decision:
+    """Отказ, когда слой прав недоступен: проверить запрет нельзя.
+
+    Fail-closed: вызывающий обязан НЕ выдавать диагностические данные
+    (публикация/сырой вывод), а не продолжать «как будто разрешено».
+    """
+    capability = CAPABILITY_MAP.get(capability_id)
+    actor = Actor(None, chat_id, ROLE_MEMBER, AUTH_UNVERIFIED,
+                  R_DENY_POLICY_UNAVAILABLE)
+    return _decision(EFFECT_DENY, R_DENY_POLICY_UNAVAILABLE, actor,
+                     capability_id, action,
+                     capability.data_class if capability else "")
 
 
 # ── Шлюз с перепроверкой перед возвратом/публикацией ──────────────────────
@@ -701,13 +793,13 @@ async def open_gate(capability_id: str, action: str, *,
     """
     request_id = uuid.uuid4().hex
     requirements = ((capability_id, action),) + tuple(also)
-    caps = [CAPABILITY_MAP.get(cap) for cap, _act in requirements]
-    check_admin = any(c is not None and c.data_class in PROTECTED_CLASSES
-                      for c in caps)
-    actor = await resolve_actor(telegram_id, chat_id, cache=cache, bot=bot,
-                                check_admin=check_admin)
+    actor, global_overrides, chat_overrides = await _resolve_actor_for(
+        requirements, telegram_id=telegram_id, chat_id=chat_id, cache=cache,
+        bot=bot, pg=pg)
     decisions = [
-        await evaluate(cap, act, actor, pg=pg, cache=cache, chat_id=chat_id)
+        await evaluate(cap, act, actor, pg=pg, cache=cache, chat_id=chat_id,
+                       global_overrides=global_overrides,
+                       chat_overrides=chat_overrides)
         for cap, act in requirements
     ]
     decision = next((d for d in decisions if not d.allowed), decisions[0])
@@ -736,18 +828,20 @@ async def recheck_gate(gate: DiagnosticGate, *, cache=None, bot=None, pg=None,
 
     Отзыв прав (смена админства в Telegram, изменение матрицы, revocation)
     действует на уже запущенную проверку: решение пересчитывается заново по
-    актуальным источникам, без опоры на старый TTL.
+    актуальным источникам, без опоры на старый TTL. Живая проверка Telegram
+    выполняется и здесь — в том числе для публичных/чатовых классов, если
+    эффективная матрица различает `user` и `local_admin`.
     """
     requirements = gate.requirements or ((gate.capability, gate.action),)
-    caps = [CAPABILITY_MAP.get(cap) for cap, _act in requirements]
-    check_admin = any(c is not None and c.data_class in PROTECTED_CLASSES
-                      for c in caps)
-    actor = await resolve_actor(gate.actor.telegram_id, gate.actor.chat_id,
-                                cache=cache, bot=bot, check_admin=check_admin,
-                                fresh_telegram=fresh_telegram)
+    actor, global_overrides, chat_overrides = await _resolve_actor_for(
+        requirements, telegram_id=gate.actor.telegram_id,
+        chat_id=gate.actor.chat_id, cache=cache, bot=bot, pg=pg,
+        fresh_telegram=fresh_telegram)
     decisions = [
         await evaluate(cap, act, actor, pg=pg, cache=cache,
-                       chat_id=gate.actor.chat_id)
+                       chat_id=gate.actor.chat_id,
+                       global_overrides=global_overrides,
+                       chat_overrides=chat_overrides)
         for cap, act in requirements
     ]
     decision = next((d for d in decisions if not d.allowed), decisions[0])
@@ -898,16 +992,18 @@ async def explain_for(telegram_id: int | None, chat_id: int | None, *,
     """Почему конкретному пользователю разрешено/отказано (для админки)."""
     targets = ([CAPABILITY_MAP[capability]] if capability in CAPABILITY_MAP
                else list(CAPABILITIES))
-    check_admin = any(c.data_class in PROTECTED_CLASSES for c in targets)
-    actor = await resolve_actor(telegram_id, chat_id, cache=cache, bot=bot,
-                                check_admin=check_admin,
-                                fresh_telegram=fresh_telegram)
+    requirements = tuple((cap.id, act) for cap in targets for act in cap.actions)
+    actor, global_overrides, chat_overrides = await _resolve_actor_for(
+        requirements, telegram_id=telegram_id, chat_id=chat_id, cache=cache,
+        bot=bot, pg=pg, fresh_telegram=fresh_telegram)
     decisions = []
     for cap in targets:
         per_action = []
         for action in cap.actions:
             decision = await evaluate(cap.id, action, actor, pg=pg,
-                                      cache=cache, chat_id=chat_id)
+                                      cache=cache, chat_id=chat_id,
+                                      global_overrides=global_overrides,
+                                      chat_overrides=chat_overrides)
             per_action.append(decision.as_dict())
         decisions.append({
             "capability": cap.id,

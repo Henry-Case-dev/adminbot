@@ -1494,12 +1494,14 @@ class ToolRouter:
         capability = diag.TOOL_CAPABILITIES.get(name)
         try:
             if capability is not None:
+                # fresh_telegram: отзыв админства действует на уже
+                # запущенный вызов, поэтому перепроверка идёт мимо кэша.
                 decision = await diag.check_tool_call(
                     name,
                     telegram_id=getattr(ctx, "user_id", None),
                     chat_id=getattr(ctx, "chat_id", None),
                     cache=cache, bot=getattr(ctx, "bot", None), pg=pg,
-                    destination="tool_result")
+                    destination="tool_result", fresh_telegram=True)
                 if decision is not None and not decision.allowed:
                     return diag.denial_message(decision, tool_name=name)
             # Секреты вычищаются из ЛЮБОГО результата инструмента (ТЗ §9.2:

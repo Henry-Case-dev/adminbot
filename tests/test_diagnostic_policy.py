@@ -9,8 +9,10 @@ getChatMember, смена статуса посреди сессии, отзыв
 (в результатах, финальной доставке и логах).
 """
 import asyncio
+import contextlib
 import json
 import logging
+import re
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -62,6 +64,11 @@ class _FakeConn:
         raise AssertionError(sql)                       # pragma: no cover
 
     async def fetchrow(self, sql, *args):
+        # `chat_keys`: BYOK-ключа в фейке нет (честный «нет строки», а не
+        # сломанное чтение — иначе проекция справедливо сочтёт источники
+        # неполными и заблокирует сырой вывод).
+        if "FROM chat_keys" in sql:
+            return None
         raise AssertionError(sql)                       # pragma: no cover
 
 
@@ -1010,3 +1017,406 @@ async def test_api_matrix_change_applies_to_real_tool_call(monkeypatch):
     denied = await router.dispatch("read_source_code", {"op": "read"}, ctx)
     assert denied.startswith("ОШИБКА read_source_code")
     assert diag.R_DENY_GLOBAL_OVERRIDE in denied
+
+
+# ── 11. Строка `local_admin` в публичных/чатовых классах (реальный dispatch) ─
+
+async def _local_admin_only(pg, capability_id, view_roles=("local_admin",)):
+    await access_srv.upsert_diag_matrix(
+        pg, capability_id, {"view_roles": list(view_roles),
+                            "run_roles": list(view_roles)})
+    diag.notify_policy_change(changed_by=OWNER_ID, capability=capability_id)
+
+
+@pytest.mark.asyncio
+async def test_local_admin_row_is_enforced_for_public_tech_via_dispatch(
+        monkeypatch, member_cache):
+    """PUBLIC_TECH: строка только `local_admin` работает через ToolRouter.
+
+    Дефект D2-1: живая проверка админства включалась лишь для
+    PROMPT_CONTENT/OTHER_CHAT_DATA, поэтому настоящий админ чата
+    определялся как `member` и получал отказ на своей же строке.
+    """
+    pg = FakePg()
+    await _local_admin_only(pg, "bot_server_state")
+    bot = FakeBot({(GROUP_A, ADMIN_ID): "administrator"})
+    router = _router_with(monkeypatch, member_cache, pg, "ОТЧЁТ: аптайм 10 ч")
+
+    member = ToolContext(chat_id=GROUP_A, query="чекап", user_id=MEMBER_ID,
+                         bot=bot)
+    denied = await router.dispatch("get_bot_health", {}, member)
+    assert denied.startswith("ОШИБКА get_bot_health")
+    assert "аптайм" not in denied
+    assert diag.R_DENY_GLOBAL_OVERRIDE in denied
+
+    chat_admin = ToolContext(chat_id=GROUP_A, query="чекап", user_id=ADMIN_ID,
+                             bot=bot)
+    allowed = await router.dispatch("get_bot_health", {}, chat_admin)
+    assert allowed == "ОТЧЁТ: аптайм 10 ч"
+    assert (GROUP_A, ADMIN_ID) in bot.calls      # живая проверка состоялась
+
+
+@pytest.mark.asyncio
+async def test_local_admin_row_is_enforced_for_chat_scoped_via_dispatch(
+        monkeypatch, member_cache):
+    """CHAT_SCOPED: та же строка `local_admin` через реальный dispatch.
+
+    В этом срезе нет зарегистрированного инструмента класса CHAT_SCOPED
+    (`deep_diagnostics`/`memory_analytics` объявлены без обработчика),
+    поэтому класс проверяется на реальном инструменте `fetch_article`
+    с тестовой привязкой к `memory_analytics`: гейт, матрица и роль —
+    настоящие.
+    """
+    pg = FakePg()
+    await _local_admin_only(pg, "memory_analytics")
+    monkeypatch.setitem(diag.TOOL_CAPABILITIES, "fetch_article",
+                        "memory_analytics")
+    bot = FakeBot({(GROUP_A, ADMIN_ID): "administrator"})
+    router = _router_with(monkeypatch, member_cache, pg, "unused")
+
+    async def fake_article(arguments, ctx):
+        return "СТАТИСТИКА ПАМЯТИ чата"
+
+    router._fetch_article = fake_article
+
+    member = ToolContext(chat_id=GROUP_A, query="память", user_id=MEMBER_ID,
+                         bot=bot)
+    denied = await router.dispatch("fetch_article", {"url": "u"}, member)
+    assert denied.startswith("ОШИБКА fetch_article")
+    assert "СТАТИСТИКА" not in denied
+    assert diag.R_DENY_GLOBAL_OVERRIDE in denied
+
+    chat_admin = ToolContext(chat_id=GROUP_A, query="память",
+                             user_id=ADMIN_ID, bot=bot)
+    allowed = await router.dispatch("fetch_article", {"url": "u"}, chat_admin)
+    assert allowed == "СТАТИСТИКА ПАМЯТИ чата"
+
+
+@pytest.mark.asyncio
+async def test_local_admin_row_still_allows_global_admin(monkeypatch,
+                                                         owner_cache):
+    """Владелец бота проходит строку `local_admin` (без Telegram-запроса)."""
+    pg = FakePg()
+    await _local_admin_only(pg, "bot_server_state")
+    bot = FakeBot()
+    router = _router_with(monkeypatch, owner_cache, pg, "ОТЧЁТ владельца")
+    owner = ToolContext(chat_id=GROUP_A, query="чекап", user_id=OWNER_ID,
+                        bot=bot)
+    assert await router.dispatch("get_bot_health", {}, owner) == \
+        "ОТЧЁТ владельца"
+    assert bot.calls == []                       # админство чата не требуется
+
+
+@pytest.mark.asyncio
+async def test_local_admin_row_rechecks_live_status_before_output(
+        monkeypatch, member_cache):
+    """Перепроверка перед выдачей результата тоже живая (отзыв действует)."""
+    pg = FakePg()
+    await _local_admin_only(pg, "bot_server_state")
+    bot = FakeBot({(GROUP_A, ADMIN_ID): "administrator"})
+    router = _router_with(monkeypatch, member_cache, pg, "unused")
+
+    async def revoke_then_report(arguments, ctx):
+        bot.set_status(GROUP_A, ADMIN_ID, "member")   # отзыв во время вызова
+        return "ОТЧЁТ: аптайм 10 ч"
+
+    router._get_bot_health = revoke_then_report
+    ctx = ToolContext(chat_id=GROUP_A, query="чекап", user_id=ADMIN_ID,
+                      bot=bot)
+    result = await router.dispatch("get_bot_health", {}, ctx)
+    assert result.startswith("ОШИБКА get_bot_health")
+    assert "аптайм" not in result
+    assert (GROUP_A, ADMIN_ID) in bot.calls
+
+
+@pytest.mark.asyncio
+async def test_local_admin_row_denies_when_admin_check_unavailable(
+        monkeypatch, member_cache):
+    """Telegram недоступен → на строке `local_admin` отказ, а не «повезёт»."""
+    pg = FakePg()
+    await _local_admin_only(pg, "bot_server_state")
+    router = _router_with(monkeypatch, member_cache, pg, "ОТЧЁТ: аптайм")
+    ctx = ToolContext(chat_id=GROUP_A, query="чекап", user_id=ADMIN_ID,
+                      bot=FakeBot(error=RuntimeError("api down")))
+    result = await router.dispatch("get_bot_health", {}, ctx)
+    assert result.startswith("ОШИБКА get_bot_health")
+    assert "аптайм" not in result
+
+
+# ── 12. Полнота источников секретов: неизвестность → отказ в сыром выводе ──
+
+#: Значения нарочно НЕ совпадают ни с одним credential-паттерном.
+UNPATTERNED = "unpatterned-super-secret-987654321"
+
+_CREDENTIAL_NAME_RE = re.compile(
+    r"(API_KEY|_KEY$|_KEYS$|_TOKEN$|_SECRET$|_PASSWORD$|_DSN$|API_HASH$"
+    r"|PROXY_URL$|PROXY_USERNAME$|PROXY_PASSWORD$|COOKIES_FILE$)")
+
+
+@contextlib.contextmanager
+def _patched_settings(values: dict[str, str]):
+    """Временная подмена credential-полей `Settings` (frozen dataclass).
+
+    `Settings` — frozen dataclass, поэтому пишем через `object.__setattr__`.
+    Восстановление точное: если у экземпляра НЕ было собственного атрибута,
+    он удаляется, иначе следующий `monkeypatch.setattr(type(settings), ...)`
+    в других тестах перестал бы действовать (instance-атрибут затеняет
+    класс).
+    """
+    from config.settings import settings as cfg
+
+    saved = {name: (name in cfg.__dict__, getattr(cfg, name))
+             for name in values}
+    for name, value in values.items():
+        object.__setattr__(cfg, name, value)
+    try:
+        yield
+    finally:
+        for name, (had_own, old) in saved.items():
+            if had_own:
+                object.__setattr__(cfg, name, old)
+            else:
+                cfg.__dict__.pop(name, None)
+
+
+def test_credential_registry_covers_every_secret_settings_field():
+    """Типизированный реестр покрывает ВСЕ credential-поля настроек.
+
+    Дефект D2-2: `SOURCE_READ_GITHUB_TOKEN`, `SUMMARY_L1_API_KEY`,
+    `SUMMARY_L2_API_KEY`, `EMBEDDING_EXTRA_API_KEYS` не собирались вообще.
+    """
+    from config.settings import settings as cfg
+
+    registered = {f.settings_field for f in projection.CREDENTIAL_FIELDS}
+    actual = {name for name in vars(type(cfg))
+              if _CREDENTIAL_NAME_RE.search(name)
+              and isinstance(getattr(cfg, name, None), str)}
+    assert actual - registered == set(), \
+        f"не зарегистрированы credential-поля: {sorted(actual - registered)}"
+    assert {"SOURCE_READ_GITHUB_TOKEN", "SUMMARY_L1_API_KEY",
+            "SUMMARY_L2_API_KEY", "EMBEDDING_EXTRA_API_KEYS"} <= registered
+    for field in projection.CREDENTIAL_FIELDS:
+        assert hasattr(cfg, field.settings_field), field.settings_field
+
+
+def test_every_credential_source_value_is_redacted():
+    """Непаттерновое значение КАЖДОГО источника вычищается из сырого вывода."""
+    patches: dict[str, str] = {}
+    produced: dict[str, list[str]] = {}
+    for index, field in enumerate(projection.CREDENTIAL_FIELDS):
+        value = f"{UNPATTERNED}-{index:02d}"
+        if field.kind == projection.CREDENTIAL_KIND_LIST:
+            parts = [value, f"{value}b"]
+            raw = ",".join(parts)
+        else:
+            parts = [value]
+            raw = value
+        patches[field.settings_field] = raw
+        produced.setdefault(field.pg_key, []).extend(parts)
+
+    with _patched_settings(patches):
+        projection.reset_secret_cache()
+        snapshot = projection.known_secret_values(use_cache=False)
+        assert snapshot.complete is True
+        assert snapshot.missing == ()
+        for name, values in produced.items():
+            for value in values:
+                assert value in snapshot.values, name
+                result = projection.sanitize(
+                    f"вывод инструмента: {value}",
+                    kind="tool_result", secrets=snapshot)
+                assert result.allowed is True
+                assert value not in result.text, name
+    projection.reset_secret_cache()
+
+
+def test_incomplete_secret_sources_block_raw_tool_result_and_final():
+    """Неполнота источников → сырой `tool_result`/`final` не выдаётся вообще."""
+    incomplete = projection.SecretSnapshot({}, False, ("byok",))
+    for kind in ("tool_result", "final", "logs", "traceback", "prompt"):
+        blocked = projection.sanitize(f"текст {UNPATTERNED}", kind=kind,
+                                      secrets=incomplete)
+        assert blocked.allowed is False, kind
+        assert blocked.text == ""
+        assert blocked.report.status == projection.STATUS_BLOCKED
+        assert "byok" in blocked.report.reason
+
+    unavailable = projection.sanitize(f"текст {UNPATTERNED}",
+                                      kind="tool_result", secrets=None)
+    assert unavailable.allowed is False
+    assert unavailable.text == ""
+
+    # Несырой вид (админский текст) остаётся рабочим.
+    text = projection.sanitize("обычный текст", kind="text",
+                               secrets=incomplete)
+    assert text.allowed is True and text.text == "обычный текст"
+
+
+def test_assert_secret_free_does_not_claim_unknown_is_clean():
+    assert projection.assert_secret_free("любой текст", None) is False
+    assert projection.assert_secret_free(
+        "любой текст", projection.SecretSnapshot({}, False, ("settings",))
+    ) is False
+    assert projection.assert_secret_free(
+        UNPATTERNED, projection.SecretSnapshot({UNPATTERNED: "keys.x"}, True)
+    ) is False
+    assert projection.assert_secret_free(
+        "чистый текст", projection.SecretSnapshot({UNPATTERNED: "keys.x"}, True)
+    ) is True
+
+
+@pytest.mark.asyncio
+async def test_tool_result_blocked_when_secret_sources_incomplete(
+        monkeypatch, member_cache):
+    """Обычный (недиагностический) инструмент тоже не отдаёт сырой текст."""
+    monkeypatch.setattr(
+        projection, "known_secret_values",
+        lambda **kw: projection.SecretSnapshot({}, False, ("settings",)))
+    router = _router_with(monkeypatch, member_cache, FakePg(), "unused")
+
+    async def fake_article(arguments, ctx):
+        return f"текст статьи, в конфиге был ключ {UNPATTERNED}"
+
+    router._fetch_article = fake_article
+    ctx = ToolContext(chat_id=GROUP_A, query="статья", user_id=MEMBER_ID)
+    result = await router.dispatch("fetch_article", {"url": "u"}, ctx)
+    assert UNPATTERNED not in result
+    assert "вывод заблокирован" in result
+
+
+@pytest.mark.asyncio
+async def test_byok_read_error_blocks_raw_output(monkeypatch, member_cache):
+    """Ошибка чтения BYOK — «неизвестно», а не «ключа нет»."""
+    from services import chat_keys
+
+    async def broken(*args, **kwargs):
+        raise RuntimeError("pg down")
+
+    monkeypatch.setattr(chat_keys, "get_chat_key", broken)
+    snapshot = await projection.known_secret_values_async(
+        cache=member_cache, pg=FakePg(), chat_id=GROUP_A)
+    assert snapshot.complete is False
+    assert "byok" in snapshot.missing
+
+    router = _router_with(monkeypatch, member_cache, FakePg(),
+                          f"ОТЧЁТ: ключ {UNPATTERNED} в конфиге")
+    ctx = ToolContext(chat_id=GROUP_A, query="чекап", user_id=MEMBER_ID)
+    result = await router.dispatch("get_bot_health", {}, ctx)
+    assert UNPATTERNED not in result
+    assert "вывод заблокирован" in result
+
+
+def test_global_secret_cache_failure_marks_sources_incomplete():
+    """Конфиг-кэш не читается → источники неполны (сырой вывод не пройдёт)."""
+    class _BrokenCache(FakeCache):
+        def get(self, key, default=None):
+            raise RuntimeError("config cache broken")
+
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(cache=_BrokenCache({}),
+                                              use_cache=False)
+    assert snapshot.complete is False
+    assert "global_secrets" in snapshot.missing
+
+
+def test_catalog_failure_marks_sources_incomplete(monkeypatch):
+    """Сбой каталога параметров → источники неполны, а не «секретов нет»."""
+    from services import param_catalog as catalog
+
+    class _BrokenRegistry(dict):
+        def values(self):
+            raise RuntimeError("catalog broken")
+
+    monkeypatch.setattr(catalog, "REGISTRY", _BrokenRegistry(), raising=True)
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(use_cache=False)
+    assert snapshot.complete is False
+    assert "settings" in snapshot.missing
+
+
+def test_settings_field_failure_marks_sources_incomplete(monkeypatch):
+    """Нечитаемый слой настроек → источники неполны, а не «секретов нет»."""
+    monkeypatch.setattr(
+        projection, "_settings_secret_values",
+        lambda: (_ for _ in ()).throw(RuntimeError("settings broken")))
+    projection.reset_secret_cache()
+    snapshot = projection.known_secret_values(use_cache=False)
+    assert snapshot.complete is False
+    assert snapshot.missing == ("settings",)
+    blocked = projection.sanitize(f"текст {UNPATTERNED}", kind="final",
+                                  secrets=snapshot)
+    assert blocked.allowed is False and blocked.text == ""
+
+
+@pytest.mark.asyncio
+async def test_publish_blocks_final_when_sources_incomplete(member_cache):
+    """Финальная публикация при неполных источниках не отдаёт исходный текст."""
+    async def incomplete_async(cache=None, pg=None, chat_id=None):
+        return projection.SecretSnapshot({}, False, ("byok",))
+
+    bot = FakeBot({(GROUP_A, MEMBER_ID): "administrator"})
+    gate = await diag.open_gate("bot_server_state", "run",
+                                telegram_id=MEMBER_ID, chat_id=GROUP_A,
+                                cache=member_cache, bot=bot)
+    assert gate.decision.allowed
+
+    import services.output_projection as op
+    original = op.known_secret_values_async
+    op.known_secret_values_async = incomplete_async
+    try:
+        publication = await diag.publish(gate, f"ОТЧЁТ: {UNPATTERNED}",
+                                         cache=member_cache, bot=bot,
+                                         kind="final")
+    finally:
+        op.known_secret_values_async = original
+    assert publication.allowed is False
+    assert publication.text == ""
+    assert UNPATTERNED not in publication.text
+
+
+@pytest.mark.asyncio
+async def test_checkup_report_blocked_when_sources_incomplete(monkeypatch,
+                                                             member_cache):
+    """Чекап не публикует отчёт, когда полноту источников доказать нельзя."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    async def incomplete_async(cache=None, pg=None, chat_id=None):
+        return projection.SecretSnapshot({}, False, ("byok",))
+
+    monkeypatch.setattr(projection, "known_secret_values_async",
+                        incomplete_async)
+    service = MagicMock()
+    service.checkup = AsyncMock(
+        return_value=f"ОТЧЁТ: в логе был ключ {UNPATTERNED}")
+    fetcher = MagicMock()
+    fetcher.fetch = AsyncMock(return_value=("логи", False))
+    mod = _wire_checkup(monkeypatch, service, fetcher, member_cache, FakePg())
+    bot = AsyncMock()
+    await mod.checkup_handler(_make_msg("чекап"), bot=bot)
+    sent = _sent_text(bot)
+    assert UNPATTERNED not in sent
+    assert "скрыто" in sent or "Отказано" in sent or "ОШИБКА" in sent
+
+
+@pytest.mark.asyncio
+async def test_checkup_denies_when_policy_layer_unavailable(monkeypatch,
+                                                            member_cache):
+    """Недоступность слоя прав не превращается в «чекап без проверки»."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    async def broken_open_gate(*args, **kwargs):
+        raise RuntimeError("policy layer down")
+
+    monkeypatch.setattr(diag, "open_gate", broken_open_gate)
+    service = MagicMock()
+    service.checkup = AsyncMock(return_value=f"ОТЧЁТ: {UNPATTERNED}")
+    fetcher = MagicMock()
+    fetcher.fetch = AsyncMock(return_value=("логи", False))
+    mod = _wire_checkup(monkeypatch, service, fetcher, member_cache, FakePg())
+    bot = AsyncMock()
+    await mod.checkup_handler(_make_msg("чекап"), bot=bot)
+    fetcher.fetch.assert_not_awaited()          # логи не читались
+    service.checkup.assert_not_awaited()        # проверка не выполнялась
+    sent = _sent_text(bot)
+    assert UNPATTERNED not in sent
+    assert diag.R_DENY_POLICY_UNAVAILABLE in sent

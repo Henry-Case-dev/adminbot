@@ -42,6 +42,12 @@ STATUS_CLEAN = "clean"
 STATUS_PARTIALLY_REDACTED = "partially_redacted"
 STATUS_BLOCKED = "blocked"
 
+#: Виды вывода, для которых неполнота источников секретов — отказ (fail-closed),
+#: а не «надеемся, что значения нет». Сырой контент такого вида уже мог
+#: содержать credential value, и проверить это нечем.
+RAW_OUTPUT_KINDS: tuple[str, ...] = ("logs", "traceback", "prompt",
+                                     "tool_result", "final")
+
 #: Маркер удалённого фрагмента (не содержит самого значения).
 REDACTION_MARKER = "«скрыто:{name}»"
 
@@ -64,6 +70,92 @@ _PATTERN_RULES: tuple[tuple[str, re.Pattern], ...] = (
 )
 
 _secret_cache: tuple[float, dict[str, str]] | None = None
+
+
+#: Тип credential-значения в реестре: одно значение или список значений.
+CREDENTIAL_KIND_SCALAR = "scalar"
+CREDENTIAL_KIND_LIST = "list"
+
+
+@dataclasses.dataclass(frozen=True)
+class CredentialField:
+    """Явная запись типизированного реестра credential-источников."""
+
+    settings_field: str
+    pg_key: str
+    kind: str = CREDENTIAL_KIND_SCALAR
+
+
+#: Типизированный реестр ВСЕХ текущих credential-полей настроек.
+#: Реестр явный (а не эвристика по имени): тест `test_credential_registry`
+#: сверяет его с фактическими полями `Settings`, поэтому новый ключ без
+#: регистрации ломает сборку, а не утекает в вывод.
+CREDENTIAL_FIELDS: tuple[CredentialField, ...] = (
+    CredentialField("API_TOKEN", "api_token"),
+    CredentialField("LLM_API_KEY", "keys.llm_api_key"),
+    CredentialField("LLM_FALLBACK_API_KEY", "keys.llm_fallback_api_key"),
+    CredentialField("EMBEDDING_API_KEY", "keys.embedding_api_key"),
+    CredentialField("EMBEDDING_FALLBACK_API_KEY",
+                    "keys.embedding_fallback_api_key"),
+    CredentialField("EMBEDDING_FALLBACK_API_KEY_2",
+                    "keys.embedding_fallback_api_key_2"),
+    CredentialField("EMBEDDING_EXTRA_API_KEYS",
+                    "keys.embedding_extra_api_keys", CREDENTIAL_KIND_LIST),
+    CredentialField("TAVILY_API_KEY", "keys.tavily_api_key"),
+    CredentialField("EXA_API_KEY", "keys.exa_api_key"),
+    CredentialField("GROQ_API_KEY", "keys.groq_api_key"),
+    CredentialField("OPENROUTER_API_KEY", "keys.openrouter_api_key"),
+    CredentialField("IMAGE_API_KEY", "keys.image_api_key"),
+    CredentialField("IMAGE_STYLE_API_KEY", "keys.image_style_api_key"),
+    CredentialField("VISION_API_KEY", "keys.vision_api_key"),
+    CredentialField("INTEL_HISTORY_API_KEY", "keys.intel_history_api_key"),
+    CredentialField("INTEL_BG_API_KEY", "keys.intel_bg_api_key"),
+    CredentialField("INTEL_REFLECTION_API_KEY",
+                    "keys.intel_reflection_api_key"),
+    CredentialField("RANDOM_QUANTUM_API_KEY", "keys.random_quantum_api_key"),
+    CredentialField("MEDIA_SHARE_SECRET", "keys.media_share_secret"),
+    CredentialField("SUMMARY_L1_API_KEY", "keys.summary_l1_api_key"),
+    CredentialField("SUMMARY_L2_API_KEY", "keys.summary_l2_api_key"),
+    CredentialField("SOURCE_READ_GITHUB_TOKEN",
+                    "keys.source_read_github_token"),
+    CredentialField("YOUTUBE_TRANSCRIPT_PROXY_URL",
+                    "keys.youtube_transcript_proxy_url"),
+    CredentialField("YOUTUBE_TRANSCRIPT_PROXY_USERNAME",
+                    "keys.youtube_transcript_proxy_username"),
+    CredentialField("YOUTUBE_TRANSCRIPT_PROXY_PASSWORD",
+                    "keys.youtube_transcript_proxy_password"),
+    CredentialField("YOUTUBE_COOKIES_FILE", "keys.youtube_cookies_file"),
+    CredentialField("SAFE_FETCH_UPSTREAM_PROXY", "safe_fetch_upstream_proxy"),
+)
+
+#: Резделитель списковых credential-полей (через запятую/пробел/перевод строки).
+_LIST_SPLIT = re.compile(r"[,\s]+")
+
+#: Имена причин отказа проекции (наблюдаемость, без самих значений).
+REASON_SOURCES_UNAVAILABLE = "secret_sources_unavailable"
+REASON_SOURCES_INCOMPLETE = "secret_sources_incomplete"
+
+
+@dataclasses.dataclass(frozen=True)
+class SecretSnapshot:
+    """Известные значения секретов + ЯВНАЯ полнота источников.
+
+    `complete=False` означает: перечислить все credential-значения не
+    удалось (часть источников недоступна), поэтому сравнение по значениям
+    не может доказать отсутствие секрета в сыром выводе.
+    """
+
+    values: dict[str, str]
+    complete: bool
+    missing: tuple[str, ...] = ()
+
+    @property
+    def reason(self) -> str:
+        if self.complete:
+            return "secret_sources_complete"
+        if not self.missing:
+            return REASON_SOURCES_INCOMPLETE
+        return f"{REASON_SOURCES_INCOMPLETE}:{','.join(self.missing)}"
 
 
 def reset_secret_cache() -> None:
@@ -123,68 +215,93 @@ def is_secret_pg_key(pg_key: str) -> bool:
 
 
 def known_secret_values(cache=None, *, use_cache: bool = True,
-                        ) -> dict[str, str] | None:
-    """Известные runtime-значения секретов {значение: имя}.
+                        ) -> SecretSnapshot:
+    """Известные runtime-значения секретов + полнота источников.
 
-    `None` — источники собрать не удалось (fail-closed для high-risk
-    контента). Список строится из типизированных источников:
-      1) поля `Settings` с флагом `secret` в каталоге параметров;
-      2) токен бота (`settings.API_TOKEN`);
-      3) действующие глобальные секреты (`services.chat_keys`).
-    Ключ конкретного чата (BYOK) добавляет `known_secret_values_async`.
+    Источники:
+      1) типизированный реестр credential-полей `CREDENTIAL_FIELDS`
+         (settings/секрет-стор);
+      2) секретные поля каталога параметров с `settings_field` (страховка,
+         если каталог расширили без правки реестра);
+      3) токен бота (`settings.API_TOKEN`);
+      4) действующие глобальные секреты (`services.chat_keys`) из конфиг-кэша.
+
+    `SecretSnapshot.complete=False` — часть источников прочитать не удалось;
+    для сырого вывода это отказ (см. `sanitize`). Ключ конкретного чата
+    (BYOK) добавляет `known_secret_values_async`.
     """
     global _secret_cache
     now = time.monotonic()
     if use_cache and _secret_cache is not None \
             and _secret_cache[0] > now:
-        values = dict(_secret_cache[1])
-    else:
-        try:
-            values = _settings_secret_values()
-        except Exception:                              # pragma: no cover
-            logger.warning("[diag-secrets] сбор источников секретов "
-                           "не удался", exc_info=True)
-            return None
-        if use_cache:
-            _secret_cache = (now + _SECRET_CACHE_TTL, dict(values))
+        return SecretSnapshot(dict(_secret_cache[1]), True)
+
+    missing: list[str] = []
+    try:
+        values = _settings_secret_values()
+    except Exception:
+        logger.warning("[diag-secrets] сбор источников секретов "
+                       "не удался", exc_info=True)
+        return SecretSnapshot({}, False, ("settings",))
 
     if cache is not None:
         try:
             from services import chat_keys
             for name in sorted(chat_keys.global_secret_keys()):
-                value = cache.get(name)
-                _remember(values, value, name)
-        except Exception:                              # pragma: no cover
+                _remember(values, cache.get(name), name)
+        except Exception:
             logger.warning("[diag-secrets] глобальные секреты недоступны",
                            exc_info=True)
+            missing.append("global_secrets")
     # Ключ конкретного чата (BYOK) читается только асинхронно —
     # см. `known_secret_values_async`.
-    return values
+    snapshot = SecretSnapshot(values, not missing, tuple(missing))
+    if use_cache and snapshot.complete:
+        _secret_cache = (now + _SECRET_CACHE_TTL, dict(values))
+    return snapshot
 
 
 async def known_secret_values_async(cache=None, pg=None,
-                                    chat_id: int | None = None) -> dict[str, str] | None:
-    """Асинхронная версия: добавляет BYOK-ключ конкретного чата."""
-    values = known_secret_values(cache=cache)
-    if values is None:
-        return None
+                                    chat_id: int | None = None,
+                                    ) -> SecretSnapshot:
+    """Асинхронная версия: добавляет BYOK-ключ конкретного чата.
+
+    Ошибка чтения ключа чата трактуется как «неизвестно» (`complete=False`),
+    а не как «ключа нет»: иначе сырой вывод мог бы пройти без проверки.
+    Отсутствие PG-пула — не ошибка: без хранилища ключей чата не бывает.
+    """
+    snapshot = known_secret_values(cache=cache)
+    values = dict(snapshot.values)
+    missing = list(snapshot.missing)
     if chat_id is not None and getattr(pg, "pool", None) is not None:
         try:
             from services import chat_keys
             for name in sorted(chat_keys.BYOK_KEYS_WHITELIST):
-                value = await chat_keys.get_chat_key(pg, int(chat_id), name)
+                value = await chat_keys.get_chat_key(pg, int(chat_id), name,
+                                                     strict=True)
                 _remember(values, value, name)
-        except Exception:                              # pragma: no cover
-            logger.warning("[diag-secrets] ключ чата недоступен",
-                           exc_info=True)
-    return values
+        except Exception:
+            logger.warning("[diag-secrets] ключ чата недоступен — "
+                           "полнота источников неизвестна | chat=%s",
+                           chat_id, exc_info=True)
+            missing.append("byok")
+    return SecretSnapshot(values, snapshot.complete and not missing,
+                          tuple(missing) or snapshot.missing)
 
 
 def _settings_secret_values() -> dict[str, str]:
+    """Значения credential-полей из реестра + секреты каталога параметров."""
     from config.settings import settings
     from services import param_catalog as catalog
 
     values: dict[str, str] = {}
+    for field in CREDENTIAL_FIELDS:
+        raw = getattr(settings, field.settings_field)
+        if field.kind == CREDENTIAL_KIND_LIST:
+            for part in _LIST_SPLIT.split(str(raw or "")):
+                _remember(values, part, field.pg_key)
+        else:
+            _remember(values, raw, field.pg_key)
     for spec in catalog.REGISTRY.values():
         if not spec.secret or not spec.settings_field:
             continue
@@ -231,20 +348,34 @@ def project_secret_value(name: str, value) -> dict:
 
 # ── Санитизация вывода ────────────────────────────────────────────────────
 
-def sanitize(text: str, *, kind: str = "text", secrets: dict[str, str] | None = None,
-             fail_closed_kinds: tuple[str, ...] = ("logs", "traceback", "prompt"),
+_REASON_NO_SOURCE = "secret_sources_unavailable"
+
+
+def _normalize_secrets(secrets) -> tuple[dict[str, str] | None, bool, str]:
+    """(значения, полон ли набор, машинная причина) для любого входа."""
+    if isinstance(secrets, SecretSnapshot):
+        return dict(secrets.values), secrets.complete, secrets.reason
+    if secrets is None:
+        return None, False, _REASON_NO_SOURCE
+    # Явный словарь — заявленный вызывающим полный инвентарь значений.
+    return dict(secrets), True, "secret_sources_complete"
+
+
+def sanitize(text: str, *, kind: str = "text", secrets=None,
+             fail_closed_kinds: tuple[str, ...] = RAW_OUTPUT_KINDS,
              ) -> DeliveryResult:
     """Удалить известные секреты и credential-паттерны из текста.
 
     `kind` — «logs» | «traceback» | «prompt» | «tool_result» | «final» |
-    «text». Если `secrets is None` (источники недоступны), для high-risk
-    видов возвращается `allowed=False` (fail-closed), а не «надеемся, что
-    секретов нет».
+    «text». Если источники секретов недоступны ИЛИ неполны
+    (`SecretSnapshot.complete is False`), для сырого вывода возвращается
+    `allowed=False`: сырой текст не выдаётся вообще, потому что отсутствие
+    значения в неполном наборе ничего не доказывает.
     """
     original = "" if text is None else str(text)
-    if secrets is None:
-        report = RedactionReport(STATUS_BLOCKED, 0, (),
-                                 "secret_sources_unavailable")
+    values, complete, reason = _normalize_secrets(secrets)
+    if not complete:
+        report = RedactionReport(STATUS_BLOCKED, 0, (), reason)
         if kind in fail_closed_kinds:
             return DeliveryResult(False, "", report)
         return DeliveryResult(True, original, report)
@@ -253,7 +384,7 @@ def sanitize(text: str, *, kind: str = "text", secrets: dict[str, str] | None = 
     kinds: list[str] = []
     redacted = 0
     # Длинные значения первыми: иначе короткое «съест» часть длинного.
-    for value, name in sorted(secrets.items(), key=lambda kv: -len(kv[0])):
+    for value, name in sorted((values or {}).items(), key=lambda kv: -len(kv[0])):
         if value and value in out:
             count = out.count(value)
             out = out.replace(value, REDACTION_MARKER.format(name=name))
@@ -276,12 +407,17 @@ def sanitize(text: str, *, kind: str = "text", secrets: dict[str, str] | None = 
                           RedactionReport(STATUS_CLEAN, 0, (), "no_secret_values"))
 
 
-def assert_secret_free(text: str, secrets: dict[str, str] | None) -> bool:
-    """True — ни одно известное значение секрета не встречается в тексте."""
-    if secrets is None:
-        return True
+def assert_secret_free(text: str, secrets=None) -> bool:
+    """True — ни одно известное значение секрета не встречается в тексте.
+
+    Неизвестный/неполный набор источников → `False` («доказать нельзя»),
+    а не «надеемся, что чисто».
+    """
+    values, complete, _reason = _normalize_secrets(secrets)
+    if not complete:
+        return False
     blob = "" if text is None else str(text)
-    return not any(value and value in blob for value in secrets)
+    return not any(value and value in blob for value in (values or {}))
 
 
 def prompt_digest(text: str) -> dict:

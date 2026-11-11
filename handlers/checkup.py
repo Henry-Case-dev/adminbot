@@ -107,9 +107,10 @@ async def _checkup_diagnostic_gate(actor_id, chat_id):
 
     Возвращает `(gate, denied_decision)`: `gate` — открытое разрешение для
     перепроверки перед публикацией; `denied_decision` — отказ политики
-    (тогда отчёт не формируется и логи не читаются). Недоступность слоя
-    прав не роняет чекап: публичная диагностика остаётся доступной, факт
-    пишется в лог.
+    (тогда отчёт не формируется и логи не читаются).
+
+    Недоступность слоя прав — это ОТКАЗ, а не обход: без проверки запрет
+    доказать нельзя, поэтому чекап не выполняется и не публикуется.
     """
     cache, pg = _diag_runtime()
     try:
@@ -117,13 +118,14 @@ async def _checkup_diagnostic_gate(actor_id, chat_id):
             "bot_server_state", "run", telegram_id=actor_id,
             chat_id=chat_id, cache=cache, pg=pg, destination="checkup",
             also=(("logs_traceback", "view"),))
-        if not gate.decision.allowed:
-            return gate, gate.decision
-        return gate, None
     except Exception:
-        logger.warning("[checkup] diagnostic policy unavailable — public "
-                       "diagnostics kept | chat=%s", chat_id, exc_info=True)
-        return None, None
+        logger.warning("[checkup] diagnostic policy unavailable — checkup "
+                       "denied | chat=%s", chat_id, exc_info=True)
+        return None, diagnostic_policy.policy_unavailable_denial(
+            "bot_server_state", "run", chat_id=chat_id)
+    if not gate.decision.allowed:
+        return gate, gate.decision
+    return gate, None
 
 
 @checkup_router.message()
@@ -162,6 +164,10 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                      diagnostic_policy.denial_message(denied),
                      message.message_id)
         return
+    if gate is None:                       # защита от будущих правок: без
+        logger.error("[checkup] no gate — report is not published | chat=%s",
+                     message.chat.id)      # разрешения публикации не бывает
+        return
     try:
         logs, used_fallback = await _fetcher.fetch()
     except CheckupLogsUnavailableException as exc:
@@ -196,25 +202,24 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                                             chat_id=message.chat.id)
         # SELF-DIAG-01 D2: перепроверка прав ПЕРЕД публикацией (отзыв
         # действует на уже запущенную проверку) + удаление секретов.
-        if gate is not None:
-            try:
-                pub_cache, pub_pg = _diag_runtime()
-                publication = await diagnostic_policy.publish(
-                    gate, report, cache=pub_cache, pg=pub_pg, kind="final")
-            except Exception:
-                logger.exception("[checkup] publication guard failed | chat=%s",
-                                 message.chat.id)
-                return
-            if not publication.allowed:
-                logger.info("[checkup] publication blocked | chat=%s | "
-                            "reason=%s", message.chat.id,
-                            publication.decision.reason_code)
-                await _reply(bot, message.chat.id,
-                             diagnostic_policy.denial_message(
-                                 publication.decision),
-                             message.message_id)
-                return
-            report = publication.text
+        try:
+            pub_cache, pub_pg = _diag_runtime()
+            publication = await diagnostic_policy.publish(
+                gate, report, cache=pub_cache, pg=pub_pg, kind="final")
+        except Exception:
+            logger.exception("[checkup] publication guard failed | chat=%s",
+                             message.chat.id)
+            return
+        if not publication.allowed:
+            logger.info("[checkup] publication blocked | chat=%s | "
+                        "reason=%s", message.chat.id,
+                        publication.decision.reason_code)
+            await _reply(bot, message.chat.id,
+                         diagnostic_policy.denial_message(
+                             publication.decision),
+                         message.message_id)
+            return
+        report = publication.text
         await send_chunked_reply(bot, message.chat.id, report, message.message_id)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:
