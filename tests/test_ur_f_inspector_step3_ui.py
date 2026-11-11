@@ -202,7 +202,7 @@ class TestCodeDictionaries:
 
 
 class TestServiceValuesLabelled:
-    """UR-20.9: служебные значения карточки идут через словари, а не как есть.
+    """UR-20.3/20.6/20.7/20.8 (§5): служебные значения идут через словари.
 
     Раньше карточка печатала `JSON.stringify(llm_calls)` / `JSON.stringify(checks)`
     и голые `stop_reason`/`text_source`/`refused_reason`, имя инструмента и
@@ -451,7 +451,7 @@ class TestLiveViewports:
             assert summaries, "%s: строка конспекта не отрендерена" % label
             assert "конспект до " in summaries[0], summaries[0]
             assert "диапазон:" in summaries[0]
-            # ── UR-20.9: служебные значения названы словами, а не как есть.
+            # ── UR-20.3/20.6/20.7/20.8: значения названы словами, не как есть.
             stop_line = data["stopLine"]
             assert "решение L1 — промолчать (l1_silent)" in stop_line, stop_line
             calls_line = data["llmCalls"]

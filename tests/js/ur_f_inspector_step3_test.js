@@ -475,7 +475,7 @@ const vm = (extra) => Object.assign({
   assert(noStages.indexOf('местное время не зафиксировано') >= 0, noStages);
 })();
 
-// ── 8. UR-20.9: служебные значения карточки — только через словари ────────
+// ── 8. UR-20.3/20.6/20.7/20.8: служебные значения — только словарями ─────
 (function () {
   const start = INDEX.indexOf('data-turn-inspector');
   const end = INDEX.indexOf('</template>',

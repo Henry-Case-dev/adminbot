@@ -290,7 +290,7 @@ TURN_DIAG_STUB = {
                "plan_source": "l1_slot"},
         "tool_rounds": 1, "tool_degraded": False, "tool_reason": "",
         # Имя инструмента и код ошибки — служебные значения: карточка обязана
-        # назвать их словами (UR-20.9), а не сырыми токенами.
+        # назвать их словами (UR-20.7: реальный tool call), а не токенами.
         "tools": [{"tool": "execute_web_search", "status": "timeout",
                    "error": "search_timeout",
                    "out_chars": 800, "truncated": False, "attempt": 1,
@@ -328,7 +328,7 @@ TURN_DIAG_STUB = {
                        "chars": 420, "continuation_calls": 0,
                        "text_source": "source_restored",
                        # Находки проверок: код form-гарда + настоящие нули —
-                       # всё это раньше печаталось JSON'ом (UR-20.9).
+                       # всё это раньше печаталось JSON'ом (UR-20.8).
                        "checks": {"form_guard": "form_guard_leak_blocked",
                                   "protected_facts_mismatch": False,
                                   "needs_clarification": False,
@@ -530,7 +530,7 @@ async () => {
     'model_map', 'dynamic', 'reply_to_bot', 'dash', 'quotation_marks',
     'line_breaks', 'one_word', 'dash_replaced', 'line_breaks_exceeded',
     'protected_verbatim', 'l2_writer', 'p0', 'p1', 'p2', 'p3',
-    // UR-20.9: коды LLM-вызовов, остановки хода, источника текста, находок
+    // UR-20.3/20.6/20.7/20.8: коды LLM-вызовов, остановки, источника текста,
     // проверок, инструмента и его ошибки — та же норма (подпись/«код: …»).
     'l1_silent', 'source_restored', 'execute_web_search', 'search_timeout',
     'planning', 'final', 'provider_retry', 'continuation',
@@ -582,7 +582,8 @@ async () => {
     styleCounts: flat(q('[data-turn-style-counts]')),
     ruleRows: all('[data-turn-rule-row]').length,
     ruleFirst: flat(all('[data-turn-rule-row]')[0]),
-    // UR-20.9: строки, которые раньше печатали служебные значения как есть.
+    // UR-20.3/20.6/20.7/20.8: строки, которые раньше печатали значения
+    // как есть.
     stopLine: flat(q('[data-turn-stop]')),
     llmCalls: flat(q('[data-turn-llm-calls]')),
     checksLine: flat(q('[data-turn-checks]')),
@@ -930,7 +931,7 @@ def main() -> int:
             failures.append(label + ": links missing")
         if "сработало правило" not in (r.get("ruleFirst") or ""):
             failures.append(label + ": style rule line missing")
-        # ── UR-20.9: карточка не печатает служебные значения как есть.
+        # ── UR-20.3/20.6/20.7/20.8: карточка не печатает значения как есть.
         stop_line = r.get("stopLine") or ""
         for part in ("Ход остановлен:", "решение L1 — промолчать (l1_silent)"):
             if part not in stop_line:
