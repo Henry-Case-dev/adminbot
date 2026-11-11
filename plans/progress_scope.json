@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-11T16:40:00+12:00",
+  "updated": "2026-11-11T16:55:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -779,18 +779,50 @@
           "block_latency_historical_auto_vs_operative": "in-process +110 ms, `duration_ms` is null in the event"
         },
         "thresholds": {
-          "sample": "at least 34 real rag-block lines and 10 operative answers",
+          "sample": "at least 34 real rag-block lines; operative answers depend on real questions and cannot be estimated from time",
           "alarm_if": "no past-year row across the whole sample, or period_kept > 2, or a current-state answer with fewer than 6 of 10 rows from 2026"
         },
-        "not_before": "2026-11-12T14:42:00Z",
+        "not_before": "2026-11-17T23:30:00Z",
         "owner_action": "none",
-        "resume": "a new run reads the events; no automatic wake-up exists"
+        "resume": "a new run reads the events; no automatic wake-up exists",
+        "not_before_reason": "Production audit 2026-11-11: 5 real rag-block lines in 24 h, so 34 blocks need roughly 7 days at the current rate (about 2 days if yesterday's 16/day holds). Operative answers: 0 observations in 37 year-bearing events and 0 of 12 direct turns, so that target has no arrival estimate at all — it depends on real current-state questions, not on time.",
+        "observed_production_sample": {
+          "window": "24 h to 2026-11-11T04:20Z",
+          "retrieval_events": 63,
+          "events_with_year_telemetry": 37,
+          "rag_block_lines": 5,
+          "rag_block_lines_with_period_kept": 3,
+          "year_histogram": {
+            "2026": 223,
+            "2025": 23,
+            "2023": 18,
+            "2022": 17,
+            "2024": 14
+          },
+          "policies": {
+            "auto": 37,
+            "operative": 0,
+            "historical": 0
+          },
+          "operative_answers": 0,
+          "excluded_reasons_7d": {
+            "budget": 553,
+            "status": 59
+          }
+        }
       },
       "config_caveat": {
         "item": "CHAT_RAG_RERANK_ENABLED factory default is False and that is the production value",
         "consequence": "The period-protection branch is dormant in production because nothing filters the slice. With the reranker off, old-period rows arrive unfiltered (measured earlier: a person question returned 2024 and 2025), so delivery works, but the accepted sample was measured with the flag ON.",
         "classification": "configuration fact, not a mechanism defect",
         "decision_needed": "whether the ready reranking feature should be enabled by default under the project's standing rule; it costs an extra model call per turn, so it is a cost/quality choice rather than a defect"
+      },
+      "config_fact_current": {
+        "CHAT_RAG_RERANK_ENABLED": "False (factory default, no hot or per-chat override)",
+        "GRAPH_RAG_ENABLED": "True",
+        "GRAPH_RAG_FACTS_LIMIT": 10,
+        "GRAPH_RAG_CONTEXT_MAX_CHARS": 2000,
+        "per_chat_overrides_of_memory_flags": "none (224 chat_params history entries checked)"
       }
     },
     {
