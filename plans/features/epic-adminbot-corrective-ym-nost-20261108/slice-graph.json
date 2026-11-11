@@ -149,12 +149,12 @@
       ],
       "writer": "Architect -> Builder",
       "write_scope": [
-        "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/pay-arch/contract.json"
+        "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md"
       ],
       "outcome": "One additive/reused payment contract is frozen before implementation.",
-      "acceptance": "The contract names one order/receipt/ledger/inbox/outbox identity model, rollback and feature-flag boundaries, and excludes Platega/Stars/crypto/15-minute TTL.",
+      "acceptance": "The contract names one order/receipt/ledger/inbox/outbox identity model, rollback and feature-flag boundaries, excludes Platega/Stars/crypto/15-minute TTL, and keeps new PG tables, wallet identity via secret+URL+form receiver, history crediting off, fail-closed personal quota, provider OFF and no services/speech.py as binding constraints.",
       "risk": "R3",
-      "next": "Architect"
+      "next": "Builder after PAY-ARCH design closure (implementation acceptance is separate)"
     },
     {
       "id": "PAY-BALANCE",
@@ -218,12 +218,11 @@
       "writer": "Builder -> Reviewer",
       "write_scope": [
         "services/payment_events.py",
-        "services/speech.py",
         "tests/test_pay_ux_events.py",
         "plans/features/epic-adminbot-corrective-ym-nost-20261108/evidence/pay-ux/events.json"
       ],
       "outcome": "Quota and credit events publish one bounded authorial message or exact fallback.",
-      "acceptance": "Each unique event makes at most one existing-model attempt; exact placeholders/fallback and buttons are verified, and LLM never determines financial facts.",
+      "acceptance": "Each unique event makes at most one existing-model attempt through mca_authorial_speech.authorial_system (no services/speech.py, no second prompt registry); exact placeholders/fallback and buttons are verified, and LLM never determines financial facts.",
       "risk": "R2",
       "next": "Builder"
     },

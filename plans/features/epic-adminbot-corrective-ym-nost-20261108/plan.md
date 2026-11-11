@@ -104,6 +104,27 @@ External evidence is required for receiver, notification secret, optional read-o
 
 Engineering can complete bounded fake-provider/fake-Telegram tests, ledger, RBAC, admin settings and rollback with `billing.image_yoomoney_enabled=OFF`. A webhook fixture is not `LIVE_VERIFIED`.
 
+## PAY-ARCH design decision — дизайн закрыт, реализация не начата
+
+`PAY-ARCH` закрыт как решение по дизайну: `architecture-pay-arch.md`, sha256 `95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073`, commit `d48befd1`, вердикт `ARCHITECT_ADJUSTMENT_REQUIRED`. Продуктовая модель §9–§18 стоит; поправки продиктованы продом `77a63bc5` и официальным API ЮMoney.
+
+Это закрывает **только вопрос дизайна**. Реализация не начиналась: код продукта, конфиг, БД, релизные ветки и прод не менялись. Все 51 required-строки `PAY-ARCH` остаются `PENDING`; evidence типа `design` в карте означает «дизайн-вопрос закрыт», а не `VERIFIED`. Приёмка реализации — отдельная работа с candidate-bound evidence.
+
+Шесть связывающих условий записаны в карте как `architecture_notes.constraints` (`PAY-ARCH-C1…C6`), а не только в архитектурном файле:
+
+- **C1.** Платёжный ledger требует новых таблиц PostgreSQL; `image_reservation` для денег не использовать (purge, день чата, мутабельный status, fail-open, `0` = запрет), `services/image_reservation.py` не создавать — на проде его нет.
+- **C2.** В уведомлении нет поля `receiver`; «наш кошелёк» = секрет уведомлений + единственный URL + `receiver` в нашей форме. `sha1_hash` подлинность не доказывает.
+- **C3.** Фильтр `label` в истории документирован для `request-payment`, для входящего quickpay не доказан: начисление из истории выключено до живого подтверждения.
+- **C4.** Персональная квота изображений fail-closed; легаси fail-open путь `reserve_image` для обложек не меняется.
+- **C5.** Заводское состояние провайдера — OFF; это явное решение владельца и оно перебивает общее правило «готовое включается» для этого контура.
+- **C6.** `services/speech.py` не создавать; событийная речь идёт через существующий `mca_authorial_speech.authorial_system`.
+
+`architecture_notes.relaxation_policy`: любое отклонение — дефект, требующий нового независимого ревью Reviewer против архитектурного артефакта; смена контракта возвращает работу к Architect.
+
+Перед стартом реализации (`PAY-BALANCE`/`PAY-ORDER`/`PAY-ADAPTER`) перепроверяются `PAY-ARCH-R1…R6` из карты: HMAC-вектор и точный состав подписываемых полей кроме `sign`; видимость входящего quickpay в истории с `label` и суммой; единый ключ `ChatClock.resolve_chat_timezone`/`limits.chat_timezone`; отсутствие переименований групп `mod_images`; отсутствие `services/image_reservation.py`; factory-цена 5000 копеек и провайдер OFF. Изменившийся вход → возврат к Architect, а не тихая адаптация.
+
+В графе слайсов `PAY-ARCH.write_scope` указывает на фактический артефакт, а из `PAY-UX-EVENTS.write_scope` убран запрещённый `services/speech.py`.
+
 ## Evidence convention
 
 Before implementation, map rows have `PENDING`. Builder/Reviewer/DevOps evidence must be candidate-bound and use real repo-relative artifacts. Expected artifact locations are under this feature directory or the owning existing feature directory. No placeholder evidence is declared as proof. For existing requirements, reuse existing candidate-bound evidence only after Reviewer confirms candidate/environment applicability.
@@ -117,3 +138,12 @@ py -3 C:\Users\main\.config\opencode\tools\requirements_gate.py check --map plan
 ```
 
 Builder must not start until this check passes and Architect has frozen the PAY, shared media-registry, RBAC projection and Nostalgia machine-contract decisions. `MEM-AUDIT` remains the first urgent executable slice; it does not authorize implementation of unrelated memory work.
+
+После записи решения `PAY-ARCH` (2026-11-11) тот же plan-gate прогнан заново:
+
+```text
+py -3 C:\Users\main\.config\opencode\tools\requirements_gate.py check --map plans/features/epic-adminbot-corrective-ym-nost-20261108/requirements-map.json --stage plan --repo .
+stage=plan inventory=419 manual=17 scoped=0 errors=0
+```
+
+PAY-архитектурный срез больше не блокирует checkout `PAY-BALANCE`, но провайдер остаётся OFF, а приёмка реализации `PAY-ARCH` не начата.

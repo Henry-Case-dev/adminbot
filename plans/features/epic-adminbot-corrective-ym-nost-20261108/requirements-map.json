@@ -6,6 +6,124 @@
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
+  "architecture_notes": {
+    "decision_id": "PAY-ARCH",
+    "verdict": "ARCHITECT_ADJUSTMENT_REQUIRED",
+    "artefact": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+    "artefact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+    "artefact_commit": "d48befd1",
+    "recorded_on": "2026-11-11",
+    "scope": "Продуктовая модель §9–§18 стоит; поправки — следствие прода 77a63bc5 и официального API ЮMoney. Это решение закрывает DESIGN-вопрос PAY-ARCH, а не приёмку реализации.",
+    "design_status": "designed",
+    "implementation_status": "not_started",
+    "rows_effect": "Строки PAY-ARCH остаются PENDING. Evidence типа design означает «вопрос дизайна закрыт», а не VERIFIED: acceptance каждой строки проверяется отдельно на реальном кандидате.",
+    "relaxation_policy": "Любое отклонение от constraints ниже — дефект, требующий нового независимого ревью Reviewer против architecture-pay-arch.md. Builder не вправе ослабить условие, сослаться на «похожую» существующую таблицу/модуль или выдать непроверенное поведение провайдера за проверенное. Снятие constraint возможно только новым решением Architect плюс явным решением владельца там, где затронуты деньги, секреты или включение провайдера.",
+    "constraints": [
+      {
+        "id": "PAY-ARCH-C1",
+        "constraint": "Платёжный ledger требует НОВЫХ таблиц PostgreSQL (image_pay_orders, image_payment_receipts, append-only credit ledger, durable inbox, outbox, добавленных аддитивно в services/pg_db.py ::DDL_STATEMENTS). Таблицу image_reservation нельзя использовать для денег: у неё purge, день чата, мутабельный status, fail-open и `0 = запрет`. Модуля services/image_reservation.py на проде 77a63bc5 не существует — не создавать.",
+        "why_source": "architecture-pay-arch.md §1, §6, §9; production HEAD 77a63bc5",
+        "forbidden": [
+          "писать деньги в image_reservation",
+          "создавать services/image_reservation.py",
+          "смешивать технический журнал резервов с финансовым ledger"
+        ],
+        "relaxation_policy": "Отклонение от этого условия — дефект, а не выбор Builder: требуется новое независимое ревью Reviewer против architecture-pay-arch.md; если отклонение меняет контракт, работа возвращается к Architect. Молчаливое упрощение запрещено."
+      },
+      {
+        "id": "PAY-ARCH-C2",
+        "constraint": "Уведомление ЮMoney не содержит поля receiver. «Наш кошелёк» идентифицируется секретом уведомлений этого кошелька, единственным настроенным URL уведомлений и полем receiver в НАШЕЙ платёжной форме. sha1_hash сам по себе не доказывает подлинность; подпись — HMAC-SHA256 (sign) по канонической строке, сравнение constant-time.",
+        "why_source": "architecture-pay-arch.md §2; официальная документация ЮMoney (уведомления)",
+        "forbidden": [
+          "считать отсутствие receiver поломкой контракта и выводить «наш кошелёк» из тела уведомления",
+          "принимать платеж по одному sha1_hash",
+          "сверять wallet-идентичность по sender/имени/@username"
+        ],
+        "relaxation_policy": "Отклонение от этого условия — дефект, а не выбор Builder: требуется новое независимое ревью Reviewer против architecture-pay-arch.md; если отклонение меняет контракт, работа возвращается к Architect. Молчаливое упрощение запрещено."
+      },
+      {
+        "id": "PAY-ARCH-C3",
+        "constraint": "Фильтр label в истории операций документирован для request-payment; для входящего quickpay это НЕ доказано. Начисление из истории (history crediting) остаётся выключенным, пока живой ответ на реальном переводе не подтвердит presence label и сумму списания; иначе PAY_HISTORY_INCOMPLETE без угадывания и без автокредита.",
+        "why_source": "architecture-pay-arch.md §2, §7; YooMoney operation-history docs",
+        "forbidden": [
+          "включать автокредит из operation-history до живого подтверждения полей",
+          "подменять отсутствующее доказательство совпадением суммы или operation_id"
+        ],
+        "relaxation_policy": "Отклонение от этого условия — дефект, а не выбор Builder: требуется новое независимое ревью Reviewer против architecture-pay-arch.md; если отклонение меняет контракт, работа возвращается к Architect. Молчаливое упрощение запрещено."
+      },
+      {
+        "id": "PAY-ARCH-C4",
+        "constraint": "Персональная квота изображений fail-closed: сбой PG/адаптера на персональном paid/free пути означает отказ в генерации, а не бесплатную выдачу. Легаси fail-open путь reserve_image, которым пользуются обложки и системные картинки, менять нельзя; системные изображения (consumption_type != user_image) персональный контур не трогают.",
+        "why_source": "architecture-pay-arch.md §4, §9; services/worker_budget.py",
+        "forbidden": [
+          "делать персональный контур fail-open",
+          "переписывать fail-open поведение reserve_image для обложек",
+          "расходовать paid-кредиты на системные картинки"
+        ],
+        "relaxation_policy": "Отклонение от этого условия — дефект, а не выбор Builder: требуется новое независимое ревью Reviewer против architecture-pay-arch.md; если отклонение меняет контракт, работа возвращается к Architect. Молчаливое упрощение запрещено."
+      },
+      {
+        "id": "PAY-ARCH-C5",
+        "constraint": "Заводское состояние провайдера — OFF (billing.image_yoomoney_enabled=false). Это явное решение владельца, которое перебивает общее правило «готовое включается» для этого контура. Включение платёжного контура — отдельное решение владельца, а не следствие готовности кода.",
+        "why_source": "architecture-pay-arch.md §6; PET_PROJECT-политика, явное исключение владельца",
+        "forbidden": [
+          "выставлять billing.image_yoomoney_enabled=true при первом деплое «по правилу готовности»",
+          "включать продажи при неполном конфиге (нет кошелька/секрета/цены/pack)",
+          "считать OFF теневой стадией, которую агенты снимают сами"
+        ],
+        "relaxation_policy": "Отклонение от этого условия — дефект, а не выбор Builder: требуется новое независимое ревью Reviewer против architecture-pay-arch.md; если отклонение меняет контракт, работа возвращается к Architect. Молчаливое упрощение запрещено."
+      },
+      {
+        "id": "PAY-ARCH-C6",
+        "constraint": "services/speech.py создавать нельзя: модуля нет на проде. Событийная речь идёт через существующий mca_authorial_speech.authorial_system; второй реестр промптов не создаётся.",
+        "why_source": "architecture-pay-arch.md §9; services/mca_authorial_speech.py",
+        "forbidden": [
+          "создавать services/speech.py или второй speech-модуль",
+          "подключать второй реестр промптов для платёжных событий"
+        ],
+        "relaxation_policy": "Отклонение от этого условия — дефект, а не выбор Builder: требуется новое независимое ревью Reviewer против architecture-pay-arch.md; если отклонение меняет контракт, работа возвращается к Architect. Молчаливое упрощение запрещено."
+      }
+    ],
+    "rechecks_before_implementation": [
+      {
+        "id": "PAY-ARCH-R1",
+        "check": "HMAC-вектор из документации и точный состав подписываемых полей (всё кроме sign)",
+        "blocks": "форма уведомления и верификация подписи (PAY-ADAPTER)",
+        "pass_if": "секрет secret123 даёт sign a452af731650e2c5b39abcdc7c28dd27db7b3b654c2230ad2c386e64afb98605 и канонизация полей совпадает с architecture-pay-arch.md §2"
+      },
+      {
+        "id": "PAY-ARCH-R2",
+        "check": "виден ли входящий quickpay в operation-history с label и суммой списания",
+        "blocks": "history crediting (остаётся выключенным до живого подтверждения)",
+        "pass_if": "реальный перевод даёт operation-details с direction=in, status=success, нашим label и суммой = snapshot"
+      },
+      {
+        "id": "PAY-ARCH-R3",
+        "check": "ChatClock.resolve_chat_timezone и limits.chat_timezone остаются одним ключом",
+        "blocks": "день бесплатной квоты (PAY-BALANCE)",
+        "pass_if": "оба обращения читают один и тот же effective-ключ, второго timezone source of truth нет"
+      },
+      {
+        "id": "PAY-ARCH-R4",
+        "check": "группы параметров mod_images не переименованы (limits_images, flags_module_images)",
+        "blocks": "аддитивные настройки PAY-ADMIN",
+        "pass_if": "новые несекретные ключи ложатся в существующие группы вкладки mod_images"
+      },
+      {
+        "id": "PAY-ARCH-R5",
+        "check": "services/image_reservation.py по-прежнему отсутствует",
+        "blocks": "выбор платёжного хранилища (C1)",
+        "pass_if": "модуля нет; деньги идут в новые PG-таблицы"
+      },
+      {
+        "id": "PAY-ARCH-R6",
+        "check": "factory-цена остаётся 5000 копеек, провайдер остаётся OFF",
+        "blocks": "PAY-BALANCE и PAY-ORDER acceptance",
+        "pass_if": "factory price=5000, pack=3, free=1, billing.image_yoomoney_enabled=false"
+      }
+    ],
+    "implementation_entry_gate": "Перед стартом PAY-BALANCE/PAY-ORDER/PAY-ADAPTER перепроверить R1–R6 на актуальном HEAD и зафиксировать результат в evidence слайса; изменившийся вход → возврат к Architect."
+  },
   "additional_requirements": [
     {
       "source_id": "MAN-MEM-AUDIT-TRACE",
@@ -2472,7 +2590,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0329: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00330",
@@ -2487,7 +2617,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0330: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00331",
@@ -2502,7 +2644,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0331: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00332",
@@ -2517,7 +2671,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0332: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00333",
@@ -2532,7 +2698,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0333: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00334",
@@ -2547,7 +2725,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0334: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00335",
@@ -2562,7 +2752,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0335: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00336",
@@ -2577,7 +2779,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0336: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00338",
@@ -2607,7 +2821,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0340: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00341",
@@ -2622,7 +2848,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0341: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00342",
@@ -2637,7 +2875,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0342: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00343",
@@ -2652,7 +2902,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0343: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00344",
@@ -2667,7 +2929,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0344: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00345",
@@ -2682,7 +2956,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0345: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00349",
@@ -2727,7 +3013,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0369: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00370",
@@ -2742,7 +3040,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0370: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00371",
@@ -2757,7 +3067,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0371: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00372",
@@ -2772,7 +3094,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0372: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00380",
@@ -2802,7 +3136,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0382: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00383",
@@ -2817,7 +3163,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0383: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00384",
@@ -2832,7 +3190,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0384: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00385",
@@ -2847,7 +3217,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0385: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00386",
@@ -2862,7 +3244,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0386: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00392",
@@ -2877,7 +3271,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0392: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00393",
@@ -2892,7 +3298,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0393: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00395",
@@ -2967,7 +3385,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0435: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00436",
@@ -2982,7 +3412,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0436: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00437",
@@ -2997,7 +3439,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0437: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00438",
@@ -3012,7 +3466,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0438: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00439",
@@ -3027,7 +3493,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0439: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00441",
@@ -3057,7 +3535,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0443: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00444",
@@ -3072,7 +3562,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0444: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00445",
@@ -3087,7 +3589,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0445: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00446",
@@ -3102,7 +3616,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0446: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00447",
@@ -3117,7 +3643,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0447: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00449",
@@ -3147,7 +3685,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0451: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00452",
@@ -3162,7 +3712,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0452: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00453",
@@ -3177,7 +3739,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0453: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00455",
@@ -3207,7 +3781,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0457: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00458",
@@ -3222,7 +3808,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0458: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00459",
@@ -3237,7 +3835,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0459: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00460",
@@ -3252,7 +3862,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0460: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00464",
@@ -4857,7 +5479,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0631: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00632",
@@ -4872,7 +5506,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0632: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00633",
@@ -4887,7 +5533,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0633: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00634",
@@ -4902,7 +5560,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0634: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00635",
@@ -4917,7 +5587,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0635: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00636",
@@ -4932,7 +5614,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0636: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00640",
@@ -4962,7 +5656,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0642: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00643",
@@ -4977,7 +5683,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0643: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00644",
@@ -4992,7 +5710,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "ref": "PAY-ARCH design evidence for SRC-0644: решение Architect закрывает ВОПРОС ДИЗАЙНА по этому требованию архитектурным артефактом; приёмка реализации не выполнена и выполняется отдельно (строка остаётся PENDING).",
+          "observation": "Architect выдал ARCHITECT_ADJUSTMENT_REQUIRED в plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md (commit d48befd1, sha256 95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073): продуктовая модель §9–§18 сохранена, поправки — под прод 77a63bc5 и официальный API ЮMoney. Код продукта, конфиг, БД, релизные ветки и прод не менялись; билд не начинался.",
+          "type": "design",
+          "artifact_path": "plans/features/epic-adminbot-corrective-ym-nost-20261108/architecture-pay-arch.md",
+          "artifact_sha256": "95532a0ae314fa98cdcf44caaa4a82f1740890ba7cc8bc378d453938c7fff073",
+          "artifact_commit": "d48befd1",
+          "produced_on": "2026-11-11",
+          "closes": "design",
+          "implementation_status": "not_started"
+        }
+      ]
     },
     {
       "source_id": "L00648",
