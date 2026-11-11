@@ -1239,3 +1239,186 @@ async def test_v40_restart_is_noop_and_keeps_quota_rows(tmp_path, caplog):
     finally:
         await svc2.close()
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# P0-INIT-MEME-UX-DIAG §3 — СКВОЗНАЯ ИДЕНТИЧНОСТЬ ПОПЫТКИ
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-11-P0-INIT-MEME-UX-DIAG
+# (§3: родитель до первого гейта, режим в detail JSON, дочерние id `{run}#step`).
+
+#: Тот же базис времени, что `NOW` файла (фиксированное время, без sleep).
+NOW_TS = int(NOW.timestamp())
+
+
+def _journal(led, chat_id=-100):
+    return led.attempts(chat_id, limit=200)
+
+
+class _Message:
+    def __init__(self, message_id):
+        self.message_id = message_id
+
+
+class _Sender:
+    """Шов отправки: возвращает сообщение с id (как боевой transport)."""
+
+    def __init__(self, message_id=900):
+        self.calls: list[tuple] = []
+        self.message_id = message_id
+
+    async def __call__(self, chat_id, content, prompt):
+        self.calls.append((chat_id, content, prompt))
+        return _Message(self.message_id)
+
+
+def _ledger_named(tmp_path, name: str):
+    led = meme.SqliteQuotaLedger(str(tmp_path / name))
+    led.apply_schema()
+    return led
+
+
+def test_early_refusal_has_its_own_run_id(tmp_path):
+    """Отказ ДО генерации — тоже попытка со своим родителем (не пустой id)."""
+    led = _ledger(tmp_path)
+    provider = _Provider()
+
+    async def scenario():
+        return await meme.consider_chat(
+            None, -100,
+            settings=_settings(),
+            ledger=led,
+            initiative_enabled=lambda: False,
+            image_status=IMAGE_OK,
+            image_provider=provider,
+            random_source=_Hit(),
+            messages=_rows(-100),
+            model_chars=200)
+
+    result = _run(scenario())
+    assert result.reason == meme.SKIP_INITIATIVE_DISABLED
+    assert provider.calls == []
+    # Родитель mint'ится ДО первого гейта: ранний отказ его уже несёт.
+    assert result.job_id, "ранний отказ обязан иметь run_id"
+    rows = _journal(led)
+    assert rows, "ранний отказ обязан оставить строку журнала"
+    assert {str(row.get("job_id")) for row in rows} == {result.job_id}
+    # Одна логическая попытка, а не две (прежний ключ `row:{attempt_id}`).
+    from web.api.initiative_publications import _meme_attempts_grouped
+    attempts = _meme_attempts_grouped(rows)
+    assert len(attempts) == 1, [item["attempt_id"] for item in attempts]
+    assert attempts[0]["attempt_id"] == "meme:" + result.job_id
+    assert attempts[0]["stage"] == meme.STAGE_SKIPPED
+
+
+def test_cooldown_quota_quiet_refusals_carry_run_id(tmp_path):
+    """Own-гейты (квота/кулдаун/тихие часы) тоже пишут непустой `job_id`."""
+    led = _ledger(tmp_path)
+
+    async def quota_refusal():
+        # Лимит 0 = мем остановлен лимитом; кулдаун и тихие часы выключены,
+        # чтобы отказ пришёл ровно от квоты.
+        return await meme.consider_chat(
+            None, -100, settings=_settings(daily_limit=0), ledger=led,
+            now=NOW, now_ts=NOW_TS, tz_name="UTC", tz_source="utc_fallback",
+            initiative_enabled=lambda: True, image_status=IMAGE_OK,
+            image_provider=_Provider(), random_source=_Hit(),
+            messages=_rows(-100), model_chars=200)
+
+    quota = _run(quota_refusal())
+    assert quota.reason == meme.SKIP_QUOTA
+
+    # Успешный проход создаёт last_provider_ts — источник кулдауна.
+    ok, _, _ = _run(_consider(tmp_path, ledger=led, sender=_Sender()))
+    assert ok.published is True
+
+    async def cooldown_refusal():
+        return await meme.consider_chat(
+            None, -100, settings=_settings(cooldown_seconds=600), ledger=led,
+            now=NOW, now_ts=NOW_TS, tz_name="UTC", tz_source="utc_fallback",
+            initiative_enabled=lambda: True, image_status=IMAGE_OK,
+            image_provider=_Provider(), random_source=_Hit(),
+            messages=_rows(-100), model_chars=200)
+
+    cooldown = _run(cooldown_refusal())
+    assert cooldown.reason == meme.SKIP_COOLDOWN
+
+    async def quiet_refusal():
+        return await meme.consider_chat(
+            None, -100,
+            settings=_settings(quiet_hours="00:00-23:59"), ledger=led,
+            now=NOW, now_ts=NOW_TS, tz_name="UTC", tz_source="utc_fallback",
+            initiative_enabled=lambda: True, image_status=IMAGE_OK,
+            image_provider=_Provider(), random_source=_Hit(),
+            messages=_rows(-100), model_chars=200)
+
+    quiet = _run(quiet_refusal())
+    assert quiet.reason == meme.SKIP_QUIET
+
+    for result in (quota, cooldown, quiet):
+        assert result.job_id, result.reason
+    rows = _journal(led)
+    for result in (quota, cooldown, quiet):
+        assert any(str(row.get("job_id")) == result.job_id for row in rows), \
+            result.reason
+    # Ни одной строки без идентификатора — иначе агрегатор склеит «две попытки».
+    assert [row for row in rows if not str(row.get("job_id") or "")] == []
+
+
+def test_child_llm_calls_are_namespaced_under_the_parent_run(tmp_path):
+    """Выжимка и прикол — дочерние шаги ОДНОГО родителя, а не свои run_id."""
+    seen: list[str] = []
+
+    class _LLM:
+        _chat_model = ""
+
+        async def generate(self, messages, *, temperature=0.0, chat_id=None,
+                           module="", step="", correlation_id=""):
+            seen.append(str(correlation_id))
+            return "прикол" if step == "meme_joke" else "хук"
+
+    control = _ledger(tmp_path)
+
+    async def scenario():
+        # Тот же вызов, что у боевого пути: без summarizer/joke_generator,
+        # с реальным LLM-клиентом (контракт `generate`).
+        return await meme.consider_chat(
+            None, -100, settings=_settings(), ledger=control,
+            initiative_enabled=lambda: True, image_status=IMAGE_OK,
+            llm=_LLM(), image_provider=_Provider(), random_source=_Hit(),
+            messages=_rows(-100), model_chars=200)
+
+    result = _run(scenario())
+    assert result.job_id
+    assert seen, "ни один платный шаг не был вызван"
+    assert seen == ["%s#meme_summary" % result.job_id,
+                    "%s#meme_joke" % result.job_id], seen
+
+
+def test_terminal_journal_row_records_attempt_mode(tmp_path):
+    """Режим попытки — в detail JSON ТЕРМИНАЛЬНОЙ строки (manual и авто)."""
+    manual_led = _ledger_named(tmp_path, "manual.db")
+    auto_led = _ledger_named(tmp_path, "auto.db")
+
+    async def manual_run():
+        return await meme.consider_chat(
+            None, -100, settings=_settings(), ledger=manual_led,
+            image_status=IMAGE_OK, image_provider=_Provider(),
+            random_source=_Hit(), messages=_rows(-100), model_chars=200,
+            manual=True, sender=_Sender(), publish_gate=None)
+
+    manual = _run(manual_run())
+    auto, _, _ = _run(_consider(tmp_path, ledger=auto_led, sender=_Sender()))
+
+    manual_row = manual_led.attempts(-100, limit=1)[0]
+    auto_row = auto_led.attempts(-100, limit=1)[0]
+    assert meme.parse_attempt_facts(manual_row).get("mode") == meme.MODE_MANUAL
+    assert meme.parse_attempt_facts(auto_row).get("mode") == \
+        meme.MODE_AUTOMATIC
+    # Режим пишется в СУЩЕСТВУЮЩЕЕ поле detail, схемы не меняем.
+    assert set(meme.parse_attempt_facts(manual_row)) <= {
+        "mode", "detail", "events", "publish", "publication", "summary",
+        "joke", "image_generation", "eligible"}
+    assert manual.manually_triggered is True
+    assert auto.manually_triggered is False
+
+

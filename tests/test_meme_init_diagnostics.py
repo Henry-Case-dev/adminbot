@@ -44,6 +44,13 @@ ALLOWED_KEYS = frozenset(
     | set(diag.COOLDOWN_FIELDS)
     | set(diag.QUOTA_FIELDS)
     | set(diag.SKIP_FIELDS)
+    # P0 corrective §1: пять независимых осей и их вложенные формы.
+    | set(diag.CONFIGURATION_FIELDS)
+    | set(diag.HEALTH_FIELDS)
+    | set(diag.DEPENDENCY_FIELDS)
+    | set(diag.READINESS_FIELDS)
+    | set(diag.LAST_ATTEMPT_FIELDS)
+    | set(diag.LAST_DELIVERY_FIELDS)
 )
 
 #: Поля с ОТКРЫТЫМ набором ключей (имена ворот/счётчиков механизма: коды, а
@@ -139,12 +146,14 @@ class _Sender:
 
 
 async def _meme_pass(state: dict, *, ledger, settings=None, sender=None,
-                     summary="хук", joke="прикол", chat_enabled=None):
+                     summary="хук", joke="прикол", chat_enabled=None,
+                     random_source=None, db=None):
     """Один проход мема на реальном журнале (payload через `_note_state`).
 
     ``chat_enabled`` — тот же шов, что у боевого прохода
     (`InitiativeObserverRunner._meme_phase` передаёт
-    `initiative_observer.chat_observer_enabled`).
+    `initiative_observer.chat_observer_enabled`). ``db`` — реальная БД: нужна
+    там, где проверяется запись доставки в `mca_bot_outputs`/`task_jobs`.
     """
     async def summarizer(_cid, _rows_arg, _system):
         return summary
@@ -156,12 +165,14 @@ async def _meme_pass(state: dict, *, ledger, settings=None, sender=None,
         return True, "ok"
 
     return await meme.on_initiative_cycle(
-        None, [CHAT], state=state,
+        db, [CHAT], state=state,
         settings=settings if settings is not None else _settings(),
         ledger=ledger, now=NOW, now_ts=NOW_TS, tz_name="UTC",
         tz_source="utc_fallback", initiative_enabled=lambda: True,
         chat_enabled=chat_enabled,
-        image_status=IMAGE_OK, random_source=_Hit(), messages=_rows(CHAT),
+        image_status=IMAGE_OK,
+        random_source=random_source if random_source is not None else _Hit(),
+        messages=_rows(CHAT),
         model_chars=200, claim_store=None, summarizer=summarizer,
         joke_generator=joke_generator, image_provider=_Provider(),
         sender=sender if sender is not None else _Sender(), publish_gate=gate)
@@ -983,4 +994,542 @@ def test_next_check_is_never_before_last_check(tmp_path, monkeypatch):
             assert block["last_check_ts"] is not None, block["mechanism"]
             assert block["next_check_ts"] >= block["last_check_ts"], \
                 block["mechanism"]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# P0-INIT-MEME-UX-DIAG §1 — пять НЕЗАВИСИМЫХ осей
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-11-P0-INIT-MEME-UX-DIAG
+# (§1/§2: оси, запрет ready=false→enabled=false, запрет выдуманного ETA).
+
+
+def _chat_capability(monkeypatch, *, on=True, source="global"):
+    """Тумблер чата через ЕДИНЫЙ резолвер (тот же шов, что у боевого пути).
+
+    Подменяется внешняя граница `chat_params` (PG-профиль), а не предмет
+    проверки: ось configuration обязана читать `source`/`effective_runtime`
+    этого резолвера, а не угадывать по косвенным флагам.
+    """
+    state = SimpleNamespace(
+        capability="initiative", key="initiative.enabled", domain="override",
+        chat_id=CHAT, chat_state="on" if source == "chat" else "inherit",
+        desired=on, source=source, global_value=True, global_source="hot",
+        emergency_block=False, effective_runtime=on, ready=None, reason_code=None)
+
+    async def _state(chat_id, *, fresh=False):
+        return state
+
+    monkeypatch.setattr(obs, "chat_capability_state", _state)
+    return state
+
+
+def _axes(block: dict) -> dict:
+    """Пять осей блока механизма (форма контракта, не пересчёт)."""
+    return {name: block[name] for name in diag.AXIS_FIELDS}
+
+
+def _meme_settings_on(monkeypatch, **overrides):
+    """Настройки мемов для витрины через ТОТ ЖЕ `load_settings`.
+
+    Подменяется внешняя граница (PG/hot-конфиг), а не предмет проверки:
+    диагностика обязана читать те же `MemeSettings`, что и боевой путь.
+    """
+    cfg = _settings(**overrides)
+
+    async def _load(_chat_id=None):
+        return cfg
+
+    monkeypatch.setattr(meme, "load_settings", _load)
+    return cfg
+
+
+async def _meme_pass_db(svc, state, *, ledger, sender=None, settings=None):
+    """Проход мема с РЕАЛЬНОЙ БД: нужен для записи доставки в ledger выводов."""
+    return await _meme_pass(state, ledger=ledger, db=svc, sender=sender,
+                            settings=settings)
+
+
+# ── configuration ──────────────────────────────────────────────────────────
+
+def test_axis_configuration_stays_on_while_cooldown_blocks(
+        tmp_path, monkeypatch):
+    """Кулдаун НЕ выключает механизм: enabled=true + readiness=waiting.
+
+    Это главный запрет §2: «сейчас нельзя» ≠ «выключено».
+    """
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch, cooldown_seconds=600)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_cooldown.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            first = (await _meme_pass(
+                state, ledger=ledger,
+                settings=_settings(cooldown_seconds=600)))[0]
+            second = (await _meme_pass(
+                state, ledger=ledger,
+                settings=_settings(cooldown_seconds=600)))[0]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            return first, second, await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    first, second, result = asyncio.run(scenario())
+    assert first.published is True              # первый проход отправил
+    assert second.reason == meme.SKIP_COOLDOWN  # второй отказал по кулдауну
+    block = result["meme"]
+    # Источник — явное разрешение настройками, и оно НЕ выключено кулдауном.
+    assert block["configuration"]["enabled"] is True, block["configuration"]
+    assert block["configuration"]["reason"] == ""
+    assert block["configuration"]["source"] in ("global", "chat")
+    assert block["readiness"]["state"] == "waiting", block["readiness"]
+    assert block["readiness"]["reason"] == meme.SKIP_COOLDOWN
+    assert block["readiness"]["reason_class"] == "cooldown"
+    # Время — из уже посчитанного факта: last_provider_ts + cooldown_seconds.
+    assert block["readiness"]["next_eligible_at"] == NOW_TS + 600
+    assert block["readiness"]["next_basis"] == "cooldown"
+    # Старая ось не перегружена: `ready` по-прежнему про «можно сейчас».
+    assert block["ready"] is False
+
+
+def test_axis_configuration_false_only_from_explicit_setting(
+        tmp_path, monkeypatch):
+    """Явный OFF настройки мема — единственный путь к enabled=false."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch, enabled=False)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_off.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            await _meme_pass(state, ledger=ledger,
+                             settings=_settings(enabled=False))
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    block = asyncio.run(scenario())["meme"]
+    assert block["configuration"]["enabled"] is False
+    assert block["configuration"]["source"] == "meme_settings"
+    assert block["configuration"]["scope"] == "chat"
+    assert block["configuration"]["reason"] == meme.SKIP_DISABLED
+    assert block["readiness"]["state"] == "blocked"
+    assert block["readiness"]["reason_class"] == "disabled"
+
+
+def test_axis_configuration_is_null_when_gate_is_unreadable(
+        tmp_path, monkeypatch):
+    """Сбой чтения оси — «неизвестно», а НЕ «выключено» (§1/§2)."""
+    _image_ok(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    def _boom():
+        raise RuntimeError("hot config unavailable")
+
+    monkeypatch.setattr(obs, "observer_enabled", _boom)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_unknown.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            await _meme_pass(state, ledger=ledger)
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    block = asyncio.run(scenario())["meme"]
+    assert block["configuration"]["enabled"] is None
+    assert block["configuration"]["source"] == "read_failed"
+    assert block["configuration"]["reason"]
+    assert block["readiness"]["state"] != "blocked"
+
+
+# ── health ─────────────────────────────────────────────────────────────────
+
+def test_axis_health_degraded_coordination_is_not_ok(tmp_path, monkeypatch):
+    """Нет таблицы брони: health=degraded, а не «конфликта нет»."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_health.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            await _meme_pass(state, ledger=ledger)
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            healthy = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            await _drop_claim_table(svc)
+            degraded = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return healthy["meme"], degraded["meme"]
+        finally:
+            await svc.close()
+
+    healthy, degraded = asyncio.run(scenario())
+    assert healthy["health"]["state"] == diag.HEALTH_OK
+    deps = {item["name"]: item for item in healthy["health"]["dependencies"]}
+    assert deps["attempt_journal"]["state"] == diag.HEALTH_OK
+    assert deps["publication_precheck"]["state"] == diag.HEALTH_OK
+    assert deps["image"]["state"] == diag.HEALTH_OK
+    assert deps["image"]["source"] == "meme_initiative.image_dependency"
+
+    assert degraded["health"]["state"] == diag.HEALTH_DEGRADED
+    deps = {item["name"]: item for item in degraded["health"]["dependencies"]}
+    assert deps["publication_precheck"]["state"] == diag.HEALTH_DEGRADED
+    assert deps["publication_precheck"]["source"] == \
+        "PublicationCoordinator.precheck"
+
+
+def test_axis_health_error_when_attempt_journal_is_absent(tmp_path, monkeypatch):
+    """Нет журнала попыток: health=error (жёсткая неисправность, не ожидание)."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_journal.db")
+        try:
+            await _schema(svc)
+            state: dict = {}
+            await _meme_pass(state, ledger=_ledger_at(tmp_path, "meme.db"))
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            # Журнал другой (пустой) БД: таблицы попыток в нём нет.
+            empty = meme.SqliteQuotaLedger(str(tmp_path / "empty.db"))
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS, ledger=empty)
+        finally:
+            await svc.close()
+
+    block = asyncio.run(scenario())["meme"]
+    assert block["health"]["state"] == diag.HEALTH_ERROR
+    deps = {item["name"]: item for item in block["health"]["dependencies"]}
+    assert deps["attempt_journal"]["state"] == diag.HEALTH_ERROR
+    assert block["readiness"]["state"] == "blocked"
+    assert block["readiness"]["reason_class"] == "schema"
+
+
+def _ledger_at(tmp_path, name: str):
+    led = meme.SqliteQuotaLedger(str(tmp_path / name))
+    led.apply_schema()
+    return led
+
+
+# ── readiness: доказанное время, busy, просроченный маркер ─────────────────
+
+def test_axis_readiness_has_no_invented_eta_after_lottery_miss(
+        tmp_path, monkeypatch):
+    """Промах жребия: время следующей попытки НЕ выдумывается (null)."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    class _Miss:
+        async def draw_probability(self, **_kwargs):
+            return mrs.DrawResult(value=0.99, source="pseudorandom",
+                                  selected_source="quantum", provider=None,
+                                  draw_id="draw-miss")
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_lottery.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            result = (await _meme_pass(
+                state, ledger=ledger,
+                settings=_settings(trigger_probability=0.01),
+                random_source=_Miss()))[0]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            return result, await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    result, result_diag = asyncio.run(scenario())
+    assert result.reason == meme.SKIP_RANDOM_MISS
+    block = result_diag["meme"]
+    assert block["configuration"]["enabled"] is True
+    # Промах жребия — исход ПОПЫТКИ, а не текущий запрет: механизм можно
+    # рассматривать на следующем проходе, «выключенным» он не становится.
+    assert block["readiness"]["state"] == "ready", block["readiness"]
+    assert block["readiness"]["state"] != "blocked"
+    # Никакого «последняя проверка + период»: базиса нет — времени нет.
+    assert block["readiness"]["next_eligible_at"] is None
+    assert block["readiness"]["next_basis"] == "none"
+    # Причина промаха честно видна как РЕЗУЛЬТАТ попытки/запись прохода.
+    assert block["last_attempt"]["outcome"] == "skipped"
+    assert block["last_attempt"]["stop_stage"] == meme.STAGE_SKIPPED
+    assert block["skip_recorded"]["code"] == meme.SKIP_RANDOM_MISS
+
+
+def test_axis_readiness_busy_on_live_claim_and_not_busy_when_expired(
+        tmp_path, monkeypatch):
+    """Живая бронь = busy; просроченная — не ожидание (§1/§2)."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_busy.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            store = pub.SqliteClaimStore(str(svc.db_path))
+            decision = store.acquire(chat_id=CHAT,
+                                     holder_kind=pub.KIND_TEXT_INITIATIVE,
+                                     now=NOW_TS)
+            assert decision.granted
+            live = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            expired = await diag.collect_mechanism_diagnostics(
+                svc, CHAT,
+                now=NOW_TS + int(pub.CLAIM_TTL_SECONDS) + 60)
+            _ = ledger
+            return live["meme"], expired["meme"]
+        finally:
+            await svc.close()
+
+    live, expired = asyncio.run(scenario())
+    assert live["readiness"]["state"] == "busy", live["readiness"]
+    assert live["readiness"]["reason_class"] == "busy"
+    assert expired["readiness"]["state"] != "busy", expired["readiness"]
+    assert expired["configuration"]["enabled"] is not False
+
+
+def test_axis_expired_manual_priority_is_not_a_current_block(
+        tmp_path, monkeypatch):
+    """Истёкший `manual_priority_until` — «истёк», а не текущий блок."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_manual.db")
+        try:
+            await _schema(svc)
+            store = pub.SqliteClaimStore(str(svc.db_path))
+            # Маркер поставлен 1000 с назад с TTL 600 с → он уже истёк.
+            store.claim_manual_priority(chat_id=CHAT, now=NOW_TS - 1000,
+                                        ttl=600)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    block = asyncio.run(scenario())["meme"]
+    publication = block["publication"]
+    assert publication["manual_priority_until"] == NOW_TS - 400
+    assert publication["manual_priority_active"] is False
+    assert publication["manual_priority_expired"] is True
+    # Просроченный маркер не превращается в причину ожидания или блокировки.
+    assert block["readiness"]["state"] != "blocked"
+    assert block["readiness"]["reason_class"] != "manual_priority"
+    assert block["readiness"]["next_basis"] != "manual_priority_until"
+
+
+def test_axis_live_manual_priority_waits_with_proven_basis(tmp_path, monkeypatch):
+    """Живой маркер — waiting/manual_priority с временем ИЗ САМОГО маркера."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_manual_live.db")
+        try:
+            await _schema(svc)
+            store = pub.SqliteClaimStore(str(svc.db_path))
+            store.claim_manual_priority(chat_id=CHAT, now=NOW_TS - 10,
+                                        ttl=600)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    block = asyncio.run(scenario())["meme"]
+    assert block["publication"]["manual_priority_active"] is True
+    assert block["publication"]["manual_priority_expired"] is False
+    assert block["readiness"]["state"] == "waiting"
+    assert block["readiness"]["reason_class"] == "manual_priority"
+    assert block["readiness"]["next_eligible_at"] == NOW_TS + 590
+    assert block["readiness"]["next_basis"] == "manual_priority_until"
+
+
+# ── last_attempt / last_delivery ───────────────────────────────────────────
+
+def test_axis_last_attempt_is_one_attempt_with_mode_and_stage(
+        tmp_path, monkeypatch):
+    """`last_attempt` — одна ПОПЫТКА: run_id, режим, исход, место остановки."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_attempt.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            result = (await _meme_pass(
+                state, ledger=ledger,
+                settings=_settings(cooldown_seconds=600)))[0]
+            # Второй проход — ранний отказ по квоте (daily_limit=0), тоже попытка.
+            second = (await _meme_pass(
+                state, ledger=ledger,
+                settings=_settings(cooldown_seconds=600,
+                                   daily_limit=0)))[0]
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            rows = ledger.attempts(CHAT, limit=100)
+            return result, second, rows, await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    first, second, rows, result = asyncio.run(scenario())
+    assert first.published is True
+    assert second.reason == meme.SKIP_QUOTA
+    block = result["meme"]
+    attempt = block["last_attempt"]
+    assert set(attempt) == set(diag.LAST_ATTEMPT_FIELDS)
+    # Ранний отказ по квоте — ОДНА попытка со своим непустым run_id и режимом.
+    assert attempt["run_id"] == second.job_id
+    assert attempt["run_id"]
+    assert attempt["mode"] == diag.MODE_AUTO
+    assert attempt["outcome"] == "skipped"
+    assert attempt["stop_stage"] == meme.STAGE_SKIPPED
+    assert attempt["incomplete_historical"] is False
+    # Один job_id — одна группа строк журнала (§3: не две «попытки»).
+    group = [row for row in rows if str(row.get("job_id")) == attempt["run_id"]]
+    assert group, [row.get("job_id") for row in rows]
+    assert {str(row.get("job_id")) for row in rows} == {
+        attempt["run_id"], first.job_id} - {""}
+
+
+def test_axis_last_delivery_confirmed_only_with_message_id(
+        tmp_path, monkeypatch):
+    """Доставка подтверждается ТОЛЬКО записью с `message_id`."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_delivery.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            state: dict = {}
+            empty = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            await _meme_pass_db(svc, state, ledger=ledger,
+                                sender=_Sender(message_id=None))
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            unknown = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            await _meme_pass_db(svc, state, ledger=ledger,
+                                sender=_Sender(message_id=4242))
+            await _seed_observe_payload(svc, {
+                "meme": {"output_kind": meme.OUTPUT_KIND,
+                         "separate_from_initiative": True, "chats": state}})
+            confirmed = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return (empty["meme"], unknown["meme"], confirmed["meme"])
+        finally:
+            await svc.close()
+
+    empty, unknown, confirmed = asyncio.run(scenario())
+    assert empty["last_delivery"]["status"] == diag.DELIVERY_NEVER
+    assert empty["last_delivery"]["message_id"] is None
+    # Отправка без id — «неизвестно», а не «доставлено».
+    assert unknown["last_delivery"]["status"] == diag.DELIVERY_UNKNOWN
+    assert unknown["last_delivery"]["message_id"] is None
+    assert confirmed["last_delivery"]["status"] == diag.DELIVERY_CONFIRMED
+    assert confirmed["last_delivery"]["message_id"] == 4242
+    assert confirmed["last_delivery"]["destination"] == CHAT
+    assert confirmed["last_delivery"]["at"] == NOW_TS
+
+
+def test_axes_never_mix_mechanisms_and_payload_carries_chat(
+        tmp_path, monkeypatch):
+    """Ответ адресован ОДНОМУ чату; оси механизмов не смешиваются."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="axis_scope.db")
+        try:
+            await _schema(svc)
+            ledger = meme.SqliteQuotaLedger(str(svc.db_path))
+            meme_state: dict = {}
+            await _meme_pass(meme_state, ledger=ledger)
+            await _seed_observe_payload(svc, _text_payload(
+                skip_reason="not_enough_messages"))
+            # Тексту нужен свой entry в payload: тот же `chats`, другой механизм.
+            payload = _text_payload(skip_reason="not_enough_messages")
+            payload["meme"] = {"output_kind": meme.OUTPUT_KIND,
+                               "separate_from_initiative": True,
+                               "chats": meme_state}
+            await _seed_observe_payload(svc, payload)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    result = asyncio.run(scenario())
+    assert result["chat_id"] == CHAT
+    text_block, meme_block = result["text_initiative"], result["meme"]
+    assert set(_axes(text_block)) == set(diag.AXIS_FIELDS)
+    assert set(_axes(meme_block)) == set(diag.AXIS_FIELDS)
+    assert text_block["output_kind"] != meme_block["output_kind"]
+    # Оси выведены из СВОИХ источников: у мема есть журнал, у текста нет.
+    assert {item["name"] for item in meme_block["health"]["dependencies"]} == {
+        "attempt_journal", "publication_precheck", "image"}
+    assert {item["name"] for item in text_block["health"]["dependencies"]} == {
+        "event_log", "publication_precheck"}
+
 

@@ -1207,6 +1207,8 @@ MECHANISM_BLOCK_FIELDS = (
     "no_data_reasons", "ready", "ready_reason", "last_check_ts",
     "next_check_ts", "next_check_basis", "random", "conditions", "stages",
     "skip", "skip_recorded", "cooldown", "quota", "publication", "blocking",
+    # P0 corrective §1: пять независимых осей (read-model, не новый контур).
+    "configuration", "health", "readiness", "last_attempt", "last_delivery",
 )
 #: Поля вложенных объектов (их нет, если объект ``null``).
 DRAW_FIELDS = (
@@ -1219,7 +1221,8 @@ PUBLICATION_FIELDS = (
     "available", "coordination", "degraded", "degraded_reason", "conflict",
     "conflict_state", "ok", "reason", "reason_label", "detail", "state",
     "holder_kind", "claimed_by", "other_kind", "other_age_seconds",
-    "interval_seconds", "manual_priority_until", "checked_at",
+    "interval_seconds", "manual_priority_until", "manual_priority_active",
+    "manual_priority_expired", "claim_expires_at", "checked_at",
 )
 COOLDOWN_FIELDS = ("scope", "own_seconds", "remaining_seconds", "basis",
                    "basis_ts")
@@ -1345,6 +1348,13 @@ def publication_block(view, *, checked_at=None) -> dict | None:
     else:
         conflict_state = CONFLICT_ACTIVE if conflict else CONFLICT_CLEAR
     reason = str(view.get("reason") or "")
+    until = _stamp_or_none(view.get("manual_priority_until"))
+    checked = _stamp_or_none(view.get("checked_at") or checked_at)
+    # §2: просроченный маркер ручного приоритета — НЕ текущий блок. Сырое
+    # значение `until` остаётся (UI показывает его с TZ), но состояние
+    # «активен/истёк» считается здесь, на сервере, а не клиентом.
+    manual_active = bool(until and checked and int(until) > int(checked))
+    manual_expired = bool(until and checked and int(until) <= int(checked))
     return {
         "available": not degraded,
         "coordination": coordination,
@@ -1365,9 +1375,11 @@ def publication_block(view, *, checked_at=None) -> dict | None:
         "other_kind": str(view.get("other_kind") or ""),
         "other_age_seconds": _int_or_none(view.get("other_age_seconds")),
         "interval_seconds": _int_or_none(view.get("interval_seconds")),
-        "manual_priority_until": _stamp_or_none(
-            view.get("manual_priority_until")),
-        "checked_at": _stamp_or_none(view.get("checked_at") or checked_at),
+        "manual_priority_until": until,
+        "manual_priority_active": manual_active,
+        "manual_priority_expired": manual_expired,
+        "claim_expires_at": _stamp_or_none(view.get("expires_at")),
+        "checked_at": checked,
     }
 
 
@@ -1464,6 +1476,792 @@ def _blocking_block(items) -> dict | None:
     return {"blocked": blocked, "warned": warned}
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# P0-INIT-MEME-UX-DIAG §1 — ПЯТЬ НЕЗАВИСИМЫХ ОСЕЙ механизма
+# ═════════════════════════════════════════════════════════════════════════════
+#: Пять осей — ЛОГИЧЕСКИЕ поля этого же read-model, а не новая БД, не
+#: параллельная state machine и не второй диагностический конвейер. Каждая ось
+#: выводится из УЖЕ существующих записей (module_registry/chat_params,
+#: `chat_block_state`, журнал попыток мема, `mca_events`, `mca_bot_outputs`,
+#: бронь публикации) и никогда не пишет сама.
+AXIS_FIELDS = ("configuration", "health", "readiness", "last_attempt",
+               "last_delivery")
+
+CONFIGURATION_FIELDS = ("enabled", "source", "scope", "reason")
+HEALTH_FIELDS = ("state", "dependencies")
+DEPENDENCY_FIELDS = ("name", "state", "source")
+READINESS_FIELDS = ("state", "reason", "reason_class", "next_eligible_at",
+                    "next_basis")
+LAST_ATTEMPT_FIELDS = ("at", "mode", "run_id", "outcome", "stop_stage",
+                       "incomplete_historical")
+LAST_DELIVERY_FIELDS = ("status", "at", "destination", "message_id", "run_id")
+
+#: Состояния оси readiness (§1). `ready` НЕ обещает публикацию — только
+#: «механизм можно рассматривать сейчас».
+READINESS_READY = "ready"
+READINESS_WAITING = "waiting"
+READINESS_BUSY = "busy"
+READINESS_BLOCKED = "blocked"
+READINESS_UNKNOWN = "unknown"
+
+HEALTH_OK = "ok"
+HEALTH_DEGRADED = "degraded"
+HEALTH_ERROR = "error"
+HEALTH_UNKNOWN = "unknown"
+
+DELIVERY_CONFIRMED = "confirmed"
+DELIVERY_UNKNOWN = "unknown"
+DELIVERY_NEVER = "never"
+
+MODE_MANUAL = "manual"
+MODE_AUTO = "auto"
+MODE_UNKNOWN = "unknown"
+
+#: Куда указывает `configuration.source` — эффективный источник решения.
+#: `env`/`product` — глобальные оси (kill-switch/тумблер), `chat`/`global` —
+#: выбор слоя чата (явный или унаследованный), дальше — настройки механизма.
+SOURCE_ENV = "env"
+SOURCE_PRODUCT = "product"
+SOURCE_CHAT = "chat"
+SOURCE_GLOBAL = "global"
+SOURCE_MEME_SETTINGS = "meme_settings"
+SOURCE_IMAGE = "image_module"
+SOURCE_READ_FAILED = "read_failed"
+
+#: Классы причины readiness (закрытый словарь). Один класс — одна бытовая
+#: причина в UI; код пайплайна остаётся в `reason`.
+CLASS_COOLDOWN = "cooldown"
+CLASS_NOT_ENOUGH = "not_enough_messages"
+CLASS_QUOTA = "quota"
+CLASS_QUIET = "quiet_hours"
+CLASS_LOTTERY = "lottery"
+CLASS_SCHEDULE = "schedule"
+CLASS_COORDINATION = "coordination"
+CLASS_DEFERRED = "deferred"
+CLASS_MANUAL_PRIORITY = "manual_priority"
+CLASS_BUSY = "busy"
+CLASS_CONTENT = "content"
+CLASS_DISABLED = "disabled"
+CLASS_SCHEMA = "schema"
+CLASS_PERMISSIONS = "permissions"
+CLASS_PROVIDER = "provider"
+CLASS_UNKNOWN = "unknown"
+
+#: Код причины → класс. Только СУЩЕСТВУЮЩИЕ коды пайплайна
+#: (`initiative_observer.SKIP_*` / `meme_initiative.SKIP_*`); незнакомый код
+#: честно получает `unknown`, а не выдуманный класс.
+REASON_CLASS_BY_CODE = {
+    # текстовые ворота (`chat_block_state` + решения наблюдателя)
+    "master_off": CLASS_DISABLED,
+    "chat_disabled": CLASS_DISABLED,
+    "not_group": CLASS_PERMISSIONS,
+    "not_enough_messages": CLASS_NOT_ENOUGH,
+    "empty_context": CLASS_CONTENT,
+    "eval_not_due": CLASS_SCHEDULE,
+    "anti_flood": CLASS_COOLDOWN,
+    "min_gap": CLASS_COOLDOWN,
+    "day_cap": CLASS_QUOTA,
+    "topic_cap": CLASS_QUOTA,
+    "eval_budget": CLASS_QUOTA,
+    "context_duplicate": CLASS_CONTENT,
+    "direct_address_seen": CLASS_CONTENT,
+    "no_opportunity": CLASS_CONTENT,
+    "semantic_eval_unavailable": CLASS_PROVIDER,
+    "semantic_parse_error": CLASS_PROVIDER,
+    "random_miss": CLASS_LOTTERY,
+    "random_unavailable": CLASS_PROVIDER,
+    # мем
+    "disabled_by_setting": CLASS_DISABLED,
+    "initiative_disabled": CLASS_DISABLED,
+    "image_module_off": CLASS_DISABLED,
+    "image_provider_not_configured": CLASS_PROVIDER,
+    "image_provider_unhealthy": CLASS_PROVIDER,
+    "cooldown_active": CLASS_COOLDOWN,
+    "daily_quota_reached": CLASS_QUOTA,
+    "quiet_hours": CLASS_QUIET,
+    "no_random_hit": CLASS_LOTTERY,
+    "low_activity": CLASS_NOT_ENOUGH,
+    "schema_absent": CLASS_SCHEMA,
+    "in_flight": CLASS_BUSY,
+    "publish_blocked": CLASS_PERMISSIONS,
+    "rights_revoked": CLASS_PERMISSIONS,
+    "publication_expired": CLASS_COORDINATION,
+    "publication_stale": CLASS_COORDINATION,
+    "source_material_gone": CLASS_CONTENT,
+    "slot_released": CLASS_SCHEDULE,
+    "summary_failed": CLASS_PROVIDER,
+    "joke_generation_failed": CLASS_PROVIDER,
+    "joke_empty": CLASS_PROVIDER,
+    "template_empty": CLASS_CONTENT,
+    "no_joke_budget": CLASS_CONTENT,
+    "image_generation_failed": CLASS_PROVIDER,
+    "length_limit_unknown": CLASS_UNKNOWN,
+    "cycle_exception": CLASS_UNKNOWN,
+    # общая координация публикаций (коды брони)
+    "publication_conflict": CLASS_COORDINATION,
+    "publication_in_flight": CLASS_BUSY,
+}
+
+#: Классы, которые являются ОЖИДАНИЕМ (не OFF и не ошибка).
+WAITING_CLASSES = frozenset({
+    CLASS_COOLDOWN, CLASS_NOT_ENOUGH, CLASS_QUOTA, CLASS_QUIET, CLASS_LOTTERY,
+    CLASS_SCHEDULE, CLASS_COORDINATION, CLASS_DEFERRED,
+    CLASS_MANUAL_PRIORITY, CLASS_CONTENT,
+})
+#: Классы жёсткого отказа (не ожидание): `blocked`, но только если ось
+#: configuration действительно не разрешает механизм.
+HARD_CLASSES = frozenset({CLASS_DISABLED, CLASS_SCHEMA, CLASS_PERMISSIONS})
+
+#: Сколько строк журнала попыток мема читаем, чтобы собрать группу попытки
+#: (§3: одна попытка = все строки одного `job_id`; прежних 7 строк не хватало
+#: и группа обрывалась на середине).
+ATTEMPT_SCAN_ROWS = 200
+#: Окно чтения `mca_events` для `last_attempt` текста (bounded).
+TEXT_ATTEMPT_LOOKBACK_SECONDS = 30 * 86400
+TEXT_ATTEMPT_EVENT_LIMIT = 120
+
+#: Имена событий текстовой попытки (терминальные + публикационная семантика).
+TEXT_ATTEMPT_EVENTS = (
+    DECIDED_EVENT, SENT_EVENT, RECHECK_PASSED_EVENT, WRITER_GENERATED_EVENT,
+    WRITER_UNAVAILABLE_EVENT, "initiative_reacted", "delivery_unknown",
+)
+
+
+def reason_class(code, detail: str = "") -> str:
+    """Класс причины readiness по УЖЕ существующему коду.
+
+    ``detail`` уточняет только отложенную публикацию и живой приоритет ручного
+    `/meme` (эти два случая не имеют отдельного кода) — новых кодов не вводим.
+    """
+    text = str(code or "")
+    if not text:
+        return ""
+    if text in ("publication_conflict", "in_flight", "publication_in_flight"):
+        if str(detail or "") == "manual_priority":
+            return CLASS_MANUAL_PRIORITY
+        if str(detail or "") in ("deferred_pending", "deferred"):
+            return CLASS_DEFERRED
+    return REASON_CLASS_BY_CODE.get(text, CLASS_UNKNOWN)
+
+
+def _iso_unix(value) -> int | None:
+    """ISO-метка (`day.next_reset_iso`) → unix. Неразборчиво → ``None``."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return int(datetime.fromisoformat(text).timestamp())
+    except (TypeError, ValueError):
+        return None
+
+
+def configuration_block(parts: list[dict] | None) -> dict:
+    """Ось configuration: `enabled` только из ЯВНОГО значения настройки.
+
+    * ``false`` — есть явный OFF (env/product/чат/настройка механизма/
+      image-модуль); источник и область — того слоя, который выключил;
+    * ``null`` — ось не читается (сбой чтения). Это НЕ «выключено»: витрина
+      обязана показать «неизвестно», а не OFF;
+    * ``true`` — все гейты разрешают. `source` — слой, который разрешил:
+      ``chat`` (явный выбор чата) или ``global`` (унаследовано/глобально).
+
+    Кулдаун, квота, тихие часы, нехватка сообщений, жребий, тик и координация
+    сюда не попадают ВООБЩЕ: они живут в оси readiness.
+    """
+    items = [item for item in (parts or []) if isinstance(item, dict)]
+    off = [item for item in items if item.get("enabled") is False]
+    if off:
+        first = off[0]
+        return {
+            "enabled": False,
+            "source": str(first.get("source") or SOURCE_READ_FAILED),
+            "scope": str(first.get("scope") or "global"),
+            "reason": str(first.get("reason") or ""),
+        }
+    unknown = [item for item in items if item.get("enabled") is None]
+    if unknown or not items:
+        first = unknown[0] if unknown else {}
+        return {
+            "enabled": None,
+            "source": SOURCE_READ_FAILED,
+            "scope": str(first.get("scope") or "global"),
+            "reason": str(first.get("reason") or NO_DATA_READ_FAILED),
+        }
+    chat_on = [item for item in items
+               if item.get("scope") == "chat"
+               and item.get("source") == SOURCE_CHAT]
+    return {
+        "enabled": True,
+        "source": SOURCE_CHAT if chat_on else SOURCE_GLOBAL,
+        "scope": "mixed" if chat_on else "global",
+        "reason": "",
+    }
+
+
+def health_block(dependencies: list[dict] | None) -> dict:
+    """Ось health: техническая исправность, НЕ разрешение и НЕ исход.
+
+    ``error`` — жёсткая техническая неисправность (журнал/провайдер картинок),
+    ``degraded`` — деградация существующего шва (нет таблицы брони),
+    ``unknown`` — нет доказательства (в том числе осознанно выключенная
+    зависимость). Отсутствие данных никогда не превращается в «всё хорошо».
+    """
+    items = [{"name": str(item.get("name") or ""),
+              "state": str(item.get("state") or HEALTH_UNKNOWN),
+              "source": str(item.get("source") or "")}
+             for item in (dependencies or []) if isinstance(item, dict)]
+    states = [item["state"] for item in items]
+    if HEALTH_ERROR in states:
+        state = HEALTH_ERROR
+    elif HEALTH_DEGRADED in states:
+        state = HEALTH_DEGRADED
+    elif states and all(item == HEALTH_OK for item in states):
+        state = HEALTH_OK
+    else:
+        state = HEALTH_UNKNOWN
+    return {"state": state, "dependencies": items}
+
+
+def dependency(name: str, state: str, source: str) -> dict:
+    """Зависимость оси health: имя + состояние + фактический производитель."""
+    return {"name": str(name), "state": str(state), "source": str(source)}
+
+
+def readiness_block(*, enabled, state: str, reason: str = "",
+                    reason_code: str = "", detail: str = "",
+                    next_eligible_at=None, next_basis: str = "") -> dict:
+    """Ось readiness: «можно ли рассматривать сейчас» и доказанное время.
+
+    ``blocked`` ставится ТОЛЬКО при ``configuration.enabled is False`` или
+    жёстком отказе прав/schema. Ожидание (кулдаун, квота, тихие часы, нехватка
+    сообщений, жребий, тик, координация, отложенный артефакт, живой ручной
+    приоритет) — ``waiting``; свежая отправка/бронь — ``busy``.
+
+    ``next_eligible_at`` приходит ТОЛЬКО из уже посчитанного факта; иначе
+    ``null`` и основание ``unknown`` — «следующий тик / время неизвестно».
+    """
+    stamp = _int_or_none(next_eligible_at)
+    return {
+        "state": str(state),
+        "reason": str(reason_code or ""),
+        "reason_class": str(reason or ""),
+        "next_eligible_at": (stamp if stamp else None),
+        "next_basis": str(next_basis or ("unknown" if not stamp else "")),
+    }
+
+
+def _readiness_state(class_: str, *, enabled) -> str:
+    if enabled is False:
+        return READINESS_BLOCKED
+    if class_ in HARD_CLASSES:
+        if class_ == CLASS_DISABLED and enabled is None:
+            # Нечитаемая ось configuration: пайплайн fail-closed отказал, но
+            # назвать механизм «выключенным» нельзя — это «неизвестно» (§2).
+            return READINESS_UNKNOWN
+        return READINESS_BLOCKED
+    if class_ == CLASS_BUSY:
+        return READINESS_BUSY
+    if class_ in WAITING_CLASSES:
+        return READINESS_WAITING
+    return READINESS_UNKNOWN
+
+
+#: Код ожидания свежей брони — существующий код мема (не новый).
+SKIP_IN_FLIGHT_CODE = "in_flight"
+
+
+def _claim_busy(claim_state: str, claim_expires_at, now_ts: int) -> bool:
+    """Живая бронь (`claimed|sending`): просроченная — НЕ ожидание."""
+    if str(claim_state or "") not in ("claimed", "sending"):
+        return False
+    expires = _int_or_none(claim_expires_at)
+    return expires is None or int(expires) > int(now_ts)
+
+
+def _readiness_candidates(*, state: str, cooldown: dict | None,
+                          quiet_end, quota: dict | None,
+                          pub_block: dict | None, next_check,
+                          next_basis: str, now_ts: int) -> list[tuple]:
+    """Доказанные моменты «раньше этого механизм не сможет».
+
+    ТОЛЬКО уже посчитанные факты (закрытый список §1): собственный кулдаун от
+    `last_provider_ts`, конец разобранных тихих часов, `day.next_reset_iso`
+    квоты, конец межтипового интервала публикаций и живой ручной приоритет.
+    ETA не выводится из периодичности: `availability().next_check_ts`,
+    подставляющий `now` при отсутствии кулдауна, сюда не попадает.
+    """
+    if state not in (READINESS_WAITING, READINESS_READY, READINESS_BUSY):
+        return []
+    out: list[tuple] = []
+    own = _int_or_none((cooldown or {}).get("own_seconds"))
+    basis_ts = _int_or_none((cooldown or {}).get("basis_ts"))
+    if own is not None and own > 0 and basis_ts is not None:
+        finish = int(basis_ts) + int(own)
+        if finish > int(now_ts):
+            out.append((finish, "cooldown"))
+    quiet = _int_or_none(quiet_end)
+    if quiet is not None and int(quiet) > int(now_ts):
+        out.append((int(quiet), "quiet_hours"))
+    if (quota or {}).get("limit_reached"):
+        reset = _iso_unix((quota or {}).get("next_reset"))
+        if reset is not None and reset > int(now_ts):
+            out.append((reset, "quota_next_reset"))
+    if isinstance(pub_block, dict) and pub_block:
+        other_age = _int_or_none(pub_block.get("other_age_seconds"))
+        interval = _int_or_none(pub_block.get("interval_seconds"))
+        other_kind = str(pub_block.get("other_kind") or "")
+        holder_kind = str(pub_block.get("holder_kind") or "")
+        checked = _int_or_none(pub_block.get("checked_at")) or int(now_ts)
+        if (other_age is not None and interval is not None and interval > 0
+                and other_kind and other_kind != holder_kind
+                and other_age < interval):
+            out.append((int(checked) + int(interval) - int(other_age),
+                        "cross_type_interval"))
+        if pub_block.get("manual_priority_active"):
+            until = _int_or_none(pub_block.get("manual_priority_until"))
+            if until is not None and until > int(now_ts):
+                out.append((int(until), "manual_priority_until"))
+    if str(next_basis or "") == "eval_interval":
+        stamp = _int_or_none(next_check)
+        if stamp is not None and int(stamp) > int(now_ts):
+            out.append((int(stamp), "eval_interval"))
+    return out
+
+
+def _readiness_next(*, state: str, klass: str, code: str,
+                    candidates: list[tuple]) -> tuple:
+    """Максимум по активным ограничениям = «не раньше»; иначе null/unknown."""
+    if not candidates:
+        return (None, ("none" if state == READINESS_READY else "unknown"),
+                klass, code)
+    stamp, basis = max(candidates, key=lambda item: item[0])
+    return int(stamp), str(basis), klass, code
+
+
+def text_readiness(*, skip: dict | None, available: bool, enabled,
+                   next_check=None, next_basis: str = "",
+                   now_ts: int) -> dict:
+    """Ось readiness ТЕКСТОВОЙ инициативы (готовые факты, без новых часов)."""
+    code = str((skip or {}).get("code") or "")
+    klass = reason_class(code) if code else ""
+    if enabled is False:
+        state = READINESS_BLOCKED
+        klass = klass or CLASS_DISABLED
+        code = code or "chat_disabled"
+    elif code:
+        # Текущая причина посчитана по ЖИВЫМ воротам, а не по истории журнала:
+        # она информативнее, чем «о механизме нет записей».
+        state = _readiness_state(klass, enabled=enabled)
+    elif not available:
+        state, klass = READINESS_UNKNOWN, CLASS_UNKNOWN
+    else:
+        state, klass = READINESS_READY, ""
+    next_at, basis, klass, code = _readiness_next(
+        state=state, klass=klass, code=code,
+        candidates=_readiness_candidates(
+            state=state, cooldown=None, quiet_end=None, quota=None,
+            pub_block=None, next_check=next_check, next_basis=next_basis,
+            now_ts=now_ts))
+    return {"state": state, "reason": klass, "reason_code": code,
+            "next_eligible_at": next_at, "next_basis": basis}
+
+
+def meme_readiness(*, skip: dict | None, available: bool, enabled,
+                   cooldown: dict | None, quiet_end, quota: dict | None,
+                   pub_block: dict | None, inflight: bool = False,
+                   claim_state: str = "", claim_expires_at=None,
+                   next_check=None, next_basis: str = "", now_ts: int) -> dict:
+    """Ось readiness МЕМА.
+
+    ``busy`` — свежий inflight журнала или живая бронь `claimed|sending`
+    (`expires_at` в будущем). Просроченная бронь ожиданием НЕ является.
+    """
+    code = str((skip or {}).get("code") or "")
+    detail = (str((pub_block or {}).get("detail") or "")
+              if code in ("publication_conflict", "publication_in_flight",
+                          "in_flight") else "")
+    klass = reason_class(code, detail) if code else ""
+    if enabled is False:
+        state = READINESS_BLOCKED
+        klass = klass or CLASS_DISABLED
+        code = code or "disabled_by_setting"
+    elif _claim_busy(claim_state, claim_expires_at, now_ts) or inflight:
+        # Живая бронь/inflight — факт из журнала и координации, он информативнее
+        # отсутствия записей о прошлых попытках.
+        state, klass = READINESS_BUSY, CLASS_BUSY
+        code = code or SKIP_IN_FLIGHT_CODE
+    elif code:
+        state = _readiness_state(klass, enabled=enabled)
+    elif not available:
+        state, klass = READINESS_UNKNOWN, CLASS_UNKNOWN
+    else:
+        state, klass = READINESS_READY, ""
+    next_at, basis, klass, code = _readiness_next(
+        state=state, klass=klass, code=code,
+        candidates=_readiness_candidates(
+            state=state, cooldown=cooldown, quiet_end=quiet_end, quota=quota,
+            pub_block=pub_block, next_check=next_check,
+            next_basis=next_basis, now_ts=now_ts))
+    return {"state": state, "reason": klass, "reason_code": code,
+            "next_eligible_at": next_at, "next_basis": basis}
+
+
+def attempt_block(*, at=None, mode: str = MODE_UNKNOWN, run_id: str = "",
+                  outcome: str = "", stop_stage: str = "",
+                  incomplete: bool = False) -> dict:
+    """Ось last_attempt: одна ПОПЫТКА, а не «проверка» и не «публикация».
+
+    `run_id` — непустой родитель (журнал мема `job_id` / `mca_events.trace_id`).
+    Пустой исторический идентификатор НЕ склеивается по времени или тексту: он
+    помечается ``incomplete_historical`` и остаётся отдельной строкой.
+    """
+    return {
+        "at": _stamp_or_none(at),
+        "mode": str(mode or MODE_UNKNOWN),
+        "run_id": str(run_id or ""),
+        "outcome": str(outcome or ""),
+        "stop_stage": str(stop_stage or ""),
+        "incomplete_historical": bool(incomplete or not str(run_id or "")),
+    }
+
+
+def delivery_block(*, status: str = DELIVERY_NEVER, at=None, destination=None,
+                   message_id=None, run_id: str = "") -> dict:
+    """Ось last_delivery: «сообщение РЕАЛЬНО ушло», а не «сгенерировали».
+
+    ``confirmed`` — только запись `record_delivered_output`/`mca_bot_outputs`
+    с `tg_message_id`. `sent` без id — ``unknown``. Пусто — ``never``.
+    `considered`/`generated`/`deferred` доставкой не являются никогда.
+    """
+    stamp = _stamp_or_none(at)
+    return {
+        "status": str(status),
+        "at": stamp,
+        "destination": _int_or_none(destination),
+        "message_id": _int_or_none(message_id),
+        "run_id": str(run_id or ""),
+    }
+
+
+def _apply_axes(block: dict, axes: dict) -> dict:
+    """Аддитивно положить пять осей в существующий блок механизма."""
+    for name in AXIS_FIELDS:
+        block[name] = axes.get(name) or {}
+    return block
+
+
+async def _gate_parts(chat_id: int) -> list[dict]:
+    """Гейты разрешения, которые читает боевой путь (для оси configuration).
+
+    Источники — те же, что у `_initiative_on`/`consider_chat`: эффективный
+    гейт модуля (`module_registry`), мастер-флаг наблюдателя и тумблер чата
+    через единый резолвер `chat_params`. Ни один сбой чтения не выдаётся за
+    OFF: ось получает ``None`` и причина `read_failed`.
+    """
+    parts: list[dict] = []
+    try:
+        from services import module_registry as registry
+        _requested, effective, source = registry.effective_gate("initiative")
+        parts.append({
+            "name": "module_gate",
+            "enabled": None if effective is None else bool(effective),
+            "source": (SOURCE_ENV if source == "emergency_env"
+                       else SOURCE_PRODUCT),
+            "scope": "global",
+            "reason": ("" if effective else (
+                "master_off" if source == "emergency_env"
+                else "chat_disabled")),
+        })
+    except Exception:
+        parts.append({"name": "module_gate", "enabled": None,
+                      "source": SOURCE_READ_FAILED, "scope": "global",
+                      "reason": NO_DATA_READ_FAILED})
+    try:
+        observer_on = bool(obs.observer_enabled())
+        parts.append({
+            "name": "observer",
+            "enabled": observer_on,
+            "source": SOURCE_PRODUCT,
+            "scope": "global",
+            "reason": "" if observer_on else "master_off",
+        })
+    except Exception:
+        parts.append({"name": "observer", "enabled": None,
+                      "source": SOURCE_READ_FAILED, "scope": "global",
+                      "reason": NO_DATA_READ_FAILED})
+    try:
+        state = await obs.chat_capability_state(int(chat_id))
+    except Exception:
+        state = None
+    if state is None:
+        parts.append({"name": "chat_toggle", "enabled": None,
+                      "source": SOURCE_READ_FAILED, "scope": "chat",
+                      "reason": NO_DATA_READ_FAILED})
+    else:
+        chat_selected = str(getattr(state, "source", "")) == "chat"
+        runtime = getattr(state, "effective_runtime", None)
+        parts.append({
+            "name": "chat_toggle",
+            "enabled": None if runtime is None else bool(runtime),
+            "source": SOURCE_CHAT if chat_selected else SOURCE_GLOBAL,
+            "scope": "chat" if chat_selected else "global",
+            "reason": ("" if runtime else
+                       str(getattr(state, "reason_code", "") or
+                           "chat_disabled")),
+        })
+    return parts
+
+
+async def _meme_configuration_parts(chat_id: int, cfg, image_view) -> list[dict]:
+    """Гейты мема: те же, что у текста + `MemeSettings` + image-модуль.
+
+    `image_dependency.module_enabled=false` — это КОНФИГУРАЦИЯ (source
+    `image_module`), а не health: провайдер, schema и его исправность живут в
+    оси health. Отличить «выключено настройкой» от «сбой чтения» позволяет
+    существующий код причины: деградация чтения приходит как
+    `image_provider_not_configured`, а не как `image_module_off`.
+    """
+    from services import meme_initiative as meme
+    parts = await _gate_parts(chat_id)
+    if cfg is None:
+        parts.append({"name": "meme_settings", "enabled": None,
+                      "source": SOURCE_READ_FAILED, "scope": "chat",
+                      "reason": NO_DATA_READ_FAILED})
+    else:
+        enabled = bool(getattr(cfg, "enabled", False))
+        parts.append({
+            "name": "meme_settings",
+            "enabled": enabled,
+            "source": SOURCE_MEME_SETTINGS,
+            "scope": "chat",
+            "reason": "" if enabled else "disabled_by_setting",
+        })
+    view = image_view if isinstance(image_view, dict) else {}
+    if str(view.get("reason") or "") == meme.SKIP_IMAGE_MODULE_OFF:
+        parts.append({"name": "image_module", "enabled": False,
+                      "source": SOURCE_IMAGE, "scope": "chat",
+                      "reason": "image_module_off"})
+    return parts
+
+
+def _image_health_dependency(image_view) -> dict:
+    """Состояние image-зависимости для оси health (по существующему снимку)."""
+    view = image_view if isinstance(image_view, dict) else {}
+    source = "meme_initiative.image_dependency"
+    reason = str(view.get("reason") or "")
+    if reason == "image_module_off":
+        # Модуль выключен НАСТРОЙКОЙ: это configuration, а не неисправность.
+        return dependency("image", HEALTH_UNKNOWN, source)
+    if reason in ("image_provider_not_configured", "image_provider_unhealthy"):
+        return dependency("image", HEALTH_ERROR, source)
+    if view.get("available"):
+        return dependency("image", HEALTH_OK, source)
+    return dependency("image", HEALTH_UNKNOWN, source)
+
+
+def _publication_dependency(publication: dict | None) -> dict:
+    """Состояние координации публикаций для оси health (без новых проверок)."""
+    view = publication if isinstance(publication, dict) else {}
+    if not view:
+        return dependency("publication_precheck", HEALTH_UNKNOWN,
+                          "PublicationCoordinator.precheck")
+    coordination = str(view.get("coordination") or "ok")
+    if coordination == "degraded":
+        # Таблицы брони нет: это ДЕГРАДАЦИЯ, а не «конфликта нет».
+        return dependency("publication_precheck", HEALTH_DEGRADED,
+                          "PublicationCoordinator.precheck")
+    return dependency("publication_precheck", HEALTH_OK,
+                      "PublicationCoordinator.precheck")
+
+
+async def _last_delivery(db, chat_id, output_kinds, *,
+                         sent_evidence: bool = False,
+                         attempt_at=None, run_id: str = "") -> dict:
+    """Последняя ПОДТВЕРЖДЁННАЯ доставка механизма в этом чате.
+
+    Читается существующий журнал выводов (`mca_bot_outputs`). Нет записи с
+    `tg_message_id`, но есть доказательство отправки без id — честный
+    ``unknown``; совсем пусто — ``never``.
+    """
+    kinds = [str(kind) for kind in (output_kinds or []) if str(kind)]
+    row: dict | None = None
+    failed = False
+    if kinds:
+        try:
+            sql = ("SELECT output_id, chat_id, tg_message_id, sent_at, "
+                   "correlation_id, output_kind FROM mca_bot_outputs "
+                   "WHERE chat_id = ? AND output_kind IN ("
+                   + ",".join("?" * len(kinds))
+                   # Порядок детерминированный: две записи одной секунды
+                   # (например «отправлено без id», затем «с id») не должны
+                   # давать случайный ответ.
+                   + ") ORDER BY sent_at DESC, output_id DESC LIMIT 1")
+            cursor = await db.db.execute(
+                sql, tuple([_int(chat_id)] + kinds))
+            found = await cursor.fetchone()
+            row = dict(found) if found is not None else None
+        except Exception:
+            failed = True
+            logger.warning("[diag] last delivery read failed", exc_info=True)
+    if row is not None:
+        message_id = _int_or_none(row.get("tg_message_id"))
+        if message_id is not None:
+            return delivery_block(
+                status=DELIVERY_CONFIRMED, at=row.get("sent_at"),
+                destination=row.get("chat_id") or chat_id,
+                message_id=message_id,
+                run_id=str(row.get("correlation_id") or ""))
+        # Запись есть, id нет: отправка не доказана — не выдаём за доставку.
+        return delivery_block(status=DELIVERY_UNKNOWN, at=row.get("sent_at"),
+                              destination=chat_id, run_id=run_id)
+    if sent_evidence:
+        return delivery_block(status=DELIVERY_UNKNOWN, at=attempt_at,
+                              destination=chat_id, run_id=run_id)
+    if failed:
+        return delivery_block(status=DELIVERY_UNKNOWN, at=None,
+                              destination=chat_id, run_id=run_id)
+    return delivery_block(status=DELIVERY_NEVER, at=None,
+                          destination=chat_id, run_id=run_id)
+
+
+def _meme_last_attempt(rows: list[dict]) -> dict:
+    """Терминальная строка САМОЙ СВЕЖЕЙ группы `job_id` журнала мема.
+
+    Одна попытка = все строки одного непустого `job_id`. Пустой исторический
+    `job_id` НЕ склеивается ни по времени, ни по тексту: такая строка остаётся
+    отдельной попыткой с меткой ``incomplete_historical``.
+    """
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("job_id") or "")
+        if not key:
+            key = "row:" + str(row.get("attempt_id") or "")
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(row)
+    if not order:
+        return attempt_block()
+    key = order[0]
+    items = groups[key]
+    try:
+        from services import meme_initiative as meme
+        stage_order = {stage: idx for idx, stage in enumerate(meme.STAGES)}
+    except Exception:                       # pragma: no cover - defensive
+        stage_order = {}
+    terminal = max(
+        items,
+        key=lambda row: (stage_order.get(str(row.get("stage")), len(stage_order)),
+                         _int(row.get("ts"))))
+    facts = {}
+    try:
+        from services import meme_initiative as meme
+        facts = meme.parse_attempt_facts(terminal)
+    except Exception:
+        facts = {}
+    mode = str(facts.get("mode") or "")
+    if mode not in (MODE_MANUAL, MODE_AUTO):
+        mode = {"manual": MODE_MANUAL,
+                "automatic": MODE_AUTO,
+                "auto": MODE_AUTO}.get(mode, MODE_UNKNOWN)
+    if mode == MODE_UNKNOWN:
+        for item in facts.get("events") or ():
+            if not isinstance(item, dict):
+                continue
+            raw = str(item.get("mode") or "")
+            if raw == "manual":
+                mode = MODE_MANUAL
+                break
+            if raw in ("automatic", "auto"):
+                mode = MODE_AUTO
+                break
+    incomplete = key.startswith("row:")
+    return attempt_block(
+        at=max((_int(row.get("ts")) for row in items), default=0),
+        mode=mode,
+        run_id="" if incomplete else key,
+        outcome=str(terminal.get("outcome") or ""),
+        stop_stage=str(terminal.get("stage") or ""),
+        incomplete=incomplete)
+
+
+def _meme_sent_evidence(rows: list[dict]) -> bool:
+    """Есть ли в журнале доказательство ОТПРАВКИ без записи в ledger выводов."""
+    try:
+        from services import meme_initiative as meme
+    except Exception:                        # pragma: no cover - defensive
+        return False
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("outcome") or "") == "published":
+            return True
+        try:
+            facts = meme.parse_attempt_facts(row)
+        except Exception:
+            continue
+        for item in facts.get("events") or ():
+            if (isinstance(item, dict)
+                    and str(item.get("name") or "") == "publication_sent"
+                    and item.get("delivered") is not False):
+                return True
+    return False
+
+
+async def _text_last_attempt(db, chat_id: int, *, now_ts: int) -> dict:
+    """Терминальная строка САМОЙ СВЕЖЕЙ группы `mca_events.trace_id`.
+
+    `trace_id` — существующий родитель попытки текста (§17.1: run/correlation).
+    Строки с пустым `trace_id` не склеиваются: они читаются как отдельная
+    незавершённая историческая запись.
+    """
+    rows: list[dict] = []
+    try:
+        names = TEXT_ATTEMPT_EVENTS
+        sql = ("SELECT * FROM mca_events WHERE chat_id = ? AND ts >= ? "
+               "AND (event_name IN (" + ",".join("?" * len(names)) + ") "
+               "OR event_name LIKE 'publication_%' "
+               "OR event_name LIKE 'initiative_publication_%') "
+               "ORDER BY ts DESC LIMIT ?")
+        cursor = await db.db.execute(
+            sql, tuple([_int(chat_id),
+                        int(now_ts) - TEXT_ATTEMPT_LOOKBACK_SECONDS]
+                       + list(names) + [TEXT_ATTEMPT_EVENT_LIMIT]))
+        rows = [dict(row) for row in await cursor.fetchall() or ()]
+    except Exception:
+        logger.warning("[diag] text attempt read failed", exc_info=True)
+        return attempt_block()
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = str(row.get("trace_id") or "")
+        if not key:
+            key = "row:" + str(row.get("id") or "")
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(row)
+    if not order:
+        return attempt_block()
+    key = order[0]
+    items = groups[key]
+    terminal = max(items, key=lambda row: _int(row.get("ts")))
+    incomplete = key.startswith("row:")
+    return attempt_block(
+        at=_int(terminal.get("ts")),
+        # Ручного пути у текстовой инициативы нет: событие пишет только
+        # автоматический проход.
+        mode=MODE_UNKNOWN if incomplete else MODE_AUTO,
+        run_id="" if incomplete else key,
+        outcome=str(terminal.get("outcome") or ""),
+        stop_stage=(str(terminal.get("stage") or "")
+                    or str(terminal.get("event_name") or "")),
+        incomplete=incomplete)
+
+
 async def text_mechanism_diagnostics(db, chat_id, *,
                                      now: int | None = None) -> dict:
     """Диагностика ТЕКСТОВОЙ инициативы (существующие payload/бронь).
@@ -1553,7 +2351,31 @@ async def text_mechanism_diagnostics(db, chat_id, *,
             break
     ready = None if blocking is None else not blocking.get("blocked")
 
-    return {
+    # ── P0 corrective §1: пять осей (текст) ────────────────────────────────
+    configuration = configuration_block(await _gate_parts(cid))
+    publication_view = state.get("publication")
+    health = health_block([
+        dependency("event_log", (HEALTH_ERROR if NO_DATA_READ_FAILED in reasons
+                                 else (HEALTH_OK if state else HEALTH_UNKNOWN)),
+                   "initiative_observer.chat_block_state"),
+        _publication_dependency(
+            publication_view if isinstance(publication_view, dict) else None),
+    ])
+    readiness = readiness_block(
+        enabled=configuration.get("enabled"),
+        **text_readiness(skip=skip, available=available,
+                         enabled=configuration.get("enabled"),
+                         next_check=next_check, next_basis=next_basis,
+                         now_ts=now_ts))
+    last_attempt = await _text_last_attempt(db, cid, now_ts=now_ts)
+    sent_evidence = str(last_attempt.get("outcome") or "") in (
+        "success", "sent", "published")
+    last_delivery = await _last_delivery(
+        db, cid, obs.INITIATIVE_OUTPUT_KINDS, sent_evidence=sent_evidence,
+        attempt_at=last_attempt.get("at"),
+        run_id=str(last_attempt.get("run_id") or ""))
+
+    return _apply_axes({
         "mechanism": MECHANISM_TEXT,
         "output_kind": obs.INITIATIVE_OUTPUT_KINDS[0],
         "source": "initiative_observer.chat_block_state",
@@ -1572,15 +2394,20 @@ async def text_mechanism_diagnostics(db, chat_id, *,
         "skip_recorded": skip_recorded,
         "cooldown": cooldown,
         "quota": quota,
-        "publication": publication_block(state.get("publication"),
-                                         checked_at=now_ts),
+        "publication": publication_block(publication_view, checked_at=now_ts),
         "blocking": blocking,
-    }
+    }, {
+        "configuration": configuration,
+        "health": health,
+        "readiness": readiness,
+        "last_attempt": last_attempt,
+        "last_delivery": last_delivery,
+    })
 
 
 def _no_chat_block(mechanism: str, output_kind: str) -> dict:
     """Блок-заглушка «чат не выбран»: полная форма, ни одного выдуманного 0."""
-    return {
+    return _apply_axes({
         "mechanism": mechanism,
         "output_kind": output_kind,
         "source": "",
@@ -1601,7 +2428,19 @@ def _no_chat_block(mechanism: str, output_kind: str) -> dict:
         "quota": quota_block(limit=None, used=None),
         "publication": None,
         "blocking": None,
-    }
+    }, {
+        # Чат не выбран — осей нет, но и «выключено» здесь нет: enabled=null.
+        "configuration": {"enabled": None, "source": SOURCE_READ_FAILED,
+                          "scope": "global", "reason": NO_DATA_CHAT_REQUIRED},
+        "health": health_block([
+            dependency("chat_scope", HEALTH_UNKNOWN, "chat_id"),
+        ]),
+        "readiness": readiness_block(
+            enabled=None, state=READINESS_UNKNOWN,
+            reason=CLASS_UNKNOWN, reason_code=NO_DATA_CHAT_REQUIRED),
+        "last_attempt": attempt_block(),
+        "last_delivery": delivery_block(status=DELIVERY_NEVER),
+    })
 
 
 async def _initiative_on(chat_id: int) -> bool:
@@ -1700,9 +2539,13 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
 
     last_attempt: dict = {}
     eligible_facts: dict = {}
+    rows: list[dict] = []
     if ledger is not None:
         try:
-            rows = ledger.attempts(cid, limit=len(meme.STAGES))
+            # §3: группа попытки = все строки одного `job_id`, поэтому читаем
+            # не `len(STAGES)` строк (группа обрывалась на середине), а
+            # ограниченное окно журнала.
+            rows = ledger.attempts(cid, limit=ATTEMPT_SCAN_ROWS)
         except Exception:
             rows = []
         rows = [row for row in rows or () if isinstance(row, dict)]
@@ -1758,6 +2601,7 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
     # ── собственная квота (сутки чата; тот же расчёт, что у боевого гейта) ──
     quota = quota_block(limit=None, used=None)
     quiet_active = False
+    quiet_end: int | None = None
     try:
         stamp = datetime.fromtimestamp(int(now_ts), timezone.utc)
         day = meme.day_window(cid, stamp)
@@ -1772,6 +2616,12 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         quiet_active = bool(cfg is not None and meme.quiet_hours_block(
             getattr(cfg, "quiet_hours", ""), stamp,
             str(getattr(day, "timezone_name", "UTC"))))
+        if quiet_active:
+            # Конец тихих часов — из УЖЕ разобранного `HH:MM-HH:MM`, не ETA из
+            # периодичности: иначе readiness выдавал бы выдуманное время.
+            quiet_end = meme.quiet_hours_end(
+                getattr(cfg, "quiet_hours", ""), stamp,
+                str(getattr(day, "timezone_name", "UTC")))
     except Exception:
         logger.warning("[diag] meme quota/quiet read failed", exc_info=True)
 
@@ -1814,7 +2664,45 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
     ready_reason = str((skip or {}).get("code")
                        or ("" if ready else avail_reason))
 
-    return {
+    # ── P0 corrective §1: пять осей (мем) ──────────────────────────────────
+    image_view = avail.get("image") if isinstance(avail.get("image"), dict) else {}
+    configuration = configuration_block(
+        await _meme_configuration_parts(cid, cfg, image_view))
+    journal_ok = ledger is not None
+    if journal_ok:
+        try:
+            journal_ok = bool(ledger.table_present())
+        except Exception:
+            journal_ok = False
+    health = health_block([
+        dependency("attempt_journal",
+                   HEALTH_OK if journal_ok else HEALTH_ERROR,
+                   "meme_initiative.attempt_journal"),
+        _publication_dependency(pub_view),
+        _image_health_dependency(image_view),
+    ])
+    inflight = False
+    if ledger is not None:
+        try:
+            inflight = bool(ledger.fresh_inflight(cid, now_ts))
+        except Exception:
+            inflight = False
+    readiness = readiness_block(
+        enabled=configuration.get("enabled"),
+        **meme_readiness(
+            skip=skip, available=available,
+            enabled=configuration.get("enabled"), cooldown=cooldown,
+            quiet_end=quiet_end, quota=quota, pub_block=pub_block,
+            inflight=inflight, claim_state=str(pub_view.get("state") or ""),
+            claim_expires_at=pub_view.get("expires_at"),
+            next_check=next_check, next_basis=next_basis, now_ts=now_ts))
+    attempt = _meme_last_attempt(rows)
+    last_delivery = await _last_delivery(
+        db, cid, (meme.OUTPUT_KIND,), sent_evidence=_meme_sent_evidence(rows),
+        attempt_at=attempt.get("at"),
+        run_id=str(attempt.get("run_id") or ""))
+
+    return _apply_axes({
         "mechanism": MECHANISM_MEME,
         "output_kind": meme.OUTPUT_KIND,
         "source": "meme_initiative attempt journal + meme.chats + claim",
@@ -1835,7 +2723,13 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         "quota": quota,
         "publication": pub_block,
         "blocking": None,
-    }
+    }, {
+        "configuration": configuration,
+        "health": health,
+        "readiness": readiness,
+        "last_attempt": attempt,
+        "last_delivery": last_delivery,
+    })
 
 
 async def collect_mechanism_diagnostics(db, chat_id, *,
@@ -1904,6 +2798,41 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
         quota                QUOTA_FIELDS (always) — своя квота суток
         publication          PUBLICATION_FIELDS | null (не проверялась)
         blocking             {"blocked":[...], "warned":[...]} | null
+        configuration        CONFIGURATION_FIELDS  — «разрешено настройками»
+        health               HEALTH_FIELDS         — исправность + зависимости
+        readiness            READINESS_FIELDS      — «можно рассматривать сейчас»
+        last_attempt         LAST_ATTEMPT_FIELDS   — одна ПОПЫТКА
+        last_delivery        LAST_DELIVERY_FIELDS  — подтверждённая отправка
+
+    Пять осей (P0-INIT-MEME-UX-DIAG §1) — ЛОГИЧЕСКИЕ поля этого ответа, а не
+    новые таблицы/сервисы. Жёсткие правила осей:
+
+    * ``configuration.enabled`` — ТОЛЬКО явное разрешение настройками:
+      ``false`` ставит лишь явный OFF (env/продуктовый тумблер/выбор чата/
+      настройки мема/image-модуль), ``null`` — нечитаемая ось (это НЕ «выкл»),
+      ``true`` — все гейты разрешают. Кулдаун, квота, тихие часы, нехватка
+      сообщений, жребий, ожидание тика и координация публикации в эту ось не
+      попадают вообще: они живут в ``readiness``;
+    * ``readiness.state``: ``blocked`` — только ``enabled=false`` или жёсткий
+      отказ прав/schema; ожидания — ``waiting``; живая бронь/inflight — 
+      ``busy``; нет данных — ``unknown``. ``next_eligible_at`` берётся ТОЛЬКО
+      из уже посчитанного факта (кулдаун от ``last_provider_ts``, конец
+      разобранных тихих часов, ``day.next_reset_iso``, конец межтипового
+      интервала, живой ``manual_priority_until``, будущий ``next_eval_ts``
+      текста) и иначе ``null``: ETA из периодичности не выдумывается, а
+      ``availability().next_check_ts`` (подставляет ``now``) не используется;
+    * ``ready`` (прежнее поле) и ``readiness`` — разные вещи: ``ready`` не
+      перегружается в «разрешено», а ``readiness.state="ready"`` не обещает
+      публикацию. Прошлый промах жребия/«L1 не нашёл повода» — исход ПОПЫТКИ
+      (``skip_recorded``/``last_attempt``), а не искусственная пауза: в
+      ``readiness`` он не превращается в выдуманное ожидание;
+    * ``last_attempt`` — ровно одна попытка: терминальная строка группы
+      ``job_id`` журнала мема / группы ``mca_events.trace_id`` текста. Пустой
+      исторический идентификатор НЕ склеивается по времени или тексту — он
+      помечен ``incomplete_historical`` и остаётся отдельной строкой;
+    * ``last_delivery`` — только запись ``mca_bot_outputs`` с ``tg_message_id``
+      (``confirmed``); «отправлено» без id — ``unknown``; пусто — ``never``.
+      ``considered``/``generated``/``deferred`` доставкой не являются.
 
     ``skip.origin``: ``gate``/``availability``/``quota``/``cooldown``/
     ``quiet_hours``/``publication`` — текущее состояние; ``payload_state``/

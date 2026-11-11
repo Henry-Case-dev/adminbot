@@ -744,6 +744,10 @@ class PublicationCoordinator:
             "other_age_seconds": other_age,
             "manual_priority_until": (int(manual_until)
                                       if manual_until else None),
+            # P0 corrective §1: срок жизни брони нужен read-model, чтобы отличить
+            # ЖИВУЮ бронь (`busy`) от просроченной («не ожидание»). Значение уже
+            # прочитано из существующей строки — нового запроса нет.
+            "expires_at": row.get("expires_at"),
         })
         if manual:
             # Ручной запрос приоритетен: интервал и маркер его не ограничивают.

@@ -964,6 +964,40 @@ def quiet_hours_block(spec: str, now: datetime, tz_name: str) -> bool:
     return minutes >= start or minutes < end
 
 
+def quiet_hours_end(spec: str, now: datetime, tz_name: str) -> int | None:
+    """Момент ОКОНЧАНИЯ тихих часов, если они сейчас действуют, иначе ``None``.
+
+    Разбирается ТОТ ЖЕ ``HH:MM-HH:MM``, что и ``quiet_hours_block`` (один
+    формат, один разбор); значение нужно витрине, чтобы показать конец паузы
+    без выдуманного ETA. Пусто/неразборчиво/не блокирует → ``None``.
+    """
+    raw = str(spec or "").strip()
+    if not raw or "-" not in raw:
+        return None
+    left, _, right = raw.partition("-")
+    try:
+        sh, sm = (int(part) for part in left.strip().split(":", 1))
+        eh, em = (int(part) for part in right.strip().split(":", 1))
+        zone = ZoneInfo(tz_name)
+    except Exception:
+        return None
+    if sh * 60 + sm == eh * 60 + em:
+        return None
+    if not quiet_hours_block(spec, now, tz_name):
+        return None
+    local = now.astimezone(zone)
+    minutes = local.hour * 60 + local.minute
+    start, end = sh * 60 + sm, eh * 60 + em
+    day_start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Окно через полночь: пока мы «до конца» (утро) — конец сегодня, иначе завтра.
+    extra_days = 1 if (start > end and minutes >= start) else 0
+    finish = day_start + timedelta(days=extra_days, hours=eh, minutes=em)
+    try:
+        return int(finish.timestamp())
+    except Exception:                        # pragma: no cover - defensive
+        return None
+
+
 # ── квота: свой журнал, бронь до провайдера ─────────────────────────────────
 
 @dataclass(frozen=True)
@@ -1448,6 +1482,16 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
                                      if isinstance(item, dict)]
             if result.detail:
                 payload["detail"] = str(result.detail)
+            # §3 (P0 corrective): режим попытки — в СУЩЕСТВУЮЩЕМ detail JSON
+            # терминальной строки. `manually_triggered` есть на результате, но
+            # в журнал не попадал, поэтому read-model брал mode из позднего
+            # publication-факта (его нет у раннего отказа). Ключ `mode` у этапов
+            # занимает только бюджет прикола (`facts[STAGE_JOKE]`), а
+            # терминальными бывают skipped/failed/publish — setdefault не
+            # теряет режим попытки и не портит чужой факт.
+            payload.setdefault(
+                "mode", MODE_MANUAL if result.manually_triggered
+                else MODE_AUTOMATIC)
         facts = compact_facts(payload)
         # Терминальная строка несёт факты (вместе с кодом причины внутри
         # JSON); пройденные этапы — свой JSON фактов.
@@ -2389,6 +2433,19 @@ async def consider_chat(
         stamp = stamp.replace(tzinfo=timezone.utc)
     ts = int(now_ts if now_ts is not None else stamp.timestamp())
     cfg = settings if settings is not None else await load_settings(chat_id)
+    # ── P0 corrective (§3): родитель попытки mint ДО ПЕРВОГО гейта ──────────
+    # Отказ на раннем гейте (`initiative_disabled`, выключенные настройки,
+    # image/schema, квота, кулдаун, тихие часы, бронь) — тоже ПОПЫТКА: у неё
+    # обязан быть свой ``job_id``. Раньше он создавался после гейтов, `_finish`
+    # писал пустой `job_id`, а агрегатор делал ключ `row:{attempt_id}` — одна
+    # попытка выглядела двумя строками. Значение зависит только от чата и
+    # `stamp`, поэтому вычисляется здесь, до любого `skipped()`.
+    day = day_window(chat_id, stamp, tz_name=tz_name, tz_source=tz_source)
+    jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
+    mode = MODE_MANUAL if manual else MODE_AUTOMATIC
+    purpose = PURPOSE_MANUAL if manual else PURPOSE_AUTOMATIC
+    #: Тот же родитель для ранних ``skipped()`` (см. параметр ``jid`` ниже).
+    parent_run_id = jid
     counters = {stage: 0 for stage in STAGES}
     counters[STAGE_CONSIDERED] = 1
     facts: dict[str, dict] = {}
@@ -2396,11 +2453,12 @@ async def consider_chat(
     def skipped(reason: str, *, stage: str = STAGE_SKIPPED,
                 detail: str = "", limit: MemeBudget | None = None,
                 jid: str = "") -> AttemptResult:
+        """Ранний отказ ДО генерации; ``job_id`` непустой всегда (§3)."""
         counters[stage] = counters.get(stage, 0) + 1
         result = AttemptResult(
             chat_id=int(chat_id), stage=stage, outcome="skipped",
-            reason=reason, detail=detail, job_id=jid, limit=limit,
-            counters=dict(counters), stage_facts=dict(facts),
+            reason=reason, detail=detail, job_id=(jid or parent_run_id),
+            limit=limit, counters=dict(counters), stage_facts=dict(facts),
             manually_triggered=bool(manual))
         return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
 
@@ -2434,10 +2492,6 @@ async def consider_chat(
     if ledger is None or not ledger.table_present():
         return skipped(SKIP_SCHEMA)
 
-    day = day_window(chat_id, stamp, tz_name=tz_name, tz_source=tz_source)
-    jid = job_id or f"meme:{int(chat_id)}:{day.bucket}:{uuid.uuid4().hex[:12]}"
-    mode = MODE_MANUAL if manual else MODE_AUTOMATIC
-    purpose = PURPOSE_MANUAL if manual else PURPOSE_AUTOMATIC
     events: list[dict] = []
     facts["events"] = events
 
@@ -2607,7 +2661,8 @@ async def consider_chat(
             _summary_speech = SpeechProjection(run_id=str(jid))
             summary = await _default_summarize(
                 llm, rows, summary_system, chat_id=int(chat_id),
-                model=cfg.summarizer_model, projection=_summary_speech)
+                model=cfg.summarizer_model, projection=_summary_speech,
+                correlation_id=f"{jid}#meme_summary")
             # Обратная карта прогона (§4.2 п.5): выжимка становится словами
             # мема/картинкой, поэтому пары «метка → tg:/msg:» остаются в
             # защищённой трассе (ID/счётчики, без текстов).
@@ -2643,7 +2698,8 @@ async def consider_chat(
             raw_joke, joke_speech = await _default_joke(
                 llm, summary, instruction=instruction, chat_id=int(chat_id),
                 base_source=_speech_base_source(
-                    str(joke_prompt.get("source") or "")), job_id=jid)
+                    str(joke_prompt.get("source") or "")), job_id=jid,
+                correlation_id=f"{jid}#meme_joke")
         else:
             raw_joke = await joke_generator(int(chat_id), summary, instruction)
     except Exception as exc:
@@ -3037,7 +3093,8 @@ JOKE_TIMEOUT_SECONDS = 30
 async def _default_summarize(llm, rows, system_prompt: str, *,
                              chat_id: int | None = None,
                              model: str = "",
-                             projection=None) -> str:
+                             projection=None,
+                             correlation_id: str = "") -> str:
     """Этап A: лёгкий контур выжимки — ОДИН вызов существующего LLM-клиента.
 
     Тяжёлый summary-pipeline (planner → writer → reviewer) не используется.
@@ -3085,7 +3142,8 @@ async def _default_summarize(llm, rows, system_prompt: str, *,
         generate(messages, temperature=0.2,
                  chat_id=int(chat_id) if chat_id is not None else None,
                  module="initiative", step="meme_summary",
-                 correlation_id=uuid.uuid4().hex[:16]),
+                 correlation_id=str(correlation_id or
+                                    uuid.uuid4().hex[:16])),
         timeout=SUMMARY_TIMEOUT_SECONDS)
     return str(raw or "").strip()
 
@@ -3260,7 +3318,8 @@ async def _joke_system_prompt(chat_id: int | None, *, instruction: str,
 
 async def _default_joke(llm, summary: str, *, instruction: str,
                         chat_id: int | None = None, base_source: str = "",
-                        job_id: str = "") -> tuple[str, dict]:
+                        job_id: str = "",
+                        correlation_id: str = "") -> tuple[str, dict]:
     """Этап B: ОДИН LLM-вызов — выжимка превращается в короткий абсурдный прикол.
 
     System собирает единый речевой композер: прикол придумывает САМ персонаж
@@ -3287,7 +3346,8 @@ async def _default_joke(llm, summary: str, *, instruction: str,
         generate(messages, temperature=0.8,
                  chat_id=int(chat_id) if chat_id is not None else None,
                  module="initiative", step="meme_joke",
-                 correlation_id=uuid.uuid4().hex[:16]),
+                 correlation_id=str(correlation_id or
+                                    uuid.uuid4().hex[:16])),
         timeout=JOKE_TIMEOUT_SECONDS)
     return str(raw or "").strip(), speech
 

@@ -518,6 +518,72 @@ def test_rbac_and_chat_header(api):
                    headers=_hdr(USER_ID, CHAT_A)).status_code == 403
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# P0-INIT-MEME-UX-DIAG §1/§4 — пять осей в ОДНОМ ответе на ОДИН чат
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-11-P0-INIT-MEME-UX-DIAG
+# (§4: payload.chat_id равен запрошенному; данные другого чата не подмешиваются).
+
+
+def _diagnostics(api, chat):
+    resp = api.get("/api/initiative/mechanism-diagnostics",
+                   headers=_hdr(ADMIN_ID, chat))
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def test_mechanism_diagnostics_carries_all_five_axes(api):
+    from services import initiative_diagnostics as diag
+
+    body = _diagnostics(api, CHAT_A)
+    assert body["schema_version"] == diag.DIAG_SCHEMA_VERSION
+    assert body["chat_id"] == CHAT_A
+    for name in ("text_initiative", "meme"):
+        block = body[name]
+        for axis in diag.AXIS_FIELDS:
+            assert axis in block, (name, axis)
+        assert set(block["configuration"]) == set(diag.CONFIGURATION_FIELDS)
+        assert set(block["readiness"]) == set(diag.READINESS_FIELDS)
+        assert set(block["last_attempt"]) == set(diag.LAST_ATTEMPT_FIELDS)
+        assert set(block["last_delivery"]) == set(diag.LAST_DELIVERY_FIELDS)
+        assert {"name", "state", "source"} <= set(
+            block["health"]["dependencies"][0])
+        assert block["health"]["state"] in ("ok", "degraded", "error",
+                                            "unknown")
+
+
+def test_mechanism_diagnostics_is_scoped_to_the_requested_chat(api):
+    """Один чат — один payload: строки другого чата не подмешиваются."""
+    chat_a = _diagnostics(api, CHAT_A)
+    chat_b = _diagnostics(api, CHAT_B)
+    assert chat_a["chat_id"] == CHAT_A
+    assert chat_b["chat_id"] == CHAT_B
+
+    # Мем-журнал: самая свежая попытка чата A — J4 (d2, ts=NOW-400).
+    assert chat_a["meme"]["last_attempt"]["run_id"] == "J4"
+    # У чата B строк мем-журнала нет: попытки не выдумываются, чужой J4 не
+    # подмешивается.
+    assert chat_b["meme"]["last_attempt"]["run_id"] == ""
+    assert chat_b["meme"]["last_attempt"]["incomplete_historical"] is True
+
+    # Текст: события чата A (самое свежее — T5) не попадают в чат B (там T3).
+    assert chat_a["text_initiative"]["last_attempt"]["run_id"] == "T5"
+    assert chat_b["text_initiative"]["last_attempt"]["run_id"] == "T3"
+
+    # Подтверждённая доставка — только своя: у A есть output с id 555, у B нет.
+    assert chat_a["text_initiative"]["last_delivery"]["status"] == "confirmed"
+    assert chat_a["text_initiative"]["last_delivery"]["message_id"] == 555
+    assert chat_a["text_initiative"]["last_delivery"]["destination"] == CHAT_A
+    assert chat_b["text_initiative"]["last_delivery"]["status"] == "never"
+
+
+def test_mechanism_diagnostics_without_chat_header_is_rejected(api):
+    assert api.get("/api/initiative/mechanism-diagnostics",
+                   headers=_hdr(ADMIN_ID)).status_code == 422
+    assert api.get("/api/initiative/mechanism-diagnostics",
+                   headers=_hdr(USER_ID, CHAT_A)).status_code == 403
+
+
 def test_missing_db_is_honest(tmp_path):
     deps_mod.settings = types.SimpleNamespace(API_TOKEN=TEST_TOKEN)
     cache = ConfigCache(pg=_FakePg(_FakePgConn()), retry_attempts=1,
