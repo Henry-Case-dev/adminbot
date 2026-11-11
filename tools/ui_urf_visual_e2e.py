@@ -282,7 +282,10 @@ TURN_DIAG_STUB = {
     "context": {
         "outcome": "success", "ts": 1792230000, "flow": "direct",
         "trigger": "force_keyword",
+        # UR-20.6: слот/модель ПЛАНИРОВАНИЯ L1 — выделенный слот
+        # (`SlotBudgetMeta.slot`), а не «слот не зафиксирован».
         "l1": {"action": "reply", "model": "test-model-8b",
+               "slot": "l1_slot",
                "fallback": "test-model-8b-fallback",
                "plan_source": "l1_slot"},
         "tool_rounds": 1, "tool_degraded": False, "tool_reason": "",
@@ -851,7 +854,8 @@ def main() -> int:
         if "2026-11-06T12:00:00+00:00" not in clock_line:
             failures.append(label + ": clock line lost as_of_utc: " + clock_line)
         model_l1 = r.get("modelL1") or ""
-        for part in ("L1: модель test-model-8b", "слот не зафиксирован",
+        for part in ("L1: модель test-model-8b",
+                     "слот: выделенный планировщик (l1_slot)",
                      "fallback: test-model-8b-fallback",
                      "запас на ответ 12 800"):
             if part not in model_l1:

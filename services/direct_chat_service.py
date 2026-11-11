@@ -5611,8 +5611,10 @@ class DirectChatService:
                     execution_mode=str(
                         getattr(l1_plan, "execution_mode", "")),
                     override=str(l1_meta.get("override") or ""),
-                    model=str(getattr(self.llm, "_chat_model", "") or ""),
-                    fallback=str(l1_meta.get("fallback") or ""))
+                    model=str(l1_meta.get("l1_model")
+                              or getattr(self.llm, "_chat_model", "") or ""),
+                    fallback=str(l1_meta.get("fallback") or ""),
+                    slot=str(l1_meta.get("slot") or ""))
                 if _l1_action == "silent":
                     if l1_plan.confidence_bucket == "low":
                         # §1.3: low confidence — SILENT демотируется в дет.
@@ -5700,8 +5702,10 @@ class DirectChatService:
                     execution_mode=str(
                         getattr(l1_plan, "execution_mode", "")),
                     override=str(l1_meta.get("override") or ""),
-                    model=str(getattr(self.llm, "_chat_model", "") or ""),
-                    fallback=str(l1_meta.get("fallback") or ""))
+                    model=str(l1_meta.get("l1_model")
+                              or getattr(self.llm, "_chat_model", "") or ""),
+                    fallback=str(l1_meta.get("fallback") or ""),
+                    slot=str(l1_meta.get("slot") or ""))
             # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
             # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
             # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
@@ -7450,6 +7454,24 @@ class DirectChatService:
                     "[direct] l1 planner attempt failed | chat=%s | "
                     "source=%s | error=%s", chat_id, label,
                     _exc_brief(exc))
+        # UR-20.6 (шаг 1 инспектора): слот и модель, которыми этот ход
+        # РЕАЛЬНО планировался — значения известны ДО планирования, но в
+        # событие трассы не доезжали, и карточка на каждом ходу писала
+        # «слот не зафиксирован». Слот — попытка ladder'а, давшая план
+        # (`l1_slot` | `main`); плана нет (deterministic fallback) — слот
+        # резолва (`SlotBudgetMeta.slot`), выбранный до попытки. Модель
+        # называем только для выделенного слота: main-путь шлёт модель
+        # клиента и её подставляет вызывающий (прежнее поведение).
+        # Ключи намеренно НЕ входят в `PLAN_META_FIELDS`/
+        # `_TURN_DIAGNOSTIC_KEYS`: это поля события трассы, а не новые оси
+        # durable plan_meta.
+        _plan_label = str(meta.get("source") or "")
+        if plan is not None:
+            meta["slot"] = _plan_label
+            if _plan_label == "l1_slot":
+                meta["l1_model"] = str(getattr(slot, "model", "") or "")
+        else:
+            meta["slot"] = str(getattr(req.model_slot, "slot", "") or "")
         latency_ms = int((time.monotonic() - started) * 1000)
         fallback_flag = "deterministic" if plan is None else ""
         if plan is None:

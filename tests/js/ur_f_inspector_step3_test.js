@@ -409,18 +409,40 @@ const vm = (extra) => Object.assign({
 
   // (3) UR-20.6: отдельная строка L1 и строка L2 с фактическим пределом.
   const full = Object.assign({}, m, { turnDiag: {
-    context: { l1: { model: 'test-model-8b', fallback: 'fb-model' } },
+    context: { l1: { model: 'test-model-8b', slot: 'l1_slot',
+                     fallback: 'fb-model' } },
     selection: { budget: { slot: 'direct.primary', output_reserve: 12800 } },
     writer: { request: { provider: 'api.example', model: 'test-model-8b',
                          fallback_model: 'fb-model', max_output_tokens: 4096 },
               completion: { max_output_tokens_sent: 4096 } } } });
   assert.strictEqual(full.turnL1ModelLine(),
-    'L1: модель test-model-8b · слот не зафиксирован · fallback: fb-model '
-    + '· запас на ответ 12 800');
+    'L1: модель test-model-8b · слот: выделенный планировщик (l1_slot) '
+    + '· fallback: fb-model · запас на ответ 12 800');
+  // Второй режим планирования — основная модель: слот показан, а не скрыт.
+  const mainSlot = Object.assign({}, m, { turnDiag: {
+    context: { l1: { model: 'test-model-8b', slot: 'main',
+                     fallback: 'fb-model' } },
+    selection: { budget: { slot: 'direct.primary', output_reserve: 12800 } } } });
+  assert.strictEqual(mainSlot.turnL1ModelLine(),
+    'L1: модель test-model-8b · слот: основная модель (main) '
+    + '· fallback: fb-model · запас на ответ 12 800');
+  assert.notStrictEqual(full.turnL1ModelLine(), mainSlot.turnL1ModelLine(),
+    'два режима планирования обязаны различаться в карточке');
   assert.strictEqual(full.turnL2ModelLine(),
     'L2: api.example / test-model-8b · слот запроса: основной ответ '
     + '(direct.primary) · fallback: fb-model '
     + '· отправлено max output tokens: 4 096');
+  // Старая трасса (поля `slot` нет) — «слот не зафиксирован», и чужой слот
+  // L2 в строку L1 не подставляется.
+  const oldL1 = Object.assign({}, m, { turnDiag: {
+    context: { l1: { model: 'test-model-8b', fallback: 'fb-model' } },
+    selection: { budget: { slot: 'direct.primary', output_reserve: 12800 } } } });
+  const oldL1Line = oldL1.turnL1ModelLine();
+  assert(oldL1Line.indexOf('слот не зафиксирован') >= 0, oldL1Line);
+  assert(oldL1Line.indexOf('direct.primary') < 0, oldL1Line);
+  assert.strictEqual(oldL1Line,
+    'L1: модель test-model-8b · слот не зафиксирован · fallback: fb-model '
+    + '· запас на ответ 12 800');
   // Пустота названа словами, чужой слот L2 не подставляется в L1.
   const empty = Object.assign({}, m, { turnDiag: {} });
   assert(/^L1: модель не зафиксирована/.test(empty.turnL1ModelLine()),

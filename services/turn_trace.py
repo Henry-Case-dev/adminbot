@@ -666,11 +666,17 @@ def note_clock_stage(correlation_id, stage: str) -> None:
 def note_l1(correlation_id, *, action: str = "", response_act: str = "",
             structure: str = "", plan_source: str = "",
             execution_mode: str = "", override: str = "", model: str = "",
-            fallback: str = "") -> None:
+            fallback: str = "", slot: str = "") -> None:
     """L1 action/plan этого хода (план — не авторская речь, §7).
 
     Значения L1 приходят из ответа модели, поэтому каждое проверяется как
-    код/enum: свободный текст (даже короткий) отбрасывается."""
+    код/enum: свободный текст (даже короткий) отбрасывается.
+
+    UR-20.6: `slot` — слот, которым ход РЕАЛЬНО планировался
+    (`SlotBudgetMeta.slot`: ``main`` | ``l1_slot``). Значение известно ДО
+    планирования, поэтому карточка не обязана писать «слот не
+    зафиксирован» на каждом ходу; пустая строка остаётся только у трасс,
+    записанных до появления поля."""
     trace = get(correlation_id)
     if trace is None:
         return
@@ -684,6 +690,7 @@ def note_l1(correlation_id, *, action: str = "", response_act: str = "",
             "override": _code(override, 48),
             "model": _code(model, 64),
             "fallback": _code(fallback, 64),
+            "slot": _code(slot, 24),
         }
     except Exception:      # pragma: no cover
         pass

@@ -307,7 +307,10 @@ class TestAcceptanceGaps:
         assert "data-turn-model-l1" in SECTION
         assert "data-turn-model-l2" in SECTION
         l1 = _code_block("turnL1ModelLine: function")
-        assert "слот не зафиксирован" in l1
+        assert "слот не зафиксирован" in l1, \
+            "старая трасса без поля — честная фраза остаётся"
+        assert "turnCodeText('slot', l1.slot)" in l1, \
+            "известный слот рендерится подписью, а не сырым кодом"
         assert "fallback" in l1 and "запас на ответ" in l1
         assert "модель не зафиксирована" in l1, "пустота названа словами"
         l2 = _code_block("turnL2ModelLine: function")
@@ -382,7 +385,7 @@ class TestLiveViewports:
             assert "часы на этапах:" in clock_line
             l1_line = data["modelL1"]
             assert "L1: модель test-model-8b" in l1_line, l1_line
-            assert "слот не зафиксирован" in l1_line
+            assert "слот: выделенный планировщик (l1_slot)" in l1_line, l1_line
             assert "fallback: test-model-8b-fallback" in l1_line
             assert "запас на ответ 12 800" in l1_line
             l2_line = data["modelL2"]

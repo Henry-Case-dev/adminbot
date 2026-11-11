@@ -373,6 +373,108 @@ def test_clock_stage_marks_are_canonical_and_deduplicated():
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# 2b. UR-20.6: слот и модель ПЛАНИРОВАНИЯ L1 в контекстном событии
+# ════════════════════════════════════════════════════════════════════════════
+
+class _DedicatedLLM(_StagedLLM):
+    """Транспорт выделенного L1-слота: план уходит через `llm._post`.
+
+    `SlotBudgetMeta`/`L1ModelSlot` реальные — подменён только резолв слота
+    и HTTP-мост, чтобы проверить, какое значение уезжает в трассу."""
+
+    def __init__(self, *, plan=None):
+        super().__init__(plan=plan)
+        self.posts: list = []
+
+    async def _post(self, path, payload, *, api_key=None, base_url=None, **kw):
+        self.posts.append({"path": path, "payload": dict(payload),
+                           "base_url": base_url, "api_key": api_key})
+        return _FakeResponse({
+            "choices": [{"message": {"content": self.l1_reply}}],
+            "usage": {"prompt_tokens": 11, "completion_tokens": 7,
+                      "total_tokens": 18}})
+
+
+class _FakeResponse:
+    """Мини-ответ провайдера для `dedicated_generate` (нужен только `.json`)."""
+
+    def __init__(self, data):
+        self._data = data
+
+    def json(self):
+        return self._data
+
+
+def _dedicated_slot(monkeypatch, *, model="dedicated-l1-model"):
+    from services import direct_l1 as _l1
+    monkeypatch.setattr(
+        _l1, "resolve_l1_model",
+        lambda chat_id=None, **kw: _l1.L1ModelSlot(
+            base_url="https://l1.example", model=model, api_key="k",
+            dedicated=True, source="l1"))
+
+
+@pytest.mark.asyncio
+async def test_l1_event_records_main_slot_when_main_model_plans(
+        monkeypatch, events):
+    """UR-20.6: ход, планированный основной моделью, пишет слот `main`.
+
+    Раньше слот вообще не попадал в событие — карточка на КАЖДОМ ходу
+    писала «слот не зафиксирован», хотя `SlotBudgetMeta.slot` известен ДО
+    планирования."""
+    svc, bot, msg, user = _drive(monkeypatch, _StagedLLM(), window=_rows(3))
+    await svc.handle(bot, msg, user)
+
+    ctx = _payload(events, turn_trace.EVENT_CONTEXT)
+    assert ctx["l1"]["slot"] == "main", ctx["l1"]
+    # Модель main-пути — та, которой клиент реально отвечает.
+    assert ctx["l1"]["model"] == "chat-model-x", ctx["l1"]
+
+
+@pytest.mark.asyncio
+async def test_l1_event_records_dedicated_slot_and_its_model(
+        monkeypatch, events):
+    """UR-20.6: ход на выделенном слоте L1 пишет `l1_slot` и его модель.
+
+    Модель берётся из фактически отправленного payload'а слота: иначе
+    карточка показывала бы модель основной ветки для хода, который
+    планировала выделенная."""
+    _dedicated_slot(monkeypatch)
+    llm = _DedicatedLLM()
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_rows(3))
+    await svc.handle(bot, msg, user)
+
+    ctx = _payload(events, turn_trace.EVENT_CONTEXT)
+    assert ctx["l1"]["slot"] == "l1_slot", ctx["l1"]
+    assert ctx["l1"]["model"] == "dedicated-l1-model", ctx["l1"]
+    # Никакой догадки: именно эта модель ушла в запрос выделенного слота.
+    assert llm.posts, "выделенный слот не вызывался"
+    assert llm.posts[0]["payload"]["model"] == ctx["l1"]["model"]
+    assert llm.posts[0]["base_url"] == "https://l1.example"
+
+
+def test_trace_written_before_this_change_has_no_invented_slot(events):
+    """Старая трасса/старый продюсер: слота нет — `main` НЕ выдумывается.
+
+    Именно пустое значение (а не подставленный `main`) даёт карточке право
+    честно сказать «слот не зафиксирован»."""
+    turn_trace.begin("cid-old-l1", chat_id=CHAT_ID)
+    turn_trace.note_l1("cid-old-l1", action="reply", model="test-model")
+    payload = turn_trace.get("cid-old-l1").context_payload()
+    assert payload["l1"]["slot"] == "", payload["l1"]
+    assert payload["l1"]["model"] == "test-model"
+
+
+def test_l1_slot_is_validated_as_a_code():
+    """Слот — код: свободный текст в поле не пропускается (общий enum-путь)."""
+    turn_trace.begin("cid-bad-slot", chat_id=CHAT_ID)
+    turn_trace.note_l1("cid-bad-slot", action="reply", model="test-model",
+                       slot="выделенный слот планировщика")
+    payload = turn_trace.get("cid-bad-slot").context_payload()
+    assert payload["l1"]["slot"] == ""
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # 3. Жёсткие лимиты списков: усечение видно, а не молчаливая потеря
 # ════════════════════════════════════════════════════════════════════════════
 

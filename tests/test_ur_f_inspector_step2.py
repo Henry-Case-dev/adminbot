@@ -219,7 +219,7 @@ def _emit_chain(trace_id, *, chat_id=CHAT_ID,
     for stage in clock_stages:
         turn_trace.note_clock_stage(trace_id, stage)
     turn_trace.note_l1(trace_id, action="reply", response_act="answer",
-                       model="test-model")
+                       model="test-model", slot="l1_slot")
     turn_trace.note_tools(
         trace_id, rounds=1,
         tool_results=[{"tool": "web_search", "status": "success",
@@ -369,6 +369,8 @@ async def test_new_trace_projects_all_sections(tmp_path, monkeypatch):
     # context.clock — расширение того же объекта (обратная совместимость).
     assert body["context"]["clock"]["timezone"] == "Europe/Moscow"
     assert body["context"]["clock"]["stages"] == ["l1", "tool", "l2"]
+    # UR-20.6: слот ПЛАНИРОВАНИЯ L1 доезжает до проекции (не «не зафиксирован»).
+    assert body["context"]["l1"]["slot"] == "l1_slot"
 
     selection = body["selection"]
     assert selection["policy_version"] == "alloc_v3"
@@ -1049,6 +1051,8 @@ def _nested_context_json() -> str:
         "flow": "direct", "trigger": "botword",
         "source_message_id": 501, "source_author_id": 10,
         "l1": {"action": "reply", "model": "test-model",
+               # UR-20.6: слот проходит enum-правило, а не «как есть».
+               "slot": CHAT_LEAK,
                "secret": SECRET_MARKER, "note": CHAT_LEAK,
                "text": CHAT_LEAK, "snippet": SECRET_MARKER,
                "inner": {"text": CHAT_LEAK}},
@@ -1136,9 +1140,12 @@ async def test_nested_sections_are_allowlisted_and_json_safe(tmp_path,
     # Ни одного лишнего ключа ни на одном уровне.
     assert set(context["l1"]) <= {"action", "response_act", "structure",
                                   "plan_source", "execution_mode",
-                                  "override", "model", "fallback"}
+                                  "override", "model", "fallback", "slot"}
     assert context["l1"]["action"] == "reply"
     assert context["l1"]["model"] == "test-model"
+    # UR-20.6: `slot` объявлен в схеме, но текст чата в нём — не код → null.
+    assert "slot" in context["l1"]
+    assert context["l1"]["slot"] is None
     assert set(context["tools"][0]) <= {"tool", "round", "status", "error",
                                         "out_chars", "truncated", "attempt",
                                         "refs"}

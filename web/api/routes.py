@@ -1771,6 +1771,9 @@ _TURN_CONTEXT_SCHEMA = {
         "override": ("code", 48),
         "model": ("code", 64),
         "fallback": ("code", 64),
+        # UR-20.6: слот L1 (`SlotBudgetMeta.slot`: main | l1_slot). Строка
+        # кода, поэтому проходит те же enum-правила; свободный текст — None.
+        "slot": ("code", 24),
     }),
     "tool_rounds": "int",
     "tool_degraded": "bool",
