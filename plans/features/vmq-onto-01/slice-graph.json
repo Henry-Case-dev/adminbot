@@ -2,7 +2,7 @@
   "schema": "openworkflow-slices-v1",
   "epic": "VMQ-ONTO-01",
   "created": "2026-11-09",
-  "queue_position": "VMQ-ONTO-01 стоит одним новым эпиком в конце исходной очереди (ТЗ §16.1-16.2). VMQ-V (voice P0 corrective) допускается раньше остальных слайсов эпика только при отсутствии Builder, правящего те же файлы; перестановка очереди фиксируется PM с причиной. 10.11.2026 в граф добавлен обязательный дефект VMQ-MEM-TIME (вопросы без года не достигают истории 2023-2024): он не переставляет очередь и не блокирует ревью/выкатку retrieval-фиксов VMQ-MEM (кандидат 7bc8545a), а лишь добавляет обязательный узел после них и в приёмку VMQ-R. 11.11.2026 следующая ступень памяти выкачена как 2.58.187 @ 952b9ebd и добавлена узлом VMQ-MEM-NEXT после VMQ-MEM-TIME; порядок остальной очереди не менялся, узел входит в замыкание VMQ-R.",
+  "queue_position": "VMQ-ONTO-01 стоит одним новым эпиком в конце исходной очереди (ТЗ §16.1-16.2). VMQ-V (voice P0 corrective) допускается раньше остальных слайсов эпика только при отсутствии Builder, правящего те же файлы; перестановка очереди фиксируется PM с причиной. 10.11.2026 в граф добавлен обязательный дефект VMQ-MEM-TIME (вопросы без года не достигают истории 2023-2024): он не переставляет очередь и не блокирует ревью/выкатку retrieval-фиксов VMQ-MEM (кандидат 7bc8545a), а лишь добавляет обязательный узел после них и в приёмку VMQ-R. 11.11.2026 следующая ступень памяти выкачена как 2.58.187 @ 952b9ebd и добавлена узлом VMQ-MEM-NEXT после VMQ-MEM-TIME; порядок остальной очереди не менялся, узел входит в замыкание VMQ-R. 12.11.2026 корректив доказательной базы (основания решений в структурированном виде, OI-2026-11-12-EVIDENCE-GROUNDS) добавлен узлом VMQ-GROUNDS после VMQ-MEM-NEXT и в замыкание VMQ-R; очередь он не переставляет — кандидат c4c01a1f уже одобрен, идёт выкладка 2.58.190.",
   "lanes": {
     "L1": "foundation: VMQ-A (done by Architect) -> VMQ-V -> VMQ-ONTO-A -> VMQ-ONTO-B",
     "L2": "memory: VMQ-M1 -> VMQ-M2 (ONTO-C/D внутри одного unified retrieval) -> VMQ-MEM (сравнительная приёмка многолетней памяти по пяти формулировкам) -> VMQ-MEM-TIME (обязательный дефект временнóго охвата: сначала измерение и подтверждённая первопричина, потом исправление) -> VMQ-MEM-NEXT (семантическая нога периодного добора: выкачена 2.58.187, семантическая часть ждёт доказанной совместимости индекса)",
@@ -187,6 +187,29 @@
       "note": "Выкачено 952b9ebd (2.58.187) из одобренного кандидата c698618a; семантическая часть UNVERIFIED: guard индекса отдаёт compat_not_proven, поэтому векторная нога не активна и прод честно работает лексическим путём (артефакт evidence/vmq-mem/next-stage/release-2.58.187.md, диагноз evidence/vmq-mem/index-compat-diagnosis.md в работе). Зависимость от VMQ-MEM-TIME односторонняя и НЕ расширяет замороженный слайс 709865f6: остаток вынесен сюда. write_scope кода пересекается с VMQ-MEM/VMQ-M2, поэтому запись сериализована через зависимость; k>32, DDL/переиндексация embeddings, третий retrieve и переключение флага в ступень не входят."
     },
     {
+      "id": "VMQ-GROUNDS",
+      "title": "Доказательная база: основания решений в структурированном виде (корректив владельца 12.11.2026)",
+      "owner_role": "Builder (существующие diagnostics/provenance) + Reviewer (независимое подтверждение фактического JSON и перезапуска) + DevOps (наблюдение на выкаченной службе)",
+      "depends_on": ["VMQ-MEM-NEXT"],
+      "write_scope": [
+        "services/experience_diagnostics.py",
+        "services/provenance.py",
+        "services/mca_experience.py",
+        "services/mca_experience_jobs.py",
+        "services/turn_trace.py",
+        "services/direct_chat_service.py",
+        "tests/test_evidence_grounds_persistence.py",
+        "tools/mca_lesson_grounds_repair.py",
+        "plans/features/vmq-onto-01/evidence/vmq-mem/grounds/"
+      ],
+      "requirements": ["VMQ-GROUNDS-01"],
+      "acceptance": "Основания решений хранятся структурно (id первичного источника, происхождение, связь с воспоминанием/решением), текстовый отчёт и JSON строятся из одних данных, независимость оснований решается по происхождению, восстановление только достоверного и без ложного VERIFIED, полный цикл включая перезапуск процесса проверен, архитектура памяти и критерии приёмки не изменены и новое хранилище не создано.",
+      "risk": "R1",
+      "next_role": "DevOps",
+      "coherence": "Один наблюдаемый исход — основания решений существуют в сохраняемом состоянии и переживают перезапуск, а не только в тексте отчёта; правки лежат в существующих diagnostics/provenance, второго хранилища и нового механизма отчётности нет.",
+      "note": "Добавлен 12.11.2026 по коррективу владельца (plans/owner_inputs/2026-11-12-evidence-grounds-persistence.md, OI-2026-11-12-EVIDENCE-GROUNDS). Зависимость от VMQ-MEM-NEXT настоящая, а не административная: правка переносит `stems_shared`, введённый периодным добором этой ступени, и разрабатывалась на её линии (база c087253d включает 2.58.187), поэтому запись в services/direct_chat_service.py сериализована за ней. Кандидат c4c01a1f одобрен ревью; строка VMQ-GROUNDS-01 стоит в READY_FOR_LIVE до наблюдения на выкаченном 2.58.190. Слайс не расширяет VMQ-NEXT-04 и не меняет пороги, отбор, эмбеддинги, промпты и настройки."
+    },
+    {
       "id": "VMQ-Q0",
       "title": "RandomSource core: 4-provider registry, settings/secrets, live apply, health, QAN field",
       "owner_role": "Builder + Architect (политика/лимиты)",
@@ -285,7 +308,7 @@
       "id": "VMQ-R",
       "title": "Release gate: default-ON effective, baseline vs new, DevOps evidence, PM reconciliation",
       "owner_role": "Reviewer + DevOps + PM",
-      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-MEM", "VMQ-MEM-TIME", "VMQ-MEM-NEXT", "VMQ-Q1", "VMQ-O", "VMQ-U"],
+      "depends_on": ["VMQ-V", "VMQ-M2", "VMQ-MEM", "VMQ-MEM-TIME", "VMQ-MEM-NEXT", "VMQ-GROUNDS", "VMQ-Q1", "VMQ-O", "VMQ-U"],
       "write_scope": [
         "plans/features/vmq-onto-01/evidence/",
         "plans/features/vmq-onto-01/reports/"
