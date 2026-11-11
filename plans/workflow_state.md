@@ -7,8 +7,8 @@ Primary phase: review
 Active feature: p0-init-meme-ux-diag
 Active lanes: ses_e3572928affeelC4E31dLBWZ9l (DevOps: building and deploying 2.58.189 from the port f328611f); ses_e35726d4fffeVaK90lKARkzvpv (PM: binding UR-20.6/UR-20.7 and deciding parent UR-20); ses_e357d26b4ffemxzNxlAh77olCq (Builder: S3-OV overview UI); ses_e358b0029ffeSuAej0swt6A5Hr (Builder: VMQ-NEXT-02/03/04 measurement on a DB copy)
 Join barriers: S4 waits for the S3 verdict; the deployment must not start before the release gate and pin re-approval pass.
-Last verified: R0-INV closed read-only on production 2.58.188 (evidence/r0/diagnosis-2.58.188.md, 9 rows VERIFIED). S1-AXES + S2-ID APPROVED at 4c59a483 (third pass): delivery resolves the latest row with a message id, list mode comes only from the terminal row, spool never deletes an unread tail; the single residual window is both journal and spool writes failing, which is logged as `attempt LOST`. S3-OV overview UI in build on the same branch. Inspector 2.58.189 port prepared clean at f328611f (branch rel/2.58.189-inspector-prep, base c087253d, 19 files, no version bump, no DDL), pending verdict.
-Next unlocks: S3 UI verdict -> S4-TRACE then S5-MEME (incl. marker clearing and cancellation handling) then S5b; inspector verdict -> version bump over f328611f plus re-approval of ROUTES_SHA256_F11 and deployment; VMQ-NEXT-02/03/04 measurement on a DB copy in flight
+Last verified: 2.58.189 DEPLOYED and verified at release `edd7d472` (tree `ba196a9b`), schema v47, no DDL, rollback `c087253d`; a real post-deploy turn (trace 71a18f9a, chat -1004482340693, 12:38:16Z) returned `context.l1.slot="main"` from the actual record, and an older 2.58.188 turn honestly returns nulls for the newer fields. Earlier: R0-INV closed (9 rows), S1-AXES + S2-ID approved at 4c59a483, 12 rows bound.
+Next unlocks: PM binding UR-20.6/20.7/UR-20 to edd7d472 closes the inspector slice; S3 UI verdict -> S4-TRACE; evidence-grounds repair -> independent Reviewer check on the actual JSON incl. restart; then S5-MEME and S5b
 Next execution: awaiting_children
 Review: pending
 Deployment: verified 2.58.188 @ c087253d (schema 47, no DDL); rollback 952b9ebd
