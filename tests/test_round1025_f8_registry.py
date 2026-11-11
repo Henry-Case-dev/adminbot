@@ -222,7 +222,18 @@ ROUTES_SHA256_F11 = (
     # чат). Новых @router-маршрутов НЕТ (Δ routes=0: 62 -> 62), RBAC/маскировка
     # не менялись, DDL=0 (схема v47), f8_baseline не переиздавался. Хэш
     # переутверждён осознанно.
-    "0d15c69025d6fdea55a5a25a441cac7f998847824998bc5c7ff01c8e22984860")
+    # UR-F INSPECTOR шаг 1 (12.11.2026, релиз 2.58.189, L-F11S-1 conscious
+    # requalification): аддитивная проекция СУЩЕСТВУЮЩЕГО
+    # GET /api/direct/turn-diagnostics — UR-20.6 (слот L1: `slot` в
+    # `_TURN_CONTEXT_SCHEMA` и в `_TURN_SOURCE_FIELDS`-соседнем блоке) и
+    # UR-20.7 (время сообщения-родителя `reply_to_ts` -> `reply_to_message_ts`
+    # в `_TURN_SOURCE_SCHEMA` + `reason` в `_TURN_DELIVERY_SCHEMA`).
+    # Новых @api_router-маршрутов НЕТ (Δ routes=0: 75 -> 75 декораторов,
+    # 62 -> 62 уникальных пути), RBAC/маскировка не менялись, DDL=0
+    # (схема v47), f8_baseline не переиздавался. Осознанная Δ хэша:
+    # 0d15c69025d6fdea55a5a25a441cac7f998847824998bc5c7ff01c8e22984860
+    #   -> 4c7af646daa19023e8c3e1b6b8a2d414bf7af2b6d7ed90934ea267a543e877bb
+    "4c7af646daa19023e8c3e1b6b8a2d414bf7af2b6d7ed90934ea267a543e877bb")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
