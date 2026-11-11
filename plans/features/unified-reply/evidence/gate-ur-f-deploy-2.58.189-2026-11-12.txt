@@ -1,0 +1,90 @@
+UR-F — гейт требований на выложенном кандидате (2026-11-12, прод 2.58.189)
+======================================================================
+Кандидат:  edd7d47255c36ec5ce4504a086c5db87798518cf (release/2.58.189, дерево ba196a9b)
+Карта:     plans/features/unified-reply/requirements-map.json (candidate_commit = deployed_commit = edd7d47255c)
+Гейт:      C:\Users\main\.config\opencode\tools\requirements_gate.py
+Репозиторий: C:\Code\Python\adminbot (worktree master, файлы среза есть только в выложенном коммите)
+
+План (инвентарь карты)
+----------------------
+$ py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py check \
+    --map plans/features/unified-reply/requirements-map.json --stage plan
+stage=plan inventory=206 manual=140 scoped=0 errors=0
+exit 0
+
+Ревью среза UR-F (то, что просили перепроверить)
+-----------------------------------------------
+$ py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py check \
+    --map plans/features/unified-reply/requirements-map.json --stage review \
+    --slice UR-F --candidate edd7d47255c36ec5ce4504a086c5db87798518cf
+FAIL: UR-RES-07: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-22: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-21: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-29: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-BAN-08: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: UR-20.1: no evidence bound to reviewed candidate
+FAIL: UR-20.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.2: no evidence bound to reviewed candidate
+FAIL: UR-20.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.3: no evidence bound to reviewed candidate
+FAIL: UR-20.3: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-20.9: no evidence bound to reviewed candidate
+FAIL: UR-20.9: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.01: no evidence bound to reviewed candidate
+FAIL: UR-21.01: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.15: no evidence bound to reviewed candidate
+FAIL: UR-21.15: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.17: no evidence bound to reviewed candidate
+FAIL: UR-21.17: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.19: no evidence bound to reviewed candidate
+FAIL: UR-21.19: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.20: no evidence bound to reviewed candidate
+FAIL: UR-21.20: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.21: no evidence bound to reviewed candidate
+FAIL: UR-21.21: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.22: no evidence bound to reviewed candidate
+FAIL: UR-21.22: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.23: no evidence bound to reviewed candidate
+FAIL: UR-21.23: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-21.24: no evidence bound to reviewed candidate
+FAIL: UR-21.24: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-22.1: no evidence bound to reviewed candidate
+FAIL: UR-22.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-22.2: no evidence bound to reviewed candidate
+FAIL: UR-22.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.1: no evidence bound to reviewed candidate
+FAIL: UR-29.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.2: no evidence bound to reviewed candidate
+FAIL: UR-29.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: UR-29.3: no evidence bound to reviewed candidate
+FAIL: UR-29.3: no candidate-bound evidence points to an existing repo artifact
+stage=review inventory=206 manual=140 scoped=29 errors=41
+
+Исходная точка до привязки (тот же гейт, прошлый кандидат d3e74eef):
+stage=review inventory=206 manual=140 scoped=29 errors=47
+Разница 47 -> 41 = ровно шесть ошибок трёх строк UR-20.4/20.5/20.8
+(«no evidence bound» + «no candidate-bound artifact»), которые привязаны к
+выложенному кандидату в этом заходе.
+
+Разбор текущих 41 (все — книжная работа карты, не дефекты среза)
+---------------------------------------------------------------
+5 — строки UR-RES-07, UR-21, UR-22, UR-29, UR-BAN-08 остаются PENDING
+    по своим открытым пунктам (в закрытие UR-F не входят).
+36 — 18 строк (UR-20.1/20.2/20.3/20.9, UR-21.01/…, UR-22.1/22.2,
+    UR-29.1/29.2/29.3) по 2 ошибки: их доказательства — файлы ветки среза
+    (urf-step*-visual-report.json, тесты шагов) — физически отсутствуют в
+    этом checkout'е, поэтому строгая проверка artifact_path их не видит.
+
+Релизный этап (для полноты, НЕ полномочие выкладки)
+--------------------------------------------------
+$ py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py check \
+    --map plans/features/unified-reply/requirements-map.json --stage release \
+    --slice UR-F --candidate edd7d47255c --deployed-commit edd7d47255c
+stage=release inventory=206 manual=140 scoped=29 errors=118
+До привязки (прогон DevOps на том же коммите, deploy-2.58.189.md §3): errors=132,
+вывод побайтово совпадал с прогоном на проде c087253d — то есть релиз не добавил
+ни одной ошибки, все они были состоянием карты ещё до выкладки.
+Состав 118: 77 — строки зависимых срезов UR-A (6), UR-B (7), UR-C (44),
+UR-C-CLOCK (10), UR-D (1), UR-E (9), которые ещё открыты по своим пунктам
+(гейт требует закрытия всего dependency closure), и 41 — та же книжная работа
+UR-F, что разобрана выше.
