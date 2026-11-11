@@ -1,0 +1,233 @@
+{
+ "release": "2.58.191",
+ "deployed_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+ "captured_at_utc": "2026-11-11T16:44Z",
+ "endpoint": "GET /api/initiative/mechanism-diagnostics (X-Chat-Id, TMA auth)",
+ "note": "Read-only production read-back. Endpoint returns the collector payload byte-for-byte; values below are the five axes per mechanism as delivered to the shipped Mini App.",
+ "chats": [
+  {
+   "chat_id": -1004482340693,
+   "schema_version": 1,
+   "degraded": [],
+   "text_initiative": {
+    "configuration": {
+     "enabled": true,
+     "source": "product",
+     "scope": "global",
+     "reason": ""
+    },
+    "health": {
+     "state": "ok",
+     "dependencies": [
+      {
+       "name": "event_log",
+       "state": "ok",
+       "source": "initiative_observer.chat_block_state"
+      },
+      {
+       "name": "publication_precheck",
+       "state": "ok",
+       "source": "PublicationCoordinator.precheck"
+      }
+     ]
+    },
+    "readiness": {
+     "state": "waiting",
+     "reason": "eval_not_due",
+     "reason_class": "schedule",
+     "next_eligible_at": 1794415314
+    },
+    "last_attempt": {
+     "at": 1794414460,
+     "mode": "auto",
+     "run_id": "init:-1004482340693:20261111:9926b6d84a",
+     "outcome": "skipped",
+     "stop_stage": "lease_held"
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794395417,
+     "destination": -1004482340693,
+     "message_id": 10435
+    }
+   },
+   "meme": {
+    "configuration": {
+     "enabled": true,
+     "source": "meme_settings",
+     "scope": "mixed",
+     "reason": ""
+    },
+    "health": {
+     "state": "ok",
+     "dependencies": [
+      {
+       "name": "attempt_journal",
+       "state": "ok",
+       "source": "meme_initiative.attempt_journal"
+      },
+      {
+       "name": "publication_precheck",
+       "state": "ok",
+       "source": "PublicationCoordinator.precheck"
+      },
+      {
+       "name": "image",
+       "state": "ok",
+       "source": "meme_initiative.image_dependency"
+      }
+     ]
+    },
+    "readiness": {
+     "state": "waiting",
+     "reason": "daily_quota_reached",
+     "reason_class": "quota",
+     "next_eligible_at": 1794441600
+    },
+    "last_attempt": {
+     "at": 1794414496,
+     "mode": "auto",
+     "run_id": "meme:-1004482340693:2026-11-11:ced9a72ce52d",
+     "outcome": "skipped",
+     "stop_stage": "skipped"
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794406547,
+     "destination": -1004482340693,
+     "message_id": 10472
+    }
+   }
+  },
+  {
+   "chat_id": -1002661910336,
+   "schema_version": 1,
+   "degraded": [],
+   "text_initiative": {
+    "configuration": {
+     "enabled": true,
+     "source": "product",
+     "scope": "global",
+     "reason": ""
+    },
+    "health": {
+     "state": "ok"
+    },
+    "readiness": {
+     "state": "waiting",
+     "reason": "not_enough_messages",
+     "reason_class": "not_enough_messages",
+     "next_eligible_at": null
+    },
+    "last_attempt": {
+     "at": 1794408591,
+     "mode": "unknown",
+     "run_id": "",
+     "outcome": "success",
+     "stop_stage": "nostalgia_due"
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794408591,
+     "destination": -1002661910336,
+     "message_id": 1210123
+    }
+   },
+   "meme": {
+    "configuration": {
+     "enabled": true,
+     "source": "meme_settings",
+     "scope": "mixed",
+     "reason": ""
+    },
+    "health": {
+     "state": "ok"
+    },
+    "readiness": {
+     "state": "waiting",
+     "reason": "cooldown_active",
+     "reason_class": "cooldown",
+     "next_eligible_at": 1794415573
+    },
+    "last_attempt": {
+     "at": 1794414664,
+     "mode": "auto",
+     "run_id": "meme:-1002661910336:2026-11-11:f350ba231ade",
+     "outcome": "skipped",
+     "stop_stage": "skipped"
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794402899,
+     "destination": -1002661910336,
+     "message_id": 1210056
+    }
+   }
+  },
+  {
+   "chat_id": 5885953495,
+   "schema_version": 1,
+   "degraded": [],
+   "text_initiative": {
+    "configuration": {
+     "enabled": true,
+     "source": "product",
+     "scope": "global",
+     "reason": ""
+    },
+    "health": {
+     "state": "ok"
+    },
+    "readiness": {
+     "state": "blocked",
+     "reason": "not_group",
+     "reason_class": "permissions",
+     "next_eligible_at": null
+    },
+    "last_attempt": {
+     "at": null,
+     "mode": "unknown",
+     "run_id": "",
+     "outcome": "",
+     "stop_stage": ""
+    },
+    "last_delivery": {
+     "status": "never",
+     "at": null,
+     "destination": 5885953495,
+     "message_id": null
+    }
+   },
+   "meme": {
+    "configuration": {
+     "enabled": false,
+     "source": "meme_settings",
+     "scope": "chat",
+     "reason": "disabled_by_setting"
+    },
+    "health": {
+     "state": "ok"
+    },
+    "readiness": {
+     "state": "blocked",
+     "reason": "initiative_disabled",
+     "reason_class": "disabled",
+     "next_eligible_at": null
+    },
+    "last_attempt": {
+     "at": 1793682505,
+     "mode": "unknown",
+     "run_id": "meme:5885953495:2026-11-03:d15380363e71",
+     "outcome": "skipped",
+     "stop_stage": "skipped"
+    },
+    "last_delivery": {
+     "status": "never",
+     "at": null,
+     "destination": 5885953495,
+     "message_id": null
+    }
+   }
+  }
+ ]
+}
