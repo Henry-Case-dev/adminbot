@@ -6,18 +6,19 @@
   "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
   "source_sha256": "6d0d5c52cf5b6a50ce7f4098eeb8136a49ae1d024b83c5fb802bf016587cd91a",
   "source_note": "Immutable excerpt of user-owned plans/current_task.md lines 11423-11552. owner_inputs id OI-2026-11-11-P0-INIT-MEME-UX-DIAG (registration is Orchestrator's single-writer job).",
-  "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
-  "deployed_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+  "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+  "deployed_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
   "production_baseline": {
-    "release": "2.58.191",
-    "commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
-    "branch": "release/2.58.191",
-    "deployed_at_utc": "2026-11-11T16:23:41Z",
+    "release": "2.58.192",
+    "commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+    "branch": "release/2.58.192",
+    "deployed_at_utc": "2026-11-11T19:05:11Z",
     "schema_version": 47,
     "ddl": "none",
     "new_settings": "none",
-    "predeploy_snapshot": "/tmp/predeploy-258191.db",
-    "rollback_commit": "7c3c01b2"
+    "new_flags": "none",
+    "predeploy_snapshot": "/tmp/predeploy-258192.db",
+    "rollback_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844"
   },
   "code_base_note": "Факты кода и write-scope привязаны к release/2.58.188 (c087253d). Локальный master (89be9d4f) НЕ содержит services/meme_initiative.py, web/api/initiative_publications.py, handlers/meme_command.py, services/publication_coordination.py: линии расходятся (release впереди на 1310 коммитов, master на 180), модуль «Инициатива/Мемы» существует только в production-линии. Builder обязан ветвиться от release/2.58.188, иначе он перепишет модуль с нуля — прямое нарушение требования владельца.",
   "strict_evidence": true,
@@ -238,7 +239,7 @@
         "UR-20.5"
       ],
       "delta": "Разделение аналитики и воронки уже требовалось; добавляется явный словарь шести состояний для одной попытки.",
-      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» доказана (id-less -> unknown, confirmed только с message_id), но «considered не считается публикацией» показывает S4-TRACE (P0IM-PB-VOCAB, P0IM-PB-COUNT); доказательств по этой половине пока нет."
+      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» подтверждена (три состояния доставки, app.js:4503-4548), и considered больше не слит с публикацией (живьём 327 проверено против 12 опубликовано). Не хватает требуемой величины «сгенерировано»: в счётчиках журнала её нет вовсе, поэтому шесть величин не разведены полностью."
     },
     {
       "source_id": "MANUAL-L008-C",
@@ -252,18 +253,26 @@
       "acceptance": "ETA не выводится из периодичности и не считается «последняя проверка + N»; next_eligible_at присутствует только из доказанного базиса (meme cooldown с last_provider_ts, конец quiet hours, day.next_reset_iso, чужой last_publish_ts+интервал, живой manual_priority_until, text next_eval_ts в будущем), иначе null и «следующий тик / время неизвестно». availability().next_check_ts, подставляющий now при отсутствии кулдауна, не отдаётся как время следующей попытки.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Обзор на проде печатает границы только с названным основанием: мемы — «Дальше не раньше 12.11 00:00 UTC (по сбросу суточного лимита)», текст — «Дальше не раньше 11.11 19:13 UTC (по интервалу оценки)». Ни одна строка не выдаёт расчётную границу за расписание и не подставляет «сейчас» (overview_axes_live).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
           "type": "ui",
-          "ref": "Обзорная половина на 726736ee (наблюдение O3)",
-          "observation": "O3: обзор печатает время только при серверном штампе и названном основании, без основания «не раньше» не появляется; readiness.next_eligible_at считается закрытым списком фактов (_readiness_candidates), периодичность как базис не используется.",
-          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
-          "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+          "ref": "Привязка P0IM-BAN-NOETA к bcc090a3 (этот артефакт), §2-§3",
+          "observation": "В отданном коде next_check_ts = null, кроме доказанного «последний вызов провайдера + кулдаун» в будущем (services/meme_initiative.py:3669-3676, 3911-3918); readiness берётся из закрытого списка фактов (services/initiative_diagnostics.py:2690-2705 и _readiness_candidates); строка «Следующая проверка» удалена из разметки, вместо неё «Не раньше (расчёт)» + основание (web/index.html:3533-3550, тесты 14.1-14.5).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1axes/binding-258192.md",
+          "artifact_sha256": "5f86809f8fbb30c68ce2887f23fe5cd10069fa7b2d49b84697c90425207063d9"
         }
       ],
-      "pending_reason": "Ось и обзор больше не выдумывают ETA (O3 на 726736ee), но acceptance называет конкретный путь: в services/meme_initiative.py `next_check = max(now, last_provider_ts + cooldown)` по-прежнему отдаётся как next_check_ts, и на вкладке «Диагностика мемов» он рисуется строкой «Следующая проверка» с подписью «из записанного состояния прохода» (web/index.html:3409-3415, web/app.js:3201). Кандидат этот путь не менял (O11). Строка остаётся PENDING до правки этого пути: не подставлять now и не отдавать такое значение как время следующей попытки."
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L016-A",
@@ -414,7 +423,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» доказана (id-less -> unknown, confirmed только с message_id), но «considered не считается публикацией» показывает S4-TRACE (P0IM-PB-VOCAB, P0IM-PB-COUNT); доказательств по этой половине пока нет."
+      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» подтверждена (три состояния доставки, app.js:4503-4548), и considered больше не слит с публикацией (живьём 327 проверено против 12 опубликовано). Не хватает требуемой величины «сгенерировано»: в счётчиках журнала её нет вовсе, поэтому шесть величин не разведены полностью."
     },
     {
       "source_id": "MANUAL-L035-B",
@@ -1056,18 +1065,26 @@
       "acceptance": "ETA не выводится из периодичности и не считается «последняя проверка + N»; next_eligible_at присутствует только из доказанного базиса (meme cooldown с last_provider_ts, конец quiet hours, day.next_reset_iso, чужой last_publish_ts+интервал, живой manual_priority_until, text next_eval_ts в будущем), иначе null и «следующий тик / время неизвестно». availability().next_check_ts, подставляющий now при отсутствии кулдауна, не отдаётся как время следующей попытки.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Обзор на проде печатает границы только с названным основанием: мемы — «Дальше не раньше 12.11 00:00 UTC (по сбросу суточного лимита)», текст — «Дальше не раньше 11.11 19:13 UTC (по интервалу оценки)». Ни одна строка не выдаёт расчётную границу за расписание и не подставляет «сейчас» (overview_axes_live).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
           "type": "ui",
-          "ref": "Обзорная половина на 726736ee (наблюдение O3)",
-          "observation": "O3: обзор печатает время только при серверном штампе и названном основании, без основания «не раньше» не появляется; readiness.next_eligible_at считается закрытым списком фактов (_readiness_candidates), периодичность как базис не используется.",
-          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
-          "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+          "ref": "Привязка P0IM-BAN-NOETA к bcc090a3 (этот артефакт), §2-§3",
+          "observation": "В отданном коде next_check_ts = null, кроме доказанного «последний вызов провайдера + кулдаун» в будущем (services/meme_initiative.py:3669-3676, 3911-3918); readiness берётся из закрытого списка фактов (services/initiative_diagnostics.py:2690-2705 и _readiness_candidates); строка «Следующая проверка» удалена из разметки, вместо неё «Не раньше (расчёт)» + основание (web/index.html:3533-3550, тесты 14.1-14.5).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1axes/binding-258192.md",
+          "artifact_sha256": "5f86809f8fbb30c68ce2887f23fe5cd10069fa7b2d49b84697c90425207063d9"
         }
       ],
-      "pending_reason": "Ось и обзор больше не выдумывают ETA (O3 на 726736ee), но acceptance называет конкретный путь: в services/meme_initiative.py `next_check = max(now, last_provider_ts + cooldown)` по-прежнему отдаётся как next_check_ts, и на вкладке «Диагностика мемов» он рисуется строкой «Следующая проверка» с подписью «из записанного состояния прохода» (web/index.html:3409-3415, web/app.js:3201). Кандидат этот путь не менял (O11). Строка остаётся PENDING до правки этого пути: не подставлять now и не отдавать такое значение как время следующей попытки."
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L083-A",
@@ -1097,7 +1114,7 @@
         "MEME-IIC-DIAG-UI"
       ],
       "delta": "Поля «последняя проверка/публикация» уже были; добавляется явное разделение проверки, попытки и доставки.",
-      "pending_reason": "Не подтверждена подпись нулевой квоты (на проде у мемов 3/3, у текста «квота не прочитана») и не сведено расхождение времени «последней попытки»: кадр показывает 16:42 UTC, а `last_attempt.at` той же выборки — 16:27:40Z.",
+      "pending_reason": "Не подтверждена подпись нулевой квоты (у мемов 3/3, у текста «квота не прочитана»), и не закрыто расхождение времени «последней попытки»: кадр показывает 16:42, а last_attempt.at той же выборки = 16:27:40Z. Это не сдвиг зоны (14 м 14 с), но какое поле питает отображаемое время — сейчас проверяется (LF-258192-01, field mapping under verification). До ответа строку не повышаем.",
       "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
@@ -1189,7 +1206,7 @@
         "HMF-UI-02"
       ],
       "delta": "Ранее требовалось 3–5 событий; здесь 5–10 попыток с режимом и причиной.",
-      "pending_reason": "В живом кадре регион «Последние попытки» пуст: «Последних действий в журнале нет» при наличии попытки 16:42 в карточке; 5–10 строк (manual/auto, тип, время, итог, причина) по проду не подтверждены.",
+      "pending_reason": "Регион «Последние попытки» показывает «Последних действий в журнале нет» при непустом журнале — подтверждённый дефект отображения (LF-258192-02): строку даёт moduleLastEventLine(workspaceModule), которая возвращает пусто для mod_initiative (moduleHealthView знает только mod_vision/mod_sleep/mod_experience; web/app.js:22882-22917, index.html:1884-1888), хотя журнал тем же API отдаёт 327 строк. Исправление в работе; 5–10 строк с manual/auto по проду пока не подтверждены.",
       "binding_258191": "kept REVIEW on deployed a6884ad7: live evidence does not show this acceptance (binding-258191.md §4.2)"
     },
     {
@@ -1418,8 +1435,26 @@
       "acceptance": "Список попыток: одна строка = одна попытка, с временем, чатом, типом, источником (авто или `/meme`), стадиями, результатом и признаком «доставлено / не подтверждено»; ошибка видна в конкретном шаге.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "40 отрисованных строк на каждый чат, строка = одна попытка (meme:-1004482340693:2026-11-11:eb1a0f38ea0d, 5ccb0131a0c142ad): время, тип «Мемы»/«Текст», чат, источник «авто», стадии «Рассмотрено → Пропуск», исход, «доставлено · сообщение 10414» либо «отправки не было: бот решил не публиковать», ошибка названа в шаге («ошибка на шаге «Пропуск»»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "ui",
+          "ref": "Привязка среза S4-TRACE к bcc090a3 (этот артефакт), §2",
+          "observation": "Источник /meme на данных прода после выкладки не встречался; эта половина закрыта одобренными тестами 13.1/13.2 на байт-идентичной сборке (isManual, ручной словарь шагов, автоматической попытке ручные шаги не приписываются).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+          "artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02"
+        }
+      ],
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L100-B",
@@ -1438,7 +1473,8 @@
       "covered_by": [
         "HMF-UI-06"
       ],
-      "delta": "Фильтры уже требовались; добавляется серверная пагинация/поиск с учётом ретенции."
+      "delta": "Фильтры уже требовались; добавляется серверная пагинация/поиск с учётом ретенции.",
+      "pending_reason": "Фильтры (чат, период, механизм, ручной запуск, исход, причина), пагинация и поиск по серверным данным с учётом существующей ретенции в живом проходе не нажимались: открыт только вид по умолчанию."
     },
     {
       "source_id": "MANUAL-L102-A",
@@ -1452,8 +1488,26 @@
       "acceptance": "Клик раскрывает связную трассу: Триггер → Настройки и условия → Окно сообщений → Выжимка (LLM) → Прикол (LLM) → Сборка prompt → Image API → Бронь/координация → Telegram-доставка, с объяснением места остановки; для текстовой инициативы показываются только её реальные этапы, без выдуманных «Прикол» и «Картинка».",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Раскрытие остановленной попытки даёт связную цепочку из 9 шагов (trigger, gates, messages, summary, joke, image, claim, send, result) со статусом «остановилось на шаге «Обязательные гейты»: суточная квота исчерпана»; шаги после гейта помечены not_run. Опубликованная текстовая попытка 5ccb0131a0c142ad проходит ровно свои 6 шагов (trigger, gates, context, decision, send, result) — «Прикол» и «Картинка» ей не приписаны (journal_live[0].expanded_trace_stop / expanded_trace_published).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "ui",
+          "ref": "Привязка среза S4-TRACE к bcc090a3 (этот артефакт), §2",
+          "observation": "В отданной сборке шаги заданы фиксированными словарями meme_manual/meme_auto/text (app.js:3315-3349): текст получает 6 своих этапов, мем — 9; сборка промпта отдельной строкой не выводится, её факты лежат в шаге «Запрос картинки» (app.js:3790-3800).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+          "artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02"
+        }
+      ],
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L102-B",
@@ -1472,7 +1526,8 @@
       "covered_by": [
         "HMF-UI-07"
       ],
-      "delta": "Группы инспектора уже были; добавляются вход/выход, длительность и ID запроса по каждому шагу."
+      "delta": "Группы инспектора уже были; добавляются вход/выход, длительность и ID запроса по каждому шагу.",
+      "pending_reason": "Живьём у шага видны состояние, отметка времени и текст. Не выводятся измеренная длительность, отдельные вход/выход, источник шага и ID запроса; модель появляется только в note шага «Прикол» и только если записана. В представлении шага отданной сборки нет ни duration, ни request_id."
     },
     {
       "source_id": "MANUAL-L102-C",
@@ -1486,10 +1541,28 @@
       "acceptance": "Незапускавшиеся этапы обозначены «не выполнялся» и не выдаются за реальный запрос со статусом skipped.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Незапускавшиеся шаги показаны как «не выполнялось» / «до выжимки не дошло», отсутствие записи — «нет данных» («нет записи об окне сообщений»), вывод из соседних фактов — «по косвенному факту»; ни один невыполненный шаг не выдан за реальный запрос со статусом skipped.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "test",
+          "ref": "Привязка среза S4-TRACE к bcc090a3 (этот артефакт), §2",
+          "observation": "Метки состояний шага заданы словарём INI_STEP_STATE_LABELS (app.js:3353-3360); регрессы 15.1 (нет факта этапа ≠ «не выполнялось», если позже есть факты) и 13.3 (ранний отказ на гейтах: стоп назван, дальнейшие шаги не выполнялись).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+          "artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02"
+        }
+      ],
       "covered_by": [],
-      "delta": "Новое: запрет приписывать невыполненным этапам статус пропущенного вызова."
+      "delta": "Новое: запрет приписывать невыполненным этапам статус пропущенного вызова.",
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L104-A",
@@ -1504,7 +1577,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "pending_reason": "После выкладки 2.58.192 ни одна попытка не дошла до LLM/Image API: мем-попытки обоих чатов стоят на гейте суточной квоты, опубликованная текстовая показывает только решение → отправку → результат. Поэтому в одной попытке не подтверждены фактический провайдер/модель/слот, версии и источники системных промптов, реально отправленные messages, выжимка и прикол, итоговый image prompt, запрос/статус image API, формат и наличие картинки. Код это выводит (joke.note: манифест, ревизии, «модель не записана» — тест 13.1), но живого носителя нет."
     },
     {
       "source_id": "MANUAL-L104-B",
@@ -1524,7 +1598,8 @@
         "HMF-UI-05",
         "MEME-IIC-MANUAL-PRIORITY"
       ],
-      "delta": "Факт ручного запуска уже показывался; добавляются права, бронь, release и TTL как отдельные факты трассы."
+      "delta": "Факт ручного запуска уже показывался; добавляются права, бронь, release и TTL как отдельные факты трассы.",
+      "pending_reason": "Ручных попыток /meme после выкладки не было: проверка прав, приоритет, бронь, release и TTL конкретной попытки на проде не наблюдались."
     },
     {
       "source_id": "MANUAL-L106-A",
@@ -1546,7 +1621,8 @@
         "SD1-D2-06",
         "HMF-UI-07"
       ],
-      "delta": "Защищённый payload inspector, аудит без секретов и protected readback уже существуют; добавляется per-chat RBAC-раскрытие, политика хранения и честная пометка старых следов."
+      "delta": "Защищённый payload inspector, аудит без секретов и protected readback уже существуют; добавляется per-chat RBAC-раскрытие, политика хранения и честная пометка старых следов.",
+      "pending_reason": "Не проверены RBAC-негатив (чужой администратор), редактирование секретов/credential headers до хранения и показа, явная политика хранения и честная пометка старых следов «полный текст исторически не сохранялся». Проход был read-only под своим чатом."
     },
     {
       "source_id": "MANUAL-L106-B",
@@ -1590,7 +1666,8 @@
         "HMF-UI-06",
         "EVOL-042"
       ],
-      "delta": "Часть состояний уже различалась; добавляется полный обязательный словарь из десяти состояний."
+      "delta": "Часть состояний уже различалась; добавляется полный обязательный словарь из десяти состояний.",
+      "pending_reason": "Состояния «данные устарели» в продукте нет: data_state принимает только ok|no_data (services/initiative_diagnostics.py:2480,2512,2831), клиент рисует лишь «нет данных». Остальные девять различимы, но живьём наблюдались 6 из 10: «бот решил промолчать», «картинка готова», «доставка отложена», «доставка неизвестна» на данных прода после выкладки не встретились."
     },
     {
       "source_id": "MANUAL-L108-B",
@@ -1609,7 +1686,8 @@
       "covered_by": [
         "MEME-IIC-DIAG-NO-MIX"
       ],
-      "delta": "Разделение аналитики и воронки уже было; добавляются раздельные счётчики пяти величин."
+      "delta": "Разделение аналитики и воронки уже было; добавляются раздельные счётчики пяти величин.",
+      "pending_reason": "Счётчики журнала несут checked, decided, published, delivered, pending, delivery_unknown, text, meme (app.js:4290-4305, index.html:3049-3062): отдельных величин LLM-вызовов и изображений в продукте нет, то есть из пяти требуемых величин две отсутствуют. Разделение considered и публикации живьём есть (327 проверено против 12 опубликовано)."
     },
     {
       "source_id": "MANUAL-L108-C",
@@ -1623,14 +1701,32 @@
       "acceptance": "Технические коды видны только в деталях рядом с русским объяснением; неизвестный код показывается без ложной интерпретации, а в главном слое внутренних кодов нет.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "В 80 свёрнутых строках двух чатов — 0 машинных кодов (collapsed_raw_codes: none в обоих чатах и на узкой ширине); код виден только в раскрытом шаге рядом с русским объяснением («код: daily_quota_reached»; у опубликованной попытки — default).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "ui",
+          "ref": "Кадр раскрытой трассы остановленной попытки на отданной сборке",
+          "observation": "Код daily_quota_reached показан внутри раскрытого шага «Обязательные гейты» вместе с русской причиной; в свёрнутом слое строки кода нет.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/trace-stop-1536x960.png",
+          "artifact_sha256": "1a56251becfeb311afe16fae1769b480d8e5e0f72ceb325a0c729e446eb33f46"
+        }
+      ],
       "covered_by": [
         "UR-20.1",
         "UR-20.9",
         "HMF-UI-05"
       ],
-      "delta": "Правило «без внутренних кодов без расшифровки» уже действует в «Ответах в чате»; здесь оно распространяется на трассу инициативы."
+      "delta": "Правило «без внутренних кодов без расшифровки» уже действует в «Ответах в чате»; здесь оно распространяется на трассу инициативы.",
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L108-3",
@@ -1646,7 +1742,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» доказана (id-less -> unknown, confirmed только с message_id), но «considered не считается публикацией» показывает S4-TRACE (P0IM-PB-VOCAB, P0IM-PB-COUNT); доказательств по этой половине пока нет."
+      "pending_reason": "Половина «отложенная/id-less отправка не считается доставленной» подтверждена (три состояния доставки, app.js:4503-4548), и considered больше не слит с публикацией (живьём 327 проверено против 12 опубликовано). Не хватает требуемой величины «сгенерировано»: в счётчиках журнала её нет вовсе, поэтому шесть величин не разведены полностью."
     },
     {
       "source_id": "MANUAL-L112-A",
@@ -2009,18 +2105,26 @@
       "acceptance": "ETA не выводится из периодичности и не считается «последняя проверка + N»; next_eligible_at присутствует только из доказанного базиса (meme cooldown с last_provider_ts, конец quiet hours, day.next_reset_iso, чужой last_publish_ts+интервал, живой manual_priority_until, text next_eval_ts в будущем), иначе null и «следующий тик / время неизвестно». availability().next_check_ts, подставляющий now при отсутствии кулдауна, не отдаётся как время следующей попытки.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Обзор на проде печатает границы только с названным основанием: мемы — «Дальше не раньше 12.11 00:00 UTC (по сбросу суточного лимита)», текст — «Дальше не раньше 11.11 19:13 UTC (по интервалу оценки)». Ни одна строка не выдаёт расчётную границу за расписание и не подставляет «сейчас» (overview_axes_live).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
           "type": "ui",
-          "ref": "Обзорная половина на 726736ee (наблюдение O3)",
-          "observation": "O3: обзор печатает время только при серверном штампе и названном основании, без основания «не раньше» не появляется; readiness.next_eligible_at считается закрытым списком фактов (_readiness_candidates), периодичность как базис не используется.",
-          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
-          "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+          "ref": "Привязка P0IM-BAN-NOETA к bcc090a3 (этот артефакт), §2-§3",
+          "observation": "В отданном коде next_check_ts = null, кроме доказанного «последний вызов провайдера + кулдаун» в будущем (services/meme_initiative.py:3669-3676, 3911-3918); readiness берётся из закрытого списка фактов (services/initiative_diagnostics.py:2690-2705 и _readiness_candidates); строка «Следующая проверка» удалена из разметки, вместо неё «Не раньше (расчёт)» + основание (web/index.html:3533-3550, тесты 14.1-14.5).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1axes/binding-258192.md",
+          "artifact_sha256": "5f86809f8fbb30c68ce2887f23fe5cd10069fa7b2d49b84697c90425207063d9"
         }
       ],
-      "pending_reason": "Ось и обзор больше не выдумывают ETA (O3 на 726736ee), но acceptance называет конкретный путь: в services/meme_initiative.py `next_check = max(now, last_provider_ts + cooldown)` по-прежнему отдаётся как next_check_ts, и на вкладке «Диагностика мемов» он рисуется строкой «Следующая проверка» с подписью «из записанного состояния прохода» (web/index.html:3409-3415, web/app.js:3201). Кандидат этот путь не менял (O11). Строка остаётся PENDING до правки этого пути: не подставлять now и не отдавать такое значение как время следующей попытки."
+      "pending_reason": null
     },
     {
       "source_id": "MANUAL-L132-A",
@@ -2743,15 +2847,23 @@
       "acceptance": "ETA не выводится из периодичности и не считается «последняя проверка + N»; next_eligible_at присутствует только из доказанного базиса (meme cooldown с last_provider_ts, конец quiet hours, day.next_reset_iso, чужой last_publish_ts+интервал, живой manual_priority_until, text next_eval_ts в будущем), иначе null и «следующий тик / время неизвестно». availability().next_check_ts, подставляющий now при отсутствии кулдауна, не отдаётся как время следующей попытки.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Обзор на проде печатает границы только с названным основанием: мемы — «Дальше не раньше 12.11 00:00 UTC (по сбросу суточного лимита)», текст — «Дальше не раньше 11.11 19:13 UTC (по интервалу оценки)». Ни одна строка не выдаёт расчётную границу за расписание и не подставляет «сейчас» (overview_axes_live).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
           "type": "ui",
-          "ref": "Обзорная половина на 726736ee (наблюдение O3)",
-          "observation": "O3: обзор печатает время только при серверном штампе и названном основании, без основания «не раньше» не появляется; readiness.next_eligible_at считается закрытым списком фактов (_readiness_candidates), периодичность как базис не используется.",
-          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-726736ee.md",
-          "artifact_sha256": "390075b630a3b673c4272e0a66b65dccdb5a793b3323c6f8da6ab8a933dd7132"
+          "ref": "Привязка P0IM-BAN-NOETA к bcc090a3 (этот артефакт), §2-§3",
+          "observation": "В отданном коде next_check_ts = null, кроме доказанного «последний вызов провайдера + кулдаун» в будущем (services/meme_initiative.py:3669-3676, 3911-3918); readiness берётся из закрытого списка фактов (services/initiative_diagnostics.py:2690-2705 и _readiness_candidates); строка «Следующая проверка» удалена из разметки, вместо неё «Не раньше (расчёт)» + основание (web/index.html:3533-3550, тесты 14.1-14.5).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s1axes/binding-258192.md",
+          "artifact_sha256": "5f86809f8fbb30c68ce2887f23fe5cd10069fa7b2d49b84697c90425207063d9"
         }
       ],
       "covered_by": [
@@ -2759,7 +2871,7 @@
         "MEME-IIC-PROHIB-HARDCODED-TIMINGS"
       ],
       "delta": "Следующая проверка уже берётся из реальных данных; добавляется запрет на вычисленный на глаз ETA.",
-      "pending_reason": "Ось и обзор больше не выдумывают ETA (O3 на 726736ee), но acceptance называет конкретный путь: в services/meme_initiative.py `next_check = max(now, last_provider_ts + cooldown)` по-прежнему отдаётся как next_check_ts, и на вкладке «Диагностика мемов» он рисуется строкой «Следующая проверка» с подписью «из записанного состояния прохода» (web/index.html:3409-3415, web/app.js:3201). Кандидат этот путь не менял (O11). Строка остаётся PENDING до правки этого пути: не подставлять now и не отдавать такое значение как время следующей попытки."
+      "pending_reason": null
     },
     {
       "source_id": "L00032",
@@ -2982,7 +3094,8 @@
         "EVOL-042",
         "MEME-JOKE-DIAG-REVISIONS"
       ],
-      "delta": "Prompt manifest и ревизии слоёв уже отдавались, Effective Prompt Inspector показывает реальный payload; добавляется сквозная связка промпт → image → доставка по одной попытке."
+      "delta": "Prompt manifest и ревизии слоёв уже отдавались, Effective Prompt Inspector показывает реальный payload; добавляется сквозная связка промпт → image → доставка по одной попытке.",
+      "pending_reason": "После выкладки 2.58.192 ни одна попытка не дошла до LLM/Image API: мем-попытки обоих чатов стоят на гейте суточной квоты, опубликованная текстовая показывает только решение → отправку → результат. Поэтому в одной попытке не подтверждены фактический провайдер/модель/слот, версии и источники системных промптов, реально отправленные messages, выжимка и прикол, итоговый image prompt, запрос/статус image API, формат и наличие картинки. Код это выводит (joke.note: манифест, ревизии, «модель не записана» — тест 13.1), но живого носителя нет."
     },
     {
       "source_id": "L00043",
@@ -3011,13 +3124,31 @@
       "acceptance": "Клик раскрывает связную трассу: Триггер → Настройки и условия → Окно сообщений → Выжимка (LLM) → Прикол (LLM) → Сборка prompt → Image API → Бронь/координация → Telegram-доставка, с объяснением места остановки; для текстовой инициативы показываются только её реальные этапы, без выдуманных «Прикол» и «Картинка».",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "Раскрытие остановленной попытки даёт связную цепочку из 9 шагов (trigger, gates, messages, summary, joke, image, claim, send, result) со статусом «остановилось на шаге «Обязательные гейты»: суточная квота исчерпана»; шаги после гейта помечены not_run. Опубликованная текстовая попытка 5ccb0131a0c142ad проходит ровно свои 6 шагов (trigger, gates, context, decision, send, result) — «Прикол» и «Картинка» ей не приписаны (journal_live[0].expanded_trace_stop / expanded_trace_published).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "ui",
+          "ref": "Привязка среза S4-TRACE к bcc090a3 (этот артефакт), §2",
+          "observation": "В отданной сборке шаги заданы фиксированными словарями meme_manual/meme_auto/text (app.js:3315-3349): текст получает 6 своих этапов, мем — 9; сборка промпта отдельной строкой не выводится, её факты лежат в шаге «Запрос картинки» (app.js:3790-3800).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+          "artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02"
+        }
+      ],
       "covered_by": [
         "HMF-UI-06",
         "HMF-UI-07"
       ],
-      "delta": "Цепочка событий и технический инспектор уже требовались; добавляется фиксированный словарь этапов включая image API и координацию, а также объяснение места остановки."
+      "delta": "Цепочка событий и технический инспектор уже требовались; добавляется фиксированный словарь этапов включая image API и координацию, а также объяснение места остановки.",
+      "pending_reason": null
     },
     {
       "source_id": "L00046",
@@ -3059,12 +3190,30 @@
       "acceptance": "Список попыток: одна строка = одна попытка, с временем, чатом, типом, источником (авто или `/meme`), стадиями, результатом и признаком «доставлено / не подтверждено»; ошибка видна в конкретном шаге.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "live",
+          "ref": "Живой read-only проход по отданной сборке 2.58.192 после рестарта 2026-11-11T19:05:11Z; оба реальных чата, TMA initData, только чтение (release-258192/deploy.md §5)",
+          "observation": "40 отрисованных строк на каждый чат, строка = одна попытка (meme:-1004482340693:2026-11-11:eb1a0f38ea0d, 5ccb0131a0c142ad): время, тип «Мемы»/«Текст», чат, источник «авто», стадии «Рассмотрено → Пропуск», исход, «доставлено · сообщение 10414» либо «отправки не было: бот решил не публиковать», ошибка названа в шаге («ошибка на шаге «Пропуск»»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+          "artifact_sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee"
+        },
+        {
+          "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+          "type": "ui",
+          "ref": "Привязка среза S4-TRACE к bcc090a3 (этот артефакт), §2",
+          "observation": "Источник /meme на данных прода после выкладки не встречался; эта половина закрыта одобренными тестами 13.1/13.2 на байт-идентичной сборке (isManual, ручной словарь шагов, автоматической попытке ручные шаги не приписываются).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+          "artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02"
+        }
+      ],
       "covered_by": [
         "HMF-UI-06"
       ],
-      "delta": "Одна строка = одна попытка уже требовалась; добавляется обязательный признак доставки и ошибка в шаге."
+      "delta": "Одна строка = одна попытка уже требовалась; добавляется обязательный признак доставки и ошибка в шаге.",
+      "pending_reason": null
     },
     {
       "source_id": "L00051",
@@ -3468,7 +3617,7 @@
       "API отдаёт выбранный чат (X-Chat-Id эхом как chat_id); без заголовка 422 и master-only фолбэк — утечки нет"
     ]
   },
-  "candidate_note": "candidate_commit — выложенный релизный коммит 2.58.191 (a6884ad7): база 7c3c01b2 + одобренный корректива 726736ee (init/meme-axes) + инструментальный 10ab50b5 + пины версии. Идентичность одобренному коду доказана побайтово телами патчей (binding-258191.md §2), поэтому вердикты Reviewer на 726736ee и 4c59a483 относятся к выложенному коду. Старые candidate-bound записи (726736ee, 4c59a483) сохранены в evidence как история и не переписаны — для review/release другого среза карты это поле по-прежнему заменяется его кандидатом.",
+  "candidate_note": "candidate_commit — выложенный релизный коммит 2.58.192 (bcc090a3): база a6884ad7 (2.58.191) + одобренные головы ветки init/meme-axes (S4-TRACE: 430703be, 4b5d0169, 03061d57, a1fae849; P0IM-BAN-NOETA: 0bca3d16 поверх a590e3b2) + пины версии. Идентичность одобренному коду доказана побайтово телами патчей и sha256 отданного web/app.js (release-258192/deploy.md §1), поэтому вердикты Reviewer на этих головах относятся к выложенному коду. Старые candidate-bound записи (4c59a483, 726736ee, a6884ad7, c087253d) сохранены как история и НЕ переписаны: их якоря остаются преддеплойными, и release-гейт честно показывает этот разрыв.",
   "residual_windows": [
     {
       "id": "RW-D4-BOTH-WRITE-FAIL",
@@ -3489,7 +3638,7 @@
     }
   ],
   "slice_progress": {
-    "S1-AXES": "backend принят на 4c59a483; на выложенном 2.58.191 (a6884ad7) P0IM-BAN-ENABLED и P0IM-AX-SERVER переведены в VERIFIED живыми осями (configuration и readiness — разные поля; enabled=false только от явной настройки; пять осей одним ответом на чат). P0IM-BAN-CONFLATE остаётся PENDING (вторая половина «considered не считается публикацией» показывает S4-TRACE: P0IM-PB-VOCAB, P0IM-PB-COUNT), P0IM-BAN-NOETA остаётся PENDING: исправление a590e3b2 → 0bca3d16 ждёт вердикта и в 2.58.191 не выложено.",
+    "S1-AXES": "На 2.58.192 (bcc090a3) P0IM-BAN-NOETA переведена в VERIFIED: в отданном коде next_check_ts не подставляет now и появляется только как доказанная нижняя граница «последний вызов провайдера + кулдаун»; readiness считает закрытый список фактов, а сброс суточной квоты идёт отдельным основанием «по сбросу суточного лимита»; строки «Следующая проверка» в разметке больше нет. P0IM-BAN-CONFLATE остаётся PENDING: considered больше не слит с публикацией, но величины «сгенерировано» в счётчиках нет. P0IM-BAN-ENABLED, P0IM-AX-SERVER и P0IM-AX-* сохранены с прежними якорями (4c59a483/726736ee/a6884ad7) и в этом релизе не перепривязывались.",
     "S2-ID": "принят на 4c59a483 по идентичности, режиму, historical и child-call; P0IM-ID-FINISH держится открытым остаточным окном RW-D4-BOTH-WRITE-FAIL, P0IM-ID-CONC ждёт S7-ACCEPT/targeted probe",
     "S3-OV": {
       "state": "DEPLOYED IN 2.58.191 (a6884ad7): 10 строк VERIFIED по живым осям и кадру прода; 11 строк REVIEW с названным недобором",
@@ -3560,7 +3709,71 @@
         "«Сравнить чаты» читает второй чат существующим эндпоинтом со своим X-Chat-Id; на проде этот режим не открывался."
       ]
     },
-    "S4-TRACE": "Одобрен Reviewer на a1fae849 (цепочка 430703be → 4b5d0169 → 03061d57 → a1fae849), НЕ выложен: 2.58.191 его не содержит, кандидат едет следующим релизом. Строки P0IM-PB-* намеренно оставлены PENDING: привязка к a1fae849 требует артефактов `evidence/S4-TRACE/*` с этого кандидата, которых нет в текущем checkout — это следующий шаг PM, а не выкладка."
+    "S4-TRACE": {
+      "state": "DEPLOYED IN 2.58.192 (bcc090a3): 6 строк (4 уникальных) VERIFIED живыми данными прода, 8 строк (7 уникальных) открыты с названным недобором",
+      "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "deployed_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "deployed_version": "2.58.192",
+      "base_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+      "slice_commits": [
+        "430703be",
+        "4b5d0169",
+        "03061d57",
+        "a1fae849"
+      ],
+      "release_commits": [
+        "be7ff3b2",
+        "8228b984",
+        "d6089303",
+        "94c63bd8",
+        "f8ca6e01",
+        "6425fb0e"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "web/api/initiative_publications.py",
+        "services/initiative_diagnostics.py",
+        "services/meme_initiative.py",
+        "tests/js/initiative_ui_rework_test.js",
+        "tests/ui_initiative_rework_e2e.py",
+        "tests/test_meme_init_diagnostics.py",
+        "tests/test_initiative_publications_api.py"
+      ],
+      "owns_req_ids": [
+        "P0IM-PB-ACCESS",
+        "P0IM-PB-CODES",
+        "P0IM-PB-COUNT",
+        "P0IM-PB-FILTERS",
+        "P0IM-PB-LLM",
+        "P0IM-PB-MANUAL",
+        "P0IM-PB-NOTRUN",
+        "P0IM-PB-ROW",
+        "P0IM-PB-STEP",
+        "P0IM-PB-TRACE",
+        "P0IM-PB-VOCAB"
+      ],
+      "verified_req_ids": [
+        "P0IM-PB-CODES",
+        "P0IM-PB-NOTRUN",
+        "P0IM-PB-ROW",
+        "P0IM-PB-TRACE"
+      ],
+      "pending_req_ids": [
+        "P0IM-PB-ACCESS",
+        "P0IM-PB-COUNT",
+        "P0IM-PB-FILTERS",
+        "P0IM-PB-LLM",
+        "P0IM-PB-MANUAL",
+        "P0IM-PB-STEP",
+        "P0IM-PB-VOCAB"
+      ],
+      "binding_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+      "binding_artifact_sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02",
+      "weakest_binding": "P0IM-PB-VOCAB и P0IM-PB-COUNT: в продукте нет состояния «данные устарели» и нет отдельных счётчиков LLM-вызовов/изображений — это не вопрос доказательств, а недоделанные пункты acceptance.",
+      "accounting_note": "S4 не переписывает строки S1/S3; P0IM-BAN-CONFLATE по-прежнему ждёт S4 (PB-COUNT). Строки PB-* двух исходных указателей (L00045/L00047/L00041 и MANUAL-L100/L102/L104/L106/L108) обновлены синхронно."
+    }
   },
   "binding_log": [
     {
@@ -3664,6 +3877,53 @@
       "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
       "artifact_sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc",
       "note": "Привязка к выложенному a6884ad7, не «зелёной серией»: каждая из 14 строк закрыта живым наблюдением прода (оси API и кадр отданной сборки), каждая из 11 оставленных называет точный недобор. Идентичность выложенного кода одобренному 726736ee пересчитана заново (54 файла дельты, побайтовое совпадение тел патчей app.js/index.html, одна строка версии в settings.py, routes.py и пять других файлов байт-в-байт)."
+    },
+    {
+      "date": "2026-11-12",
+      "slice_ids": [
+        "S4-TRACE",
+        "S1-AXES",
+        "S3-OV"
+      ],
+      "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "deployed_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "deployed_version": "2.58.192",
+      "rows_touched": 15,
+      "verified_req_ids": [
+        "P0IM-PB-TRACE",
+        "P0IM-PB-ROW",
+        "P0IM-PB-NOTRUN",
+        "P0IM-PB-CODES",
+        "P0IM-BAN-NOETA"
+      ],
+      "pending_req_ids": [
+        "P0IM-PB-LLM",
+        "P0IM-PB-STEP",
+        "P0IM-PB-FILTERS",
+        "P0IM-PB-MANUAL",
+        "P0IM-PB-ACCESS",
+        "P0IM-PB-COUNT",
+        "P0IM-PB-VOCAB",
+        "P0IM-BAN-CONFLATE"
+      ],
+      "rows_verified": 10,
+      "rows_kept_open": 8,
+      "rows_kept_review": 2,
+      "artifacts": [
+        "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+        "plans/features/p0-init-meme-ux-diag/evidence/s1axes/binding-258192.md",
+        "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+        "plans/features/p0-init-meme-ux-diag/release-258192/deploy.md",
+        "plans/features/p0-init-meme-ux-diag/release-258192/pm-binding.md"
+      ],
+      "artifact_sha256": {
+        "S4DOC": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02",
+        "S1DOC": "5f86809f8fbb30c68ce2887f23fe5cd10069fa7b2d49b84697c90425207063d9",
+        "LIVE": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee",
+        "DEPLOY": "7142fe8fd2d76433e78177f022a1e6a791a523908e58a0c831e143ee381d44fb",
+        "PMDOC": "2d04c5295bc7064700d5c2f6737205ffc16e81101bd7814256ce7b5256826a62"
+      },
+      "note": "Ни одна строка не повышена «за зелёную серию»: PB-* поднимались только там, где живой прод-проход прямо показывает acceptance, иначе назван конкретный недобор. Старые якоря преддеплойных кандидатов не переписаны — release-гейт показывает этот разрыв отдельно."
     }
   ],
   "recorded_limits": [
@@ -3680,44 +3940,57 @@
       "candidate_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
       "statement": "Режим «Сравнить чаты» читает второй чат существующим эндпоинтом со своим X-Chat-Id; серверного агрегата, третьего вычисленного набора и усреднения нет. На проде этот режим не открывался — снят только «Этот чат».",
       "consequence": "P0IM-OV-PERCHAT-CAUSE остаётся REVIEW: подача разницы как двух подписанных колонок по реальным чатам не подтверждена."
+    },
+    {
+      "id": "S4TRACE-NO-LLM-IMAGE-ATTEMPT-AFTER-DEPLOY",
+      "slice": "S4-TRACE",
+      "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "statement": "После выкладки 2.58.192 обе мем-попытки реальных чатов остановились на гейте суточной квоты; ни одна не дошла до LLM A/B и Image API. Единственная опубликованная попытка — текстовая (5ccb0131a0c142ad, сообщение 10414).",
+      "consequence": "P0IM-PB-LLM оставлен PENDING: связка провайдер/модель/версии промптов/реальные messages/image API не подтверждена на живом носителе, хотя код её выводит."
+    },
+    {
+      "id": "S4TRACE-NO-MANUAL-ATTEMPT-AFTER-DEPLOY",
+      "slice": "S4-TRACE",
+      "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "statement": "Ручной /meme после выкладки не запускался (владелец не является QA; запуск требует записи в реальный чат, чего в read-only проходе не делалось).",
+      "consequence": "P0IM-PB-MANUAL оставлен PENDING; ручной словарь шагов подтверждён только одобренными тестами 13.1 на байт-идентичной сборке."
+    },
+    {
+      "id": "S4TRACE-FILTERS-NOT-EXERCISED",
+      "slice": "S4-TRACE",
+      "candidate_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "statement": "Фильтры, пагинация и поиск журнала в живом проходе не нажимались: открывался только вид по умолчанию и раскрытие двух попыток.",
+      "consequence": "P0IM-PB-FILTERS оставлен PENDING с названным недобором."
     }
   ],
   "next_release_note": {
-    "wave": "следующий релиз (после 2.58.191)",
-    "candidates": [
-      {
-        "commit": "a1fae8496f447d9ad7460bb94ed9687af7f1fd92",
-        "scope": "S4-TRACE — связная трасса попытки в «Публикациях»/«Диагностике»",
-        "chain": [
-          "430703be",
-          "4b5d0169",
-          "03061d57",
-          "a1fae849"
-        ],
-        "state": "одобрено Reviewer, НЕ выложено",
-        "note": "в a1fae849 найден и исправлен реальный узкий дефект вёрстки (строка журнала и шапка трассы обрезались: scrollWidth 516 при clientWidth 340 на 390 px, 310 на 360 px), с замерами и регрессионным утверждением run_row_wrap"
-      },
-      {
-        "commit": "0bca3d16",
-        "scope": "P0IM-BAN-NOETA — вычисленная граница больше не выдаётся за расписание",
-        "supersedes": "a590e3b2",
-        "state": "ждёт вердикта Reviewer",
-        "note": "первый ревью нашёл утечку квотного пути: SKIP_QUOTA писал время сброса с подписью «кулдаун»; 0bca3d16 это исправляет и ещё не приговорён"
-      }
-    ],
+    "wave": "следующая волна (после 2.58.192)",
     "deployed_in_current_release": [
       {
-        "commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
-        "scope": "P0-INIT-MEME-UX-DIAG / S3-OV — обзор на пяти осях и переключатель чатов",
-        "state": "выложено в 2.58.191"
-      },
-      {
-        "commit": "10ab50b5",
-        "scope": "только инструменты (scope области ремонта)",
-        "state": "выложено в 2.58.191"
+        "commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+        "version": "2.58.192",
+        "scope": "S4-TRACE (трасса попытки) + P0IM-BAN-NOETA (расчётная граница не расписание)",
+        "state": "выложено 2026-11-11T19:05:11Z; схема v47, DDL=0, откат a6884ad7"
       }
     ],
-    "note": "S4 и NOETA едут следующим релизом; 2.58.191 их не содержит. Отдельная релизная задача не создаётся: заметка для DevOps и оркестратора."
+    "candidates": [
+      {
+        "commit": "8a329875",
+        "scope": "S5-MEME — снятие маркера приоритета и прерывание",
+        "state": "у независимого Reviewer; в 2.58.192 не входит"
+      },
+      {
+        "commit": null,
+        "scope": "S5b — publisher_not_bound не выбрасывает оплаченное изображение",
+        "state": "ждёт вердикта по S5-MEME; в 2.58.192 не входит"
+      },
+      {
+        "commit": null,
+        "scope": "остатки S4-TRACE (PB-LLM/PB-STEP/PB-FILTERS/PB-MANUAL/PB-ACCESS/PB-COUNT/PB-VOCAB)",
+        "state": "требуют живого носителя (попытка, дошедшая до LLM/Image API) и правок счётчиков/словаря состояний"
+      }
+    ],
+    "note": "Отдельная релизная задача не создаётся: заметка для DevOps и оркестратора. S4 и NOETA выложены; P0IM-MM-MARKER, P0IM-AX-* и S5/S5b остаются вне этого релиза."
   },
   "candidate_history": [
     {
@@ -3729,36 +4002,257 @@
       "commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
       "role": "approved corrective candidate (S3-OV, init/meme-axes)",
       "state": "superseded by the reconstructed release commit a6884ad7 which carries the same reviewed content (patch-body identity, see binding-258191.md §2)"
+    },
+    {
+      "commit": "0bca3d16",
+      "role": "approved head of init/meme-axes for 2.58.192 (S4-TRACE 430703be..a1fae849 + P0IM-BAN-NOETA 0bca3d16 superseding a590e3b2)",
+      "state": "approved by independent Reviewer, shipped in release/2.58.192 with byte-identical patch bodies (deploy.md §1)"
+    },
+    {
+      "commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "role": "deployed release commit of 2.58.192",
+      "state": "deployed 2026-11-11T19:05:11Z, healthz 2.58.192, schema v47, rollback a6884ad7"
     }
   ],
-  "deployed_version": "2.58.191",
-  "deployed_branch": "release/2.58.191",
-  "deployed_at_utc": "2026-11-11T16:23:41Z",
+  "deployed_version": "2.58.192",
+  "deployed_branch": "release/2.58.192",
+  "deployed_at_utc": "2026-11-11T19:05:11Z",
   "deployed_evidence": [
     {
-      "path": "plans/features/p0-init-meme-ux-diag/release-258191/deploy.md",
-      "sha256": "4eeec95e48ead06f1b7e11e180e905aeba9fb6c44201b9348e4038991af4dc4a",
-      "what": "отчёт выкладки: привязка кандидата, аддитивность слияния, преддеплойные прогоны, постдеплой, откат"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/deploy.md",
+      "sha256": "7142fe8fd2d76433e78177f022a1e6a791a523908e58a0c831e143ee381d44fb",
+      "what": "отчёт выкладки 2.58.192: привязка кандидата, аддитивность, преддеплойные прогоны, постдеплой, откат"
     },
     {
-      "path": "plans/features/p0-init-meme-ux-diag/release-258191/live-diagnostics-2.58.191.json",
-      "sha256": "0a882ea4d57649b37e26928db0e4f86bd39eeecc713b88fc4e8c10f5fe63a77f",
-      "what": "сырые оси пяти осей по трём чатам из реального ответа API"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json",
+      "sha256": "9caf78478865b94f89d622fb24c6806326c7edb72c8d54d837585dcf48c08aee",
+      "what": "сырые живые значения прода после рестарта: healthz, журнал двух чатов, раскрытая трасса остановки и публикации, оси обзора"
     },
     {
-      "path": "plans/features/p0-init-meme-ux-diag/release-258191/overview-chat-1280x950.png",
-      "sha256": "77d8d46514439040333c8103731a920363a7e539c173f2d318c97059b605450a",
-      "what": "кадр «Обзора» отданной сборки для чата с квотой"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/trace-stop-1536x960.png",
+      "sha256": "1a56251becfeb311afe16fae1769b480d8e5e0f72ceb325a0c729e446eb33f46",
+      "what": "кадр раскрытой трассы остановленной попытки (код только в шаге, место остановки названо)"
     },
     {
-      "path": "plans/features/p0-init-meme-ux-diag/evidence/s3ov/binding-258191.md",
-      "sha256": "1d41580f3218280553b1007ea4985000865bbbba8b6c5018c5751433ed1af3dc",
-      "what": "эта привязка: решение по каждой строке и названный недобор"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/trace-published-1536x960.png",
+      "sha256": "ba3ee41e5750f5aa5c0f12172136ff24bf1b65ff0427652b3af13a2e6310522b",
+      "what": "кадр раскрытой трассы опубликованной текстовой попытки (только её реальные этапы)"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/journal-chatA-1536x960.png",
+      "sha256": "944e11330081c9a2f2b05e01ad12f5d6586b1fedf69d63c94c1442e551ca3b85",
+      "what": "кадр журнала «Публикации» на 1536x960: 40 строк, машинных кодов в свёрнутом слое нет"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/journal-chatA-390x844.png",
+      "sha256": "c214bb96e764d60ddaff7e0c637eb6db21ae04e0f9c8703b070e27073a474034",
+      "what": "тот же журнал на 390x844: узкая ширина без горизонтального переполнения"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/overview-chatA-1536x960.png",
+      "sha256": "65d975ca038449b85ee77d9576a68840b05ed80a8240b5fe614611aab3c224f7",
+      "what": "кадр «Обзора» инициативы: границы «не раньше» с названными основаниями"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/evidence/s4trace/binding-258192.md",
+      "sha256": "53fb03106231ebaa841b49c14f723a2c203ae2f9b0bcda2bae0bbed0a18c5f02",
+      "what": "привязка S4-TRACE: что закрыто живыми данными, что оставлено и с каким недобором"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/evidence/s1axes/binding-258192.md",
+      "sha256": "5f86809f8fbb30c68ce2887f23fe5cd10069fa7b2d49b84697c90425207063d9",
+      "what": "привязка P0IM-BAN-NOETA: код отданной сборки, живые основания границ, тесты 14.1-14.5"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258192/pm-binding.md",
+      "sha256": "2d04c5295bc7064700d5c2f6737205ffc16e81101bd7814256ce7b5256826a62",
+      "what": "бухгалтерская привязка 2.58.192: что закрыто, что открыто, две живые несогласованности, итоги эпика и слова гейтов"
     }
   ],
   "production_baseline_previous": {
-    "release": "2.58.188",
-    "commit": "c087253dd7afdbcfa0c5ee96927324dc349627b2",
-    "branch": "release/2.58.188"
+    "release": "2.58.191",
+    "commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844",
+    "branch": "release/2.58.191",
+    "deployed_at_utc": "2026-11-11T16:23:41Z",
+    "schema_version": 47,
+    "ddl": "none",
+    "new_settings": "none",
+    "predeploy_snapshot": "/tmp/predeploy-258191.db",
+    "rollback_commit": "7c3c01b2"
+  },
+  "live_findings": [
+    {
+      "id": "LF-258192-01",
+      "discovered_on": "2026-11-12",
+      "release": "2.58.192",
+      "deployed_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "slice": "S3-OV",
+      "req_ids": [
+        "P0IM-OV-L3"
+      ],
+      "status": "FIELD_MAPPING_UNDER_VERIFICATION",
+      "classification": "Не дефект «часового пояса» и не подтверждённый продуктовый дефект. Какое поле питает отображаемое время «последней попытки» — проверяется отдельной фокусной проверкой.",
+      "title": "Отображаемое время последней попытки (16:42) против last_attempt.at = 16:27:40Z",
+      "exact_values": {
+        "text_initiative.last_attempt.at": "1794414460 = 2026-11-11T16:27:40Z, stop_stage=lease_held, run_id=init:-1004482340693:20261111:9926b6d84a",
+        "meme.last_attempt.at": "1794414496 = 2026-11-11T16:28:16Z",
+        "text_initiative.readiness.next_eligible_at": "2026-11-11T16:41:54Z",
+        "db_meme_initiative_attempt_16_42_00_16_42_59": "14 строк = 7 попыток, daily_quota_reached",
+        "db_mca_events_16_42": 4,
+        "db_bot_outputs_16_42": 0,
+        "db_text_trace_rows_for_9926b6d84a": 0
+      },
+      "conclusion": "Разница 14 м 14 с не является смещением часового пояса, оба значения пришли одним ответом API; 16:42 принадлежит механизму мемов (или, для текста, расчётной границе next_eligible_at=16:41:54Z), а 16:27:40Z — попытке текстовой инициативы.",
+      "archived_artifact_defect": "release-258191/live-diagnostics-2.58.191.json несёт captured_at_utc=16:44Z, что не соответствует его же содержимому (самое свежее значение мемов 16:28:16). Это дефект метки того архивного артефакта, не продукта; архивный файл не переписывается.",
+      "evidence": [
+        "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json"
+      ],
+      "next": "Фокусная проверка поля, питающего отображаемое время; до результата строка P0IM-OV-L3 остаётся REVIEW.",
+      "task_created": false,
+      "owner_action_required": false
+    },
+    {
+      "id": "LF-258192-02",
+      "discovered_on": "2026-11-12",
+      "release": "2.58.192",
+      "deployed_commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
+      "slice": "S3-OV",
+      "req_ids": [
+        "P0IM-OV-LIST"
+      ],
+      "status": "DISPLAY_DEFECT_CONFIRMED_FIX_IN_FLIGHT",
+      "classification": "Реальный дефект отображения обзора. Не вопрос фильтрации журнала.",
+      "title": "«Последних действий в журнале нет» при непустом журнале попыток",
+      "cause": "Строку даёт moduleLastEventLine(workspaceModule): она возвращает пустую строку для mod_initiative, потому что moduleHealthView знает только mod_vision/mod_sleep/mod_experience, а moduleScopeErrorFor для инициативы пуст. Подпись шапки никогда не читает ни журнал попыток, ни его API.",
+      "code_refs": [
+        "web/app.js:22882-22898 (moduleHealthView)",
+        "web/app.js:22906-22917 (moduleLastEventLine)",
+        "web/index.html:1884-1888 (v-else обзора инициативы)",
+        "web/index.html:1035-1042 (шапка модуля)"
+      ],
+      "journal_reality": "GET /api/initiative/publications по тому же серверу и чату вернул 327 строк за 7 дней; вкладка отрисовала 40 строк и имеет собственный текст пустоты «За выбранный период попыток нет.» (web/index.html:3164).",
+      "filters_involved": "none — ни окно, ни чат, ни механизм к этой подписи не применяются",
+      "fix": "Исправление в работе (отдельная правка обзорной подписи); строка P0IM-OV-LIST остаётся REVIEW, пока живой кадр не покажет реальные последние попытки.",
+      "evidence": [
+        "plans/features/p0-init-meme-ux-diag/release-258192/live-trace-2.58.192.json"
+      ],
+      "task_created": false,
+      "owner_action_required": false
+    }
+  ],
+  "epic_totals": {
+    "as_of": "2026-11-12",
+    "deployed": {
+      "version": "2.58.192",
+      "commit": "bcc090a358d81d510f473b0bba1647a1979113a2"
+    },
+    "required_rows": 112,
+    "unique_req_ids": 75,
+    "by_status": {
+      "VERIFIED": 54,
+      "REVIEW": 11,
+      "PENDING": 47
+    },
+    "by_status_unique": {
+      "PENDING": 35,
+      "VERIFIED": 33,
+      "REVIEW": 7
+    },
+    "by_slice": {
+      "A0-ARCH": {
+        "rows": 1,
+        "unique": 1,
+        "PENDING": 1
+      },
+      "R0-INV": {
+        "rows": 9,
+        "unique": 7,
+        "VERIFIED": 9
+      },
+      "S1-AXES": {
+        "rows": 24,
+        "unique": 10,
+        "PENDING": 3,
+        "VERIFIED": 21
+      },
+      "S2-ID": {
+        "rows": 11,
+        "unique": 8,
+        "PENDING": 3,
+        "VERIFIED": 8
+      },
+      "S3-OV": {
+        "rows": 21,
+        "unique": 14,
+        "REVIEW": 11,
+        "VERIFIED": 10
+      },
+      "S4-TRACE": {
+        "rows": 14,
+        "unique": 11,
+        "PENDING": 8,
+        "VERIFIED": 6
+      },
+      "S5-MEME": {
+        "rows": 6,
+        "unique": 5,
+        "PENDING": 6
+      },
+      "S5b": {
+        "rows": 3,
+        "unique": 3,
+        "PENDING": 3
+      },
+      "S6-FRESH": {
+        "rows": 6,
+        "unique": 4,
+        "PENDING": 6
+      },
+      "S7-ACCEPT": {
+        "rows": 17,
+        "unique": 12,
+        "PENDING": 17
+      }
+    },
+    "fully_open_slices": [
+      "A0-ARCH",
+      "S5-MEME",
+      "S5b",
+      "S6-FRESH",
+      "S7-ACCEPT"
+    ],
+    "partially_open_slices": [
+      "S1-AXES",
+      "S2-ID",
+      "S3-OV",
+      "S4-TRACE"
+    ],
+    "closed_slices": [
+      "R0-INV"
+    ],
+    "verified_anchor_breakdown": {
+      "pre_deploy_only": 44,
+      "with_bcc090a3": 10
+    },
+    "bound_in_this_pass": {
+      "rows": 10,
+      "unique_req_ids": [
+        "P0IM-PB-TRACE",
+        "P0IM-PB-ROW",
+        "P0IM-PB-NOTRUN",
+        "P0IM-PB-CODES",
+        "P0IM-BAN-NOETA"
+      ]
+    },
+    "epic_done": false,
+    "epic_done_blockers": [
+      "open slices: A0-ARCH, S5-MEME, S5b, S6-FRESH, S7-ACCEPT",
+      "S4-TRACE: 8 строк открыты (PB-LLM/PB-STEP/PB-FILTERS/PB-MANUAL/PB-ACCESS/PB-COUNT/PB-VOCAB)",
+      "S1-AXES: P0IM-BAN-CONFLATE (3 строки)",
+      "S2-ID: P0IM-ID-FINISH (2 строки, остаточное окно RW-D4-BOTH-WRITE-FAIL) и P0IM-ID-CONC",
+      "S3-OV: 11 строк REVIEW, включая две живые несогласованности LF-258192-01/02",
+      "release-гейт не зелёный: 44 VERIFIED строки держат якоря преддеплойных кандидатов"
+    ],
+    "note": "Это снимок карты, а не глобальный progress_scope.json: общий прогресс проекта считает Orchestrator. Эпик НЕ завершён."
   }
 }
