@@ -2127,7 +2127,211 @@ async function peekStaleSuite() {
     'отсутствие данных выдано за факт: ' + memeCard(noData).quotaText);
 })();
 
-chatBoundSuite().then(peekStaleSuite).then(function () {
+// ═══ P0IM-S6-FRESH: слой решения, пояс из ответа, штамп сервера ════════════
+// Три вопроса среза проверяются на реальных вычисляемых свойствах `web/app.js`:
+//  1) EFFECTIVE — подпись слоя берётся из `configuration.layers` сервера;
+//  2) TIME — пояс форматирования берётся из `time.timezone`, а не из списка
+//     глобальных параметров;
+//  3) SCOPE — поздний ответ другого чата не применяется, а штамп свежести —
+//     серверный `time.generated_at`.
+async function s6FreshSuite() {
+  assert.ok(typeof computed.iniOverviewTz === 'function',
+    'iniOverviewTz не объявлен: пояс нельзя прочитать из ответа');
+
+  const SERVER_TZ = { name: 'Europe/Moscow', source: 'chat',
+                      offset_seconds: 10800, default_name: 'UTC',
+                      reason: '' };
+  const LAYERS = {
+    enabled: true, source: 'meme_settings', scope: 'mixed', reason: '',
+    layers: [
+      { gate: 'module_gate', layer: 'global', enabled: true,
+        source: 'product', reason: '' },
+      { gate: 'chat_toggle', layer: 'factory', enabled: true,
+        source: 'global', reason: '' },
+      { gate: 'meme_settings', layer: 'chat', enabled: true,
+        source: 'meme_settings', reason: '' },
+    ],
+  };
+
+  // 1) Слои решения: заводское значение названо заводским, а не «общим».
+  const view = computed.memeDiagView.call({
+    activeChatId: CHAT,
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+      time: { generated_at: NOW_TS, basis: 'server_snapshot',
+              timezone: SERVER_TZ },
+      text_initiative: { mechanism: 'text_initiative', available: true,
+                         data_state: 'ok', no_data_reasons: [],
+                         configuration: LAYERS },
+      meme: { mechanism: 'meme', available: true, data_state: 'ok',
+              no_data_reasons: [], configuration: LAYERS },
+    },
+  });
+  assert.ok(view, 'оси карточки не собраны');
+  assert.strictEqual(view.text.axes.configLayersCount, 3);
+  const layersText = view.text.axes.configLayersText || '';
+  assert.ok(layersText.indexOf('заводское значение') > 0,
+    'заводский слой не назван: ' + layersText);
+  assert.ok(layersText.indexOf('слой чата') > 0,
+    'слой чата не назван: ' + layersText);
+  assert.ok(layersText.indexOf('общий слой') > 0,
+    'общий слой не назван: ' + layersText);
+  // Агрегат прежний: новая строка не подменяет «Разрешено».
+  assert.strictEqual(view.text.axes.configState, 'true');
+
+  // Слоёв нет — подпись не выдумывается вовсе.
+  const noLayers = computed.memeDiagView.call({
+    activeChatId: CHAT,
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+      text_initiative: { mechanism: 'text_initiative', available: true,
+                         data_state: 'ok', no_data_reasons: [],
+                         configuration: { enabled: true, source: 'product',
+                                          scope: 'global', reason: '' } },
+      meme: { mechanism: 'meme', available: true, data_state: 'ok',
+              no_data_reasons: [],
+              configuration: { enabled: true, source: 'product',
+                               scope: 'global', reason: '' } },
+    },
+  });
+  assert.strictEqual(noLayers.text.axes.configLayersText, '',
+    'слои нарисованы без данных сервера');
+
+  // 2) Пояс карточки берётся из ответа сервера, а не из configItems.
+  const tzCtx = {
+    activeChatId: CHAT,
+    configItems: [{ key: 'limits.chat_timezone', value: 'America/New_York' }],
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+      time: { generated_at: NOW_TS, basis: 'server_snapshot',
+              timezone: SERVER_TZ },
+      text_initiative: {}, meme: {},
+    },
+  };
+  assert.strictEqual(computed.iniOverviewTimezone.call(tzCtx),
+    'Europe/Moscow', 'пояс взят не из ответа сервера');
+
+  // 3) Штамп свежести серверный и печатается в поясе чата.
+  const scope = computed.iniOverviewScope.call({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [],
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS - 999, chat_id: CHAT,
+      degraded: [],
+      time: { generated_at: NOW_TS, basis: 'server_snapshot',
+              timezone: SERVER_TZ },
+      text_initiative: {}, meme: {},
+    },
+  });
+  assert.strictEqual(scope.timezone, 'Europe/Moscow');
+  assert.strictEqual(scope.timezoneSource, 'chat');
+  assert.strictEqual(scope.timeBasisLabel, 'штамп снимка — сервер');
+  assert.ok(scope.snapshotLabel.indexOf('(сервер)') > 0,
+    'штамп снимка не назван серверным: ' + scope.snapshotLabel);
+  // Штамп напечатан В ПОЯСЕ ЧАТА (а не в UTC и не в поясе устройства).
+  assert.ok(scope.generatedText, 'штамп снимка не показан');
+  assert.strictEqual(scope.generatedText.indexOf(' UTC'), -1,
+    'штамп напечатан в UTC, хотя пояс чата известен: ' + scope.generatedText);
+  // Тот же момент в другом поясе печатается иначе → пояс реально из payload.
+  const sameForTokyo = computed.iniOverviewScope.call({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [],
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+      time: { generated_at: NOW_TS, basis: 'server_snapshot',
+              timezone: { name: 'Asia/Tokyo', source: 'chat',
+                          offset_seconds: 32400, default_name: 'UTC',
+                          reason: '' } },
+      text_initiative: {}, meme: {},
+    },
+  });
+  assert.notStrictEqual(sameForTokyo.generatedText, scope.generatedText,
+    'пояс из ответа не влияет на напечатанное время');
+  // Штамп берётся из БЛОКА ВРЕМЕНИ, а не из тела ответа: меняем только его.
+  const timeStepped = computed.iniOverviewScope.call({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [],
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+      time: { generated_at: NOW_TS - 7200, basis: 'server_snapshot',
+              timezone: SERVER_TZ },
+      text_initiative: {}, meme: {},
+    },
+  });
+  assert.notStrictEqual(timeStepped.generatedText, scope.generatedText,
+    'штамп взят не из time.generated_at');
+  // Пояс не прочитан → время печатается как UTC с ЯВНОЙ пометкой.
+  const tzFailed = computed.iniOverviewScope.call({
+    activeChatId: CHAT,
+    accessChats: [{ chat_id: CHAT, title: 'Чат A' }],
+    configItems: [{ key: 'limits.chat_timezone', value: 'Europe/Moscow' }],
+    memeDiag: {
+      schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+      time: { generated_at: NOW_TS, basis: 'server_snapshot',
+              timezone: { name: null, source: 'read_failed',
+                          offset_seconds: null, default_name: 'UTC',
+                          reason: 'timezone_read_failed' } },
+      text_initiative: {}, meme: {},
+    },
+  });
+  assert.strictEqual(tzFailed.timezoneKnown, false);
+  assert.ok(tzFailed.generatedText.indexOf(' UTC') > 0,
+    'неизвестный пояс не помечен как UTC: ' + tzFailed.generatedText);
+  assert.ok(tzFailed.timezoneLabel.indexOf('не прочитан') >= 0,
+    'неизвестный пояс не назван: ' + tzFailed.timezoneLabel);
+
+  // 3) Поздний ответ другого чата не применяется и не подписывает снимок.
+  const late = loaderCtx(async function () {
+    late.calls++;
+    return diagStub(OTHER_CHAT, 'run-foreign');
+  });
+  late.memeDiag = diagStub(CHAT, 'run-current');
+  await late.loadMemeDiagnostics();
+  assert.strictEqual(late.memeDiag, null,
+    'поздний ответ другого чата применён к карточкам этого чата');
+  assert.ok(String(late.memeDiagError).indexOf('другого чата') >= 0,
+    'отброс чужого ответа не объяснён: ' + late.memeDiagError);
+
+  // 3) Приоритет ручного /meme без серверного штампа не объявляется живым:
+  //    часы браузера в решении не участвуют (P0IM-S6-SCOPE/EXPIRED).
+  const coord = computed.initiativeCoordination.call({
+    memeDiagView: {
+      degraded: [],
+      text: { publication: { manualPriorityActive: false,
+                             manualPriorityUntilText: '',
+                             claimedBy: '', otherKind: '', checkedAtText: '',
+                             conflict: false, intervalText: '' } },
+      meme: { publication: { manualPriorityActive: false,
+                             manualPriorityUntilText: '',
+                             claimedBy: '', otherKind: '', checkedAtText: '',
+                             conflict: false, intervalText: '' } },
+    },
+  });
+  assert.notStrictEqual(coord.state, 'deferred',
+    'ожидание нарисовано без серверного штампа приоритета');
+  // Сырой дедлайн в будущем сам по себе ожиданием НЕ становится: сервер уже
+  // посчитал `manual_priority_active=false` (истёкший маркер).
+  const coordExpired = computed.initiativeCoordination.call({
+    memeDiagView: {
+      degraded: [],
+      text: { publication: { manualPriorityActive: false,
+                             manualPriorityUntilText: '01.01 00:00',
+                             claimedBy: '', otherKind: '', checkedAtText: '',
+                             conflict: false, intervalText: '' } },
+      meme: { publication: { manualPriorityActive: false,
+                             manualPriorityUntilText: '01.01 00:00',
+                             claimedBy: '', otherKind: '', checkedAtText: '',
+                             conflict: false, intervalText: '' } },
+    },
+  });
+  assert.notStrictEqual(coordExpired.state, 'deferred',
+    'истёкший маркер нарисован как живое ожидание');
+}
+
+chatBoundSuite().then(peekStaleSuite).then(s6FreshSuite).then(function () {
   console.log('INITIATIVE-UI-OK');
 }).catch(function (err) {
   console.error(err && err.stack || err);

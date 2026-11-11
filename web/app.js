@@ -4389,16 +4389,18 @@
     var tz = (block && block.timezone && typeof block.timezone === 'object')
       ? block.timezone : null;
     if (!tz) {
-      return { known: false, name: '', source: '', offsetSeconds: null,
-               format: 'UTC', label: INI_TZ_UNKNOWN };
+      return { known: false, name: 'UTC', source: '', offsetSeconds: null,
+               format: '', label: INI_TZ_UNKNOWN };
     }
     var source = String(tz.source || '');
     var name = (tz.name == null) ? '' : String(tz.name).trim();
     var offset = (tz.offset_seconds == null) ? null : Number(tz.offset_seconds);
     if (offset != null && !isFinite(offset)) offset = null;
     if (!name) {
-      return { known: false, name: '', source: source || 'read_failed',
-               offsetSeconds: null, format: 'UTC', label: INI_TZ_UNKNOWN };
+      // Пояс назвать нельзя: время печатается как UTC с ЯВНОЙ пометкой
+      // (`format: ''` → «… UTC»), а не как молчаливая зона чата.
+      return { known: false, name: 'UTC', source: source || 'read_failed',
+               offsetSeconds: null, format: '', label: INI_TZ_UNKNOWN };
     }
     var label;
     if (source === 'chat') label = 'пояс чата: ' + name + ' (настройка чата)';
@@ -4410,8 +4412,10 @@
     } else if (source === 'read_failed') {
       label = INI_TZ_UNKNOWN;
     } else label = 'пояс чата: ' + name;
-    return { known: source !== 'read_failed', name: name, source: source,
-             offsetSeconds: offset, format: name, label: label };
+    var known = source !== 'read_failed';
+    return { known: known, name: name, source: source,
+             offsetSeconds: offset, format: (known ? name : ''),
+             label: label };
   }
 
   //: Слой каждого гейта «Разрешено» — из `configuration.layers` сервера.
@@ -10213,7 +10217,7 @@
         return {
           chatId: chatId,
           chatTitle: chat ? String(chat.title || '') : '',
-          timezone: tz.format,
+          timezone: tz.name,
           timezoneSource: tz.source || 'unknown',
           timezoneOffsetSeconds: tz.offsetSeconds,
           timezoneKnown: tz.known,
@@ -10267,7 +10271,7 @@
           title: other.title,
           generatedAt: (d.time && d.time.generated_at != null)
             ? d.time.generated_at : (d.generated_at || null),
-          timezone: tz.format,
+          timezone: tz.name,
           timezoneSource: tz.source || 'unknown',
           timezoneLabel: tz.label,
           degraded: d.degraded || [],
