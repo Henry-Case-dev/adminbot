@@ -10,6 +10,7 @@ import inspect
 import json
 import pathlib
 import random
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -1249,7 +1250,6 @@ async def test_v40_restart_is_noop_and_keeps_quota_rows(tmp_path, caplog):
 #: Тот же базис времени, что `NOW` файла (фиксированное время, без sleep).
 NOW_TS = int(NOW.timestamp())
 
-
 def _journal(led, chat_id=-100):
     return led.attempts(chat_id, limit=200)
 
@@ -1420,5 +1420,104 @@ def test_terminal_journal_row_records_attempt_mode(tmp_path):
         "joke", "image_generation", "eligible"}
     assert manual.manually_triggered is True
     assert auto.manually_triggered is False
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Ревью 400021cc, блокер 6 — терминальная попытка не теряется
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-11-P0-INIT-MEME-UX-DIAG
+# (журнал попыток — единственный источник правды витрины; потеря строки
+# означала «77 попыток за сутки» вместо 228 реальных).
+
+
+def _attempt_row(attempt_id="lost-1", *, chat_id=-100, ts=None):
+    return {
+        "attempt_id": attempt_id,
+        "chat_id": chat_id,
+        "job_id": "run-1",
+        "ts": int(ts if ts is not None else NOW.timestamp()),
+        "stage": meme.STAGE_PUBLISH,
+        "outcome": "published",
+        "reason_code": "sent",
+        "detail": '{"mode":"automatic"}',
+        "limit_source": "auto",
+        "limit_value": 600,
+        "window_messages": 12,
+    }
+
+
+def test_attempt_write_is_retried_before_any_fallback(tmp_path, monkeypatch):
+    """Транзиентная блокировка: повтор спасает строку, спул не нужен."""
+    led = _ledger(tmp_path)
+    calls = {"n": 0}
+    original = meme.SqliteQuotaLedger._insert_attempt
+
+    def flaky(self, row):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return original(self, row)
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", flaky)
+    led.record_attempt(_attempt_row())
+
+    assert calls["n"] == 2, calls
+    assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
+        ["lost-1"]
+    assert not pathlib.Path(led.pending_path()).exists()
+
+
+def test_attempt_survives_permanent_journal_failure_via_spool(
+        tmp_path, monkeypatch):
+    """Журнал недоступен постоянно: строка durable-спулится и ВИДНА читателю."""
+    led = _ledger(tmp_path)
+    original = meme.SqliteQuotaLedger._insert_attempt
+
+    def broken(self, row):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", broken)
+    led.record_attempt(_attempt_row("lost-A"))
+    # Дurable-фолбэк: файл рядом с журналом, без новых таблиц.
+    assert pathlib.Path(led.pending_path()).exists()
+    # Читатель (витрина/аналитика) строку видит, хотя таблица её не приняла.
+    rows = led.attempts(-100, limit=5)
+    assert [row["attempt_id"] for row in rows] == ["lost-A"]
+    assert led.attempts(-101, limit=5) == []      # чужой чат не подмешивается
+
+    # Журнал снова жив: строка переносится в таблицу, спул очищается,
+    # дубля нет (INSERT OR IGNORE по attempt_id).
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", original)
+    rows = led.attempts(-100, limit=5)
+    assert [row["attempt_id"] for row in rows] == ["lost-A"]
+    assert not pathlib.Path(led.pending_path()).exists()
+    led.record_attempt(_attempt_row("lost-A"))    # повторная запись — no-op
+    assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
+        ["lost-A"]
+
+
+def test_spooled_and_journal_rows_are_merged_in_order(tmp_path, monkeypatch):
+    """Спул склеивается с таблицей по времени, а не теряется позади."""
+    led = _ledger(tmp_path)
+    led.record_attempt(_attempt_row("fresh", ts=NOW.timestamp()))
+    original = meme.SqliteQuotaLedger._insert_attempt
+
+    def broken(self, row):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", broken)
+    led.record_attempt(_attempt_row("newest", ts=NOW.timestamp() + 60))
+
+    rows = led.attempts(-100, limit=5)
+    assert [row["attempt_id"] for row in rows] == ["newest", "fresh"]
+    # Аналитика видит объединённый журнал, а не только таблицу.
+    snapshot = meme.analytics_snapshot(led, chat_id=-100)
+    assert int(snapshot["counters"][meme.STAGE_PUBLISH]) == 2, snapshot
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", original)
+    led.attempts(-100, limit=5)
+    assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
+        ["newest", "fresh"]
+
 
 

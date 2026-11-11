@@ -1878,6 +1878,42 @@ class InitiativeObserverRunner:
 
     # ── события (R17: только ID/коды/числа) ───────────────────────────────
 
+    def _mint_run_id(self, chat_id: int) -> str:
+        """Родитель попытки ЧАТА (§3): `init:<chat>:<ymd>:<hex>`.
+
+        Mint'ится до первого гейта, поэтому его получает и ранний отказ.
+        Значение R17-safe (буквы/цифры/`:`/`-`, ≤64 симв.).
+        """
+        stamp = time.strftime("%Y%m%d", time.gmtime())
+        return "init:%d:%s:%s" % (int(chat_id), stamp, uuid.uuid4().hex[:10])
+
+    def _remember_run_id(self, chat_id: int, run_id: str) -> None:
+        """Запомнить родителя чата для `_emit` ЭТОГО прохода (без БД)."""
+        mapping = getattr(self, "_run_ids", None)
+        if not isinstance(mapping, dict):
+            mapping = {}
+            self._run_ids = mapping
+        mapping[int(chat_id)] = str(run_id)
+
+    def _run_id_of(self, chat_id) -> str:
+        """Родитель текущего прохода для чата ("" — вне per-chat контекста)."""
+        mapping = getattr(self, "_run_ids", None)
+        if not isinstance(mapping, dict) or chat_id is None:
+            return ""
+        try:
+            return str(mapping.get(int(chat_id)) or "")
+        except (TypeError, ValueError):
+            return ""
+
+    def _child_run_id(self, chat_id, step: str) -> str:
+        """Дочерний шаг попытки: `{run_id}#eval|#digest` (§3).
+
+        Дочерние LLM-вызовы не заводят свой журнал и не притворяются
+        отдельным прогоном: префикс — родитель чата, суффикс — шаг.
+        """
+        parent = self._run_id_of(chat_id)
+        return "%s#%s" % (parent, step) if parent else uuid.uuid4().hex[:16]
+
     def _emit(self, event_name: str, *, outcome: str, chat_id=None,
               reason_code: str | None = None, stage: str | None = None,
               level: str | None = None, **fields) -> None:
@@ -1887,6 +1923,14 @@ class InitiativeObserverRunner:
                 level = (mca_events.LEVEL_WARN
                          if outcome in ("failed", "silent")
                          else mca_events.LEVEL_INFO)
+            # §17.1: `trace_id` = run/correlation. Родитель попытки ЧАТА
+            # подставляется автоматически, чтобы КАЖДОЕ событие прохода
+            # склеивалось по одному идентификатору (archive: раньше его не
+            # было у claim/scan-событий).
+            if "trace_id" not in fields and chat_id is not None:
+                trace = self._run_id_of(chat_id)
+                if trace:
+                    fields["trace_id"] = trace
             mca_events.emit_mca_event(event_name, outcome=outcome,
                                       level=level, component="initiative",
                                       chat_id=chat_id, stage=stage,
@@ -2250,6 +2294,10 @@ class InitiativeObserverRunner:
         decision["skip_reason"] = str(reason)
         decision["skip_label"] = reason_label(reason)
         decision["ts"] = int(time.time())
+        # §3: даже отказ на гейте привязан к родителю попытки чата.
+        run_id = self._run_id_of(chat_id)
+        if run_id:
+            decision["run_id"] = run_id
         # QND-NONDET §2: провенанс каждого решения — schedule|event.
         decision["trigger"] = str(getattr(self, "_trigger", "") or
                                   "schedule")
@@ -2387,6 +2435,14 @@ class InitiativeObserverRunner:
         for chat_id in candidates[:MAX_CHATS_PER_PASS]:
             if evals >= MAX_EVALS_PER_PASS:
                 break
+            # ── P0 corrective §3: родитель попытки ЧАТА mint ДО первого гейта ─
+            # Ранний отказ (тумблер чата, расписание, порог, интервал, антифлуд,
+            # бюджет, отсутствие клиента) — тоже попытка: у неё обязан быть
+            # свой run_id, иначе событие/журнал нечем склеить, а витрина не
+            # может показать «последнюю попытку». Цикловой `task_jobs.job_id`
+            # для этого не годится: один проход обслуживает несколько чатов.
+            run_id = self._mint_run_id(int(chat_id))
+            self._remember_run_id(int(chat_id), run_id)
             # P0 corrective 25.10.2026 (F3/F2): фоновый тик привязывает
             # per-chat резолвер (chat override + инвалидация), а не стартовый
             # снапшот. Без optional-резолвера поведение прежнее.
@@ -2402,6 +2458,9 @@ class InitiativeObserverRunner:
                 "pending": 0, "last_eval_ts": 0, "recent_hashes": [],
                 "topics": {}, "eval_day": 0, "eval_day_count": 0,
             })
+            # Родитель попытки виден и тогда, когда событий не было вовсе
+            # (тихий/ранний отказ): существующий payload, без новой таблицы.
+            entry["last_run_id"] = run_id
             if not await chat_observer_enabled(chat_id):
                 self._skip_eval(payload, chat_id, SKIP_CHAT_DISABLED)
                 continue
@@ -2683,7 +2742,8 @@ class InitiativeObserverRunner:
                 self._llm.generate(messages, temperature=0.2,
                                    chat_id=chat_id, module="initiative",
                                    step="skipped_digest",
-                                   correlation_id=uuid.uuid4().hex[:16],
+                                   correlation_id=self._child_run_id(chat_id,
+                                                                     "digest"),
                                    max_output_tokens=220),
                 timeout=30)
             summary = " ".join(str(raw or "").split())[:500]
@@ -2842,7 +2902,8 @@ class InitiativeObserverRunner:
                 self._llm.generate(messages, temperature=0.2,
                                    chat_id=chat_id, module="initiative",
                                    step="opportunity_eval",
-                                   correlation_id=uuid.uuid4().hex[:16],
+                                   correlation_id=self._child_run_id(chat_id,
+                                                                    "eval"),
                                    max_output_tokens=300),
                 timeout=45)
         except Exception:
@@ -2960,7 +3021,7 @@ class InitiativeObserverRunner:
             # эфемерный повод глушился бы дважды.
             bot_replied_recently=False, reply_needed=False, topic_open=True,
             open_intent_ids=None, requested_source="observer")
-        correlation_id = uuid.uuid4().hex[:16]
+        correlation_id = self._run_id_of(chat_id) or uuid.uuid4().hex[:16]
         # P0-хотфикс: контекст повода едет в единый вход явно (durable intent
         # для эфемерного повода не создаётся — B01.2). Без него L1/L2 Writer
         # получали пустую строку намерения («цель не указана») и отказывались

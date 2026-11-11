@@ -30,6 +30,12 @@
 * **ни одно событие не удаляет попытку**: незнакомое публикационное имя
   сохраняет строку и показывается как ``other`` с сырым именем и ``outcome``
   (новый код P0 виден кодом, а не стирает запись);
+* **режим попытки** (``mode``) берётся из ЗАПИСИ попытки — ``mode`` в detail
+  JSON терминальной строки журнала мема либо ``events[].mode``; поздний
+  publication-факт остаётся лишь фолбэком для старых строк (у раннего отказа
+  публикационных фактов нет вовсе);
+* **историческая строка без родителя** (пустой ``job_id``/``trace_id``) не
+  склеивается ни с чем и помечается ``incomplete_historical: true``;
 * наружу уходят коды/числа/ID; сырого текста чата в ответе нет — только
   факты этапов уже обрезаны ``compact_facts`` на стороне пайплайна;
 * ничего не бросает: нет БД/таблиц → ``available=false`` + причина.
@@ -311,6 +317,34 @@ async def _meme_attempt_rows(db, chat_id: int) -> tuple[list[dict], str]:
     return [dict(r) for r in rows or ()], ""
 
 
+def _fact_mode(facts: dict) -> str:
+    """Режим попытки из detail JSON строки журнала (`manual`/`auto`).
+
+    Пайплайн пишет его в СУЩЕСТВУЮЩЕЕ поле `detail` терминальной строки
+    (`manual`/`automatic`). Публикационный факт (`pub_facts["manual"]`) — это
+    позднее свидетельство: у раннего отказа его нет вовсе.
+    """
+    raw = _str((facts or {}).get("mode"))
+    if raw == "manual":
+        return "manual"
+    if raw in ("automatic", "auto"):
+        return "auto"
+    return ""
+
+
+def _event_chain_mode(facts: dict) -> str:
+    """Режим из цепочки событий попытки (`events[].mode`), если он там есть."""
+    for item in (facts or {}).get("events") or ():
+        if not isinstance(item, dict):
+            continue
+        raw = _str(item.get("mode"))
+        if raw == "manual":
+            return "manual"
+        if raw in ("automatic", "auto"):
+            return "auto"
+    return ""
+
+
 def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
     """Строки этапов → логические попытки (одна попытка = один ``job_id``)."""
     try:
@@ -334,6 +368,8 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
         published = False
         message_id = None
         manual = False
+        fact_mode = ""
+        event_mode = ""
         reason_codes: list[str] = []
         events: list[dict] = []
         deferred_seen = False
@@ -354,6 +390,11 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
             if _event_chain_has_deferred(facts):
                 deferred_seen = True
             events.extend(_event_chain(facts))
+            # §3: режим берётся из ЗАПИСИ попытки (detail JSON / цепочка
+            # событий), а не из позднего publication-факта: у раннего отказа
+            # публикационных фактов нет вообще.
+            fact_mode = fact_mode or _fact_mode(facts)
+            event_mode = event_mode or _event_chain_mode(facts)
             pub_facts = facts.get("publish")
             if not isinstance(pub_facts, dict):
                 pub_facts = facts.get("publication")
@@ -382,11 +423,17 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
                      or "deferred" in reason_code
                      or reason_code in ("in_flight", "publication_in_flight"))):
             outcome = OUTCOME_DEFERRED
+        historical = job_id.startswith("row:")
+        mode = fact_mode or event_mode or ("manual" if manual else "auto")
         out.append({
             "attempt_id": "meme:" + job_id,
             "kind": KIND_MEME,
-            "job_id": job_id,
-            "mode": "manual" if manual else "auto",
+            "job_id": job_id if not historical else "",
+            "mode": mode,
+            # §3: строка без родителя НЕ склеивается с другими и честно
+            # помечается исторической — иначе две старые строки выглядели как
+            # две «нормальные» попытки `row:old-0`/`row:old-1`.
+            "incomplete_historical": historical,
             "ts": max((_int(r.get("ts")) for r in items), default=0),
             "stage": _str(terminal.get("stage")),
             "outcome": outcome,
@@ -493,6 +540,8 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
                 "attempt_id": key,
                 "kind": KIND_TEXT,
                 "job_id": corr,
+                # §3: пустой trace_id — историческая строка без родителя.
+                "incomplete_historical": not bool(corr),
                 "mode": "auto",
                 "ts": ts,
                 "stage": (_str(row.get("stage"))
@@ -568,6 +617,7 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
             "attempt_id": key,
             "kind": KIND_TEXT,
             "job_id": corr,
+            "incomplete_historical": not bool(corr),
             "mode": "auto",
             "ts": _int(row.get("sent_at")),
             "stage": "send",
@@ -737,7 +787,13 @@ async def publication_detail(
     if key.startswith("meme:"):
         job_id = key[len("meme:"):]
         rows, note = await _meme_attempt_rows(db, int(chat_id))
-        rows = [r for r in rows if _str(r.get("job_id")) == job_id]
+        if job_id.startswith("row:"):
+            # Историческая строка без родителя: её ключ — `attempt_id`, а не
+            # `job_id` (склеивать такие строки по времени запрещено).
+            ident = job_id[len("row:"):]
+            rows = [r for r in rows if _str(r.get("attempt_id")) == ident]
+        else:
+            rows = [r for r in rows if _str(r.get("job_id")) == job_id]
         attempts = {a["attempt_id"]: a for a in _meme_attempts_grouped(rows)}
         attempt = attempts.get(key)
         detail = _meme_attempts_grouped(rows)

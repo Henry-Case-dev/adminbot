@@ -63,6 +63,7 @@ import logging
 import os
 import sqlite3
 import tempfile
+import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
@@ -1018,6 +1019,14 @@ def _connect(path: str) -> sqlite3.Connection:
     return conn
 
 
+#: Сколько раз пробуем записать строку журнала попытки до durable-фолбэка.
+ATTEMPT_WRITE_ATTEMPTS = 3
+#: Паузы между попытками (сек): покрывают транзиентную блокировку файла.
+ATTEMPT_WRITE_DELAYS = (0.02, 0.08)
+#: Предел строк, разбираемых из спул-файла за один проход (bounded чтение).
+ATTEMPT_SPOOL_MAX_ROWS = 500
+
+
 class SqliteQuotaLedger:
     """Файловый журнал. Каждый reserve — своё соединение и BEGIN IMMEDIATE.
 
@@ -1180,6 +1189,41 @@ class SqliteQuotaLedger:
             conn.close()
 
     def record_attempt(self, row: dict) -> None:
+        """Записать строку попытки. Терминальная попытка НЕ теряется.
+
+        Раньше ошибка `record_attempt` глушилась WARNING'ом: попытка оставалась
+        в памяти процесса, а журнал (единственный источник правды для витрины)
+        её не видел — отсюда «77 строк за сутки» при 228 реальных.
+
+        Теперь: (1) сначала пробуем дозаписать ранее отложенное; (2) пишем с
+        ОГРАНИЧЕННЫМ числом повторов (транзиентная блокировка SQLite); (3) если
+        журнал всё равно недоступен — строка уходит в durable-спул рядом с
+        журналом (`<db>.attempts.pending.jsonl`) и видна читателю сразу
+        (`attempts()` склеивает спул с таблицей). Новых таблиц и очередей нет.
+        """
+        self._flush_pending_attempts()
+        last_error: Exception | None = None
+        for attempt in range(ATTEMPT_WRITE_ATTEMPTS):
+            try:
+                self._insert_attempt(row)
+                return
+            except Exception as exc:          # noqa: BLE001 - журнал файловый
+                last_error = exc
+                if attempt < len(ATTEMPT_WRITE_DELAYS):
+                    time.sleep(ATTEMPT_WRITE_DELAYS[attempt])
+        if self._spool_attempt(row):
+            logger.warning(
+                "[meme] attempt spooled (journal unavailable) | attempt=%s "
+                "| error=%s", str(row.get("attempt_id"))[:12],
+                type(last_error).__name__)
+            return
+        logger.error(
+            "[meme] attempt LOST (journal and spool unavailable) | attempt=%s "
+            "| chat=%s | stage=%s | error=%s",
+            str(row.get("attempt_id"))[:12], row.get("chat_id"),
+            row.get("stage"), type(last_error).__name__)
+
+    def _insert_attempt(self, row: dict) -> None:
         conn = _connect(self.path)
         try:
             conn.execute(
@@ -1195,7 +1239,93 @@ class SqliteQuotaLedger:
         finally:
             conn.close()
 
+    # ── durable-спул непринятых строк (файл рядом с журналом) ──────────────
+
+    def pending_path(self) -> str:
+        """Файл спула рядом с журналом (не таблица, не новая БД)."""
+        return str(self.path) + ".attempts.pending.jsonl"
+
+    def _spool_attempt(self, row: dict) -> bool:
+        """Дописать строку в durable-спул. Возвращает «сохранено ли»."""
+        try:
+            payload = {key: row.get(key) for key in (
+                "attempt_id", "chat_id", "job_id", "ts", "stage", "outcome",
+                "reason_code", "detail", "limit_source", "limit_value",
+                "window_messages")}
+            line = json.dumps(payload, ensure_ascii=False)
+            with open(self.pending_path(), "a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            return True
+        except Exception:
+            logger.warning("[meme] attempt spool write failed", exc_info=True)
+            return False
+
+    def _read_pending(self) -> list[dict]:
+        """Строки спула. Битые/чужие строки пропускаются, файл не теряется."""
+        path = self.pending_path()
+        try:
+            if not os.path.exists(path):
+                return []
+        except OSError:
+            return []
+        out: list[dict] = []
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                for index, line in enumerate(handle):
+                    if index >= ATTEMPT_SPOOL_MAX_ROWS:
+                        break
+                    text = line.strip()
+                    if not text:
+                        continue
+                    try:
+                        parsed = json.loads(text)
+                    except (TypeError, ValueError):
+                        continue
+                    if isinstance(parsed, dict) and parsed.get("attempt_id"):
+                        out.append(parsed)
+        except Exception:
+            logger.warning("[meme] attempt spool read failed", exc_info=True)
+            return []
+        return out
+
+    def _flush_pending_attempts(self) -> None:
+        """Перенести спул в журнал и очистить его. Никогда не бросает.
+
+        Запись идемпотентна (`INSERT OR IGNORE` по `attempt_id`), поэтому
+        повторный перенос после сбоя не создаёт дублей.
+        """
+        rows = self._read_pending()
+        if not rows:
+            return
+        remaining: list[dict] = []
+        for row in rows:
+            try:
+                self._insert_attempt(row)
+            except Exception:
+                remaining.append(row)
+        path = self.pending_path()
+        try:
+            if remaining:
+                with open(path, "w", encoding="utf-8") as handle:
+                    for row in remaining:
+                        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            else:
+                os.remove(path)
+        except Exception:
+            logger.warning("[meme] attempt spool cleanup failed", exc_info=True)
+
     def attempts(self, chat_id: int | None, *, limit: int = 20) -> list[dict]:
+        """Строки журнала + ещё не перенесённый спул (одна правда для витрины).
+
+        Спул склеивается с таблицей по `attempt_id`, поэтому строка, которую
+        журнал не принял, всё равно видна читателю — и не исчезает из «77/24ч».
+        """
+        self._flush_pending_attempts()
+        merged: dict[str, dict] = {}
         conn = _connect(self.path)
         try:
             if chat_id is None:
@@ -1207,11 +1337,24 @@ class SqliteQuotaLedger:
                     f"SELECT * FROM {ATTEMPT_TABLE} WHERE chat_id=? "
                     "ORDER BY ts DESC LIMIT ?",
                     (int(chat_id), int(limit))).fetchall()
-            return [dict(row) for row in rows]
+            for row in rows:
+                item = dict(row)
+                merged[str(item.get("attempt_id"))] = item
         except Exception:
-            return []
+            pass
         finally:
             conn.close()
+        for row in self._read_pending():
+            try:
+                if chat_id is not None and int(row.get("chat_id") or 0) != \
+                        int(chat_id):
+                    continue
+            except (TypeError, ValueError):
+                continue
+            merged.setdefault(str(row.get("attempt_id")), row)
+        out = list(merged.values())
+        out.sort(key=lambda item: _as_int(item.get("ts"), 0), reverse=True)
+        return out[:int(limit)]
 
 
 def _spent(conn: sqlite3.Connection, chat_id: int, day_bucket: str) -> int:

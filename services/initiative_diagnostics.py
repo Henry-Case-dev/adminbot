@@ -1198,6 +1198,10 @@ COOLDOWN_SCOPE = "mechanism_own"
 CONFLICT_CLEAR = "clear"
 CONFLICT_ACTIVE = "conflict"
 CONFLICT_UNKNOWN = "unknown"
+#: Координация не прочитана (исключение). Значение ЗЕРКАЛИТ
+#: `publication_coordination.COORDINATION_UNKNOWN`; тест сверяет их, чтобы
+#: словарь не разъехался (импорт на уровне модуля дал бы цикл).
+COORDINATION_UNKNOWN = "unknown"
 
 #: КОНТРАКТ ДЛЯ P4 (админка): набор ключей блока механизма.
 #: Все ключи присутствуют ВСЕГДА; «нет данных» — это ``null``/``None``,
@@ -1330,14 +1334,17 @@ def publication_block(view, *, checked_at=None) -> dict | None:
     Источник — снимок `PublicationCoordinator.precheck` (та же бронь, что у
     боевого пути). ``coordination="degraded"`` — это ДЕГРАДАЦИЯ, а не «всё
     хорошо»: брони нет, конфликт НЕИЗВЕСТЕН (``conflict: null``), а не «нет».
+    ``coordination="unknown"`` — бронь НЕ ПРОЧИТАНА (исключение): ни
+    доступности, ни причины не выдумываем.
     """
     if not isinstance(view, dict) or not view:
         return None
     coordination = str(view.get("coordination") or "ok")
     degraded = coordination == "degraded"
+    unreadable = coordination == COORDINATION_UNKNOWN
     ok = view.get("ok")
     ok_bool = None if ok is None else bool(ok)
-    if degraded:
+    if degraded or unreadable:
         conflict = None
     elif ok_bool is None:
         conflict = None
@@ -1356,7 +1363,7 @@ def publication_block(view, *, checked_at=None) -> dict | None:
     manual_active = bool(until and checked and int(until) > int(checked))
     manual_expired = bool(until and checked and int(until) <= int(checked))
     return {
-        "available": not degraded,
+        "available": not degraded and not unreadable,
         "coordination": coordination,
         "degraded": degraded,
         # precheck помечает degraded ровно одним случаем — отсутствием таблицы.
@@ -1364,7 +1371,7 @@ def publication_block(view, *, checked_at=None) -> dict | None:
                             or ("claim_table_absent" if degraded else "")),
         "conflict": conflict,
         "conflict_state": conflict_state,
-        "ok": (None if degraded else ok_bool),
+        "ok": (None if (degraded or unreadable) else ok_bool),
         "reason": reason,
         "reason_label": (obs.reason_label(reason) if reason else ""),
         "detail": str(view.get("detail") or ""),
@@ -1619,6 +1626,9 @@ ATTEMPT_SCAN_ROWS = 200
 #: Окно чтения `mca_events` для `last_attempt` текста (bounded).
 TEXT_ATTEMPT_LOOKBACK_SECONDS = 30 * 86400
 TEXT_ATTEMPT_EVENT_LIMIT = 120
+#: Сколько последних записей журнала выводов смотрим на «подтверждённую
+#: доставку»: запись без id не должна стирать доказанную доставку.
+DELIVERY_SCAN_ROWS = 20
 
 #: Имена событий текстовой попытки (терминальные + публикационная семантика).
 TEXT_ATTEMPT_EVENTS = (
@@ -1687,15 +1697,39 @@ def configuration_block(parts: list[dict] | None) -> dict:
             "scope": str(first.get("scope") or "global"),
             "reason": str(first.get("reason") or NO_DATA_READ_FAILED),
         }
-    chat_on = [item for item in items
-               if item.get("scope") == "chat"
-               and item.get("source") == SOURCE_CHAT]
+    # Разрешающий слой называется честно: чатовые настройки (выбор чата,
+    # `MemeSettings`) — это НЕ «global». Две чата с разными настройками обязаны
+    # отличаться в витрине, иначе «разница между чатами» не видна (§1).
+    chat_parts = [item for item in items if str(item.get("scope")) == "chat"]
+    global_parts = [item for item in items if str(item.get("scope")) != "chat"]
+    if chat_parts:
+        return {
+            "enabled": True,
+            "source": _chat_permit_source(chat_parts),
+            "scope": "mixed" if global_parts else "chat",
+            "reason": "",
+        }
     return {
         "enabled": True,
-        "source": SOURCE_CHAT if chat_on else SOURCE_GLOBAL,
-        "scope": "mixed" if chat_on else "global",
+        "source": str(global_parts[0].get("source") or SOURCE_PRODUCT),
+        "scope": "global",
         "reason": "",
     }
+
+
+#: Порядок предпочтения при выборе «самого глубокого» разрешающего слоя чата:
+#: явный выбор чата → настройки механизма → модуль зависимости.
+_CHAT_SOURCE_PRECEDENCE = (SOURCE_CHAT, SOURCE_MEME_SETTINGS, SOURCE_IMAGE,
+                           SOURCE_GLOBAL)
+
+
+def _chat_permit_source(chat_parts: list[dict]) -> str:
+    """Источник разрешения на чатовом слое (не «global» и не выдумка)."""
+    seen = {str(item.get("source") or "") for item in chat_parts}
+    for source in _CHAT_SOURCE_PRECEDENCE:
+        if source in seen:
+            return source
+    return str(chat_parts[0].get("source") or SOURCE_GLOBAL)
 
 
 def health_block(dependencies: list[dict] | None) -> dict:
@@ -1870,11 +1904,14 @@ def meme_readiness(*, skip: dict | None, available: bool, enabled,
                    cooldown: dict | None, quiet_end, quota: dict | None,
                    pub_block: dict | None, inflight: bool = False,
                    claim_state: str = "", claim_expires_at=None,
+                   publication_unreadable: bool = False,
                    next_check=None, next_basis: str = "", now_ts: int) -> dict:
     """Ось readiness МЕМА.
 
     ``busy`` — свежий inflight журнала или живая бронь `claimed|sending`
     (`expires_at` в будущем). Просроченная бронь ожиданием НЕ является.
+    ``publication_unreadable`` — бронь не прочитана (исключение): состояние
+    неизвестно, причина не выдумывается (§2).
     """
     code = str((skip or {}).get("code") or "")
     detail = (str((pub_block or {}).get("detail") or "")
@@ -1885,6 +1922,8 @@ def meme_readiness(*, skip: dict | None, available: bool, enabled,
         state = READINESS_BLOCKED
         klass = klass or CLASS_DISABLED
         code = code or "disabled_by_setting"
+    elif publication_unreadable:
+        state, klass, code = READINESS_UNKNOWN, CLASS_UNKNOWN, NO_DATA_READ_FAILED
     elif _claim_busy(claim_state, claim_expires_at, now_ts) or inflight:
         # Живая бронь/inflight — факт из журнала и координации, он информативнее
         # отсутствия записей о прошлых попытках.
@@ -2070,6 +2109,10 @@ def _publication_dependency(publication: dict | None) -> dict:
         # Таблицы брони нет: это ДЕГРАДАЦИЯ, а не «конфликта нет».
         return dependency("publication_precheck", HEALTH_DEGRADED,
                           "PublicationCoordinator.precheck")
+    if coordination != "ok":
+        # Бронь не прочитана (исключение): причина неизвестна.
+        return dependency("publication_precheck", HEALTH_UNKNOWN,
+                          "PublicationCoordinator.precheck")
     return dependency("publication_precheck", HEALTH_OK,
                       "PublicationCoordinator.precheck")
 
@@ -2079,12 +2122,16 @@ async def _last_delivery(db, chat_id, output_kinds, *,
                          attempt_at=None, run_id: str = "") -> dict:
     """Последняя ПОДТВЕРЖДЁННАЯ доставка механизма в этом чате.
 
-    Читается существующий журнал выводов (`mca_bot_outputs`). Нет записи с
-    `tg_message_id`, но есть доказательство отправки без id — честный
-    ``unknown``; совсем пусто — ``never``.
+    Читается существующий журнал выводов (`mca_bot_outputs`). «Подтверждено» —
+    ТОЛЬКО запись с `tg_message_id`. Поэтому ищется последняя строка, У КОТОРОЙ
+    есть id: более новая запись без id не должна стирать уже доказанную
+    доставку (иначе подтверждённая отправка превращается в «неизвестно»).
+    Нет ни одной строки с id: строки без id вообще есть → ``unknown``;
+    журнал пуст, но есть доказательство отправки → ``unknown``; пусто →
+    ``never``.
     """
     kinds = [str(kind) for kind in (output_kinds or []) if str(kind)]
-    row: dict | None = None
+    rows: list[dict] = []
     failed = False
     if kinds:
         try:
@@ -2095,25 +2142,30 @@ async def _last_delivery(db, chat_id, output_kinds, *,
                    # Порядок детерминированный: две записи одной секунды
                    # (например «отправлено без id», затем «с id») не должны
                    # давать случайный ответ.
-                   + ") ORDER BY sent_at DESC, output_id DESC LIMIT 1")
+                   + ") ORDER BY sent_at DESC, output_id DESC LIMIT ?")
             cursor = await db.db.execute(
-                sql, tuple([_int(chat_id)] + kinds))
-            found = await cursor.fetchone()
-            row = dict(found) if found is not None else None
+                sql, tuple([_int(chat_id)] + kinds + [DELIVERY_SCAN_ROWS]))
+            rows = [dict(row) for row in await cursor.fetchall() or ()]
         except Exception:
             failed = True
             logger.warning("[diag] last delivery read failed", exc_info=True)
-    if row is not None:
-        message_id = _int_or_none(row.get("tg_message_id"))
-        if message_id is not None:
-            return delivery_block(
-                status=DELIVERY_CONFIRMED, at=row.get("sent_at"),
-                destination=row.get("chat_id") or chat_id,
-                message_id=message_id,
-                run_id=str(row.get("correlation_id") or ""))
-        # Запись есть, id нет: отправка не доказана — не выдаём за доставку.
-        return delivery_block(status=DELIVERY_UNKNOWN, at=row.get("sent_at"),
-                              destination=chat_id, run_id=run_id)
+    confirmed = None
+    for row in rows:
+        if _int_or_none(row.get("tg_message_id")) is not None:
+            confirmed = row
+            break
+    if confirmed is not None:
+        return delivery_block(
+            status=DELIVERY_CONFIRMED, at=confirmed.get("sent_at"),
+            destination=confirmed.get("chat_id") or chat_id,
+            message_id=_int_or_none(confirmed.get("tg_message_id")),
+            run_id=str(confirmed.get("correlation_id") or ""))
+    if rows:
+        # Записи есть, id ни у одной: отправка не доказана — не выдаём за
+        # доставку, но и «никогда» сказать нельзя.
+        return delivery_block(status=DELIVERY_UNKNOWN,
+                              at=rows[0].get("sent_at"), destination=chat_id,
+                              run_id=run_id)
     if sent_evidence:
         return delivery_block(status=DELIVERY_UNKNOWN, at=attempt_at,
                               destination=chat_id, run_id=run_id)
@@ -2211,13 +2263,29 @@ def _meme_sent_evidence(rows: list[dict]) -> bool:
     return False
 
 
-async def _text_last_attempt(db, chat_id: int, *, now_ts: int) -> dict:
+async def _text_last_attempt(db, chat_id: int, *, now_ts: int,
+                             entry: dict | None = None) -> dict:
     """Терминальная строка САМОЙ СВЕЖЕЙ группы `mca_events.trace_id`.
 
     `trace_id` — существующий родитель попытки текста (§17.1: run/correlation).
     Строки с пустым `trace_id` не склеиваются: они читаются как отдельная
     незавершённая историческая запись.
+
+    ``entry`` — per-chat состояние прохода (`payload.chats[<id>]`): отказ на
+    РАННЕМ гейте не пишет событий вовсе, но родитель попытки чата и время
+    решения там есть (`last_run_id`/`last_decision`). Без этой ветки самая
+    свежая попытка «ранний отказ» была бы невидима.
     """
+    decision = {}
+    if isinstance(entry, dict) and isinstance(entry.get("last_decision"), dict):
+        decision = dict(entry["last_decision"])
+    payload_run = ""
+    decision_ts = 0
+    if isinstance(entry, dict):
+        payload_run = str(entry.get("last_run_id") or
+                          decision.get("run_id") or "")
+        decision_ts = _int(decision.get("ts"))
+    refusal = bool(str(decision.get("skip_reason") or ""))
     rows: list[dict] = []
     try:
         names = TEXT_ATTEMPT_EVENTS
@@ -2233,7 +2301,7 @@ async def _text_last_attempt(db, chat_id: int, *, now_ts: int) -> dict:
         rows = [dict(row) for row in await cursor.fetchall() or ()]
     except Exception:
         logger.warning("[diag] text attempt read failed", exc_info=True)
-        return attempt_block()
+        rows = []
     groups: dict[str, list[dict]] = {}
     order: list[str] = []
     for row in rows:
@@ -2245,13 +2313,28 @@ async def _text_last_attempt(db, chat_id: int, *, now_ts: int) -> dict:
             order.append(key)
         groups[key].append(row)
     if not order:
+        if payload_run and decision_ts:
+            return attempt_block(
+                at=decision_ts, mode=MODE_AUTO, run_id=payload_run,
+                outcome=("skipped" if refusal else ""),
+                stop_stage=str(decision.get("skip_reason") or ""),
+                incomplete=False)
         return attempt_block()
     key = order[0]
     items = groups[key]
     terminal = max(items, key=lambda row: _int(row.get("ts")))
+    event_ts = _int(terminal.get("ts"))
+    if payload_run and refusal and decision_ts >= event_ts:
+        # Отказ на гейте ПОСЛЕ последней событийной попытки — она и есть
+        # самая свежая; событий у неё нет, но родитель и время записаны.
+        return attempt_block(
+            at=decision_ts, mode=MODE_AUTO, run_id=payload_run,
+            outcome="skipped",
+            stop_stage=str(decision.get("skip_reason") or ""),
+            incomplete=False)
     incomplete = key.startswith("row:")
     return attempt_block(
-        at=_int(terminal.get("ts")),
+        at=event_ts,
         # Ручного пути у текстовой инициативы нет: событие пишет только
         # автоматический проход.
         mode=MODE_UNKNOWN if incomplete else MODE_AUTO,
@@ -2367,7 +2450,8 @@ async def text_mechanism_diagnostics(db, chat_id, *,
                          enabled=configuration.get("enabled"),
                          next_check=next_check, next_basis=next_basis,
                          now_ts=now_ts))
-    last_attempt = await _text_last_attempt(db, cid, now_ts=now_ts)
+    last_attempt = await _text_last_attempt(db, cid, now_ts=now_ts,
+                                            entry=state)
     sent_evidence = str(last_attempt.get("outcome") or "") in (
         "success", "sent", "published")
     last_delivery = await _last_delivery(
@@ -2510,13 +2594,22 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
 
     if isinstance(publication, dict) and publication:
         pub_view: dict = dict(publication)
+        pub_unreadable = str(pub_view.get("coordination") or "") == \
+            COORDINATION_UNKNOWN
     else:
+        pub_unreadable = False
         try:
             pub_view = await _meme_precheck(db, cid, ledger, now_ts)
         except Exception:
+            # §2 (P0 corrective): исключение чтения брони — это «неизвестно»,
+            # а НЕ «таблицы нет». Иначе витрина объявляла `schema_absent` и
+            # блокировала механизм при живой таблице.
             logger.warning("[diag] meme publication precheck failed",
                            exc_info=True)
-            pub_view = {"ok": True, "coordination": "degraded"}
+            pub_unreadable = True
+            pub_view = {"ok": None, "coordination": COORDINATION_UNKNOWN,
+                        "reason": "", "detail": "read_failed",
+                        "holder_kind": "meme_initiative"}
 
     try:
         cfg = (settings if settings is not None
@@ -2695,6 +2788,7 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
             quiet_end=quiet_end, quota=quota, pub_block=pub_block,
             inflight=inflight, claim_state=str(pub_view.get("state") or ""),
             claim_expires_at=pub_view.get("expires_at"),
+            publication_unreadable=pub_unreadable,
             next_check=next_check, next_basis=next_basis, now_ts=now_ts))
     attempt = _meme_last_attempt(rows)
     last_delivery = await _last_delivery(
@@ -2843,12 +2937,16 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
 
     ``publication`` (``PUBLICATION_FIELDS``): ``coordination`` = "ok"|
     "degraded" (деградация ⇒ ``available=false``, ``conflict=null``,
-    ``conflict_state="unknown"``); ``conflict`` — единственный признак
+    ``conflict_state="unknown"``) | "unknown" (бронь НЕ ПРОЧИТАНА: исключение
+    при чтении ⇒ ``available=false``, ``conflict=null``, причина не
+    выдумывается); ``conflict`` — единственный признак
     конфликта; ``holder_kind`` — механизм, ДЛЯ которого спросили бронь,
     ``claimed_by`` — кто реально держит бронь сейчас; ``other_kind``/
     ``other_age_seconds``/``interval_seconds`` — кто публиковал и сколько
     ещё действует межтиповой интервал; ``manual_priority_until`` — до какого
-    момента действует приоритет ручного `/meme` (это НЕ кулдаун механизма).
+    момента действует приоритет ручного `/meme` (это НЕ кулдаун механизма), а
+    ``manual_priority_active``/``manual_priority_expired`` — его ФАКТИЧЕСКОЕ
+    состояние на момент ответа (истёкший маркер не является блокировкой).
 
     ``quota`` (``QUOTA_FIELDS``): ``limit_reached`` — упёрлись в предел
     (у мемов ``limit<=0`` тоже предел: механизм выключен лимитом; у текста

@@ -1089,7 +1089,10 @@ def test_axis_configuration_stays_on_while_cooldown_blocks(
     # Источник — явное разрешение настройками, и оно НЕ выключено кулдауном.
     assert block["configuration"]["enabled"] is True, block["configuration"]
     assert block["configuration"]["reason"] == ""
-    assert block["configuration"]["source"] in ("global", "chat")
+    # Разрешающий слой — чат (настройки мема), а не «global»: иначе два чата с
+    # разными настройками выглядели бы одинаково.
+    assert block["configuration"]["source"] == "meme_settings"
+    assert block["configuration"]["scope"] == "mixed"
     assert block["readiness"]["state"] == "waiting", block["readiness"]
     assert block["readiness"]["reason"] == meme.SKIP_COOLDOWN
     assert block["readiness"]["reason_class"] == "cooldown"
@@ -1531,5 +1534,316 @@ def test_axes_never_mix_mechanisms_and_payload_carries_chat(
         "attempt_journal", "publication_precheck", "image"}
     assert {item["name"] for item in text_block["health"]["dependencies"]} == {
         "event_log", "publication_precheck"}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Ревью 400021cc — шесть блокеров (каждый = реальная ложь витрины)
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-11-P0-INIT-MEME-UX-DIAG
+
+
+def _insert_output(svc, *, chat_id, message_id, sent_at, kind="meme_initiative",
+                   correlation=""):
+    """Строка существующего журнала выводов (без новых таблиц)."""
+    import sqlite3 as _sqlite3
+    conn = _sqlite3.connect(str(svc.db_path))
+    try:
+        conn.execute(
+            "INSERT INTO mca_bot_outputs (chat_id, tg_message_id, sent_at,"
+            " output_kind, correlation_id, delivery_status, created_at)"
+            " VALUES (?,?,?,?,?,'delivered',?)",
+            (int(chat_id), message_id, int(sent_at), kind, correlation,
+             int(sent_at)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ── блокер 1: подтверждённая доставка не теряется ──────────────────────────
+
+def test_confirmed_delivery_is_not_erased_by_a_newer_idless_row(
+        tmp_path, monkeypatch):
+    """Строка с `tg_message_id` остаётся подтверждением даже под новой без id."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="delivery_lost.db")
+        try:
+            await _schema(svc)
+            empty = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            _insert_output(svc, chat_id=CHAT, message_id=777,
+                           sent_at=NOW_TS - 100, correlation="run-777")
+            with_id = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            # Более НОВАЯ запись без id (send без message_id) — как в бою.
+            _insert_output(svc, chat_id=CHAT, message_id=None,
+                           sent_at=NOW_TS - 10, correlation="run-noid")
+            after = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return (empty["meme"]["last_delivery"],
+                    with_id["meme"]["last_delivery"],
+                    after["meme"]["last_delivery"])
+        finally:
+            await svc.close()
+
+    empty, with_id, after = asyncio.run(scenario())
+    # «Ни одной записи» — never.
+    assert empty["status"] == diag.DELIVERY_NEVER
+    assert with_id["status"] == diag.DELIVERY_CONFIRMED
+    assert with_id["message_id"] == 777
+    # Подтверждённая доставка НЕ стирается новой записью без id.
+    assert after["status"] == diag.DELIVERY_CONFIRMED, after
+    assert after["message_id"] == 777
+    assert after["at"] == NOW_TS - 100
+    assert after["run_id"] == "run-777"
+
+
+def test_only_idless_sends_are_unknown_not_never(tmp_path, monkeypatch):
+    """Журнал есть, id нет ни у одной строки — `unknown`, а не `never`."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="delivery_noid.db")
+        try:
+            await _schema(svc)
+            _insert_output(svc, chat_id=CHAT, message_id=None,
+                           sent_at=NOW_TS - 5)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    delivery = asyncio.run(scenario())["meme"]["last_delivery"]
+    assert delivery["status"] == diag.DELIVERY_UNKNOWN
+    assert delivery["message_id"] is None
+
+
+# ── блокер 2: исключение precheck ≠ отсутствие таблицы ─────────────────────
+
+def test_precheck_exception_is_unknown_not_missing_schema(tmp_path, monkeypatch):
+    """Сбой чтения брони: health/readiness = unknown, БЕЗ выдуманной причины."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+    _meme_settings_on(monkeypatch)
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("claim store exploded")
+
+    monkeypatch.setattr(diag, "_meme_precheck", boom)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="precheck_boom.db")
+        try:
+            await _schema(svc)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    result = asyncio.run(scenario())
+    block = result["meme"]
+    publication = block["publication"]
+    assert publication["coordination"] == diag.COORDINATION_UNKNOWN
+    assert publication["degraded"] is False
+    assert publication["degraded_reason"] == ""
+    assert publication["available"] is False
+    assert publication["conflict"] is None
+    deps = {item["name"]: item for item in block["health"]["dependencies"]}
+    assert deps["publication_precheck"]["state"] == diag.HEALTH_UNKNOWN
+    # Главное: НЕ schema_absent и НЕ blocked по выдуманной причине.
+    assert block["skip"] is None or block["skip"]["code"] != "schema_absent"
+    assert block["readiness"]["state"] == "unknown", block["readiness"]
+    assert block["readiness"]["reason"] != "schema_absent"
+    # Механизм при этом не объявлен выключенным.
+    assert block["configuration"]["enabled"] is True
+    assert result["degraded"] == []
+
+
+# ── блокер 3: чатовый слой разрешения назван честно ────────────────────────
+
+def test_configuration_names_chat_layer_instead_of_global(tmp_path, monkeypatch):
+    """Разные чатовые настройки различимы: source/scope указывают на чат."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _chat_capability(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="config_chat.db")
+        try:
+            await _schema(svc)
+            sourced = []
+            for enabled in (True, False):
+                cfg = _settings(enabled=enabled)
+
+                async def _load(_chat_id=None, _cfg=cfg):
+                    return _cfg
+
+                monkeypatch.setattr(meme, "load_settings", _load)
+                block = (await diag.collect_mechanism_diagnostics(
+                    svc, CHAT, now=NOW_TS))["meme"]
+                sourced.append(block["configuration"])
+            return sourced
+        finally:
+            await svc.close()
+
+    on, off = asyncio.run(scenario())
+    # Разрешено: разрешающий слой — ЧАТ (настройки мема), не «global».
+    assert on["enabled"] is True
+    assert on["source"] == "meme_settings"
+    assert on["scope"] == "mixed"
+    # Явный OFF в чате — тоже чатовый слой и причина.
+    assert off["enabled"] is False
+    assert off["source"] == "meme_settings"
+    assert off["scope"] == "chat"
+    assert off["reason"] == meme.SKIP_DISABLED
+
+
+def test_configuration_chat_override_is_named_as_chat(tmp_path, monkeypatch):
+    """Явный выбор чата (тумблер) — source=chat, а не «global»."""
+    _image_ok(monkeypatch)
+    _gates_on(monkeypatch)
+    _meme_settings_on(monkeypatch)
+    _chat_capability(monkeypatch, on=True, source="chat")
+
+    async def scenario():
+        svc = await _db(tmp_path, name="config_override.db")
+        try:
+            await _schema(svc)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    configuration = asyncio.run(scenario())["meme"]["configuration"]
+    assert configuration["enabled"] is True
+    assert configuration["source"] == "chat"
+    assert configuration["scope"] == "mixed"
+
+
+# ── блокер 5: идентичность ТЕКСТОВОЙ попытки (ранний отказ) ────────────────
+
+def _text_runner(svc):
+    """Реальный раннер с DI-полями (как в соседних тестах наблюдения)."""
+    runner = obs.InitiativeObserverRunner.__new__(obs.InitiativeObserverRunner)
+    runner._db = svc
+    runner._bot = None
+    runner._llm = None
+    runner._writer = None
+    runner._aliases = None
+    runner._publication = None
+    runner._trigger = "schedule"
+    return runner
+
+
+def test_text_early_refusal_has_per_chat_run_id(tmp_path, monkeypatch):
+    """Отказ на ПЕРВОМ гейте текста несёт родителя попытки ЧАТА (§3)."""
+    _image_ok(monkeypatch)
+    monkeypatch.setattr(obs, "observer_enabled", lambda: True)
+
+    async def chat_off(_chat_id):
+        return False
+
+    monkeypatch.setattr(obs, "chat_observer_enabled", chat_off)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="text_run.db")
+        try:
+            await _schema(svc)
+            payload = {"chats": {str(CHAT): {"pending": 5, "last_eval_ts": 0}},
+                       "counters": obs.default_counters(), "day": {}}
+            runner = _text_runner(svc)
+            await runner._evaluate_phase(payload, "cycle-job-id")
+            entry = payload["chats"][str(CHAT)]
+            await _seed_observe_payload(svc, payload)
+            read_model = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            return (entry.get("last_run_id"),
+                    dict(entry.get("last_decision") or {}),
+                    read_model["text_initiative"]["last_attempt"])
+        finally:
+            await svc.close()
+
+    run_id, decision, attempt = asyncio.run(scenario())
+    # Родитель mint'ится ДО гейта: он есть у отказа, и это НЕ цикловой job_id.
+    assert run_id and run_id.startswith("init:%d:" % CHAT), run_id
+    assert run_id != "cycle-job-id"
+    assert decision["run_id"] == run_id
+    assert decision["skip_reason"] == obs.SKIP_CHAT_DISABLED
+    # Витрина видит ту же попытку и того же родителя.
+    assert attempt["run_id"] == run_id
+    assert attempt["mode"] == diag.MODE_AUTO
+    assert attempt["outcome"] == "skipped"
+    assert attempt["stop_stage"] == obs.SKIP_CHAT_DISABLED
+    assert attempt["incomplete_historical"] is False
+
+
+def test_text_events_carry_per_chat_run_id(monkeypatch):
+    """Любое событие чата получает trace_id=run_id; чужой чат — свой."""
+    from services import mca_events as mca
+
+    captured: list[dict] = []
+
+    def _capture(event_name, **fields):
+        captured.append({"event_name": event_name, **fields})
+        return {}
+
+    monkeypatch.setattr(mca, "emit_mca_event", _capture)
+    runner = _text_runner(None)
+    runner._remember_run_id(CHAT, "init:%d:20261111:aaa" % CHAT)
+    runner._remember_run_id(CHAT + 1, "init:%d:20261111:bbb" % (CHAT + 1))
+    runner._emit("initiative_opportunity", outcome="success", chat_id=CHAT)
+    runner._emit("initiative_publication_claim", outcome="success",
+                 chat_id=CHAT, entity_id="claim-77")
+    runner._emit("initiative_observer_scan", outcome="success", chat_id=CHAT + 1)
+    runner._emit("initiative_observer_diagnostic", outcome="failed")
+
+    assert captured[0]["trace_id"] == "init:%d:20261111:aaa" % CHAT
+    # Код брони остаётся в entity_id, родитель — в trace_id (не подменяются).
+    assert captured[1]["trace_id"] == "init:%d:20261111:aaa" % CHAT
+    assert captured[1]["entity_id"] == "claim-77"
+    assert captured[2]["trace_id"] == "init:%d:20261111:bbb" % (CHAT + 1)
+    # Вне чатового контекста родителя нет: не выдумываем.
+    assert "trace_id" not in captured[3]
+
+
+def test_text_child_llm_calls_are_namespaced(tmp_path, monkeypatch):
+    """Дочерние шаги текста: `{run_id}#eval` и `{run_id}#digest`."""
+    _image_ok(monkeypatch)
+    seen: list[str] = []
+
+    class _LLM:
+        async def generate(self, messages, *, temperature=0.0, chat_id=None,
+                           module="", step="", correlation_id="", **_kw):
+            seen.append(str(correlation_id))
+            return "{\"opportunity\": false, \"veto_reason\": \"semantic_none\"}"
+
+    async def scenario():
+        svc = await _db(tmp_path, name="text_child.db")
+        try:
+            await _schema(svc)
+            runner = _text_runner(svc)
+            runner._llm = _LLM()
+            runner._remember_run_id(CHAT, "init:%d:20261111:ccc" % CHAT)
+            await runner._evaluate_window(
+                CHAT, _rows(CHAT), since_id=0)
+            return list(seen)
+        finally:
+            await svc.close()
+
+    sent = asyncio.run(scenario())
+    assert sent == ["init:%d:20261111:ccc#eval" % CHAT], sent
+    # digest — тот же родитель, свой шаг.
+    runner = _text_runner(None)
+    runner._remember_run_id(CHAT, "init:%d:20261111:ccc" % CHAT)
+    assert runner._child_run_id(CHAT, "digest") == \
+        "init:%d:20261111:ccc#digest" % CHAT
 
 

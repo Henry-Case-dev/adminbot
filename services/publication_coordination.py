@@ -99,6 +99,10 @@ DETAIL_DELIVERY_UNKNOWN = "delivery_unknown"
 #: Состояние координации (честная метка, а не «тишина»).
 COORDINATION_OK = "ok"
 COORDINATION_DEGRADED = "degraded"
+#: Координация НЕ ПРОЧИТАНА (исключение при чтении брони). Это не «всё
+#: хорошо» и не «таблицы нет»: причина неизвестна, и витрина обязана показать
+#: неизвестность, а не выдуманный `schema_absent`.
+COORDINATION_UNKNOWN = "unknown"
 
 CLAIM_DDL_SQLITE = (
     f"CREATE TABLE IF NOT EXISTS {CLAIM_TABLE} ("

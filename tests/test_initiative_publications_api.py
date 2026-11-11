@@ -295,10 +295,10 @@ def _build_journals(path: str) -> None:
     con.close()
 
 
-@pytest.fixture()
-def api(tmp_path):
+def _client_for(tmp_path, build):
+    """Общий стенд: БД журналов + web-приложение + lore-runtime."""
     db_path = str(tmp_path / "journals.sqlite")
-    _build_journals(db_path)
+    build(db_path)
     deps_mod.settings = types.SimpleNamespace(API_TOKEN=TEST_TOKEN)
     cache = ConfigCache(pg=_FakePg(_FakePgConn()), retry_attempts=1,
                         retry_delay=0)
@@ -323,6 +323,41 @@ def api(tmp_path):
         cp_srv.set_chat_params_cache(None)
         lore_runtime.reset_lore_runtime()
         asyncio.run(conn.close())
+
+
+@pytest.fixture()
+def api(tmp_path):
+    yield from _client_for(tmp_path, _build_journals)
+
+
+#: Строки, которых нет в базовом стенде: ручной ранний отказ (mode в detail) и
+#: две исторические строки БЕЗ `job_id` (реальные данные до P0 corrective).
+LEGACY_ATTEMPTS = (
+    # manual=True, отказ на гейте: строки этапов нет, есть терминальная.
+    ("m-manual", CHAT_A, "MANUAL-1", NOW - 50, "skipped", "skipped",
+     "publication_conflict", _facts({"mode": "manual",
+                                     "detail": "acquire_denied"}),
+     "auto", 600, 12),
+    # Две старые строки без родителя: НЕ склеиваются между собой.
+    ("old-0", CHAT_A, "", NOW - 7000, "summary", "passed", "",
+     _facts({"chars": 10}), "auto", 600, 12),
+    ("old-1", CHAT_A, "", NOW - 6900, "publish", "skipped", "cooldown_active",
+     _facts({"detail": "historical"}), "auto", 600, 12),
+)
+
+
+def _build_legacy_journals(path: str) -> None:
+    _build_journals(path)
+    con = sqlite3.connect(path)
+    con.executemany("INSERT INTO meme_initiative_attempt VALUES"
+                    " (?,?,?,?,?,?,?,?,?,?,?)", LEGACY_ATTEMPTS)
+    con.commit()
+    con.close()
+
+
+@pytest.fixture()
+def api_legacy(tmp_path):
+    yield from _client_for(tmp_path, _build_legacy_journals)
 
 
 def _rows(client, chat=CHAT_A, **query):
@@ -582,6 +617,53 @@ def test_mechanism_diagnostics_without_chat_header_is_rejected(api):
                    headers=_hdr(ADMIN_ID)).status_code == 422
     assert api.get("/api/initiative/mechanism-diagnostics",
                    headers=_hdr(USER_ID, CHAT_A)).status_code == 403
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Ревью 400021cc, блокер 4 — режим и исторические строки в СПИСКЕ попыток
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_manual_early_refusal_is_manual_in_the_publications_list(api_legacy):
+    """`mode=manual` из detail JSON доезжает до списка (а не «auto»)."""
+    body = _rows(api_legacy, limit=100)
+    row = _row(body, "meme:MANUAL-1")
+    assert row is not None, [r["attempt_id"] for r in body["rows"]]
+    assert row["mode"] == "manual", row
+    assert row["incomplete_historical"] is False
+    # Ручной режим фильтруется серверно тем же полем.
+    manual = _rows(api_legacy, mode="manual", limit=100)
+    assert "meme:MANUAL-1" in [r["attempt_id"] for r in manual["rows"]]
+
+
+def test_legacy_rows_without_job_id_are_marked_historical(api_legacy):
+    """Две старые строки без `job_id` — две исторические, а не «нормальные»."""
+    body = _rows(api_legacy, limit=100)
+    rows = {r["attempt_id"]: r for r in body["rows"]}
+    first = rows.get("meme:row:old-0")
+    second = rows.get("meme:row:old-1")
+    assert first is not None and second is not None, sorted(rows)
+    for row in (first, second):
+        assert row["incomplete_historical"] is True, row
+        assert row["job_id"] == "", row
+    # Они НЕ склеены в одну попытку и не выдают себя за попытку с родителем.
+    assert first["attempt_id"] != second["attempt_id"]
+    # Деталь исторической строки открывается по её же идентификатору.
+    detail = api_legacy.get(
+        "/api/initiative/publications/detail?attempt_id=meme:row:old-1",
+        headers=_hdr(ADMIN_ID, CHAT_A))
+    assert detail.status_code == 200, detail.text
+    payload = detail.json()
+    assert payload["attempt"]["incomplete_historical"] is True
+    assert payload["chain"], payload
+
+
+def test_regular_attempts_are_not_marked_historical(api):
+    """Обычная попытка с `job_id` не помечается исторической."""
+    body = _rows(api, limit=100)
+    row = _row(body, "meme:J4")
+    assert row is not None
+    assert row["incomplete_historical"] is False
+    assert row["job_id"] == "J4"
 
 
 def test_missing_db_is_honest(tmp_path):
