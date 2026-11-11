@@ -1750,6 +1750,15 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
                             else MODE_AUTOMATIC)
             payload["attempt_mode"] = attempt_mode
             payload.setdefault("mode", attempt_mode)
+            # P0IM-PB-ID (S4-корректива): факты ПУБЛИКАЦИИ (источник, бронь,
+            # права, `output.tg_message_id`) — часть итога попытки, а не
+            # отдельного этапа. Раньше они терялись: `_finish` писал только
+            # payload своего этапа, поэтому в терминальной строке не было
+            # ключа `publication`, fallback read-model был мёртв, и карточка
+            # показывала `message_id: null` при `delivered: true`.
+            publication = (result.stage_facts or {}).get("publication")
+            if isinstance(publication, dict) and publication:
+                payload["publication"] = dict(publication)
         facts = compact_facts(payload)
         # Терминальная строка несёт факты (вместе с кодом причины внутри
         # JSON); пройденные этапы — свой JSON фактов.

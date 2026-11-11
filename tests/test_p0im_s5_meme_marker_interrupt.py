@@ -493,29 +493,45 @@ async def test_successful_marker_write_is_also_recorded(monkeypatch, tmp_path):
 
 # ═══ 4. снятие маркера снимает ТОЛЬКО своё значение (гонки) ════════════════
 
-def test_release_clears_only_its_own_marker(tmp_path):
-    """Параллельный `/meme` не теряет приоритет из-за чужого снятия.
+def test_release_keeps_a_second_marker_created_in_the_same_second(tmp_path):
+    """Два `/meme` в ОДНУ секунду: снятие первого не гасит маркер второго.
 
-    Mutation: снимать любое значение (без ``:until``) — свежий маркер второго
-    запуска гаснет, ``_marker`` становится ``None``, тест красный.
+    Метка ``until`` уникальна для запуска (``max(base, текущее + 1)``), поэтому
+    освобождение адресуется СВОЕЙ метке, а не значению, которое могут разделить
+    два запуска. Проверяется поведение, а не только число: пока второй запуск
+    не закрыт, автоматический путь обязан видеть живой приоритет.
+
+    Mutation: вернуть ``until = now + 600`` без сдвига — оба запуска получают
+    ``1793707800``, снятие первого очищает маркер второго, авто-путь снова
+    проходит, тест красный.
     """
     path = str(tmp_path / "claims.db")
     meme.SqliteQuotaLedger(path).apply_schema()
     store = pub.SqliteClaimStore(path)
 
     first = store.claim_manual_priority(chat_id=CHAT, now=NOW_TS)
-    second = store.claim_manual_priority(chat_id=CHAT, now=NOW_TS + 5)
-    assert second > first
+    second = store.claim_manual_priority(chat_id=CHAT, now=NOW_TS)
+    assert first == NOW_TS + pub.MANUAL_PRIORITY_SECONDS
+    assert second != first, "метки двух запусков обязаны различаться"
+    assert second == first + 1
 
-    assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 6,
+    # Первый запуск закрылся: его снятие адресовано СВОЕЙ (уже не хранимой)
+    # метке и не трогает маркер второго запуска.
+    assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 1,
                                          until=first) is False
-    assert _marker(path) == second, "чужой (свежий) маркер не снят"
+    assert _marker(path) == second, "маркер второго запуска цел"
+    assert _marker(path) > NOW_TS + 1, "и всё ещё действует"
 
-    assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 7,
+    blocked = store.acquire(chat_id=CHAT, holder_kind=pub.KIND_TEXT_INITIATIVE,
+                            now=NOW_TS + 2, interval_seconds=1800)
+    assert blocked.granted is False
+    assert blocked.detail == pub.DETAIL_MANUAL_PRIORITY
+
+    # Второй запуск закрылся — его собственное снятие работает.
+    assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 3,
                                          until=second) is True
     assert _marker(path) is None
-    # Повторное снятие — не ошибка и не «успех»: снимать нечего.
-    assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 8,
+    assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 4,
                                          until=second) is False
 
 
@@ -529,6 +545,43 @@ def test_release_without_a_marker_value_does_not_touch_the_table(tmp_path):
     assert store.release_manual_priority(chat_id=CHAT, now=NOW_TS + 1,
                                          until=0) is False
     assert _marker(path) == until
+
+
+@pytest.mark.asyncio
+async def test_delivered_attempt_exposes_tg_message_id_through_read_model(
+        monkeypatch, tmp_path):
+    """Доставленный мем отдаёт РЕАЛЬНЫЙ ``tg_message_id`` через read-model.
+
+    S4-корректива: ``facts["publication"]`` (вместе с ``output.tg_message_id``)
+    теперь пишется в терминальную строку, поэтому существующий fallback
+    агрегатора работает и карточка показывает id сообщения, а не «—» при
+    ``delivered: true``.
+
+    Mutation: не писать ``publication`` в терминальную строку — агрегатор
+    отдаёт ``delivered: true`` и ``message_id: null``, тест красный.
+    """
+    db, path = _database(tmp_path)
+    bot = _Bot()
+    _install(monkeypatch, bot, db, _seams())
+
+    await meme_command.cmd_meme(_Message(bot))
+
+    sent_id = 101                                  # id, который вернул транспорт
+    terminal = _terminal_row(_attempt_rows(path))
+    assert terminal is not None
+    facts = meme.parse_attempt_facts(terminal)
+    publication = facts.get("publication")
+    assert isinstance(publication, dict), facts
+    assert publication.get("delivery") == "sent", publication
+    assert publication.get("output", {}).get("tg_message_id") == sent_id, \
+        publication
+
+    attempts = pubapi._meme_attempts_grouped(_attempt_rows(path))
+    assert len(attempts) == 1, attempts
+    attempt = attempts[0]
+    assert attempt["delivered"] is True, attempt
+    assert attempt["message_id"] == sent_id, attempt
+    assert attempt["outcome"] == "published", attempt
 
 
 # ═══ 5. код причины читается по-человечески ════════════════════════════════

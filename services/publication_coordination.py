@@ -232,10 +232,12 @@ ON CONFLICT(chat_id) DO UPDATE SET
 """
 
 #: Снятие СВОЕГО маркера приоритета в терминальном исходе (P0IM-MM-MARKER).
-#: ``:until`` — ровно то значение, что поставил этот запуск: чужой/более
-#: свежий маркер (параллельный `/meme`) не гасится, гонки нет. Поле живёт в
-#: существующей строке брони, поэтому отдельного стейтмента-очистки таблицы
-#: (`_RELEASE_SQL`) не требуется и его семантика не меняется.
+#: ``:until`` — ровно то значение, что поставил этот запуск, и оно УНИКАЛЬНО
+#: для запуска (см. ``claim_manual_priority``): два `/meme` в одну секунду не
+#: могут получить одинаковую метку, поэтому снятие первого не гаснет маркер
+#: второго. Поле живёт в существующей строке брони, поэтому отдельного
+#: стейтмента-очистки таблицы (`_RELEASE_SQL`) не требуется и его семантика не
+#: меняется.
 _MANUAL_PRIORITY_CLEAR_SQL = f"""
 UPDATE {CLAIM_TABLE}
    SET manual_priority_until = NULL, updated_at = :now
@@ -552,18 +554,39 @@ class SqliteClaimStore:
 
     def claim_manual_priority(self, *, chat_id: int, now: int,
                               ttl: int = MANUAL_PRIORITY_SECONDS) -> int:
-        """Маркер приоритета ручного `/meme` ОДНИМ стейтментом (до генерации).
+        """Маркер приоритета ручного `/meme` (до генерации), метка уникальна.
 
         С этого момента автоматический путь не может перейти в `sending`;
         строки нет — вставляется инертная (`state='cancelled'`), чтобы маркер
         существовал независимо от истории публикаций.
+
+        Метка ``until`` обязана быть РАЗЛИЧИМОЙ для каждого запуска: два
+        обращения в одну и ту же секунду иначе получили бы одинаковое
+        ``now + 600``, и снятие первого погасило бы маркер второго, пока тот
+        ещё генерирует картинку. Поэтому новое значение — ``max(base,
+        текущее + 1)``: это по-прежнему верхняя граница приоритета (сдвиг не
+        больше секунды на одно живое обращение), но каждый запуск узнаёт СВОЮ
+        метку и снимает только её. Новых колонок/таблиц нет: значение живёт в
+        существующем поле, а чтение-запись идёт одной IMMEDIATE-транзакцией,
+        поэтому второй запуск не может прочитать чужое значение.
         """
-        until = int(now) + max(1, _as_int(ttl, MANUAL_PRIORITY_SECONDS))
+        base = int(now) + max(1, _as_int(ttl, MANUAL_PRIORITY_SECONDS))
         conn = _connect(self.path)
         try:
-            conn.execute(_MANUAL_PRIORITY_SQL,
-                         {"chat": int(chat_id), "now": int(now),
-                          "until": until})
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = conn.execute(
+                    f"SELECT manual_priority_until FROM {CLAIM_TABLE} "
+                    "WHERE chat_id = ?", (int(chat_id),)).fetchone()
+                current = _as_int(row[0] if row is not None else 0, 0)
+                until = base if current < base else current + 1
+                conn.execute(_MANUAL_PRIORITY_SQL,
+                             {"chat": int(chat_id), "now": int(now),
+                              "until": until})
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
         except Exception:
             logger.warning("[publish] manual priority failed | chat=%s",
                            chat_id, exc_info=True)
@@ -576,10 +599,12 @@ class SqliteClaimStore:
                                 until: int) -> bool:
         """Снять СВОЙ маркер приоритета в терминальном исходе (P0IM-MM-MARKER).
 
-        Снимается ровно значение, поставленное этим запуском: маркер другого
-        (более свежего) `/meme` остаётся в силе. ``True`` — маркер снят этим
-        стейтментом, ``False`` — снимать было нечего либо запись не удалась
-        (тогда честно работает TTL-страховка, а не тишина).
+        Снимается ровно значение, поставленное ЭТИМ запуском: метка уникальна
+        для запуска (см. ``claim_manual_priority``), поэтому маркер другого
+        `/meme` — в том числе начатого в ту же секунду — остаётся в силе.
+        ``True`` — маркер снят этим стейтментом, ``False`` — снимать было
+        нечего либо запись не удалась (тогда честно работает TTL-страховка, а
+        не тишина).
         """
         mark = _as_int(until, 0)
         if not mark:
