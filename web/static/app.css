@@ -8701,8 +8701,7 @@ body > .sticky-save[data-save-panel] {
   outline: 2px solid rgba(129, 140, 248, .8); outline-offset: 1px;
 }
 
-/* ── Сравнение двух чатов: ДВЕ колонки одних и тех же осей ────────────── */
-.ini-compare { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* ── Сравнение двух чатов: ДВЕ колонки одних и тех же осей ────────────── */.ini-compare { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .ini-compare__group {
   border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
   border-radius: var(--radius-lg, 12px);
@@ -8720,6 +8719,49 @@ body > .sticky-save[data-save-panel] {
 .ini-compare__chat { color: #cbd5e1; overflow-wrap: anywhere; min-width: 0; }
 .ini-compare__val { color: #cbd5e1; overflow-wrap: anywhere; min-width: 0; }
 .ini-compare__row--diff .ini-compare__val { color: #fde68a; }
+
+/* ── S4-TRACE: связная трасса одной попытки (фиксированный словарь шагов) ── */
+.ini-trace-steps {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  margin: 6px 0 4px; padding: 8px 10px;
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px); background: rgba(255, 255, 255, .02);
+}
+.ini-trace-steps__attempt {
+  font-size: 0.86em; color: #cbd5e1; overflow-wrap: anywhere; min-width: 0;
+}
+.ini-trace-steps__status {
+  font-size: 0.88em; color: #e2e8f0; overflow-wrap: anywhere; min-width: 0;
+}
+.ini-trace-steps__list {
+  list-style: none; margin: 2px 0 0; padding: 0; display: flex;
+  flex-direction: column; gap: 2px; min-width: 0;
+}
+.ini-trace-step {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  min-width: 0; font-size: 0.88em; padding: 2px 0;
+  border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .05);
+}
+.ini-trace-step__name { color: #e2e8f0; font-weight: 600; min-width: 0; }
+.ini-trace-step__time {
+  color: #94a3b8; font-variant-numeric: tabular-nums; min-width: 0;
+}
+.ini-trace-step__text { color: #cbd5e1; overflow-wrap: anywhere; min-width: 0; }
+.ini-trace-step__code {
+  color: #94a3b8; overflow-wrap: anywhere; min-width: 0; font-size: 0.95em;
+}
+.ini-trace-step__note { color: #64748b; overflow-wrap: anywhere; min-width: 0; }
+/* Незапускавшийся шаг гасится, ошибка подчёркнута — без новых цветов системы. */
+.ini-trace-step--not_run .ini-trace-step__text,
+.ini-trace-step--unknown .ini-trace-step__text { color: #64748b; }
+.ini-trace-step--failed .ini-trace-step__name { color: #fca5a5; }
+
+/* Фильтр по чату внутри «Публикаций» — те же компактные кнопки. */
+.ini-chat-filter { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.ini-row__id {
+  font-family: var(--font-mono, monospace); font-size: 0.82em; color: #cbd5e1;
+  overflow-wrap: anywhere; min-width: 0;
+}
 
 /* ── Полоса «Координация отправки» ──────────────────────────────────── */
 .ini-coord {

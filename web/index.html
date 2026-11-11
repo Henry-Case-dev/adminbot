@@ -3041,11 +3041,20 @@
                   </div>
                   <span class="flex-1"></span>
                   <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-xs text-gray-500" data-ini-pub-counts>
-                      всего {{ iniPub.counts.total || 0 }}
-                      · текст {{ iniPub.counts.text || 0 }}
-                      · мемы {{ iniPub.counts.meme || 0 }}
-                      · опубликовано {{ iniPub.counts.published || 0 }}
+                    <span class="text-xs text-gray-500" data-ini-pub-counts
+                          :data-ini-pub-window="iniPubCounts.windowLabel">
+                      {{ iniPubCounts.windowLabel }}:
+                      проверено {{ iniPubCounts.checked }}
+                      · решено {{ iniPubCounts.decided }}
+                      · опубликовано {{ iniPubCounts.published }}
+                      · доставлено {{ iniPubCounts.delivered }}
+                      · ожидает {{ iniPubCounts.pending }}
+                      <template v-if="iniPubCounts.deliveryUnknown">
+                        · без подтверждения {{ iniPubCounts.deliveryUnknown }}
+                      </template>
+                      <span class="text-[10px] text-gray-600"
+                            data-ini-pub-counts-note>категории вложенные, не слагаются;
+                        текст {{ iniPubCounts.text }} · мемы {{ iniPubCounts.meme }}</span>
                     </span>
                     <button type="button" class="btn-ghost text-xs"
                             :disabled="iniPub.busy"
@@ -3062,8 +3071,21 @@
                 <div class="ini-filters" data-ini-pub-filters>
                   <div class="ini-filter" data-ini-filter="chat">
                     <span>Чат</span>
-                    <b class="text-gray-300">{{ scopeLabel }}</b>
-                    <span class="text-[10px] text-gray-600">меняется в шапке</span>
+                    <!-- S4-TRACE: фильтр по чату внутри поверхности. Меняет
+                         ТУ ЖЕ область, что и шапка (одна точка истины), и
+                         журнал перечитывается для выбранного чата. -->
+                    <span v-if="accessChats.length > 1" class="ini-chat-filter"
+                          data-ini-pub-chat-filter>
+                      <button v-for="c in accessChats" :key="'pubchat-' + c.chat_id"
+                              type="button" class="ini-switch__btn"
+                              :class="{ 'ini-switch__btn--on': String(activeChatId) === String(c.chat_id) }"
+                              :aria-pressed="String(activeChatId) === String(c.chat_id) ? 'true' : 'false'"
+                              :data-ini-pub-chat="c.chat_id"
+                              @click="iniPubSetChat(c.chat_id)">
+                        {{ c.title || c.chat_id }}
+                      </button>
+                    </span>
+                    <b v-else class="text-gray-300">{{ scopeLabel }}</b>
                   </div>
                   <label class="ini-filter">
                     <span>Период</span>
@@ -3142,10 +3164,22 @@
                               @click="initiativePubOpen(row)">
                         <span class="ini-row__time">{{ row.timeText }}</span>
                         <span class="badge badge-muted shrink-0">{{ row.kindLabel }}</span>
-                        <span class="ini-row__stage">{{ row.stageLabel }}</span>
+                        <span class="ini-row__id" :data-ini-pub-run="row.attempt_id">
+                          {{ row.runLabel }}
+                          <span class="text-[10px] text-gray-600">· {{ row.chatLabel }}</span>
+                        </span>
+                        <span class="ini-row__stage" :data-ini-pub-stages-row="row.attempt_id">
+                          {{ row.modeLabel }} · {{ row.stagesText || row.stageLabel }}
+                        </span>
                         <span class="ini-row__reason">
                           {{ row.reasonText || 'без причины' }}
                           <span v-if="row.reason_code" class="ini-row__code">{{ row.reason_code }}</span>
+                          <span v-if="row.failedStage" class="ini-row__chain"
+                                :data-ini-pub-failed-stage="row.attempt_id">
+                            · ошибка на шаге «{{ row.failedStage.label }}»</span>
+                          <span v-if="row.historical" class="ini-row__chain"
+                                :data-ini-pub-historical="row.attempt_id">
+                            · историческая запись без идентификатора</span>
                           <span v-if="row.otherText" class="ini-row__chain"
                                 :data-ini-pub-other="row.attempt_id">
                             · событие {{ row.otherText }}</span>
@@ -3157,7 +3191,8 @@
                               :class="row.outcomeClass"
                               :data-ini-pub-outcome="row.outcome">{{ row.outcomeLabel }}</span>
                         <span class="shrink-0" :class="row.deliveryClass"
-                              :data-ini-pub-delivery="row.deliveryState">
+                              :data-ini-pub-delivery="row.deliveryState"
+                              :data-ini-pub-delivery-sign="row.deliverySign">
                           {{ row.deliveryLabel }}
                         </span>
                         <span class="msr shrink-0" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
@@ -3172,6 +3207,43 @@
                           <div v-if="iniPubDetailSummary"
                                class="text-xs text-gray-300" data-ini-pub-summary>
                             <b>{{ iniPubDetailSummary }}</b>
+                          </div>
+                          <!-- S4-TRACE: связная трасса ОДНОЙ попытки. Шаги —
+                               фиксированный словарь механизма; каждый шаг либо
+                               реальное наблюдение с меткой времени, либо
+                               честное «не выполнялось»/«нет данных». -->
+                          <div v-if="iniPubDetailTrace" class="ini-trace-steps"
+                               data-ini-pub-steps data-ini-trace-steps
+                               :data-ini-trace-kind="iniPubDetailTrace.kind"
+                               :data-ini-trace-mode="iniPubDetailTrace.mode"
+                               :data-ini-trace-norows="iniPubDetailTrace.noRows ? 'true' : 'false'">
+                            <div class="ini-trace-steps__attempt" data-ini-trace-attempt>
+                              <span class="font-mono">{{ iniPubDetailAttemptLabel }}</span>
+                            </div>
+                            <div class="ini-trace-steps__status" data-ini-trace-status>
+                              {{ iniPubDetailTrace.statusLine }}
+                            </div>
+                            <ol class="ini-trace-steps__list">
+                              <li v-for="step in iniPubDetailTrace.steps"
+                                  :key="'pdstep-' + step.key"
+                                  class="ini-trace-step"
+                                  :class="'ini-trace-step--' + step.state"
+                                  :data-ini-trace-step="step.key"
+                                  :data-ini-step-state="step.state">
+                                <span class="ini-trace-step__name">{{ step.label }}</span>
+                                <span class="badge shrink-0"
+                                      :class="step.state === 'done' ? 'badge-ok'
+                                        : (step.state === 'failed' ? 'badge-warn'
+                                          : (step.state === 'skipped' || step.state === 'inferred'
+                                            ? 'badge-info' : 'badge-muted'))">{{ step.stateLabel }}</span>
+                                <span class="ini-trace-step__time">{{ iniTraceTime(step.at) }}</span>
+                                <span class="ini-trace-step__text">{{ step.text }}</span>
+                                <span v-if="step.codeLabel" class="ini-trace-step__code"
+                                      :data-ini-step-code="step.key">{{ step.codeLabel }}
+                                  <span class="text-gray-600">{{ step.code }}</span></span>
+                                <span v-if="step.note" class="ini-trace-step__note">{{ step.note }}</span>
+                              </li>
+                            </ol>
                           </div>
                           <div class="text-xs text-gray-500">
                             режим: {{ row.modeLabel }}
@@ -3317,8 +3389,12 @@
                     </div>
                     <div class="ini-fact">
                       <span class="ini-fact__k">Механизм</span>
-                      <span class="ini-fact__v">{{ iniTraceAttempt
-                        && iniTraceAttempt.kind === 'meme' ? 'Мемы' : 'Текстовая инициатива' }}</span>
+                      <span class="ini-fact__v" data-ini-trace-kind-label>{{ iniTraceSteps.isMeme
+                        ? 'Мемы' : 'Текстовая инициатива' }}</span>
+                    </div>
+                    <div class="ini-fact">
+                      <span class="ini-fact__k">Режим</span>
+                      <span class="ini-fact__v" data-ini-trace-mode>{{ iniTraceSteps.modeLabel }}</span>
                     </div>
                     <div class="ini-fact">
                       <span class="ini-fact__k">Исход</span>
@@ -3330,8 +3406,40 @@
                       <span class="ini-fact__v">{{ iniTraceAttempt
                         && iniTraceAttempt.delivered === true ? 'доставлено'
                           : (iniTraceAttempt && iniTraceAttempt.delivered === false
-                            ? 'не доставлено' : 'неизвестно') }}</span>
+                            ? 'не доставлено' : 'не подтверждена') }}</span>
                     </div>
+                  </div>
+
+                  <!-- S4-TRACE: связная трасса шагов (фиксированный словарь
+                       механизма). Показывается ДО технических групп; каждая
+                       строка — наблюдение или честное «не выполнялось». -->
+                  <div class="ini-trace-steps" data-ini-trace-steps
+                       :data-ini-trace-kind="iniTraceSteps.kind"
+                       :data-ini-trace-norows="iniTraceSteps.noRows ? 'true' : 'false'">
+                    <div class="ini-trace-steps__status" data-ini-trace-status-line>
+                      {{ iniTraceSteps.statusLine }}
+                    </div>
+                    <ol class="ini-trace-steps__list">
+                      <li v-for="step in iniTraceSteps.steps"
+                          :key="'distep-' + step.key"
+                          class="ini-trace-step"
+                          :class="'ini-trace-step--' + step.state"
+                          :data-ini-trace-step="step.key"
+                          :data-ini-step-state="step.state">
+                        <span class="ini-trace-step__name">{{ step.label }}</span>
+                        <span class="badge shrink-0"
+                              :class="step.state === 'done' ? 'badge-ok'
+                                : (step.state === 'failed' ? 'badge-warn'
+                                  : (step.state === 'skipped' || step.state === 'inferred'
+                                    ? 'badge-info' : 'badge-muted'))">{{ step.stateLabel }}</span>
+                        <span class="ini-trace-step__time">{{ iniTraceTime(step.at) }}</span>
+                        <span class="ini-trace-step__text">{{ step.text }}</span>
+                        <span v-if="step.codeLabel" class="ini-trace-step__code"
+                              :data-ini-step-code="step.key">{{ step.codeLabel }}
+                          <span class="text-gray-600">{{ step.code }}</span></span>
+                        <span v-if="step.note" class="ini-trace-step__note">{{ step.note }}</span>
+                      </li>
+                    </ol>
                   </div>
 
                   <div v-if="!iniTraceGroups.length" class="text-xs text-gray-500">

@@ -3290,7 +3290,762 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // P0-INIT-MEME-UX-DIAG §5 — ПЯТЬ НЕЗАВИСИМЫХ ОСЕЙ ВИТРИНЫ «ОБЗОР»
+  // S4-TRACE (§P0IM-PB-TRACE/PB-ROW/PB-LLM) — СВЯЗНАЯ ТРАССА ОДНОЙ ПОПЫТКИ
+  // ───────────────────────────────────────────────────────────────────────────
+  // Фиксированный словарь шагов на механизм/режим. Каждый шаг получает ЛИБО
+  // реальное наблюдение с меткой времени, ЛИБО честное состояние:
+  //   не выполнялось / нет данных / по косвенному факту.
+  // Выдуманных этапов нет: текстовая инициатива не показывает «Прикол» и
+  // «Картинку», автоматический мем — «/meme»-шаги. Полный текст промптов не
+  // хранится исторически — так и написано, без подстановки.
+  // ═══════════════════════════════════════════════════════════════════════════
+  var INI_TRACE_STEPS = {
+    meme_manual: [
+      ['update', 'Получение команды'],
+      ['permission', 'Проверка прав'],
+      ['command', 'Обработка команды'],
+      ['priority', 'Приоритет /meme'],
+      ['gates', 'Обязательные гейты'],
+      ['messages', 'Чтение сообщений'],
+      ['summary', 'Выжимка (LLM A)'],
+      ['joke', 'Прикол (LLM B)'],
+      ['image', 'Запрос картинки'],
+      ['claim', 'Бронь публикации'],
+      ['send', 'Отправка в Telegram'],
+      ['result', 'Видимый результат'],
+    ],
+    meme_auto: [
+      ['trigger', 'Триггер (проход инициативы)'],
+      ['gates', 'Обязательные гейты'],
+      ['messages', 'Чтение сообщений'],
+      ['summary', 'Выжимка (LLM A)'],
+      ['joke', 'Прикол (LLM B)'],
+      ['image', 'Запрос картинки'],
+      ['claim', 'Бронь публикации'],
+      ['send', 'Отправка в Telegram'],
+      ['result', 'Видимый результат'],
+    ],
+    text: [
+      ['trigger', 'Оценка повода'],
+      ['gates', 'Условия и гейты'],
+      ['context', 'Контекст и окно'],
+      ['decision', 'Решение (LLM)'],
+      ['send', 'Отправка и перепроверка'],
+      ['result', 'Видимый результат'],
+    ],
+  };
+  //: Состояния шага. «не выполнялось» — шаг не начинался; «нет данных» — он
+  //: мог быть, но записи нет; «по косвенному факту» — вывод из соседних фактов,
+  //: а не прочитанная строка (так и подписывается).
+  var INI_STEP_STATE_LABELS = {
+    done: 'выполнено',
+    failed: 'ошибка',
+    skipped: 'пропущено',
+    not_run: 'не выполнялось',
+    unknown: 'нет данных',
+    inferred: 'по косвенному факту',
+  };
+  //: Куда остановилась попытка — по коду причины (закрытый словарь §1).
+  var INI_STOP_STEP_BY_REASON = {
+    disabled_by_setting: 'gates', initiative_disabled: 'gates',
+    image_module_off: 'gates', not_group: 'gates', quiet_hours: 'gates',
+    low_activity: 'gates', daily_quota_reached: 'gates',
+    cooldown_active: 'gates', no_random_hit: 'gates',
+    random_unavailable: 'gates', schema_absent: 'gates',
+    length_limit_unknown: 'gates', slot_released: 'gates',
+    not_enough_messages: 'gates', empty_context: 'gates',
+    eval_not_due: 'gates', anti_flood: 'gates', min_gap: 'gates',
+    day_cap: 'gates', topic_cap: 'gates', eval_budget: 'gates',
+    context_duplicate: 'gates', direct_address_seen: 'gates',
+    no_opportunity: 'gates', semantic_eval_unavailable: 'decision',
+    semantic_parse_error: 'decision', random_miss: 'decision',
+    source_material_gone: 'messages',
+    summary_failed: 'summary',
+    joke_generation_failed: 'joke', joke_empty: 'joke',
+    no_joke_budget: 'joke', template_empty: 'joke',
+    image_generation_failed: 'image',
+    image_provider_not_configured: 'image',
+    image_provider_unhealthy: 'image',
+    rights_revoked: 'permission', publish_blocked: 'send',
+    publication_conflict: 'claim', publication_in_flight: 'claim',
+    in_flight: 'claim', publication_stale: 'claim',
+    publication_expired: 'claim', publication_conflict_expired: 'claim',
+    delivery_unknown: 'send', cycle_exception: 'result',
+  };
+  //: Если причина неизвестна — место остановки берётся из терминального этапа
+  //: (это тоже реальная запись, а не догадка).
+  var INI_STOP_STEP_BY_STAGE = {
+    considered: 'gates', eligible: 'gates', summary: 'summary', joke: 'joke',
+    image_generation: 'image', publish: 'send',
+  };
+
+  function iniStepStateLabel(state) {
+    return INI_STEP_STATE_LABELS[state] || INI_STEP_STATE_LABELS.unknown;
+  }
+
+  //: Один шаг: всё, что показано, взято из записи. `at` — штамп записи.
+  function iniTraceStep(key, label, patch) {
+    var p = patch || {};
+    var state = String(p.state || 'not_run');
+    return {
+      key: key,
+      label: label,
+      state: state,
+      stateLabel: iniStepStateLabel(state),
+      at: (p.at == null ? null : Number(p.at)),
+      text: String(p.text || ''),
+      code: String(p.code || ''),
+      codeLabel: (p.code ? iniCodeLabel(p.code) : ''),
+      note: String(p.note || ''),
+    };
+  }
+
+  //: Факты одного этапа из его строки журнала (detail JSON строки — плоский).
+  function iniStageFacts(row) {
+    if (!row || typeof row !== 'object') return {};
+    var facts = row.facts;
+    if (!facts || typeof facts !== 'object' || Array.isArray(facts)) return {};
+    return facts;
+  }
+
+  //: Есть ли у этапа хоть один записанный факт (пустой объект — «нет данных»).
+  function iniHasFacts(value) {
+    return !!(value && typeof value === 'object'
+              && Object.keys(value).length > 0);
+  }
+
+  //: Плоские факты попытки: журнал может хранить их в терминальной строке или
+  //: в строке этапа, поэтому просматриваются ВСЕ строки цепочки (одна попытка).
+  function iniTraceFacts(chain) {
+    var out = {};
+    (chain || []).forEach(function (row) {
+      var facts = (row && row.facts && typeof row.facts === 'object')
+        ? row.facts : {};
+      Object.keys(facts).forEach(function (key) {
+        if (key === 'events' || key === 'detail' || key === 'mode'
+            || key === 'attempt_mode') return;
+        out[key] = facts[key];
+      });
+    });
+    return out;
+  }
+
+  function iniTraceEventsByName(events) {
+    var out = {};
+    (events || []).forEach(function (ev) {
+      var name = String((ev && ev.event_name) || '');
+      if (!name || out[name]) return;
+      out[name] = ev;
+    });
+    return out;
+  }
+
+  //: Трасса одной попытки. Возвращает фиксированный список шагов, место
+  //: остановки и признак «записей нет» — без выдуманных этапов.
+  function iniTraceOf(detail, attemptRef) {
+    var d = (detail && typeof detail === 'object') ? detail : {};
+    var attempt = (d.attempt && typeof d.attempt === 'object') ? d.attempt : null;
+    var chain = Array.isArray(d.chain) ? d.chain : [];
+    var events = Array.isArray(d.events) ? d.events : [];
+    var kind = String((attempt && attempt.kind) || '');
+    if (!kind) {
+      // Нет строк — вид механизма берётся из идентификатора попытки
+      // (`meme:<id>` / `text:<id>`), а не угадывается по умолчанию.
+      var ref = String(attemptRef || '');
+      if (ref.indexOf('meme:') === 0) kind = 'meme';
+      else if (ref.indexOf('text:') === 0) kind = 'text_initiative';
+    }
+    if (!kind) kind = chatKindOfAttempt(attempt, chain);
+    var mode = String((attempt && attempt.mode) || 'unknown');
+    var isMeme = kind === 'meme';
+    var dictKey = (isMeme
+      ? (mode === 'manual' ? 'meme_manual' : 'meme_auto') : 'text');
+    var dict = INI_TRACE_STEPS[dictKey] || INI_TRACE_STEPS.text;
+    var facts = iniTraceFacts(chain);
+    var publication = (facts.publication && typeof facts.publication === 'object')
+      ? facts.publication : {};
+    var byStage = {};
+    chain.forEach(function (row) {
+      var stage = String((row && row.stage) || '');
+      if (stage) byStage[stage] = row;
+    });
+    // Факты этапа читаются ИЗ СВОЕЙ СТРОКИ (detail JSON строки — плоский).
+    var stageFacts = {
+      summary: iniStageFacts(byStage.summary),
+      joke: iniStageFacts(byStage.joke),
+      image: iniStageFacts(byStage.image_generation),
+      publish: iniStageFacts(byStage.publish),
+    };
+    var byEvent = iniTraceEventsByName(events);
+    var terminal = chain.length ? chain[chain.length - 1] : null;
+    var reason = String((attempt && attempt.reason_code)
+                        || (terminal && terminal.reason_code) || '');
+    var outcome = String((attempt && attempt.outcome)
+                         || (terminal && terminal.outcome) || '');
+    var delivered = (attempt && attempt.delivered != null)
+      ? attempt.delivered : null;
+    var messageId = iniMessageIdText(attempt && attempt.message_id);
+    var noRows = (!attempt && !chain.length && !events.length);
+    var patches = {};
+
+    function set(key, patch) { patches[key] = patch; }
+    function stageAt(stage) {
+      var row = byStage[stage];
+      return row ? Number(row.ts) || null : null;
+    }
+    function eventAt(name) {
+      var ev = byEvent[name];
+      return ev ? Number(ev.ts) || null : null;
+    }
+
+    if (!noRows) {
+      if (isMeme) {
+        iniTraceMemeMarks({
+          mode: mode, pub: publication, stage: stageFacts, facts: facts,
+          byStage: byStage, byEvent: byEvent, terminal: terminal,
+          reason: reason, outcome: outcome, messageId: messageId,
+          delivered: delivered, set: set, stageAt: stageAt,
+          eventAt: eventAt, dictKey: dictKey,
+        });
+      } else {
+        iniTraceTextMarks({
+          events: events, attempt: attempt, reason: reason, outcome: outcome,
+          messageId: messageId, delivered: delivered, set: set,
+        });
+      }
+    }
+
+    var steps = dict.map(function (pair) {
+      var patch = patches[pair[0]] || { state: 'not_run', text: '' };
+      return iniTraceStep(pair[0], pair[1], patch);
+    });
+    // Место остановки: неизвестный код причины всё равно остаётся видимым.
+    // Успешная попытка НЕ имеет «места остановки» — иначе публикация читалась
+    // бы как обрыв.
+    var success = (outcome === 'published' || outcome === 'sent'
+                   || outcome === 'say' || outcome === 'react'
+                   || outcome === 'success');
+    var stopKey = '';
+    if (!success && reason) stopKey = INI_STOP_STEP_BY_REASON[reason] || '';
+    if (!success && !stopKey && terminal) {
+      stopKey = INI_STOP_STEP_BY_STAGE[String(terminal.stage || '')] || '';
+    }
+    var stopStep = null;
+    if (stopKey) {
+      steps.forEach(function (step) {
+        if (step.key === stopKey) stopStep = step;
+      });
+    }
+    return {
+      kind: kind,
+      isMeme: isMeme,
+      isManual: mode === 'manual',
+      mode: mode,
+      modeLabel: (mode === 'manual' ? 'вручную (/meme)'
+        : (mode === 'auto' ? 'автоматически'
+          : (mode === 'unknown' ? 'способ не записан'
+            : ('код: ' + mode)))),
+      runId: String((attempt && attempt.job_id) || ''),
+      noRows: noRows,
+      notStarted: noRows,
+      steps: steps,
+      stopKey: stopKey,
+      stopLabel: stopStep ? stopStep.label : '',
+      stopState: (outcome === 'published' ? 'done'
+        : (outcome === 'deferred' ? 'skipped'
+          : (outcome ? 'failed' : 'unknown'))),
+      outcome: outcome,
+      outcomeLabel: iniOutcomeLabel(outcome, ''),
+      reason: reason,
+      reasonLabel: reason ? iniCodeLabel(reason) : '',
+      statusLine: iniTraceStatusLine({
+        noRows: noRows, isMeme: isMeme, mode: mode, stopLabel:
+          (stopStep ? stopStep.label : ''), outcome: outcome,
+        reasonLabel: (reason ? iniCodeLabel(reason) : ''),
+        messageId: messageId, delivered: delivered,
+      }),
+    };
+  }
+
+  function chatKindOfAttempt(attempt, chain) {
+    if (attempt && attempt.kind) return String(attempt.kind);
+    if ((chain || []).length) return 'meme';
+    return 'text_initiative';
+  }
+
+  //: Разметка шагов автоматического и ручного мема — из фактов журнала.
+  //: Основной источник — цепочка событий попытки (`facts.events`), потому что
+  //: именно она несёт метки времени по шагам; факты этапов уточняют детали.
+  //: Богатый блок `publication` пишется не во всех путях — если его нет, шаг
+  //: честно остаётся «нет данных», а не додумывается.
+  function iniTraceMemeMarks(ctx) {
+    var nested = ctx.pub || {};
+    var stages = ctx.stage || {};
+    // Плоские факты строки этапа главнее вложенного блока (они есть всегда).
+    function pick(key) {
+      var direct = (stages.publish && stages.publish[key] != null)
+        ? stages.publish[key] : null;
+      if (direct != null) return direct;
+      return (nested[key] == null ? null : nested[key]);
+    }
+    var src = (pick('source') && typeof pick('source') === 'object')
+      ? pick('source') : null;
+    var rights = (pick('rights') && typeof pick('rights') === 'object')
+      ? pick('rights') : null;
+    var claim = (pick('claim') && typeof pick('claim') === 'object')
+      ? pick('claim') : null;
+    var sending = (pick('sending') && typeof pick('sending') === 'object')
+      ? pick('sending') : null;
+    var output = (pick('output') && typeof pick('output') === 'object')
+      ? pick('output') : null;
+    var summary = iniHasFacts(stages.summary) ? stages.summary : null;
+    var joke = iniHasFacts(stages.joke) ? stages.joke : null;
+    var image = iniHasFacts(stages.image) ? stages.image : null;
+    var delivered = ctx.delivered;
+    var sentEvent = ctx.byEvent.publication_sent || null;
+    var requestedEvent = ctx.byEvent.publication_requested || null;
+    var deferredEvent = ctx.byEvent.publication_deferred_conflict || null;
+    var unknownEvent = ctx.byEvent.delivery_unknown || null;
+    var failedEvent = ctx.byEvent.publication_failed || null;
+    var cancelledEvent = ctx.byEvent.publication_cancelled || null;
+    var snapshotEvent = ctx.byEvent.source_snapshot || null;
+    var digestEvent = ctx.byEvent.digest_ready || null;
+    var jokeEvent = ctx.byEvent.joke_ready || null;
+    var imageEvent = ctx.byEvent.image_ready || null;
+    // id сообщения: ось попытки, иначе — ЗАПИСАННЫЙ id в событии отправки.
+    var messageId = iniMessageIdText(ctx.messageId)
+      || iniTgIdFromDetail(sentEvent && sentEvent.detail);
+    var stopKey = (ctx.reason
+      ? (INI_STOP_STEP_BY_REASON[ctx.reason] || '') : '');
+
+    if (ctx.dictKey === 'meme_manual') {
+      if (src && String(src.request_ref || '')) {
+        ctx.set('update', {
+          state: 'done', at: src.captured_at || null,
+          text: 'команда /meme, сообщение ' + String(src.request_ref),
+          note: 'время — момент снятия снимка источника',
+        });
+      } else {
+        ctx.set('update', {
+          state: 'unknown',
+          text: 'id команды в журнале попытки не сохранён',
+        });
+      }
+      if (rights) {
+        var ok = rights.ok === true;
+        ctx.set('permission', {
+          state: ok ? 'done' : 'failed', at: null,
+          text: ok ? 'права подтверждены перед публикацией'
+            : 'права отозваны перед публикацией',
+          code: ok ? '' : 'rights_revoked',
+          note: 'проверка на входе команды пишется только в debug-лог',
+        });
+      } else {
+        ctx.set('permission', {
+          state: 'unknown',
+          text: 'отдельной записи о проверке прав нет',
+          note: 'проверка на входе команды пишется только в debug-лог',
+        });
+      }
+      ctx.set('command', {
+        state: 'unknown',
+        text: 'удаление команды в журнал попытки не записывается',
+      });
+      ctx.set('priority', {
+        state: 'unknown',
+        text: 'маркер приоритета /meme хранится в брони публикации',
+        note: 'текущий маркер виден в обзоре, в оси брони',
+      });
+    } else {
+      var trigger = ctx.byStage.considered || ctx.byStage.eligible;
+      if (trigger) {
+        ctx.set('trigger', {
+          state: 'done', at: Number(trigger.ts) || null,
+          text: 'инициативный проход рассмотрел чат',
+        });
+      } else if (snapshotEvent) {
+        ctx.set('trigger', {
+          state: 'inferred', at: Number(snapshotEvent.ts) || null,
+          text: 'источник снят, отдельной строки триггера нет',
+        });
+      } else {
+        ctx.set('trigger', {
+          state: 'unknown', text: 'нет записи о триггере',
+        });
+      }
+    }
+
+    var progressed = !!(summary || joke || image || claim
+                        || digestEvent || jokeEvent || imageEvent
+                        || requestedEvent || sentEvent || deferredEvent
+                        || ctx.byStage.summary || ctx.byStage.joke
+                        || ctx.byStage.image_generation || ctx.byStage.publish);
+    if (stopKey === 'gates' && ctx.reason) {
+      ctx.set('gates', {
+        state: 'skipped',
+        at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
+        text: 'остановилось на воротах', code: ctx.reason,
+      });
+    } else if (progressed) {
+      ctx.set('gates', {
+        state: 'inferred',
+        at: (ctx.stageAt('summary') || ctx.stageAt('eligible') || null),
+        text: 'пройдены: попытка дошла до следующих этапов',
+      });
+    } else {
+      ctx.set('gates', {
+        state: 'unknown', text: 'нет записи о результате ворот',
+      });
+    }
+
+    if (src) {
+      ctx.set('messages', {
+        state: 'done', at: src.captured_at || null,
+        text: iniTraceWindowText(src.message_count, src.first_id, src.last_id),
+      });
+    } else if (snapshotEvent) {
+      ctx.set('messages', {
+        state: 'done', at: Number(snapshotEvent.ts) || null,
+        text: iniTraceWindowText(
+          iniEvDetailNum(snapshotEvent.detail, 'messages'), null, null),
+        note: 'снимок источника записан событием попытки',
+      });
+    } else if (digestEvent) {
+      ctx.set('messages', {
+        state: 'inferred', at: Number(digestEvent.ts) || null,
+        text: 'выжимка построена, отдельной записи об окне нет',
+      });
+    } else {
+      ctx.set('messages', {
+        state: 'unknown', text: 'нет записи об окне сообщений',
+      });
+    }
+
+    if (summary && typeof summary === 'object') {
+      ctx.set('summary', {
+        state: 'done', at: ctx.stageAt('summary') || (digestEvent
+          ? Number(digestEvent.ts) : null),
+        text: (summary.chars == null
+          ? 'длина не записана'
+          : (summary.chars + ' символов'))
+          + (summary.source ? (' · источник промпта: ' + summary.source) : ''),
+        note: 'текст промпта и ответа исторически не сохранялся',
+      });
+    } else if (stopKey === 'summary') {
+      ctx.set('summary', {
+        state: 'failed',
+        at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
+        text: 'выжимка не удалась', code: ctx.reason || 'summary_failed',
+      });
+    } else {
+      ctx.set('summary', {
+        state: (progressed ? 'unknown' : 'not_run'),
+        text: (progressed ? 'этап пройден, запись не найдена'
+          : 'до выжимки не дошло'),
+      });
+    }
+
+    if (joke && typeof joke === 'object') {
+      var speech = (joke.speech && typeof joke.speech === 'object')
+        ? joke.speech : null;
+      ctx.set('joke', {
+        state: 'done', at: ctx.stageAt('joke') || (jokeEvent
+          ? Number(jokeEvent.ts) : null),
+        text: (joke.chars == null ? 'длина не записана'
+          : (joke.chars + ' символов'))
+          + (joke.limit == null ? ' · предел: не задан (авто)'
+            : (' · предел ' + joke.limit))
+          + (joke.trimmed === true ? ' · обрезан' : '')
+          + (joke.source ? (' · промпт: ' + joke.source) : ''),
+        note: (iniSpeechNote(speech) || 'сборка речи не записана')
+          + ' · модель не записана · текст промпта не сохранялся',
+      });
+    } else if (stopKey === 'joke') {
+      ctx.set('joke', {
+        state: 'failed',
+        at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
+        text: 'прикол не получился', code: ctx.reason || 'joke_generation_failed',
+      });
+    } else {
+      ctx.set('joke', { state: 'not_run', text: 'до прикола не дошло' });
+    }
+
+    if (image && typeof image === 'object') {
+      ctx.set('image', {
+        state: 'done', at: ctx.stageAt('image_generation') || (imageEvent
+          ? Number(imageEvent.ts) : null),
+        text: (image.chars == null ? 'длина промпта не записана'
+          : ('промпт ' + image.chars + ' символов'))
+          + (image.template_source ? (' · шаблон: ' + image.template_source) : '')
+          + (image.template_revision ? (' ' + image.template_revision) : '')
+          + (image.joke_chars == null ? ''
+            : (' · из прикола ' + image.joke_chars + ' симв.')),
+        note: ((imageEvent ? ('ответ провайдера: ' + iniEvImageBytes(imageEvent.detail))
+          : 'ответ провайдера статусом не записан')
+          + ' · текст промпта исторически не сохранялся'),
+      });
+    } else if (stopKey === 'image') {
+      ctx.set('image', {
+        state: 'failed',
+        at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
+        text: 'запрос картинки не завершился успехом',
+        code: ctx.reason || 'image_generation_failed',
+      });
+    } else {
+      ctx.set('image', { state: 'not_run', text: 'до запроса картинки не дошло' });
+    }
+
+    if (claim) {
+      var granted = claim.granted === true;
+      ctx.set('claim', {
+        state: granted ? 'done' : 'failed',
+        at: requestedEvent ? Number(requestedEvent.ts) : null,
+        text: granted ? 'бронь получена'
+          : ('бронь не выдана: '
+            + (claim.reason || claim.detail || 'причина не записана')),
+        code: granted ? '' : String(claim.reason || 'publication_conflict'),
+      });
+    } else if (deferredEvent) {
+      ctx.set('claim', {
+        state: 'skipped', at: Number(deferredEvent.ts) || null,
+        text: 'публикация отложена координацией',
+        code: 'publication_conflict',
+      });
+    } else if (requestedEvent) {
+      ctx.set('claim', {
+        state: 'done', at: Number(requestedEvent.ts) || null,
+        text: 'бронь запрошена',
+      });
+    } else if (stopKey === 'claim') {
+      ctx.set('claim', {
+        state: 'skipped',
+        at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
+        text: 'бронь публикации не выдана',
+        code: ctx.reason || 'publication_conflict',
+      });
+    } else {
+      ctx.set('claim', { state: 'not_run', text: 'до брони не дошло' });
+    }
+
+    if (messageId) {
+      ctx.set('send', {
+        state: 'done',
+        at: sentEvent ? Number(sentEvent.ts) || null : null,
+        text: 'отправлено, сообщение ' + messageId,
+        note: (sending && sending.state ? ('состояние брони: ' + sending.state) : ''),
+      });
+    } else if (unknownEvent) {
+      ctx.set('send', {
+        state: 'unknown', at: Number(unknownEvent.ts) || null,
+        text: 'доставка не подтверждена', code: 'delivery_unknown',
+      });
+    } else if (failedEvent || cancelledEvent) {
+      var bad = failedEvent || cancelledEvent;
+      ctx.set('send', {
+        state: 'failed', at: Number(bad.ts) || null,
+        text: 'отправка не состоялась',
+        code: String(bad.reason_code || ''),
+      });
+    } else if (stopKey === 'send') {
+      ctx.set('send', {
+        state: 'failed',
+        at: ctx.terminal ? Number(ctx.terminal.ts) || null : null,
+        text: 'отправка не состоялась', code: ctx.reason || 'publish_blocked',
+      });
+    } else {
+      ctx.set('send', { state: 'not_run', text: 'до отправки не дошло' });
+    }
+
+    if (messageId) {
+      ctx.set('result', {
+        state: 'done', at: sentEvent ? Number(sentEvent.ts) || null : null,
+        text: 'сообщение ' + messageId + ' в этом чате',
+        note: (output && output.ledger_id
+          ? ('журнал выводов #' + output.ledger_id) : ''),
+      });
+    } else if (delivered === false) {
+      ctx.set('result', {
+        state: 'failed', text: 'видимого результата нет: отправки не было',
+      });
+    } else {
+      ctx.set('result', {
+        state: 'unknown',
+        text: 'видимого результата нет, доставка не подтверждена',
+      });
+    }
+  }
+
+  //: «42 сообщ. (#10…#51)» из снимка источника.
+  function iniTraceWindowText(count, firstId, lastId) {
+    if (count == null) return 'окно прочитано (размер не записан)';
+    var text = 'окно ' + String(count) + ' сообщ.';
+    if (firstId != null && lastId != null
+        && String(firstId) !== String(lastId)) {
+      text += ' (#' + String(firstId) + '…#' + String(lastId) + ')';
+    }
+    return text;
+  }
+
+  //: Число из detail события вида `messages:42` / `chars:6`.
+  function iniEvDetailNum(detail, prefix) {
+    var text = String(detail == null ? '' : detail);
+    var parts = text.split('|');
+    for (var i = 0; i < parts.length; i++) {
+      var piece = parts[i].trim();
+      if (piece.indexOf(prefix + ':') === 0) {
+        var num = Number(piece.slice(prefix.length + 1));
+        return isFinite(num) ? num : null;
+      }
+    }
+    return null;
+  }
+
+  //: id телеграм-сообщения из detail события отправки (`tg:4321`).
+  function iniTgIdFromDetail(detail) {
+    var num = iniEvDetailNum(detail, 'tg');
+    return iniMessageIdText(num);
+  }
+
+  //: Байты картинки из detail события `prompt:23|bytes:1234`.
+  function iniEvImageBytes(detail) {
+    var bytes = iniEvDetailNum(detail, 'bytes');
+    return (bytes == null ? 'размер картинки не записан'
+      : (String(bytes) + ' байт'));
+  }
+
+  //: Ревизии и манифест сборки речи — для шага «Прикол».
+  function iniSpeechNote(speech) {
+    if (!speech || typeof speech !== 'object') return '';
+    var bits = [];
+    if (speech.composer) bits.push('сборка: ' + speech.composer);
+    if (speech.manifest) bits.push('манифест ' + speech.manifest);
+    if (speech.system_sha12) bits.push('system ' + speech.system_sha12);
+    if (speech.technique) bits.push('приём: ' + speech.technique);
+    var revs = ['core', 'identity', 'expression', 'style_policy', 'humor'];
+    var revText = revs.filter(function (k) { return speech[k]; })
+      .map(function (k) { return k + ' ' + speech[k]; }).join(', ');
+    if (revText) bits.push('ревизии: ' + revText);
+    return bits.join(' · ');
+  }
+
+  //: Разметка шагов текстовой инициативы — из её событий и доставки.
+  function iniTraceTextMarks(ctx) {
+    var events = ctx.events || [];
+    var decision = null;
+    var sent = null;
+    var recheck = null;
+    events.forEach(function (ev) {
+      var name = String((ev && ev.event_name) || '');
+      if (name === 'initiative_decided') decision = ev;
+      if (name === 'initiative_sent') sent = ev;
+      if (name === 'initiative_recheck_passed') recheck = ev;
+    });
+    var stopKey = (ctx.reason
+      ? (INI_STOP_STEP_BY_REASON[ctx.reason] || '') : '');
+    var first = events.length ? events[0] : null;
+
+    if (first) {
+      ctx.set('trigger', {
+        state: 'done', at: Number(first.ts) || null,
+        text: 'повод оценён',
+      });
+    } else {
+      ctx.set('trigger', {
+        state: 'unknown', text: 'событий оценки нет',
+      });
+    }
+    if (stopKey === 'gates' && ctx.reason) {
+      ctx.set('gates', {
+        state: 'skipped', at: (decision ? Number(decision.ts) : null),
+        text: 'остановилось на условиях', code: ctx.reason,
+      });
+    } else if (decision) {
+      ctx.set('gates', {
+        state: 'inferred', at: Number(decision.ts) || null,
+        text: 'условия проверены: решение записано',
+      });
+    } else {
+      ctx.set('gates', {
+        state: 'unknown', text: 'отдельной записи об условиях нет',
+      });
+    }
+    ctx.set('context', {
+      state: 'unknown',
+      text: 'отдельной записи о контексте и окне нет',
+    });
+    if (decision) {
+      ctx.set('decision', {
+        state: 'done', at: Number(decision.ts) || null,
+        text: 'решение: ' + iniOutcomeLabel(decision.outcome),
+        code: String(decision.reason_code || ''),
+      });
+    } else {
+      ctx.set('decision', {
+        state: 'not_run', text: 'решение не записано',
+      });
+    }
+    if (sent || recheck) {
+      var at = Number((sent || recheck).ts) || null;
+      ctx.set('send', {
+        state: 'done', at: at,
+        text: (recheck ? 'перепроверка пройдена' : '')
+          + (recheck && sent ? ', ' : '')
+          + (sent ? ('отправлено' + (ctx.messageId
+            ? (', сообщение ' + ctx.messageId) : '')) : ''),
+      });
+    } else {
+      ctx.set('send', {
+        state: 'not_run', text: 'отправки не было',
+      });
+    }
+    if (ctx.messageId) {
+      ctx.set('result', {
+        state: 'done', at: (sent ? Number(sent.ts) : null),
+        text: 'сообщение ' + ctx.messageId + ' в этом чате',
+      });
+    } else if (ctx.delivered === false) {
+      ctx.set('result', {
+        state: 'failed', text: 'видимого результата нет: отправки не было',
+      });
+    } else {
+      ctx.set('result', {
+        state: 'unknown', text: 'доставка не подтверждена',
+      });
+    }
+  }
+
+  //: Одна строка итога трассы — что произошло и где остановилось.
+  function iniTraceStatusLine(p) {
+    if (p.noRows) {
+      return 'Попытка не запускалась: в журнале нет ни одной её записи.';
+    }
+    var modeText = (p.mode === 'manual' ? 'ручной /meme'
+      : (p.mode === 'auto' ? 'автоматическая попытка'
+        : 'режим не записан'));
+    var parts = [modeText];
+    if (p.outcome === 'published' || (p.messageId && p.delivered === true)) {
+      parts.push('опубликовано' + (p.messageId ? (', сообщение ' + p.messageId) : ''));
+    } else if (p.outcome === 'deferred') {
+      parts.push('отложено координацией'
+        + (p.reasonLabel ? (': ' + p.reasonLabel) : ''));
+    } else if (p.outcome) {
+      if (p.stopLabel && p.reasonLabel) {
+        parts.push('остановилось на шаге «' + p.stopLabel + '»: '
+          + p.reasonLabel);
+      } else if (p.stopLabel) {
+        parts.push('остановилось на шаге «' + p.stopLabel + '»');
+      } else if (p.reasonLabel) {
+        parts.push('остановилась: ' + p.reasonLabel
+          + ', этап остановки не определён');
+      } else {
+        parts.push('исход: ' + iniOutcomeLabel(p.outcome));
+      }
+    } else {
+      parts.push('исход не записан');
+    }
+    return parts.join(' · ');
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // Read-model осей приходит с сервера готовым (`configuration`/`health`/
   // `readiness`/`last_attempt`/`last_delivery`). UI ничего не досчитывает из
@@ -9536,20 +10291,60 @@
         };
       },
       // ═══ P1: вкладка «Публикации» — строки журнала (без пустых деталей) ═══
+      // S4-TRACE (§P0IM-PB-ROW): одна строка = одна попытка. Строка называет
+      // run id, чат, механизм, режим, стадии, результат и признак доставки;
+      // ошибка остаётся в КОНКРЕТНОМ шаге (компактный список стадий приходит
+      // тем же ответом сервера).
       iniPubRows: function () {
         var rows = (this.iniPub && this.iniPub.rows) || [];
+        var chatId = this.activeChatId;
+        var chatTitle = this.iniActiveChatTitle || '';
+        var self = this;
         return rows.map(function (r) {
           var code = String(r.reason_code || '');
           var chainReasons = (r.reason_codes || []).filter(function (c) {
             return c && c !== code;
           });
-          // Блокер 5: три РАЗНЫХ состояния доставки, а не одно «неизвестно».
+          // Блокер 5 (S3): три РАЗНЫХ состояния доставки, а не одно «неизвестно».
           var delivery = iniJournalDelivery(r);
+          var stages = (r.stages || []).map(function (st) {
+            var outcome = String(st.outcome || '');
+            var failed = (outcome === 'failed' || outcome === 'blocked');
+            return {
+              stage: String(st.stage || ''),
+              label: (r.kind === 'meme'
+                ? memeStageLabelOf(st.stage)
+                : (String(st.stage || '') === 'decision' ? 'решение'
+                  : (String(st.stage || '') || '—'))),
+              outcome: outcome,
+              outcomeLabel: iniOutcomeLabel(outcome, ''),
+              failed: failed,
+              skipped: (outcome === 'skipped'),
+              reasonCode: String(st.reason_code || ''),
+              reasonLabel: (st.reason_code ? iniCodeLabel(st.reason_code) : ''),
+              at: (st.at == null ? null : Number(st.at)),
+            };
+          });
+          var failedStage = null;
+          stages.forEach(function (st) {
+            if (!failedStage && (st.failed || st.skipped)) failedStage = st;
+          });
           return Object.assign({}, r, {
             timeText: _tsStatusLabel(r.ts, '—'),
             kindLabel: (r.kind === 'meme' ? 'Мемы' : 'Текст'),
+            runId: String(r.job_id || ''),
+            runLabel: (String(r.job_id || '')
+              ? String(r.job_id) : 'без идентификатора'),
+            chatLabel: (chatTitle || (chatId == null ? '' : String(chatId))),
+            chatId: chatId,
             stageLabel: (r.kind === 'meme'
               ? memeStageLabelOf(r.stage) : (r.stage || '—')),
+            stages: stages,
+            failedStage: failedStage,
+            stagesText: stages.map(function (st) {
+              return st.label
+                + (st.failed ? ' ✕' : (st.skipped ? ' ⊘' : ''));
+            }).join(' → '),
             outcomeLabel: iniOutcomeLabel(r.outcome),
             outcomeOk: (r.outcome === 'published'),
             outcomeClass: (r.outcome === 'published' ? 'badge-ok'
@@ -9572,12 +10367,58 @@
             deliveryLabel: delivery.label,
             deliveryClass: delivery.tone,
             deliveryState: delivery.state,
+            // Явный признак строки: «доставлено» / «не подтверждено».
+            deliverySign: (delivery.state === 'confirmed' ? 'доставлено'
+              : (delivery.state === 'unknown' ? 'не подтверждено'
+                : 'не доставлялось')),
             messageIdText: delivery.messageIdText,
-            modeLabel: (r.mode === 'manual' ? 'ручной /meme' : 'авто'),
+            modeLabel: (r.mode === 'manual' ? 'ручной /meme'
+              : (r.mode === 'auto' ? 'авто' : 'способ не записан')),
+            historical: r.incomplete_historical === true,
           });
         });
       },
+      // Счётчики с ЯВНЫМ окном: проверено / решено / опубликовано / доставлено /
+      // ожидает — разные факты, а не одно число.
+      iniPubCounts: function () {
+        var c = (this.iniPub && this.iniPub.counts) || {};
+        var days = (this.iniPub && this.iniPub.filters
+          && this.iniPub.filters.days != null) ? Number(this.iniPub.filters.days)
+          : 7;
+        var windowLabel = (days > 0
+          ? ('за ' + (days === 1 ? 'сутки' : (days + ' дн.')))
+          : 'за всё время');
+        return {
+          windowLabel: windowLabel,
+          days: days,
+          checked: Number(c.checked == null ? (c.total || 0) : c.checked),
+          decided: Number(c.decided || 0),
+          published: Number(c.published || 0),
+          delivered: Number(c.delivered || 0),
+          pending: Number(c.pending == null ? (c.deferred || 0) : c.pending),
+          deliveryUnknown: Number(c.delivery_unknown || 0),
+          text: Number(c.text || 0),
+          meme: Number(c.meme || 0),
+        };
+      },
       // ═══ P1: вкладка «Диагностика» — группы РОВНО одной попытки ═══
+      // S4-TRACE: над группами — ФИКСИРОВАННАЯ связная трасса шагов.
+      iniTraceSteps: function () {
+        return iniTraceOf(this.iniTrace, this.iniPubFocus);
+      },
+      // Та же трасса для раскрытой строки в «Публикациях» — один маппер.
+      iniPubDetailTrace: function () {
+        return iniTraceOf(this.iniPubDetail, this.iniPubFocus);
+      },
+      iniPubDetailAttemptLabel: function () {
+        var t = this.iniPubDetailTrace;
+        if (!t) return '';
+        var parts = [];
+        if (t.runId) parts.push(t.runId);
+        parts.push(t.isMeme ? 'мемы' : 'текстовая инициатива');
+        parts.push(t.modeLabel);
+        return parts.join(' · ');
+      },
       iniTraceAttempt: function () {
         var t = this.iniTrace;
         return (t && t.attempt) || null;
@@ -14912,6 +15753,18 @@
       // id сообщения: `0`/пусто — «не записан», а не «сообщение 0».
       iniMessageIdLabel: function (value) {
         return iniMessageIdText(value) || '—';
+      },
+      // Время шага трассы — в поясе выбранного чата (или честный UTC).
+      iniTraceTime: function (ts) {
+        var line = iniWhen(ts, this.iniOverviewTimezone);
+        return line || '';
+      },
+      // Фильтр по чату внутри «Публикаций»: меняет ТУ ЖЕ область, что и шапка,
+      // поэтому журнал перечитывается для выбранного чата (одна точка истины).
+      iniPubSetChat: function (chatId) {
+        var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
+        if (id == null || id === this.activeChatId) return;
+        this.setActiveChat(id);
       },
       // Исход по-русски для шаблона (module-scope функции в шаблон не видны).
       iniOutcomeLabel: function (value) {

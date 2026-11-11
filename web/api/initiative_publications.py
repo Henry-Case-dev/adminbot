@@ -458,6 +458,14 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
                                 else False)),
             "message_id": message_id,
             "chain_len": len(chain),
+            # S4-TRACE (§P0IM-PB-ROW): компактная последовательность этапов
+            # ЭТОЙ попытки — из тех же строк журнала, без второго запроса.
+            # Ошибка остаётся видимой в КОНКРЕТНОМ шаге строки списка.
+            "stages": [
+                {"stage": row["stage"], "outcome": row["outcome"],
+                 "reason_code": row["reason_code"], "at": row["ts"]}
+                for row in chain
+            ],
             "reason_codes": reason_codes,
             "events_len": len(events),
             "window_messages": (
@@ -570,11 +578,22 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
                 "limit_value": None,
                 "reason_codes": [],
                 "other_events": [],
+                "stages": [],
             }
             attempts[key] = acc
         acc["chain_len"] += 1
         acc["ts"] = max(_int(acc.get("ts")), ts)
         _sum_reason_codes(acc, reason)
+        # S4-TRACE: компактная последовательность шагов ЭТОЙ попытки из тех же
+        # событий (`initiative_decided` / публикационные) — без второго запроса
+        # и без выдуманных этапов: только то, что реально записано.
+        step = {
+            "stage": _str(row.get("stage")) or name,
+            "outcome": _str(row.get("outcome")) or (name if is_decision else ""),
+            "reason_code": reason,
+            "at": ts,
+        }
+        acc.setdefault("stages", []).append(step)
         if kind == EVENT_REQUESTED:
             # Заявка на бронь: строка попытки не создаётся, но в трассу и в
             # набор причин (для фильтра) она входит.
@@ -644,6 +663,8 @@ def _text_attempts(events: list[dict], outputs: list[dict]) -> list[dict]:
             "limit_source": "",
             "limit_value": None,
             "reason_codes": [],
+            "stages": [{"stage": "send", "outcome": OUTCOME_PUBLISHED,
+                        "reason_code": "", "at": _int(row.get("sent_at"))}],
         }
 
     out: list[dict] = []
@@ -716,23 +737,38 @@ async def list_publications(
     total = len(rows)
     page = rows[offset:offset + limit]
     next_offset = offset + len(page) if offset + len(page) < total else None
+    # Счётчики — РАЗНЫЕ факты воронки, а не одно число: «проверено» (все
+    # попытки в окне) ≠ «решено» (есть записанный исход) ≠ «опубликовано» ≠
+    # «доставлено» (есть message_id) ≠ «ожидает» (исход deferred). Окно
+    # называется явно, чтобы число нельзя было прочитать как «за всё время».
+    decided = sum(1 for r in rows if _str(r.get("outcome")))
+    delivered = sum(1 for r in rows if r.get("delivered") is True)
+    pending = sum(1 for r in rows if r.get("outcome") == OUTCOME_DEFERRED)
+    delivery_unknown = sum(1 for r in rows
+                           if r.get("delivered") is None
+                           and r.get("outcome") != OUTCOME_DEFERRED)
     return {
         "schema_version": 1,
         "generated_at": now,
         "chat_id": _int(chat_id),
         "available": db is not None,
         "notes": notes,
+        "window": {"days": int(days), "since": int(since), "until": int(now)},
         "filters": {"days": int(days), "kind": kind, "mode": mode,
                     "outcome": outcome, "reason": _str(reason)},
         "counts": {
             "total": total,
+            "checked": total,
+            "decided": decided,
             "text": sum(1 for r in rows if r["kind"] == KIND_TEXT),
             "meme": sum(1 for r in rows if r["kind"] == KIND_MEME),
             "published": sum(1 for r in rows
                              if r["outcome"] == OUTCOME_PUBLISHED),
+            "delivered": delivered,
+            "pending": pending,
+            "delivery_unknown": delivery_unknown,
             "not_delivered": sum(1 for r in rows if r["delivered"] is False),
-            "deferred": sum(1 for r in rows
-                            if r["outcome"] == OUTCOME_DEFERRED),
+            "deferred": pending,
             "unknown": sum(1 for r in rows
                            if r["outcome"] == OUTCOME_UNKNOWN),
         },

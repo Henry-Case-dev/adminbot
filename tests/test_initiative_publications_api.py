@@ -525,6 +525,76 @@ def test_meme_detail_exposes_pipeline_event_chain(api):
     assert deferred["detail"].startswith("deferred"), deferred
 
 
+# ── S4-TRACE: окно счётчиков, раздельные факты воронки, стадии строки ──────
+def test_counts_state_their_window_and_do_not_conflate(api):
+    """Счётчики называют окно и не смешивают проверку/решение/публикацию/доставку."""
+    body = _rows(api, days=7)
+    window = body["window"]
+    assert window["days"] == 7, window
+    assert window["since"] < window["until"], window
+    counts = body["counts"]
+    # Окно «всё» — отдельное основание, а не 7 дней по умолчанию.
+    all_time = _rows(api, days=0)
+    assert all_time["window"]["days"] == 0, all_time["window"]
+    assert all_time["window"]["since"] == 0, all_time["window"]
+    # Пять разных фактов существуют по отдельности и считаются из тех же строк.
+    for key in ("checked", "decided", "published", "delivered", "pending"):
+        assert key in counts, (key, counts)
+    rows = body["rows"]
+    assert counts["checked"] == len(rows), counts
+    assert counts["decided"] == sum(1 for r in rows if r["outcome"]), counts
+    assert counts["published"] == sum(1 for r in rows
+                                      if r["outcome"] == "published"), counts
+    assert counts["delivered"] == sum(1 for r in rows
+                                      if r["delivered"] is True), counts
+    assert counts["pending"] == sum(1 for r in rows
+                                    if r["outcome"] == "deferred"), counts
+    # Проверено и решено — РАЗНЫЕ числа, иначе счётчики схлопнуты.
+    assert counts["decided"] <= counts["checked"], counts
+
+
+def test_row_carries_compact_stages_for_the_error_step(api):
+    """Строка списка несёт свои стадии: ошибка видна в конкретном шаге."""
+    body = _rows(api)
+    row = _row(body, "meme:J1")
+    assert row is not None, [r["attempt_id"] for r in body["rows"]]
+    stages = row["stages"]
+    assert stages, row
+    names = [s["stage"] for s in stages]
+    assert "joke" in names or "publish" in names, names
+    for step in stages:
+        assert set(step) == {"stage", "outcome", "reason_code", "at"}, step
+    # Стадии взяты из тех же строк журнала, что и цепочка попытки.
+    detail = api.get("/api/initiative/publications/detail?attempt_id=meme:J1",
+                     headers=_hdr(ADMIN_ID, CHAT_A)).json()
+    detail_names = [s["stage"] for s in detail["chain"]]
+    assert names == detail_names, (names, detail_names)
+
+
+def test_text_row_carries_stages_from_its_own_events(api):
+    body = _rows(api)
+    row = _row(body, "text:T4")
+    assert row is not None
+    stages = row["stages"]
+    assert stages, row
+    assert all(s["stage"] for s in stages), stages
+    detail = api.get("/api/initiative/publications/detail?attempt_id=text:T4",
+                     headers=_hdr(ADMIN_ID, CHAT_A)).json()
+    assert detail["attempt"] is not None, detail
+    # Ни одной выдуманной стадии: только то, что записано событиями.
+    event_names = {e["event_name"] for e in detail["events"]}
+    assert "initiative_decided" in event_names, event_names
+
+
+def test_detail_of_unknown_attempt_has_no_rows(api):
+    """Несуществующая попытка: ни строк, ни выдуманных стадий."""
+    payload = api.get(
+        "/api/initiative/publications/detail?attempt_id=meme:never-happened",
+        headers=_hdr(ADMIN_ID, CHAT_A)).json()
+    assert payload["attempt"] is None, payload
+    assert payload["chain"] == [] and payload["events"] == [], payload
+
+
 # ── Остальные контракты журнала не сломаны ─────────────────────────────────
 def test_period_chat_scope_and_empty_chat(api):
     body = _rows(api)

@@ -877,7 +877,294 @@ function axesCard(kind, payload, extra) {
     'в списке событий остался голый `sent`: ' + texts);
 })();
 
-// ── 11. Ответ привязан к выбранному чату (P0-INIT-MEME-UX-DIAG §4) ────────
+// ── 13. S4-TRACE: связная трасса одной попытки ──────────────────────────
+// Проверяется маппинг: реальная попытка, ранний отказ, неизвестный код,
+// историческая строка без идентификатора и «записей нет».
+const T0 = NOW_TS - 300;
+const T1 = NOW_TS - 260;
+const T2 = NOW_TS - 200;
+const T3 = NOW_TS - 140;
+const T4 = NOW_TS - 60;
+
+function traceStep(steps, key) {
+  return steps.filter(function (s) { return s.key === key; })[0] || null;
+}
+
+function publishedMemeDetail(over) {
+  const base = {
+    attempt: {
+      attempt_id: 'meme:job-1', kind: 'meme', job_id: 'job-1',
+      mode: 'manual', ts: T4, stage: 'publish', outcome: 'published',
+      reason_code: 'sent', delivered: true, message_id: 4321,
+      incomplete_historical: false, chain_len: 4,
+    },
+    chain: [
+      { stage: 'summary', ts: T1, outcome: 'passed', reason_code: '',
+        facts: { chars: 41, source: 'chat' } },
+      { stage: 'joke', ts: T2, outcome: 'passed', reason_code: '',
+        facts: { chars: 6, limit: 395, template_chars: 5,
+                 ceiling: 400, trimmed: false, source: 'chat',
+                 speech: { composer: 'on', manifest: 'm1',
+                           system_sha12: 'abc123', core: 'r21',
+                           identity: 'a2', expression: 'e1',
+                           style_policy: 'g5', humor: 'h1',
+                           technique: 'literalism' } } },
+      { stage: 'image_generation', ts: T3, outcome: 'passed', reason_code: '',
+        facts: { chars: 23, template_source: 'chat',
+                 template_revision: 't1', joke_chars: 6 } },
+      { stage: 'publish', ts: T4, outcome: 'published', reason_code: 'sent',
+        facts: { gate: 'open', manual: true,
+                 source: { chat_id: CHAT, run_id: 'job-1',
+                           mode: 'manual', request_ref: '1209864',
+                           message_count: 42, first_id: 10,
+                           last_id: 51, captured_at: T0 },
+                 rights: { mode: 'permission_hook', ok: true, detail: '' },
+                 claim: { granted: true, state: 'claimed' },
+                 output: { ledger_id: 9, tg_message_id: 4321 } } },
+    ],
+    events: [
+      { event_name: 'source_snapshot', ts: T0, detail: 'messages:42' },
+      { event_name: 'digest_ready', ts: T1, detail: 'chars:41' },
+      { event_name: 'joke_ready', ts: T2, detail: 'chars:6' },
+      { event_name: 'image_ready', ts: T3, detail: 'prompt:23|bytes:1234' },
+      { event_name: 'publication_requested', ts: T3 },
+      { event_name: 'publication_sent', ts: T4, detail: 'tg:4321',
+        delivered: true },
+    ],
+    delivery: { delivered: true, message_id: 4321 },
+  };
+  return Object.assign(base, over || {});
+}
+
+(function () {
+  // 13.1 Опубликованный ручной мем: все шаги ручного словаря, факты реальные.
+  const t = computed.iniTraceSteps.call({ iniTrace: publishedMemeDetail() });
+  assert.strictEqual(t.kind, 'meme');
+  assert.strictEqual(t.isManual, true);
+  assert.strictEqual(t.noRows, false);
+  assert.deepStrictEqual(t.steps.map(function (s) { return s.key; }),
+    ['update', 'permission', 'command', 'priority', 'gates', 'messages',
+     'summary', 'joke', 'image', 'claim', 'send', 'result']);
+  assert.strictEqual(traceStep(t.steps, 'update').state, 'done');
+  assert.ok(traceStep(t.steps, 'update').text.indexOf('1209864') > 0,
+    'id команды не показан: ' + traceStep(t.steps, 'update').text);
+  assert.strictEqual(traceStep(t.steps, 'permission').state, 'done');
+  assert.strictEqual(traceStep(t.steps, 'command').state, 'unknown');
+  assert.strictEqual(traceStep(t.steps, 'priority').state, 'unknown');
+  assert.strictEqual(traceStep(t.steps, 'gates').state, 'inferred');
+  const messages = traceStep(t.steps, 'messages');
+  assert.strictEqual(messages.state, 'done');
+  assert.ok(messages.text.indexOf('42') > 0, messages.text);
+  assert.strictEqual(messages.at, T0);
+  const summary = traceStep(t.steps, 'summary');
+  assert.strictEqual(summary.state, 'done');
+  assert.strictEqual(summary.at, T1);
+  assert.ok(summary.text.indexOf('41 символов') === 0, summary.text);
+  const joke = traceStep(t.steps, 'joke');
+  assert.strictEqual(joke.state, 'done');
+  assert.ok(joke.text.indexOf('предел 395') > 0, joke.text);
+  assert.ok(joke.note.indexOf('манифест m1') > 0,
+    'манифест сборки не показан: ' + joke.note);
+  assert.ok(joke.note.indexOf('ревизии: core r21') > 0, joke.note);
+  assert.ok(joke.note.indexOf('модель не записана') > 0,
+    'отсутствие модели не названо: ' + joke.note);
+  const image = traceStep(t.steps, 'image');
+  assert.strictEqual(image.state, 'done');
+  assert.ok(image.note.indexOf('1234') > 0, image.note);
+  assert.strictEqual(traceStep(t.steps, 'claim').state, 'done');
+  const send = traceStep(t.steps, 'send');
+  assert.strictEqual(send.state, 'done');
+  assert.strictEqual(send.at, T4);
+  assert.ok(send.text.indexOf('4321') > 0, send.text);
+  const result = traceStep(t.steps, 'result');
+  assert.strictEqual(result.state, 'done');
+  assert.ok(result.text.indexOf('сообщение 4321') === 0, result.text);
+  assert.strictEqual(t.stopLabel, '', 'успешная попытка названа остановкой');
+  assert.ok(t.statusLine.indexOf('опубликовано') > 0, t.statusLine);
+
+  // 13.2 Автоматический мем: словарь БЕЗ шагов ручного /meme.
+  const auto = computed.iniTraceSteps.call({
+    iniTrace: publishedMemeDetail({
+      attempt: Object.assign({}, publishedMemeDetail().attempt,
+                             { attempt_id: 'meme:job-2', job_id: 'job-2',
+                               mode: 'auto' }),
+    }),
+  });
+  const autoKeys = auto.steps.map(function (s) { return s.key; });
+  assert.ok(autoKeys.indexOf('update') < 0 && autoKeys.indexOf('permission') < 0
+            && autoKeys.indexOf('priority') < 0,
+    'автоматической попытке приписаны шаги ручного /meme: ' + autoKeys);
+  assert.ok(autoKeys.indexOf('trigger') >= 0, autoKeys.join(','));
+  assert.strictEqual(auto.modeLabel, 'автоматически');
+
+  // 13.3 Ранний отказ на гейтах: стоп назван, дальнейшие шаги не выполнялись.
+  const early = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'meme:job-3', kind: 'meme', job_id: 'job-3',
+                 mode: 'auto', ts: T1, stage: 'skipped',
+                 outcome: 'skipped', reason_code: 'cooldown_active',
+                 delivered: false, message_id: null,
+                 incomplete_historical: false },
+      chain: [{ stage: 'skipped', ts: T1, outcome: 'skipped',
+                reason_code: 'cooldown_active', facts: {} }],
+      events: [],
+      delivery: { delivered: false, message_id: null },
+    },
+  });
+  const gates = traceStep(early.steps, 'gates');
+  assert.strictEqual(gates.state, 'skipped');
+  assert.strictEqual(gates.code, 'cooldown_active');
+  assert.ok(gates.codeLabel.indexOf('кулдаун') >= 0, gates.codeLabel);
+  assert.strictEqual(early.stopLabel, 'Обязательные гейты');
+  assert.strictEqual(traceStep(early.steps, 'summary').state, 'not_run');
+  assert.strictEqual(traceStep(early.steps, 'joke').state, 'not_run');
+  assert.strictEqual(traceStep(early.steps, 'image').state, 'not_run');
+  assert.strictEqual(traceStep(early.steps, 'send').state, 'not_run');
+  assert.strictEqual(traceStep(early.steps, 'result').state, 'failed');
+  assert.ok(early.statusLine.indexOf('остановилось на шаге «Обязательные гейты»') > 0,
+    early.statusLine);
+  assert.ok(early.statusLine.indexOf('кулдаун') > 0, early.statusLine);
+
+  // 13.4 Неизвестный код: читаемый фолбэк, а не голый токен.
+  const odd = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'meme:job-4', kind: 'meme', job_id: 'job-4',
+                 mode: 'auto', ts: T1, stage: 'failed',
+                 outcome: 'failed', reason_code: 'brand_new_gate',
+                 delivered: false, message_id: null,
+                 incomplete_historical: false },
+      chain: [{ stage: 'failed', ts: T1, outcome: 'failed',
+                reason_code: 'brand_new_gate', facts: {} }],
+      events: [],
+      delivery: { delivered: false, message_id: null },
+    },
+  });
+  assert.ok(odd.reasonLabel.indexOf('код: brand_new_gate') === 0,
+    'незнакомый код не подписан: ' + odd.reasonLabel);
+  assert.strictEqual(odd.stopLabel, '',
+    'незнакомый код не должен давать выдуманный шаг остановки');
+  assert.ok(odd.statusLine.indexOf('код: brand_new_gate') > 0, odd.statusLine);
+  assert.strictEqual(odd.steps.some(function (s) {
+    return s.text.indexOf('brand_new_gate ') === 0;
+  }), false, 'голый код попал в текст шага');
+
+  // 13.5 Историческая строка без идентификатора: попытка есть, run id пуст.
+  const hist = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'meme:row:abc', kind: 'meme', job_id: '',
+                 mode: 'unknown', ts: T2, stage: 'skipped',
+                 outcome: 'skipped', reason_code: 'no_random_hit',
+                 delivered: false, message_id: null,
+                 incomplete_historical: true },
+      chain: [{ stage: 'skipped', ts: T2, outcome: 'skipped',
+                reason_code: 'no_random_hit', facts: {} }],
+      events: [],
+      delivery: { delivered: false, message_id: null },
+    },
+  });
+  assert.strictEqual(hist.noRows, false, 'историческая строка прочитана как «нет записей»');
+  assert.strictEqual(hist.runId, '');
+  assert.strictEqual(hist.modeLabel, 'способ не записан');
+  assert.strictEqual(traceStep(hist.steps, 'gates').state, 'skipped');
+
+  // 13.6 Записей нет: «не запускалась», все шаги не выполнялись.
+  const empty = computed.iniTraceSteps.call({
+    iniTrace: { attempt: null, chain: [], events: [], delivery: null },
+  });
+  assert.strictEqual(empty.noRows, true);
+  assert.ok(empty.statusLine.indexOf('не запускалась') > 0, empty.statusLine);
+  empty.steps.forEach(function (s) {
+    assert.strictEqual(s.state, 'not_run',
+      'шаг «' + s.label + '» выдуман без записей: ' + s.state);
+    assert.strictEqual(s.at, null);
+  });
+
+  // 13.7 Текстовая инициатива: только её реальные шаги.
+  const text = computed.iniTraceSteps.call({
+    iniTrace: {
+      attempt: { attempt_id: 'text:c1', kind: 'text_initiative', job_id: 'c1',
+                 mode: 'auto', ts: T2, stage: 'decision', outcome: 'say',
+                 reason_code: '', delivered: true, message_id: 777,
+                 incomplete_historical: false },
+      chain: [],
+      events: [
+        { event_name: 'initiative_decided', ts: T1, outcome: 'say',
+          reason_code: '' },
+        { event_name: 'initiative_sent', ts: T2, detail: 'tg:777' },
+      ],
+      delivery: { delivered: true, message_id: 777 },
+    },
+  });
+  const textKeys = text.steps.map(function (s) { return s.key; });
+  assert.deepStrictEqual(textKeys,
+    ['trigger', 'gates', 'context', 'decision', 'send', 'result']);
+  assert.ok(textKeys.indexOf('joke') < 0 && textKeys.indexOf('image') < 0,
+    'текстовой инициативе приписаны шаги мема: ' + textKeys);
+  assert.strictEqual(traceStep(text.steps, 'decision').state, 'done');
+  assert.ok(traceStep(text.steps, 'decision').text.indexOf('бот решил ответить') > 0,
+    traceStep(text.steps, 'decision').text);
+  assert.strictEqual(traceStep(text.steps, 'context').state, 'unknown');
+  assert.strictEqual(traceStep(text.steps, 'result').state, 'done');
+
+  // 13.8 Строка списка: run id, чат, стадии, признак доставки, окно счётчиков.
+  const rows = computed.iniPubRows.call({
+    activeChatId: CHAT,
+    iniActiveChatTitle: 'Чат A',
+    iniPub: { rows: [
+      { attempt_id: 'meme:job-1', kind: 'meme', job_id: 'job-1',
+        mode: 'manual', ts: T4, stage: 'publish', outcome: 'published',
+        reason_code: 'sent', delivered: true, message_id: 4321,
+        chain_len: 2,
+        stages: [{ stage: 'summary', outcome: 'passed', reason_code: '', at: T1 },
+                 { stage: 'publish', outcome: 'published',
+                   reason_code: 'sent', at: T4 }] },
+      { attempt_id: 'meme:job-3', kind: 'meme', job_id: 'job-3',
+        mode: 'auto', ts: T1, stage: 'failed', outcome: 'failed',
+        reason_code: 'joke_generation_failed', delivered: false,
+        message_id: null, chain_len: 2,
+        stages: [{ stage: 'joke', outcome: 'failed',
+                   reason_code: 'joke_generation_failed', at: T1 }] },
+      { attempt_id: 'meme:row:abc', kind: 'meme', job_id: '', mode: 'unknown',
+        ts: T2, stage: 'publish', outcome: 'skipped',
+        reason_code: 'publication_stale', delivered: null, message_id: null,
+        incomplete_historical: true, chain_len: 1,
+        stages: [{ stage: 'publish', outcome: 'skipped',
+                   reason_code: 'publication_stale', at: T2 }] },
+    ] },
+  });
+  assert.strictEqual(rows[0].runId, 'job-1');
+  assert.strictEqual(rows[0].chatLabel, 'Чат A');
+  assert.strictEqual(rows[0].deliverySign, 'доставлено');
+  assert.strictEqual(rows[0].modeLabel, 'ручной /meme');
+  assert.ok(rows[0].stagesText.indexOf('Выжимка') === 0, rows[0].stagesText);
+  assert.strictEqual(rows[1].failedStage.stage, 'joke');
+  assert.strictEqual(rows[1].deliverySign, 'не доставлялось');
+  assert.strictEqual(rows[1].outcomeLabel, 'ошибка');
+  assert.strictEqual(rows[2].runLabel, 'без идентификатора');
+  assert.strictEqual(rows[2].historical, true);
+  assert.strictEqual(rows[2].deliverySign, 'не доставлялось',
+    'пропуск без отправки назван «не подтверждено»');
+
+  const counts = computed.iniPubCounts.call({
+    iniPub: { filters: { days: '7' },
+              counts: { total: 5, checked: 5, decided: 4, published: 2,
+                        delivered: 2, pending: 1, delivery_unknown: 1,
+                        text: 1, meme: 4 } },
+  });
+  assert.strictEqual(counts.windowLabel, 'за 7 дн.');
+  assert.strictEqual(counts.checked, 5);
+  assert.strictEqual(counts.decided, 4);
+  assert.strictEqual(counts.published, 2);
+  assert.strictEqual(counts.delivered, 2);
+  assert.strictEqual(counts.pending, 1);
+  assert.strictEqual(counts.deliveryUnknown, 1);
+  assert.ok(INDEX.indexOf('data-ini-pub-window') > 0,
+    'окно счётчиков не выведено в разметку');
+  assert.ok(INDEX.indexOf('проверено {{ iniPubCounts.checked }}') > 0,
+    'счётчик «проверено» не показан отдельно от «решено»');
+})();
+
+// ── 11b. Ответы для «Публикаций» и «Диагностики» привязаны к чату ────────
 // Поздний ответ другого чата не может стать содержимым карточек: применяем
 // только при совпадении epoch И `payload.chat_id`, иначе отбрасываем.
 const OTHER_CHAT = -100999;

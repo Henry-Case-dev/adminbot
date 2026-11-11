@@ -532,7 +532,11 @@ def _pub_rows():
          "delivered": True, "message_id": 4321, "chain_len": 4,
          "reason_codes": ["sent"],
          "window_messages": 300, "limit_source": "model_capability",
-         "limit_value": 400, "events_len": 5},
+         "limit_value": 400, "events_len": 5,
+         "stages": [{"stage": "summary", "outcome": "passed", "reason_code": "", "at": NOW - 12},
+                    {"stage": "joke", "outcome": "passed", "reason_code": "", "at": NOW - 9},
+                    {"stage": "image_generation", "outcome": "passed", "reason_code": "", "at": NOW - 5},
+                    {"stage": "publish", "outcome": "published", "reason_code": "sent", "at": NOW}]},
         # P0-семантика: отправку отложил реальный конфликт координации.
         {"attempt_id": "meme:job-78", "kind": "meme", "job_id": "job-78",
          "mode": "auto", "ts": NOW - 300, "stage": "publish",
@@ -582,7 +586,37 @@ def _pub_rows():
          "reason_label": "отправлено", "delivered": True, "message_id": 4300,
          "chain_len": 4, "reason_codes": ["sent"], "window_messages": 300,
          "limit_source": "manual",
-         "limit_value": None},
+         "limit_value": None,
+         "stages": [{"stage": "summary", "outcome": "passed",
+                     "reason_code": "", "at": NOW - 1260},
+                    {"stage": "joke", "outcome": "passed",
+                     "reason_code": "", "at": NOW - 1250},
+                    {"stage": "image_generation", "outcome": "passed",
+                     "reason_code": "", "at": NOW - 1240},
+                    {"stage": "publish", "outcome": "published",
+                     "reason_code": "sent", "at": NOW - 1200}]},
+        # S4-TRACE: ранний стоп ручного /meme — ошибка в конкретном шаге.
+        {"attempt_id": "meme:job-72", "kind": "meme", "job_id": "job-72",
+         "mode": "manual", "ts": NOW - 780, "stage": "failed",
+         "outcome": "failed", "reason_code": "joke_generation_failed",
+         "reason_label": "генерация прикола не удалась", "delivered": False,
+         "message_id": None, "chain_len": 2,
+         "reason_codes": ["joke_generation_failed"], "window_messages": 300,
+         "limit_source": "model_capability", "limit_value": 400,
+         "stages": [{"stage": "summary", "outcome": "passed",
+                     "reason_code": "", "at": NOW - 800},
+                    {"stage": "failed", "outcome": "failed",
+                     "reason_code": "joke_generation_failed", "at": NOW - 780}]},
+        # S4-TRACE: незнакомый код причины — читаемый фолбэк «код: …».
+        {"attempt_id": "meme:job-71", "kind": "meme", "job_id": "job-71",
+         "mode": "auto", "ts": NOW - 700, "stage": "failed",
+         "outcome": "failed", "reason_code": "brand_new_gate",
+         "reason_label": "", "delivered": False, "message_id": None,
+         "chain_len": 1, "reason_codes": ["brand_new_gate"],
+         "window_messages": 300, "limit_source": "model_capability",
+         "limit_value": 400,
+         "stages": [{"stage": "failed", "outcome": "failed",
+                     "reason_code": "brand_new_gate", "at": NOW - 700}]},
         {"attempt_id": "text:corr-1", "kind": "text_initiative", "job_id": "corr-1",
          "mode": "auto", "ts": NOW - 1800, "stage": "decision",
          "outcome": "say", "reason_code": "", "reason_label": "",
@@ -717,14 +751,138 @@ def _detail(attempt_id):
                             "delivered": False, "message_id": None},
                 "chain": _meme_chain_skipped(), "events": [],
                 "delivery": {"delivered": False, "message_id": None}}
+    if attempt_id.startswith("meme:job-70"):
+        # R0-случай: ручной /meme убит на стадии картинки, строк журнала нет.
+        return {"schema_version": 1, "available": True,
+                "notes": ["no_attempt_rows"], "attempt": None,
+                "chain": [], "events": [], "delivery": None}
+    if attempt_id.startswith("meme:job-71"):
+        # Неизвестный код причины: подпись «код: …», без выдуманного шага.
+        return {"schema_version": 1, "available": True, "notes": [],
+                "attempt": {"attempt_id": "meme:job-71", "kind": "meme",
+                            "job_id": "job-71", "mode": "auto",
+                            "ts": NOW - 700, "stage": "failed",
+                            "outcome": "failed",
+                            "reason_code": "brand_new_gate",
+                            "delivered": False, "message_id": None},
+                "chain": [{"stage": "failed", "ts": NOW - 700,
+                           "outcome": "failed",
+                           "reason_code": "brand_new_gate",
+                           "reason_label": "", "facts": {},
+                           "limit_source": "", "limit_value": None,
+                           "window_messages": 300}],
+                "events": [],
+                "delivery": {"delivered": False, "message_id": None}}
+    if attempt_id.startswith("meme:job-72"):
+        # Ручной /meme, остановленный на приколе: ранние шаги и место стопа.
+        chain = [
+            {"stage": "summary", "ts": NOW - 800, "outcome": "passed",
+             "reason_code": "", "reason_label": "",
+             "facts": {"chars": 37, "source": "chat"},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+            {"stage": "failed", "ts": NOW - 780, "outcome": "failed",
+             "reason_code": "joke_generation_failed",
+             "reason_label": "генерация прикола не удалась",
+             "facts": {}, "limit_source": "model_capability",
+             "limit_value": 400, "window_messages": 300},
+        ]
+        events = [
+            {"id": None, "ts": NOW - 810, "event_name": "source_snapshot",
+             "stage": "attempt", "outcome": "source_snapshot",
+             "reason_code": "", "reason_label": "",
+             "detail": "messages:42", "delivered": None, "level": "",
+             "error_type": ""},
+            {"id": None, "ts": NOW - 800, "event_name": "digest_ready",
+             "stage": "attempt", "outcome": "digest_ready",
+             "reason_code": "", "reason_label": "",
+             "detail": "chars:37", "delivered": None, "level": "",
+             "error_type": ""},
+        ]
+        return {"schema_version": 1, "available": True, "notes": [],
+                "attempt": {"attempt_id": "meme:job-72", "kind": "meme",
+                            "job_id": "job-72", "mode": "manual",
+                            "ts": NOW - 780, "stage": "failed",
+                            "outcome": "failed",
+                            "reason_code": "joke_generation_failed",
+                            "delivered": False, "message_id": None},
+                "chain": chain, "events": events,
+                "delivery": {"delivered": False, "message_id": None}}
     if attempt_id.startswith("meme:job-75"):
+        # Ручной опубликованный мем: полная трасса от команды до сообщения.
+        chain = [
+            {"stage": "summary", "ts": NOW - 1260, "outcome": "passed",
+             "reason_code": "", "reason_label": "",
+             "facts": {"chars": 41, "source": "chat"},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+            {"stage": "joke", "ts": NOW - 1250, "outcome": "passed",
+             "reason_code": "", "reason_label": "",
+             "facts": {"limit": 395, "template_chars": 5,
+                       "ceiling": 400, "chars": 6, "trimmed": False,
+                       "source": "chat", "placeholder": "slot",
+                       "speech": _speech()},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+            {"stage": "image_generation", "ts": NOW - 1240,
+             "outcome": "passed", "reason_code": "", "reason_label": "",
+             "facts": {"chars": 23, "template_chars": 5,
+                       "joke_chars": 6, "template_source": "chat",
+                       "template_revision": "t1"},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+            {"stage": "publish", "ts": NOW - 1200, "outcome": "published",
+             "reason_code": "sent", "reason_label": "отправлено",
+             "facts": {"manual": True, "gate": "open",
+                       "claim": {"granted": True, "state": "claimed"},
+                       "output": {"tg_message_id": 4300, "ledger_id": 5},
+                       "source": {"chat_id": CHAT_A, "run_id": "job-75",
+                                  "mode": "manual",
+                                  "request_ref": "1209864",
+                                  "message_count": 42,
+                                  "first_id": 10, "last_id": 51,
+                                  "captured_at": NOW - 1300},
+                       "rights": {"mode": "permission_hook",
+                                  "ok": True, "detail": ""}},
+             "limit_source": "model_capability", "limit_value": 400,
+             "window_messages": 300},
+        ]
+        events = [
+            {"id": None, "ts": NOW - 1300, "event_name": "source_snapshot",
+             "stage": "attempt", "outcome": "source_snapshot",
+             "reason_code": "", "reason_label": "", "detail": "messages:42",
+             "delivered": None, "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 1260, "event_name": "digest_ready",
+             "stage": "attempt", "outcome": "digest_ready",
+             "reason_code": "", "reason_label": "", "detail": "chars:41",
+             "delivered": None, "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 1250, "event_name": "joke_ready",
+             "stage": "attempt", "outcome": "joke_ready",
+             "reason_code": "", "reason_label": "", "detail": "chars:6",
+             "delivered": None, "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 1240, "event_name": "image_ready",
+             "stage": "attempt", "outcome": "image_ready",
+             "reason_code": "", "reason_label": "",
+             "detail": "prompt:23|bytes:1234", "delivered": None,
+             "level": "", "error_type": ""},
+            {"id": None, "ts": NOW - 1230, "event_name": "publication_requested",
+             "stage": "attempt", "outcome": "publication_requested",
+             "reason_code": "", "reason_label": "",
+             "detail": "claim_requested", "delivered": None, "level": "",
+             "error_type": ""},
+            {"id": None, "ts": NOW - 1200, "event_name": "publication_sent",
+             "stage": "attempt", "outcome": "publication_sent",
+             "reason_code": "sent", "reason_label": "отправлено",
+             "detail": "tg:4300", "delivered": True, "level": "",
+             "error_type": ""},
+        ]
         return {"schema_version": 1, "available": True, "notes": [],
                 "attempt": {"attempt_id": "meme:job-75", "kind": "meme",
                             "job_id": "job-75", "mode": "manual",
                             "ts": NOW - 1200, "stage": "publish",
                             "outcome": "published", "reason_code": "sent",
                             "delivered": True, "message_id": 4300},
-                "chain": _meme_chain_skipped(), "events": [],
+                "chain": chain, "events": events,
                 "delivery": {"delivered": True, "message_id": 4300}}
     if attempt_id.startswith("text:corr-1"):
         return {"schema_version": 1, "available": True, "notes": [],
@@ -837,13 +995,24 @@ def make_api_handler():
             return send({
                 "schema_version": 1, "generated_at": NOW, "chat_id": CHAT_A,
                 "available": True, "notes": [],
+                "window": {"days": 7, "since": NOW - 7 * 86400, "until": NOW},
                 "filters": {}, "rows": page,
                 "counts": {"total": len(rows),
+                           "checked": len(rows),
+                           "decided": sum(1 for r in rows if r["outcome"]),
                            "text": sum(1 for r in rows
                                        if r["kind"] == "text_initiative"),
                            "meme": sum(1 for r in rows if r["kind"] == "meme"),
                            "published": sum(1 for r in rows
                                             if r["outcome"] == "published"),
+                           "delivered": sum(1 for r in rows
+                                            if r["delivered"] is True),
+                           "pending": sum(1 for r in rows
+                                          if r["outcome"] == "deferred"),
+                           "delivery_unknown": sum(
+                               1 for r in rows
+                               if r["delivered"] is None
+                               and r["outcome"] != "deferred"),
                            "not_delivered": sum(1 for r in rows
                                                 if r["delivered"] is False)},
                 "next_offset": (offset + len(page)) if offset + len(page) < len(rows)
@@ -1848,6 +2017,212 @@ def run_peek_modes(browser, width, height, label, shots):
         ctx.close()
 
 
+# ── Сценарий 2e: S4-TRACE — строка попытки и её связная трасса ───────────
+TRACE_PROBE = r"""
+() => {
+  const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const val = (sel) => strip((document.querySelector(sel) || {}).textContent);
+  const traceHost = document.querySelector('[data-ini-trace-steps]')
+    || document.querySelector('[data-ini-pub-steps]');
+  const steps = traceHost ? Array.from(
+    traceHost.querySelectorAll('[data-ini-trace-step]')).map((el) => ({
+      key: el.getAttribute('data-ini-trace-step'),
+      state: el.getAttribute('data-ini-step-state'),
+      text: strip(el.textContent),
+    })) : [];
+  const row = document.querySelector('[data-ini-pub-row]');
+  return {
+    hasRows: !!document.querySelector('[data-ini-pub-rows]'),
+    countsText: val('[data-ini-pub-counts]'),
+    windowAttr: (document.querySelector('[data-ini-pub-counts]') || {})
+      .getAttribute ? document.querySelector('[data-ini-pub-counts]')
+      .getAttribute('data-ini-pub-window') : null,
+    chatFilter: document.querySelectorAll('[data-ini-pub-chat]').length,
+    firstRun: val('[data-ini-pub-run]'),
+    firstDeliverySign: ((document.querySelector('[data-ini-pub-delivery-sign]')
+      || {}).getAttribute ? document.querySelector('[data-ini-pub-delivery-sign]')
+      .getAttribute('data-ini-pub-delivery-sign') : ''),
+    firstStages: val('[data-ini-pub-stages-row]'),
+    failedStage: val('[data-ini-pub-failed-stage]'),
+    trace: traceHost ? {
+      kind: traceHost.getAttribute('data-ini-trace-kind'),
+      norows: traceHost.getAttribute('data-ini-trace-norows'),
+      status: val('[data-ini-trace-status]') || val('[data-ini-trace-status-line]'),
+      stop: val('[data-ini-trace-stop]') || val('[data-ini-trace-stop-line]')
+        || val('[data-ini-trace-status-line]'),
+      attempt: val('[data-ini-trace-attempt]'),
+      steps: steps,
+    } : null,
+    hScroll: document.documentElement.scrollWidth - window.innerWidth,
+    overflowValues: Array.from(document.querySelectorAll(
+      '.ini-trace-step__text, .ini-trace-step__code, .ini-trace-step__note, ' +
+      '.ini-row__id, .ini-row__stage'))
+      .filter((el) => el.scrollWidth > el.clientWidth + 1).length,
+    offscreen: Array.from(document.querySelectorAll(
+      '.ini-trace-step__name, .ini-trace-step__time'))
+      .filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1)
+      .length,
+  };
+}
+"""
+
+
+def _step_of(trace, key):
+    return next((s for s in (trace or {}).get("steps") or []
+                 if s["key"] == key), None)
+
+
+def run_trace(browser, width, height, label, shots):
+    """Одна строка = одна попытка; клик раскрывает трассу из реальных записей."""
+    STATE["diag_mode"] = "on"
+    ctx, page = new_page(browser, width, height)
+    try:
+        # 1) «Публикации»: строка называет run id, чат, стадии и доставку.
+        open_page(page, "publications")
+        page.wait_for_selector("[data-ini-pub-row]", timeout=15000)
+        # Сужаем журнал фильтрами ЭТОЙ поверхности (тип + исход), чтобы нужная
+        # попытка была на первой странице — серверные фильтры, не клиентские.
+        page.select_option('[data-ini-filter="kind"]', "meme")
+        page.wait_for_timeout(500)
+        page.select_option('[data-ini-filter="outcome"]', "published")
+        page.wait_for_selector('[data-ini-pub-row="meme:job-75"]',
+                               state="visible", timeout=20000)
+        rows = page.evaluate(TRACE_PROBE)
+        notes.append({label + "-trace-rows": {
+            "counts": rows["countsText"], "run": rows["firstRun"],
+            "delivery": rows["firstDeliverySign"],
+            "stages": rows["firstStages"]}})
+        check(rows["hasRows"], label, "журнал публикаций не отрисован")
+        check(bool(rows["firstRun"]), label, "строка не называет идентификатор попытки")
+        check(rows["windowAttr"] == "за 7 дн.", label,
+              "окно счётчиков не названо: %r" % rows["windowAttr"])
+        for word in ("проверено", "решено", "опубликовано", "доставлено",
+                     "ожидает"):
+            check(word in rows["countsText"], label,
+                  "в счётчиках нет «%s»: %r" % (word, rows["countsText"]))
+        check(rows["chatFilter"] >= 1, label,
+              "в «Публикациях» нет фильтра по чату")
+        check(rows["firstDeliverySign"] in (
+            "доставлено", "не подтверждено", "не доставлялось"), label,
+            "непонятный признак доставки: %r" % rows["firstDeliverySign"])
+        check("→" in rows["firstStages"], label,
+              "в строке нет последовательности стадий: %r" % rows["firstStages"])
+        check(rows["hScroll"] <= 1, label,
+              "журнал прокручивается по горизонтали: %d" % rows["hScroll"])
+
+        # 2) Трасса опубликованного ручного /meme (job-75).
+        page.click('[data-ini-pub-row="meme:job-75"]')
+        page.wait_for_selector('[data-ini-pub-detail] [data-ini-trace-steps]',
+                               state="attached", timeout=25000)
+        page.wait_for_timeout(400)
+        manual = page.evaluate(TRACE_PROBE)
+        notes.append({label + "-trace-manual": {
+            "status": manual["trace"]["status"], "stop": manual["trace"]["stop"],
+            "steps": [(s["key"], s["state"]) for s in manual["trace"]["steps"]]}})
+        check(manual["trace"] is not None, label, "трасса не раскрылась")
+        check(manual["trace"]["kind"] == "meme", label,
+              "вид механизма не определён: %r" % manual["trace"]["kind"])
+        check(manual["trace"]["norows"] == "false", label,
+              "есть записи, а трасса помечена «нет записей»")
+        keys = [s["key"] for s in manual["trace"]["steps"]]
+        check(keys == ["update", "permission", "command", "priority", "gates",
+                       "messages", "summary", "joke", "image", "claim", "send",
+                       "result"], label,
+              "словарь шагов ручного мема иной: %r" % (keys,))
+        upd = _step_of(manual["trace"], "update")
+        check(upd and upd["state"] == "done"
+              and "1209864" in upd["text"], label,
+              "шаг «Получение команды» без реального id: %r" % (upd,))
+        for key in ("command", "priority"):
+            step = _step_of(manual["trace"], key)
+            check(step and step["state"] == "unknown", label,
+                  "шаг %r выдуман: %r" % (key, step))
+        send = _step_of(manual["trace"], "send")
+        check(send and send["state"] == "done" and "4300" in send["text"], label,
+              "шаг отправки без message_id: %r" % (send,))
+        check("опубликовано" in manual["trace"]["status"], label,
+              "итог трассы не назван: %r" % manual["trace"]["status"])
+        shot(page, shots, "trace_manual_%s" % label)
+
+        # 3) «Диагностика»: ранний стоп, неизвестный код, отсутствие записей.
+        open_tab(page, "diagnostics")
+        def load(attempt, expect=None):
+            page.fill("[data-ini-trace-input]", attempt)
+            page.press("[data-ini-trace-input]", "Enter")
+            if expect:
+                page.wait_for_function(
+                    "(want) => { const head = document.querySelector("
+                    "'[data-ini-trace-head]');"
+                    " return !!head && head.textContent.indexOf(want) >= 0; }",
+                    arg=expect, timeout=15000)
+            else:
+                page.wait_for_function(
+                    "() => { const el = document.querySelector("
+                    "'[data-ini-trace-steps]');"
+                    " return !!el && el.getAttribute('data-ini-trace-norows')"
+                    " === 'true'; }", timeout=15000)
+            page.wait_for_timeout(350)
+            return page.evaluate(TRACE_PROBE)
+
+        early = load("meme:job-72", "meme:job-72")
+        notes.append({label + "-trace-early": {
+            "status": early["trace"]["status"], "stop": early["trace"]["stop"],
+            "steps": [(s["key"], s["state"]) for s in early["trace"]["steps"]]}})
+        check(early["trace"]["norows"] == "false", label,
+              "ранний стоп прочитан как «нет записей»")
+        check("Прикол" in early["trace"]["stop"], label,
+              "место остановки не названо: %r" % early["trace"]["stop"])
+        joke = _step_of(early["trace"], "joke")
+        check(joke and joke["state"] == "failed", label,
+              "шаг «Прикол» не помечен ошибкой: %r" % (joke,))
+        for key in ("image", "claim", "send"):
+            step = _step_of(early["trace"], key)
+            check(step and step["state"] == "not_run", label,
+                  "шаг %r выдуман после остановки: %r" % (key, step))
+        check("не выполнялось" in " ".join(
+            s["text"] for s in early["trace"]["steps"]), label,
+            "нет ни одного честного «не выполнялось»")
+        shot(page, shots, "trace_early_%s" % label)
+
+        odd = load("meme:job-71", "meme:job-71")
+        notes.append({label + "-trace-odd": {
+            "status": odd["trace"]["status"], "stop": odd["trace"]["stop"]}})
+        check("код: brand_new_gate" in odd["trace"]["status"], label,
+              "незнакомый код не подписан: %r" % odd["trace"]["status"])
+        check("brand_new_gate " not in " ".join(
+            s["text"] for s in odd["trace"]["steps"]), label,
+            "голый код попал в текст шага")
+
+        empty = load("meme:job-70")
+        notes.append({label + "-trace-empty": {
+            "status": empty["trace"]["status"],
+            "states": sorted({s["state"] for s in empty["trace"]["steps"]})}})
+        check(empty["trace"]["norows"] == "true", label,
+              "попытка без записей не помечена")
+        check("не запускалась" in empty["trace"]["status"], label,
+              "нет честной формулировки «не запускалась»: %r"
+              % empty["trace"]["status"])
+        check({s["state"] for s in empty["trace"]["steps"]} == {"not_run"},
+              label, "у попытки без записей выдуманы шаги: %r"
+              % sorted({s["state"] for s in empty["trace"]["steps"]}))
+        shot(page, shots, "trace_empty_%s" % label)
+
+        # 4) Замеры: прокрутка и обрезка на этом же экране.
+        final = page.evaluate(TRACE_PROBE)
+        notes.append({label + "-trace-metrics": {
+            "hScroll": final["hScroll"], "truncated": final["overflowValues"],
+            "offscreen": final["offscreen"]}})
+        check(final["hScroll"] <= 1, label,
+              "трасса прокручивается по горизонтали: %d" % final["hScroll"])
+        check(final["overflowValues"] == 0, label,
+              "в трассе обрезаны значения: %d" % final["overflowValues"])
+        check(final["offscreen"] == 0, label,
+              "элементы трассы вышли за экран: %d" % final["offscreen"])
+    finally:
+        STATE["diag_mode"] = "off"
+        ctx.close()
+
+
 # ── Сценарий 3: «Текстовая инициатива» ───────────────────────────────────
 def run_text(browser, width, height, label, shots):
     ctx, page = new_page(browser, width, height)
@@ -2725,6 +3100,9 @@ def main() -> int:
                 # P0IM-OV-HEADER: три состояния обзора + честная деградация.
                 run_peek_modes(browser, 1536, 960, "1536", args.shots)
                 run_peek_modes(browser, 390, 844, "390", args.shots)
+                # S4-TRACE: строка попытки и связная трасса (десктоп + телефон).
+                run_trace(browser, 1536, 960, "1536", args.shots)
+                run_trace(browser, 390, 844, "390", args.shots)
                 # Блокер 1: смена чата очищает карточки, затем показывает свои.
                 run_chat_switch_cards(browser, 1536, 960, "1536", args.shots)
                 run_chat_switch_cards(browser, 390, 844, "390", args.shots)
