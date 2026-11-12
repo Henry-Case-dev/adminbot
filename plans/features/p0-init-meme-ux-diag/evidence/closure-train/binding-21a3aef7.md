@@ -1,15 +1,15 @@
-# Closure train C-rows — привязка к коду `3b1c4ba9`
+# Closure train C-rows — привязка к коду `21a3aef7`
 
 Эпик: `p0-init-meme-ux-diag`. База: `c134f93d` (release/2.58.195, production).
 Ветка: `fix/p0im-closure-train`. Код-кандидат:
-`3b1c4ba9a994fa29dd7d2d98ae6068276f8a3ddf` (поверх `0398675a`; docs `931945b7` —
+`21a3aef78dba022e52cff21f9a87cbbccfce55fe` (поверх `3b1c4ba9`; docs `87b5f0e4` —
 предыдущая привязка). Документ: привязка доказательств Builder; статусы строк
 НЕ переведены — это делает Reviewer/PM.
 
-Диапазон изменения против базы: **14 файлов кода/тестов, +1880/−55** плюс этот
-evidence-документ. Код-кандидат собран двумя коммитами: `0398675a` (закрытие
-C-строк) и `3b1c4ba9` (исправление двух блокеров Reviewer). Этот документ —
-следующий docs-коммит.
+Диапазон изменения против базы: **15 файлов кода/тестов, +1891/−58** плюс этот
+evidence-документ. Код-кандидат собран тремя коммитами: `0398675a` (закрытие
+C-строк), `3b1c4ba9` (два блокера Reviewer) и `21a3aef7` (test-contract fix
+после DevOps-остановки 2.58.196). Этот документ — следующий docs-коммит.
 
 Новых таблиц, колонок, флагов, настроек, промптов, моделей, эндпоинтов и
 планировщиков нет. Полный текст промптов по-прежнему не пишется в журнал
@@ -87,6 +87,30 @@ skip_reasons/conflicts_detail/sent_note/trace_coverage), отсутствие м
 **Честный предел.** Кольцо общее: 24 записи процесса, чужие вызовы вытесняют
 запись этого чата раньше, чем «свои 24». Это состояние существующего
 композера, не новый store; UI/API теперь говорят это прямо.
+
+### Post-approval test-contract fix (DevOps stop 2.58.196)
+
+**Наблюдение DevOps.** После одобрения `3b1c4ba9` один тест серии падал:
+`tests/test_initiative_coordination.py::test_command_marks_priority_before_generation`
+— `TypeError: _clear() got an unexpected keyword argument 'job_id'`. Продукт
+передаёт `job_id` в `release_manual_priority`
+(`handlers/meme_command.py:200` определение, `:396` вызов), чтобы дописать
+снятие в терминальную строку; тестовый двойник сохранял старую подпись.
+Продуктовый код не менялся.
+
+**Исправление (только тест).** `_clear(chat_id, mark, **_kw)` принимает новый
+keyword; `_pipeline`-стаб выставляет `trace.job_id = "meme-job-coord-1"`
+(реальный пайплайн минтит job_id до первого гейта). Проверяется `clear` с
+непустым `job_id` и ровно одно снятие; прежняя последовательность
+`delete → priority → pipeline → clear` и `until` сохранена. Других двойников
+`release_manual_priority` в репозитории нет.
+
+**Результаты.** Target — **1 passed**; файл — **56 passed / 4 failed**
+(те же 4 предсуществующих); 22-файловая серия meme/initiative/publication/
+diagnostic — **519 passed / 4 failed** (база 2.58.195 — 510/4; +9 новых
+тестов, новых падений 0); 7-файловый closure set — **204 passed**; JS
+`INITIATIVE-UI-OK` / `P0IM-OV-HONESTY-OK` / `test_webapp_js_unit.py`
+**45 passed**; e2e — те же 2 предсуществующих / 0.
 
 ---
 
@@ -304,13 +328,16 @@ heartbeat/provider — проекция существующих расчёто�
 
 ---
 
-## 7. Прогоны (кандидат `3b1c4ba9`, база `c134f93d`)
+## 7. Прогоны (кандидат `21a3aef7`, база `c134f93d`)
 
 `PYTHONDONTWRITEBYTECODE=1`, `-p no:cacheprovider`, изолированные temp-SQLite;
 production не затрагивался.
 
 | Команда | Результат |
 |---|---|
+| pytest `tests/test_initiative_coordination.py::test_command_marks_priority_before_generation` | **1 passed** (target; после test-contract fix) |
+| pytest `tests/test_initiative_coordination.py` (файл) | **56 passed / 4 failed** — те же 4 предсуществующих |
+| 22-файловая серия meme/initiative/publication/diagnostic | **519 passed / 4 failed** (база 2.58.195 — 510/4; +9 новых тестов, новых падений 0) |
 | pytest `tests/test_evol014_meme_initiative.py` | **61 passed** (было 58; +3) |
 | pytest `tests/test_initiative_publications_api.py` | **40 passed** (было 35; +5) |
 | pytest `tests/test_meme_init_diagnostics.py` | **44 passed** |
@@ -395,6 +422,10 @@ Prod 2.58.195 не изменялся. Живой снимок payload этог�
 
 ## 11. Находки
 
+- `IN_SCOPE` (тестовый контракт, DevOps stop 2.58.196, исправлено): двойник
+  `release_manual_priority` в `test_initiative_coordination.py` сохранял старую
+  подпись без keyword-only `job_id`. Обновлён только тест; продуктовая
+  подпись/семантика снятия не менялись. Других таких двойников нет.
 - `IN_SCOPE` (Reviewer blocker 1, исправлено): correlation-режим Inspector
   отдавал текущую сборку (`preview`/`hierarchy`/`skip_reasons`/`conflicts`)
   и на промахе подписывался «только предпросмотр». Теперь correlation-ответ
@@ -428,6 +459,7 @@ Prod 2.58.195 не изменялся. Живой снимок payload этог�
  services/meme_initiative.py                  | 143 +-
  tests/js/initiative_ui_rework_test.js        | 365 ++++
  tests/test_evol014_meme_initiative.py        | 188 ++
+ tests/test_initiative_coordination.py        |  14 +-
  tests/test_initiative_publications_api.py    | 181 ++
  tests/test_meme_init_diagnostics.py          |   5 +
  tests/test_p0im_s5_meme_marker_interrupt.py  |  36 +
@@ -437,7 +469,7 @@ Prod 2.58.195 не изменялся. Живой снимок payload этог�
  web/api/speech.py                            | 141 +-
  web/app.js                                   | 266 +-
  web/index.html                               | 127 +-
- 14 files changed, 1880 insertions(+), 55 deletions(-)
+ 15 files changed, 1891 insertions(+), 58 deletions(-)
 ```
 
 (плюс этот evidence-документ и `review-931945b7.md` в docs-коммите).
