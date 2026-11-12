@@ -1,0 +1,29 @@
+[P0] utc=2026-11-12T05:23:52Z
+[P0] head=6c11fc08ddade1edf0c4fb274e7f1bf93f852a26 branch=release/2.58.194
+[P0] status_lines:
+[P0] tracked_dirty=0
+[P0] fetch
+[P0] remote_release=c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+[P1] py=/usr/bin/python3
+[P1] snapshot uv=47 quick_check=ok schema_objects=325
+[P1] snapshot_rc=0 took=36s
+[P1] snapshot_bytes=2502684672
+[P2] checkout
+[P2] head=c134f93d5c4a68f0ea906498cb9e0b78fc795f1e tracked_dirty=0
+[P2] app_version=APP_VERSION = "2.58.195"
+[P2] app_js_git=33f07dd121c5787ce968bb7cf4c80665698502c5 size=2284920
+[P3] restart at 2026-11-12T05:24:29Z
+[P3] healthz={"status":"ok","version":"2.58.195"} (attempt 2)
+[P3] systemd=active restarts=0 since=Thu 2026-11-12 05:24:31 UTC
+[P4] server head=c134f93d5c4a68f0ea906498cb9e0b78fc795f1e branch=release/2.58.195 tracked_dirty=0
+[P4] healthz={"status":"ok","version":"2.58.195"}
+[P4] served_app_js_status=200 2284920
+[P4] served_app_js_sha256=f81d1e0763e090ac0460e7bfeecce8ddf0baf6b062b66524ad07b6fdad11cdb0
+[P4] disk_app_js_sha256=f81d1e0763e090ac0460e7bfeecce8ddf0baf6b062b66524ad07b6fdad11cdb0
+[P4] live_uv=47
+[P4] journal_lines=671 traceback=0 critical=0 error=0 warning=1
+[P4] journal_error_lines:
+[P4] attempt_lost=0
+[P4] startup_tail:
+[P4] now_utc=2026-11-12T05:24:38Z
+[P4] DONE
