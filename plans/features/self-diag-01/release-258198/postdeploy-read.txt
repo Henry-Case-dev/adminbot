@@ -1,0 +1,55 @@
+# 2.58.198 postdeploy read-only record (deployed build)
+
+deployed_version=2.58.198
+deployed_head=234776589c934024ed0e8dceba189fb9d70d3215
+deployed_branch=release/2.58.198
+deploy_source=release/2.58.198 @ 23477658 (immutable)
+candidate=dae6ffeae07cbf2b8d533bb99eaeaf267de335a2 (docs 1fd0ceb6, base 34754c9c)
+superseded_tip=78982058 (tag release-2.58.198-pre-fixes; never deployed)
+rollback_sha=2587616759de31283585ffc105c91e7193c2e89e (2.58.197; not needed)
+
+pre_state_head=25876167 / release/2.58.197 / 2.58.197 / tracked 0 / unit active / NRestarts 0
+predeploy_snapshot=backups/predeploy-258198-final-20261112T212408Z.db
+predeploy_snapshot_bytes=2671144960
+predeploy_snapshot_sha256=97a8646e1e2fac2489ae5938092eb2c03f869d52f596bece74281cd46d201105
+predeploy_snapshot_readback=integrity:ok user_version:47 tables:130 (80.1 s)
+
+restart_pre_utc=2026-11-12T21:25:37Z
+unit_after_restart=active NRestarts=0 ActiveEnterTimestamp=2026-11-12 21:25:39 UTC
+healthz_attempt_1={"status":"ok","version":"2.58.198"}
+post_head=234776589c934024ed0e8dceba189fb9d70d3215 branch=release/2.58.198 tracked_dirty=0
+live_user_version=47
+journal_15min: Traceback=0 ERROR=0 CRITICAL=0 WARNING=9 attempt_LOST=0 lines=843
+post_check_utc=2026-11-12T21:25:56Z
+
+served_/web/app.js_sha256=3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594 bytes=2311044
+disk_web/app.js_sha256=3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594 bytes=2311044
+served_web_app_js_equals_reviewed_commit=yes
+served_/web/_bytes=1358760 (index.html with __APP_VERSION__ -> 2.58.198; only 17 cache-bust substitutions differ)
+served_/web/static/app.css_sha256=f468bd01b9228455c81cb9b4465a70b67804be00efde0370dccafb3e23c92fed
+
+self_diagnosis_chatA=http 200 available=true app_version=2.58.198 checkout_sha=23477658 branch="" dirty=false
+self_diagnosis_chatB=http 200 available=true app_version=2.58.198 checkout_sha=23477658 branch="" dirty=false
+self_diagnosis_ttl_identical_within_30s=yes
+self_diagnosis_anonymous=http 401 {"detail":"missing init data"}
+self_diagnosis_nonadmin_member=http 200 (policy: bot_server_state=PUBLIC_TECH, view_roles=[user,local_admin])
+rbac_nonadmin_prompts_catalog=403 "только для глобального админа"
+rbac_nonadmin_prompt_versions=403 "нет доступа к чату"
+rbac_nonadmin_diagnostic_policy=403
+rbac_nonadmin_speech_inspector=403 "нет доступа к Inspector"
+secret_scan_hits=0 (20779 chars scanned)
+identity_source=local_git local_source_verification=local_unverified
+identity_note=no .deploy/release.json and ADMINBOT_DEPLOYED_SHA unset -> deployed_sha/branch empty by contract; checkout sha real
+
+ui_status_selfdiag_block=rendered in both chats (version 2.58.198, PID 318147, 26 source rows, analytics counters)
+ui_status_screenshots=live-selfdiag-A-2.58.198.png, live-selfdiag-B-2.58.198.png
+f3_playwright=390x844 and 1536x960: caps=9 boxes=48 native=0 sizes=18x18 accent=rgb(139,111,232) hScroll=0 clipped=0 console=0 failures=[]
+f3_toggle=prompts/view/Участник: unchecked -> checked locally (disabled=false), no save
+f3_hard_rules_text="Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+f3_hard_rules_no_object_leak=yes f3_hard_rules_internal_code=absent
+f3_browseruse=1707x932 real Chrome: caps=9 boxes=48 native=0 sizes=18x18 accent ok hScroll=0 no [object Object]; screenshot live-f3-browseruse-2.58.198.png
+golden_set_on_deployed_build=tests/test_self_diag_golden.py + tests/test_prompt_readback.py -> 100 passed
+
+settings_parity=prompts catalog+versions identical; overrides-map identical; meme saved blocks identical (both chats); chat_params latest updated_at 2026-11-11 unchanged; /api/config +1 approved key flags.self_diag_repo_origin (changed=0, removed=0)
+deferred_live_rows=explicit checkup / inspect_runtime / prompt_readback allowed+denied require a live Telegram tool call -> READY_FOR_LIVE observations (no chat messages sent)
+epic_status=NOT DONE (PM/release gate owns map closure)

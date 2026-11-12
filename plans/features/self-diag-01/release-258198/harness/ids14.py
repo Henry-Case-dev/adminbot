@@ -1,0 +1,16 @@
+IDS = [
+ "tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date",
+ "tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card",
+ "tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons",
+ "tests/test_webapp_dm_ui.py::TestDmSummaryGateMarkers::test_s3_scheduler_skips_dm_positive_ids_behavioral",
+ "tests/test_webapp_evol_w14_states.py::TestUnifiedCheckboxes::test_every_native_checkbox_is_a_design_system_control",
+ "tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix6_lens_heartbeat_shell",
+ "tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz",
+ "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2",
+ "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+ "tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon",
+ "tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme",
+ "tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon",
+ "tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged",
+ "tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+]

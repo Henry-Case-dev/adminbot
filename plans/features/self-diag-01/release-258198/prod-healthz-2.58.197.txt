@@ -1,0 +1,5 @@
+probe: GET https://admin-bot.duckdns.org/healthz  (HTTP-only, no SSH)
+body: {"status":"ok","version":"2.58.197"}
+http: 200
+prod HEAD/branch (last verified deploy 2026-11-12T09:41:37Z): 25876167 / release/2.58.197
+this attempt: 0 SSH logins, 0 restarts, no checkout, no snapshot — production not touched

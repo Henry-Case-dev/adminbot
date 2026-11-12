@@ -1,0 +1,118 @@
+
+=== A pre-state ===
+2026-11-12T21:24:04Z
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+2026-11-12T21:24:04Z
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+APP_VERSION_ON_DISK=2.58.197
+APP_VERSION_ON_DISK=2.58.197
+active
+0
+Thu 2026-11-12 10:28:42 UTC
+185045
+active
+0
+Thu 2026-11-12 10:28:42 UTC
+185045
+{"status":"ok","version":"2.58.197"}
+/dev/vda1        99G   57G   37G  61% /
+db_bytes=2670997504
+{"status":"ok","version":"2.58.197"}
+/dev/vda1        99G   57G   37G  61% /
+db_bytes=2670997504
+ENV_AXES=none_in_unit
+ENV_AXES=none_in_dotenv
+ENV_AXES=none_in_unit
+ENV_AXES=none_in_dotenv
+
+=== B predeploy snapshot ===
+BACKUP=backups/predeploy-258198-final-20261112T212408Z.db
+BACKUP_BYTES=2671144960
+BACKUP_SHA256=97a8646e1e2fac2489ae5938092eb2c03f869d52f596bece74281cd46d201105
+READBACK_INTEGRITY=ok
+READBACK_USER_VERSION=47
+READBACK_TABLES=130
+BACKUP=backups/predeploy-258198-final-20261112T212408Z.db
+BACKUP_BYTES=2671144960
+BACKUP_SHA256=97a8646e1e2fac2489ae5938092eb2c03f869d52f596bece74281cd46d201105
+READBACK_INTEGRITY=ok
+READBACK_USER_VERSION=47
+READBACK_TABLES=130
+snapshot_sec=80.1
+
+=== C fetch + fast-forward checkout ===
+From https://github.com/Henry-Case-dev/adminbot
+ * [new branch]        release/2.58.198 -> origin/release/2.58.198
+From https://github.com/Henry-Case-dev/adminbot
+ * [new branch]        release/2.58.198 -> origin/release/2.58.198
+234776589c934024ed0e8dceba189fb9d70d3215
+origin_release_2.58.198=234776589c934024ed0e8dceba189fb9d70d3215
+TARGET_PRESENT
+TARGET_PRESENT
+FF_OK
+FF_OK
+Switched to a new branch 'release/2.58.198'
+Switched to a new branch 'release/2.58.198'
+234776589c934024ed0e8dceba189fb9d70d3215
+release/2.58.198
+234776589c934024ed0e8dceba189fb9d70d3215
+release/2.58.198
+APP_VERSION_ON_DISK=2.58.198
+APP_VERSION_ON_DISK=2.58.198
+59a42e6d59e9eb5790a1e63708f3dabf0d223dca
+2311044
+b6e9252060c28b84274ebf840e267bbbebd0e993
+app_js_git=59a42e6d59e9eb5790a1e63708f3dabf0d223dca
+2311044
+b6e9252060c28b84274ebf840e267bbbebd0e993
+
+=== D restart ===
+2026-11-12T21:25:37Z
+restart_pre_utc=2026-11-12T21:25:37Z
+
+active
+0
+Thu 2026-11-12 21:25:39 UTC
+active
+0
+Thu 2026-11-12 21:25:39 UTC
+
+=== E healthz (bounded retries) ===
+{"status":"ok","version":"2.58.198"}
+attempt 1: {"status":"ok","version":"2.58.198"}
+
+=== F post-state ===
+234776589c934024ed0e8dceba189fb9d70d3215
+release/2.58.198
+0
+234776589c934024ed0e8dceba189fb9d70d3215
+release/2.58.198
+0
+LIVE_USER_VERSION=47
+LIVE_USER_VERSION=47
+37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+served=37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594  web/app.js
+e769924aee618524cca3fec9b05d3d4bed9481b2eb997beaacf60849f20eb01c  web/index.html
+2311044
+1358879
+disk=3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594  web/app.js
+e769924aee618524cca3fec9b05d3d4bed9481b2eb997beaacf60849f20eb01c  web/index.html
+2311044
+1358879
+TB=0 ERR=0 CRIT=0 WARN=9 LOST=0
+TB=0 ERR=0 CRIT=0 WARN=9 LOST=0
+
+journal_hits_tail=none
+843
+journal_lines=843
+0
+active
+0
+active
+2026-11-12T21:25:56Z
+now_utc=2026-11-12T21:25:56Z

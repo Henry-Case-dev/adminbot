@@ -1,0 +1,519 @@
+{
+ "release": "2.58.198",
+ "mode": "live",
+ "live": {
+  "release": "2.58.198",
+  "checked_at_utc": "2026-11-12T21:25:54Z",
+  "healthz": {
+   "http": 200,
+   "body": {
+    "status": "ok",
+    "version": "2.58.198"
+   }
+  },
+  "admin": {
+   "-1004482340693": {
+    "http": 200,
+    "top_keys": [
+     "analytics",
+     "available",
+     "chat_id",
+     "code_check",
+     "generated_at",
+     "integrations",
+     "jobs",
+     "missing_evidence",
+     "resources",
+     "runtime",
+     "sources",
+     "storage_text",
+     "window"
+    ],
+    "available": true,
+    "generated_at": "2026-11-12T21:26:14.045193+00:00",
+    "chat_id": -1004482340693,
+    "runtime": {
+     "app_version": "2.58.198",
+     "pid": 318147,
+     "started_at": "2026-11-12T21:25:43.041805+00:00",
+     "uptime_seconds": null,
+     "python": "3.12.3",
+     "platform": "Linux",
+     "deployed_sha": "",
+     "checkout_sha": "234776589c934024ed0e8dceba189fb9d70d3215",
+     "branch": "",
+     "dirty": false,
+     "repo_origin": "Henry-Case-dev/adminbot",
+     "identity_source": "",
+     "commits_since_deploy": null,
+     "local_source_verification": "local_unverified"
+    },
+    "sources": {
+     "count": 26,
+     "areas": [
+      "config",
+      "db",
+      "dependencies",
+      "deploy",
+      "disks",
+      "fds_sockets",
+      "incidents",
+      "llm",
+      "logs",
+      "media",
+      "memory",
+      "network",
+      "process",
+      "resources",
+      "scheduler",
+      "service",
+      "telegram"
+     ],
+     "statuses": [
+      "not_checked"
+     ],
+     "first": {
+      "id": "config.effective",
+      "area": "config",
+      "title": "Эффективная конфигурация",
+      "declared": true,
+      "configured": true,
+      "status": "not_checked",
+      "last_observed": null,
+      "duration_ms": null,
+      "lineage": "catalog:declared",
+      "fact_kind": "declared"
+     }
+    },
+    "missing_evidence": {
+     "count": 26,
+     "items": [
+      "config.effective",
+      "config.secret_status",
+      "db.health",
+      "db.integrity",
+      "dependencies.providers",
+      "deploy.identity",
+      "deploy.traceback",
+      "disks.usage",
+      "fds_sockets.process",
+      "incidents.active",
+      "incidents.investigate_incident",
+      "incidents.watchdog",
+      "llm.telemetry",
+      "logs.errors",
+      "logs.events",
+      "logs.window",
+      "media.stt",
+      "memory.health",
+      "network.endpoints",
+      "process.self",
+      "resources.cpu",
+      "resources.memory",
+      "resources.pressure",
+      "scheduler.jobs",
+      "service.runtime",
+      "telegram.delivery"
+     ]
+    },
+    "resources": {
+     "available": true,
+     "source": "psutil",
+     "cpu_percent": 7.2,
+     "cpu_count": 2,
+     "memory": {
+      "total": 4106285056,
+      "used": 978763776,
+      "percent": 23.8
+     },
+     "disk": {
+      "total": 105557643264,
+      "used": 63179935744,
+      "percent": 63.1
+     },
+     "process": {
+      "pid": 318147,
+      "rss_mb": 388.5,
+      "threads": 8,
+      "cpu": 0.0
+     }
+    },
+    "code_check": {
+     "source_read_enabled": true,
+     "provider": "github",
+     "repo_origin": "Henry-Case-dev/adminbot"
+    },
+    "analytics": {
+     "window_hours": 24,
+     "inspect_runtime": {
+      "triggered": 0,
+      "calls": 0,
+      "partial": 0,
+      "complete": 0,
+      "skipped": 0,
+      "partial_share": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "by_stage": [],
+      "last_success_ts": null,
+      "measured": false
+     },
+     "checkup": {
+      "triggered": 0,
+      "calls": 0,
+      "partial": 0,
+      "complete": 0,
+      "skipped": 0,
+      "partial_share": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "by_stage": [],
+      "last_success_ts": null,
+      "measured": false
+     },
+     "get_bot_health": {
+      "triggered": 0,
+      "calls": 0,
+      "partial": 0,
+      "complete": 0,
+      "skipped": 0,
+      "partial_share": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "by_stage": [],
+      "last_success_ts": null,
+      "measured": false
+     },
+     "event_counts": {
+      "checkup_triggered": 0,
+      "get_bot_health_called": 0,
+      "inspect_runtime_called": 0,
+      "read_source_attempted": 0,
+      "read_source_verified": 0,
+      "code_unavailable": 0,
+      "prompt_readback_requested": 0,
+      "prompt_readback_allowed": 0,
+      "prompt_readback_denied": 0,
+      "diagnostic_output_validated": 0,
+      "checkup_output_validated": 0
+     },
+     "secret_value_disclosures": {
+      "value": null,
+      "measured": false,
+      "reason": "no_deliveries_in_window",
+      "deliveries": {
+       "checkup": 0,
+       "inspect_runtime": 0,
+       "get_bot_health": 0,
+       "prompt_readback": 0,
+       "read_source_code": 0
+      },
+      "validated": {
+       "checkup": 0,
+       "tools": {}
+      },
+      "gaps": {}
+     },
+     "golden_eval": {
+      "available": false,
+      "reason": "golden_set_d7"
+     },
+     "db_growth": {
+      "available": false,
+      "reason": "no_time_series_store"
+     }
+    }
+   },
+   "-1002661910336": {
+    "http": 200,
+    "top_keys": [
+     "analytics",
+     "available",
+     "chat_id",
+     "code_check",
+     "generated_at",
+     "integrations",
+     "jobs",
+     "missing_evidence",
+     "resources",
+     "runtime",
+     "sources",
+     "storage_text",
+     "window"
+    ],
+    "available": true,
+    "generated_at": "2026-11-12T21:26:15.015329+00:00",
+    "chat_id": -1002661910336,
+    "runtime": {
+     "app_version": "2.58.198",
+     "pid": 318147,
+     "started_at": "2026-11-12T21:25:43.041805+00:00",
+     "uptime_seconds": null,
+     "python": "3.12.3",
+     "platform": "Linux",
+     "deployed_sha": "",
+     "checkout_sha": "234776589c934024ed0e8dceba189fb9d70d3215",
+     "branch": "",
+     "dirty": false,
+     "repo_origin": "Henry-Case-dev/adminbot",
+     "identity_source": "",
+     "commits_since_deploy": null,
+     "local_source_verification": "local_unverified"
+    },
+    "sources": {
+     "count": 26,
+     "areas": [
+      "config",
+      "db",
+      "dependencies",
+      "deploy",
+      "disks",
+      "fds_sockets",
+      "incidents",
+      "llm",
+      "logs",
+      "media",
+      "memory",
+      "network",
+      "process",
+      "resources",
+      "scheduler",
+      "service",
+      "telegram"
+     ],
+     "statuses": [
+      "not_checked"
+     ],
+     "first": {
+      "id": "config.effective",
+      "area": "config",
+      "title": "Эффективная конфигурация",
+      "declared": true,
+      "configured": true,
+      "status": "not_checked",
+      "last_observed": null,
+      "duration_ms": null,
+      "lineage": "catalog:declared",
+      "fact_kind": "declared"
+     }
+    },
+    "missing_evidence": {
+     "count": 26,
+     "items": [
+      "config.effective",
+      "config.secret_status",
+      "db.health",
+      "db.integrity",
+      "dependencies.providers",
+      "deploy.identity",
+      "deploy.traceback",
+      "disks.usage",
+      "fds_sockets.process",
+      "incidents.active",
+      "incidents.investigate_incident",
+      "incidents.watchdog",
+      "llm.telemetry",
+      "logs.errors",
+      "logs.events",
+      "logs.window",
+      "media.stt",
+      "memory.health",
+      "network.endpoints",
+      "process.self",
+      "resources.cpu",
+      "resources.memory",
+      "resources.pressure",
+      "scheduler.jobs",
+      "service.runtime",
+      "telegram.delivery"
+     ]
+    },
+    "resources": {
+     "available": true,
+     "source": "psutil",
+     "cpu_percent": 6.7,
+     "cpu_count": 2,
+     "memory": {
+      "total": 4106285056,
+      "used": 978636800,
+      "percent": 23.8
+     },
+     "disk": {
+      "total": 105557643264,
+      "used": 63179935744,
+      "percent": 63.1
+     },
+     "process": {
+      "pid": 318147,
+      "rss_mb": 388.9,
+      "threads": 8,
+      "cpu": 0.0
+     }
+    },
+    "code_check": {
+     "source_read_enabled": true,
+     "provider": "github",
+     "repo_origin": "Henry-Case-dev/adminbot"
+    },
+    "analytics": {
+     "window_hours": 24,
+     "inspect_runtime": {
+      "triggered": 0,
+      "calls": 0,
+      "partial": 0,
+      "complete": 0,
+      "skipped": 0,
+      "partial_share": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "by_stage": [],
+      "last_success_ts": null,
+      "measured": false
+     },
+     "checkup": {
+      "triggered": 0,
+      "calls": 0,
+      "partial": 0,
+      "complete": 0,
+      "skipped": 0,
+      "partial_share": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "by_stage": [],
+      "last_success_ts": null,
+      "measured": false
+     },
+     "get_bot_health": {
+      "triggered": 0,
+      "calls": 0,
+      "partial": 0,
+      "complete": 0,
+      "skipped": 0,
+      "partial_share": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "by_stage": [],
+      "last_success_ts": null,
+      "measured": false
+     },
+     "event_counts": {
+      "checkup_triggered": 0,
+      "get_bot_health_called": 0,
+      "inspect_runtime_called": 0,
+      "read_source_attempted": 0,
+      "read_source_verified": 0,
+      "code_unavailable": 0,
+      "prompt_readback_requested": 0,
+      "prompt_readback_allowed": 0,
+      "prompt_readback_denied": 0,
+      "diagnostic_output_validated": 0,
+      "checkup_output_validated": 0
+     },
+     "secret_value_disclosures": {
+      "value": null,
+      "measured": false,
+      "reason": "no_deliveries_in_window",
+      "deliveries": {
+       "checkup": 0,
+       "inspect_runtime": 0,
+       "get_bot_health": 0,
+       "prompt_readback": 0,
+       "read_source_code": 0
+      },
+      "validated": {
+       "checkup": 0,
+       "tools": {}
+      },
+      "gaps": {}
+     },
+     "golden_eval": {
+      "available": false,
+      "reason": "golden_set_d7"
+     },
+     "db_growth": {
+      "available": false,
+      "reason": "no_time_series_store"
+     }
+    }
+   }
+  },
+  "ttl": {
+   "http": [
+    200,
+    200
+   ],
+   "sha256": [
+    "51346b2194345dde077f09bf235ff3dcf590bdf6dad11fe8dc5a1462b6fab41a",
+    "51346b2194345dde077f09bf235ff3dcf590bdf6dad11fe8dc5a1462b6fab41a"
+   ],
+   "identical_within_30s": true
+  },
+  "rbac_non_admin": {
+   "http": 200,
+   "available": true,
+   "restricted": null,
+   "reason": null,
+   "role": null,
+   "keys": [
+    "analytics",
+    "available",
+    "chat_id",
+    "code_check",
+    "generated_at",
+    "integrations",
+    "jobs",
+    "missing_evidence",
+    "resources",
+    "runtime",
+    "sources",
+    "storage_text",
+    "window"
+   ],
+   "leaked_runtime_keys": [
+    "analytics",
+    "resources",
+    "runtime",
+    "sources"
+   ]
+  },
+  "rbac_anonymous": {
+   "http": 401,
+   "body_head": "{\"detail\": \"missing init data\"}"
+  },
+  "status_endpoint": {
+   "http": 200,
+   "keys": [
+    "bot",
+    "context",
+    "experience",
+    "intents",
+    "llm",
+    "llm_stats",
+    "permsoc",
+    "quantum",
+    "random",
+    "server",
+    "uptime"
+   ]
+  },
+  "served_app.js": {
+   "http": 404,
+   "sha256": "37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d",
+   "bytes": 22
+  },
+  "served_index.html": {
+   "http": 404,
+   "sha256": "37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d",
+   "bytes": 22
+  },
+  "secret_scan": {
+   "hits": [],
+   "hit_count": 0,
+   "chars": 20779
+  },
+  "payload_bytes": {
+   "-1004482340693": 10389,
+   "-1002661910336": 10389
+  }
+ }
+}

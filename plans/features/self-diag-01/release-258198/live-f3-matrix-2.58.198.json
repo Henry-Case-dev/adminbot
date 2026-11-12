@@ -1,0 +1,474 @@
+{
+ "release": "2.58.198",
+ "candidate": "dae6ffeae07cbf2b8d533bb99eaeaf267de335a2",
+ "release_sha": "234776589c934024ed0e8dceba189fb9d70d3215",
+ "mode": "DEPLOYED prod, read-only (no saves, no messages)",
+ "url": "https://admin-bot.duckdns.org/web/#/access",
+ "chat_id": -1004482340693,
+ "generated_at": "2026-11-12T21:30:09Z",
+ "served_assets": {
+  "/web/app.js": {
+   "sha256": "3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594",
+   "bytes": 2311044
+  },
+  "/web/": {
+   "sha256": "1865247c2f9e9714c4147e944744416c5b72e228da36b2a5b66587615d381ab9",
+   "bytes": 1358760
+  },
+  "/web/static/app.css": {
+   "sha256": "f468bd01b9228455c81cb9b4465a70b67804be00efde0370dccafb3e23c92fed",
+   "bytes": 496272
+  }
+ },
+ "screens": {
+  "390x844_default": {
+   "viewport": {
+    "w": 390,
+    "h": 844
+   },
+   "card_present": true,
+   "caps": 9,
+   "checkboxes": 48,
+   "nativeCheckboxes": 0,
+   "sample": {
+    "unchecked": {
+     "cap": "prompts",
+     "action": "view",
+     "role": "Участник",
+     "checked": false,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "checked": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Участник",
+     "checked": true,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "disabled": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Владелец бота(неявно)",
+     "checked": true,
+     "disabled": true,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "not-allowed",
+     "labelMinHeight": "auto",
+     "native": false
+    }
+   },
+   "hardRulesRows": [
+    {
+     "cap": "bot_server_state",
+     "text": null
+    },
+    {
+     "cap": "detailed_metrics",
+     "text": null
+    },
+    {
+     "cap": "logs_traceback",
+     "text": null
+    },
+    {
+     "cap": "source_code",
+     "text": null
+    },
+    {
+     "cap": "commit_history",
+     "text": null
+    },
+    {
+     "cap": "non_secret_config",
+     "text": null
+    },
+    {
+     "cap": "memory_analytics",
+     "text": null
+    },
+    {
+     "cap": "prompts",
+     "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+    },
+    {
+     "cap": "deep_diagnostics",
+     "text": null
+    }
+   ],
+   "hardRulesObjectLeak": false,
+   "accentUnique": [
+    "rgb(139, 111, 232)"
+   ],
+   "sizeUnique": [
+    "18x18"
+   ],
+   "labelMinHeightUnique": [
+    "auto"
+   ],
+   "hScroll": 0,
+   "bodyHScroll": 0,
+   "clippedText": 0,
+   "card_text_head": "Самодиагностика Категории: состояние бота и сервера, метрики, логи, код и GitHub, история коммитов, конфигурация без секретов, память, промпты, глубокая диагностика Свернуть ▲ Область: Глобально Этот чат Перезагрузить Аудит решений Состояние бота и сервера Публичная техническая информация источник: по классу данных bot_server_state Здоровье сервиса, версии, аптайм, состояние модулей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить tools: get_bot_health Подробные метрики Публичная техническая информация источник: по классу данных detailed_metrics CPU/RAM/disk, размеры БД, счётчики запросов и очередей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участн"
+  },
+  "390x844_after_toggle": {
+   "viewport": {
+    "w": 390,
+    "h": 844
+   },
+   "card_present": true,
+   "caps": 9,
+   "checkboxes": 48,
+   "nativeCheckboxes": 0,
+   "sample": {
+    "unchecked": {
+     "cap": "prompts",
+     "action": "edit",
+     "role": "Участник",
+     "checked": false,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "checked": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Участник",
+     "checked": true,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "disabled": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Владелец бота(неявно)",
+     "checked": true,
+     "disabled": true,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "not-allowed",
+     "labelMinHeight": "auto",
+     "native": false
+    }
+   },
+   "hardRulesRows": [
+    {
+     "cap": "bot_server_state",
+     "text": null
+    },
+    {
+     "cap": "detailed_metrics",
+     "text": null
+    },
+    {
+     "cap": "logs_traceback",
+     "text": null
+    },
+    {
+     "cap": "source_code",
+     "text": null
+    },
+    {
+     "cap": "commit_history",
+     "text": null
+    },
+    {
+     "cap": "non_secret_config",
+     "text": null
+    },
+    {
+     "cap": "memory_analytics",
+     "text": null
+    },
+    {
+     "cap": "prompts",
+     "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+    },
+    {
+     "cap": "deep_diagnostics",
+     "text": null
+    }
+   ],
+   "hardRulesObjectLeak": false,
+   "accentUnique": [
+    "rgb(139, 111, 232)"
+   ],
+   "sizeUnique": [
+    "18x18"
+   ],
+   "labelMinHeightUnique": [
+    "auto"
+   ],
+   "hScroll": 0,
+   "bodyHScroll": 0,
+   "clippedText": 0,
+   "card_text_head": "Самодиагностика Категории: состояние бота и сервера, метрики, логи, код и GitHub, история коммитов, конфигурация без секретов, память, промпты, глубокая диагностика Свернуть ▲ Область: Глобально Этот чат Перезагрузить Аудит решений Состояние бота и сервера Публичная техническая информация источник: по классу данных bot_server_state Здоровье сервиса, версии, аптайм, состояние модулей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить tools: get_bot_health Подробные метрики Публичная техническая информация источник: по классу данных detailed_metrics CPU/RAM/disk, размеры БД, счётчики запросов и очередей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участн",
+   "clicked": {
+    "cap": "prompts",
+    "action": "view",
+    "index_in_action": 0,
+    "checked_before": false,
+    "role": "Участник"
+   },
+   "clicked_state": {
+    "checked": true,
+    "disabled": false
+   }
+  },
+  "1536x960_default": {
+   "viewport": {
+    "w": 1536,
+    "h": 960
+   },
+   "card_present": true,
+   "caps": 9,
+   "checkboxes": 48,
+   "nativeCheckboxes": 0,
+   "sample": {
+    "unchecked": {
+     "cap": "prompts",
+     "action": "view",
+     "role": "Участник",
+     "checked": false,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "checked": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Участник",
+     "checked": true,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "disabled": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Владелец бота(неявно)",
+     "checked": true,
+     "disabled": true,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "not-allowed",
+     "labelMinHeight": "auto",
+     "native": false
+    }
+   },
+   "hardRulesRows": [
+    {
+     "cap": "bot_server_state",
+     "text": null
+    },
+    {
+     "cap": "detailed_metrics",
+     "text": null
+    },
+    {
+     "cap": "logs_traceback",
+     "text": null
+    },
+    {
+     "cap": "source_code",
+     "text": null
+    },
+    {
+     "cap": "commit_history",
+     "text": null
+    },
+    {
+     "cap": "non_secret_config",
+     "text": null
+    },
+    {
+     "cap": "memory_analytics",
+     "text": null
+    },
+    {
+     "cap": "prompts",
+     "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+    },
+    {
+     "cap": "deep_diagnostics",
+     "text": null
+    }
+   ],
+   "hardRulesObjectLeak": false,
+   "accentUnique": [
+    "rgb(139, 111, 232)"
+   ],
+   "sizeUnique": [
+    "18x18"
+   ],
+   "labelMinHeightUnique": [
+    "auto"
+   ],
+   "hScroll": 0,
+   "bodyHScroll": 0,
+   "clippedText": 0,
+   "card_text_head": "Самодиагностика Категории: состояние бота и сервера, метрики, логи, код и GitHub, история коммитов, конфигурация без секретов, память, промпты, глубокая диагностика Свернуть ▲ Область: Глобально Этот чат Перезагрузить Аудит решений Состояние бота и сервера Публичная техническая информация источник: по классу данных bot_server_state Здоровье сервиса, версии, аптайм, состояние модулей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить tools: get_bot_health Подробные метрики Публичная техническая информация источник: по классу данных detailed_metrics CPU/RAM/disk, размеры БД, счётчики запросов и очередей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участн"
+  },
+  "1536x960_after_toggle": {
+   "viewport": {
+    "w": 1536,
+    "h": 960
+   },
+   "card_present": true,
+   "caps": 9,
+   "checkboxes": 48,
+   "nativeCheckboxes": 0,
+   "sample": {
+    "unchecked": {
+     "cap": "prompts",
+     "action": "edit",
+     "role": "Участник",
+     "checked": false,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "checked": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Участник",
+     "checked": true,
+     "disabled": false,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "pointer",
+     "labelMinHeight": "auto",
+     "native": false
+    },
+    "disabled": {
+     "cap": "bot_server_state",
+     "action": "view",
+     "role": "Владелец бота(неявно)",
+     "checked": true,
+     "disabled": true,
+     "width": 18,
+     "height": 18,
+     "accent": "rgb(139, 111, 232)",
+     "cursor": "not-allowed",
+     "labelMinHeight": "auto",
+     "native": false
+    }
+   },
+   "hardRulesRows": [
+    {
+     "cap": "bot_server_state",
+     "text": null
+    },
+    {
+     "cap": "detailed_metrics",
+     "text": null
+    },
+    {
+     "cap": "logs_traceback",
+     "text": null
+    },
+    {
+     "cap": "source_code",
+     "text": null
+    },
+    {
+     "cap": "commit_history",
+     "text": null
+    },
+    {
+     "cap": "non_secret_config",
+     "text": null
+    },
+    {
+     "cap": "memory_analytics",
+     "text": null
+    },
+    {
+     "cap": "prompts",
+     "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+    },
+    {
+     "cap": "deep_diagnostics",
+     "text": null
+    }
+   ],
+   "hardRulesObjectLeak": false,
+   "accentUnique": [
+    "rgb(139, 111, 232)"
+   ],
+   "sizeUnique": [
+    "18x18"
+   ],
+   "labelMinHeightUnique": [
+    "auto"
+   ],
+   "hScroll": 0,
+   "bodyHScroll": 0,
+   "clippedText": 0,
+   "card_text_head": "Самодиагностика Категории: состояние бота и сервера, метрики, логи, код и GitHub, история коммитов, конфигурация без секретов, память, промпты, глубокая диагностика Свернуть ▲ Область: Глобально Этот чат Перезагрузить Аудит решений Состояние бота и сервера Публичная техническая информация источник: по классу данных bot_server_state Здоровье сервиса, версии, аптайм, состояние модулей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить tools: get_bot_health Подробные метрики Публичная техническая информация источник: по классу данных detailed_metrics CPU/RAM/disk, размеры БД, счётчики запросов и очередей Просмотр Участник Админ этого чата Владелец бота (неявно) Сохранить Сбросить Запуск Участн",
+   "clicked": {
+    "cap": "prompts",
+    "action": "view",
+    "index_in_action": 0,
+    "checked_before": false,
+    "role": "Участник"
+   },
+   "clicked_state": {
+    "checked": true,
+    "disabled": false
+   }
+  }
+ },
+ "images": [
+  "live-f3-matrix-390x844-default-2.58.198.png",
+  "live-f3-matrix-390x844-default-block-2.58.198.png",
+  "live-f3-matrix-390x844-toggle-before-2.58.198.png",
+  "live-f3-matrix-390x844-toggle-after-2.58.198.png",
+  "live-f3-matrix-390x844-checked-block-2.58.198.png",
+  "live-f3-matrix-1536x960-default-2.58.198.png",
+  "live-f3-matrix-1536x960-default-block-2.58.198.png",
+  "live-f3-matrix-1536x960-toggle-before-2.58.198.png",
+  "live-f3-matrix-1536x960-toggle-after-2.58.198.png",
+  "live-f3-matrix-1536x960-checked-block-2.58.198.png"
+ ],
+ "console_errors": [],
+ "failures": [],
+ "skips": []
+}

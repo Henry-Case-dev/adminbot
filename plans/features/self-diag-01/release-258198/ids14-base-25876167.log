@@ -1,0 +1,187 @@
+FFF...FFFFF.FF                                                           [100%]
+================================== FAILURES ===================================
+_________ TestHistoryAndCoverTimer.test_history_shows_activation_date _________
+
+self = <tests.test_webapp_asap_cover_ui_v21.TestHistoryAndCoverTimer object at 0x0000017919DEB380>
+
+    def test_history_shows_activation_date(self):
+        # PVR-S4: панель истории одна и живёт в едином компоненте версий.
+        # Дата берётся из журнала (`active.created_at`); отдельного «таймера
+        # активации» в UI нет.
+        block = _block(APP_JS, "activeLabel: function", "factoryLabel: function")
+>       assert "a.created_at" in block
+E       assert 'a.created_at' in "activeLabel: function () {\n        var d = this.data;\n        if (!d) return '—';\n        var st = String(d.effect...created_at) ? this.pvWhen(row.created_at) : '';\n        return when ? (base + ' · ' + when) : base;\n      },\n      "
+
+tests\test_webapp_asap_cover_ui_v21.py:298: AssertionError
+______________ test_no_magic_z_index_outside_decorative_in_card _______________
+
+    def test_no_magic_z_index_outside_decorative_in_card():
+        """Вне лестницы допустимы только декоративные подъёмы внутри карточки."""
+        bad = []
+        for m in re.finditer(r"z-index:\s*(-?\d+)\s*;", CSS):
+            if int(m.group(1)) not in (-1, 0, 1, 2):
+                line = CSS[:m.start()].count("\n") + 1
+                bad.append("app.css:%d z-index:%s" % (line, m.group(1)))
+>       assert not bad, "числовые z-index вне лестницы: %s" % ", ".join(bad)
+E       AssertionError: числовые z-index вне лестницы: app.css:2027 z-index:40
+E       assert not ['app.css:2027 z-index:40']
+
+tests\test_webapp_asap_ui02_delta.py:99: AssertionError
+___________ TestAvatarFrontAudit.test_close_and_fullscreen_buttons ____________
+
+self = <tests.test_webapp_avatars_ui.TestAvatarFrontAudit object at 0x0000017919E33C20>
+
+    def test_close_and_fullscreen_buttons(self):
+        """F-13 (AC-2) + 10.8 (§4): ✕-кнопки закрытия модалок — окно модуля
+        (1) + три окна «Доступов» (roles/local/admins); @click closeApp()
+        отсутствует. re-pin v6.3 U07 (REQ-U07-2) + FS-HOTFIX 18.10: ⛶-кнопка
+        шапки — inline SVG-иконки (fs-ic, два состояния), gate fsSlot!=='hidden'
+        (скрыта только вне TG/без API; tdesktop по директиве владельца —
+        рабочий клиент), aria-pressed только по ACK-факту."""
+        html = _Static.read("web/index.html")
+        assert "@click=\"closeApp()\"" not in html
+        assert "@click=\"toggleFullscreen()\"" in html
+        assert ">✕</button>" in html
+        # 10.8: 4 модальных ✕ (модуль + roles/local/admins «Доступов»).
+        # 10.20 (T-1896): +1 — модалка «Досье участника» (БЛОК 3.2).
+>       assert html.count(">✕</button>") == 5
+E       assert 7 == 5
+E        +  where 7 = <built-in method count of str object at 0x0000017931143040>('>✕</button>')
+E        +    where <built-in method count of str object at 0x0000017931143040> = '<!DOCTYPE html>\n<html lang="ru">\n<head>\n  <meta charset="utf-8">\n  <!-- hotfix4 (T-2516, ADR-1025-8 D2): viewport...afe-inline\'/nonce/hash. -->\n  <script src="/static/telegram-init.js?v=__APP_VERSION__"></script>\n</body>\n</html>\n'.count
+
+tests\test_webapp_avatars_ui.py:442: AssertionError
+________________ TestHumanReadableLabels.test_examples_from_tz ________________
+
+self = <tests.test_webapp_round1020_ui.TestHumanReadableLabels object at 0x000001791A1C6150>
+
+    def test_examples_from_tz(self):
+        assert pc.REGISTRY["LLM_RETRY_BACKOFF_CAP"].title_ru == \
+            "Макс. пауза между попытками (сек)"
+>       assert pc.REGISTRY["CHAT_TEMPERATURE_CHATTY"].title_ru == \
+            "Креативность (Болтливый режим)"
+E       AssertionError: assert 'Свобода форм...ок: болтливый' == 'Креативность...тливый режим)'
+E         
+E         - Креативность (Болтливый режим)
+E         + Свобода формулировок: болтливый
+
+tests\test_webapp_round1020_ui.py:258: AssertionError
+______________ TestNavigationSnapshot.test_navbar_legacy_and_v2 _______________
+
+self = <tests.test_webapp_round1020_ui.TestNavigationSnapshot object at 0x000001791A1C71D0>
+
+    def test_navbar_legacy_and_v2(self):
+        # F1 (T-2393, SUPERSEDE): legacy NAV_ITEMS (6, OFF-режим) остаётся
+        # неизменным; новый NAV_ITEMS_V2 = 7 пунктов (+ «Память»).
+        legacy = re.findall(
+            r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
+            APP_JS[APP_JS.index("var NAV_ITEMS = ["):
+                   APP_JS.index("var NAV_ITEMS_V2")])
+        assert legacy == ["status", "how", "modules", "ai", "permsoc", "access"]
+        v2 = re.findall(
+            r"id:\s*'(\w+)',\s*label:\s*'[^']+',\s*route:\s*'#/",
+            APP_JS[APP_JS.index("var NAV_ITEMS_V2 = ["):])
+        assert v2[:8] == ["status", "how", "modules", "ai", "memory",
+                          "oversight", "access", "permsoc"]
+        # Состав MODULES («Генерация изображений» — F5 10.24; «Инициатива» —
+        # ASAP 7 F3 §3.2, осознанный репин frozen-contract).
+        mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
+                          APP_JS[APP_JS.index("var MODULES = ["):])
+>       assert len(mods) == 15
+E       AssertionError: assert 16 == 15
+E        +  where 16 = len(['mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search', 'mod_transcribe', 'mod_video_summary', ...])
+
+tests\test_webapp_round1020_ui.py:73: AssertionError
+__________ TestNavigationSnapshot.test_tabs_ids_and_order_unchanged ___________
+
+self = <tests.test_webapp_round1020_ui.TestNavigationSnapshot object at 0x000001791A1C6C60>
+
+    def test_tabs_ids_and_order_unchanged(self):
+        ids = re.findall(r"\{ id: '([a-z_0-9]+)'", _tabs_block())
+>       assert ids == self.EXPECTED_TABS
+E       AssertionError: assert ['llm_provide..._search', ...] == ['llm_provide..._search', ...]
+E         
+E         At index 17 diff: 'mod_time' != 'modules'
+E         Left contains one more item: 'oversight'
+E         Use -v to get more diff
+
+tests\test_webapp_round1020_ui.py:54: AssertionError
+__________________ TestNodeFlowNaming.test_no_english_jargon __________________
+
+self = <tests.test_webapp_round1024_nodeflow.TestNodeFlowNaming object at 0x000001791A1C5880>
+
+    def test_no_english_jargon(self):
+        assert "Token Metrics" not in _INDEX
+        # Технический жаргон наружу не выводится (spec §3.5).
+        assert "stage1" not in _INDEX
+        assert "stage2" not in _INDEX
+>       assert "correlation_id" not in _INDEX
+E       assert 'correlation_id' not in '<!DOCTYPE h...>\n</html>\n'
+E         
+E         'correlation_id' is contained here:
+E           race_id = correlation_id), сырых
+E                              текстов нет (digest'ы). Отсутствие стадии — честное
+E                              «нет данных», никаких выдуманных успехов. -->
+E                         <div v-if="workspaceModule && workspaceModule.id === 'mod_direct'
+E                                   && workspaceTab === 'inspector'"...
+E         
+E         ...Full output truncated (16646 lines hidden), use '-vv' to show
+
+tests\test_webapp_round1024_nodeflow.py:35: AssertionError
+___________ TestCacheBustAndEsc108.test_app_version_matches_readme ____________
+
+self = <tests.test_webapp_round108_ui.TestCacheBustAndEsc108 object at 0x000001791A1ED670>
+
+    def test_app_version_matches_readme(self):
+        # R10.8-5: APP_VERSION и шапка README не разъезжаются.
+        from config.settings import APP_VERSION
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+>       assert ("v" + APP_VERSION) in readme, APP_VERSION
+E       AssertionError: 2.58.197
+E       assert ('v' + '2.58.197') in '\ufeff# AdminBot — ваш карманный цифровой абьюзер с элементами ИИ\n\n*Решение для тех, кто хочет токсичности в чате, ...ет имя: ID и так мелко рядом, а выдумывать позывной никто не просил. Бот больше не притворяется, что знает ваше имя.\n'
+
+tests\test_webapp_round108_ui.py:236: AssertionError
+__________ TestNavigationSnapshot.test_navbar_and_modules_unchanged ___________
+
+self = <tests.test_webapp_ui_rework_round1020.TestNavigationSnapshot object at 0x000001791A2118B0>
+
+    def test_navbar_and_modules_unchanged(self):
+        for nid in ["status", "how", "modules", "ai", "permsoc", "access"]:
+            assert "'" + nid + "'" in APP_JS
+        mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
+                          APP_JS[APP_JS.index("var MODULES = ["):])
+        # 15: ASAP 7 (F1, wave1 2.58.72) добавил mod_initiative.
+>       assert len(mods) == 15
+E       AssertionError: assert 16 == 15
+E        +  where 16 = len(['mod_summary', 'mod_direct', 'mod_factcheck', 'mod_search', 'mod_transcribe', 'mod_video_summary', ...])
+
+tests\test_webapp_ui_rework_round1020.py:233: AssertionError
+__________ TestNavigationSnapshot.test_tabs_ids_and_order_unchanged ___________
+
+self = <tests.test_webapp_ui_rework_round1020.TestNavigationSnapshot object at 0x000001791A211340>
+
+    def test_tabs_ids_and_order_unchanged(self):
+        start = APP_JS.index("var TABS = [")
+        end = APP_JS.index("var LEVELS =", start)
+        ids = re.findall(r"\{ id: '([a-z_0-9]+)'", APP_JS[start:end])
+>       assert ids == self.EXPECTED_TABS
+E       AssertionError: assert ['llm_provide..._search', ...] == ['llm_provide..._search', ...]
+E         
+E         At index 17 diff: 'mod_time' != 'modules'
+E         Left contains one more item: 'oversight'
+E         Use -v to get more diff
+
+tests\test_webapp_ui_rework_round1020.py:225: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date
+FAILED tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card
+FAILED tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons
+FAILED tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2
+FAILED tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+FAILED tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon
+FAILED tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme
+FAILED tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged
+FAILED tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged
+10 failed, 4 passed in 3.70s
+
+--- STDERR ---

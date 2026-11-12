@@ -1,0 +1,92 @@
+{
+ "release": "2.58.198",
+ "mode": "parity",
+ "parity": {
+  "taken_at_utc": "2026-11-12T18:47:56Z",
+  "surfaces": {
+   "config_global": {
+    "http": 200,
+    "sha256": "c0549ab498d126908ed93c0ee1cfc5f542bd5ca41f6326e2da064c206c1d9b32"
+   },
+   "config_overrides_map": {
+    "http": 200,
+    "sha256": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36"
+   },
+   "config_chat_-1004482340693": {
+    "http": 200,
+    "sha256": "9c51129be523a5bb4748833cfb6e22a4dec32e49230b3bd3dd6571dfd901e3ae",
+    "items_with_updated_at": 530,
+    "latest_updated_at": "2026-11-11T12:33:23.729247+00:00"
+   },
+   "config_chat_-1002661910336": {
+    "http": 200,
+    "sha256": "ae27b03bbcc4be63a7585be0e642ac8b2702c28144fc07a6cf5ca7bc16e53e71",
+    "items_with_updated_at": 530,
+    "latest_updated_at": "2026-11-11T12:33:23.729247+00:00"
+   },
+   "prompts_catalog": {
+    "http": 200,
+    "sha256": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408"
+   },
+   "prompt_versions": {
+    "sha256": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+    "items": {
+     "prompts.meme_image": {
+      "http": 200,
+      "sha256": "d3109ea548d9d3f14f5c5822428742999a784d706ee672219b6a96eff1e79842"
+     },
+     "prompts.meme_joke": {
+      "http": 200,
+      "sha256": "272445d8b41b60a33dfa66bf768c383cd6d8f78ea458c93ff7e8ce15d9d50d48"
+     },
+     "initiative.meme.summary": {
+      "http": 200,
+      "sha256": "4c792b4b9c560af00e08ff3fc5f7e1b2ba428924dfe2554d3c229b5ad5346503"
+     },
+     "internal.initiative_observer": {
+      "http": 200,
+      "sha256": "20846d44a2f4f9691974fcf71523565d0d86a948ae89ec0c11b48a7ae7f23725"
+     }
+    }
+   },
+   "meme_settings_saved_-1004482340693": {
+    "http": 200,
+    "sha256": "b59ce9f1d5eee0e5661362b4b7cc26ebd3de691deb2d112a7b1c45b270ae3f81",
+    "present_blocks": [
+     "chat_id",
+     "day",
+     "defaults",
+     "delivery",
+     "image_prefix",
+     "length_limit",
+     "master_key",
+     "own_key",
+     "prompts",
+     "quota",
+     "schema_present",
+     "settings",
+     "template"
+    ]
+   },
+   "meme_settings_saved_-1002661910336": {
+    "http": 200,
+    "sha256": "8a80d1814658c823cabde3079d8a6eaec85e24ef3278ebb83e2345a297452aaf",
+    "present_blocks": [
+     "chat_id",
+     "day",
+     "defaults",
+     "delivery",
+     "image_prefix",
+     "length_limit",
+     "master_key",
+     "own_key",
+     "prompts",
+     "quota",
+     "schema_present",
+     "settings",
+     "template"
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,176 @@
+{
+ "release": "2.58.198",
+ "matrix_owner": {
+  "http": 200,
+  "roles": [
+   {
+    "id": "user",
+    "title": "Участник",
+    "note": "Любой участник текущего чата или личного диалога"
+   },
+   {
+    "id": "local_admin",
+    "title": "Админ этого чата",
+    "note": "Подтверждается Telegram getChatMember (administrator/creator)"
+   },
+   {
+    "id": "global_admin",
+    "title": "Владелец бота",
+    "note": "Неявно всегда (настроенный numeric Telegram ID)",
+    "implicit": true
+   }
+  ],
+  "caps": {
+   "bot_server_state": {
+    "data_class": "PUBLIC_TECH",
+    "configurable": true,
+    "effective": {
+     "view_roles": [
+      "user",
+      "local_admin"
+     ],
+     "run_roles": [
+      "user",
+      "local_admin"
+     ],
+     "edit_roles": []
+    },
+    "source": "class_default",
+    "hard_rules": []
+   },
+   "detailed_metrics": {
+    "data_class": "PUBLIC_TECH",
+    "configurable": true,
+    "effective": {
+     "view_roles": [
+      "user",
+      "local_admin"
+     ],
+     "run_roles": [
+      "user",
+      "local_admin"
+     ],
+     "edit_roles": []
+    },
+    "source": "class_default",
+    "hard_rules": []
+   },
+   "logs_traceback": {
+    "data_class": "PUBLIC_TECH",
+    "configurable": true,
+    "effective": {
+     "view_roles": [
+      "user",
+      "local_admin"
+     ],
+     "run_roles": [
+      "user",
+      "local_admin"
+     ],
+     "edit_roles": []
+    },
+    "source": "class_default",
+    "hard_rules": []
+   },
+   "source_code": {
+    "data_class": "PUBLIC_TECH",
+    "configurable": true,
+    "effective": {
+     "view_roles": [
+      "user",
+      "local_admin"
+     ],
+     "run_roles": [
+      "user",
+      "local_admin"
+     ],
+     "edit_roles": []
+    },
+    "source": "class_default",
+    "hard_rules": []
+   },
+   "prompts": {
+    "data_class": "PROMPT_CONTENT",
+    "configurable": true,
+    "effective": {
+     "view_roles": [
+      "local_admin"
+     ],
+     "run_roles": [],
+     "edit_roles": []
+    },
+    "source": "class_default",
+    "hard_rules": [
+     {
+      "rule": "denied_prompt_content_member",
+      "message": "Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+     }
+    ]
+   }
+  },
+  "items": 9
+ },
+ "matrix_nonadmin": {
+  "http": 403,
+  "roles": null,
+  "caps": {},
+  "items": 0,
+  "restricted": null
+ },
+ "protected_paths": {
+  "prompts_catalog": {
+   "owner_http": 200,
+   "nonadmin_http": 403,
+   "nonadmin_detail": "только для глобального админа",
+   "nonadmin_keys": [
+    "detail"
+   ]
+  },
+  "prompt_versions": {
+   "owner_http": 200,
+   "nonadmin_http": 403,
+   "nonadmin_detail": "нет доступа к чату",
+   "nonadmin_keys": [
+    "detail"
+   ]
+  },
+  "self_diagnosis": {
+   "owner_http": 200,
+   "nonadmin_http": 200,
+   "nonadmin_detail": null,
+   "nonadmin_keys": [
+    "analytics",
+    "available",
+    "chat_id",
+    "code_check",
+    "generated_at",
+    "integrations",
+    "jobs",
+    "missing_evidence"
+   ]
+  },
+  "status": {
+   "owner_http": 200,
+   "nonadmin_http": 200,
+   "nonadmin_detail": null,
+   "nonadmin_keys": [
+    "bot",
+    "context",
+    "experience",
+    "intents",
+    "llm",
+    "llm_stats",
+    "permsoc",
+    "quantum"
+   ]
+  },
+  "speech_inspector_miss": {
+   "owner_http": 200,
+   "nonadmin_http": 403,
+   "nonadmin_detail": "нет доступа к Inspector",
+   "nonadmin_keys": [
+    "detail"
+   ]
+  }
+ }
+}

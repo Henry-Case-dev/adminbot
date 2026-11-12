@@ -1,0 +1,66 @@
+...............F.............................                            [100%]
+================================== FAILURES ===================================
+_____________ test_js_unit_round1025_hotfix6_lens_heartbeat_shell _____________
+
+    def test_js_unit_round1025_hotfix6_lens_heartbeat_shell():
+        """hotfix6 round 10.25 (ADR-1025-12, T-2583…T-2613) — re-pin v6.3 U08
+        (REQ-U08-*): edge-рефракция подложки — backdrop url(#lg-lens) только на
+        probe-гейте [data-glass-tier="a"] (render-probe glass-probe.js),
+        мёртвый --glass-displace удалён; перф-кап UI_LENS_MAX_NODES; offset
+        max(A,B,C); Canvas-2D §15 (гистерезис/UNKNOWN/телеметрия отдельно),
+        двухстрочная шапка + резерв --header-h; fullscreen-методы зеркала
+        делегируют fullscreen-policy.js (U07)."""
+>       _run_js(os.path.join("tests", "js",
+                             "round1025_hotfix6_lens_heartbeat_shell_test.js"),
+                ok_marker="HOTFIX6-LENS-HEARTBEAT-SHELL-OK")
+
+tests\test_webapp_js_unit.py:158: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+script = 'tests\\js\\round1025_hotfix6_lens_heartbeat_shell_test.js'
+ok_marker = 'HOTFIX6-LENS-HEARTBEAT-SHELL-OK'
+
+    def _run_js(script: str, ok_marker: str = "JS-UNIT-OK"):
+        node = _node()
+        assert os.path.exists(script)
+        res = subprocess.run(
+            [node, script],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+>       assert res.returncode == 0, (
+            "JS-UNIT провалился (%s):\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (script, res.stdout, res.stderr))
+E       AssertionError: JS-UNIT провалился (tests\js\round1025_hotfix6_lens_heartbeat_shell_test.js):
+E         STDOUT:
+E         
+E         STDERR:
+E         node:internal/assert/utils:77
+E             throw err;
+E             ^
+E         
+E         AssertionError [ERR_ASSERTION]: C: рендер-кадр без сети
+E             at Object.<anonymous> (C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\self-diag-01-0ccfa8fbf52b-3a18d4fe\tests\js\round1025_hotfix6_lens_heartbeat_shell_test.js:203:10)
+E             at Module._compile (node:internal/modules/cjs/loader:1854:14)
+E             at Object..js (node:internal/modules/cjs/loader:1985:10)
+E             at Module.load (node:internal/modules/cjs/loader:1577:32)
+E             at Module._load (node:internal/modules/cjs/loader:1379:12)
+E             at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+E             at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+E             at node:internal/main/run_main_module:33:47 {
+E           generatedMessage: false,
+E           code: 'ERR_ASSERTION',
+E           actual: false,
+E           expected: true,
+E           operator: '==',
+E           diff: 'simple'
+E         }
+E         
+E         Node.js v24.16.0
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Program Files\\nodejs\\node.EXE', 'tests\\js\\round1025_hotfix6_lens_heartbeat_shell_test....: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.16.0\n").returncode
+
+tests\test_webapp_js_unit.py:28: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix6_lens_heartbeat_shell
+1 failed, 44 passed in 7.03s

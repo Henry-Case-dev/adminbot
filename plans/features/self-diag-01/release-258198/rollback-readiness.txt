@@ -1,0 +1,15 @@
+ROLLBACK READINESS — 2.58.198 (deployed 2026-11-12T21:25:37Z)
+
+# Exact command (single SSH session; prod host 192.255.209.205, /var/www/admin_bot)
+cd /var/www/admin_bot && git checkout -B release/2.58.197 2587616759de31283585ffc105c91e7193c2e89e && systemctl restart admin_bot
+
+# Then verify
+systemctl is-active admin_bot
+curl -s https://admin-bot.duckdns.org/healthz          # expect {"status":"ok","version":"2.58.197"}
+
+# Data is NOT rolled back: schema v47, DDL=0, no migrations in 25876167..23477658.
+# Safety net: backups/predeploy-258198-final-20261112T212408Z.db
+#   bytes=2671144960 sha256=97a8646e1e2fac2489ae5938092eb2c03f869d52f596bece74281cd46d201105
+#   read-back: integrity=ok user_version=47 tables=130
+# Rollback was NOT needed: all mandatory postdeploy checks passed.
+# Superseded pre-fix tip preserved for history: tag release-2.58.198-pre-fixes -> 78982058.

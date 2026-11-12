@@ -1,0 +1,28 @@
+F1 reproduction — JS guard "render frame without network"
+
+test: tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js (run by tests/test_webapp_js_unit.py)
+command: node tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js
+
+BASE 25876167 (2.58.197)
+  -> HOTFIX6-LENS-HEARTBEAT-SHELL-OK
+  -> exit 0
+
+CANDIDATE 454727ed (release branch 78982058)
+  -> AssertionError [ERR_ASSERTION]: C: рендер-кадр без сети
+     at .../round1025_hotfix6_lens_heartbeat_shell_test.js:203:10
+  -> exit 1
+
+Root cause
+  The guard slices web/app.js from '_hbDraw: function' to the next
+  'loadStatus: async function' and forbids 'fetch(' / 'this.api(' inside.
+  Candidate inserted loadSelfDiagnosis (web/app.js:29909-29925) between them;
+  that loader legitimately calls this.api('/api/status/self-diagnosis').
+
+Product invariant status
+  _hbDraw body (web/app.js:29742-29762) is unchanged and performs no network.
+  loadSelfDiagnosis is invoked only by the refresh button (web/index.html:15108),
+  never from the rAF draw loop.
+
+Minimal correction (Builder, test contract only)
+  Bound the slice to the _hbDraw method body itself (end at the next method key
+  after _hbDraw) instead of the next 'loadStatus'. Do not weaken the assertion.

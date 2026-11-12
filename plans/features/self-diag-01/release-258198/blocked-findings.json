@@ -1,0 +1,106 @@
+{
+ "release": "2.58.198",
+ "verdict": "BLOCKED_PREFLIGHT",
+ "deployed": false,
+ "candidate_code": "454727ede7a2577b80dbef1b5d9c1ce3c4a3342d",
+ "candidate_docs": "8797cd833878dcb7199dcf46ac85a01f599426eb",
+ "release_branch": "release/2.58.198",
+ "release_branch_sha": "78982058119763b89fbf8e5f01cd376dfecab2c6",
+ "base_sha": "2587616759de31283585ffc105c91e7193c2e89e",
+ "base_version": "2.58.197",
+ "cumulative_diff": {"files": 139, "modified": 103, "added": 36, "deleted": 0,
+                     "insertions": 21488, "deletions": 287,
+                     "candidate_only": "131 files +21457/-256",
+                     "bump_commit": "30 files, 31/31 lines, pins only"},
+ "train": {
+  "d6_checkup_contract": "41 passed",
+  "d6_broad22": "946 passed",
+  "d6_16files": "661 passed, 1 failed (mca10b 643/644, pre-existing)",
+  "d2_145": "145 passed",
+  "d2_216": "216 passed",
+  "d2_42": "42 passed",
+  "d2_9files": "244 passed, 1 failed (cfg03 dead knob, pre-existing)",
+  "d4_22": "22 passed",
+  "d4_366": "366 passed (D4 total 388)",
+  "d5_62": "62 passed",
+  "d5_38": "38 passed",
+  "d5_355": "355 passed",
+  "d5_prompt_contracts": "56 passed, 1 skipped",
+  "d3_80": "80 passed",
+  "d3_1325": "1325 passed",
+  "web_api_2files": "190 passed",
+  "js_unit": "44 passed, 1 failed (NEW)",
+  "web_wide": "1536 passed, 14 failed (baseline 1539/11)",
+  "e2e_inspector_exact": "checks=142 failures=0",
+  "e2e_meme_ui_fields": "failures=0",
+  "e2e_initiative_rework": "failures=2 (1536, 390 — pre-existing)"
+ },
+ "isolation_matrix_14_ids": {
+  "method": "pytest on the exact 14 ids from the candidate web-wide run, executed in both trees",
+  "base_25876167": {"failed": 9, "passed": 5},
+  "candidate_78982058": {"failed": 12, "passed": 2},
+  "flipped_to_red": [
+   "tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix6_lens_heartbeat_shell",
+   "tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon",
+   "tests/test_webapp_evol_w14_states.py::TestUnifiedCheckboxes::test_every_native_checkbox_is_a_design_system_control"
+  ],
+  "pre_existing_red_both": [
+   "tests/test_webapp_asap_cover_ui_v21.py::TestHistoryAndCoverTimer::test_history_shows_activation_date",
+   "tests/test_webapp_asap_ui02_delta.py::test_no_magic_z_index_outside_decorative_in_card",
+   "tests/test_webapp_avatars_ui.py::TestAvatarFrontAudit::test_close_and_fullscreen_buttons",
+   "tests/test_webapp_round1020_ui.py::TestHumanReadableLabels::test_examples_from_tz",
+   "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_navbar_legacy_and_v2",
+   "tests/test_webapp_round1020_ui.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged",
+   "tests/test_webapp_round1024_nodeflow.py::TestNodeFlowNaming::test_no_english_jargon",
+   "tests/test_webapp_round108_ui.py::TestCacheBustAndEsc108::test_app_version_matches_readme",
+   "tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_navbar_and_modules_unchanged",
+   "tests/test_webapp_ui_rework_round1020.py::TestNavigationSnapshot::test_tabs_ids_and_order_unchanged"
+  ],
+  "flake_both_trees": [
+   "tests/test_webapp_dm_ui.py::TestDmSummaryGateMarkers::test_s3_scheduler_skips_dm_positive_ids_behavioral (fails in the wide run on both trees, passes isolated on both)"
+  ]
+ },
+ "findings": [
+  {
+   "id": "F1",
+   "test": "tests/test_webapp_js_unit.py::test_js_unit_round1025_hotfix6_lens_heartbeat_shell",
+   "file": "tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js:200-204",
+   "cause": "candidate inserted loadSelfDiagnosis (web/app.js:29909) inside the [_hbDraw..loadStatus] guard slice",
+   "class": "test-contract scope (candidate-introduced)",
+   "product_impact": "none: _hbDraw (web/app.js:29742-29762) unchanged and network-free; loader is bound to the refresh button only (web/index.html:15108)",
+   "owner": "Builder (test contract) + Reviewer",
+   "minimal_fix": "bound the slice to the _hbDraw body (end at the next method key after _hbDraw); keep the assertion intact"
+  },
+  {
+   "id": "F2",
+   "test": "tests/test_webapp_round109_ui.py::TestDescriptions::test_no_forbidden_jargon",
+   "file": "services/param_catalog.py:4100-4104",
+   "cause": "description of flags.self_diag_repo_origin contains the forbidden token 'URL' (FORBIDDEN list at tests/test_webapp_round109_ui.py:30-34)",
+   "class": "owner-visible UI text defect (candidate-introduced)",
+   "product_impact": "settings description violates the project's forbidden-jargon rule",
+   "owner": "Builder",
+   "minimal_fix": "reword without forbidden substrings; then sanctioned F8 re-pin (PARAM_CATALOG_SHA256_FOLLOWUP in tests/test_round1025_f8_registry.py) and tools/gen_param_registry_round1025.py --check"
+  },
+  {
+   "id": "F3",
+   "test": "tests/test_webapp_evol_w14_states.py::TestUnifiedCheckboxes::test_every_native_checkbox_is_a_design_system_control",
+   "file": "web/index.html:987",
+   "cause": "new diagnostics matrix renders a bare <input type=\"checkbox\"> outside ctl-check/ctl-toggle (diagMatrix does not exist at base: 0 occurrences)",
+   "class": "UI design-system defect (candidate-introduced)",
+   "product_impact": "unstyled native checkbox among design-system controls",
+   "owner": "Builder + Reviewer (visual)",
+   "minimal_fix": "use the design-system control markup (ctl-check / ctl-check__box) and re-check visually"
+  }
+ ],
+ "production": {
+  "untouched": true,
+  "ssh_logins": 0,
+  "restarts": 0,
+  "snapshot": "not taken (no deploy)",
+  "healthz": {"status": "ok", "version": "2.58.197"},
+  "head": "2587616759de31283585ffc105c91e7193c2e89e",
+  "branch": "release/2.58.197",
+  "rollback_needed": false,
+  "rollback_command": "cd /var/www/admin_bot && git checkout -B release/2.58.197 25876167 && systemctl restart admin_bot"
+ }
+}

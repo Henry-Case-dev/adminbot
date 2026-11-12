@@ -1,0 +1,129 @@
+{
+ "release": "2.58.198",
+ "before": {
+  "taken_at_utc": "2026-11-12T21:12:36Z",
+  "prod_version": "2.58.197"
+ },
+ "after": {
+  "taken_at_utc": "2026-11-12T21:33:18Z",
+  "prod_version": "2.58.198"
+ },
+ "surfaces_equal": {
+  "config_global": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "c0549ab498d126908ed93c0ee1cfc5f542bd5ca41f6326e2da064c206c1d9b32",
+   "sha256_after": "2cf1e97fc028ec1f70a028c918bdd9e9c2a32c6683932cd4340695ea27f65b3e",
+   "equal": false
+  },
+  "config_overrides_map": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36",
+   "sha256_after": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36",
+   "equal": true
+  },
+  "config_chat_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "f6294abf80616ca7483940c72a6efca740998e4b8cce3465c5493f8e292d1b2a",
+   "sha256_after": "aca3b1bae93715c85d0d7c9d6afbc4a92f8f9e4bf3a9a3adc22cd32956d894da",
+   "equal": false
+  },
+  "config_chat_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "e36885839e2987f07cd93d8b419d1c27eff854675975b3834d79756d89361e14",
+   "sha256_after": "4da5e978f39fc4989e01c5a30d505a14b7aa590852d6b02eae569ab34a35e3c1",
+   "equal": false
+  },
+  "prompts_catalog": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408",
+   "sha256_after": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408",
+   "equal": true
+  },
+  "prompt_versions": {
+   "http_before": null,
+   "http_after": null,
+   "sha256_before": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+   "sha256_after": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+   "equal": true
+  },
+  "meme_settings_saved_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "b59ce9f1d5eee0e5661362b4b7cc26ebd3de691deb2d112a7b1c45b270ae3f81",
+   "sha256_after": "b59ce9f1d5eee0e5661362b4b7cc26ebd3de691deb2d112a7b1c45b270ae3f81",
+   "equal": true
+  },
+  "meme_settings_saved_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "8a80d1814658c823cabde3079d8a6eaec85e24ef3278ebb83e2345a297452aaf",
+   "sha256_after": "8a80d1814658c823cabde3079d8a6eaec85e24ef3278ebb83e2345a297452aaf",
+   "equal": true
+  }
+ },
+ "saved_prompt_settings_unchanged": {
+  "meme_settings_saved_-1004482340693": true,
+  "meme_settings_saved_-1002661910336": true
+ },
+ "config_items": {
+  "config_global": {
+   "added": [
+    "flags.self_diag_repo_origin"
+   ],
+   "removed": [],
+   "changed": [],
+   "before": 618,
+   "after": 619,
+   "added_item_flags.self_diag_repo_origin": {
+    "pg_id": null,
+    "group": "flags_service",
+    "type": "str",
+    "value": "",
+    "description": "Канонический репозиторий SELF-DIAG для чтения собственного кода (owner/name). Глобальная настройка владельца; значения отдельных чатов не используются. Адрес ви"
+   }
+  },
+  "config_chat_-1004482340693": {
+   "added": [
+    "flags.self_diag_repo_origin"
+   ],
+   "removed": [],
+   "changed": [],
+   "before": 618,
+   "after": 619,
+   "added_item_flags.self_diag_repo_origin": {
+    "pg_id": null,
+    "group": "flags_service",
+    "type": "str",
+    "value": "",
+    "description": "Канонический репозиторий SELF-DIAG для чтения собственного кода (owner/name). Глобальная настройка владельца; значения отдельных чатов не используются. Адрес ви"
+   }
+  },
+  "config_chat_-1002661910336": {
+   "added": [
+    "flags.self_diag_repo_origin"
+   ],
+   "removed": [],
+   "changed": [],
+   "before": 618,
+   "after": 619,
+   "added_item_flags.self_diag_repo_origin": {
+    "pg_id": null,
+    "group": "flags_service",
+    "type": "str",
+    "value": "",
+    "description": "Канонический репозиторий SELF-DIAG для чтения собственного кода (owner/name). Глобальная настройка владельца; значения отдельных чатов не используются. Адрес ви"
+   }
+  }
+ },
+ "notes": [
+  "surface sha256: config_global/config_chat changed only because the catalog gained exactly one approved key flags.self_diag_repo_origin (see config_items: added 1, changed 0, removed 0); chat surfaces also carry the volatile modules/3/gate/observed_at",
+  "meme-settings raw payload churns in analytics.attempts/* (live operational data); the SAVED blocks hash is byte-identical for both chats",
+  "prompts catalog + 4 prompt version sets + overrides-map are byte-identical",
+  "chat_params: latest per-item updated_at stays 2026-11-11T12:33:23Z; no saved value rewritten"
+ ]
+}

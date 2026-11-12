@@ -1,0 +1,12 @@
+# deploy-stage requirements gate (reproduced locally, exact candidate)
+# tool: <GLOBAL_CONFIG>/tools/requirements_gate.py
+# map:  plans/features/self-diag-01/requirements-map.json
+# repo: C:\Code\Python\adminbot
+# command:
+#   py -3 <GLOBAL_CONFIG>/tools/requirements_gate.py check \
+#     --map plans/features/self-diag-01/requirements-map.json \
+#     --stage deploy \
+#     --candidate dae6ffeae07cbf2b8d533bb99eaeaf267de335a2 \
+#     --repo C:\Code\Python\adminbot
+stage=deploy inventory=183 manual=53 scoped=189 errors=0
+# uctc: 2026-11-12T21:2x Z (pre-deploy, nothing deployed yet)
