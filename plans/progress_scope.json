@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T15:33:56+12:00",
+  "updated": "2026-11-12T22:07:57+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1699,7 +1699,7 @@
       "id": "p0-init-meme-ux-diag",
       "ticket": "P0-INIT-MEME-UX-DIAG-CORRECTIVE",
       "title": "Инициатива/Мемы: достоверное состояние, понятный UX и сквозная диагностика",
-      "status": "BUILDING",
+      "status": "WAITING_EXTERNAL",
       "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
       "source_sha256": "6D0D5C52CF5B6A50CE7F4098EEB8136A49AE1D024B83C5FB802BF016587CD91A",
       "maps": [
@@ -1710,9 +1710,9 @@
       "priority": "P0",
       "blocked_by": [],
       "blocker_sources": {},
-      "execution_state": "active_assignment",
+      "execution_state": "waiting_external",
       "position_basis": "owner marked it P0 corrective; current lanes continue in parallel",
-      "queue_note": "Started with a read-only diagnosis of the real `/meme` failure and the two-chat divergence; PM maps requirements against the existing UI epics and the Architect designs the five-axis read-model. Implementation is not started. | 2026-11-12: releases 2.58.189-193 shipped as verified increments; slices S1-AXES, S2-ID, S3-OV, S4-TRACE, S5-MEME, S5b in review/live; S6-FRESH in build; epic not done.",
+      "queue_note": "2026-11-12: 2.58.197 deployed at 25876167; map 111/114 rows (75/77 unique) VERIFIED; release gate scoped=114 errors=3, scoped S1-AXES/S2-ID/S3-OV = 0. Open: P0IM-PB-LLM (two duplicate rows) needs the first natural meme attempt that reaches LLM A/B (A ~3h, B ~5h from 09:43/09:46Z; quota reset 2026-11-13T00:00:00Z), and P0IM-AC-DONE is the final convolution. No executable engineering work; agents read the existing API on the event. Next queue task: self-diag-01.",
       "preparation": {
         "pm_map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
         "architecture": "plans/features/p0-init-meme-ux-diag/architecture.md",
@@ -1721,6 +1721,24 @@
         "first_slice": "R0-INV (read-only investigation, no product code)",
         "lineage_note": "services/meme_initiative.py, web/api/initiative_publications.py, handlers/meme_command.py and services/publication_coordination.py exist ONLY on the production line (c087253d); the working branch does not contain them. Any implementation must branch from the production line, never from master.",
         "status": "preparation_complete_implementation_not_started"
+      },
+      "progress": {
+        "verified_rows": 111,
+        "total_rows": 114,
+        "verified_unique": 75,
+        "unique": 77,
+        "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+        "deployed_version": "2.58.197"
+      },
+      "waiting_external": {
+        "requirement_ids": [
+          "P0IM-PB-LLM",
+          "P0IM-AC-DONE"
+        ],
+        "trigger": "first natural meme attempt after the cooldown/quota event that reaches LLM A/B (summary/joke) on 2.58.197",
+        "read": "GET /api/initiative/publications/{id} -> chain[].facts.llm|prompt|api; compare provider/model/slot, prompt source/revision/sha12, recorded image facts",
+        "owner_action_required": false,
+        "resume": "agents read the event; no owner QA"
       }
     },
     {
@@ -4297,8 +4315,29 @@
         "self-diag-01",
         "vmq-onto-01"
       ],
-      "reconciled": false,
-      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01."
+      "reconciled": true,
+      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01. | Reconciled 2026-11-12: 2.58.197 deployed; 111/114 rows verified; PB-LLM and AC-DONE remain WAITING_EXTERNAL for the first natural LLM attempt. Findings classified; backlog updated.",
+      "coverage_refs": [
+        {
+          "task_id": "p0-init-meme-ux-diag",
+          "map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
+          "req_ids": [
+            "P0IM-AC-NODUP",
+            "P0IM-AC-SETTINGS",
+            "P0IM-PB-ACCESS",
+            "P0IM-PB-LLM",
+            "P0IM-PB-MANUAL",
+            "P0IM-OV-LIST",
+            "P0IM-S6-EFFECTIVE",
+            "P0IM-AC-MATRIX-FAIL",
+            "P0IM-AC-MATRIX-CONFIG",
+            "P0IM-AC-MATRIX-RBAC",
+            "P0IM-OV-SAMPLE",
+            "P0IM-PB-FILTERS",
+            "P0IM-AC-DONE"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
