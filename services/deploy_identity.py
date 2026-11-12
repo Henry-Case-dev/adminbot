@@ -16,6 +16,7 @@
     CODES, DEFAULT_REPO_ORIGIN, MANIFEST_REL_PATH, REASONS
     collect_identity(repo_root=None, *, process_started_at=None) -> dict
     recent_commits(repo_root=None, *, limit=5, basis="deployed") -> dict
+    correlate_traceback(repo_root=None, *, traceback_text, event_at=None, ...) -> dict
     path_is_denied(rel_path) -> bool
 """
 
@@ -26,6 +27,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -658,7 +660,14 @@ def _git_env() -> dict:
     return env
 
 
-def _run_git(root: Path, extra: list[str]):
+def _run_git(root: Path, extra: list[str], *,
+             timeout: float | None = None):
+    limit = _GIT_TIMEOUT_SECONDS
+    if timeout is not None:
+        try:
+            limit = max(0.2, min(_GIT_TIMEOUT_SECONDS, float(timeout)))
+        except (TypeError, ValueError):
+            limit = _GIT_TIMEOUT_SECONDS
     argv = [
         "git",
         "-C",
@@ -671,7 +680,7 @@ def _run_git(root: Path, extra: list[str]):
         argv,
         shell=False,
         capture_output=True,
-        timeout=_GIT_TIMEOUT_SECONDS,
+        timeout=limit,
         env=_git_env(),
         check=False,
     )
@@ -1160,3 +1169,705 @@ def _recent_commits(repo_root, limit, basis, observed_at: str) -> dict:
             is_deployed_basis and commit["sha"] == deployed_sha)
     return _commits_result("ok", "", {"kind": kind, "sha": basis_sha},
                            commits, observed_at)
+
+
+# --------------------------------------------------------------------------
+# traceback correlation (SD1-D4-10 / SD1-D4-14)
+# --------------------------------------------------------------------------
+
+CORRELATION_SCHEMA = 1
+CORRELATION_AXES = (
+    "event_time", "release_install", "changed_files", "changed_symbols",
+    "call_chain", "commit_diff",
+)
+CORRELATION_STATUSES = ("ok", "degraded", "unknown", "unavailable")
+CORRELATION_VERIFICATIONS = ("verified_deployed", "not_confirmed")
+CORRELATION_BASES = ("release_diff", "recent_before_release", "none")
+CORRELATION_VERDICTS = (
+    "release_change_suspect", "no_release_change_found",
+    "event_precedes_release", "not_comparable",
+)
+CORRELATION_REASONS = (
+    "",
+    "no_traceback",
+    "no_frames",
+    "no_answering_file",
+    "no_deployed_sha",
+    "no_git",
+    "gitdir_unavailable",
+    "no_previous_sha",
+    "git_unavailable",
+    "git_timeout",
+    "budget_exhausted",
+    "deployed_unverified",
+    "event_time_unknown",
+    "root_missing",
+    "root_not_dir",
+    "permission_denied",
+    "path_denied",
+    "internal_error",
+)
+
+_CORRELATION_MAX_CHAIN = 10
+_CORRELATION_MAX_FILES = 3
+_CORRELATION_MAX_COMMITS = _GIT_LOG_LIMIT_MAX
+_CORRELATION_MAX_SYMBOLS = 8
+_CORRELATION_MAX_DIFF_LINES = 16
+_CORRELATION_MAX_LINE_CHARS = 160
+_CORRELATION_MAX_FILE_CHARS = 200
+_CORRELATION_MAX_HUNKS = 6
+_CORRELATION_MAX_LOG_BYTES = 256 * 1024
+_CORRELATION_DIFF_SCAN_LINES = 4000
+_CORRELATION_DEADLINE_SECONDS = 3.0
+_CORRELATION_SOURCE_SUFFIXES = (".py", ".pyi")
+_CORRELATION_DENIED_PATH_CHARS = frozenset("*?[]!:\\\x00")
+_SYMBOL_DEF_RE = re.compile(
+    r"^\s*(?:async\s+def|def|class)\s+([A-Za-z_]\w*)")
+
+
+def _sha_or_none(value) -> str | None:
+    return value.strip().lower() if _is_sha(value) else None
+
+
+def _corr_int(value, default: int, low: int, high: int) -> int:
+    if isinstance(value, bool):
+        return default
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(low, min(high, number))
+
+
+def _event_datetime(value) -> datetime.datetime | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.datetime.fromtimestamp(
+                float(value), datetime.timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return _parse_datetime(value)
+
+
+def _scrub(text: str) -> str:
+    """Один существующий sanitizer проекта, без второй копии правил."""
+    try:
+        from services import evidence_bundle as _bundle
+        return str(_bundle.sanitize_text(str(text or "")))
+    except Exception:       # pragma: no cover - защитная ветка
+        return str(text or "")
+
+
+def _traceback_frames(text: str) -> dict:
+    try:
+        from services import evidence_bundle as _bundle
+        parsed = _bundle.traceback_frames(text)
+    except Exception:       # pragma: no cover - защитная ветка
+        return {"frames": [], "partial": True}
+    return parsed if isinstance(parsed, dict) else {"frames": []}
+
+
+def _reported_basename(reported) -> str:
+    parts = [part for part in re.split(r"[\\/]", str(reported or "")) if part]
+    return _scrub(parts[-1] if parts else "")[:_CORRELATION_MAX_FILE_CHARS]
+
+
+def _repo_relative_path(root: Path | None,
+                        reported) -> tuple[str | None, str]:
+    """Относительный путь внутри repo_root или честный отказ.
+
+    Наружу отдаётся ТОЛЬКО repo-relative путь: абсолютные пути хоста в
+    запись не попадают. Path-магия/опции git запрещены (``--`` ставится
+    отдельно, но и ``:``/``*``/``?``/``[`` в pathspec не пропускаем).
+    """
+    if root is None:
+        return None, "no_root"
+    text = str(reported or "").strip().replace("\\", "/")
+    if not text or "\x00" in text or text.startswith("-"):
+        return None, "path_rejected"
+    candidate = Path(text)
+    if candidate.is_absolute() or re.match(r"^[A-Za-z]:", text):
+        try:
+            resolved = candidate.resolve()
+        except (OSError, ValueError):
+            return None, "path_rejected"
+        try:
+            rel = resolved.relative_to(root)
+        except ValueError:
+            return None, "outside_repo"
+        rel_text = rel.as_posix()
+    else:
+        rel_text = os.path.normpath(text).replace("\\", "/")
+        if rel_text in ("", ".") or rel_text.startswith("../") \
+                or rel_text == ".." or rel_text.startswith("/"):
+            return None, "outside_repo"
+        while rel_text.startswith("./"):
+            rel_text = rel_text[2:]
+    if len(rel_text) > _CORRELATION_MAX_FILE_CHARS:
+        return None, "path_rejected"
+    if any(char in _CORRELATION_DENIED_PATH_CHARS for char in rel_text):
+        return None, "path_rejected"
+    if not rel_text.endswith(_CORRELATION_SOURCE_SUFFIXES):
+        return None, "non_source"
+    if path_is_denied(rel_text):
+        return None, "path_denied"
+    return rel_text, ""
+
+
+def _git_bounded(root: Path, extra: list[str], *,
+                 timeout: float) -> tuple[bytes | None, str]:
+    if timeout <= 0.25:
+        return None, "budget_exhausted"
+    try:
+        proc = _run_git(root, extra, timeout=timeout)
+    except FileNotFoundError:
+        return None, "git_unavailable"
+    except subprocess.TimeoutExpired:
+        return None, "git_timeout"
+    except (OSError, ValueError):
+        return None, "git_unavailable"
+    if proc.returncode != 0:
+        return None, "git_unavailable"
+    return proc.stdout, ""
+
+
+def _parse_paths_log(text: str) -> list[dict]:
+    """Разбор ``COMMIT<US>sha<US>ct<US>subject`` + ``--name-only`` строк."""
+    commits: list[dict] = []
+    current: dict | None = None
+    for line in str(text or "").splitlines():
+        if line.startswith("COMMIT\x1f"):
+            parts = line.split("\x1f")
+            sha = parts[1].strip() if len(parts) > 1 else ""
+            if not _is_sha(sha):
+                current = None
+                continue
+            try:
+                committed_ts = int(parts[2]) if len(parts) > 2 else 0
+            except (TypeError, ValueError):
+                committed_ts = 0
+            subject = parts[3] if len(parts) > 3 else ""
+            current = {
+                "sha": sha.lower(),
+                "committed_at": (
+                    _iso_utc(datetime.datetime.fromtimestamp(
+                        committed_ts, datetime.timezone.utc))
+                    if committed_ts > 0 else None),
+                "subject": _scrub(subject[:_GIT_LOG_SUBJECT_MAX]),
+                "paths": [],
+            }
+            commits.append(current)
+            continue
+        if current is None:
+            continue
+        path = line.strip().replace("\\", "/")
+        if path and len(current["paths"]) < 20 and path not in current["paths"]:
+            current["paths"].append(path)
+    return commits
+
+
+def _git_paths_log(root: Path, revs: list[str], paths: list[str], *,
+                   limit: int, timeout: float) -> tuple[
+                       list[dict] | None, str, bool]:
+    extra = [
+        "log",
+        "--no-show-signature",
+        "--no-color",
+        "--format=COMMIT%x1f%H%x1f%ct%x1f%s",
+        "--name-only",
+        "-n",
+        str(limit + 1),
+        *revs,
+        "--",
+        *paths,
+    ]
+    output, reason = _git_bounded(root, extra, timeout=timeout)
+    if output is None:
+        return None, reason, False
+    truncated = len(output) > _CORRELATION_MAX_LOG_BYTES
+    if truncated:
+        output = output[:_CORRELATION_MAX_LOG_BYTES]
+    text = output.decode("utf-8", errors="replace")
+    commits = _parse_paths_log(text)
+    if len(commits) > limit:
+        # Старше лимита есть ещё коммиты: факт обрезки виден, а не скрыт.
+        truncated = True
+        commits = commits[:limit]
+    allowed = set(paths)
+    for commit in commits:
+        commit["paths"] = [p for p in commit["paths"] if p in allowed]
+    return commits, "", truncated
+
+
+def _git_commit_diff(root: Path, sha: str, path: str, *,
+                     budget_chars: int,
+                     timeout: float) -> tuple[dict | None, str]:
+    extra = [
+        "show",
+        "--no-show-signature",
+        "--no-color",
+        "--no-ext-diff",
+        "--format=",
+        "--unified=0",
+        sha,
+        "--",
+        path,
+    ]
+    output, reason = _git_bounded(root, extra, timeout=timeout)
+    if output is None:
+        return None, reason
+    text = output.decode("utf-8", errors="replace")
+    added = 0
+    removed = 0
+    lines: list[str] = []
+    hunks: list[str] = []
+    symbols: list[str] = []
+    used = 0
+    truncated = False
+    lines_truncated = False
+    scan = 0
+    for line in text.splitlines():
+        scan += 1
+        if scan > _CORRELATION_DIFF_SCAN_LINES:
+            truncated = True
+            break
+        if line.startswith("@@"):
+            if len(hunks) < _CORRELATION_MAX_HUNKS:
+                hunks.append(_scrub(line)[:_CORRELATION_MAX_LINE_CHARS])
+            hunk_parts = line.split("@@")
+            if len(hunk_parts) >= 3:
+                context = _SYMBOL_DEF_RE.match(hunk_parts[2])
+                if context and context.group(1) not in symbols \
+                        and len(symbols) < _CORRELATION_MAX_SYMBOLS:
+                    # Хунк-контекст git называет объемлющий символ изменения.
+                    symbols.append(context.group(1))
+            continue
+        if line.startswith(("+++", "---")):
+            continue
+        if line.startswith("+"):
+            added += 1
+        elif line.startswith("-"):
+            removed += 1
+        else:
+            continue
+        match = _SYMBOL_DEF_RE.match(line[1:])
+        if match and match.group(1) not in symbols \
+                and len(symbols) < _CORRELATION_MAX_SYMBOLS:
+            symbols.append(match.group(1))
+        if len(lines) >= _CORRELATION_MAX_DIFF_LINES:
+            # Показ ограничен, но это не потеря доказательства: полные
+            # added/removed и символы посчитаны по всему diff-тексту.
+            lines_truncated = True
+            continue
+        display = _scrub(line[:_CORRELATION_MAX_LINE_CHARS])
+        if lines and used + len(display) > budget_chars:
+            truncated = True
+            continue
+        lines.append(display)
+        used += len(display)
+    return {
+        "sha": sha,
+        "path": path,
+        "added": added,
+        "removed": removed,
+        "symbols": symbols,
+        "hunk_headers": hunks,
+        "lines": lines,
+        "truncated": truncated,
+        "lines_truncated": lines_truncated,
+    }, ""
+
+
+def _correlation_base(observed_at: str, reason: str = "") -> dict:
+    return {
+        "schema": CORRELATION_SCHEMA,
+        "status": "unavailable" if reason == "internal_error" else "unknown",
+        "reason": reason,
+        "observed_at": observed_at,
+        "event": {"at": None, "source": "log_ring", "parsed": False,
+                  "relation": "unknown"},
+        "release": {
+            "code": "unknown",
+            "reason": "",
+            "deployed_sha": None,
+            "deployed_at": None,
+            "previous_sha": None,
+            "checkout_sha": None,
+            "upstream_sha": None,
+            "dirty": None,
+            "verification": "not_confirmed",
+            "basis": "none",
+        },
+        "call_chain": [],
+        "answering": None,
+        "files": [],
+        "commits": [],
+        "candidates": [],
+        "excluded": [],
+        "commit_diff": None,
+        "blame": {
+            "verdict": "not_comparable",
+            "candidate_count": 0,
+            "excluded_count": 0,
+            "newest_commit": None,
+            "newest_deployed": False,
+            "newest_blamed": False,
+            "newest_reason": "recency_is_not_evidence",
+        },
+        "not_checked": list(CORRELATION_AXES),
+        "truncated": False,
+    }
+
+
+def correlate_traceback(repo_root=None, *, traceback_text: str = "",
+                        event_at=None, event_source: str = "log_ring",
+                        max_files: int = 3, max_commits: int = 3,
+                        budget_chars: int = 3000,
+                        identity: dict | None = None) -> dict:
+    """Сопоставить traceback с исполняемой ревизией (только чтение).
+
+    Запись schema 1 отвечает на ``SD1-D4-10``/``SD1-D4-14``: время события,
+    установка релиза (``deployed_sha``/``deployed_at``), call chain, отвечающий
+    файл/функция/вызывающий участок, изменения и commit diff **внутри**
+    релиза, и отдельно коммиты вне ``deployed_sha`` с ``deployed=false``.
+
+    Инварианты: коммит вне ``deployed_sha`` не может быть назван виновным;
+    новейший коммит не обвиняется по факту новизны; при отсутствии данных
+    честный ``unknown``/``not_checked``. ``identity`` — уже собранная запись
+    ``collect_identity`` (иначе собирается здесь). Функция не бросает.
+    """
+    observed_at = _iso_utc(_utc_now())
+    try:
+        return _correlate_traceback(
+            repo_root, traceback_text=traceback_text, event_at=event_at,
+            event_source=event_source, max_files=max_files,
+            max_commits=max_commits, budget_chars=budget_chars,
+            identity=identity, observed_at=observed_at)
+    except Exception:
+        return _correlation_base(observed_at, "internal_error")
+
+
+def _correlate_traceback(repo_root, *, traceback_text, event_at,
+                         event_source, max_files, max_commits, budget_chars,
+                         identity, observed_at) -> dict:
+    files_limit = _corr_int(max_files, 3, 1, _CORRELATION_MAX_FILES)
+    commits_limit = _corr_int(max_commits, 3, 1, _CORRELATION_MAX_COMMITS)
+    diff_budget = _corr_int(budget_chars, 3000, 400, 12000)
+
+    root, root_reason = _resolve_root(repo_root)
+    record = dict(identity) if isinstance(identity, dict) and identity else None
+    if record is None:
+        record = collect_identity(root) if root is not None else {}
+
+    deployed_sha = _sha_or_none(record.get("deployed_sha"))
+    previous_sha = _sha_or_none(record.get("previous_sha"))
+    checkout_sha = _sha_or_none(record.get("checkout_sha"))
+    upstream = record.get("upstream_head")
+    upstream_sha = (_sha_or_none(upstream.get("sha"))
+                    if isinstance(upstream, dict) else None)
+    local_identity = record.get("local_identity")
+    deployed_at_dt = _parse_datetime(record.get("deployed_at"))
+    identity_code = str(record.get("code") or "unknown")
+    identity_reason = str(record.get("reason") or "")
+    event_dt = _event_datetime(event_at)
+
+    result = _correlation_base(observed_at)
+    result["release"].update({
+        "code": identity_code,
+        "reason": identity_reason[:80],
+        "deployed_sha": deployed_sha,
+        "deployed_at": (_iso_utc(deployed_at_dt)
+                        if deployed_at_dt is not None else None),
+        "previous_sha": previous_sha,
+        "checkout_sha": checkout_sha,
+        "upstream_sha": upstream_sha,
+        "dirty": (local_identity.get("dirty")
+                  if isinstance(local_identity, dict) else None),
+        "verification": ("verified_deployed"
+                         if identity_code == "verified_deployed"
+                         else "not_confirmed"),
+    })
+    if deployed_at_dt is not None and event_dt is not None:
+        relation = ("event_after_release" if event_dt >= deployed_at_dt
+                    else "event_before_release")
+    else:
+        relation = "unknown"
+    result["event"].update({
+        "at": _iso_utc(event_dt) if event_dt is not None else None,
+        "source": str(event_source or "log_ring")[:40],
+        "parsed": event_dt is not None,
+        "relation": relation,
+    })
+    newest_sha = checkout_sha or upstream_sha
+    result["blame"].update({
+        "newest_commit": newest_sha,
+        "newest_deployed": bool(newest_sha is not None
+                                and newest_sha == deployed_sha),
+    })
+
+    checked: set[str] = set()
+    if event_dt is not None:
+        checked.add("event_time")
+    if deployed_at_dt is not None:
+        checked.add("release_install")
+
+    def _finish(status: str, reason: str) -> dict:
+        result["status"] = status if status in CORRELATION_STATUSES \
+            else "unknown"
+        result["reason"] = reason if reason in CORRELATION_REASONS else \
+            "internal_error"
+        result["not_checked"] = [axis for axis in CORRELATION_AXES
+                                 if axis not in checked]
+        return result
+
+    text = str(traceback_text or "")
+    if not text.strip():
+        return _finish("ok", "no_traceback")
+
+    parsed = _traceback_frames(text)
+    frames = [item for item in (parsed.get("frames") or [])
+              if isinstance(item, dict)]
+    if not frames:
+        return _finish("unknown", "no_frames")
+
+    chain: list[dict] = []
+    frame_functions: dict[str, list[str]] = {}
+    for frame in frames[:_CORRELATION_MAX_CHAIN]:
+        relative, path_reason = _repo_relative_path(root, frame.get("file"))
+        function = _scrub(str(frame.get("function") or ""))[:120]
+        entry = {
+            "depth": len(chain),
+            "file": relative or "",
+            "function": function,
+            "line": _corr_int(frame.get("line"), 0, 0, 100_000_000),
+            "in_repo": relative is not None,
+            "answering": False,
+            "caller": False,
+        }
+        if relative is None:
+            entry["file_reason"] = path_reason
+            entry["external_name"] = _reported_basename(frame.get("file"))
+        else:
+            frame_functions.setdefault(relative, []).append(function)
+        chain.append(entry)
+    result["call_chain"] = chain
+    checked.add("call_chain")
+
+    if root is None:
+        return _finish("unavailable", root_reason or "root_missing")
+
+    git_dir, git_reason = _resolve_git_dir(root)
+    if git_dir is None:
+        return _finish("unknown", git_reason or "no_git")
+
+    answer_index = None
+    for index in range(len(chain) - 1, -1, -1):
+        if chain[index]["in_repo"]:
+            answer_index = index
+            break
+    if answer_index is None:
+        return _finish("degraded", "no_answering_file")
+
+    answer = chain[answer_index]
+    caller = chain[answer_index - 1] if answer_index > 0 else None
+    answer["answering"] = True
+    if caller is not None:
+        caller["caller"] = True
+    answer_path = answer["file"]
+    result["answering"] = {
+        "file": answer_path,
+        "function": answer["function"],
+        "line": answer["line"],
+        "depth": answer["depth"],
+        "exact_frame": answer_index == len(chain) - 1,
+        "caller_file": ((caller["file"] or caller.get("external_name", ""))
+                        if caller is not None else ""),
+        "caller_function": caller["function"] if caller is not None else "",
+        "caller_line": caller["line"] if caller is not None else 0,
+    }
+
+    if deployed_sha is None:
+        return _finish("unknown", "no_deployed_sha")
+
+    inspected: list[str] = []
+    for entry in reversed(chain):
+        if not entry["in_repo"] or entry["file"] in inspected:
+            continue
+        if len(inspected) >= files_limit:
+            break
+        inspected.append(entry["file"])
+
+    basis_kind = "none"
+    basis_revs: list[str] = []
+    if previous_sha is not None and previous_sha != deployed_sha:
+        basis_kind = "release_diff"
+        basis_revs = [f"{previous_sha}..{deployed_sha}"]
+    else:
+        basis_kind = "recent_before_release"
+        basis_revs = [deployed_sha]
+    result["release"]["basis"] = basis_kind
+
+    deadline = time.monotonic() + _CORRELATION_DEADLINE_SECONDS
+
+    def _remaining() -> float:
+        return deadline - time.monotonic()
+
+    released, released_reason, log_truncated = _git_paths_log(
+        root, basis_revs, inspected, limit=commits_limit,
+        timeout=_remaining())
+    truncated = log_truncated
+    failure = ""
+    if released is None:
+        failure = released_reason
+    else:
+        checked.add("changed_files")
+
+    undeployed_refs: list[str] = []
+    for ref in (checkout_sha, upstream_sha):
+        if ref is not None and ref != deployed_sha \
+                and ref not in undeployed_refs:
+            undeployed_refs.append(ref)
+    undeployed: list[dict] = []
+    if undeployed_refs and released is not None:
+        ranges = [f"{deployed_sha}..{ref}" for ref in undeployed_refs]
+        undeployed, undeployed_reason, undeployed_truncated = _git_paths_log(
+            root, ranges, inspected,
+            limit=max(commits_limit, min(10, commits_limit * 2)),
+            timeout=_remaining())
+        truncated = truncated or undeployed_truncated
+        if undeployed is None:
+            undeployed = []
+            if not failure:
+                failure = undeployed_reason
+
+    commits_out: list[dict] = []
+    for commit in released or []:
+        for path in commit["paths"] or [""]:
+            commits_out.append({
+                "sha": commit["sha"],
+                "path": path,
+                "deployed": True,
+                "in_release": basis_kind == "release_diff",
+                "committed_at": commit["committed_at"],
+                "subject": commit["subject"],
+                "source": basis_kind,
+            })
+    for commit in undeployed:
+        for path in commit["paths"] or [""]:
+            commits_out.append({
+                "sha": commit["sha"],
+                "path": path,
+                "deployed": False,
+                "in_release": False,
+                "committed_at": commit["committed_at"],
+                "subject": commit["subject"],
+                "source": "undeployed_range",
+            })
+    commits_out = commits_out[:12]
+    result["commits"] = commits_out
+
+    symbol_match = False
+    files_out: list[dict] = []
+    for path in inspected:
+        path_released = [c for c in commits_out
+                         if c["deployed"] and c["path"] == path]
+        path_undeployed = [c for c in commits_out
+                           if not c["deployed"] and c["path"] == path]
+        match = False
+        if path == answer_path and path_released:
+            newest_released = path_released[0]
+            diff, diff_reason = _git_commit_diff(
+                root, newest_released["sha"], path, budget_chars=diff_budget,
+                timeout=_remaining())
+            if diff is None:
+                if not failure:
+                    failure = diff_reason
+            else:
+                result["commit_diff"] = diff
+                checked.add("commit_diff")
+                checked.add("changed_symbols")
+                truncated = truncated or bool(diff.get("truncated"))
+                match = bool(
+                    set(frame_functions.get(path) or ())
+                    & set(diff.get("symbols") or ()))
+                symbol_match = symbol_match or match
+                newest_released["symbol_match"] = match
+                newest_released["changed_symbols"] = (
+                    diff.get("symbols") or [])
+        files_out.append({
+            "path": path,
+            "role": "answering" if path == answer_path else "call_chain",
+            "changed_in_release": bool(path_released),
+            "released_commits": len(path_released),
+            "undeployed_commits": len(path_undeployed),
+            "symbol_match": match,
+            "released_sha": (path_released[0]["sha"]
+                             if path_released else ""),
+            "undeployed_sha": (path_undeployed[0]["sha"]
+                               if path_undeployed else ""),
+        })
+    result["files"] = files_out
+
+    candidates = [c for c in commits_out
+                  if c.get("deployed") and c["path"] == answer_path]
+    excluded = [c for c in commits_out if not c.get("deployed")]
+    if relation == "event_before_release":
+        # Событие раньше установки релиза: изменение релиза не может быть
+        # причиной. Оно остаётся видимым, но помечено как не-виновное.
+        excluded.extend({**item, "reason": "event_precedes_release"}
+                        for item in candidates)
+        candidates = []
+    result["candidates"] = [{
+        "sha": item["sha"],
+        "path": item["path"],
+        "deployed": True,
+        "in_release": item["in_release"],
+        "symbol_match": bool(item.get("symbol_match")),
+        "reason": "touches_answering_file",
+    } for item in candidates]
+    result["excluded"] = [{
+        "sha": item["sha"],
+        "path": item["path"],
+        "deployed": False,
+        "reason": item.get("reason") or "undeployed_commit",
+    } for item in excluded]
+
+    newest_sha = (excluded[0]["sha"] if excluded
+                  else (checkout_sha or upstream_sha))
+    result["blame"].update({
+        "newest_commit": newest_sha,
+        "newest_deployed": bool(newest_sha is not None
+                                and newest_sha == deployed_sha),
+    })
+
+    if released is None:
+        verdict = "not_comparable"
+    elif relation == "event_before_release":
+        verdict = "event_precedes_release"
+    elif candidates:
+        verdict = "release_change_suspect"
+    else:
+        verdict = "no_release_change_found"
+    result["blame"].update({
+        "verdict": verdict,
+        "candidate_count": len(candidates),
+        "excluded_count": len(excluded),
+    })
+    result["truncated"] = bool(truncated)
+
+    if failure:
+        return _finish("unknown" if released is None else "degraded",
+                       failure if failure in CORRELATION_REASONS
+                       else "git_unavailable")
+    if truncated:
+        return _finish("degraded", "budget_exhausted")
+    if identity_code != "verified_deployed":
+        return _finish("degraded", "deployed_unverified")
+    if basis_kind == "recent_before_release":
+        return _finish("degraded", "no_previous_sha")
+    if relation == "unknown":
+        return _finish("degraded", "event_time_unknown")
+    return _finish("ok", "")
+

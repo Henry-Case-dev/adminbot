@@ -288,6 +288,29 @@ def _sanitize_text(text: str) -> str:
         return str(text or "")
 
 
+def sanitize_text(text: str) -> str:
+    """Публичная форма существующего sanitizer'а (один на проект).
+
+    Нужна потребителям структурных фактов (например, корреляции traceback),
+    чтобы не заводить вторую копию маскировки секретов.
+    """
+    return _sanitize_text(text)
+
+
+def traceback_frames(text: str) -> dict:
+    """Публичная структурная выжимка traceback: кадры + exception.
+
+    Тот же разбор (``_parse_traceback``), что использует ``stack_summary``;
+    текст кадров уже прошёл существующий sanitizer. Возвращает
+    ``{"frames": [...], "exception": {...}|None, "partial": bool}`` и не
+    бросает на произвольном тексте.
+    """
+    try:
+        return _parse_traceback(str(text or ""))
+    except Exception:       # pragma: no cover - защитная ветка
+        return {"frames": [], "exception": None, "partial": True}
+
+
 def stack_summary(text: str,
                   *,
                   budget_chars: int = 2000,

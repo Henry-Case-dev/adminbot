@@ -1875,6 +1875,145 @@ async def _probe_deploy_identity(ctx: ProbeContext) -> ProbeObservation:
         not_checked=tuple(not_checked))
 
 
+_TRACEBACK_EVENT_SOURCE = "log_ring"
+_TRACEBACK_ENTRY_LIMIT = 5
+_TRACEBACK_STATUS_MAP = {
+    "ok": bundle.STATUS_OK,
+    "degraded": bundle.STATUS_DEGRADED,
+    "unknown": bundle.STATUS_UNKNOWN,
+    "unavailable": bundle.STATUS_UNAVAILABLE,
+}
+
+
+def _latest_error_traceback(ctx: ProbeContext) -> tuple[dict | None, str]:
+    """Последний traceback из существующего in-process error ring."""
+    try:
+        ring = (ctx.deps.log_ring_getter or log_ring.get_log_ring)()
+    except Exception:
+        return None, "log_ring_unavailable"
+    try:
+        entries = ring.get_entries(level="ERROR", limit=_TRACEBACK_ENTRY_LIMIT)
+    except Exception:
+        return None, "log_ring_read_failed"
+    for entry in entries or ():
+        if isinstance(entry, dict) and str(entry.get("exc_text") or "").strip():
+            return entry, ""
+    return None, "no_error_traceback"
+
+
+async def _identity_for_correlation(ctx: ProbeContext, root):
+    from services import deploy_identity
+
+    collector = ctx.deps.identity_collector or deploy_identity.collect_identity
+    process_started_at = getattr(ctx.deps.status, "started_at", None)
+    try:
+        record = await asyncio.wait_for(
+            asyncio.to_thread(collector, root,
+                              process_started_at=process_started_at),
+            timeout=max(1.5, float(ctx.limits.probe_timeout_seconds)))
+    except Exception:
+        return {}
+    return record if isinstance(record, dict) else {}
+
+
+async def _probe_deploy_traceback(ctx: ProbeContext) -> ProbeObservation:
+    from services import deploy_identity
+
+    entry, reason = _latest_error_traceback(ctx)
+    axes = tuple(deploy_identity.CORRELATION_AXES)
+    if entry is None:
+        # Нет признаков ошибки — коррелировать нечего; это не «здоров».
+        status = (bundle.STATUS_OK if reason == "no_error_traceback"
+                  else bundle.STATUS_UNAVAILABLE)
+        return _observation(
+            "deploy", status=status,
+            facts={"correlation": None, "error_traceback": False},
+            source_id="deploy:traceback", health_criterion="none",
+            reason_code=reason, not_checked=axes,
+            complete=(status == bundle.STATUS_OK),
+            why="" if status == bundle.STATUS_OK else reason)
+    cleaned, redaction = ctx.redact(str(entry.get("exc_text") or ""))
+    root = _default_repo_root(ctx.deps)
+    identity = await _identity_for_correlation(ctx, root)
+    # Внутренний дедлайн обязан сработать раньше внешнего probe-timeout,
+    # иначе честный degraded подменяется общим probe_timeout.
+    budget = max(1.5, float(ctx.limits.probe_timeout_seconds) - 0.4)
+    try:
+        correlation = await asyncio.wait_for(
+            asyncio.to_thread(
+                deploy_identity.correlate_traceback, root,
+                traceback_text=cleaned, event_at=entry.get("ts"),
+                event_source=_TRACEBACK_EVENT_SOURCE, identity=identity),
+            timeout=budget)
+    except asyncio.TimeoutError:
+        return _observation(
+            "deploy", status=bundle.STATUS_DEGRADED,
+            facts={"correlation": None, "error_traceback": True,
+                   "event_at": entry.get("ts"),
+                   "event_source": _TRACEBACK_EVENT_SOURCE},
+            source_id="deploy:traceback", health_criterion="none",
+            reason_code="correlation_timeout", not_checked=axes,
+            complete=False, why="correlation_timeout", redaction=redaction)
+    if not isinstance(correlation, dict):
+        correlation = {}
+    code = str(correlation.get("status") or "unknown")
+    status = _TRACEBACK_STATUS_MAP.get(code, bundle.STATUS_UNKNOWN)
+    release = correlation.get("release") if isinstance(
+        correlation.get("release"), dict) else {}
+    answering = correlation.get("answering") if isinstance(
+        correlation.get("answering"), dict) else {}
+    blame = correlation.get("blame") if isinstance(
+        correlation.get("blame"), dict) else {}
+    facts = {
+        "error_traceback": True,
+        "event_at": entry.get("ts"),
+        "event_source": _TRACEBACK_EVENT_SOURCE,
+        "correlation_status": code,
+        "correlation_reason": correlation.get("reason"),
+        "blame_verdict": blame.get("verdict"),
+        "answering_file": answering.get("file"),
+        "answering_function": answering.get("function"),
+        "answering_line": answering.get("line"),
+        "caller_file": answering.get("caller_file"),
+        "caller_function": answering.get("caller_function"),
+        "deployed_sha": release.get("deployed_sha"),
+        "release_installed_at": release.get("deployed_at"),
+        "release_verified": release.get("verification"),
+        "release_basis": release.get("basis"),
+        "newest_commit": blame.get("newest_commit"),
+        "newest_commit_blamed": bool(blame.get("newest_blamed")),
+        "deployed_candidates": blame.get("candidate_count"),
+        "excluded_undeployed": blame.get("excluded_count"),
+        "truncated": bool(correlation.get("truncated")),
+        "correlation": correlation,
+    }
+    verified = None
+    if release.get("verification") == "verified_deployed":
+        verified = True
+    elif release.get("verification") == "not_confirmed":
+        verified = False
+    ref = None
+    deployed_sha = release.get("deployed_sha")
+    if isinstance(deployed_sha, str) and deployed_sha:
+        try:
+            ref = bundle.source_ref(
+                store="external", entity_type="unknown",
+                entity_id=f"commit:{deployed_sha}", resolution="unknown")
+        except Exception:
+            ref = None
+    not_checked = tuple(correlation.get("not_checked") or axes)
+    return _observation(
+        "deploy", status=status, facts=facts, source_id="deploy:traceback",
+        health_criterion="none", verified=verified,
+        reason_code=(None if status == bundle.STATUS_OK
+                     else str(correlation.get("reason") or code)),
+        not_checked=not_checked, redaction=redaction, source_ref=ref,
+        complete=(status == bundle.STATUS_OK),
+        why="" if status == bundle.STATUS_OK else str(
+            correlation.get("reason") or code),
+        truncated=bool(correlation.get("truncated")))
+
+
 # ── network ───────────────────────────────────────────────────────────────
 
 def _configured_hosts() -> list[str]:
@@ -2168,6 +2307,14 @@ _BUILTIN_PROBES: tuple[ProbeSpec, ...] = (
         READ_SCOPE_INSTANCE, handler=_probe_config_effective,
         source_owner="runtime"),
     ProbeSpec(
+        "deploy.traceback", "deploy", "Traceback ↔ deployed SHA",
+        "Существующие log-ring/stack-summary и git-метаданные: время события, "
+        "установка релиза, call chain, отвечающий файл/функция/caller, "
+        "изменения между релизами и commit diff. Коммит вне deployed_sha "
+        "помечается deployed=false и не обвиняется.",
+        READ_SCOPE_REPO, handler=_probe_deploy_traceback,
+        source_owner="repo"),
+    ProbeSpec(
         "deploy.identity", "deploy", "Деплой и ревизия",
         "Существующий deploy_identity: repo_origin/deployed_sha/checkout_sha/"
         "dirty/upstream; commits — только по явному include_commits.",
@@ -2201,10 +2348,10 @@ _BUILTIN_PROBES: tuple[ProbeSpec, ...] = (
         "LLM-стадии и без нового агента.",
         READ_SCOPE_CURRENT_CHAT, scenario=True,
         children=(
-            "deploy.identity", "process.self", "resources.cpu",
-            "resources.memory", "scheduler.jobs", "media.stt",
-            "dependencies.providers", "logs.window", "logs.events",
-            "config.effective", "incidents.active",
+            "deploy.identity", "deploy.traceback", "process.self",
+            "resources.cpu", "resources.memory", "scheduler.jobs",
+            "media.stt", "dependencies.providers", "logs.window",
+            "logs.events", "config.effective", "incidents.active",
         ),
         source_owner="runtime"),
 )
