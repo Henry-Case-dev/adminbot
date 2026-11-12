@@ -1666,7 +1666,7 @@ def test_both_carriers_ok_puts_the_row_in_the_journal_only(tmp_path,
 
     led.record_attempt(_publication_row("ok-1"))
 
-    assert led._unpersisted == []
+    assert meme.held_unpersisted(led.path) == []
     assert not pathlib.Path(led.pending_path()).exists()
     assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
         ["ok-1"]
@@ -1682,7 +1682,8 @@ def test_journal_failure_keeps_the_row_in_the_spool_without_holding(
     led.record_attempt(_publication_row("spooled-A"))
 
     assert pathlib.Path(led.pending_path()).exists()
-    assert led._unpersisted == [], "спул справился — удерживать нечего"
+    assert meme.held_unpersisted(led.path) == [], \
+        "спул справился — удерживать нечего"
     assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
         ["spooled-A"]
     assert led.attempts(-101, limit=5) == []
@@ -1704,7 +1705,8 @@ def test_both_carriers_fail_hold_the_row_then_flush_it_exactly_once(
 
     led.record_attempt(_publication_row("held-1", ts=NOW.timestamp()))
 
-    assert [row["attempt_id"] for row in led._unpersisted] == ["held-1"]
+    assert [row["attempt_id"] for row in meme.held_unpersisted(led.path)] == \
+        ["held-1"]
     assert not pathlib.Path(led.pending_path()).exists()
     assert led.attempts(-100, limit=5) == [], "в журнале строки ещё нет"
 
@@ -1717,7 +1719,7 @@ def test_both_carriers_fail_hold_the_row_then_flush_it_exactly_once(
 
     rows = led.attempts(-100, limit=10)
     assert sorted(row["attempt_id"] for row in rows) == ["held-1", "held-2"]
-    assert led._unpersisted == [], "удержанная строка перенесена"
+    assert meme.held_unpersisted(led.path) == [], "удержанная строка перенесена"
     # Ровно один раз: повторная запись того же attempt_id — no-op (ID2).
     led.record_attempt(_publication_row("held-1"))
     ids = [row["attempt_id"] for row in led.attempts(-100, limit=10)]
@@ -1793,10 +1795,14 @@ def test_held_row_is_not_fabricated_into_the_read_model(tmp_path, monkeypatch):
 def test_unpersisted_cap_logs_the_oldest_in_full(tmp_path, monkeypatch, caplog):
     """Свойство 5: за потолком 200 самая старая строка пишется в лог целиком.
 
+    Потолок — общий на ПУТЬ журнала: держат ДВА разных экземпляра одного файла
+    (`open_ledger` создаёт новый объект каждый проход), а реестр один.
+
     Mutation: молча вытеснять (`pop(0)` без записи) — в логе нет evicted-строки,
     факт пропадает анонимно, тест красный.
     """
-    led = _ledger(tmp_path)
+    led_a = _ledger(tmp_path)
+    led_b = meme.SqliteQuotaLedger(led_a.path)
     monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
     _break_journal(monkeypatch)
     _break_spool(monkeypatch)
@@ -1804,12 +1810,14 @@ def test_unpersisted_cap_logs_the_oldest_in_full(tmp_path, monkeypatch, caplog):
     caplog.set_level("ERROR")
 
     for index in range(total):
-        led.record_attempt(_attempt_row("cap-%03d" % index,
-                                        ts=NOW.timestamp() + index))
+        owner = led_a if index % 2 == 0 else led_b
+        owner.record_attempt(_attempt_row("cap-%03d" % index,
+                                          ts=NOW.timestamp() + index))
 
-    assert len(led._unpersisted) == meme.ATTEMPT_UNPERSISTED_MAX
-    assert led._unpersisted[0]["attempt_id"] == "cap-001"
-    assert led._unpersisted[-1]["attempt_id"] == "cap-%03d" % (total - 1)
+    held = meme.held_unpersisted(led_a.path)
+    assert len(held) == meme.ATTEMPT_UNPERSISTED_MAX
+    assert held[0]["attempt_id"] == "cap-001"
+    assert held[-1]["attempt_id"] == "cap-%03d" % (total - 1)
 
     evicted = [rec.getMessage() for rec in caplog.records
                if "evicted over cap" in rec.getMessage()]
@@ -1818,6 +1826,102 @@ def test_unpersisted_cap_logs_the_oldest_in_full(tmp_path, monkeypatch, caplog):
     assert payload["attempt_id"] == "cap-000"
     assert set(payload) == set(meme.SPOOL_FIELDS)
     assert payload["stage"] == meme.STAGE_PUBLISH
+
+
+def test_held_row_survives_a_new_ledger_instance_on_same_path(
+        tmp_path, monkeypatch):
+    """Свойство 6 (CORRECTION RW-D4): удержание живёт на ПУТИ журнала, не на объекте.
+
+    Production берёт `meme.open_ledger(db)` на каждый проход (наблюдатель,
+    `/meme`, отчёты, диагностика) — это НОВЫЙ объект того же файла. Поэтому
+    переносчиком удержанной строки почти всегда является другой экземпляр. На
+    прежнем коде (`self._unpersisted`) строка A не доезжала до журнала никогда:
+    запись B видела только B, а единственным следом оставался ERROR.
+
+    Mutation: вернуть список на экземпляр — тест красный (в журнале нет
+    `cross-1`, реестр пути не пуст).
+    """
+    led_a = _ledger(tmp_path)
+    path = led_a.path
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    original_insert = meme.SqliteQuotaLedger._insert_attempt
+    original_spool = meme.SqliteQuotaLedger._spool_attempt
+    _break_journal(monkeypatch)
+    _break_spool(monkeypatch)
+
+    led_a.record_attempt(_publication_row("cross-1", ts=NOW.timestamp()))
+
+    assert [row["attempt_id"] for row in meme.held_unpersisted(path)] == \
+        ["cross-1"]
+    assert led_a.attempts(-100, limit=5) == [], "в журнале строки ещё нет"
+
+    # Следующий проход = новый объект того же файла. Читатель не переносит.
+    led_b = meme.SqliteQuotaLedger(path)
+    assert led_b.attempts(-100, limit=5) == []
+    assert len(meme.held_unpersisted(path)) == 1
+
+    # Носители освободились: перенос делает уже ДРУГОЙ экземпляр.
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt",
+                        original_insert)
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_spool_attempt",
+                        original_spool)
+    led_b.record_attempt(_publication_row("cross-2", ts=NOW.timestamp() + 1))
+
+    ids = sorted(row["attempt_id"] for row in led_b.attempts(-100, limit=10))
+    assert ids == ["cross-1", "cross-2"], ids
+    assert meme.held_unpersisted(path) == [], "чужое удержание не перенесено"
+    # Ровно один раз: повторная запись того же attempt_id — no-op (ID2).
+    led_b.record_attempt(_publication_row("cross-1"))
+    ids = [row["attempt_id"] for row in led_b.attempts(-100, limit=10)]
+    assert ids.count("cross-1") == 1, ids
+
+
+def test_two_ledgers_in_two_threads_hold_and_flush_without_loss(
+        tmp_path, monkeypatch):
+    """Свойство 7: общий реестр удержания безопасен при двух потоках.
+
+    Наблюдатель, `/meme` и отчёты живут в одном процессе: пять удержаний из
+    одного потока и пять из другого на одном файле должны дать ровно десять
+    строк, а перенос — без потерь и без дублей.
+    """
+    led_a = _ledger(tmp_path)
+    path = led_a.path
+    led_b = meme.SqliteQuotaLedger(path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    original_insert = meme.SqliteQuotaLedger._insert_attempt
+    original_spool = meme.SqliteQuotaLedger._spool_attempt
+    _break_journal(monkeypatch)
+    _break_spool(monkeypatch)
+    first = ["thr-a-%d" % index for index in range(5)]
+    second = ["thr-b-%d" % index for index in range(5)]
+
+    def hold(ledger, attempt_ids):
+        for attempt_id in attempt_ids:
+            ledger.record_attempt(_publication_row(attempt_id,
+                                                   ts=NOW.timestamp()))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        done = [pool.submit(hold, led_a, first),
+                pool.submit(hold, led_b, second)]
+    for future in done:
+        future.result()
+
+    assert sorted(row["attempt_id"] for row in meme.held_unpersisted(path)) == \
+        sorted(first + second), "потеря или дубль при одновременном удержании"
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt",
+                        original_insert)
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_spool_attempt",
+                        original_spool)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        done = [pool.submit(led_a.record_attempt, _publication_row("thr-c")),
+                pool.submit(led_b.record_attempt, _publication_row("thr-d"))]
+    for future in done:
+        future.result()
+
+    ids = sorted(row["attempt_id"] for row in led_a.attempts(-100, limit=20))
+    assert ids == sorted(first + second + ["thr-c", "thr-d"]), ids
+    assert meme.held_unpersisted(path) == []
 
 
 def test_id_conc_aggregator_keeps_chats_and_competitors_apart(tmp_path):
