@@ -3071,6 +3071,7 @@
                         <span data-ini-pub-counters>
                           проверено {{ iniPubCounts.checked == null ? 'нет данных' : iniPubCounts.checked }}
                           · решено {{ iniPubCounts.decided == null ? 'нет данных' : iniPubCounts.decided }}
+                          · сгенерировано {{ iniPubCounts.generated == null ? 'нет данных' : iniPubCounts.generated }}
                           · опубликовано {{ iniPubCounts.published == null ? 'нет данных' : iniPubCounts.published }}
                           · доставлено {{ iniPubCounts.delivered == null ? 'нет данных' : iniPubCounts.delivered }}
                           · ожидает {{ iniPubCounts.pending == null ? 'нет данных' : iniPubCounts.pending }}
@@ -3080,7 +3081,9 @@
                         </template>
                         <span class="text-[10px] text-gray-600"
                               data-ini-pub-counts-note>· категории вложенные, не слагаются;
-                          текст {{ iniPubCounts.text == null ? 'нет данных' : iniPubCounts.text }}
+                          LLM-вызовы {{ iniPubCounts.llmCalls == null ? 'нет данных' : iniPubCounts.llmCalls }}
+                          · изображения {{ iniPubCounts.images == null ? 'нет данных' : iniPubCounts.images }}
+                          · текст {{ iniPubCounts.text == null ? 'нет данных' : iniPubCounts.text }}
                           · мемы {{ iniPubCounts.meme == null ? 'нет данных' : iniPubCounts.meme }}</span>
                       </template>
                       <template v-else>
@@ -3269,6 +3272,19 @@
                                       :data-ini-step-code="step.key">{{ step.codeLabel }}
                                   <span class="text-gray-600">{{ step.code }}</span></span>
                                 <span v-if="step.note" class="ini-trace-step__note">{{ step.note }}</span>
+                                <!-- §P0IM-PB-STEP: длительность (если измерена)
+                                     и ID запроса. «Не записана» — честный null
+                                     с причиной, не 0. -->
+                                <span class="ini-trace-step__meta"
+                                      :data-ini-step-duration="step.key">
+                                  длительность: {{ step.durationText }}</span>
+                                <span v-if="step.requestId" class="ini-trace-step__meta"
+                                      :data-ini-step-request-id="step.key">
+                                  запрос: {{ step.requestId }}</span>
+                                <!-- §P0IM-PB-LLM: чем реально шёл шаг; запись
+                                     модели не хранит — так и сказано. -->
+                                <span v-if="step.modelText" class="ini-trace-step__meta"
+                                      :data-ini-step-llm="step.key">{{ step.modelText }}</span>
                               </li>
                             </ol>
                           </div>
@@ -3537,10 +3553,16 @@
                           <div class="meme-diag-title">
                             {{ item.title }}
                             <span class="badge"
-                                  :class="item.block.isNoData ? 'badge-warn' : 'badge-muted'"
-                                  data-meme-diag-state>
-                              {{ item.block.isNoData ? 'нет данных' : 'данные есть' }}
+                                  :class="item.block.isStale ? 'badge-warn'
+                                    : (item.block.isNoData ? 'badge-warn' : 'badge-muted')"
+                                  :data-meme-diag-state="item.key"
+                                  :data-meme-diag-stale="item.block.isStale ? 'true' : 'false'">
+                              {{ item.block.stateLabel }}
                             </span>
+                          </div>
+                          <div v-if="item.block.staleNote"
+                               class="text-amber-300" data-meme-diag-stale-note>
+                            {{ item.block.staleNote }}
                           </div>
                           <div v-if="item.block.isNoData && item.block.noDataReasons.length"
                                class="text-gray-500" data-meme-diag-nodata>

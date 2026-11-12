@@ -3191,6 +3191,21 @@
       available: available,
       isNoData: present ? !available : true,
       dataState: String(b.data_state || ''),
+      // §P0IM-PB-VOCAB: «данные устарели» — ТРЕТЬЕ состояние карточки, а не
+      // ещё один вид «нет данных»: числа есть, но запись старше своего окна.
+      // Окно и возраст называются из ответа (или честно «не записано»).
+      isStale: (b.data_state === 'stale' || b.stale === true),
+      stateLabel: (!present || b.data_state === 'no_data'
+        ? 'нет данных'
+        : (b.data_state === 'stale' || b.stale === true
+          ? 'данные устарели' : 'данные есть')),
+      staleAgeText: (b.stale_age_seconds == null
+        ? '' : memeDurationText(b.stale_age_seconds)),
+      staleWindowText: (b.stale_window_seconds == null
+        ? '' : memeDurationText(b.stale_window_seconds)),
+      staleBasisLabel: (MEME_STALE_BASIS[String(b.stale_window_basis || '')]
+        || ''),
+      staleNote: iniStaleNote(b),
       noDataReasons: (b.no_data_reasons || []).map(function (code) {
         return { code: code, label: memeReasonLabelOf(code) };
       }),
@@ -3409,9 +3424,24 @@
   }
 
   //: Один шаг: всё, что показано, взято из записи. `at` — штамп записи.
+  //: §P0IM-PB-STEP: длительность и ID запроса — тоже из записи шага; нет
+  //: измерения — `null` с причиной, а не «0 мс».
+  //: §P0IM-PB-LLM: провайдер/модель/слот — из записи, иначе честно «не записано».
   function iniTraceStep(key, label, patch) {
     var p = patch || {};
     var state = String(p.state || 'not_run');
+    var duration = (p.durationMs == null ? null : Number(p.durationMs));
+    var requestId = String(p.requestId || '');
+    var llm = (p.llm && typeof p.llm === 'object') ? p.llm : null;
+    var modelText = '';
+    if (llm) {
+      var parts = [];
+      if (llm.provider) parts.push('провайдер: ' + String(llm.provider));
+      if (llm.model) parts.push('модель: ' + String(llm.model));
+      if (llm.slot) parts.push('слот: ' + String(llm.slot));
+      modelText = parts.length ? parts.join(' · ')
+        : 'провайдер/модель/слот не записаны';
+    }
     return {
       key: key,
       label: label,
@@ -3422,7 +3452,24 @@
       code: String(p.code || ''),
       codeLabel: (p.code ? iniCodeLabel(p.code) : ''),
       note: String(p.note || ''),
+      durationMs: duration,
+      durationText: (duration == null
+        ? 'длительность не записана' : iniDurationText(duration)),
+      durationReason: String(p.durationReason || ''),
+      requestId: requestId,
+      requestIdSource: String(p.requestIdSource || ''),
+      requestIdText: (requestId || 'не записан'),
+      modelText: modelText,
     };
+  }
+
+  //: Миллисекунды в компактный человеческий вид (без «0 с» у неизмеренного).
+  function iniDurationText(ms) {
+    var value = Number(ms);
+    if (!isFinite(value) || value < 0) return 'длительность не записана';
+    if (value < 1000) return Math.round(value) + ' мс';
+    if (value < 60000) return (Math.round(value / 100) / 10) + ' с';
+    return Math.round(value / 60000) + ' мин';
   }
 
   //: Факты одного этапа из его строки журнала (detail JSON строки — плоский).
@@ -3543,6 +3590,47 @@
     var steps = dict.map(function (pair) {
       var patch = patches[pair[0]] || { state: 'not_run', text: '' };
       return iniTraceStep(pair[0], pair[1], patch);
+    });
+    // §P0IM-PB-STEP / §P0IM-PB-LLM: шаг связывается со СВОЕЙ записью — строкой
+    // этапа (мем) или событием с тем же временем (текст). Берутся только
+    // записанные значения; нет записи — null и причина, без «0» и без модели
+    // из текущих настроек.
+    var stageOfStep = {
+      summary: 'summary', joke: 'joke', image: 'image_generation',
+      delivery: 'publish',
+    };
+    var eventByTs = {};
+    events.forEach(function (ev) {
+      var ts = Number(ev && ev.ts);
+      if (isFinite(ts) && eventByTs[ts] == null) eventByTs[ts] = ev;
+    });
+    steps = steps.map(function (step) {
+      var row = stageOfStep[step.key] ? byStage[stageOfStep[step.key]] : null;
+      var ev = (step.at == null) ? null : eventByTs[Number(step.at)];
+      var src = row || ev || null;
+      if (!src) return step;
+      if (src.duration_ms != null) {
+        step.durationMs = Number(src.duration_ms);
+        step.durationText = iniDurationText(step.durationMs);
+      }
+      step.durationReason = String(src.duration_reason || step.durationReason
+                                   || '');
+      var rid = String(src.request_id || '');
+      if (rid) {
+        step.requestId = rid;
+        step.requestIdText = rid;
+        step.requestIdSource = String(src.request_id_source || '');
+      }
+      if (src.llm && typeof src.llm === 'object') {
+        step.llm = src.llm;
+        var parts = [];
+        if (src.llm.provider) parts.push('провайдер: ' + String(src.llm.provider));
+        if (src.llm.model) parts.push('модель: ' + String(src.llm.model));
+        if (src.llm.slot) parts.push('слот: ' + String(src.llm.slot));
+        step.modelText = parts.length ? parts.join(' · ')
+          : 'провайдер/модель/слот не записаны';
+      }
+      return step;
     });
     // Место остановки: неизвестный код причины остаётся видимым как «код: …»,
     // но шаг остановки НЕ угадывается: без записи в словаре причин место
@@ -4268,6 +4356,34 @@
     publication_precheck: 'бронь публикации',
     chat_scope: 'выбор чата',
   };
+  //: §P0IM-PB-VOCAB: на каком записанном основании объявлено окно свежести.
+  //: Значение приходит из ответа; незнакомое не подписывается догадкой.
+  var MEME_STALE_BASIS = {
+    eval_interval: 'по интервалу оценки',
+    cooldown: 'по своему кулдауну',
+  };
+
+  //: §P0IM-PB-VOCAB: пояснение к третьему состоянию. «Нет данных» здесь нет и
+  //: быть не может — запись есть, она лишь старше своего окна; если окно не
+  //: записано, так и говорится (порог не выдумывается).
+  function iniStaleNote(block) {
+    var b = (block && typeof block === 'object') ? block : {};
+    if (b.data_state !== 'stale' && b.stale !== true) {
+      if (b.stale_reason === 'window_not_recorded') {
+        return 'окно свежести не записано — возраст записи не с чем сверить';
+      }
+      return '';
+    }
+    var age = (b.stale_age_seconds == null)
+      ? 'возраст не измерен' : ('возраст ' + memeDurationText(b.stale_age_seconds));
+    var basis = MEME_STALE_BASIS[String(b.stale_window_basis || '')] || '';
+    if (b.stale_window_seconds == null) {
+      return 'запись старше своего окна: ' + age + ', окно не записано';
+    }
+    return 'запись старше своего окна: ' + age
+      + ' при окне ' + memeDurationText(b.stale_window_seconds)
+      + (basis ? (' (' + basis + ')') : '');
+  }
 
   //: P0IM-BAN-NOETA: почему вычисленной нижней границы нет. Причина берётся из
   //: уже записанного основания кулдауна (`cooldown.basis`), а не выдумывается.
@@ -4305,8 +4421,9 @@
     var c = (data && data.counts && typeof data.counts === 'object')
       ? data.counts : null;
     if (!c) return null;
-    var keys = ['checked', 'decided', 'published', 'delivered', 'pending',
-                'delivery_unknown', 'text', 'meme'];
+    var keys = ['checked', 'decided', 'generated', 'published', 'delivered',
+                'pending', 'delivery_unknown', 'text', 'meme',
+                'llm_calls', 'images'];
     var out = {};
     var seen = false;
     keys.forEach(function (key) {
@@ -10741,10 +10858,15 @@
           days: days,
           checked: num('checked'),
           decided: num('decided'),
+          // §P0IM-BAN-CONFLATE: «сгенерировано» — отдельная величина, не
+          // «опубликовано»; §P0IM-PB-COUNT: вызовы и изображения отдельно.
+          generated: num('generated'),
           published: num('published'),
           delivered: num('delivered'),
           pending: num('pending'),
           deliveryUnknown: num('delivery_unknown'),
+          llmCalls: num('llm_calls'),
+          images: num('images'),
           text: num('text'),
           meme: num('meme'),
         };

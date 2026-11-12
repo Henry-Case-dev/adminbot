@@ -122,6 +122,30 @@ OUTCOME_DEFERRED = "deferred"
 OUTCOME_UNKNOWN = "delivery_unknown"
 OUTCOME_OTHER = "other"
 
+#: S4-TRACE (§P0IM-PB-COUNT / §P0IM-BAN-CONFLATE): этапы журнала мема, по
+#: которым считаются РАЗНЫЕ величины воронки. Выжимка и прикол — ровно два
+#: LLM-вызова одной попытки; `image_generation` — запрос к Image API;
+#: `publish` — попытка, у которой картинка реально получилась (журнал дошёл до
+#: публикации). Значения сверяются с `meme_initiative.STAGE_*` тестом, чтобы
+#: словарь не разъехался; импорт на уровне модуля дал бы цикл.
+LLM_STAGE_NAMES = ("summary", "joke")
+IMAGE_STAGE_NAME = "image_generation"
+PUBLISH_STAGE_NAME = "publish"
+
+#: Почему у шага нет длительности: журнал мема пишет ОДНУ метку времени
+#: попытки (время старта) во все строки этапов, поэтому измеренной
+#: длительности шага в записи нет. Это не «0 мс» и не «мгновенно».
+STEP_TIMING_NOT_RECORDED = "step_timing_not_recorded"
+DURATION_NOT_RECORDED = "duration_not_recorded"
+#: Почему у шага нет фактической модели/провайдера/слота: запись этапа их не
+#: хранит (R0: текст модели не пишется). Значение НЕ подставляется из текущих
+#: настроек — настройка не доказывает, чем шёл прошлый вызов.
+LLM_NOT_RECORDED_STAGE = "not_recorded_in_stage_record"
+LLM_NOT_RECORDED_EVENT = "not_recorded_in_event_record"
+#: Ключи записи, в которых модель/провайдер/слот МОГЛИ БЫ лежать. Читаются
+#: как есть: появится записанное значение — оно и уедет в ответ.
+LLM_RECORD_KEYS = ("provider", "model", "slot")
+
 #: Имя события → вид. Незнакомое `publication_*`/`initiative_publication_*`
 #: классифицируется по `outcome` (см. `_publication_kind`), поэтому новые
 #: коды P0 видны без правки списка.
@@ -153,6 +177,62 @@ def _int(value, default=0):
 
 def _str(value) -> str:
     return "" if value is None else str(value)
+
+
+def _llm_fields(record: dict | None, reason_code: str) -> dict:
+    """Фактические провайдер/модель/слот — РОВНО то, что лежит в записи.
+
+    Запись этапа сегодня модели не хранит (R0: текст модели не пишется), поэтому
+    честный ответ — ``null`` с причиной, а не значение из текущих настроек:
+    настройка не доказывает, чем шёл уже состоявшийся вызов. Если запись (или
+    вложенный ``llm``) всё же несёт такие ключи, они уезжают как есть.
+    """
+    data = record if isinstance(record, dict) else {}
+    nested = data.get("llm") if isinstance(data.get("llm"), dict) else {}
+    out = {"provider": None, "model": None, "slot": None,
+           "recorded_keys": [], "reason": ""}
+    for key in LLM_RECORD_KEYS:
+        value = data.get(key)
+        if value is None:
+            value = nested.get(key)
+        text = _str(value).strip()
+        if text:
+            out[key] = text
+            out["recorded_keys"].append(key)
+    if not out["recorded_keys"]:
+        out["reason"] = str(reason_code or "")
+    return out
+
+
+def _count_stage_names() -> dict:
+    """Имена этапов для счётчиков — из словаря механизма (откат безопасен)."""
+    try:
+        from services import meme_initiative as mi
+    except Exception:                        # pragma: no cover - defensive
+        return {"llm": tuple(LLM_STAGE_NAMES), "image": IMAGE_STAGE_NAME,
+                "publish": PUBLISH_STAGE_NAME}
+    return {
+        "llm": (mi.STAGE_SUMMARY, mi.STAGE_JOKE),
+        "image": mi.STAGE_IMAGE,
+        "publish": mi.STAGE_PUBLISH,
+    }
+
+
+def _step_timing(job_id) -> dict:
+    """Длительность и ID запроса шага — из существующей записи, без догадок.
+
+    Журнал мема пишет во все строки этапов ОДНУ метку времени (старт попытки) и
+    не хранит длительность шага: поэтому ``duration_ms = null`` с причиной, а не
+    ``0``. ID запроса записи есть — это ``job_id`` попытки (тот же родитель, по
+    которому сходятся строки).
+    """
+    ref = _str(job_id).strip()
+    return {
+        "duration_ms": None,
+        "duration_reason": STEP_TIMING_NOT_RECORDED,
+        "request_id": ref,
+        "request_id_source": "journal_job_id" if ref else "not_recorded",
+    }
 
 
 def _reason_label(code: str) -> str:
@@ -738,15 +818,31 @@ async def list_publications(
     page = rows[offset:offset + limit]
     next_offset = offset + len(page) if offset + len(page) < total else None
     # Счётчики — РАЗНЫЕ факты воронки, а не одно число: «проверено» (все
-    # попытки в окне) ≠ «решено» (есть записанный исход) ≠ «опубликовано» ≠
-    # «доставлено» (есть message_id) ≠ «ожидает» (исход deferred). Окно
-    # называется явно, чтобы число нельзя было прочитать как «за всё время».
+    # попытки в окне) ≠ «решено» (есть записанный исход) ≠ «сгенерировано»
+    # (картинка реально получилась: журнал дошёл до этапа публикации) ≠
+    # «опубликовано» ≠ «доставлено» (есть message_id) ≠ «ожидает» (исход
+    # deferred). Окно называется явно, чтобы число нельзя было прочитать как
+    # «за всё время». `llm_calls`/`images` — вызовы, записанные этапами ТОГО ЖЕ
+    # окна (выжимка+прикол и Image API, §P0IM-PB-COUNT).
+    stage_names = _count_stage_names()
     decided = sum(1 for r in rows if _str(r.get("outcome")))
     delivered = sum(1 for r in rows if r.get("delivered") is True)
     pending = sum(1 for r in rows if r.get("outcome") == OUTCOME_DEFERRED)
     delivery_unknown = sum(1 for r in rows
                            if r.get("delivered") is None
                            and r.get("outcome") != OUTCOME_DEFERRED)
+    llm_calls = 0
+    images = 0
+    generated = 0
+    for row in rows:
+        names = [_str(s.get("stage")) for s in (row.get("stages") or ())
+                 if isinstance(s, dict)]
+        llm_calls += sum(1 for name in names if name in stage_names["llm"])
+        images += sum(1 for name in names if name == stage_names["image"])
+        if stage_names["publish"] in names:
+            # Этап публикации достижим только после РЕАЛЬНО полученной картинки:
+            # отказ генерации пишется этапом `failed`, а не `publish`.
+            generated += 1
     return {
         "schema_version": 1,
         "generated_at": now,
@@ -760,6 +856,7 @@ async def list_publications(
             "total": total,
             "checked": total,
             "decided": decided,
+            "generated": generated,
             "text": sum(1 for r in rows if r["kind"] == KIND_TEXT),
             "meme": sum(1 for r in rows if r["kind"] == KIND_MEME),
             "published": sum(1 for r in rows
@@ -771,6 +868,8 @@ async def list_publications(
             "deferred": pending,
             "unknown": sum(1 for r in rows
                            if r["outcome"] == OUTCOME_UNKNOWN),
+            "llm_calls": llm_calls,
+            "images": images,
         },
         "rows": page,
         "next_offset": next_offset,
@@ -779,6 +878,9 @@ async def list_publications(
 
 def _event_public(row: dict) -> dict:
     """R17-safe поля события (без сырых текстов/секретов)."""
+    duration = (None if row.get("duration_ms") is None
+                else _int(row.get("duration_ms")))
+    trace_id = _str(row.get("trace_id")).strip()
     return {
         "id": _int(row.get("id")),
         "ts": _int(row.get("ts")),
@@ -789,8 +891,16 @@ def _event_public(row: dict) -> dict:
         "reason_label": (_reason_label(_str(row.get("reason_code")))
                          if row.get("reason_code") else ""),
         "level": _str(row.get("level")),
-        "duration_ms": (None if row.get("duration_ms") is None
-                        else _int(row.get("duration_ms"))),
+        "duration_ms": duration,
+        # §P0IM-PB-STEP: «длительность не измерена» — отдельная причина, а не 0.
+        "duration_reason": ("" if duration is not None
+                            else DURATION_NOT_RECORDED),
+        # ID запроса шага — записанный `trace_id` события (родитель попытки).
+        "request_id": trace_id,
+        "request_id_source": ("event_trace_id" if trace_id
+                              else "not_recorded"),
+        # §P0IM-PB-LLM: запись события модель/провайдера/слот не хранит.
+        "llm": _llm_fields(row, LLM_NOT_RECORDED_EVENT),
         "error_type": _error_type(row.get("error_json")),
     }
 
@@ -866,6 +976,12 @@ async def publication_detail(
                                 else _int(row.get("limit_value"))),
                 "window_messages": (None if row.get("window_messages") is None
                                     else _int(row.get("window_messages"))),
+                # §P0IM-PB-STEP: длительность шага и ID запроса. Длительность
+                # в журнале не измеряется (одна метка времени попытки) — честный
+                # null с причиной; ID запроса берётся из записи (`job_id`).
+                **_step_timing(row.get("job_id")),
+                # §P0IM-PB-LLM: чем реально шёл шаг — только из записи.
+                "llm": _llm_fields(facts, LLM_NOT_RECORDED_STAGE),
             })
         chain.sort(key=lambda r: (r["ts"], r["stage"]))
         # §1.3-цепочка событий попытки (P0) — из фактов этапов, как записано

@@ -2373,7 +2373,136 @@ async function s6FreshSuite() {
     'истёкший маркер нарисован как живое ожидание');
 }
 
-chatBoundSuite().then(peekStaleSuite).then(s6FreshSuite).then(function () {
+// ── §P0IM-PB-VOCAB / PB-COUNT / PB-STEP / PB-LLM: витрина новых полей ──
+// Проверяется ровно то, где витрина могла соврать: «устарело» как «нет данных»,
+// неразделённые «проверено/сгенерировано», выдуманная длительность шага,
+// модель из настроек вместо записи.
+function productGapsSuite() {
+  // 1) «Данные устарели» — третье состояние, а не «нет данных».
+  const view = computed.memeDiagView.call({
+    memeDiag: axesPayload({ data_state: 'stale', stale: true,
+                            stale_reason: 'snapshot_older_than_window',
+                            stale_age_seconds: 7 * 3600,
+                            stale_window_seconds: 6 * 3600,
+                            stale_window_basis: 'cooldown' },
+                          { data_state: 'no_data', available: false,
+                            no_data_reasons: ['never_checked'] }),
+    activeChatId: CHAT,
+    iniOverviewTimezone: TZ,
+  });
+  assert.strictEqual(view.text.isStale, true, 'устаревание не распознано');
+  assert.strictEqual(view.text.isNoData, false,
+    'устаревание выдано за «нет данных»');
+  assert.strictEqual(view.text.stateLabel, 'данные устарели',
+    'подпись состояния неверна: ' + view.text.stateLabel);
+  assert.ok(view.text.staleNote.indexOf('старше своего окна') >= 0,
+    'окно свежести не названо: ' + view.text.staleNote);
+  assert.ok(view.text.staleNote.indexOf('6 ч') > 0,
+    'величина окна не показана: ' + view.text.staleNote);
+  assert.strictEqual(view.meme.isStale, false,
+    'блок без данных объявлен устаревшим');
+  assert.strictEqual(view.meme.isNoData, true);
+  assert.strictEqual(view.meme.stateLabel, 'нет данных');
+  // Окно не записано — порог не выдумывается.
+  const noWindow = computed.memeDiagView.call({
+    memeDiag: axesPayload({ data_state: 'ok', stale: false,
+                            stale_reason: 'window_not_recorded',
+                            stale_age_seconds: 7 * 3600,
+                            stale_window_seconds: null,
+                            stale_window_basis: '' }, {}),
+    activeChatId: CHAT,
+    iniOverviewTimezone: TZ,
+  });
+  assert.strictEqual(noWindow.text.isStale, false,
+    'без записанного окна объявлено устаревание');
+  assert.ok(noWindow.text.staleNote.indexOf('не записано') > 0,
+    'отсутствие окна не объяснено: ' + noWindow.text.staleNote);
+
+  // 2) Счётчики: «сгенерировано», LLM-вызовы и изображения — отдельные числа.
+  const counts = computed.iniPubCounts.call({
+    iniPub: { counts: { checked: 10, decided: 10, generated: 4, published: 2,
+                        delivered: 3, pending: 1, delivery_unknown: 2,
+                        text: 3, meme: 7, llm_calls: 14, images: 7 },
+              window: { days: 7 } },
+  });
+  assert.strictEqual(counts.generated, 4, 'счётчик «сгенерировано» потерян');
+  assert.notStrictEqual(counts.generated, counts.published,
+    '«сгенерировано» слито с «опубликовано»');
+  assert.strictEqual(counts.llmCalls, 14, 'LLM-вызовы не показаны');
+  assert.strictEqual(counts.images, 7, 'изображения не показаны');
+  const partial = computed.iniPubCounts.call({
+    iniPub: { counts: { checked: 1, decided: 1 }, window: { days: 7 } },
+  });
+  assert.strictEqual(partial.generated, null,
+    'отсутствующее число выдано за ноль');
+  assert.strictEqual(partial.llmCalls, null);
+  assert.strictEqual(partial.images, null);
+
+  // 3) Шаг трассы: длительность из записи (или честный null с причиной),
+  //    ID запроса, модель/провайдер/слот.
+  const trace = computed.iniPubDetailTrace.call({
+    iniPubFocus: 'meme:job-1',
+    iniPubDetail: {
+      available: true,
+      attempt: { attempt_id: 'meme:job-1', kind: 'meme', job_id: 'job-1',
+                 mode: 'auto', ts: NOW_TS, stage: 'publish',
+                 outcome: 'published', reason_code: 'sent', delivered: true,
+                 message_id: 4321 },
+      chain: [
+        { stage: 'summary', ts: NOW_TS - 30, outcome: 'passed',
+          reason_code: '', reason_label: '', facts: { chars: 41 },
+          duration_ms: 1200, duration_reason: '',
+          request_id: 'job-1', request_id_source: 'journal_job_id',
+          llm: { provider: null, model: null, slot: null,
+                 recorded_keys: [], reason: 'not_recorded_in_stage_record' } },
+        { stage: 'joke', ts: NOW_TS - 20, outcome: 'passed',
+          reason_code: '', reason_label: '', facts: { chars: 6 },
+          duration_ms: null, duration_reason: 'step_timing_not_recorded',
+          request_id: 'job-1', request_id_source: 'journal_job_id',
+          llm: { provider: 'cx', model: 'cx/gpt-5', slot: 'writer',
+                 recorded_keys: ['provider', 'model', 'slot'], reason: '' } },
+        { stage: 'image_generation', ts: NOW_TS - 10, outcome: 'passed',
+          reason_code: '', reason_label: '', facts: { chars: 23 },
+          duration_ms: null, duration_reason: 'step_timing_not_recorded',
+          request_id: 'job-1', request_id_source: 'journal_job_id',
+          llm: { provider: null, model: null, slot: null,
+                 recorded_keys: [], reason: 'not_recorded_in_stage_record' } },
+        { stage: 'publish', ts: NOW_TS, outcome: 'published',
+          reason_code: 'sent', reason_label: 'отправлено', facts: {},
+          duration_ms: null, duration_reason: 'step_timing_not_recorded',
+          request_id: 'job-1', request_id_source: 'journal_job_id',
+          llm: { provider: null, model: null, slot: null,
+                 recorded_keys: [], reason: 'not_recorded_in_stage_record' } },
+      ],
+      events: [],
+      delivery: { delivered: true, message_id: 4321 },
+    },
+  });
+  const summaryStep = (trace.steps || []).filter(function (s) {
+    return s.key === 'summary';
+  })[0];
+  const jokeStep = (trace.steps || []).filter(function (s) {
+    return s.key === 'joke';
+  })[0];
+  assert.ok(summaryStep, 'шаг «Выжимка» отсутствует');
+  assert.strictEqual(summaryStep.durationMs, 1200,
+    'измеренная длительность шага потеряна');
+  assert.ok(summaryStep.durationText.indexOf('1') === 0,
+    'длительность не подписана: ' + summaryStep.durationText);
+  assert.strictEqual(summaryStep.requestId, 'job-1',
+    'ID запроса шага не показан');
+  assert.ok(summaryStep.modelText.indexOf('не записаны') > 0,
+    'незаписанная модель не названа: ' + summaryStep.modelText);
+  assert.strictEqual(jokeStep.durationMs, null,
+    'неизмеренная длительность превращена в число');
+  assert.ok(jokeStep.durationText.indexOf('не записана') > 0,
+    'неизмеренная длительность не объяснена: ' + jokeStep.durationText);
+  assert.ok(jokeStep.modelText.indexOf('cx/gpt-5') > 0,
+    'записанная модель не показана: ' + jokeStep.modelText);
+}
+
+chatBoundSuite().then(peekStaleSuite).then(s6FreshSuite).then(productGapsSuite)
+  .then(function () {
   console.log('INITIATIVE-UI-OK');
 }).catch(function (err) {
   console.error(err && err.stack || err);

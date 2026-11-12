@@ -8751,6 +8751,12 @@ body > .sticky-save[data-save-panel] {
   color: #94a3b8; overflow-wrap: anywhere; min-width: 0; font-size: 0.95em;
 }
 .ini-trace-step__note { color: #64748b; overflow-wrap: anywhere; min-width: 0; }
+/* §P0IM-PB-STEP/PB-LLM: длительность, ID запроса и модель шага — служебная
+   строка шага: тем же приглушённым цветом, с переносом (без горизонтальной
+   прокрутки трассы). */
+.ini-trace-step__meta {
+  color: #64748b; overflow-wrap: anywhere; min-width: 0; font-size: 0.95em;
+}
 /* Незапускавшийся шаг гасится, ошибка подчёркнута — без новых цветов системы. */
 .ini-trace-step--not_run .ini-trace-step__text,
 .ini-trace-step--unknown .ini-trace-step__text { color: #64748b; }

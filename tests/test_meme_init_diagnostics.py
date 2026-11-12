@@ -2092,3 +2092,117 @@ def test_availability_without_provider_call_has_no_next_time(
     for key in ("last_check_ts", "random", "conditions", "skip_reason",
                 "cooldown_remaining_seconds", "publication"):
         assert key in diagnostics, key
+
+
+# ═══ §P0IM-PB-VOCAB: «данные устарели» — отдельное состояние ════════════════
+
+def _meme_state_payload(*, last_check_ts, cooldown_seconds=None, chat=CHAT):
+    """Запись прохода мема (payload observer) с назначенным временем проверки."""
+    entry = {"output_kind": meme.OUTPUT_KIND,
+             "last_check_ts": int(last_check_ts)}
+    if cooldown_seconds is not None:
+        entry["cooldown_seconds"] = int(cooldown_seconds)
+    return {"meme": {"chats": {str(chat): entry}}}
+
+
+def _stale_case(svc, payload, *, settings=None):
+    return diag.collect_mechanism_diagnostics(
+        svc, CHAT, now=NOW_TS,
+        meme_settings=settings if settings is not None else _settings(
+            cooldown_seconds=6 * 3600))
+
+
+def test_stale_snapshot_is_not_no_data_and_needs_a_recorded_window(
+        tmp_path, monkeypatch):
+    """§P0IM-PB-VOCAB: «устарело» ≠ «нет данных», порог берётся из записи.
+
+    Три разных состояния на реальном сборщике: запись свежая (ok), запись старше
+    своего окна (stale), записи нет вовсе (no_data). Плюс негатив: окно не
+    записано — «устарело» не объявляется, причина названа.
+    """
+    _image_ok(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="stale.db")
+        try:
+            await _schema(svc)
+            # (а) Свежая запись текста и мема: 60 с при окнах 6 ч и 1 ч.
+            await _seed_observe_payload(
+                svc, dict(_text_payload(now_override=NOW_TS - 60),
+                          **{"meme": {"chats": {str(CHAT): {
+                              "last_check_ts": NOW_TS - 60,
+                              "cooldown_seconds": 3600}}}}))
+            fresh = await _stale_case(svc, None)
+            # (б) Старая запись: возраст много больше обоих окон.
+            await _seed_observe_payload(
+                svc, dict(_text_payload(now_override=NOW_TS - 30 * 86400),
+                          **{"meme": {"chats": {str(CHAT): {
+                              "last_check_ts": NOW_TS - 30 * 86400,
+                              "cooldown_seconds": 3600}}}}))
+            old = await _stale_case(svc, None)
+            # (в) Записи мема нет вовсе: это «нет данных», а не «устарело».
+            await _seed_observe_payload(svc, _text_payload())
+            empty = await _stale_case(svc, None)
+            # (г) Запись старая, но окно не записано: причина, без выдумки.
+            await _seed_observe_payload(svc, _meme_state_payload(
+                last_check_ts=NOW_TS - 30 * 86400))
+            no_window = await _stale_case(svc, None)
+            return fresh, old, empty, no_window
+        finally:
+            await svc.close()
+
+    fresh, old, empty, no_window = asyncio.run(scenario())
+
+    # (а) Свежие данные — ok, не stale.
+    for name in ("text_initiative", "meme"):
+        block = fresh[name]
+        assert block["data_state"] == diag.DATA_OK, (name, block["data_state"])
+        assert block["stale"] is False, (name, block)
+        assert block["stale_reason"] == "", (name, block)
+        assert block["stale_age_seconds"] is not None, (name, block)
+        assert block["stale_window_seconds"] is not None, (name, block)
+    assert fresh["meme"]["stale_window_basis"] == diag.STALE_BASIS_COOLDOWN, \
+        fresh["meme"]
+    assert fresh["text_initiative"]["stale_window_basis"] == \
+        diag.STALE_BASIS_EVAL_INTERVAL, fresh["text_initiative"]
+
+    # (б) Старая запись — отдельное состояние «устарели», а НЕ «нет данных».
+    for name in ("text_initiative", "meme"):
+        block = old[name]
+        assert block["data_state"] == diag.DATA_STALE, (name, block)
+        assert block["stale"] is True, (name, block)
+        assert block["stale_reason"] == diag.STALE_OLDER_THAN_WINDOW, \
+            (name, block)
+        assert block["available"] is True, (name, block)
+        # Возраст и окно — названные числа, а не догадка: возраст больше окна.
+        assert block["stale_age_seconds"] > block["stale_window_seconds"], \
+            (name, block)
+        # «Нет данных» здесь нет: причины ОТСУТСТВИЯ записи не объявлены.
+        # Частные пробелы (например «жеребьёвка не записана») остаются своими
+        # кодами — это отдельные честные пропуски, а не «данных нет вовсе».
+        absent_codes = {diag.NO_DATA_READ_FAILED,
+                        diag.NO_DATA_NO_OBSERVER_PAYLOAD,
+                        diag.NO_DATA_NO_MEME_STATE,
+                        diag.NO_DATA_NO_DECISION,
+                        diag.NO_DATA_NEVER_CHECKED}
+        assert not (set(block["no_data_reasons"]) & absent_codes), \
+            (name, block["no_data_reasons"])
+    # Данные при этом остались видимыми (показаны, но помечены как несвежие).
+    assert old["meme"]["last_check_ts"] is not None, old["meme"]
+
+    # (в) Нет записи мема — ровно «нет данных», устаревания не выдумываем.
+    meme_empty = empty["meme"]
+    assert meme_empty["data_state"] == diag.DATA_NO_DATA, meme_empty
+    assert meme_empty["stale"] is False, meme_empty
+    assert meme_empty["stale_reason"] == "", meme_empty
+    assert diag.NO_DATA_NO_MEME_STATE in meme_empty["no_data_reasons"], \
+        meme_empty
+
+    # (г) Окно не записано: stale=false + причина, stale-состояние не объявлено.
+    block = no_window["meme"]
+    assert block["stale"] is False, block
+    assert block["stale_reason"] == diag.STALE_WINDOW_NOT_RECORDED, block
+    assert block["stale_window_seconds"] is None, block
+    assert block["stale_window_basis"] == "", block
+    assert block["data_state"] == diag.DATA_OK, block
+

@@ -264,6 +264,10 @@ def _block(mechanism, **over):
                         else "meme_initiative"),
         "source": "stub", "available": True, "data_state": "ok",
         "no_data_reasons": [], "ready": True, "ready_reason": "",
+        # §P0IM-PB-VOCAB: свежесть записи — отдельными полями (по умолчанию
+        # «в пределах окна»); «нет данных» здесь нет.
+        "stale": False, "stale_reason": "", "stale_age_seconds": None,
+        "stale_window_seconds": None, "stale_window_basis": "",
         "last_check_ts": None, "next_check_ts": None,
         "next_check_basis": "eval_interval", "random": None,
         "conditions": None, "stages": None, "skip": None, "skip_recorded": None,
@@ -496,6 +500,28 @@ def _diag(chat_id=None):
             "readiness": {"state": "waiting", "reason": "cooldown_active",
                           "reason_class": "cooldown",
                           "next_eligible_at": NOW + 3600, "next_basis": ""}})
+    elif mode == "stale":
+        # §P0IM-PB-VOCAB: запись ЕСТЬ, но старше своего окна — «данные
+        # устарели», а не «нет данных». Возраст и окно названы явно.
+        meme_over.update({
+            "data_state": "stale", "stale": True,
+            "stale_reason": "snapshot_older_than_window",
+            "stale_age_seconds": 7 * 3600,
+            "stale_window_seconds": 6 * 3600,
+            "stale_window_basis": "cooldown"})
+        text_over.update({
+            "data_state": "stale", "stale": True,
+            "stale_reason": "snapshot_older_than_window",
+            "stale_age_seconds": 2 * 3600,
+            "stale_window_seconds": 3600,
+            "stale_window_basis": "eval_interval"})
+    elif mode == "stale_window_missing":
+        # Окно не записано: «устарело» не объявляется, порог не выдумывается.
+        meme_over.update({
+            "data_state": "ok", "stale": False,
+            "stale_reason": "window_not_recorded",
+            "stale_age_seconds": 7 * 3600, "stale_window_seconds": None,
+            "stale_window_basis": ""})
     return {
         "schema_version": 1, "generated_at": NOW,
         "chat_id": (other if mode == "foreign_chat" else base),
@@ -722,6 +748,32 @@ def _meme_chain_skipped():
          "limit_source": "model_capability", "limit_value": 400,
          "window_messages": 300},
     ]
+
+
+def _with_step_meta(payload):
+    """§P0IM-PB-STEP/PB-LLM: у каждого шага — длительность, ID запроса, модель.
+
+    Мок повторяет контракт отданной сборки: журнал мема не хранит длительность
+    шага (одна метка времени попытки) и не хранит модель, поэтому там честный
+    `null` с причиной, а ID запроса — записанный `job_id` попытки.
+    """
+    body = dict(payload or {})
+    attempt = body.get("attempt") or {}
+    job_id = str(attempt.get("job_id") or "")
+    chain = []
+    for row in body.get("chain") or ():
+        step = dict(row)
+        step.setdefault("duration_ms", None)
+        step.setdefault("duration_reason", "step_timing_not_recorded")
+        step.setdefault("request_id", job_id)
+        step.setdefault("request_id_source",
+                        "journal_job_id" if job_id else "not_recorded")
+        step.setdefault("llm", {"provider": None, "model": None, "slot": None,
+                                "recorded_keys": [],
+                                "reason": "not_recorded_in_stage_record"})
+        chain.append(step)
+    body["chain"] = chain
+    return body
 
 
 def _detail(attempt_id):
@@ -1088,7 +1140,7 @@ def make_api_handler():
                 if part.startswith("attempt_id="):
                     attempt = part.split("=", 1)[1]
             from urllib.parse import unquote
-            return send(_detail(unquote(attempt)))
+            return send(_with_step_meta(_detail(unquote(attempt))))
         if path.endswith("/api/initiative/publications"):
             rows = _pub_rows()
             offset = 0
@@ -1135,6 +1187,20 @@ def make_api_handler():
                 "counts": {"total": len(rows),
                            "checked": len(rows),
                            "decided": sum(1 for r in rows if r["outcome"]),
+                           # §P0IM-BAN-CONFLATE / §P0IM-PB-COUNT: те же
+                           # величины, что считает сервер по этапам журнала.
+                           "generated": sum(
+                               1 for r in rows
+                               if any(s.get("stage") == "publish"
+                                      for s in (r.get("stages") or []))),
+                           "llm_calls": sum(
+                               1 for r in rows
+                               for s in (r.get("stages") or [])
+                               if s.get("stage") in ("summary", "joke")),
+                           "images": sum(
+                               1 for r in rows
+                               for s in (r.get("stages") or [])
+                               if s.get("stage") == "image_generation"),
                            "text": sum(1 for r in rows
                                        if r["kind"] == "text_initiative"),
                            "meme": sum(1 for r in rows if r["kind"] == "meme"),
@@ -2215,6 +2281,13 @@ TRACE_PROBE = r"""
       key: el.getAttribute('data-ini-trace-step'),
       state: el.getAttribute('data-ini-step-state'),
       text: strip(el.textContent),
+      // §P0IM-PB-STEP / §P0IM-PB-LLM: служебные поля шага отдельными пробами
+      // (в `text` они тоже есть, но здесь проверяется именно их наличие).
+      duration: strip((el.querySelector('[data-ini-step-duration]') || {})
+        .textContent),
+      requestId: strip((el.querySelector('[data-ini-step-request-id]') || {})
+        .textContent),
+      llm: strip((el.querySelector('[data-ini-step-llm]') || {}).textContent),
     })) : [];
   const row = document.querySelector('[data-ini-pub-row]');
   return {
@@ -2282,8 +2355,8 @@ def run_trace(browser, width, height, label, shots):
         check(bool(rows["firstRun"]), label, "строка не называет идентификатор попытки")
         check(rows["windowAttr"] == "за 7 дн.", label,
               "окно счётчиков не названо: %r" % rows["windowAttr"])
-        for word in ("проверено", "решено", "опубликовано", "доставлено",
-                     "ожидает"):
+        for word in ("проверено", "решено", "сгенерировано", "опубликовано",
+                     "доставлено", "ожидает"):
             check(word in rows["countsText"], label,
                   "в счётчиках нет «%s»: %r" % (word, rows["countsText"]))
         check(rows["chatFilter"] >= 1, label,
@@ -2326,6 +2399,21 @@ def run_trace(browser, width, height, label, shots):
         send = _step_of(manual["trace"], "send")
         check(send and send["state"] == "done" and "4300" in send["text"], label,
               "шаг отправки без message_id: %r" % (send,))
+        # §P0IM-PB-STEP: у шага есть длительность и ID запроса ИЗ ЗАПИСИ.
+        # Журнал мема длительность не измеряет — честное «не записана», не «0».
+        summary_step = _step_of(manual["trace"], "summary")
+        check(summary_step and "длительность" in summary_step["duration"], label,
+              "у шага нет строки длительности: %r" % (summary_step,))
+        check("не записана" in (summary_step or {}).get("duration", ""), label,
+              "неизмеренная длительность выдана за измеренную: %r"
+              % ((summary_step or {}).get("duration"),))
+        check("job-75" in (summary_step or {}).get("requestId", ""), label,
+              "у шага нет ID запроса: %r" % ((summary_step or {}).get("requestId"),))
+        # §P0IM-PB-LLM: провайдер/модель/слот читаются из записи; запись их не
+        # хранит — так и сказано, модель не выдумана из настроек.
+        check("не записан" in (summary_step or {}).get("llm", ""), label,
+              "шаг молчит о незаписанной модели: %r"
+              % ((summary_step or {}).get("llm"),))
         check("опубликовано" in manual["trace"]["status"], label,
               "итог трассы не назван: %r" % manual["trace"]["status"])
         shot(page, shots, "trace_manual_%s" % label)
@@ -3267,6 +3355,88 @@ def run_diagnostics(browser, width, height, label, shots):
         ctx.close()
 
 
+# ── Сценарий 2h: §P0IM-PB-VOCAB — «данные устарели» ≠ «нет данных» ───────
+def run_stale_state(browser, width, height, label, shots):
+    """Третье состояние записи: есть данные, но они старше своего окна."""
+    STATE["diag_mode"] = "stale"
+    ctx, page = new_page(browser, width, height)
+    try:
+        open_page(page, "diagnostics")
+        page.wait_for_timeout(600)
+        page.evaluate(
+            "() => { const d = document.querySelector('[data-meme-diag-section]');"
+            " if (d) d.open = true; }")
+        page.wait_for_selector('[data-meme-diag-state="meme"]', timeout=15000)
+        page.wait_for_timeout(300)
+        data = page.evaluate(r"""
+        () => {
+          const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+          const state = (key) => strip((document.querySelector(
+            '[data-meme-diag-state="' + key + '"]') || {}).textContent);
+          const memeBlock = document.querySelector('[data-meme-diag="meme"]');
+          const attr = memeBlock ? memeBlock.querySelector(
+            '[data-meme-diag-stale]') : null;
+          return {
+            meme: state('meme'), text: state('text_initiative'),
+            staleAttr: attr ? attr.getAttribute('data-meme-diag-stale') : null,
+            notes: Array.from(document.querySelectorAll(
+              '[data-meme-diag-stale-note]')).map((el) => strip(el.textContent)),
+            hScroll: document.documentElement.scrollWidth - window.innerWidth,
+          };
+        }
+        """)
+        notes.append({label + "-stale-state": data})
+        check("устарел" in data["meme"], label,
+              "состояние «данные устарели» не показано: %r" % data["meme"])
+        check("устарел" in data["text"], label,
+              "текстовый механизм не показал свежесть: %r" % data["text"])
+        check("нет данных" not in data["meme"], label,
+              "устаревание выдано за «нет данных»: %r" % data["meme"])
+        check(data["staleAttr"] == "true", label,
+              "признак устаревания не передан атрибутом: %r"
+              % data["staleAttr"])
+        joined = " | ".join(data["notes"])
+        check("старше своего окна" in joined, label,
+              "окно и возраст записи не названы: %r" % joined)
+        check(data["hScroll"] <= 1, label,
+              "карточка устаревания даёт прокрутку: %d px" % data["hScroll"])
+        shot(page, shots, "stale_state_%s" % label)
+
+        # Окно не записано: «устарело» не объявляется, причина названа.
+        STATE["diag_mode"] = "stale_window_missing"
+        ctx2, page2 = new_page(browser, width, height)
+        try:
+            open_page(page2, "diagnostics")
+            page2.wait_for_timeout(600)
+            page2.evaluate(
+                "() => { const d = document.querySelector("
+                "'[data-meme-diag-section]'); if (d) d.open = true; }")
+            page2.wait_for_selector('[data-meme-diag-state="meme"]',
+                                    timeout=15000)
+            page2.wait_for_timeout(300)
+            missing = page2.evaluate(r"""
+            () => {
+              const strip = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+              return {
+                state: strip((document.querySelector(
+                  '[data-meme-diag-state="meme"]') || {}).textContent),
+                note: strip((document.querySelector(
+                  '[data-meme-diag-stale-note]') || {}).textContent),
+              };
+            }
+            """)
+            notes.append({label + "-stale-no-window": missing})
+            check("устарел" not in missing["state"], label,
+                  "без записанного окна объявлено устаревание: %r" % missing)
+            check("не записано" in missing["note"], label,
+                  "причина отсутствия окна не названа: %r" % missing["note"])
+        finally:
+            ctx2.close()
+    finally:
+        STATE["diag_mode"] = "off"
+        ctx.close()
+
+
 # ── Сценарий 7: мобильная навигация вкладками ────────────────────────────
 def run_mobile_nav(browser, width, height, label, shots):
     ctx, page = new_page(browser, width, height)
@@ -3778,6 +3948,9 @@ def main() -> int:
                 # P0IM-BAN-NOETA: граница «не раньше», а не расписание.
                 run_next_bound(browser, 1536, 960, "1536", args.shots)
                 run_next_bound(browser, 390, 844, "390", args.shots)
+                # §P0IM-PB-VOCAB: «данные устарели» отдельно от «нет данных».
+                run_stale_state(browser, 1536, 960, "1536", args.shots)
+                run_stale_state(browser, 390, 844, "390", args.shots)
                 # Правки ревью на 430703be (трасса, журнал, строка).
                 run_review4(browser, 1536, 960, "1536", args.shots)
                 run_review4(browser, 390, 844, "390", args.shots)

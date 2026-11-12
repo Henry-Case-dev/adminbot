@@ -42,6 +42,7 @@ from fastapi.testclient import TestClient
 from services.config_cache import ConfigCache
 from web.app import create_app
 from web.api import deps as deps_mod
+from web.api import initiative_publications as api_mod
 
 TEST_TOKEN = "123456:TEST_TOKEN_INIT_PUB"
 ADMIN_ID = 5885953495
@@ -812,3 +813,200 @@ def test_missing_db_is_honest(tmp_path):
     finally:
         cp_srv.set_chat_params_cache(None)
         lore_runtime.reset_lore_runtime()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# §P0IM-PB-COUNT / PB-STEP / PB-LLM / BAN-CONFLATE: отдельные величины
+# воронки, поля шага и честные null с причиной. Стенд — настоящий роутер,
+# настоящий SQLite-журнал, настоящий read-model.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _build_gap_journals(path: str) -> None:
+    """Журнал трёх попыток: рассмотрение без генерации, генерация, сбой картинки."""
+    con = sqlite3.connect(path)
+    for ddl in (MCA_DDL, OUT_DDL, RES_DDL, ATT_DDL):
+        con.execute(ddl)
+    attempts = [
+        # G1: рассмотрение остановилось до генерации (ни одного этапа LLM).
+        ("c1", CHAT_A, "G1", NOW - 900, "considered", "passed", "", "",
+         "auto", 600, 12),
+        # G2: выжимка + прикол + картинка; публикацию отложил конфликт.
+        ("d1", CHAT_A, "G2", NOW - 800, "summary", "passed", "",
+         _facts({"chars": 120}), "auto", 600, 12),
+        ("d2", CHAT_A, "G2", NOW - 790, "joke", "passed", "",
+         _facts({"chars": 40}), "auto", 600, 12),
+        ("d3", CHAT_A, "G2", NOW - 780, "image_generation", "passed", "",
+         _facts({"chars": 900}), "auto", 600, 12),
+        ("d4", CHAT_A, "G2", NOW - 770, "publish", "skipped",
+         "publication_conflict", _facts({"detail": "deferred"}), "auto", 600,
+         12),
+        # G3: выжимка прошла, генерация изображения упала — публикации не было.
+        ("e1", CHAT_A, "G3", NOW - 700, "summary", "passed", "",
+         _facts({"chars": 100}), "auto", 600, 12),
+        ("e2", CHAT_A, "G3", NOW - 690, "image_generation", "passed", "",
+         _facts({"chars": 50}), "auto", 600, 12),
+        ("e3", CHAT_A, "G3", NOW - 680, "failed", "failed",
+         "image_generation_failed", _facts({"detail": "provider_error"}),
+         "auto", 600, 12),
+    ]
+    con.executemany("INSERT INTO meme_initiative_attempt VALUES"
+                    " (?,?,?,?,?,?,?,?,?,?,?)", attempts)
+    # Одно событие текстовой инициативы — чтобы трасса текста читалась на этом же
+    # стенде (вторая БД на тот же tmp_path не создаётся).
+    con.execute(
+        "INSERT INTO mca_events (ts, level, event_name, outcome, trace_id,"
+        " chat_id, stage, reason_code, error_json) VALUES (?,?,?,?,?,?,?,?,?)",
+        (NOW - 500, "warn", "initiative_publication_conflict", "skipped",
+         "T9", CHAT_A, "claim", "publication_conflict", None))
+    con.commit()
+    con.close()
+
+
+@pytest.fixture()
+def api_gaps(tmp_path):
+    yield from _client_for(tmp_path, _build_gap_journals)
+
+
+@pytest.fixture()
+def api_recorded_llm(tmp_path):
+    """Запись этапа, которая ВСЁ ЖЕ несёт модель/провайдера/слот."""
+
+    def build(path: str) -> None:
+        _build_gap_journals(path)
+        con = sqlite3.connect(path)
+        con.executemany("INSERT INTO meme_initiative_attempt VALUES"
+                        " (?,?,?,?,?,?,?,?,?,?,?)",
+                        [("f1", CHAT_A, "G4", NOW - 600, "summary", "passed",
+                          "", _facts({"chars": 90, "provider": "cx",
+                                      "model": "cx/gpt-5", "slot": "writer"}),
+                          "auto", 600, 12)])
+        con.commit()
+        con.close()
+
+    yield from _client_for(tmp_path, build)
+
+
+def test_counts_carry_llm_calls_and_images_separately(api_gaps):
+    """§P0IM-PB-COUNT: LLM-вызовы и изображения — отдельные числа того же окна.
+
+    Не «попытки» и не «публикации»: считаются ЗАПИСАННЫЕ этапы (выжимка+прикол,
+    Image API), поэтому у попытки без генерации их нет, а у попытки с упавшей
+    генерацией вызов есть, изображения — нет.
+    """
+    body = _rows(api_gaps, limit=100)
+    counts = body["counts"]
+    # Словарь этапов не разъехался с механизмом (иначе счётчики «тихо» станут 0).
+    from services import meme_initiative as meme_mod
+    assert tuple(api_mod.LLM_STAGE_NAMES) == (
+        meme_mod.STAGE_SUMMARY, meme_mod.STAGE_JOKE), api_mod.LLM_STAGE_NAMES
+    assert api_mod.IMAGE_STAGE_NAME == meme_mod.STAGE_IMAGE
+    assert api_mod.PUBLISH_STAGE_NAME == meme_mod.STAGE_PUBLISH
+    for key in ("llm_calls", "images", "generated"):
+        assert key in counts, (key, counts)
+    rows = body["rows"]
+    # Пересчёт по тем же строкам, что отданы: числа не отдельная догадка.
+    llm = sum(1 for r in rows for s in (r.get("stages") or ())
+              if s["stage"] in ("summary", "joke"))
+    images = sum(1 for r in rows for s in (r.get("stages") or ())
+                 if s["stage"] == "image_generation")
+    assert counts["llm_calls"] == llm == 3, (counts, llm)
+    assert counts["images"] == images == 2, (counts, images)
+    # Три РАЗНЫЕ величины, а не одна скопированная: вызовы модели не равны
+    # изображениям, а изображения — не «сгенерировано» попыток.
+    assert counts["llm_calls"] != counts["images"], counts
+    assert counts["images"] != counts["generated"], counts
+    # Окно у новых чисел то же, что у прежних: отдельного окна не появилось.
+    assert body["window"]["days"] == 7, body["window"]
+    assert "llm_calls" not in body["filters"], body["filters"]
+
+
+def test_generated_is_not_considered_and_not_published(api_gaps):
+    """§P0IM-BAN-CONFLATE: «сгенерировано» отдельно от «проверено»/«опубликовано»."""
+    body = _rows(api_gaps, limit=100)
+    counts = body["counts"]
+    # Четыре попытки рассмотрены (три мема и одно событие текста), картинка
+    # получилась у одной, опубликованных нет.
+    assert counts["checked"] == 4, counts
+    assert counts["decided"] == 4, counts
+    assert counts["meme"] == 3, counts
+    assert counts["generated"] == 1, counts
+    assert counts["published"] == 0, counts
+    assert counts["delivered"] == 0, counts
+    # considered НЕ считается генерацией, генерация НЕ считается публикацией.
+    assert counts["generated"] < counts["checked"], counts
+    assert counts["generated"] != counts["published"], counts
+    # Упавшая генерация: вызов был, изображения нет, публикации не было.
+    row = _row(body, "meme:G3")
+    assert row is not None, [r["attempt_id"] for r in body["rows"]]
+    names = [s["stage"] for s in row["stages"]]
+    assert "image_generation" in names and "publish" not in names, names
+
+
+def test_step_carries_duration_or_reason_and_recorded_request_id(api):
+    """§P0IM-PB-STEP: длительность (иначе null с причиной) и ID запроса шага."""
+    detail = _detail_of(api, "meme:J1")
+    assert detail["chain"], detail
+    for step in detail["chain"]:
+        # Журнал мема длительность шага не измеряет: null, а НЕ 0.
+        assert step["duration_ms"] is None, step
+        assert step["duration_reason"] == "step_timing_not_recorded", step
+        # ID запроса — записанный `job_id` попытки (тот же родитель).
+        assert step["request_id"] == "J1", step
+        assert step["request_id_source"] == "journal_job_id", step
+    # Текстовая трасса: длительность берётся, если событие её записало.
+    text = _detail_of(api, "text:T1")
+    assert text["events"], text
+    for ev in text["events"]:
+        assert ev["request_id"] == "T1", ev
+        assert ev["request_id_source"] == "event_trace_id", ev
+        if ev["duration_ms"] is None:
+            assert ev["duration_reason"] == "duration_not_recorded", ev
+        else:
+            assert ev["duration_reason"] == "", ev
+
+
+def test_step_has_no_invented_request_id_for_historical_rows(api_legacy):
+    """§P0IM-PB-STEP (негатив): без записанного родителя ID не выдумывается."""
+    detail = _detail_of(api_legacy, "meme:row:old-0")
+    assert detail["chain"], detail
+    step = detail["chain"][0]
+    assert step["request_id"] == "", step
+    assert step["request_id_source"] == "not_recorded", step
+
+
+def test_step_llm_fields_are_record_or_honest_null(api_recorded_llm):
+    """§P0IM-PB-LLM: провайдер/модель/слот — из записи, иначе null с причиной."""
+    detail = _detail_of(api_recorded_llm, "meme:G2")
+    assert detail["chain"], detail
+    for step in detail["chain"]:
+        llm = step["llm"]
+        assert set(llm) == {"provider", "model", "slot", "recorded_keys",
+                            "reason"}, llm
+        # Запись этапа модели не хранит — так и сказано, ничего не подставлено.
+        assert llm["provider"] is None and llm["model"] is None, llm
+        assert llm["slot"] is None, llm
+        assert llm["recorded_keys"] == [], llm
+        assert llm["reason"] == "not_recorded_in_stage_record", llm
+    # Событие текста модели не хранит по той же причине.
+    text = _detail_of(api_recorded_llm, "text:T9")
+    assert text["events"], text
+    for ev in text["events"]:
+        assert ev["llm"]["model"] is None, ev
+        assert ev["llm"]["reason"] == "not_recorded_in_event_record", ev
+    # А если запись значение ВСЁ ЖЕ несёт — оно показывается как есть.
+    recorded = _detail_of(api_recorded_llm, "meme:G4")
+    step = recorded["chain"][0]
+    assert step["llm"]["provider"] == "cx", step["llm"]
+    assert step["llm"]["model"] == "cx/gpt-5", step["llm"]
+    assert step["llm"]["slot"] == "writer", step["llm"]
+    assert step["llm"]["reason"] == "", step["llm"]
+    assert set(step["llm"]["recorded_keys"]) == {"provider", "model", "slot"}
+
+
+def _detail_of(client, attempt_id: str, chat=CHAT_A) -> dict:
+    resp = client.get("/api/initiative/publications/detail",
+                      headers=_hdr(ADMIN_ID, chat),
+                      params={"attempt_id": attempt_id})
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+

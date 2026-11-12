@@ -1177,6 +1177,18 @@ MECHANISM_MEME = "meme"
 
 DATA_OK = "ok"
 DATA_NO_DATA = "no_data"
+#: «Данные устарели» — ТРЕТЬЕ состояние, а не синоним «нет данных»:
+#: запись есть, но она старше собственного окна механизма (см. `stale_block`).
+DATA_STALE = "stale"
+
+#: Почему состояние свежести именно такое. Значения — машинные коды этого же
+#: ответа (не `reason_code` пайплайна): они объясняют поле, а не поведение.
+STALE_OLDER_THAN_WINDOW = "snapshot_older_than_window"
+STALE_WINDOW_NOT_RECORDED = "window_not_recorded"
+#: Основание окна свежести: у текста — его интервал оценки, у мема — его
+#: собственный кулдаун. Оба значения ЗАПИСАНЫ механизмом, а не выбраны UI.
+STALE_BASIS_EVAL_INTERVAL = "eval_interval"
+STALE_BASIS_COOLDOWN = "cooldown"
 
 #: Машинные коды «чего не хватает» в ЭТОМ ответе. Это НЕ `reason_code`
 #: пайплайна: они не пишутся в события/`mca_events`/payload и не входят в
@@ -1214,6 +1226,10 @@ MECHANISM_BLOCK_FIELDS = (
     "skip", "skip_recorded", "cooldown", "quota", "publication", "blocking",
     # P0 corrective §1: пять независимых осей (read-model, не новый контур).
     "configuration", "health", "readiness", "last_attempt", "last_delivery",
+    # §P0IM-PB-VOCAB: свежесть записи — отдельные поля, а не ещё один вид
+    # «нет данных» (`data_state = "stale"`).
+    "stale", "stale_reason", "stale_age_seconds", "stale_window_seconds",
+    "stale_window_basis",
 )
 #: Поля вложенных объектов (их нет, если объект ``null``).
 DRAW_FIELDS = (
@@ -1470,6 +1486,54 @@ def quota_block(*, limit, used, available: bool | None = None,
         "not_delivered": _int_or_none(not_delivered),
         "not_delivered_reasons": reasons,
     }
+
+
+def stale_block(last_check_ts, *, now_ts: int, window_seconds,
+                window_basis: str) -> dict:
+    """Свежесть записи, на которой построены числа блока (§P0IM-PB-VOCAB).
+
+    «Данные устарели» — ОТДЕЛЬНОЕ состояние: запись есть (значит это НЕ «нет
+    данных»), но она старше СОБСТВЕННОГО окна механизма. Окно берётся только
+    из записанного значения (``eval_min_interval_seconds`` текста либо
+    ``cooldown_seconds`` записи прохода мема); нет окна — честная причина
+    ``window_not_recorded``, а не выдуманный порог. Просроченная запись при
+    этом не выдаётся ни за «всё хорошо», ни за «сбоя не было».
+
+    ``stale = false`` при ``stale_reason = ""`` означает «в пределах окна».
+    Никогда не бросает.
+    """
+    stamp = _stamp_or_none(last_check_ts)
+    window = _int_or_none(window_seconds)
+    if window is not None and window <= 0:
+        window = None
+    age = None if stamp is None else max(0, int(now_ts) - int(stamp))
+    out = {
+        "stale": False,
+        "stale_reason": "",
+        "stale_age_seconds": age,
+        "stale_window_seconds": window,
+        "stale_window_basis": str(window_basis or "") if window else "",
+    }
+    if stamp is None:
+        # Записи нет вовсе: это no_data (и его причины — в no_data_reasons),
+        # а НЕ «устарело».
+        return out
+    if window is None:
+        out["stale_reason"] = STALE_WINDOW_NOT_RECORDED
+        return out
+    if age is not None and age > window:
+        out["stale"] = True
+        out["stale_reason"] = STALE_OLDER_THAN_WINDOW
+    return out
+
+
+def _data_state(*, available: bool, stale: dict) -> str:
+    """Одно слово о том, что видит потребитель: ok | no_data | stale."""
+    if not available:
+        return DATA_NO_DATA
+    if stale.get("stale"):
+        return DATA_STALE
+    return DATA_OK
 
 
 def skip_block(code, origin: str, label=None) -> dict | None:
@@ -2778,14 +2842,19 @@ async def text_mechanism_diagnostics(db, chat_id, *,
         db, cid, obs.INITIATIVE_OUTPUT_KINDS, sent_evidence=sent_evidence,
         attempt_at=last_attempt.get("at"),
         run_id=str(last_attempt.get("run_id") or ""))
+    # §P0IM-PB-VOCAB: окно свежести текста — его СОБСТВЕННЫЙ интервал оценки
+    # (записанная настройка `eval_min_interval_seconds`), а не выдуманный порог.
+    stale = stale_block(last_check, now_ts=now_ts, window_seconds=interval,
+                        window_basis=STALE_BASIS_EVAL_INTERVAL)
 
     return _apply_axes({
         "mechanism": MECHANISM_TEXT,
         "output_kind": obs.INITIATIVE_OUTPUT_KINDS[0],
         "source": "initiative_observer.chat_block_state",
         "available": available,
-        "data_state": DATA_OK if available else DATA_NO_DATA,
+        "data_state": _data_state(available=available, stale=stale),
         "no_data_reasons": _unique(reasons),
+        **stale,
         "ready": ready,
         "ready_reason": str((skip or {}).get("code") or ""),
         "last_check_ts": last_check,
@@ -2818,6 +2887,13 @@ def _no_chat_block(mechanism: str, output_kind: str) -> dict:
         "available": False,
         "data_state": DATA_NO_DATA,
         "no_data_reasons": [NO_DATA_CHAT_REQUIRED],
+        # Записи нет — это «нет данных»; «устарело» здесь не выставляется и
+        # окно не выдумывается (нет ни чата, ни записи).
+        "stale": False,
+        "stale_reason": "",
+        "stale_age_seconds": None,
+        "stale_window_seconds": None,
+        "stale_window_basis": "",
         "ready": None,
         "ready_reason": "",
         "last_check_ts": None,
@@ -3139,14 +3215,24 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
     # как «не доставлено» с точной причиной, а не как «ещё не доставлял».
     last_delivery = _apply_attempt_closure(
         last_delivery, _meme_last_closure(rows), cid)
+    # §P0IM-PB-VOCAB: окно свежести мема — его СОБСТВЕННЫЙ кулдаун из записи
+    # прохода (`cooldown_seconds`). Запись прохода обновляется каждым
+    # рассмотрением чата, поэтому «старше своего окна» = проход не доходил до
+    # этого механизма заметно дольше его собственной паузы. Значение не берётся
+    # из текущих настроек: читается только запись, на которой построены числа.
+    stale = stale_block(
+        last_check, now_ts=now_ts,
+        window_seconds=entry.get("cooldown_seconds"),
+        window_basis=STALE_BASIS_COOLDOWN)
 
     return _apply_axes({
         "mechanism": MECHANISM_MEME,
         "output_kind": meme.OUTPUT_KIND,
         "source": "meme_initiative attempt journal + meme.chats + claim",
         "available": available,
-        "data_state": DATA_OK if available else DATA_NO_DATA,
+        "data_state": _data_state(available=available, stale=stale),
         "no_data_reasons": _unique(reasons),
+        **stale,
         "ready": ready,
         "ready_reason": ready_reason,
         "last_check_ts": last_check,
@@ -3191,6 +3277,12 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
     Честные правила (их нельзя нарушать потребителю):
     * ``available = false`` / ``data_state = "no_data"`` и ``null`` в полях —
       это «НЕТ ДАННЫХ», а не нули и не «всё хорошо»;
+    * ``data_state = "stale"`` — ОТДЕЛЬНОЕ состояние (§P0IM-PB-VOCAB): запись
+      есть (``available = true``), но она старше собственного окна механизма
+      (``stale_window_basis`` = ``eval_interval`` у текста, ``cooldown`` у
+      мема). Это не «нет данных»: числа показаны и помечены как несвежие.
+      Нет записанного окна — ``stale_reason = "window_not_recorded"`` и порог
+      не выдумывается; порог можно назвать только тогда, когда он записан;
     * ``last_check_ts = null`` значит «проверок не было НИКОГДА»
       (в журнале это ``0``); ``cooldown.remaining_seconds = 0`` — законный
       ноль, см. ``cooldown.basis``;
@@ -3218,7 +3310,7 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
         output_kind          "initiative_reply" | "meme_initiative"
         source               откуда прочитано (строка-источник)
         available            есть ли данные о механизме (не «работает ли»)
-        data_state           "ok" | "no_data"
+        data_state           "ok" | "no_data" | "stale"
         no_data_reasons      коды отсутствующих данных (см. NO_DATA_*)
         ready                может ли механизм сработать сейчас; null=N/A
         ready_reason         код причины, почему нет ("" если нечего сказать)
