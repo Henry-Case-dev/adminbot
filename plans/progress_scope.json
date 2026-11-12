@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T09:42:38+12:00",
+  "updated": "2026-11-13T09:52:33+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -826,7 +826,7 @@
     },
     {
       "id": "vmq-onto-01",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
       "source_sha256": "11FD732FED30E5EA2B78B1951D2E8DF8B483FF55FEA92285F6DA57FCC7637CD0",
       "maps": [
@@ -834,7 +834,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 47 required rows (37 epic acceptance rows, 9 provider-management rows, 1 mapping row), 12 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=46 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T09:42:38+12:00",
+      "updated": "2026-11-13T09:52:33+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "preparation",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: queue position 4 after self-diag delivery; read-only next-slice preparation started (owner order).",
+      "queue_note": "2026-11-13: queue 4, P0. Map 1/70 VERIFIED; NEXT-03/04 evidence-only Reviewer + NEXT-02/05 Architect contract running; NEXT-02 is a measured regression (2026 share +4pp), NEXT-05 telemetry absent; no Builder until the contract. Production 2.58.198; base for code 23477658, not master. Natural NEXT-01/TIME-09/V live are postrelease observations.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -1760,7 +1760,7 @@
       "id": "p0-init-meme-ux-diag",
       "ticket": "P0-INIT-MEME-UX-DIAG-CORRECTIVE",
       "title": "Инициатива/Мемы: достоверное состояние, понятный UX и сквозная диагностика",
-      "status": "DONE",
+      "status": "VERIFIED",
       "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
       "source_sha256": "6D0D5C52CF5B6A50CE7F4098EEB8136A49AE1D024B83C5FB802BF016587CD91A",
       "maps": [
@@ -1773,7 +1773,7 @@
       "blocker_sources": {},
       "execution_state": "completed",
       "position_basis": "owner marked it P0 corrective; current lanes continue in parallel",
-      "queue_note": "2026-11-13: epic DONE by owner decision. Map 114/114 (77/77) VERIFIED; final release gate scoped=114 errors=0; production 2.58.197 at 25876167. The natural PB-LLM event is recorded as non-blocking owner_live_check WO-258197-PB-LLM-LIVE; not a blocker and not VERIFIED. S5b deferred delivery remains a voluntary observation.",
+      "queue_note": "DONE 2026-11-13: 114/114 rows (77/77 unique) VERIFIED; final release 2.58.197; PB-LLM natural event is non-blocking WO-258197-PB-LLM-LIVE. Task status VERIFIED to keep workflow_progress compatible; execution_state completed.",
       "preparation": {
         "pm_map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
         "architecture": "plans/features/p0-init-meme-ux-diag/architecture.md",
