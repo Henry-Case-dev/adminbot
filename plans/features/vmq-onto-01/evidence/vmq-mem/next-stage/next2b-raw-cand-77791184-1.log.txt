@@ -1,0 +1,37 @@
+[database] embedding generation ADOPTED (gateway compat) | index=graph_facts_vec ns=default gen=1 fp=96f80838f683
+EMBEDDING_COMPAT_ADMITTED | index=graph_facts_vec | gen=1 | checked=12 | mean=1.0 min=1.0 hit5=1.0 | fingerprint сохранён (провенанс)
+Q A1 historical anchor_in_block=True period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=1 rerank=1 
+Q A1 auto       anchor_in_block=True period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=1 rerank=1 
+Q A2 historical anchor_in_block=True period_rows=2 protected=0 kept=1 despite_empty=0 leg=ok vrows=13 miss=0 block_rows=1 rerank=1 
+Q A2 auto       anchor_in_block=False period_rows=0 protected=0 kept=None despite_empty=None leg=None vrows=13 miss=None block_rows=0 rerank=1 
+Q A3 historical anchor_in_block=True period_rows=2 protected=0 kept=1 despite_empty=0 leg=ok vrows=6 miss=0 block_rows=1 rerank=1 
+Q A3 auto       anchor_in_block=True period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=6 miss=0 block_rows=1 rerank=1 
+Q A4 historical anchor_in_block=True period_rows=2 protected=0 kept=1 despite_empty=0 leg=ok vrows=3 miss=0 block_rows=1 rerank=1 
+Q A4 auto       anchor_in_block=False period_rows=0 protected=0 kept=None despite_empty=None leg=None vrows=None miss=None block_rows=0 rerank=1 
+Q A5 historical anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=0 miss=1 block_rows=1 rerank=1 
+Q A5 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=0 miss=1 block_rows=3 rerank=1 
+Q A6 historical anchor_in_block=True period_rows=2 protected=0 kept=1 despite_empty=0 leg=ok vrows=10 miss=0 block_rows=5 rerank=1 
+Q A6 auto       anchor_in_block=True period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=10 miss=0 block_rows=5 rerank=1 
+Q A7 historical anchor_in_block=True period_rows=2 protected=0 kept=1 despite_empty=0 leg=ok vrows=6 miss=0 block_rows=5 rerank=1 
+Q A7 auto       anchor_in_block=True period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=6 miss=0 block_rows=6 rerank=1 
+Q A8 historical anchor_in_block=False period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=3 miss=0 block_rows=5 rerank=1 
+Q A8 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=3 miss=0 block_rows=4 rerank=1 
+Q A9 historical anchor_in_block=False period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=2 miss=0 block_rows=6 rerank=1 
+Q A9 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=2 miss=0 block_rows=7 rerank=1 
+Q A10 historical anchor_in_block=True period_rows=2 protected=0 kept=1 despite_empty=0 leg=ok vrows=5 miss=0 block_rows=1 rerank=1 
+Q A10 auto       anchor_in_block=True period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=5 miss=0 block_rows=2 rerank=1 
+Q A11 historical anchor_in_block=False period_rows=2 protected=0 kept=None despite_empty=None leg=None vrows=3 miss=None block_rows=0 rerank=1 
+Q A11 auto       anchor_in_block=True period_rows=0 protected=0 kept=0 despite_empty=0 leg=n/a vrows=None miss=0 block_rows=1 rerank=1 
+Q A12 historical anchor_in_block=False period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=4 rerank=1 
+Q A12 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=7 rerank=1 
+Q A13 historical anchor_in_block=False period_rows=1 protected=0 kept=0 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=4 rerank=1 
+Q A13 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=5 rerank=1 
+Q A14 historical anchor_in_block=True period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=0 miss=1 block_rows=1 rerank=1 
+Q A14 auto       anchor_in_block=True period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=0 miss=1 block_rows=1 rerank=1 
+Q A15 historical anchor_in_block=False period_rows=1 protected=0 kept=0 despite_empty=0 leg=ok vrows=2 miss=0 block_rows=1 rerank=1 
+Q A15 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=2 miss=0 block_rows=2 rerank=1 
+Q C1 historical anchor_in_block=False period_rows=1 protected=0 kept=1 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=8 rerank=1 
+Q C1 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=1 miss=0 block_rows=1 rerank=1 
+Q C2 historical anchor_in_block=False period_rows=2 protected=0 kept=2 despite_empty=0 leg=ok vrows=11 miss=0 block_rows=6 rerank=1 
+Q C2 auto       anchor_in_block=False period_rows=0 protected=0 kept=0 despite_empty=0 leg=ok vrows=11 miss=0 block_rows=6 rerank=1 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-9ab9432d01\raw-cand-77791184-1.json
