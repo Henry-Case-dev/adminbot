@@ -156,16 +156,18 @@ LLM_RECORD_KEYS = ("provider", "model", "slot")
 
 #: §P0IM-PB-ACCESS: полный текст запросов НЕ хранится в журнале попытки.
 #: Единственный существующий носитель — bounded-кольцо композера
-#: (`prompt_composer.provider_calls`): последние 24 записи на чат, память
-#: процесса (рестарт/вытеснение теряет текст). Нового хранилища нет.
+#: (`prompt_composer.provider_calls`): 24 записи НА ПРОЦЕСС, общие для всех
+#: чатов (25-й вызов другого чата вытесняет запись этого). Память процесса:
+#: рестарт/вытеснение теряет текст. Нового хранилища нет.
 FULL_TEXT_NOT_RECORDED = "full_text_not_recorded"
 FULL_TEXT_RING_MISS = "not_recorded"
 FULL_TEXT_RING_LIMIT = 24
 FULL_TEXT_STORAGE = (
     "Полный текст запроса не хранится в журнале попытки. Он доступен только "
     "в существующем Inspector из in-memory кольца композера "
-    "(prompt_composer.provider_calls): последние 24 вызова на чат, до "
-    "перезапуска процесса или вытеснения записью.")
+    "(prompt_composer.provider_calls): последние 24 записи ПРОЦЕССА, общие "
+    "для всех чатов, до перезапуска процесса или вытеснения записью — в том "
+    "числе вызовом другого чата.")
 FULL_TEXT_STEPS = (("summary", "meme_summary"), ("joke", "meme_joke"))
 
 
@@ -173,9 +175,10 @@ def _full_text_evidence(chat_id: int, job_id: str, historical: bool) -> dict:
     """Где искать полный текст шагов попытки — существующий Inspector.
 
     Ничего не создаёт: проверяет ТО ЖЕ кольцо `provider_calls`, которое
-    отдаёт `GET /speech/inspector` (RBAC/masking — у него). Нет записи —
-    честная причина (`not_recorded`/`full_text_not_recorded`), а не
-    подстановка текущих настроек и не выдуманный correlation_id.
+    отдаёт `GET /speech/inspector` (RBAC/masking — у него). Кольцо одно на
+    процесс и общее для чатов. Нет записи — честная причина
+    (`not_recorded`/`full_text_not_recorded`), а не подстановка текущих
+    настроек и не выдуманный correlation_id.
     """
     ref = _str(job_id).strip()
     calls: list[dict] = []

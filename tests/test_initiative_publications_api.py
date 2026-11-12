@@ -1155,6 +1155,11 @@ def test_detail_full_text_is_existing_inspector_or_honest_not_recorded(
         assert block["ring_limit"] == 24, block
         assert block["ring_scope"] == "process_lifetime", block
         assert "24" in block["storage"] and "журнал" in block["storage"], block
+        # Reviewer blocker 2: кольцо ОДНО на процесс и общее для чатов —
+        # «на чат» было ложью (25-й вызов чужого чата вытесняет запись).
+        assert "процесс" in block["storage"].lower(), block["storage"]
+        assert "общие" in block["storage"].lower(), block["storage"]
+        assert "на чат" not in block["storage"].lower(), block["storage"]
         steps = {item["step"]: item for item in block["steps"]}
         assert set(steps) == {"summary", "joke"}, steps
         assert steps["summary"]["correlation_id"] == "K1#meme_summary", steps

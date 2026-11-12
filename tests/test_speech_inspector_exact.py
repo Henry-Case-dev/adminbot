@@ -629,6 +629,45 @@ def _record_meme_call(api_env, *, correlation_id: str, chat_id: int,
         correlation_id=correlation_id, chat_id=chat_id)
 
 
+#: §P0IM-PB-ACCESS (Reviewer blocker 1): в режиме correlation_id в ответе
+#: НЕТ текущей сборки — только exact-запись кольца или honest not_recorded.
+CORRELATION_FORBIDDEN_KEYS = (
+    "preview", "sent", "core", "layers", "style", "hierarchy",
+    "skip_reasons", "conflicts_detail", "sent_note", "trace_coverage",
+)
+
+
+def _current_build_marker(api_env) -> str:
+    """Кусок ТЕКУЩЕЙ сборки: его присутствие в ответе = утечка превью."""
+    preview = _run(S._preview_manifest(
+        api_env.cache, api_env.chat_id,
+        text="(предпросмотр без сообщения)"))
+    candidates = [preview.get("system_masked")]
+    candidates += [row.get("text") for row in (preview.get("layer_texts") or [])]
+    for value in candidates:
+        text = str(value or "").strip()
+        if len(text) >= 20:
+            return text[:40]
+    return ""
+
+
+def _assert_no_current_build(api_env, payload: dict) -> None:
+    for key in CORRELATION_FORBIDDEN_KEYS:
+        assert key not in payload, (
+            "в ответе correlation_id осталась текущая сборка: %s" % key)
+    marker = _current_build_marker(api_env)
+    assert marker, "текущая сборка пуста — проверка утечки невозможна"
+    dumped = json.dumps(payload, ensure_ascii=False)
+    assert marker not in dumped, (
+        "в ответ correlation_id утёк текст текущей сборки: %r" % marker)
+    # Кольцо общее на процесс, а не «на чат» (Reviewer blocker 2).
+    retention = str(payload.get("retention") or "")
+    note = str(payload.get("last_run_note") or "")
+    for value in (retention, note):
+        assert "процесс" in value, "политика хранения не названа: " + value
+        assert "на чат" not in value, "ложное «на чат» в политике: " + value
+
+
 def test_inspector_correlation_filter_returns_the_exact_meme_call(api_env):
     """Точный correlation_id находит СВОЙ вызов; секреты маскируются."""
     composer.reset_state()
@@ -645,6 +684,8 @@ def test_inspector_correlation_filter_returns_the_exact_meme_call(api_env):
         assert payload["requested_correlation_recorded"] is True, payload
         assert payload["last_run_present"] is True, payload
         assert payload["ring_limit"] == 24, payload
+        # Reviewer blocker 1: только exact, без текущей сборки/превью.
+        _assert_no_current_build(api_env, payload)
         exact = payload["exact"]
         assert exact["is_actual"] is True, exact
         assert exact["correlation_id"] == "JOB#meme_joke", exact
@@ -658,7 +699,7 @@ def test_inspector_correlation_filter_returns_the_exact_meme_call(api_env):
 
 
 def test_inspector_correlation_miss_is_not_a_preview(api_env):
-    """Промах кольца: not_recorded, а не превью текущих настроек."""
+    """Промах кольца: not_recorded БЕЗ текущей сборки, а не превью."""
     composer.reset_state()
     try:
         payload = _run(S._inspector_payload(
@@ -668,11 +709,61 @@ def test_inspector_correlation_miss_is_not_a_preview(api_env):
         assert payload["requested_correlation_recorded"] is False, payload
         assert payload["last_run_present"] is False, payload
         assert "not_recorded" in payload["last_run_note"], payload["last_run_note"]
+        assert "предпросмотр" not in str(payload["last_run_note"]).lower(), (
+            "промах кольца подписан как превью: " + payload["last_run_note"])
+        _assert_no_current_build(api_env, payload)
         exact = payload["exact"]
         assert exact["is_actual"] is False, exact
         assert exact["status"] == "not_recorded", exact
         assert exact["messages"] == [] and exact["system"] == "", exact
         assert exact["correlation_id"] == "JOB#meme_summary", exact
+    finally:
+        composer.reset_state()
+
+
+def test_inspector_correlation_foreign_chat_returns_no_text(api_env):
+    """Чужая корреляция/чужой чат: not_recorded, ни текста, ни текущей сборки."""
+    composer.reset_state()
+    try:
+        _record_meme_call(api_env, correlation_id="FOREIGN#meme_joke",
+                          chat_id=-100999, text="ЧУЖОЙ-ЧАТ-ТЕКСТ")
+        payload = _run(S._inspector_payload(
+            api_env.cache, api_env.user, api_env.ctx, api_env.chat_id,
+            correlation_id="FOREIGN#meme_joke"))
+        assert payload["requested_correlation_recorded"] is False, payload
+        assert payload["exact"]["status"] == "not_recorded", payload["exact"]
+        _assert_no_current_build(api_env, payload)
+        dumped = json.dumps(payload, ensure_ascii=False)
+        assert "ЧУЖОЙ-ЧАТ-ТЕКСТ" not in dumped, "чужой чат утёк"
+    finally:
+        composer.reset_state()
+
+
+def test_ring_is_process_wide_not_per_chat(api_env):
+    """Reviewer blocker 2: 24 записи ОДНОГО процесса, чужие вызовы вытесняют."""
+    composer.reset_state()
+    try:
+        _record_meme_call(api_env, correlation_id="OWN#meme_joke",
+                          chat_id=api_env.chat_id, text="СВОЙ-ТЕКСТ-ПОПЫТКИ")
+        own = composer.provider_calls(chat_id=api_env.chat_id,
+                                      limit=S.FULL_RING_LIMIT)
+        assert [c["correlation_id"] for c in own] == ["OWN#meme_joke"], own
+        for index in range(25):
+            _record_meme_call(api_env,
+                              correlation_id="OTHER-%d#meme_joke" % index,
+                              chat_id=-100999, text="ЧУЖОЙ-%d" % index)
+        # 25 вызовов другого чата вытеснили запись этого: кольцо процесса.
+        own_after = composer.provider_calls(chat_id=api_env.chat_id,
+                                            limit=S.FULL_RING_LIMIT)
+        assert own_after == [], own_after
+        payload = _run(S._inspector_payload(
+            api_env.cache, api_env.user, api_env.ctx, api_env.chat_id,
+            correlation_id="OWN#meme_joke"))
+        assert payload["requested_correlation_recorded"] is False, payload
+        _assert_no_current_build(api_env, payload)
+        assert "СВОЙ-ТЕКСТ-ПОПЫТКИ" not in json.dumps(payload,
+                                                      ensure_ascii=False)
+        assert payload["ring_limit"] == S.FULL_RING_LIMIT
     finally:
         composer.reset_state()
 

@@ -13380,9 +13380,17 @@
                          class="card speech-pad" data-inspector-no-snapshot>
                       <div class="text-sm font-bold mb-1">Нет подтверждённого снимка</div>
                       <div class="text-xs text-gray-500">
-                        Реальный вызов ещё не записан в журнал (или запись
-                        вытеснена из bounded-кэша). Это не ошибка интерфейса:
-                        собранный шаблон здесь не показывается как отправленный.
+                        <template v-if="speechInspector.requested_correlation_id">
+                          Полного текста запроса с этим correlation_id в кольце
+                          композера нет (not_recorded). Текущая сборка настроек
+                          здесь не показывается и за фактический запрос не
+                          выдаётся.
+                        </template>
+                        <template v-else>
+                          Реальный вызов ещё не записан в журнал (или запись
+                          вытеснена из bounded-кэша). Это не ошибка интерфейса:
+                          собранный шаблон здесь не показывается как отправленный.
+                        </template>
                         <template v-if="speechInspector.last_run_note">
                           {{ speechInspector.last_run_note }}
                         </template>
@@ -13414,14 +13422,28 @@
                         <div class="text-sm font-bold">Effective Prompt Inspector</div>
                         <span class="text-xs text-gray-500">· для диагностики</span>
                         <span class="badge" :class="speechInspector.last_run_present ? 'badge-info' : 'badge-warn'">
-                          {{ speechInspector.last_run_present ? 'есть снимок реального хода' : 'только предпросмотр' }}
+                          {{ speechInspector.requested_correlation_id
+                             ? (speechInspector.last_run_present
+                               ? 'запрошенный вызов найден'
+                               : 'полный текст не найден (not_recorded)')
+                             : (speechInspector.last_run_present
+                               ? 'есть снимок реального хода'
+                               : 'только предпросмотр') }}
                         </span>
                         <span class="badge badge-muted">маскировка: секреты и длинные ID</span>
                       </div>
                       <div class="text-xs text-gray-500 speech-note">
-                        «Предпросмотр» — сборка текущей конфигурации тем же композером (без вызова
-                        модели). «Фактически отправлено» — снимок последнего хода. Собранный шаблон
-                        не выдаётся за доказательство реального вызова.
+                        <template v-if="speechInspector.requested_correlation_id">
+                          Показан ровно запрос с correlation_id из in-memory
+                          кольца композера (общее кольцо процесса). Если записи
+                          нет — только honest not_recorded; текущая сборка
+                          настроек в этом режиме не показывается.
+                        </template>
+                        <template v-else>
+                          «Предпросмотр» — сборка текущей конфигурации тем же композером (без вызова
+                          модели). «Фактически отправлено» — снимок последнего хода. Собранный шаблон
+                          не выдаётся за доказательство реального вызова.
+                        </template>
                       </div>
                       <div v-if="speechInspector.last_run_note" class="speech-warn">
                         {{ speechInspector.last_run_note }}
@@ -13492,7 +13514,8 @@
                     </div>
                     <!-- INS-SKIPREASON: пропущенные слои объясняются
                          по-русски; машинный код — только в подсказке. -->
-                    <div class="card speech-pad" data-speech-skip-reasons>
+                    <div class="card speech-pad" data-speech-skip-reasons
+                         v-if="!speechInspector.requested_correlation_id">
                       <div class="speech-row">
                         <div class="text-sm font-bold mb-1">Почему слои не отправлены</div>
                         <span class="badge badge-muted">
@@ -13513,7 +13536,8 @@
                     </div>
                     <!-- INS-HIERARCHY: порядок слоёв и click-through к тексту,
                          источнику и редакции блока. -->
-                    <div class="card speech-pad" data-speech-hierarchy>
+                    <div class="card speech-pad" data-speech-hierarchy
+                         v-if="!speechInspector.requested_correlation_id">
                       <div class="text-sm font-bold mb-1">Иерархия сборки</div>
                       <div class="text-xs text-gray-500 speech-note">
                         Порядок от контракта канала к примерам и стилю. Нажмите
@@ -13560,7 +13584,8 @@
                       </div>
                     </div>
                     <!-- INS-CONFLICT: конкурирующие правила по реальным данным. -->
-                    <div class="card speech-pad" data-speech-conflicts>
+                    <div class="card speech-pad" data-speech-conflicts
+                         v-if="!speechInspector.requested_correlation_id">
                       <div class="speech-row">
                         <div class="text-sm font-bold mb-1">Конфликты и дубликаты правил</div>
                         <span class="badge badge-muted">
@@ -13687,7 +13712,8 @@
                              speechStyleBuildInPayload(speechInspector.preview.style) ? 'yes' : 'no'">{{ speechInspector.preview.style.hint_text || '(подсказка пуста)' }}</pre>
                     </div>
                     <div class="card speech-pad"
-                         v-if="speechInspectorMode === 'real' && speechInspector.last_run_present">
+                         v-if="speechInspectorMode === 'real' && speechInspector.last_run_present
+                               && !speechInspector.requested_correlation_id">
                       <div class="text-sm font-bold mb-1">Фактически отправленный payload</div>
                       <div class="text-xs text-gray-500">
                         writer {{ speechInspector.sent.writer }} · профиль {{ speechInspector.sent.profile }} ·
@@ -13713,7 +13739,8 @@
                       <div v-for="(p, pi) in (speechInspector.sent.user_parts_masked || [])" :key="'up-' + pi"
                            class="speech-pre" data-speech-sent-user>{{ p }}</div>
                     </div>
-                    <div class="card speech-pad">
+                    <div class="card speech-pad"
+                         v-if="!speechInspector.requested_correlation_id">
                       <div class="text-sm font-bold mb-1">Характер в сборке</div>
                       <div class="text-xs text-gray-500">
                         редакция: {{ speechInspector.core.level }} ({{ speechInspector.core.reason }}) ·

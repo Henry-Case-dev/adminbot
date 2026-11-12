@@ -2631,7 +2631,7 @@ async function closureTrainSuite() {
     full_text: {
       available: true, ring_limit: 24, ring_scope: 'process_lifetime',
       storage: 'Полный текст запроса не хранится в журнале попытки. Кольцо: '
-        + 'последние 24 вызова на чат, до перезапуска процесса.',
+        + 'последние 24 записи процесса, общие для чатов, до перезапуска.',
       steps: [
         { step: 'summary', correlation_id: 'job-l#meme_summary',
           recorded: true, reason: '', reason_detail: '' },
@@ -2651,6 +2651,10 @@ async function closureTrainSuite() {
   assert.ok(accessSummary.fullTextNote.indexOf('Inspector') >= 0
     && accessSummary.fullTextNote.indexOf('24') >= 0,
     'политика хранения не названа: ' + accessSummary.fullTextNote);
+  // Reviewer blocker 2: кольцо процесса, а не «на чат».
+  assert.ok(accessSummary.fullTextNote.indexOf('процесс') >= 0
+    && accessSummary.fullTextNote.indexOf('на чат') < 0,
+    'ложное «на чат» в политике хранения: ' + accessSummary.fullTextNote);
   assert.ok(accessJoke.fullTextNote.indexOf('not_recorded') >= 0,
     'промах кольца не назван: ' + accessJoke.fullTextNote);
   assert.strictEqual(accessJoke.fullText.recorded, false);
@@ -2852,6 +2856,13 @@ async function closureTrainSuite() {
                         'data-inspector-correlation-miss']) {
     assert.ok(indexHtml.indexOf(anchor) >= 0, 'нет анкера в шаблоне: ' + anchor);
   }
+  // Reviewer blocker 1: в режиме correlation_id карточки текущей сборки
+  // (skip reasons / hierarchy / conflicts / sent / core) не рендерятся.
+  const correlationGuards =
+    (indexHtml.match(/!speechInspector\.requested_correlation_id/g) || []).length;
+  assert.ok(correlationGuards >= 5,
+    'в шаблоне нет запрета текущей сборки для correlation_id: '
+    + correlationGuards);
 }
 
 chatBoundSuite().then(peekStaleSuite).then(s6FreshSuite).then(productGapsSuite)
