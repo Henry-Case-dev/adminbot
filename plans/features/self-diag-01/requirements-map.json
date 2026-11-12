@@ -638,76 +638,101 @@
     },
     "d6": {
       "slice": "D6 (checkup composition, checkup contract, analytics)",
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
-      "candidate_short": "d5e97727",
-      "docs_commit": "ca9e9cb37a295434b8a751e6731e350804059fc3",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_short": "16fa04e7",
+      "docs_commit": "9334c0c2cf1540d89fa1bf77d25f60acef95e2bd",
       "base_commit": "722ccfc522ba00a18dc74881913020151ac250aa",
       "branch": "self-diag/d6",
       "deployed": false,
       "status": "REVIEW",
-      "why_not_verified": "Код не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза self-diag строки остаются REVIEW с candidate-bound доказательством.",
+      "why_not_verified": "Код не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза self-diag backend-строки остаются REVIEW, live/UI — READY_FOR_LIVE.",
       "correction_chain": {
         "61e50806": "первый кандидат: Needs Fixes B1-B4",
-        "cbb52d66": "B1/B4 исправлены и подтверждены; Needs Fixes по B2/B3 residuals",
-        "d5e97727": "B2/B3 residuals закрыты; Approved (B1/B4 подтверждены, файлы не менялись)"
+        "cbb52d66": "B1/B4 исправлены; Needs Fixes B2/B3 residuals",
+        "d5e97727": "B2/B3 residuals закрыты; Approved; открыт test-proof gap allowed-dispatch",
+        "16fa04e7": "allowed-dispatch (TOOL_ACTIONS prompt_readback=view) + allowed/deny dispatch tests; final Approved"
       },
       "review": {
-        "path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
-        "sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+        "path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+        "sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
         "verdict": "Approved",
-        "scope": "B2/B3-исправление на d5e97727; B1/B4 подтверждены; D6/self-diag DONE не объявляются",
-        "reviewer": "independent (не Builder)",
-        "previous": {
-          "path": "plans/features/self-diag-01/evidence/d6/review-d6-cbb52d66.md",
-          "sha256": "6c48af0160da2e6e130d9e12ee72d896c0ac803c1b5cc32ee5ed3c978221b007",
-          "verdict": "Needs Fixes (B2/B3); B1/B4 verified"
-        }
+        "scope": "финальный candidate 16fa04e7; D6 ready for single release under normal gates; не production acceptance и не parent DONE",
+        "reviewer": "independent (не Builder)"
       },
       "binding": {
-        "path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
-        "sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
-        "previous": {
-          "path": "plans/features/self-diag-01/evidence/d6/binding-d6-cbb52d66068e0e0595fd91717556ea9d4be22fb0.md",
-          "sha256": "3fc2bde52568b438119ed6f099d3abb45aa0a2691dff3a2e7ba3348a66af1ce5"
+        "path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+        "sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+        "row_matrix": {
+          "path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81"
         }
       },
-      "promotion_note": "review-d6-d5e97727.md существовал только как untracked-файл в worktree self-diag/d6; binding и review cbb52d66 — на ветке self-diag/d6. Все четыре артефакта перенесены в master byte-точно в этом docs-коммите (sha256 зафиксированы).",
-      "diff_scope": "d5e97727: handlers/checkup.py, web/api/routes.py, tests/test_checkup_contract.py, F8 re-pin; B1/B4 и D3/D5/D4 не менялись",
+      "diff_scope": "16fa04e7: services/diagnostic_policy.py (TOOL_ACTIONS prompt_readback=view) + tests/test_checkup_contract.py; B1-B4, D3/D4/D5, UI, prompts, settings не менялись",
       "tests": {
-        "contract": "pytest tests/test_checkup_contract.py -q -> 39 passed",
-        "broad": "D6+D3/D4/D5 focused (22 файла) -> 932 passed, 1 warning",
+        "contract": "pytest tests/test_checkup_contract.py -q -> 41 passed",
+        "broad": "D6+D3/D4/D5 focused (22 файла) -> 934 passed, 1 warning",
         "prompt_contracts": "D4-B+prompt (16 файлов) -> 661 passed, 1 failed (pre-existing mca10b pin 643 vs 644; BACKLOG)",
-        "red_green": "RED на cbb52d66 по B2/B3 residual -> GREEN на d5e97727",
-        "mutation": "reviewer mutation: skip-exclusion removed -> test_cooldown_is_not_a_call_or_latency_sample 1 failed; restore -> 39 passed"
+        "allowed_dispatch": "RED на d5e97727 (denied_action_not_supported) -> GREEN на 16fa04e7 (+2 теста)",
+        "mutation": "skip-exclusion mutation (d5e97727 review): 1 failed/restore 41 green"
       },
       "covered_rows": [
+        "SD1-D6-01",
         "SD1-D6-05",
-        "SD1-D6-12",
-        "SD1-D6-16",
+        "SD1-D6-08",
+        "SD1-D6-09",
+        "SD1-D6-10",
+        "SD1-D6-11",
+        "SD1-D6-13",
+        "SD1-D6-14",
+        "SD1-D6-15",
         "SD1-D6-17",
-        "SD1-D6-18"
+        "SD1-D6-18",
+        "SD1-D6-22",
+        "SD1-EVD-02",
+        "SD1-GRAL-02",
+        "SD1-GRAL-07"
       ],
       "partial_rows": {
-        "SD1-D6-18": "B2-часть; retry/cache/stale остаются null/measured=false",
-        "SD1-D6-12": "B4-часть; UI-рендер — D7",
-        "SD1-D6-16": "B4-часть; UI-рендер блока — D7",
-        "SD1-D6-19": "golden/hypothesis — D7",
-        "SD1-D6-20": "history growth — D7"
+        "SD1-AC-01": "postdeploy-наблюдение (approved deferral)",
+        "SD1-AC-02": "postdeploy-наблюдение (approved deferral)",
+        "SD1-AC-09": "postdeploy-наблюдение (approved deferral)",
+        "SD1-AC-19": "postdeploy-наблюдение (approved deferral)",
+        "SD1-AMX-01": "postdeploy-наблюдение (approved deferral)",
+        "SD1-AMX-06": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D2-32": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-02": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-03": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-04": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-06": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-07": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-12": "postdeploy-наблюдение (approved deferral)",
+        "SD1-D6-16": "postdeploy-наблюдение (approved deferral)",
+        "SD1-GRAL-06": "postdeploy-наблюдение (approved deferral)"
       },
       "not_covered_rows": {
-        "SD1-D6-01/02/08/09/10/11": "не входили в D6-approval",
-        "SD1-D6-03/04/06/07/22": "live/preprod или не входили в approval",
-        "SD1-AC-01/02/09/19": "D7/live/UI",
-        "SD1-AMX-01/06": "D6 UI/D7",
-        "SD1-D2-32": "D6 UI/D7",
-        "SD1-D6-13/14/15": "D6 UI/D7",
-        "SD1-EVD-02": "не входило в approval",
-        "SD1-GRAL-02/06/07": "не входили в approval"
+        "SD1-D6-19": "реальная неинструментированная реализация (D7 golden/history)",
+        "SD1-D6-20": "реальная неинструментированная реализация (D7 golden/history)"
+      },
+      "deferred_rows": {
+        "SD1-AC-01": "первый реальный «чекап» в личном чате владельца после релиза",
+        "SD1-AC-02": "первый реальный чекап на VPS после релиза",
+        "SD1-AC-09": "реальные ответы «чекап» после релиза",
+        "SD1-AC-19": "открыть «Статус» в реальном TMA после релиза",
+        "SD1-AMX-01": "открыть «Доступы» → «Самодиагностика» после релиза",
+        "SD1-AMX-06": "изменить переключатель, выполнить реальный tool call и рестарт после релиза",
+        "SD1-D2-32": "открыть матрицу доступов после релиза",
+        "SD1-D6-02": "реальные ответы Writer после релиза",
+        "SD1-D6-03": "выкладка в прод и первый чекап после релиза",
+        "SD1-D6-04": "реальные ответы «чекап» после релиза",
+        "SD1-D6-06": "первый реальный чекап в личном чате после релиза",
+        "SD1-D6-07": "первый реальный чекап на VPS после релиза",
+        "SD1-D6-12": "открыть «Статус» после релиза",
+        "SD1-D6-16": "открыть блок «Самодиагностика» после релиза",
+        "SD1-GRAL-06": "реальные ответы «чекап» после релиза"
       },
       "duplicate_fix": {
         "canonical": "SD1-D6-07 (L00352)",
-        "duplicate": "SD1-D6-07b (L00117, disposition=duplicate)",
-        "reason": "два source_line были сведены в один req_id с приёмкой от L00352; канон — L00352, L00117 сохранён как история"
+        "duplicate": "SD1-D6-07b (L00117, disposition=duplicate)"
       },
       "backlog": [
         "mca10b pin 643 vs 644 (D4-B, pre-existing)"
@@ -715,46 +740,66 @@
     },
     "D6": {
       "slice": "D6 (aggregate: checkup composition, contract, analytics)",
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
-      "candidate_short": "d5e97727",
-      "docs_commit": "ca9e9cb37a295434b8a751e6731e350804059fc3",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_short": "16fa04e7",
+      "docs_commit": "9334c0c2cf1540d89fa1bf77d25f60acef95e2bd",
       "base_commit": "722ccfc522ba00a18dc74881913020151ac250aa",
       "deployed": false,
       "status": "REVIEW",
-      "why_not_verified": "D6 принят по B1-B4 на unit/preprod, но не выложен. Map-level candidate_commit остаётся D1 25876167; binding нужен для slice-scoped review D6.",
+      "why_not_verified": "D6 принят финальным ревью для single release, но не выложен. Map-level candidate_commit остаётся D1 25876167; binding нужен для slice-scoped review/deploy D6.",
       "review": {
-        "path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
-        "sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+        "path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+        "sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
         "verdict": "Approved"
       },
       "binding": {
-        "path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
-        "sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9"
+        "path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+        "sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84"
       },
       "tests": {
-        "contract": "39 passed",
-        "broad": "932 passed",
+        "contract": "41 passed",
+        "broad": "934 passed",
         "prompt_contracts": "661 passed, 1 pre-existing failure"
       },
       "covered_rows": [
+        "SD1-D6-01",
         "SD1-D6-05",
-        "SD1-D6-12",
-        "SD1-D6-16",
+        "SD1-D6-08",
+        "SD1-D6-09",
+        "SD1-D6-10",
+        "SD1-D6-11",
+        "SD1-D6-13",
+        "SD1-D6-14",
+        "SD1-D6-15",
         "SD1-D6-17",
-        "SD1-D6-18"
+        "SD1-D6-18",
+        "SD1-D6-22",
+        "SD1-EVD-02",
+        "SD1-GRAL-02",
+        "SD1-GRAL-07"
       ],
       "partial_rows": [
-        "SD1-D6-18",
+        "SD1-AC-01",
+        "SD1-AC-02",
+        "SD1-AC-09",
+        "SD1-AC-19",
+        "SD1-AMX-01",
+        "SD1-AMX-06",
+        "SD1-D2-32",
+        "SD1-D6-02",
+        "SD1-D6-03",
+        "SD1-D6-04",
+        "SD1-D6-06",
+        "SD1-D6-07",
         "SD1-D6-12",
         "SD1-D6-16",
+        "SD1-GRAL-06"
+      ],
+      "not_covered_rows": [
         "SD1-D6-19",
         "SD1-D6-20"
       ],
-      "not_covered_rows": {
-        "D6 unit rows": "не входили в D6-approval",
-        "D7/live/UI": "AC-01/02/09/19, AMX-01/06, D2-32, D6-03/04/06/07/13/14/15/19/20/22, EVD-02, GRAL-02/06/07"
-      },
-      "note": "D6 row statuses: REVIEW — 5 (D6-05/12/16/17/18); PENDING — 27; duplicate/history — 1 (D6-07b). REVIEW = B1-B4 приняты на d5e97727, не выложено; D6-12/16 дополнительно требуют live/UI-доказательства (D7), D6-18 — частично (retry/cache/stale)."
+      "note": "D6 row statuses: REVIEW — 15; READY_FOR_LIVE — 15 (postdeploy-наблюдение, approved deferral); PENDING — 2 (D6-19/20: реальная неинструментированная golden/history-часть); duplicate/history — 1."
     }
   },
   "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -1485,8 +1530,8 @@
       "slice": "D6",
       "acceptance": "Блок «Самодиагностика» показывает snapshot системы, распределение отказов по компонентам, source status, активные задания, CPU/RAM/disk с давлением, degraded integrations, source-code correlation, deployed vs upstream и число непроверенных источников; строки кликабельны с временем, источником, lineage и различением факта/гипотезы.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "REVIEW",
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
@@ -1517,6 +1562,44 @@
           "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Блок «Самодиагностика» реализован: snapshot, by_stage отказы, source status, jobs/queue, CPU/RAM/disk, degraded integrations, correlation, deployed vs upstream, кликабельные строки.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Блок «Самодиагностика» реализован: snapshot, by_stage отказы, source status, jobs/queue, CPU/RAM/disk, degraded integrations, correlation, deployed vs upstream, кликабельные строки. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "UI-рендер и реальные данные требуют выложенного кандидата.",
+            "trigger": "открыть блок «Самодиагностика» после релиза",
+            "next_check": "Playwright + Browser Use: все секции блока и кликабельные источники",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-16; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
         }
       ],
       "expected_evidence": [
@@ -1526,9 +1609,17 @@
           "description": "снимок блока «Самодиагностика» и раскрытая строка с lineage"
         }
       ],
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
       "candidate_deployed": false,
-      "status_note": "REVIEW: B4-часть (состав источников) принята; фактический UI-рендер блока — D7/live, live_required=true."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "UI-рендер и реальные данные требуют выложенного кандидата.",
+        "trigger": "открыть блок «Самодиагностика» после релиза",
+        "next_check": "Playwright + Browser Use: все секции блока и кликабельные источники",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-16; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-D7-02",
@@ -1719,9 +1810,48 @@
       "slice": "D6",
       "acceptance": "В существующем разделе «Доступы» есть подраздел «Самодиагностика» с настраиваемой матрицей категорий (состояние бота и сервера, подробные метрики, логи и traceback, исходный код и GitHub, история коммитов, конфигурация без секретов, память и служебная аналитика, промпты, глубокая диагностика) и правами просмотра и запуска проверок; параллельный ACL не создаётся.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Подраздел «Самодиагностика» в «Доступах»: 9 категорий × права, наследование; параллельного ACL нет.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Подраздел «Самодиагностика» в «Доступах»: 9 категорий × права, наследование; параллельного ACL нет. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "UI-матрица и сохранение прав проверяются только на выложенном кандидате.",
+            "trigger": "открыть «Доступы» → «Самодиагностика» после релиза",
+            "next_check": "UI-матрица: переключатели, наследование, сохранение",
+            "owner": "agents",
+            "contract_ref": "SD1-AMX-01; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "ui",
@@ -1731,7 +1861,17 @@
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L9",
       "reassignment": "Перенесён владелец D2→D6 по решению Reviewer (2026-11-09): требует отрисованной поверхности «Доступы → Самодиагностика». Политическая часть (9 категорий, view/run/edit, отсутствие второго ACL) реализована и доказана строками SD1-D2-07/SD1-AC-16/SD1-AMX-02.",
-      "status_note": "PENDING: админ-подраздел «Самодиагностика» с матрицей категорий — D6 UI/D7."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "UI-матрица и сохранение прав проверяются только на выложенном кандидате.",
+        "trigger": "открыть «Доступы» → «Самодиагностика» после релиза",
+        "next_check": "UI-матрица: переключатели, наследование, сохранение",
+        "owner": "agents",
+        "contract_ref": "SD1-AMX-01; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-AMX-02",
@@ -1973,9 +2113,48 @@
       "slice": "D6",
       "acceptance": "Матрица прав в админке понятна: переключатели по ролям и категориям, объяснение эффективных разрешений и наследования, показ причины allow/deny для конкретного пользователя; изменения сохраняются, применяются к реальным tool calls и переживают рестарт, дизайн соответствует существующей админке включая мобильную версию.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Переключатели ролей/категорий, explain allow/deny, аудит через существующие маршруты; backend D2 тесты + dispatch deny без identity.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Переключатели ролей/категорий, explain allow/deny, аудит через существующие маршруты; backend D2 тесты + dispatch deny без identity. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "«Переживает рестарт» и «применяется к реальным tool calls» требуют живого кандидата.",
+            "trigger": "изменить переключатель, выполнить реальный tool call и рестарт после релиза",
+            "next_check": "проверить сохранение прав после рестарта и реальный allow/deny tool call",
+            "owner": "agents",
+            "contract_ref": "SD1-AMX-06; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "ui",
@@ -1984,7 +2163,17 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L17",
-      "status_note": "PENDING: матрица прав в админке — D6 UI/D7."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "«Переживает рестарт» и «применяется к реальным tool calls» требуют живого кандидата.",
+        "trigger": "изменить переключатель, выполнить реальный tool call и рестарт после релиза",
+        "next_check": "проверить сохранение прав после рестарта и реальный allow/deny tool call",
+        "owner": "agents",
+        "contract_ref": "SD1-AMX-06; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-AMX-07",
@@ -2108,9 +2297,48 @@
       "slice": "D6",
       "acceptance": "Bare «чекап» сохраняет зарегистрированный обработчик, cooldown, reply, реакцию, не ломает отправку и вызывает общий collector.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Bare «чекап» сохраняет handler/cooldown/reply/реакцию и вызывает общий collector (tests/test_checkup_handlers.py + test_uses_shared_collector_and_keeps_report).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Bare «чекап» сохраняет handler/cooldown/reply/реакцию и вызывает общий collector (tests/test_checkup_handlers.py + test_uses_shared_collector_and_keeps_report). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Живой Telegram-ход требует выложенного кандидата; локально проверены только unit-путь и события.",
+            "trigger": "первый реальный «чекап» в личном чате владельца после релиза",
+            "next_check": "сверить reply/cooldown/реакцию и событие checkup_triggered в mca_events/логах",
+            "owner": "agents",
+            "contract_ref": "SD1-AC-01; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -2118,7 +2346,17 @@
           "description": "реальный bare чекап в Telegram: handler, cooldown, reply, реакция, вызов collector"
         }
       ],
-      "status_note": "PENDING: живой чекап (handler/cooldown/reply/реакция) — D7/live; в D6-approval не входило."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Живой Telegram-ход требует выложенного кандидата; локально проверены только unit-путь и события.",
+        "trigger": "первый реальный «чекап» в личном чате владельца после релиза",
+        "next_check": "сверить reply/cooldown/реакцию и событие checkup_triggered в mca_events/логах",
+        "owner": "agents",
+        "contract_ref": "SD1-AC-01; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-AC-02",
@@ -2131,9 +2369,48 @@
       "slice": "D6",
       "acceptance": "Результат «чекап» реально получает и передаёт в свой LLM-вызов локальные логи, серверные метрики, память, effective runtime SHA и попытку git metadata; трасса позволяет это проверить.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Реальный чекап получает локальные логи/метрики/память/runtime SHA и попытку git metadata; трасса — test_uses_shared_collector_and_keeps_report + test_identity_log_is_machine_only + bundle-поля.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Реальный чекап получает локальные логи/метрики/память/runtime SHA и попытку git metadata; трасса — test_uses_shared_collector_and_keeps_report + test_identity_log_is_machine_only + bundle-поля. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактические байты прод-источников (journald/systemd/PG) локально недоступны.",
+            "trigger": "первый реальный чекап на VPS после релиза",
+            "next_check": "проверить trace/payload: логи, метрики, память, runtime SHA, git metadata присутствуют",
+            "owner": "agents",
+            "contract_ref": "SD1-AC-02; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -2141,7 +2418,17 @@
           "description": "трасса чекапа с составом переданного evidence"
         }
       ],
-      "status_note": "PENDING: живая передача локальных логов/метрик/памяти/runtime SHA/git metadata в LLM-вызов — D7/live."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактические байты прод-источников (journald/systemd/PG) локально недоступны.",
+        "trigger": "первый реальный чекап на VPS после релиза",
+        "next_check": "проверить trace/payload: логи, метрики, память, runtime SHA, git metadata присутствуют",
+        "owner": "agents",
+        "contract_ref": "SD1-AC-02; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-AC-03",
@@ -2434,9 +2721,48 @@
       "slice": "D6",
       "acceptance": "prompts.checkup_system_prompt: effective bytes/hash до и после релиза одинаковы, активная ревизия/ручная версия/история сохранены; язвительный стиль подтверждён живыми ответами.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: sha256 prompts.checkup_system_prompt равен заводскому, промпты/ревизии/история не менялись; живые ответы — D7.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "sha256 prompts.checkup_system_prompt равен заводскому, промпты/ревизии/история не менялись; живые ответы — D7. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Характер/язвительный стиль подтверждается только живыми ответами модели.",
+            "trigger": "реальные ответы «чекап» после релиза",
+            "next_check": "сверить hash/байты промпта до/после и стиль ответов (без смягчения)",
+            "owner": "agents",
+            "contract_ref": "SD1-AC-09; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -2444,7 +2770,17 @@
           "description": "hash effective prompt до/после + сохранённая ревизия и живые ответы"
         }
       ],
-      "status_note": "PENDING: байт-идентичность prompt и язвительный стиль на живых ответах — D7/live."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Характер/язвительный стиль подтверждается только живыми ответами модели.",
+        "trigger": "реальные ответы «чекап» после релиза",
+        "next_check": "сверить hash/байты промпта до/после и стиль ответов (без смягчения)",
+        "owner": "agents",
+        "contract_ref": "SD1-AC-09; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-AC-10",
@@ -2889,9 +3225,48 @@
       "slice": "D6",
       "acceptance": "Статус/Аналитика визуально отображают реальное покрытие и отказы; детали доступны в рамках ACL, credential values замаскированы во всех новых карточках.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: UI Статус/Аналитика реализованы: реальное покрытие/отказы, карточки из чисел/кодов без credential values; secret policy SECRET_VALUE не настраивается.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "UI Статус/Аналитика реализованы: реальное покрытие/отказы, карточки из чисел/кодов без credential values; secret policy SECRET_VALUE не настраивается. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "UI-рендер требует выложенного кандидата и реального Telegram Mini App контекста.",
+            "trigger": "открыть «Статус» в реальном TMA после релиза",
+            "next_check": "Playwright + Browser Use (desktop/mobile): покрытие/отказы и отсутствие credential values",
+            "owner": "agents",
+            "contract_ref": "SD1-AC-19; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "ui",
@@ -2899,7 +3274,17 @@
           "description": "снимки Статус/Аналитика: покрытие, отказы, маскировка"
         }
       ],
-      "status_note": "PENDING: UI Статус/Аналитика и маскировка credential values в карточках — D6 UI/D7."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "UI-рендер требует выложенного кандидата и реального Telegram Mini App контекста.",
+        "trigger": "открыть «Статус» в реальном TMA после релиза",
+        "next_check": "Playwright + Browser Use (desktop/mobile): покрытие/отказы и отсутствие credential values",
+        "owner": "agents",
+        "contract_ref": "SD1-AC-19; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "MAN-AC-20",
@@ -3166,8 +3551,39 @@
       "acceptance": "Не создаётся второй промпт, переписывающий «Системный промпт чекапа», и второй стилистический Writer только для чекапа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Нет второго промпта/Writer: test_no_second_prompt_or_writer, sha256 заводского CHECKUP_SYSTEM_PROMPT; checkup_prompts/промпты не в диффе.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Нет второго промпта/Writer: test_no_second_prompt_or_writer, sha256 заводского CHECKUP_SYSTEM_PROMPT; checkup_prompts/промпты не в диффе. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3175,7 +3591,9 @@
           "description": "наблюдаемый артефакт проверки SD1-GRAL-02"
         }
       ],
-      "status_note": "PENDING: второй промпт/Writer для чекапа не создаётся — не входило в D6-approval; отдельного доказательства нет."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00032",
@@ -3313,8 +3731,39 @@
       "acceptance": "Explicit command использует действующий CheckupService и действующий промпт, обычная реплика — Unified Writer; при одинаковом evidence оба дают сопоставимый технический диагноз, сохраняя свой стиль.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Один Writer на путь: explicit -> CheckupService + действующий промпт; get_bot_health использует тот же сервис/collector (test_uses_shared_collector_and_keeps_report).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Один Writer на путь: explicit -> CheckupService + действующий промпт; get_bot_health использует тот же сервис/collector (test_uses_shared_collector_and_keeps_report). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -3322,7 +3771,9 @@
           "description": "наблюдаемый артефакт проверки SD1-EVD-02"
         }
       ],
-      "status_note": "PENDING: один Writer на путь (CheckupService vs Unified Writer) — не входило в D6-approval; отдельного доказательства нет."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00095",
@@ -7158,8 +7609,39 @@
       "acceptance": "Перед реальной Telegram-отправкой выполняется output validation; при недоказуемой безопасности заменяется только опасный фрагмент/ресурс либо возвращается честная ошибка, чекап целиком не отключается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Output validation перед Telegram-отправкой: маскируется только опасный фрагмент, отчёт не выключается; test_output_validation_replaces_only_dangerous_fragment.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Output validation перед Telegram-отправкой: маскируется только опасный фрагмент, отчёт не выключается; test_output_validation_replaces_only_dangerous_fragment. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -7167,7 +7649,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-01"
         }
       ],
-      "status_note": "PENDING: output validation перед Telegram-отправкой — не входило в D6-approval (review §5/§6); отдельного candidate-bound доказательства нет."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00280",
@@ -8019,10 +8503,49 @@
       "req_id": "SD1-D6-02",
       "slice": "D6",
       "acceptance": "Writer объясняет наблюдения, связь и гипотезу и честно пишет, если код не прочитан, нет прав или 429, без «я заглянул в кишки» без подтверждённого чтения.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Writer не менялся (hash-инвариант); «честно пишет, если код не прочитан/нет прав/429» — поведение модели, проверяется только на живых ответах.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Writer не менялся (hash-инвариант); «честно пишет, если код не прочитан/нет прав/429» — поведение модели, проверяется только на живых ответах. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Поведение LLM нельзя доказать unit-тестом; нужен реальный ответ после релиза.",
+            "trigger": "реальные ответы Writer после релиза",
+            "next_check": "сверить: не выдумывает чтение, честно сообщает 429/нет прав",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-02; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8030,7 +8553,18 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-02"
         }
       ],
-      "status_note": "PENDING: честность Writer (код не прочитан/нет прав/429) — не входило в D6-approval; отдельного доказательства нет."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Поведение LLM нельзя доказать unit-тестом; нужен реальный ответ после релиза.",
+        "trigger": "реальные ответы Writer после релиза",
+        "next_check": "сверить: не выдумывает чтение, честно сообщает 429/нет прав",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-02; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      },
+      "live_required_fix_2026_11_13": "live_required false->true, live_when->postdeploy: по binding §2 строка проверяется только живым поведением LLM; прежняя пометка не отражала это."
     },
     {
       "source_id": "L00336",
@@ -8042,10 +8576,49 @@
       "req_id": "SD1-GRAL-06",
       "slice": "D6",
       "acceptance": "Вывод может быть язвительным, но не выдумывает падение ради стиля.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Инвариант промпта/характера подтверждён байт-равенством; «не выдумывает падение» — поведение LLM.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Инвариант промпта/характера подтверждён байт-равенством; «не выдумывает падение» — поведение LLM. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Поведение модели проверяется только на живых ответах.",
+            "trigger": "реальные ответы «чекап» после релиза",
+            "next_check": "убедиться, что падение не выдумывается ради стиля",
+            "owner": "agents",
+            "contract_ref": "SD1-GRAL-06; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8053,7 +8626,18 @@
           "description": "наблюдаемый артефакт проверки SD1-GRAL-06"
         }
       ],
-      "status_note": "PENDING: вывод не выдумывает падение ради стиля — не входило в D6-approval; отдельного доказательства нет."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Поведение модели проверяется только на живых ответах.",
+        "trigger": "реальные ответы «чекап» после релиза",
+        "next_check": "убедиться, что падение не выдумывается ради стиля",
+        "owner": "agents",
+        "contract_ref": "SD1-GRAL-06; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      },
+      "live_required_fix_2026_11_13": "live_required false->true, live_when->postdeploy: по binding §2 строка проверяется только живым поведением LLM; прежняя пометка не отражала это."
     },
     {
       "source_id": "L00340",
@@ -8096,9 +8680,48 @@
       "slice": "D6",
       "acceptance": "prompts.checkup_system_prompt и все пользовательские правки сохраняются байт-в-байт: factory version, активная ревизия, «жанр отчёта», версионирование, дедуп и история не меняются, простая выкладка не создаёт новую запись сохранения.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Промпты/версии/дедуп не в диффе; sha256 заводского промпта равен; простая выкладка не создаёт новую запись (test_no_second_prompt_or_writer).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Промпты/версии/дедуп не в диффе; sha256 заводского промпта равен; простая выкладка не создаёт новую запись (test_no_second_prompt_or_writer). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Effective bytes/hash и отсутствие новой ревизии проверяются на выложенном кандидате.",
+            "trigger": "выкладка в прод и первый чекап после релиза",
+            "next_check": "сверить effective bytes/hash prompts.checkup_system_prompt до/после и отсутствие новой ревизии",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-03; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -8106,7 +8729,17 @@
           "description": "hash effective prompt до и после релиза + сохранённая ревизия/история"
         }
       ],
-      "status_note": "PENDING: байт-в-байт сохранение prompts.checkup_system_prompt — live/preprod (D7)."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Effective bytes/hash и отсутствие новой ревизии проверяются на выложенном кандидате.",
+        "trigger": "выкладка в прод и первый чекап после релиза",
+        "next_check": "сверить effective bytes/hash prompts.checkup_system_prompt до/после и отсутствие новой ревизии",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-03; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "L00345",
@@ -8119,9 +8752,48 @@
       "slice": "D6",
       "acceptance": "Язвительный, грубый, при необходимости матерный стиль по действующему промпту сохраняется и подтверждается живыми ответами, без канцелярских таблиц и без смягчающих system prompt.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Код промпта байт-идентичен; характер/стиль на живых ответах не проверялся.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Код промпта байт-идентичен; характер/стиль на живых ответах не проверялся. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Язвительный стиль подтверждается только живыми ответами модели.",
+            "trigger": "реальные ответы «чекап» после релиза",
+            "next_check": "оценить стиль/характер без канцелярита и смягчающего промпта",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-04; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -8129,7 +8801,17 @@
           "description": "живые ответы чекапа на проде: стиль сохранён"
         }
       ],
-      "status_note": "PENDING: язвительный стиль на живых ответах — D7/live."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Язвительный стиль подтверждается только живыми ответами модели.",
+        "trigger": "реальные ответы «чекап» после релиза",
+        "next_check": "оценить стиль/характер без канцелярита и смягчающего промпта",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-04; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "L00346",
@@ -8143,8 +8825,39 @@
       "acceptance": "Ограничения защищённых ресурсов реализуются в backend и sanitization слоях, а не изменением стиля речи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Ограничения защищённых ресурсов — в backend (output_projection.sanitize + diagnostic_policy.publish); тест фрагментной замены; стиль речи не менялся.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Ограничения защищённых ресурсов — в backend (output_projection.sanitize + diagnostic_policy.publish); тест фрагментной замены; стиль речи не менялся. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8152,7 +8865,9 @@
           "description": "наблюдаемый артефакт проверки SD1-GRAL-07"
         }
       ],
-      "status_note": "PENDING: ограничения защищённых ресурсов в backend/sanitization, не в стиле — не входило в D6-approval."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00347",
@@ -8197,6 +8912,36 @@
           "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: B1: per-run телеметрия эффективного промпта (source/version/hash по финальному system, bundle_delivered/truncated/report_sent без содержимого); 39->41 contract, mutation skip-exclusion red/restore green.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "B1: per-run телеметрия эффективного промпта (source/version/hash по финальному system, bundle_delivered/truncated/report_sent без содержимого); 39->41 contract, mutation skip-exclusion red/restore green. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
         }
       ],
       "expected_evidence": [
@@ -8206,9 +8951,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-05"
         }
       ],
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
       "candidate_deployed": false,
-      "status_note": "REVIEW: B1 принят и подтверждён на d5e97727 (B1-файлы не менялись); не выложено."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено."
     },
     {
       "source_id": "L00349",
@@ -8236,9 +8981,48 @@
       "slice": "D6",
       "acceptance": "Existing reply, cooldown, реакция, показатели занятости и доступность bare команды сохранены; ответ не задерживается бесконечным поиском коммитов.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Reply/cooldown/реакция/busy/bare-команда сохранены (tests/test_checkup_handlers.py), факты общего collector — новый тест; бесконечного поиска коммитов нет.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Reply/cooldown/реакция/busy/bare-команда сохранены (tests/test_checkup_handlers.py), факты общего collector — новый тест; бесконечного поиска коммитов нет. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Живой Telegram-путь и реальная задержка проверяются после релиза.",
+            "trigger": "первый реальный чекап в личном чате после релиза",
+            "next_check": "проверить reply/cooldown/busy/bare и отсутствие зависания на commit metadata",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-06; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -8246,7 +9030,17 @@
           "description": "реальный bare чекап: reply/cooldown/reaction/busy и время ответа"
         }
       ],
-      "status_note": "PENDING: reply/cooldown/busy/bare-команда на живом пути — D7/live."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Живой Telegram-путь и реальная задержка проверяются после релиза.",
+        "trigger": "первый реальный чекап в личном чате после релиза",
+        "next_check": "проверить reply/cooldown/busy/bare и отсутствие зависания на commit metadata",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-06; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "L00352",
@@ -8259,9 +9053,48 @@
       "slice": "D6",
       "acceptance": "При каждом вызове читаются доступный локальный лог, метрики реального процесса и памяти, job statuses, deployed identity и выполняется ограниченная попытка commit metadata.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: collect_for_checkup читает логи, процесс/память/CPU/диски/FD, scheduler, identity+commit metadata, зависимости, конфиг, telegram-доставку; детерминированный набор 13 probes.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "collect_for_checkup читает логи, процесс/память/CPU/диски/FD, scheduler, identity+commit metadata, зависимости, конфиг, telegram-доставку; детерминированный набор 13 probes. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактические источники (journald/systemd/identity/commit metadata) доступны только на VPS.",
+            "trigger": "первый реальный чекап на VPS после релиза",
+            "next_check": "сверить в bundle фактические источники и их статусы",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-07; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -8269,8 +9102,18 @@
           "description": "trace чекапа: состав реально прочитанного evidence"
         }
       ],
-      "status_note": "PENDING: per-call чтение логов/метрик/identity/commit metadata — не входило в D6-approval; live_required=true (preprod). Каноническая строка (L00352).",
-      "canonical_note": "Каноническая строка SD1-D6-07: source_line 352, source/acceptance совпадают. Исторический дубль L00117 сохранён как SD1-D6-07b (disposition=duplicate)."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "canonical_note": "Каноническая строка SD1-D6-07: source_line 352, source/acceptance совпадают. Исторический дубль L00117 сохранён как SD1-D6-07b (disposition=duplicate).",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактические источники (journald/systemd/identity/commit metadata) доступны только на VPS.",
+        "trigger": "первый реальный чекап на VPS после релиза",
+        "next_check": "сверить в bundle фактические источники и их статусы",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-07; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "L00353",
@@ -8284,8 +9127,39 @@
       "acceptance": "При наличии ошибки чтение углубляется в относящийся код; при отсутствии ошибок весь репозиторий не читается, а честно указываются краткие результаты здоровья и версия.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Чекап не читает репозиторий целиком: углубление — только через inspect_runtime/read_source_code по запросу; фиксированный probe-набор, health/версия из identity.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Чекап не читает репозиторий целиком: углубление — только через inspect_runtime/read_source_code по запросу; фиксированный probe-набор, health/версия из identity. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8293,7 +9167,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-08"
         }
       ],
-      "status_note": "PENDING: углублённое чтение кода только при сбое — не входило в D6-approval; отдельного доказательства нет."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00354",
@@ -8307,8 +9183,39 @@
       "acceptance": "При отсутствии части evidence ответ строится по остальным с partial/not_checked, без изображения всех источников работающими.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Сбой collector'а -> честный partial (test_collector_failure_does_not_disable_checkup), bundle_truncated и not_checked в bundle (test_partial_evidence_is_reported_in_event).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Сбой collector'а -> честный partial (test_collector_failure_does_not_disable_checkup), bundle_truncated и not_checked в bundle (test_partial_evidence_is_reported_in_event). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8316,7 +9223,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-09"
         }
       ],
-      "status_note": "PENDING: partial/not_checked при неполном evidence — не входило в D6-approval; отдельного доказательства нет."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00355",
@@ -8330,8 +9239,39 @@
       "acceptance": "Неверифицируемый chat admin из группы не блокирует обычный чекап, только защищённый prompt readback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Группа с неверифицируемым админом не блокирует обычный чекап (test_group_checkup_not_blocked_for_unverifiable_admin); защищён только prompt readback.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Группа с неверифицируемым админом не блокирует обычный чекап (test_group_checkup_not_blocked_for_unverifiable_admin); защищён только prompt readback. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8339,7 +9279,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-10"
         }
       ],
-      "status_note": "PENDING: неверифицируемый admin не блокирует обычный чекап — не входило в D6-approval."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00356",
@@ -8353,8 +9295,39 @@
       "acceptance": "Команда «чекап» не становится командой «покажи промпты»; раскрытие промпта требует отдельного смысла запроса и авторизации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: «чекап» не становится триггером промптов (test_checkup_is_not_a_prompt_readback_trigger); в handlers/checkup.py нет prompt_readback; typed schema D5.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "«чекап» не становится триггером промптов (test_checkup_is_not_a_prompt_readback_trigger); в handlers/checkup.py нет prompt_readback; typed schema D5. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8362,7 +9335,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-11"
         }
       ],
-      "status_note": "PENDING: «чекап» не становится командой «покажи промпты» — не входило в D6-approval."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00358",
@@ -8405,8 +9380,8 @@
       "slice": "D6",
       "acceptance": "Модуль «Обзор» показывает реальные status/probe источников, last observed, runtime type, PID, uptime, deployed_sha, log backend identity, GitHub code-check state, last successful analysis и summary недостающего evidence.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "REVIEW",
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
@@ -8437,6 +9412,44 @@
           "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Endpoint /api/status/self-diagnosis отдаёт status/probe, last observed, runtime/PID/uptime, deployed_sha, log backend, code-check, last successful analysis; блок «Обзор» реализован.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Endpoint /api/status/self-diagnosis отдаёт status/probe, last observed, runtime/PID/uptime, deployed_sha, log backend, code-check, last successful analysis; блок «Обзор» реализован. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "UI-рендер и реальные данные требуют выложенного кандидата.",
+            "trigger": "открыть «Статус» после релиза",
+            "next_check": "Playwright + Browser Use: «Обзор» с реальными status/probe/deployed_sha",
+            "owner": "agents",
+            "contract_ref": "SD1-D6-12; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
         }
       ],
       "expected_evidence": [
@@ -8446,9 +9459,17 @@
           "description": "скриншот/снимок раздела «Обзор» с реальными measured-состояниями"
         }
       ],
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
       "candidate_deployed": false,
-      "status_note": "REVIEW: B4-часть (configured-источники) принята; UI-рендер остаётся D7/live, live_required=true."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "UI-рендер и реальные данные требуют выложенного кандидата.",
+        "trigger": "открыть «Статус» после релиза",
+        "next_check": "Playwright + Browser Use: «Обзор» с реальными status/probe/deployed_sha",
+        "owner": "agents",
+        "contract_ref": "SD1-D6-12; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "L00363",
@@ -8462,8 +9483,39 @@
       "acceptance": "«Основные настройки» содержат ограничители probes и ожидания, объёмы страниц/окон, log backend override, repository URL, connection status, тип runtime и статус read-only доступа; изменения отражают effective-состояние.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: «Основные настройки» — существующий каталог/effective state (flags.self_diag_repo_origin D4-B); D6 не менял param_catalog/config UI (F8 644).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "«Основные настройки» — существующий каталог/effective state (flags.self_diag_repo_origin D4-B); D6 не менял param_catalog/config UI (F8 644). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8471,7 +9523,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-13"
         }
       ],
-      "status_note": "PENDING: UI «Основные настройки» — D6 UI/D7."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00364",
@@ -8485,8 +9539,39 @@
       "acceptance": "Модуль «Промпты» сохраняет текущий редактор и единый контроль версий; содержание не перезаписывается и стилистика не меняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: «Промпты» — существующий редактор и версии; промпты не в диффе, sha заводского промпта равен (test_no_second_prompt_or_writer).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "«Промпты» — существующий редактор и версии; промпты не в диффе, sha заводского промпта равен (test_no_second_prompt_or_writer). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8494,7 +9579,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-14"
         }
       ],
-      "status_note": "PENDING: UI «Промпты» — D6 UI/D7."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00365",
@@ -8508,8 +9595,39 @@
       "acceptance": "Параметры «Модели/Лимиты» совместимы с текущими и не дублируют каталоги и source of truth.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: «Модели/Лимиты» не менялись; каталог и F8-счётчики зелёные (реестр 644).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "«Модели/Лимиты» не менялись; каталог и F8-счётчики зелёные (реестр 644). Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -8517,7 +9635,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-15"
         }
       ],
-      "status_note": "PENDING: UI «Модели/Лимиты» — D6 UI/D7."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00366",
@@ -8564,9 +9684,48 @@
       "slice": "D6",
       "acceptance": "Матрица доступов в админке показывает права к PUBLIC_TECH/CHAT_SCOPED/PROMPT_CONTENT/SECRET_VALUE и состояния Telegram role verified/unverified и позволяет пересмотреть аудит без содержимого защищённых данных.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Матрица доступов: 4 защищённых класса × роли, explain/audit без содержимого защищённых данных; backend D2 не менялся.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "Матрица доступов: 4 защищённых класса × роли, explain/audit без содержимого защищённых данных; backend D2 не менялся. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены. Строка относится к отложенной postdeploy-части; approved_postrelease_wait фиксирует её.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "UI-матрица и explain/audit требуют реального TMA-рендера.",
+            "trigger": "открыть матрицу доступов после релиза",
+            "next_check": "Playwright + Browser Use: 4 класса, verified/unverified, explain/audit",
+            "owner": "agents",
+            "contract_ref": "SD1-D2-32; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+          }
+        }
+      ],
       "expected_evidence": [
         {
           "type": "ui",
@@ -8575,7 +9734,17 @@
         }
       ],
       "reassignment": "Перенесён владелец D2→D6 по решению Reviewer: отображение матрицы и аудита в админке — это отрисованный экран; дублирует по смыслу SD1-AMX-06, второй владелец одной обязанности не создаётся.",
-      "status_note": "PENDING: матрица доступов в админке — D6 UI/D7."
+      "status_note": "READY_FOR_LIVE: backend/UI-часть реализована и принята; остаётся только реальное postdeploy-наблюдение. Деплоя и живого доказательства ещё нет.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false,
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "UI-матрица и explain/audit требуют реального TMA-рендера.",
+        "trigger": "открыть матрицу доступов после релиза",
+        "next_check": "Playwright + Browser Use: 4 класса, verified/unverified, explain/audit",
+        "owner": "agents",
+        "contract_ref": "SD1-D2-32; evidence/d6/review-d6-final.md#L3 (D6 ready for single release; not production acceptance)"
+      }
     },
     {
       "source_id": "L00369",
@@ -8640,6 +9809,36 @@
           "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: B3: secret_value_disclosures=0 только при измеренном покрытии; blocked validation не закрывает gap; success+blocked -> measured=false/value=null/gaps=checkup:1; paired allowed -> measured=true/value=0.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "B3: secret_value_disclosures=0 только при измеренном покрытии; blocked validation не закрывает gap; success+blocked -> measured=false/value=null/gaps=checkup:1; paired allowed -> measured=true/value=0. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
         }
       ],
       "expected_evidence": [
@@ -8649,9 +9848,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-17"
         }
       ],
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
       "candidate_deployed": false,
-      "status_note": "REVIEW: B3 принят на d5e97727; не выложено."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено."
     },
     {
       "source_id": "L00376",
@@ -8686,6 +9885,36 @@
           "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: B2: skipped исключены из calls/durations/by_stage, добавлен triggered; report_sent 900ms + cooldown 0ms -> calls=1/p50=900; degraded inspect остаётся partial; mutation skip-exclusion red/restore green.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "B2: skipped исключены из calls/durations/by_stage, добавлен triggered; report_sent 900ms + cooldown 0ms -> calls=1/p50=900; degraded inspect остаётся partial; mutation skip-exclusion red/restore green. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
         }
       ],
       "expected_evidence": [
@@ -8695,9 +9924,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-18"
         }
       ],
-      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
       "candidate_deployed": false,
-      "status_note": "REVIEW: B2-часть принята; retry/cache hits/stale reads остаются честно null/measured=false (partial).",
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
       "partial_coverage_2026_11_13": {
         "slice": "D6",
         "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
@@ -8728,6 +9957,15 @@
           "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Инциденты по подсистемам = отказы by_stage; остальные поля честно null/available=false.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
         }
       ],
       "expected_evidence": [
@@ -8737,13 +9975,13 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-19"
         }
       ],
-      "status_note": "PENDING: golden eval/hypothesis shares/code-vs-wrong-SHA — partial/D7; источников нет, аналитика честно null/available=false.",
+      "status_note": "PENDING: golden eval/hypothesis shares/code-vs-wrong-SHA не инструментированы — аналитика честно отдаёт golden_eval.available=false, hypothesis=null (binding §2, §6). Это не только live-наблюдение: нужна реализация источников (D7 golden set), поэтому READY_FOR_LIVE не выставляется.",
       "partial_coverage_2026_11_13": {
         "slice": "D6",
-        "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
-        "covered": "hypothesis shares/golden eval/code-vs-wrong-SHA честно отдаются как null/available=false — источников нет.",
-        "remaining": "реальные доли observed vs hypothesis, false diagnosis в golden eval и проверки кода против неверного SHA — D7/live.",
-        "why_status_pending": "Часть честно отдаётся как null/available=false; реальные значения — D7/live."
+        "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+        "covered": "Инциденты по подсистемам = отказы by_stage; остальные поля честно null/available=false.",
+        "remaining": "доли observed vs hypothesis, false diagnosis в golden eval, code-vs-wrong-SHA не реализованы (D7 golden set).",
+        "why_status_pending": "Остаток — реальная неинструментированная реализация (D7 golden set/history), а не только postdeploy-наблюдение; READY_FOR_LIVE не выставляется."
       }
     },
     {
@@ -8768,6 +10006,15 @@
           "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
           "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
           "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Текущий derived-sample и DB/queue-группы из mca_events.metrics есть; истории роста нет (available=false).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
         }
       ],
       "expected_evidence": [
@@ -8777,13 +10024,13 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-20"
         }
       ],
-      "status_note": "PENDING: history growth VPS/DB/WAL/очередей — partial/D7; derived-samples честно null/available=false.",
+      "status_note": "PENDING: derived-samples с временем/PID/CPU/RAM/диск/очередью реализованы, но истории роста БД/очереди нет — стора не вводим, db_growth/queue_growth.available=false (binding §2, §6). Нужна реализация источника истории (D7), поэтому READY_FOR_LIVE не выставляется.",
       "partial_coverage_2026_11_13": {
         "slice": "D6",
-        "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
-        "covered": "history growth честно null/available=false — источников derived-samples нет.",
-        "remaining": "реальные derived-samples ресурсов VPS, роста очередей, DB/WAL и свободного места — D7/live.",
-        "why_status_pending": "Часть честно отдаётся как null/available=false; реальные значения — D7/live."
+        "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+        "covered": "Текущий derived-sample и DB/queue-группы из mca_events.metrics есть; истории роста нет (available=false).",
+        "remaining": "реальные derived-samples VPS и история роста DB/WAL/очереди не реализованы (D7).",
+        "why_status_pending": "Остаток — реальная неинструментированная реализация (D7 golden set/history), а не только postdeploy-наблюдение; READY_FOR_LIVE не выставляется."
       }
     },
     {
@@ -9003,8 +10250,39 @@
       "acceptance": "GitHub latency/429/5xx не блокирует локальный чекап, DB lock не удерживается во время сети, а при partial answer явно сообщается, что source read не завершился.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-16fa04e7 §4 (41/934/661+1)",
+          "observation": "binding-16fa04e7 §4: pytest tests/test_checkup_contract.py -q -> 41 passed; broad focused D6+D3/D4/D5 (22 файла) -> 934 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: GitHub/сеть не вызываются в чекапе; probes ограничены таймаутами (ProbeLimits), сбой -> partial; DB-lock через сеть не удерживается; degraded/not_checked видны.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-16fa04e77c56db44c23cb5c8a9386f6cfd756628.md",
+          "artifact_sha256": "31f5e7f333b171003b07895e23592723700590ada4d8e59d10ad2af107184f84",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "binding-d6-61e50806 §2 (row matrix: тесты/поведение строки)",
+          "observation": "GitHub/сеть не вызываются в чекапе; probes ограничены таймаутами (ProbeLimits), сбой -> partial; DB-lock через сеть не удерживается; degraded/not_checked видны. Row-matrix из binding-61e50806 §2 (названия тестов/поведение строки). После него D6 менялся только B1-B4 фиксами и allowed-dispatch; финальный дифф 16fa04e7 ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py, поэтому матрица переносится на финальный кандидат.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c.md",
+          "artifact_sha256": "53ce9244325442e7bb0d93af69c3da4b4e8771af386c74d7cdff4487fd9f0c81",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false,
+          "carried_from_candidate": "61e50806bf19d9ffbc9a7f77ba2f2b400b2eb29c"
+        },
+        {
+          "ref": "review-d6-final.md L3 (Вердикт: Approved; D6 ready for single release under normal gates)",
+          "observation": "Финальное ревью 16fa04e7: Approved; D6 ready for single release under normal gates, production acceptance/parent DONE не объявляются. Diff ограничен services/diagnostic_policy.py и tests/test_checkup_contract.py (TOOL_ACTIONS prompt_readback=view); B1-B4 подтверждены.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-final.md",
+          "artifact_sha256": "720e300580492acc8ae6b164585d4c273495072c2cde54ff01bb5d0b6c1456e9",
+          "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -9012,7 +10290,9 @@
           "description": "наблюдаемый артефакт проверки SD1-D6-22"
         }
       ],
-      "status_note": "PENDING: GitHub latency/429/5xx не блокирует — не входило в D6-approval; live/unit отдельно."
+      "status_note": "REVIEW: backend/unit-контракт принят финальным ревью; не выложено.",
+      "candidate_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+      "candidate_deployed": false
     },
     {
       "source_id": "L00389",
@@ -10303,28 +11583,43 @@
     "required_records": 32,
     "duplicate_records": 1,
     "required_by_status": {
-      "REVIEW": 5,
-      "PENDING": 27
+      "REVIEW": 15,
+      "READY_FOR_LIVE": 15,
+      "PENDING": 2
     },
     "unique_req_ids": 33,
     "required_unique_req_ids": 32,
-    "reviewed_candidate": "d5e97727fd5808df0de137421c713678a699aa86",
+    "reviewed_candidate": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
     "reviewed_base_candidate": "722ccfc522ba00a18dc74881913020151ac250aa",
     "deployed": false,
     "partial_rows_with_evidence": [
       "SD1-D6-18",
-      "SD1-D6-12",
-      "SD1-D6-16",
       "SD1-D6-19",
       "SD1-D6-20"
     ],
+    "deferred_rows": {
+      "SD1-AC-01": "первый реальный «чекап» в личном чате владельца после релиза",
+      "SD1-AC-02": "первый реальный чекап на VPS после релиза",
+      "SD1-AC-09": "реальные ответы «чекап» после релиза",
+      "SD1-AC-19": "открыть «Статус» в реальном TMA после релиза",
+      "SD1-AMX-01": "открыть «Доступы» → «Самодиагностика» после релиза",
+      "SD1-AMX-06": "изменить переключатель, выполнить реальный tool call и рестарт после релиза",
+      "SD1-D2-32": "открыть матрицу доступов после релиза",
+      "SD1-D6-02": "реальные ответы Writer после релиза",
+      "SD1-D6-03": "выкладка в прод и первый чекап после релиза",
+      "SD1-D6-04": "реальные ответы «чекап» после релиза",
+      "SD1-D6-06": "первый реальный чекап в личном чате после релиза",
+      "SD1-D6-07": "первый реальный чекап на VPS после релиза",
+      "SD1-D6-12": "открыть «Статус» после релиза",
+      "SD1-D6-16": "открыть блок «Самодиагностика» после релиза",
+      "SD1-GRAL-06": "реальные ответы «чекап» после релиза"
+    },
     "duplicate_fix": {
       "canonical_req_id": "SD1-D6-07",
       "canonical_source": "L00352",
       "duplicate_req_id": "SD1-D6-07b",
-      "duplicate_source": "L00117",
-      "why": "priority: канонической оставлена строка с совпадающими source/acceptance; вторая сохранена как duplicate/history без удаления источника"
+      "duplicate_source": "L00117"
     },
-    "note": "REVIEW = кандидат d5e97727 принят по B1-B4 (B1/B4 подтверждены, B2/B3 исправлены), не выложен. PENDING сохранён там, где D6-approval строку не покрывал или нужен D7/live/UI. VERIFIED появится только после релиза и deployed SHA; D6/self-diag DONE не объявляются."
+    "note": "Финальный кандидат 16fa04e7 принят для single release. REVIEW = backend/unit-контракт; READY_FOR_LIVE = только реальное postdeploy-наблюдение (live/UI/LLM-стиль), approved deferral; PENDING = реальная неинструментированная реализация (D6-19 golden/hypothesis, D6-20 history growth). D6/self-diag DONE не объявляются."
   }
 }
