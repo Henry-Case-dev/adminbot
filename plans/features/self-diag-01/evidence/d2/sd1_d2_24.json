@@ -1,6 +1,6 @@
 {
  "row": "SD1-D2-24",
- "candidate_commit": "f2f2583821a1ead995ce164becdf791ce9927d01",
+ "candidate_commit": "aa1d41277acc30d1ba05b537de2d0361f7b166e0",
  "base_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
  "source_line": 270,
  "contract": "Секретный blob никогда не сериализуется в DiagnosticEvidenceBundle или обычный ToolResult; возвращаются configured/effective/last_success/last_error_code/key_fingerprint.",
@@ -55,17 +55,17 @@
   {
    "command": "python -m pytest tests/test_diagnostic_settings_adapter.py -q",
    "exit_code": 0,
-   "summary": "12 passed in 3.03s"
+   "summary": "12 passed in 3.14s"
   },
   {
    "command": "python -m pytest tests/test_evidence_bundle.py -q",
    "exit_code": 0,
-   "summary": "22 passed in 3.03s"
+   "summary": "22 passed in 3.06s"
   },
   {
    "command": "python -m pytest tests/test_diagnostic_probes.py -q",
    "exit_code": 0,
-   "summary": "58 passed in 7.83s"
+   "summary": "58 passed in 7.99s"
   }
  ],
  "red": {

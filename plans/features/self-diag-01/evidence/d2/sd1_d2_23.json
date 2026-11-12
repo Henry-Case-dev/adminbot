@@ -1,6 +1,6 @@
 {
  "row": "SD1-D2-23",
- "candidate_commit": "f2f2583821a1ead995ce164becdf791ce9927d01",
+ "candidate_commit": "aa1d41277acc30d1ba05b537de2d0361f7b166e0",
  "base_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
  "branch": "self-diag/d2-closure",
  "source_line": 269,
@@ -35,20 +35,71 @@
   "error_on_contradiction": "ParamSensitivityError",
   "import_time_audit": "ParamSensitivityError on contradictory rows"
  },
+ "single_source_of_truth": {
+  "predicate": "ParamSpec.is_secret_value (resolved_sensitivity == SECRET_VALUE)",
+  "consumers": [
+   "output_projection._catalog_secret_keys",
+   "output_projection._settings_secret_values",
+   "output_projection._env_secret_values",
+   "log_ring._collect_secrets",
+   "debug_config._is_secret"
+  ],
+  "legacy_secret_key_count": 32,
+  "canonical_secret_key_count": 41,
+  "keys_lost": [],
+  "keys_added": [
+   "keys.embedding_quota_group_labels",
+   "keys.random_quantum_batch_length",
+   "keys.random_quantum_buffer_max_values",
+   "keys.random_quantum_data_type",
+   "keys.random_quantum_endpoint",
+   "keys.random_quantum_plan",
+   "keys.random_quantum_provider",
+   "keys.random_quantum_refill_low_watermark",
+   "keys.random_quantum_request_timeout_seconds"
+  ],
+  "reviewer_reproduction": {
+   "registered": true,
+   "resolved_sensitivity": "SECRET_VALUE",
+   "legacy_secret_flag": false,
+   "is_secret_value": true,
+   "snapshot_values_total": 5,
+   "snapshot_knows_env": true,
+   "snapshot_knows_settings": true,
+   "snapshot_knows_cache": true,
+   "sanitize_status": "partially_redacted",
+   "sanitize_kept_any_token": false,
+   "log_line_masked": true,
+   "debug_dump_secret": true,
+   "debug_dump_masked": true
+  },
+  "fix_red_on": "f2f2583821a1ead995ce164becdf791ce9927d01",
+  "fix_red_result": "3 failed: snapshot empty, log line kept the token, debug dump secret=False (raw value)"
+ },
  "tests": [
   {
    "command": "python -m pytest tests/test_param_sensitivity_registration.py -q",
    "exit_code": 0,
-   "summary": "10 passed in 3.04s"
+   "summary": "13 passed in 3.06s"
   },
   {
    "command": "python -m pytest tests/test_param_catalog.py -q",
    "exit_code": 0,
-   "summary": "40 passed in 3.49s"
+   "summary": "40 passed in 3.61s"
+  },
+  {
+   "command": "python -m pytest tests/test_log_ring.py -q",
+   "exit_code": 0,
+   "summary": "25 passed in 3.07s"
+  },
+  {
+   "command": "python -m pytest tests/test_debug_config.py -q",
+   "exit_code": 0,
+   "summary": "17 passed in 3.14s"
   }
  ],
  "red": {
   "base_run": "tests/test_param_sensitivity_registration.py on 16fa04e7: 10 failed (AttributeError: module 'services.param_catalog' has no attribute 'SENSITIVITY_PROMPT_CONTENT' / no attribute 'register_param')",
-  "green_run": "tests/test_param_sensitivity_registration.py: 10 passed"
+  "green_run": "tests/test_param_sensitivity_registration.py: 13 passed (10 первого раунда + 3 регрессии единого предиката)"
  }
 }

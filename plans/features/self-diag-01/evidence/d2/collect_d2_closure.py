@@ -37,9 +37,110 @@ def _pytest(*paths):
             "exit_code": proc.returncode, "summary": tail[0] if tail else ""}
 
 
+def _secret_key_sets():
+    """Легаси-набор (`spec.secret`) против канонического (`is_secret_value`)."""
+    from services import output_projection
+
+    legacy = {spec.pg_key for spec in catalog.REGISTRY.values() if spec.secret}
+    canonical = set(output_projection._catalog_secret_keys())
+    return legacy, canonical
+
+
+def _reproduce_single_source_of_truth():
+    """Ревью-блокер: SECRET_VALUE + secret=False обязан защищаться.
+
+    Возвращает наблюдаемые факты и всегда убирает временную запись.
+    """
+    import config.settings as settings_module
+
+    token_env = "env-sot-token-13579"
+    token_settings = "settings-sot-token-24680"
+    token_cache = "cache-sot-token-35791"
+    field = "SOT_TEMP_PROVIDER_API_KEY"
+    pg_key = "keys.sot_temp_provider_api_key"
+
+    class _Proxy:
+        def __init__(self, base):
+            object.__setattr__(self, "_base", base)
+
+        def __getattr__(self, name):
+            if name == field:
+                return token_settings
+            return getattr(object.__getattribute__(self, "_base"), name)
+
+    class _Cache:
+        def get(self, key, default=None):
+            return token_cache if str(key) == pg_key else default
+
+    spec = catalog.ParamSpec(field, field, catalog.CATEGORY_KEYS,
+                             "SOT temp provider", "str", secret=False,
+                             sensitivity=catalog.SENSITIVITY_SECRET)
+    facts = {}
+    old_env = os.environ.get(field)
+    original_settings = settings_module.settings
+    try:
+        catalog.register_param(spec, replace=True)
+        os.environ[field] = token_env
+        settings_module.settings = _Proxy(original_settings)
+        projection.reset_secret_cache()
+        snapshot = projection.known_secret_values(cache=_Cache(),
+                                                  use_cache=False)
+        sanitized = projection.sanitize(
+            f"token env={token_env} cfg={token_settings} pg={token_cache}",
+            kind="tool_result", secrets=snapshot)
+        from services import log_ring
+        log_ring._SECRETS = None
+        log_line = log_ring.sanitize(f"ERROR {token_settings}")
+        from services import debug_config
+
+        class _DumpCache(_Cache):
+            is_initialized = True
+            pg_available = True
+            loaded_at = "2026-11-13T00:00:00+00:00"
+
+            def get_all(self):
+                return {pg_key: token_cache}
+
+            def get_updated_at(self, key):
+                return None
+
+        dump_item = debug_config.build_dump(_DumpCache(), key=pg_key)["item"]
+        stored = catalog.get_by_pg_key(pg_key)
+        facts = {
+            "registered": stored is not None,
+            "resolved_sensitivity": stored.resolved_sensitivity if stored else None,
+            "legacy_secret_flag": stored.secret if stored else None,
+            "is_secret_value": stored.is_secret_value if stored else None,
+            "snapshot_values_total": len(snapshot.values),
+            "snapshot_knows_env": token_env in snapshot.values,
+            "snapshot_knows_settings": token_settings in snapshot.values,
+            "snapshot_knows_cache": token_cache in snapshot.values,
+            "sanitize_status": sanitized.report.status,
+            "sanitize_kept_any_token": any(
+                token in sanitized.text
+                for token in (token_env, token_settings, token_cache)),
+            "log_line_masked": token_settings not in log_line,
+            "debug_dump_secret": dump_item.get("secret"),
+            "debug_dump_masked": token_settings not in str(
+                dump_item.get("value")),
+        }
+    finally:
+        catalog.REGISTRY.pop(field, None)
+        catalog._BY_PG_KEY.pop(pg_key, None)
+        settings_module.settings = original_settings
+        if old_env is None:
+            os.environ.pop(field, None)
+        else:
+            os.environ[field] = old_env
+        projection.reset_secret_cache()
+    return facts
+
+
 def main():
     head = _git("rev-parse", "HEAD")
     base = "16fa04e77c56db44c23cb5c8a9386f6cfd756628"
+    legacy_keys, canonical_keys = _secret_key_sets()
+    sot = _reproduce_single_source_of_truth()
     sensitivity = {}
     for spec in catalog.REGISTRY.values():
         key = spec.resolved_sensitivity
@@ -84,15 +185,38 @@ def main():
             "error_on_contradiction": "ParamSensitivityError",
             "import_time_audit": "ParamSensitivityError on contradictory rows",
         },
+        "single_source_of_truth": {
+            "predicate": "ParamSpec.is_secret_value "
+                         "(resolved_sensitivity == SECRET_VALUE)",
+            "consumers": [
+                "output_projection._catalog_secret_keys",
+                "output_projection._settings_secret_values",
+                "output_projection._env_secret_values",
+                "log_ring._collect_secrets",
+                "debug_config._is_secret",
+            ],
+            "legacy_secret_key_count": len(legacy_keys),
+            "canonical_secret_key_count": len(canonical_keys),
+            "keys_lost": sorted(legacy_keys - canonical_keys),
+            "keys_added": sorted(canonical_keys - legacy_keys),
+            "reviewer_reproduction": sot,
+            "fix_red_on": "f2f2583821a1ead995ce164becdf791ce9927d01",
+            "fix_red_result": "3 failed: snapshot empty, log line kept the "
+                              "token, debug dump secret=False (raw value)",
+        },
         "tests": [_pytest("tests/test_param_sensitivity_registration.py"),
-                  _pytest("tests/test_param_catalog.py")],
+                  _pytest("tests/test_param_catalog.py"),
+                  _pytest("tests/test_log_ring.py"),
+                  _pytest("tests/test_debug_config.py")],
         "red": {
             "base_run": ("tests/test_param_sensitivity_registration.py on "
                          f"{base[:8]}: 10 failed "
                          "(AttributeError: module 'services.param_catalog' has "
                          "no attribute 'SENSITIVITY_PROMPT_CONTENT' / "
                          "no attribute 'register_param')"),
-            "green_run": "tests/test_param_sensitivity_registration.py: 10 passed",
+            "green_run": ("tests/test_param_sensitivity_registration.py: "
+                          "13 passed (10 первого раунда + 3 регрессии "
+                          "единого предиката)"),
         },
     }
 
