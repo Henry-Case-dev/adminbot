@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T09:56:28+12:00",
+  "updated": "2026-11-13T10:01:11+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -834,7 +834,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 47 required rows (37 epic acceptance rows, 9 provider-management rows, 1 mapping row), 12 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=46 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T09:56:28+12:00",
+      "updated": "2026-11-13T10:01:11+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: NEXT-02/05 contract frozen (option 1); Builder implementation + Reviewer NEXT-03/04 running. Production base 23477658; thresholds delivery >=6/15, 2026 share <=58.1%, on-topic >=8/18, irrelevant <28%, p95 <=+400ms; no DDL. Natural NEXT-01/TIME-09/V live postrelease; no owner QA.",
+      "queue_note": "2026-11-13: NEXT-02/05 Builder running under frozen option-1 contract; NEXT-03/04 Reviewer selected the narrow C2 reading and found no product defect, but the positive qualification case is missing. Evidence Builder is producing a real 2023-2024 lexical row with product stems_shared>=2 on the same DB copy; NEXT-03/04 remain PENDING until that. Natural NEXT-01/TIME-09/V live postrelease; no owner QA.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
