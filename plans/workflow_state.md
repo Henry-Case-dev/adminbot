@@ -1,27 +1,26 @@
 ﻿# Workflow State
 
-Task: self-diag-01 (queue 3, P0) — D4-B build; p0-init-meme-ux-diag is waiting_external
-Task source: plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md + plans/owner_inputs/2026-11-12-exit-corrective-cycle-initiative.md
+Task: self-diag-01 (queue 3, P0) — D3/D5 build; p0-init-meme-ux-diag is DONE
+Task source: plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md + plans/owner_inputs/2026-11-13-selfdiag-stage-correct-closure.md
 Status: in_progress
 Primary phase: build
 Active feature: self-diag-01
-Active lanes: Builder ses_e305daef9ffcIY8Dtx0fwxujTm (D4-B LocalSnapshotProvider + SourceReader routing + repo_origin)
-Join barriers: D4-B candidate -> Reviewer -> D6 seam -> one self-diag release -> bind to deployed SHA; the initiative PB-LLM waits for the first natural LLM attempt.
-Last verified: production 2.58.197 at 2587616759de31283585ffc105c91e7193c2e89e (schema 47, no DDL, rollback c134f93d). Initiative map 111/114 rows (75/77 unique) VERIFIED; gate errors=3 = P0IM-PB-LLM (2 duplicate rows) + P0IM-AC-DONE. Self-diag D1: 17/17 VERIFIED, D1 scoped gate 18/0. D4-A: independently Approved at 8c035908/7ad8b2f7 (38 tests, 149 combined, contract v1.1), recorded REVIEW (not deployed); map commit e0ab96f5. D4-B in build from 8c035908.
-Next unlocks: D4-B candidate -> focused Reviewer -> D6 seam -> self-diag release -> bind D4-A/B to the deployed SHA -> D3/D5/D7 -> vmq-onto-01.
+Active lanes: PM ses_e3093644bffeq7wRcnB7n0Jvdz (D4-B map binding + D4 review gate); Builder D3 (diagnostic collector); Builder D5 (prompt readback)
+Join barriers: D4 review gate green -> D6 after D3/D4/D5 -> one self-diag release -> D7 -> DONE -> vmq-onto-01.
+Last verified: production 2.58.197 at 2587616759de31283585ffc105c91e7193c2e89e (schema 47, no DDL, rollback c134f93d). **Initiative epic DONE: 114/114 rows (77/77 unique), final release gate scoped=114 errors=0**; natural PB-LLM event is non-blocking `owner_live_check WO-258197-PB-LLM-LIVE` (not VERIFIED); S5b deferred is voluntary. Self-diag: D1 17/17 VERIFIED; D4-A 8c035908 approved REVIEW; D4-B 722ccfc5 approved REVIEW; D3/D5 building; D6/D7 PENDING.
+Next unlocks: D4 review gate -> D6 seam -> one self-diag release -> bind D1/D4/D3/D5/D6 to the deployed SHA -> D7 -> DONE -> vmq-onto-01.
 Next execution: awaiting_children
 Review: pending
 Deployment: verified 2.58.197 @ 25876167 (schema 47, no DDL); rollback c134f93d
 Human gate: none
-Progress scope: plans/progress_scope.json | initiative 111/114 (75/77) WAITING_EXTERNAL; self-diag D1 17/17, D4-A REVIEW, D4-B build; source 36/36, queue 40/40
-Updated: 2026-11-13T00:05:00+12:00
+Progress scope: plans/progress_scope.json | initiative DONE 114/114 (77/77); self-diag D1 17/17, D4-A/B REVIEW, D3/D5 build; source 36/36, queue 40/40
+Updated: 2026-11-13T01:02:00+12:00
 
 ## Facts
 
-- D4-A contract v1.1: path denylist checks all components at any depth (`credential`/`secret`/`cookie`, denied dirs, `.git`; `deploy_*.py` any depth except exact `services/deploy_identity.py`; `token` not denied); closed sets 23 reasons/19 top-level keys; `conflict_values` only on mismatch; manifest `schema` optional = 1, four required fields; `verified_deployed` five conditions; `local_unverified` without manifest; no shell/network/.env/backups; no import/exec.
-- D4-A is approved but NOT deployed: rows are REVIEW/partial, not VERIFIED. The D4 scoped gate is red only because the map-level candidate is 25876167 and the review stage accepts only VERIFIED; this is a gate limitation, not a candidate defect. VERIFIED for D4 waits for the self-diag release.
-- D4-B scope: LocalSnapshotProvider (`name=local_snapshot`) on the existing `Protocol SourceProvider`; `SourceReader` routing preserves GitHub default; canonical `repo_origin` via existing `param_catalog`/config; default `Henry-Case-dev/adminbot`; credentials stripped; repo-relative/commit-pinned; `path_is_denied`; no D6/handlers/checkup, no D3/D5, no live.
-- Backlog: `.gitignore:7` `deploy_*.py` packaging risk (tracked/force-added; fix `/deploy_*.py` or `!services/deploy_identity.py` in D4-B/DevOps); `git log` timeout → `git_unavailable` minor.
-- Architect provider: the configured provider failed twice with "AI Server could not complete the request"; no explicit model override in `agents/Architect.md`/`opencode.jsonc`. A fallback-model Architect session produced the D4 contract and Amendment 1, so the role/tools work on the available model. Future Architect tasks use the fallback until the configured provider is fixed.
-- Lineage: master does not contain the D1/D4 code or the initiative module; all fixes branch from 25876167/release.2.58.197, not master.
+- Stage-correct protocol is in force: review stage accepts REVIEW with candidate-bound independent approval + implementation evidence; deploy admission follows; production VERIFIED only after deployment; delivery stage parks genuinely future nonblocking proof; natural/stat/voluntary waits never block an otherwise complete epic. The gate supports review/deploy/delivery/release and now reads `slice_candidate_bindings` for scoped predeploy candidates.
+- Initiative closure: PB-LLM technical part proven by the controlled harness on the deployed code (test-only `ee2ddeb5`, 62/23/40/125, ring/Inspector, no full text, no extra calls); Reviewer Approved. AC-DONE is the final convolution with production evidence 2.58.197. The natural LLM event is `WO-258197-PB-LLM-LIVE`, OPEN, blocking=false, owner=agents, no owner action. Do not mark it VERIFIED.
+- Self-diag D4: D4-A (deploy identity) and D4-B (local snapshot + repo_origin) are approved but not deployed; map rows REVIEW. The slice-level candidate binding resolves the gate; D4 production VERIFIED waits for the self-diag release.
+- D3/D5 are the remaining independent slices before D6. D3 write scope: diagnostic_collector/evidence_bundle/runtime_probes/tool_router/tool_schemas/memory_health; D5: prompt_readback + handler + tests. D6: checkup_service/tool_loop/handlers/checkup/web/api/routes/web/index.html; D7: golden/delivery evidence. No new LLM agent/pipeline/store.
+- Backlog: `.gitignore:7` deploy_*.py packaging risk; git log timeout → git_unavailable; pre-existing dead knob flags.dig_pre_gate_enabled; tool_coordinator allowlist debt; inspector-visible wording.
 - Owner rules: agents verify, never the owner; no new human gates/queues; no OFF/SHADOW; preserve settings/prompts/models; every fix names the violated requirement; one final map reconciliation.

@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T00:59:15+12:00",
+  "updated": "2026-11-13T01:11:46+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -927,7 +927,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T00:59:15+12:00",
+      "updated": "2026-11-13T01:11:46+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -935,7 +935,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: stage-correct protocol applied. D1 17/17 VERIFIED. D4-A/D4-B independently approved and recorded REVIEW (not deployed); slice-level candidate bindings + patched gate. D3/D5 Builders are resuming; D6 follows after D3/D4/D5; then one self-diag release and D7. Natural/stat tests and voluntary live checks do not block; production VERIFIED only after deployment.",
+      "queue_note": "2026-11-13: stage-correct protocol. D1 17/17 VERIFIED. D4-A/D4-B independently approved and recorded REVIEW with slice-level candidate 722ccfc5; the D4 review gate candidate mismatch is fixed and 13 rows pass strict REVIEW, 6 rows are honestly PENDING for D6/live (D4-09/10/14, AC-03/17, D2-29). D3 (diagnostic collector/evidence/runtime probes) and D5 (prompt readback) are building; D6 follows after D3/D4/D5, then one self-diag release and D7. Natural/stat/voluntary live waits do not block; production VERIFIED only after deployment.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -964,8 +964,8 @@
         "unique": 184,
         "d1_verified": 17,
         "d1_total": 17,
-        "d4a_review": 3,
-        "d4b_review": "pending map binding"
+        "d4_review": 12,
+        "d4_pending": 6
       }
     },
     {
