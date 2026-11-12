@@ -1,0 +1,187 @@
+VMQ-NEXT-03/04 positive-case raw output (candidate 23477658)
+==============================================================================
+commands (env: CODE_ROOT = worktree 23477658; SRC_DB = prod copy
+sha256 5310e91e...; ENV_FILE = project .env; DERIV/OUT = run dir):
+  py -u positive_probe.py    MODE=real|empty  RERANK_SEAM=llm|method
+  py -u fixture_c2.py        (synthetic fact 22487 into a derivative copy)
+  py -u scan_17.py           (FTS top-64 scan of the 17 questions)
+  py -u pool_probe.py        (real _rag_unified_rows pools per question)
+NOTE: a tail traceback after "WROTE ..." in some logs is aiosqlite shutdown
+noise in the harness (the process exited 0 and the JSON was written first); it
+is not a product error.
+NOTE 2: PowerShell `*>` captured the child stdout through the Windows console
+codepage; Cyrillic text inside these logs can be mangled. The authoritative
+texts/values are in next-a-positive-23477658.json (written by Python in UTF-8).
+
+==============================================================================
+### fixture_c2.log -- fixture: insert synthetic fact 22487 into a copy
+==============================================================================
+fixture fact_id=22487 ts=1684000800 text=Михаил сейчас строил планы на выходные и звал всех в баню
+fixture_db C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\db_fixture_c2.db bytes 1670549504 sha256 1751418ec7803fb828bb4ddfe060a3ab0b79075148963ffda2e602250b6f5d27
+
+==============================================================================
+### pos_g12_real.log -- MODE=real: G1 (work question) + G2
+==============================================================================
+Q G1 historical empty=False block_rows=4 years={'2023': 1, '2026': 3} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=0 
+Q G1 auto       empty=False block_rows=4 years={'2023': 1, '2026': 3} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=0 
+Q G2 historical empty=False block_rows=6 years={'2025': 1, '2026': 5} protected=[] period_rows=2 pool=19 period_kept=1 despite_empty=0 
+Q G2 auto       empty=False block_rows=5 years={'2026': 5} protected=[] period_rows=1 pool=19 period_kept=0 despite_empty=0 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pos_g12_real.json
+
+==============================================================================
+### pos_empty_final.log -- MODE=empty (provider double): G1, C1 auto, C2
+==============================================================================
+py : [database] embedding generation ADOPTED (gateway compat) | index=graph_facts_vec ns=default gen=1 fp=96f80838f683
+строка:1 знак:590
++ ... nbot\.env'; py -u "$run\positive_probe.py" *> "$run\pos_empty_final.l ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([database] embe...fp=96f80838f683:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+EMBEDDING_COMPAT_ADMITTED | index=graph_facts_vec | gen=1 | checked=12 | mean=1.0 min=1.0 hit5=1.0 | fingerprint ╤Б╨╛╤Е
+╤А╨░╨╜╤С╨╜ (╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б)
+Q G1 historical empty=False block_rows=1 years={'2023': 1} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=1 
+Q G1 auto       empty=False block_rows=1 years={'2023': 1} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=1 
+Q C1 auto       empty=True block_rows=0 years={} protected=[] period_rows=0 pool=16 period_kept=None despite_empty=None 
+LLM request retry | url=https://apinet.cloud/v1/embeddings | attempt=1/2 | sleep=2.8s | reason=ReadTimeout: 
+Q C2 historical empty=True block_rows=0 years={} protected=[] period_rows=2 pool=18 period_kept=None despite_empty=None 
+Q C2 auto       empty=True block_rows=0 years={} protected=[] period_rows=0 pool=18 period_kept=None despite_empty=None 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pos_empty_final.json
+
+==============================================================================
+### pos_empty_seam.log -- MODE=empty (RERANK_SEAM=method): G1
+==============================================================================
+py : [database] embedding generation ADOPTED (gateway compat) | index=graph_facts_vec ns=default gen=1 fp=96f80838f683
+строка:1 знак:605
++ ... M='method'; py -u "$run\positive_probe.py" *> "$run\pos_empty_seam.lo ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([database] embe...fp=96f80838f683:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+EMBEDDING_COMPAT_ADMITTED | index=graph_facts_vec | gen=1 | checked=12 | mean=1.0 min=1.0 hit5=1.0 | fingerprint ╤Б╨╛╤Е
+╤А╨░╨╜╤С╨╜ (╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б)
+Q G1 historical empty=False block_rows=1 years={'2023': 1} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=1 
+Q G1 auto       empty=False block_rows=1 years={'2023': 1} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=1 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pos_empty_seam.json
+SmartModule graph backfill: failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\self-diag-01-0ccfa8fbf52b-3a18d4fe\serv
+ices\summary_memory.py", line 3715, in backfill_graph_fact_vectors
+    if await cursor.fetchone() is None:
+       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\cursor.py", line 57, in fetch
+one
+    return await self._execute(self._cursor.fetchone)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\cursor.py", line 32, in _exec
+ute
+    return await self._conn._execute(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 160, in _execu
+te
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 63, in _connec
+tion_worker_thread
+    result = function()
+             ^^^^^^^^^^
+sqlite3.ProgrammingError: Cannot operate on a closed database.
+
+==============================================================================
+### pos_empty_repeat.log -- MODE=empty repeat on a fresh derivative: G1, C2 auto
+==============================================================================
+py : [database] embedding generation ADOPTED (gateway compat) | index=graph_facts_vec ns=default gen=1 fp=96f80838f683
+строка:1 знак:612
++ ... DE='empty'; py -u "$run\positive_probe.py" *> "$run\pos_empty_repeat. ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([database] embe...fp=96f80838f683:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+EMBEDDING_COMPAT_ADMITTED | index=graph_facts_vec | gen=1 | checked=12 | mean=1.0 min=1.0 hit5=1.0 | fingerprint ╤Б╨╛╤Е
+╤А╨░╨╜╤С╨╜ (╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б)
+Q G1 historical empty=False block_rows=1 years={'2023': 1} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=1 
+Q G1 auto       empty=False block_rows=1 years={'2023': 1} protected=['2242'] period_rows=1 pool=16 period_kept=1 despite_empty=1 
+Q C2 auto       empty=True block_rows=0 years={} protected=[] period_rows=0 pool=18 period_kept=None despite_empty=None 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pos_empty_repeat.json
+
+==============================================================================
+### pos_h12_real.log -- MODE=real: H1/H2 (2024 knn threshold cases)
+==============================================================================
+Q H1 historical empty=False block_rows=5 years={'2026': 5} protected=[] period_rows=2 pool=17 period_kept=0 despite_empty=0 
+Q H1 auto       empty=False block_rows=5 years={'2024': 1, '2026': 4} protected=[] period_rows=1 pool=17 period_kept=1 despite_empty=0 
+Q H2 historical empty=False block_rows=3 years={'2026': 3} protected=[] period_rows=2 pool=17 period_kept=0 despite_empty=0 
+Q H2 auto       empty=False block_rows=4 years={'2024': 1, '2026': 3} protected=[] period_rows=1 pool=17 period_kept=1 despite_empty=0 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pos_h12_real.json
+
+==============================================================================
+### pos_c2_fixture.log -- MODE=empty on the fixture copy: C2
+==============================================================================
+py : [database] embedding generation ADOPTED (gateway compat) | index=graph_facts_vec ns=default gen=1 fp=96f80838f683
+строка:1 знак:610
++ ... nbot\.env'; py -u "$run\positive_probe.py" *> "$run\pos_c2_fixture.lo ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([database] embe...fp=96f80838f683:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+EMBEDDING_COMPAT_ADMITTED | index=graph_facts_vec | gen=1 | checked=12 | mean=1.0 min=1.0 hit5=1.0 | fingerprint ╤Б╨╛╤Е
+╤А╨░╨╜╤С╨╜ (╨┐╤А╨╛╨▓╨╡╨╜╨░╨╜╤Б)
+Q C2-FIXTURE historical empty=True block_rows=0 years={} protected=[] period_rows=2 pool=18 period_kept=None despite_empty=None 
+Q C2-FIXTURE auto       empty=False block_rows=1 years={'2023': 1} protected=['22487'] period_rows=1 pool=18 period_kept=1 despite_empty=1 
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pos_c2_fixture.json
+
+==============================================================================
+### scan_17.log -- FTS top-64 old-candidate scan for the 17 questions
+==============================================================================
+A1   fts=64  old=13  passing=4 hist={'1': 5, '0': 4, '2': 4}
+    id=3110 y=2023 shared=2 Vasek ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В ╨╛ ╤Б╨╡╨▒╨╡ ╨╜╨╡ ╨╗╨╡╤З╤Г╤Б╤М
+    id=2804 y=2023 shared=2 Vasek ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В ╨╜╨░╨╗╨╕╤З╨╕╨╡ ╨▒╨╛╨╗╤М╤И╨╛╨│╨╛ ╨║╨╛╨╗╨╕╤З╨╡╤Б╤В╨▓╨░ ╨╖╨░╤З╨░╤В╨║╨╛╨▓ ╨╜╨╡╨╣╤А╨╛╤Б╨╡╤В╨╡╨╣ ╨▓ ╤Б╨╡╨▒╨╡ ╨▓ ╤П╨╣╤Ж╨░╤Е
+    id=3803 y=2024 shared=2 Vasek ╨╛╨▒╨╡╤Й╨░╨╗ ╤Б╨╛╨▓╨╡╤А╤И╨╕╤В╤М ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╡ ╨▓ ╨╛╤В╨╜╨╛╤И╨╡╨╜╨╕╨╕ ╨Ю╨╗╤П
+A2   fts=64  old=8   passing=0 hist={'1': 8}
+A3   fts=64  old=10  passing=0 hist={'1': 5, '0': 5}
+A4   fts=64  old=6   passing=0 hist={'1': 4, '0': 2}
+A5   fts=64  old=20  passing=1 hist={'2': 1, '1': 18, '0': 1}
+    id=3222 y=2023 shared=2 4-11-22-13 ╤Д╨╛╤А╨╝╤Г╨╗╨╕╤А╤Г╨╡╤В ╨╜╨╛╨▓╨╛╨│╨╛╨┤╨╜╨╕╨╡ ╤В╤А╨░╨┤╨╕╤Ж╨╕╨╕ ╤Б╨╛╨╛╨▒╤Й╨╡╤Б╤В╨▓╨░ ╨╛╨▒╤Й╨╕╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨░ ╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╤П ╨╕ ╨┐╨╛╤В╤А╨╡╨▒╨╗╨╡╨╜╨╕╤П
+A6   fts=64  old=13  passing=2 hist={'1': 11, '2': 2}
+    id=2753 y=2023 shared=2 ╨Р╨╗╨╕╨╜╨░ ╤Г╨║╨░╨╖╤Л╨▓╨░╨╡╤В ╤Г╤А╨╛╨▓╨╡╨╜╤М ╨╖╨░╤А╨┐╨╗╨░╤В╤Л ╨┤╨╗╤П ╨╜╨╛╨▓╨╕╤З╨║╨╛╨▓ ╨Ш╨в-╤Б╨┐╨╡╤Ж╨╕╨░╨╗╨╕╤Б╤В╨╛╨▓ ╨▓ ╨Я╨╡╤А╨╝╨╕ (╨┐╨╡╤А╨▓╤Л╨╣ ╨│╨╛╨┤)
+    id=2746 y=2023 shared=2 Alina ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В ╨╛ ╤Б╤А╨╡╨┤╨╜╨╡╨╣ ╨╖╨░╤А╨┐╨╗╨░╤В╨╡ ╨▓ ╤Б╤Д╨╡╤А╨╡ ╨╛╨▒╤Б╨╗╤Г╨╢╨╕╨▓╨░╨╜╨╕╤П ╨Я╨╡╤А╨╝╨╕ ╨╝╨░╨║╤Б╨╕╨╝╤Г╨╝ 30╨║ ╨▒╨╡╨╖ ╨┐╨╡╤А╨╡╤А╨░╨▒╨╛╤В╨╛╨║
+A7   fts=64  old=2   passing=1 hist={'2': 1, '1': 1}
+    id=2580 y=2023 shared=2 ╨б╨▓╨╡╤В╨║╨░ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В, ╤З╤В╨╛ ╨Ю╨а╨Т╨Ш ╨┐╤А╨╛╤Е╨╛╨┤╨╕╤В ╤Б╨░╨╝╨╛ ╨┐╨╛ ╤Б╨╡╨▒╨╡ ╨▒╨╡╨╖ ╨╗╨╡╨║╨░╤А╤Б╤В╨▓ ╨Р╨╗╨╡╨║╤Б╨╡╨╣ ╨╕ ╨┤╤А╤Г╨│╨╕╨╡ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨╕ ╤З╨░╤В╨░
+A8   fts=64  old=10  passing=2 hist={'2': 2, '1': 8}
+    id=4018 y=2024 shared=2 ╨Р. MarsiWer ╤Б╤З╨╕╤В╨░╨╡╤В ╨┐╨╛╨║╤Г╨┐╨║╤Г ╨▒╨╕╨╗╨╡╤В╨░ ╨▓╤Л╨│╨╛╨┤╨╜╨╡╨╡ ╨╜╨╡╤Б╨║╨╛╨╗╤М╨║╨╕╤Е ╨┐╨╛╤Б╨╡╤Й╨╡╨╜╨╕╨╣ ╨╕╨╖-╨╖╨░ ╤Ж╨╡╨╜ ╨▓╤Е╨╛╨┤╨╜╤Л╤Е ╨▒╨╕╨╗╨╡╤В╨╛╨▓
+    id=4000 y=2024 shared=2 ╨Ю╨╗╨╡╤П╨║╨░ ╨┐╨╗╨░╨╜╨╕╤А╤Г╨╡╤В ╨┐╨╛╨║╤Г╨┐╨░╤В╤М ╨▒╨╕╨╗╨╡╤В╤Л ╨╜╨░ ╨╛╤Б╨╡╨╜╨╜╨╕╨╡ ╨║╨╛╨╜╤Ж╨╡╤А╤В╤Л ╤Б ╨┐╨╛╨╝╨╛╤Й╤М╤О ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨╣ ╨╖╨░╤А╨┐╨╗╨░╤В╤Л
+A9   fts=64  old=9   passing=0 hist={'1': 9}
+A10  fts=64  old=5   passing=1 hist={'2': 1, '1': 3, '0': 1}
+    id=4864 y=2024 shared=2 Vasek ╤Б╤З╨╕╤В╨░╨╡╤В ╨╜╨╡╨╕╨╖╨▒╨╡╨╢╨╜╤Л╨╝ ╨▓╨░╨╣╨┐ ╤Б╨╡╤А╨▓╨╡╤А╨░ ╨║ ╤О╨▒╨╕╨╗╨╡╤О ╨┐╤А╨╛╨╡╨║╤В╨░ ╤Б╨╡╤А╨▓╨░╨║ 38-╨│╨╛ ╨│╨╛╨┤╨░
+A11  fts=64  old=4   passing=0 hist={'1': 4}
+A12  fts=64  old=8   passing=0 hist={'1': 7, '0': 1}
+A13  fts=64  old=2   passing=0 hist={'1': 2}
+A14  fts=64  old=3   passing=0 hist={'1': 3}
+A15  fts=64  old=8   passing=0 hist={'1': 3, '0': 5}
+C1   fts=64  old=1   passing=0 hist={'1': 1}
+C2   fts=64  old=5   passing=0 hist={'1': 5}
+
+==============================================================================
+### pool_old17.log -- real _rag_unified_rows pools: A1/A5/A6/A7/A8/A10
+==============================================================================
+py : SmartModule: embedding generation not serviceable | index=smart_archive | status=superseded | gen_fp=2d0efab0e817 
+new_fp=2d0efab0e817 тАФ FTS-only (A06) | build pending тАФ source empty (nothing to vectorize)
+строка:1 знак:672
++ ... nbot\.env'; py -u "$run\pool_probe.py" *> "$run\pool_old17.log"; Writ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (SmartModule: em...g to vectorize):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Q A1 historical rows=9 pool=16 accepted_lexical=0
+Q A1 auto rows=9 pool=16 accepted_lexical=0
+Q A5 historical rows=10 pool=8 accepted_lexical=0
+Q A5 auto rows=10 pool=8 accepted_lexical=0
+Q A6 historical rows=10 pool=20 accepted_lexical=0
+Q A6 auto rows=9 pool=20 accepted_lexical=0
+Q A7 historical rows=10 pool=18 accepted_lexical=0
+Q A7 auto rows=9 pool=18 accepted_lexical=0
+Q A8 historical rows=9 pool=16 accepted_lexical=0
+Q A8 auto rows=10 pool=16 accepted_lexical=0
+Q A10 historical rows=10 pool=16 accepted_lexical=0
+Q A10 auto rows=9 pool=16 accepted_lexical=0
+WROTE C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\probe-78cb8aa572\pool_old17.json
+

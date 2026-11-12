@@ -1,0 +1,5405 @@
+{
+ "meta": {
+  "code_root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\self-diag-01-0ccfa8fbf52b-3a18d4fe",
+  "src_db": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-d86a98460c\\prod-copy.db",
+  "channels": [
+   "vector"
+  ],
+  "period_channels": [
+   "lexical",
+   "vector"
+  ],
+  "period_pool": 32,
+  "min_stems": 2,
+  "slot_div": 5,
+  "limit": 10,
+  "cap": 2000,
+  "started": "2026-11-12T22:26:34Z",
+  "git_head": "234776589c934024ed0e8dceba189fb9d70d3215",
+  "blob_dcs": "3073ca97f73f2fb7cade9dbfa68cca905747a8fd",
+  "blob_mca": "634038cb083c826e9c1c5874bafe3dd01583c37f",
+  "blob_sm": "99634aa1dfae6b807b1eef468085d4c4dd9a020c",
+  "finished": "2026-11-12T22:27:22Z",
+  "candidate_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
+  "candidate_version": "2.58.198 (release/2.58.198)",
+  "source_copy": {
+   "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-d86a98460c\\prod-copy.db",
+   "bytes": 1670549504,
+   "sha256": "5310e91e282813f6342c950eb3ee182dc93e9ad6fdf54fdd91d3287e394082b2",
+   "user_version": 47
+  },
+  "evidence_created": "2026-11-12T22:39:59Z",
+  "harness": "positive_probe.py (spies call the originals; rerank provider double MODE=empty returns {\"selected\": []})",
+  "config": {
+   "rerank_flag_settings_default": true,
+   "typed_reranker": true,
+   "facts_limit_runtime": 10,
+   "context_max_chars_runtime": 2000,
+   "llm_model": "deepseek/deepseek-v4.1-flash",
+   "embed_model": "gemini-embedding-001",
+   "llm_base_host": "https://nano-gpt.com/api/v1"
+  },
+  "vector_state": {
+   "available": true,
+   "dim": 3072,
+   "off_reason": null,
+   "period_guard": "",
+   "identity_fp": "2d0efab0e8179490f357cc1257461c614d44dd088497be9372cab0988fa0a7c1"
+  },
+  "fixture_derivative": [
+   "fixture fact_id=22487 ts=1684000800 text=╨Ь╨╕╤Е╨░╨╕╨╗ ╤Б╨╡╨╣╤З╨░╤Б ╤Б╤В╤А╨╛╨╕╨╗ ╨┐╨╗╨░╨╜╤Л ╨╜╨░ ╨▓╤Л╤Е╨╛╨┤╨╜╤Л╨╡ ╨╕ ╨╖╨▓╨░╨╗ ╨▓╤Б╨╡╤Е ╨▓ ╨▒╨░╨╜╤О",
+   "fixture_db C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-78cb8aa572\\db_fixture_c2.db bytes 1670549504 sha256 1751418ec7803fb828bb4ddfe060a3ab0b79075148963ffda2e602250b6f5d27"
+  ],
+  "derivatives": "each run used a fresh sqlite3.backup of source_copy; the derivative files were deleted after the evidence was extracted (source_copy retained)",
+  "commands": [
+   "py -u positive_probe.py  # MODE=real|empty, RERANK_SEAM=llm|method",
+   "py -u positive_probe.py  # MODE=empty RERANK_SEAM=method",
+   "py -u fixture_c2.py      # insert 1 synthetic 2023 fact into a copy",
+   "py -u scan_17.py         # FTS top-64 old-candidate scan, 17 questions",
+   "py -u pool_probe.py      # real _rag_unified_rows, per-question pool"
+  ]
+ },
+ "next_03": {
+  "archive_17_questions": {
+   "result": "0 защищённых строк во всех 34 блоках (факт замера 12.11 не изменился), причина теперь измерена по каждому вопросу",
+   "per_question": [
+    {
+     "key": "A1",
+     "question": "почему Vasek был недоволен отношением к себе в чате?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 13,
+     "old_shared_histogram": {
+      "1": 5,
+      "0": 4,
+      "2": 4
+     },
+     "old_candidates_passing_threshold": [
+      {
+       "id": 3110,
+       "year": 2023,
+       "shared": 2,
+       "fact": "Vasek утверждает о себе не лечусь"
+      },
+      {
+       "id": 2804,
+       "year": 2023,
+       "shared": 2,
+       "fact": "Vasek утверждает наличие большого количества зачатков нейросетей в себе в яйцах"
+      },
+      {
+       "id": 3803,
+       "year": 2024,
+       "shared": 2,
+       "fact": "Vasek обещал совершить физическое действие в отношении Оля"
+      },
+      {
+       "id": 2192,
+       "year": 2023,
+       "shared": 2,
+       "fact": "{PiZd@4e_4eM_/eR$@4e} утверждает о себе быть единственным девственником в чате"
+      }
+     ],
+     "measured_pool": {
+      "historical": {
+       "base_years": {
+        "2026": 3,
+        "2023": 2,
+        "2025": 4,
+        "2024": 1
+       },
+       "exclude_years": [
+        2023,
+        2024,
+        2025,
+        2026
+       ],
+       "period_pool_years": {
+        "2022": 16
+       },
+       "period_pool_n": 16,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 1753,
+         "year": 2022,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 1787,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1776,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1763,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1785,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1796,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1762,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1710,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1772,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1713,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1797,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1721,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1781,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1728,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1790,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1752,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        }
+       ]
+      },
+      "auto": {
+       "base_years": {
+        "2026": 3,
+        "2023": 2,
+        "2025": 4,
+        "2024": 1
+       },
+       "exclude_years": [
+        2023,
+        2024,
+        2025,
+        2026
+       ],
+       "period_pool_years": {
+        "2022": 16
+       },
+       "period_pool_n": 16,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 1753,
+         "year": 2022,
+         "proxy": "knn",
+         "stems_shared": 4
+        },
+        {
+         "id": 1787,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1776,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1763,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1785,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1796,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1762,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1710,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1772,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 1713,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1797,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1721,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1781,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1728,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1790,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1752,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        }
+       ]
+      }
+     },
+     "why_not_protected": "кандидаты 3110/2804/3803/2192 (2023-2024, shared=2) лежат в годах, которые уже есть в базовом срезе -> exclude_years=[2023,2024,2025,2026] убирает их из ОБЕИХ ног; пул — только 2022, все <2"
+    },
+    {
+     "key": "A2",
+     "question": "что было с концертом органной музыки?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 8,
+     "old_shared_histogram": {
+      "1": 8
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A3",
+     "question": "что там с ремонтом ванной?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 10,
+     "old_shared_histogram": {
+      "1": 5,
+      "0": 5
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A4",
+     "question": "что было с рыночком на болту?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 6,
+     "old_shared_histogram": {
+      "1": 4,
+      "0": 2
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A5",
+     "question": "что говорили про традиции сообщества?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 20,
+     "old_shared_histogram": {
+      "2": 1,
+      "1": 18,
+      "0": 1
+     },
+     "old_candidates_passing_threshold": [
+      {
+       "id": 3222,
+       "year": 2023,
+       "shared": 2,
+       "fact": "4-11-22-13 формулирует новогодние традиции сообщества общие правила поведения и потребления"
+      }
+     ],
+     "measured_pool": {
+      "historical": {
+       "base_years": {
+        "2026": 6,
+        "2025": 1,
+        "2024": 2,
+        "2023": 1
+       },
+       "exclude_years": [
+        2023,
+        2024,
+        2025,
+        2026
+       ],
+       "period_pool_years": {
+        "2022": 8
+       },
+       "period_pool_n": 8,
+       "pool_max_lexical_stems_shared": 0,
+       "pool_rows": [
+        {
+         "id": 1759,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1775,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1750,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1740,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1723,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1712,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1774,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1773,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        }
+       ]
+      },
+      "auto": {
+       "base_years": {
+        "2026": 6,
+        "2025": 1,
+        "2024": 2,
+        "2023": 1
+       },
+       "exclude_years": [
+        2023,
+        2024,
+        2025,
+        2026
+       ],
+       "period_pool_years": {
+        "2022": 8
+       },
+       "period_pool_n": 8,
+       "pool_max_lexical_stems_shared": 0,
+       "pool_rows": [
+        {
+         "id": 1759,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1775,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1750,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1740,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1723,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1712,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1774,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1773,
+         "year": 2022,
+         "proxy": "stems",
+         "stems_shared": 0
+        }
+       ]
+      }
+     },
+     "why_not_protected": "кандидат 3222 (2023, shared=2) — сам якорь, его год в базовом срезе -> exclude_years=[2023,2024,2025,2026]; пул — только 2022, shared=0"
+    },
+    {
+     "key": "A6",
+     "question": "что говорили про зарплату айтишников в Перми?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 13,
+     "old_shared_histogram": {
+      "1": 11,
+      "2": 2
+     },
+     "old_candidates_passing_threshold": [
+      {
+       "id": 2753,
+       "year": 2023,
+       "shared": 2,
+       "fact": "Алина указывает уровень зарплаты для новичков ИТ-специалистов в Перми (первый год)"
+      },
+      {
+       "id": 2746,
+       "year": 2023,
+       "shared": 2,
+       "fact": "Alina утверждает о средней зарплате в сфере обслуживания Перми максимум 30к без переработок"
+      }
+     ],
+     "measured_pool": {
+      "historical": {
+       "base_years": {
+        "2026": 10
+       },
+       "exclude_years": [
+        2026
+       ],
+       "period_pool_years": {
+        "2025": 11,
+        "2023": 5,
+        "2022": 1,
+        "2024": 3
+       },
+       "period_pool_n": 20,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 6434,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 2753,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 2746,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 1798,
+         "year": 2022,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 5764,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7773,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 3868,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 2599,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7160,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 8645,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 6690,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2982,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6151,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 4523,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2307,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 3649,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6239,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6266,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6608,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5605,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        }
+       ]
+      },
+      "auto": {
+       "base_years": {
+        "2026": 10
+       },
+       "exclude_years": [
+        2026
+       ],
+       "period_pool_years": {
+        "2025": 11,
+        "2023": 5,
+        "2022": 1,
+        "2024": 3
+       },
+       "period_pool_n": 20,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 6434,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 2753,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": 2
+        },
+        {
+         "id": 2746,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": 2
+        },
+        {
+         "id": 1798,
+         "year": 2022,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 5764,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 7773,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 3868,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 2599,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 7160,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 8645,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 0
+        },
+        {
+         "id": 6690,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2982,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6151,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 4523,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2307,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 3649,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6239,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6266,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6608,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5605,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        }
+       ]
+      }
+     },
+     "why_not_protected": "2753/2746 (2023, shared=2) ЕСТЬ в периодном пуле, но как knn (коллизия идентичности: один и тот же факт найден лексикой и вектором; у слитой строки остаётся period_source=vector -> subject_proxy=knn) -> судится реранком, не защищена"
+    },
+    {
+     "key": "A7",
+     "question": "что говорили про ОРВИ и лекарства?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 2,
+     "old_shared_histogram": {
+      "2": 1,
+      "1": 1
+     },
+     "old_candidates_passing_threshold": [
+      {
+       "id": 2580,
+       "year": 2023,
+       "shared": 2,
+       "fact": "Светка утверждает, что ОРВИ проходит само по себе без лекарств Алексей и другие участники чата"
+      }
+     ],
+     "measured_pool": {
+      "historical": {
+       "base_years": {
+        "2026": 10
+       },
+       "exclude_years": [
+        2026
+       ],
+       "period_pool_years": {
+        "2023": 3,
+        "2025": 12,
+        "2024": 2,
+        "2022": 1
+       },
+       "period_pool_n": 18,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 2580,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7302,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7122,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7780,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 3553,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 1718,
+         "year": 2022,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 6799,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2167,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8870,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8205,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 2662,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 7659,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 7084,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 7935,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 4550,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 6778,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 6372,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 6734,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        }
+       ]
+      },
+      "auto": {
+       "base_years": {
+        "2026": 10
+       },
+       "exclude_years": [
+        2026
+       ],
+       "period_pool_years": {
+        "2023": 3,
+        "2025": 12,
+        "2024": 2,
+        "2022": 1
+       },
+       "period_pool_n": 18,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 2580,
+         "year": 2023,
+         "proxy": "knn",
+         "stems_shared": 2
+        },
+        {
+         "id": 7302,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 7122,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 0
+        },
+        {
+         "id": 7780,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 0
+        },
+        {
+         "id": 3553,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": 0
+        },
+        {
+         "id": 1718,
+         "year": 2022,
+         "proxy": "knn",
+         "stems_shared": 0
+        },
+        {
+         "id": 6799,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2167,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8870,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8205,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 2662,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 7659,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 7084,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 7935,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 4550,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 6778,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 6372,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 6734,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        }
+       ]
+      }
+     },
+     "why_not_protected": "2580 (2023, shared=2) в пуле как knn -> судится, не защищена"
+    },
+    {
+     "key": "A8",
+     "question": "что было с покупкой билетов на концерты?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 10,
+     "old_shared_histogram": {
+      "2": 2,
+      "1": 8
+     },
+     "old_candidates_passing_threshold": [
+      {
+       "id": 4018,
+       "year": 2024,
+       "shared": 2,
+       "fact": "А. MarsiWer считает покупку билета выгоднее нескольких посещений из-за цен входных билетов"
+      },
+      {
+       "id": 4000,
+       "year": 2024,
+       "shared": 2,
+       "fact": "Олеяка планирует покупать билеты на осенние концерты с помощью следующей зарплаты"
+      }
+     ],
+     "measured_pool": {
+      "historical": {
+       "base_years": {
+        "2026": 8,
+        "2024": 1,
+        "2023": 1
+       },
+       "exclude_years": [
+        2023,
+        2024,
+        2026
+       ],
+       "period_pool_years": {
+        "2025": 16
+       },
+       "period_pool_n": 16,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 6076,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 8122,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 5375,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7195,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8392,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8241,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 7107,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8116,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5974,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 7580,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5438,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5793,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5010,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5104,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8761,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8762,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        }
+       ]
+      },
+      "auto": {
+       "base_years": {
+        "2026": 8,
+        "2024": 1,
+        "2023": 1
+       },
+       "exclude_years": [
+        2023,
+        2024,
+        2026
+       ],
+       "period_pool_years": {
+        "2025": 16
+       },
+       "period_pool_n": 16,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 6076,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 8122,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 5375,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 7195,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8392,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8241,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 7107,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8116,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5974,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 7580,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5438,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5793,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5010,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 5104,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8761,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8762,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        }
+       ]
+      }
+     },
+     "why_not_protected": "кандидаты 4018/4000 (2024, shared=2) -> 2024 в exclude_years; пул — только 2025, все shared=1"
+    },
+    {
+     "key": "A9",
+     "question": "что было с собакой?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 9,
+     "old_shared_histogram": {
+      "1": 9
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A10",
+     "question": "что говорили про вайп сервера?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 5,
+     "old_shared_histogram": {
+      "2": 1,
+      "1": 3,
+      "0": 1
+     },
+     "old_candidates_passing_threshold": [
+      {
+       "id": 4864,
+       "year": 2024,
+       "shared": 2,
+       "fact": "Vasek считает неизбежным вайп сервера к юбилею проекта сервак 38-го года"
+      }
+     ],
+     "measured_pool": {
+      "historical": {
+       "base_years": {
+        "2026": 10
+       },
+       "exclude_years": [
+        2026
+       ],
+       "period_pool_years": {
+        "2024": 5,
+        "2025": 8,
+        "2023": 3
+       },
+       "period_pool_n": 16,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 4864,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 7144,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 8005,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 3954,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 5625,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": null
+        },
+        {
+         "id": 3523,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 4238,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 7831,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2371,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 8340,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8147,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8205,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1953,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 3198,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 3824,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6478,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        }
+       ]
+      },
+      "auto": {
+       "base_years": {
+        "2026": 10
+       },
+       "exclude_years": [
+        2026
+       ],
+       "period_pool_years": {
+        "2024": 5,
+        "2025": 8,
+        "2023": 3
+       },
+       "period_pool_n": 16,
+       "pool_max_lexical_stems_shared": 1,
+       "pool_rows": [
+        {
+         "id": 4864,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": 2
+        },
+        {
+         "id": 7144,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 8005,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 3954,
+         "year": 2024,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 5625,
+         "year": 2025,
+         "proxy": "knn",
+         "stems_shared": 1
+        },
+        {
+         "id": 3523,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 4238,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 7831,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 2371,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 8340,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8147,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 8205,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 0
+        },
+        {
+         "id": 1953,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 3198,
+         "year": 2023,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 3824,
+         "year": 2024,
+         "proxy": "stems",
+         "stems_shared": 1
+        },
+        {
+         "id": 6478,
+         "year": 2025,
+         "proxy": "stems",
+         "stems_shared": 1
+        }
+       ]
+      }
+     },
+     "why_not_protected": "4864 (2024, shared=2) в пуле как knn -> судится, не защищена"
+    },
+    {
+     "key": "A11",
+     "question": "что было с алгоритмом BPR?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 4,
+     "old_shared_histogram": {
+      "1": 4
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A12",
+     "question": "что было с шаурмой?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 8,
+     "old_shared_histogram": {
+      "1": 7,
+      "0": 1
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A13",
+     "question": "что было с витаминами?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 2,
+     "old_shared_histogram": {
+      "1": 2
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A14",
+     "question": "что было со встречей с Пюрской?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 3,
+     "old_shared_histogram": {
+      "1": 3
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "A15",
+     "question": "что говорили про предпочтения Тани?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 8,
+     "old_shared_histogram": {
+      "1": 3,
+      "0": 5
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "C1",
+     "question": "что сейчас происходит в чате?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 1,
+     "old_shared_histogram": {
+      "1": 1
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    },
+    {
+     "key": "C2",
+     "question": "какие сейчас планы на выходные?",
+     "fts_top64_rows": 64,
+     "old_2023_2024_in_fts_top64": 5,
+     "old_shared_histogram": {
+      "1": 5
+     },
+     "old_candidates_passing_threshold": [],
+     "measured_pool": {},
+     "why_not_protected": "ни один кандидат 2023-2024 из FTS top-64 не набирает двух общих основ -> порог не может впустить лексическую строку"
+    }
+   ]
+  },
+  "controlled_positive": {
+   "query": "Что сейчас с работой?",
+   "why_this_query": "вопрос о текущем состоянии (тот же класс, что C1); базовый срез даёт годы {2024,2025,2026}, 2023 остаётся открытым для добора; векторная нога промахивается, лексическая находит 16 строк, ровно одна с product stems_shared=2",
+   "real_mode_reference": {
+    "historical": {
+     "item_key": "G1",
+     "policy": "historical",
+     "mode": "real",
+     "seam": null,
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n[чат] [08.2026 | fact:207]: (не подтверждено) алена нашла работу (сообщение Никиты)\n[чат] [09.2026 | fact:14388]: (не подтверждено) Даня ищет работу (сообщение в чате)\n[чат] [10.2026 | fact:21928]: (не подтверждено) aleksey спросил нашла ли настя новую работу (обращение к Книжному Хану)\n</RAG_Memory>",
+     "block_ids": [
+      "2242",
+      "207",
+      "14388",
+      "21928"
+     ],
+     "block_rows": 4,
+     "block_years": {
+      "2023": 1,
+      "2026": 3
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "historical",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 1953
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "historical",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 952
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=4 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=0 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "4",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "0",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [],
+     "rerank_calls": 1,
+     "rerank_raw": [
+      "{\"selected\":[1,2,3]}"
+     ],
+     "seam_calls": null,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    },
+    "auto": {
+     "item_key": "G1",
+     "policy": "auto",
+     "mode": "real",
+     "seam": null,
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n[чат] [08.2026 | fact:207]: (не подтверждено) алена нашла работу (сообщение Никиты)\n[чат] [09.2026 | fact:14388]: (не подтверждено) Даня ищет работу (сообщение в чате)\n[чат] [10.2026 | fact:21928]: (не подтверждено) aleksey спросил нашла ли настя новую работу (обращение к Книжному Хану)\n</RAG_Memory>",
+     "block_ids": [
+      "2242",
+      "207",
+      "14388",
+      "21928"
+     ],
+     "block_rows": 4,
+     "block_years": {
+      "2023": 1,
+      "2026": 3
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "auto",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 469
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "auto",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 1030
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=4 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=0 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "4",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "0",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [],
+     "rerank_calls": 1,
+     "rerank_raw": [
+      "{\"selected\":[1,2,3]}"
+     ],
+     "seam_calls": null,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    }
+   },
+   "empty_verdict_provider_double": {
+    "historical": {
+     "item_key": "G1",
+     "policy": "historical",
+     "mode": "empty",
+     "seam": null,
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "block_ids": [
+      "2242"
+     ],
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "historical",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 1547
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "historical",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 984
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [
+      "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 8 facts -> 0 (не все кандидаты) | mode=json"
+     ],
+     "rerank_calls": 1,
+     "rerank_raw": [
+      "{\"selected\": []}"
+     ],
+     "seam_calls": null,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    },
+    "auto": {
+     "item_key": "G1",
+     "policy": "auto",
+     "mode": "empty",
+     "seam": null,
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "block_ids": [
+      "2242"
+     ],
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "auto",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 437
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "auto",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 968
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [
+      "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 8 facts -> 0 (не все кандидаты) | mode=json"
+     ],
+     "rerank_calls": 1,
+     "rerank_raw": [
+      "{\"selected\": []}"
+     ],
+     "seam_calls": null,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    }
+   },
+   "empty_verdict_seam_double": {
+    "historical": {
+     "item_key": "G1",
+     "policy": "historical",
+     "mode": "empty",
+     "seam": "method",
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "block_ids": [
+      "2242"
+     ],
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "historical",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 1625
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "historical",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 920
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [],
+     "rerank_calls": 0,
+     "rerank_raw": [],
+     "seam_calls": 1,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    },
+    "auto": {
+     "item_key": "G1",
+     "policy": "auto",
+     "mode": "empty",
+     "seam": "method",
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "block_ids": [
+      "2242"
+     ],
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "auto",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 454
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "auto",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 1000
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [],
+     "rerank_calls": 0,
+     "rerank_raw": [],
+     "seam_calls": 1,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    }
+   },
+   "empty_verdict_repeat": {
+    "historical": {
+     "item_key": "G1",
+     "policy": "historical",
+     "mode": "empty",
+     "seam": "llm",
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "block_ids": [
+      "2242"
+     ],
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "historical",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 1922
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "historical",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 952
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [
+      "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 8 facts -> 0 (не все кандидаты) | mode=json"
+     ],
+     "rerank_calls": 1,
+     "rerank_raw": [
+      "{\"selected\": []}"
+     ],
+     "seam_calls": 0,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    },
+    "auto": {
+     "item_key": "G1",
+     "policy": "auto",
+     "mode": "empty",
+     "seam": "llm",
+     "query": "Что сейчас с работой?",
+     "block_empty": false,
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "block_ids": [
+      "2242"
+     ],
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "limit": 10,
+       "policy": "auto",
+       "period_fill": false,
+       "lexical_stem": false,
+       "include_archived": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_ids": [
+        14388,
+        21928,
+        207,
+        9212,
+        5878,
+        8256,
+        4008,
+        3642,
+        22305,
+        8287
+       ],
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null,
+       "ms": 437
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "limit": 32,
+       "policy": "auto",
+       "period_fill": true,
+       "lexical_stem": true,
+       "include_archived": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_ids": [
+        3208,
+        2949,
+        2242,
+        1779,
+        2083,
+        2027,
+        2419,
+        2754,
+        2359,
+        2763,
+        2140,
+        2429,
+        2069,
+        3064,
+        2287,
+        2430
+       ],
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       },
+       "ms": 984
+      }
+     ],
+     "period_pool_n": 16,
+     "period_pool_rows": [
+      {
+       "id": 3208,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Vasek выпивает перед работой ночью, пьяным"
+      },
+      {
+       "id": 2949,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Труъ альфач сравнил скорость трудоустройства с работой кассиром пятерочка"
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 2,
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      },
+      {
+       "id": 1779,
+       "year": 2022,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "S∆VΣL¥ не имеет настроения ебаться с Светкой сейчас"
+      },
+      {
+       "id": 2083,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил утверждает, что без армии не возьмут работодатели (подразумевается)"
+      },
+      {
+       "id": 2027,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Александр считал нормальным иметь друзей уже сейчас при обсуждении статуса владения чем-либо"
+      },
+      {
+       "id": 2419,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка работала/посещала место работы в Перми"
+      },
+      {
+       "id": 2754,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Володя сообщает свой доход от работы работодателем (неявно)"
+      },
+      {
+       "id": 2359,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Михаил работает автоэлектриком"
+      },
+      {
+       "id": 2763,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиза❤️ хочет работать в стриптизе"
+      },
+      {
+       "id": 2140,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Олеяка ищет работу продавцом с опытом работы в продуктовый магазин Наиля возле 8 школы"
+      },
+      {
+       "id": 2429,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Михаил отказывается от работы с высоким доходом без удовольствия работу на 60-70к/мес"
+      },
+      {
+       "id": 2069,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 0,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 0,
+       "fact": "Светка работала вместе с неизвестным человеком"
+      },
+      {
+       "id": 3064,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "мулянка вспоминает работу на велосипеде стелс"
+      },
+      {
+       "id": 2287,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Лиля Борисова платила за работу Алина"
+      },
+      {
+       "id": 2430,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "recheck_shared": 1,
+       "fact": "Алина отказалась от работы в тестирование"
+      }
+     ],
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "protected": true,
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии"
+      }
+     ],
+     "period_protected_n": 1,
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "period_stats_service": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 1,
+      "vector_leg": "ok",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 3,
+      "period_leg_reused": 0
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "typed_empty_log": [
+      "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 8 facts -> 0 (не все кандидаты) | mode=json"
+     ],
+     "rerank_calls": 1,
+     "rerank_raw": [
+      "{\"selected\": []}"
+     ],
+     "seam_calls": 0,
+     "cp_g_calls": [
+      {
+       "chat": -1002661910336,
+       "key": "flags.chat_rag_rerank_enabled",
+       "default": true,
+       "resolved": true,
+       "type": "bool"
+      },
+      {
+       "chat": -1002661910336,
+       "key": "limits.graph_rag_context_max_chars",
+       "default": 2000,
+       "resolved": 2000,
+       "type": "int"
+      }
+     ],
+     "rows_returned": [
+      {
+       "id": 14388,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 21928,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 207,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 9212,
+       "year": 2026,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 5878,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 8256,
+       "year": 2025,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 4008,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 3642,
+       "year": 2024,
+       "period_fill": false,
+       "proxy": null,
+       "stems_shared": null
+      },
+      {
+       "id": 2242,
+       "year": 2023,
+       "period_fill": true,
+       "proxy": "stems",
+       "stems_shared": 2
+      }
+     ],
+     "error": null
+    }
+   },
+   "accepted_row": {
+    "id": 2242,
+    "year": 2023,
+    "proxy": "stems",
+    "stems_shared": 2,
+    "stems_shared_reason": "lexical_threshold_applied",
+    "in_pool_before_filter": true,
+    "pool_position": "лексическая строка реального периодного retrieve (не инъекция в _rag_unified_rows)",
+    "rejected_below_threshold": 15,
+    "block_line": "[история] [03.2023 | fact:2242]: ..."
+   },
+   "boundary_check": "15 строк пула с 0/1 общими основами отклонены и в блок не попали; 10 строк базового среза судились и сняты пустым вердиктом -> пустой вердикт не защищает ни строки ниже порога, ни базовый срез."
+  }
+ },
+ "next_04": {
+  "c2_auto_pristine_archive": {
+   "query": "Какие сейчас планы на выходные?",
+   "pool": {
+    "pool_n": 18,
+    "lexical_n": 10,
+    "knn_n": 8,
+    "lexical_stems_shared": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "knn_stems_shared": [
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    "lexical_rows": [
+     {
+      "id": 3374,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Name Surname отшивает приглашения на выходные Олеяка"
+     },
+     {
+      "id": 1764,
+      "year": 2022,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Александр заберет устройство сброса в выходные"
+     },
+     {
+      "id": 7462,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Гум Ластер объявил выходными пятницы и выходные дни без работы коллектив"
+     },
+     {
+      "id": 6184,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Гум Ластер считает традицией трясти Леху каждые выходные"
+     },
+     {
+      "id": 3209,
+      "year": 2023,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Лиля Борисова предлагает решение проблемы через употребление алкоголя в выходные дни"
+     },
+     {
+      "id": 4086,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Вася ездит к Владу Яворскому на свидания/секс каждые выходные к Владу Яворскому"
+     },
+     {
+      "id": 6959,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Амалия обсуждает планы по трудоустройству как вебкамщица"
+     },
+     {
+      "id": 4518,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "{PiZd@4e_4eM_\\/eR$@4e} доверяет Егорке и строит планы вместе с ним Егорка"
+     },
+     {
+      "id": 5577,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Швайнокарась отмечает способность строить планы и прогнозировать будущее люди (в отличие от кошек или собак)"
+     },
+     {
+      "id": 2410,
+      "year": 2023,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Михаил перенес болезнь на ногах смены 15 часов без выходных"
+     }
+    ]
+   },
+   "rejected_subject": 18,
+   "period_rows_returned": [
+    {
+     "id": 19776,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 20238,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 18388,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 17974,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 12668,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 21081,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 21329,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 20956,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 20175,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 12661,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    }
+   ],
+   "block_empty_under_empty_verdict": true,
+   "block_under_real_rerank_measured_1211": {
+    "rows": 4,
+    "years": {
+     "2026": 4
+    },
+    "source": "measure-2026-11-12.md §4 (c087253d); здесь под реальным реранком не перемерялось"
+   },
+   "narrow_reading_result": "в пуле 10 лексических кандидатов, у всех stems_shared=1; ни один не впущен -> клауза выполнена, но лексической строки в блоке C2 auto нет (вакуумность архива не снята)",
+   "repeat": {
+    "pool_n": 18,
+    "lexical_n": 10,
+    "knn_n": 8,
+    "lexical_stems_shared": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "knn_stems_shared": [
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    "lexical_rows": [
+     {
+      "id": 3374,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Name Surname отшивает приглашения на выходные Олеяка"
+     },
+     {
+      "id": 1764,
+      "year": 2022,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Александр заберет устройство сброса в выходные"
+     },
+     {
+      "id": 7462,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Гум Ластер объявил выходными пятницы и выходные дни без работы коллектив"
+     },
+     {
+      "id": 6184,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Гум Ластер считает традицией трясти Леху каждые выходные"
+     },
+     {
+      "id": 3209,
+      "year": 2023,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Лиля Борисова предлагает решение проблемы через употребление алкоголя в выходные дни"
+     },
+     {
+      "id": 4086,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Вася ездит к Владу Яворскому на свидания/секс каждые выходные к Владу Яворскому"
+     },
+     {
+      "id": 6959,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Амалия обсуждает планы по трудоустройству как вебкамщица"
+     },
+     {
+      "id": 4518,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "{PiZd@4e_4eM_\\/eR$@4e} доверяет Егорке и строит планы вместе с ним Егорка"
+     },
+     {
+      "id": 5577,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Швайнокарась отмечает способность строить планы и прогнозировать будущее люди (в отличие от кошек или собак)"
+     },
+     {
+      "id": 2410,
+      "year": 2023,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Михаил перенес болезнь на ногах смены 15 часов без выходных"
+     }
+    ]
+   }
+  },
+  "c2_historical_pristine_archive": {
+   "pool": {
+    "pool_n": 18,
+    "lexical_n": 10,
+    "knn_n": 8,
+    "lexical_stems_shared": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "knn_stems_shared": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "lexical_rows": [
+     {
+      "id": 3374,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Name Surname отшивает приглашения на выходные Олеяка"
+     },
+     {
+      "id": 1764,
+      "year": 2022,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Александр заберет устройство сброса в выходные"
+     },
+     {
+      "id": 7462,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Гум Ластер объявил выходными пятницы и выходные дни без работы коллектив"
+     },
+     {
+      "id": 6184,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Гум Ластер считает традицией трясти Леху каждые выходные"
+     },
+     {
+      "id": 3209,
+      "year": 2023,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Лиля Борисова предлагает решение проблемы через употребление алкоголя в выходные дни"
+     },
+     {
+      "id": 4086,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Вася ездит к Владу Яворскому на свидания/секс каждые выходные к Владу Яворскому"
+     },
+     {
+      "id": 6959,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Амалия обсуждает планы по трудоустройству как вебкамщица"
+     },
+     {
+      "id": 4518,
+      "year": 2024,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "{PiZd@4e_4eM_\\/eR$@4e} доверяет Егорке и строит планы вместе с ним Егорка"
+     },
+     {
+      "id": 5577,
+      "year": 2025,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Швайнокарась отмечает способность строить планы и прогнозировать будущее люди (в отличие от кошек или собак)"
+     },
+     {
+      "id": 2410,
+      "year": 2023,
+      "stems_shared": 1,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "fact": "Михаил перенес болезнь на ногах смены 15 часов без выходных"
+     }
+    ]
+   },
+   "period_rows_returned": [
+    {
+     "id": 19776,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 20238,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 18388,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 17974,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 12668,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 21081,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 21329,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 20956,
+     "year": 2026,
+     "period_fill": false,
+     "proxy": null,
+     "stems_shared": null
+    },
+    {
+     "id": 2048,
+     "year": 2023,
+     "period_fill": true,
+     "proxy": "knn",
+     "stems_shared": null
+    },
+    {
+     "id": 6532,
+     "year": 2025,
+     "period_fill": true,
+     "proxy": "knn",
+     "stems_shared": null
+    }
+   ],
+   "block_empty_under_empty_verdict": true
+  },
+  "c2_auto_fixture": {
+   "fixture": {
+    "fact_id": 22487,
+    "year": 2023,
+    "text": "Михаил сейчас строил планы на выходные и звал всех в баню",
+    "insert": "INSERT INTO graph_facts(...) + INSERT INTO graph_facts_fts(rowid, fact)",
+    "derivative_sha256": "1751418ec7803fb828bb4ddfe060a3ab0b79075148963ffda2e602250b6f5d27",
+    "not_an_archive_row": true,
+    "no_vector_index_entry": true
+   },
+   "auto": {
+    "fixture_in_pool": [
+     {
+      "id": 22487,
+      "year": 2023,
+      "proxy": "stems",
+      "stems_shared": 3,
+      "stems_shared_reason": "lexical_threshold_applied",
+      "recheck_shared": 3,
+      "fact": "Михаил сейчас строил планы на выходные и звал всех в баню"
+     }
+    ],
+    "returned_period_row": [
+     {
+      "id": 22487,
+      "year": 2023,
+      "period_fill": true,
+      "proxy": "stems",
+      "stems_shared": 3
+     }
+    ],
+    "block": "<RAG_Memory>\n[история] [05.2023 | fact:22487]: (не подтверждено) Михаил сейчас строил планы на выходные и звал всех в баню (Внимание: возможно устарело)\n</RAG_Memory>",
+    "rag_counts": {
+     "facts": "1",
+     "period_kept": "1",
+     "period_rejected_subject": "17",
+     "period_kept_despite_empty": "1",
+     "vector_pool_miss": "0",
+     "period_vector_knn": "0",
+     "period_vector_leg": "ok",
+     "subject_proxy": "stems=1",
+     "chat": "-1002661910336"
+    },
+    "typed_empty_log": [
+     "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 5 facts -> 0 (не все кандидаты) | mode=json"
+    ],
+    "period_stats": {
+     "rejected_subject": 17,
+     "vector_pool_miss": 0,
+     "vector_leg": "ok",
+     "vector_rows": 8,
+     "vector_kept": 0,
+     "exclude_years": 1,
+     "period_leg_reused": 0
+    },
+    "pool": {
+     "pool_n": 18,
+     "lexical_n": 10,
+     "knn_n": 8,
+     "lexical_stems_shared": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3
+     ],
+     "knn_stems_shared": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1
+     ],
+     "lexical_rows": [
+      {
+       "id": 22487,
+       "year": 2023,
+       "stems_shared": 3,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Михаил сейчас строил планы на выходные и звал всех в баню"
+      },
+      {
+       "id": 3374,
+       "year": 2024,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Name Surname отшивает приглашения на выходные Олеяка"
+      },
+      {
+       "id": 1764,
+       "year": 2022,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Александр заберет устройство сброса в выходные"
+      },
+      {
+       "id": 7462,
+       "year": 2025,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Гум Ластер объявил выходными пятницы и выходные дни без работы коллектив"
+      },
+      {
+       "id": 6184,
+       "year": 2025,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Гум Ластер считает традицией трясти Леху каждые выходные"
+      },
+      {
+       "id": 3209,
+       "year": 2023,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Лиля Борисова предлагает решение проблемы через употребление алкоголя в выходные дни"
+      },
+      {
+       "id": 4086,
+       "year": 2024,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Вася ездит к Владу Яворскому на свидания/секс каждые выходные к Владу Яворскому"
+      },
+      {
+       "id": 6959,
+       "year": 2025,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Амалия обсуждает планы по трудоустройству как вебкамщица"
+      },
+      {
+       "id": 4518,
+       "year": 2024,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "{PiZd@4e_4eM_\\/eR$@4e} доверяет Егорке и строит планы вместе с ним Егорка"
+      },
+      {
+       "id": 5577,
+       "year": 2025,
+       "stems_shared": 1,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "fact": "Швайнокарась отмечает способность строить планы и прогнозировать будущее люди (в отличие от кошек или собак)"
+      }
+     ]
+    }
+   },
+   "historical": {
+    "block_empty": true,
+    "period_rows_returned": [
+     {
+      "id": 19776,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 12661,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 20238,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 18388,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 17974,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 12668,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 21081,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 21329,
+      "year": 2026,
+      "period_fill": false,
+      "proxy": null,
+      "stems_shared": null
+     },
+     {
+      "id": 2048,
+      "year": 2023,
+      "period_fill": true,
+      "proxy": "knn",
+      "stems_shared": null
+     },
+     {
+      "id": 6532,
+      "year": 2025,
+      "period_fill": true,
+      "proxy": "knn",
+      "stems_shared": null
+     }
+    ],
+    "reason": "порог пройден, но строка не добавлена: оба слота limit//5 заняли knn-строки (2048/2023 и 6532/2025) раньше, чем дошла лексическая очередь — правило слотов, не порог"
+   },
+   "limitation": "строка синтетическая и без записи в векторном индексе, поэтому это доказывает путь/механизм C2 auto, а не наличие такой строки в архиве. Требование settled reading (те же 17 вопросов, та же копия, реальная лексическая строка C2) фикстурой НЕ закрывается."
+  },
+  "code_observation": {
+   "production_rule": "`_rag_period_subject_filter`: strict = policy != 'historical'; под `auto` порог двух основ применяется к ОБЕИМ ногам (knn-строки тоже получают stems_shared), под `historical` knn-строки обходят порог с stems_shared=None + vector_leg_no_threshold",
+   "examples": {
+    "c2_auto": "8 knn (0/1) + 10 лексических (1) отклонены -> 0 периодных строк",
+    "a6_auto": "knn 2753/2746 проходят с stems_shared=2 и затем судятся реранком",
+    "a7_auto": "knn 2580 проходит с stems_shared=2, судится",
+    "a10_auto": "knn 4864 проходит с stems_shared=2, судится",
+    "h1_auto": "knn 4000 (2024) проходит с stems_shared=2, реальный реранк выбрал -> period_kept=1",
+    "h2_auto": "knn 4864 (2024) проходит с stems_shared=2, реальный реранк выбрал -> period_kept=1"
+   },
+   "contract_note": "next-stage-design.md §2: «векторная строка порог не проходит»; §4: под `auto` старый год входит только через §2. Код следует §4 под auto и §2 под historical. Поэтому settled reading («knn судится реранком») совпадает с historical, но не с auto; клауза C2 (только лексические строки) всё равно выполняется на стороне продюсера, потому что лексические строки фильтруются до добавления.",
+   "no_product_change": true
+  }
+ }
+}
