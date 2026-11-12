@@ -5,8 +5,8 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e327c711effe0nqu5O3uLCZvJ5 (Builder: trace product gaps - stale state, LLM/image counters, step duration and request id, generated counter); ses_e327c2834ffebUlotJr4LH7NlB (Architect: bounded identity contract for A0-ARCH, RW-D4 residual window and ID-CONC)
-Join barriers: the deferred-chain live event and a natural manual `/meme` remain external; everything else that holds the epic open is now assigned to an executor.
+Active lanes: ses_e326230beffesWtgKlmIVkHlXN (Reviewer: 16cdb3b8 attempt durability and ID-CONC); ses_e327c711effe0nqu5O3uLCZvJ5 (Builder: trace product gaps)
+Join barriers: the deferred-chain live event and a natural manual `/meme` remain external; the next release carries whichever of these two candidates pass review.
 Join barriers: S6 waits for the S5b verdict; any release must take web files from the `bcc090a3` line because `master` is 930 KB behind on the interface.
 
 DELIVERY-LINEAGE WARNING (verified twice, independent reviewers): `master` is not an ancestor of the production line. `web/app.js` is 1 331 753 bytes on `master` versus 2 262 122 at `bcc090a3`; `index.html` is 929 056 versus 1 328 853. Building a release from `master` would delete roughly 930 KB of the shipped interface. Releases branch from the current production commit and cherry-pick approved commits.
