@@ -1996,7 +1996,7 @@
       "acceptance": "В одной попытке связаны: фактический провайдер/модель/слот, версии и источники системных промптов, реально отправленные messages, выжимка, прикол, итоговый image prompt, запрос/статус ответа image API, формат и наличие картинки, Telegram message_id и подтверждение.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -2004,10 +2004,32 @@
           "ref": "Живой read-only проход по выложенной 2.58.197 (рестарт 2026-11-12T09:41:37Z, код 25876167 = 895764e2), post_restart_attempts",
           "observation": "Живого носителя нет: 3 попытки A и 4 B после рестарта остановились до LLM (llm_stages=[], api_stages=[]). Наблюдён только честный null: llm {provider:null, model:null, slot:null, reason:\"not_recorded_in_stage_record\"} — настройки не выданы за фактический вызов. Инженерная часть одобрена (review-3b1c4ba9), живого пункта нет.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258197/live-extra-2.58.197.json",
-          "artifact_sha256": "720ebfb4218d2de15b4efea47da7922a2f01e8c08ab1f55794a04da122d99841"
+          "artifact_sha256": "720ebfb4218d2de15b4efea47da7922a2f01e8c08ab1f55794a04da122d99841",
+          "note": "Отрицательная ветка: production-факт отсутствия LLM-попытки и честного null. НЕ доказывает положительный пункт; положительная часть доказана контролируемым прогоном (type=live, ee2ddeb5 на 25876167).",
+          "demonstrates": "absence_only_honest_null"
+        },
+        {
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "type": "live",
+          "ref": "Контролируемый прогон через реальный конвейер на коде выложенной 2.58.197: test-only коммит ee2ddeb5 поверх 25876167 (diff 25876167..ee2ddeb5 -- services web handlers пуст); evidence/pb-llm/controlled-25876167.md",
+          "observation": "Одна попытка прошла meme.consider_chat → _consider_once с настоящими шагами A/B, настоящим LLMClient.generate и реальным журналом в temp-SQLite; подменены только внешние границы (HTTP-транспорт, image_provider, sender). Кольцо композера не подменялось: записаны {job}#meme_summary и {job}#meme_joke, Inspector correlation отдаёт записанный текст (is_actual=true, совпадающий messages_checksum), identity = provider llm.example.invalid / model chat-model / slot null + slot_not_used, prompt source factory + revision + sha12, Image API status ok / format png / bytes 3 / prompt_sha12, tg_message_id 777; в durable detail нет ни выжимки, ни прикола, ни текстов промптов; лишних LLM/Image-вызовов нет (2 и 1). Тест 62 passed, вместе с соседними 125 passed.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/pb-llm/controlled-25876167.md",
+          "artifact_sha256": "2b8c48e79f274bac6bfeff23a0ce2f84c6a1109ecddd9d866699dc3a07458612",
+          "stage": "controlled_preprod",
+          "demonstrates": "identity provider/model/slot, prompt source/revision/sha12, Image API facts, ring capture, Inspector correlation, no full text in durable detail, no extra calls"
+        },
+        {
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "type": "review",
+          "ref": "Независимое ревью контролируемого доказательства: ee2ddeb5 (docs 62708035) на базе 25876167",
+          "observation": "Verdict: Approved (техническая часть). Reviewer прочитал реализацию (meme.consider_chat → _consider_once, _prompt_identity, _record_provider_call → record_provider_call), проверил утверждения теста и выполнил собственный контрпример: no-op record_provider_call → тест падает на пустом кольце; байты возвращены. Покрыты: provider/model/slot+reason, prompt cross-link по реальному system-тексту, Image API facts, отсутствие полного текста в журнале, Inspector correlation, одна сгруппированная попытка, отсутствие лишних вызовов. Естественное production-событие этим прогоном не подтверждается (honest limits).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/pb-llm/review-controlled-25876167.md",
+          "artifact_sha256": "3c8aba1dd804436a8020201e9ee01f98e1ec5e6c7fe5ad79006d90cfab6dea2a",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved"
         }
       ],
-      "pending_reason": "Живой LLM-попытки на 2.58.197 нет: 3 (A) и 4 (B) попытки после рестарта остановились до LLM; живьём наблюдён только честный null."
+      "verification_note": "Техническая часть подтверждена контролируемым прогоном на побайтово выложенном коде; естественная production-LLM-попытка не наблюдалась и вынесена в неблокирующее owner_live_check WO-258197-PB-LLM-LIVE (вне знаменателя)."
     },
     {
       "source_id": "MANUAL-L104-B",
@@ -2423,7 +2445,8 @@
           "ref": "Прогоны кандидата (binding-16cdb3b8.md §4–§5): 56 passed в файле журнала, серия 15 файлов и три мутации.",
           "observation": "tests/test_evol014_meme_initiative.py — 56 passed (+6 новых). Серия 15 файлов мемов/инициативы/публикаций/диагностики — 362 passed / 4 failed; все четыре воспроизводятся на базе 6c11fc08 (текстовый путь инициативы, кандидатом не затронут). Мутации M1 (убрать _retry_unpersisted) — 2 красных, M2 (вернуть attempt[:12]) — 2 красных, M3 (молчаливое вытеснение) — 1 красный.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/S5M-MEME-DURABILITY/binding-16cdb3b8.md",
-          "artifact_sha256": "ee01f378857893523270b502689358c8dc18f778081db850e62020b4bffe0370"
+          "artifact_sha256": "32c4bd87574dfc1caa6df90415f67e42c68019bc711d05f3a713580ae0d237e0",
+          "sha_note": "Дайджест обновлён: в файл добавлена шапка CORRECTION (12.11.2026), исходный пин устарел; содержание вывода не изменилось, актуальная привязка — evidence/final-train/binding-durability-926b093a.md."
         },
         {
           "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -3376,7 +3399,7 @@
       "acceptance": "Критерий готовности выполнен: для любого выбранного чата и механизма два пользователя с одинаковым уровнем доступа видят одно и то же достоверное состояние; включённое в кулдауне не называется выключенным; последняя попытка открывается как единая связная история от первого гейта до реального итога; неудачный `/meme` имеет точный или честно неизвестный исход; сохранённые настройки, промпты и квоты не изменены; дополнительных LLM-вызовов ради диагностики нет.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -3385,12 +3408,29 @@
           "observation": "Свёртка критерия готовности: закрывается только после всех остальных строк. Остаётся P0IM-PB-LLM (живая LLM-попытка), поэтому AC-DONE не подтверждён.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258197/binding-deployed.md",
           "artifact_sha256": "ad389ca0d683dde0dea544fbd5c898219868f763754b559c9cb022eb944e7472"
+        },
+        {
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "type": "production",
+          "ref": "Свёртка критерия готовности на выложенной 2.58.197 (25876167): сводный индекс release-258197/binding-deployed.md и финальная свёртка evidence/s7accept/final-convolution-25876167.md",
+          "observation": "Реализация выложена (2.58.197, рестарт 09:41:37Z, /healthz 2.58.197, схема 47, DDL 0, откат c134f93d); код побайтово равен одобренному 895764e2. Независимые ревью: review-5d599ca1, review-931945b7 (блокеры закрыты), review-3b1c4ba9, review-controlled-25876167. Интеграционные тесты на выложенном дереве: 204 closure, 519/4 серия, 45 js-unit, e2e 142/0; живое: OV-LIST PASS (5/5 «автоматически», 0 «способ не записан»), PB-FILTERS с 422, S6-EFFECTIVE (image_module global, провайдер, heartbeat), PB-ACCESS (403, not_recorded без preview, маскировка), OV-SAMPLE, AC-NODUP, AC-MATRIX-RBAC (secret_scan 0), settings parity (6 поверхностей sha совпали). Свёртка: все 114 строк карты (77 уникальных) VERIFIED; единственный незакрытый пункт — неблокирующее наблюдение естественной LLM-попытки WO-258197-PB-LLM-LIVE, вне знаменателя.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/final-convolution-25876167.md",
+          "artifact_sha256": "5b95c73cb0902bee232f2ca0635d2ae6a9355bd1e5b0771058679377f34ec37e",
+          "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e"
+        },
+        {
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "type": "review",
+          "ref": "Итоговая свёртка опирается на одобренный закрывающий поезд: evidence/closure-train/review-3b1c4ba9.md (+ review-5d599ca1 и review-controlled-25876167)",
+          "observation": "Verdict: Approved. Ревью покрывает все затронутые срезы: PB-ACCESS, PB-LLM, PB-MANUAL, OV-LIST, S6-EFFECTIVE, AC-MATRIX-FAIL, AC-NODUP, AC-MATRIX-CONFIG, AC-MATRIX-RBAC плюс непрерывность строк 2.58.195; три опоры (реализация, валидность тестов, независимый контрпример с мутацией) зафиксированы в артефакте. AC-DONE — свёртка этих вердиктов и живых проверок, отдельного нового события не требует.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/closure-train/review-3b1c4ba9.md",
+          "artifact_sha256": "5ce86583f2392ed02083fc9523d1afc532e377d9b6e674d0d6f735ff6a905f3c",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved"
         }
       ],
       "covered_by": [],
-      "delta": "Новое: сводный критерий приёмки корректива.",
-      "pending_reason": "Свёртка: ждёт закрытия P0IM-PB-LLM.",
-      "open_acceptance": "Агрегат по всем срезам: 114 обязательных строк, 77 уникальных req_id; VERIFIED 60, REVIEW 25 (S7-ACCEPT 5, S3-OV 11, S5-MEME 6, S6-FRESH 3), READY_FOR_LIVE 2, PENDING 27. Открыты срезы: A0-ARCH, S5-MEME, S7-ACCEPT, S3-OV, S1-AXES, S2-ID, S4-TRACE, S6-FRESH, S5b. Агрегат нельзя закрыть по одной строке — он собирается из остатков названных срезов."
+      "delta": "Новое: сводный критерий приёмки корректива."
     },
     {
       "source_id": "MANUAL-L136-B",
@@ -4451,7 +4491,8 @@
           "ref": "Прогоны кандидата (binding-16cdb3b8.md §4–§5): 56 passed в файле журнала, серия 15 файлов и три мутации.",
           "observation": "tests/test_evol014_meme_initiative.py — 56 passed (+6 новых). Серия 15 файлов мемов/инициативы/публикаций/диагностики — 362 passed / 4 failed; все четыре воспроизводятся на базе 6c11fc08 (текстовый путь инициативы, кандидатом не затронут). Мутации M1 (убрать _retry_unpersisted) — 2 красных, M2 (вернуть attempt[:12]) — 2 красных, M3 (молчаливое вытеснение) — 1 красный.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/S5M-MEME-DURABILITY/binding-16cdb3b8.md",
-          "artifact_sha256": "ee01f378857893523270b502689358c8dc18f778081db850e62020b4bffe0370"
+          "artifact_sha256": "32c4bd87574dfc1caa6df90415f67e42c68019bc711d05f3a713580ae0d237e0",
+          "sha_note": "Дайджест обновлён: в файл добавлена шапка CORRECTION (12.11.2026), исходный пин устарел; содержание вывода не изменилось, актуальная привязка — evidence/final-train/binding-durability-926b093a.md."
         },
         {
           "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -4663,7 +4704,7 @@
       "acceptance": "В одной попытке связаны: фактический провайдер/модель/слот, версии и источники системных промптов, реально отправленные messages, выжимка, прикол, итоговый image prompt, запрос/статус ответа image API, формат и наличие картинки, Telegram message_id и подтверждение.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -4671,7 +4712,29 @@
           "ref": "Живой read-only проход по выложенной 2.58.197 (рестарт 2026-11-12T09:41:37Z, код 25876167 = 895764e2), post_restart_attempts",
           "observation": "Живого носителя нет: 3 попытки A и 4 B после рестарта остановились до LLM (llm_stages=[], api_stages=[]). Наблюдён только честный null: llm {provider:null, model:null, slot:null, reason:\"not_recorded_in_stage_record\"} — настройки не выданы за фактический вызов. Инженерная часть одобрена (review-3b1c4ba9), живого пункта нет.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258197/live-extra-2.58.197.json",
-          "artifact_sha256": "720ebfb4218d2de15b4efea47da7922a2f01e8c08ab1f55794a04da122d99841"
+          "artifact_sha256": "720ebfb4218d2de15b4efea47da7922a2f01e8c08ab1f55794a04da122d99841",
+          "note": "Отрицательная ветка: production-факт отсутствия LLM-попытки и честного null. НЕ доказывает положительный пункт; положительная часть доказана контролируемым прогоном (type=live, ee2ddeb5 на 25876167).",
+          "demonstrates": "absence_only_honest_null"
+        },
+        {
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "type": "live",
+          "ref": "Контролируемый прогон через реальный конвейер на коде выложенной 2.58.197: test-only коммит ee2ddeb5 поверх 25876167 (diff 25876167..ee2ddeb5 -- services web handlers пуст); evidence/pb-llm/controlled-25876167.md",
+          "observation": "Одна попытка прошла meme.consider_chat → _consider_once с настоящими шагами A/B, настоящим LLMClient.generate и реальным журналом в temp-SQLite; подменены только внешние границы (HTTP-транспорт, image_provider, sender). Кольцо композера не подменялось: записаны {job}#meme_summary и {job}#meme_joke, Inspector correlation отдаёт записанный текст (is_actual=true, совпадающий messages_checksum), identity = provider llm.example.invalid / model chat-model / slot null + slot_not_used, prompt source factory + revision + sha12, Image API status ok / format png / bytes 3 / prompt_sha12, tg_message_id 777; в durable detail нет ни выжимки, ни прикола, ни текстов промптов; лишних LLM/Image-вызовов нет (2 и 1). Тест 62 passed, вместе с соседними 125 passed.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/pb-llm/controlled-25876167.md",
+          "artifact_sha256": "2b8c48e79f274bac6bfeff23a0ce2f84c6a1109ecddd9d866699dc3a07458612",
+          "stage": "controlled_preprod",
+          "demonstrates": "identity provider/model/slot, prompt source/revision/sha12, Image API facts, ring capture, Inspector correlation, no full text in durable detail, no extra calls"
+        },
+        {
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "type": "review",
+          "ref": "Независимое ревью контролируемого доказательства: ee2ddeb5 (docs 62708035) на базе 25876167",
+          "observation": "Verdict: Approved (техническая часть). Reviewer прочитал реализацию (meme.consider_chat → _consider_once, _prompt_identity, _record_provider_call → record_provider_call), проверил утверждения теста и выполнил собственный контрпример: no-op record_provider_call → тест падает на пустом кольце; байты возвращены. Покрыты: provider/model/slot+reason, prompt cross-link по реальному system-тексту, Image API facts, отсутствие полного текста в журнале, Inspector correlation, одна сгруппированная попытка, отсутствие лишних вызовов. Естественное production-событие этим прогоном не подтверждается (honest limits).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/pb-llm/review-controlled-25876167.md",
+          "artifact_sha256": "3c8aba1dd804436a8020201e9ee01f98e1ec5e6c7fe5ad79006d90cfab6dea2a",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved"
         }
       ],
       "covered_by": [
@@ -4680,7 +4743,7 @@
         "MEME-JOKE-DIAG-REVISIONS"
       ],
       "delta": "Prompt manifest и ревизии слоёв уже отдавались, Effective Prompt Inspector показывает реальный payload; добавляется сквозная связка промпт → image → доставка по одной попытке.",
-      "pending_reason": "Живой LLM-попытки на 2.58.197 нет: 3 (A) и 4 (B) попытки после рестарта остановились до LLM; живьём наблюдён только честный null."
+      "verification_note": "Техническая часть подтверждена контролируемым прогоном на побайтово выложенном коде; естественная production-LLM-попытка не наблюдалась и вынесена в неблокирующее owner_live_check WO-258197-PB-LLM-LIVE (вне знаменателя)."
     },
     {
       "source_id": "L00043",
@@ -5380,7 +5443,8 @@
         "unique": 14,
         "verified_unique": 14,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (21 строк / 14 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "S4-TRACE": {
@@ -5451,11 +5515,10 @@
         "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
         "rows": 14,
         "unique": 11,
-        "verified_unique": 10,
-        "open_unique": [
-          "P0IM-PB-LLM"
-        ],
-        "state": "частично: открыто P0IM-PB-LLM"
+        "verified_unique": 11,
+        "open_unique": [],
+        "state": "VERIFIED на 2.58.197 (14 строк / 11 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "S5b": {
@@ -5483,7 +5546,8 @@
         "unique": 3,
         "verified_unique": 3,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (3 строк / 3 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "S5-MEME": {
@@ -5535,7 +5599,8 @@
         "unique": 5,
         "verified_unique": 5,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (6 строк / 5 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "P0IM-OV-HONEST": {
@@ -5579,7 +5644,8 @@
         "unique": 2,
         "verified_unique": 2,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (2 строк / 2 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "S6-FRESH": {
@@ -5601,7 +5667,8 @@
         "unique": 4,
         "verified_unique": 4,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (6 строк / 4 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "S7-ACCEPT": {
@@ -5638,11 +5705,10 @@
         "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
         "rows": 17,
         "unique": 12,
-        "verified_unique": 11,
-        "open_unique": [
-          "P0IM-AC-DONE"
-        ],
-        "state": "частично: открыто P0IM-AC-DONE"
+        "verified_unique": 12,
+        "open_unique": [],
+        "state": "VERIFIED на 2.58.197 (17 строк / 12 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "R0-INV": {
@@ -5652,7 +5718,8 @@
         "unique": 7,
         "verified_unique": 7,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (9 строк / 7 уникальных)",
+        "closed_at": "2026-11-13"
       }
     },
     "A0-ARCH": {
@@ -5662,7 +5729,8 @@
         "unique": 1,
         "verified_unique": 1,
         "open_unique": [],
-        "state": "VERIFIED на 2.58.197"
+        "state": "VERIFIED на 2.58.197 (1 строк / 1 уникальных)",
+        "closed_at": "2026-11-13"
       }
     }
   },
@@ -6064,6 +6132,25 @@
       "artifact": "plans/features/p0-init-meme-ux-diag/release-258197/binding-deployed.md",
       "artifact_sha256": "ad389ca0d683dde0dea544fbd5c898219868f763754b559c9cb022eb944e7472",
       "note": "Итоговая сверка после выкладки 2.58.197. Код выложенной сборки побайтово равен одобренному 895764e2 (git diff 895764e2..25876167 -- services handlers web пуст), поэтому привязки, снятые на 895764e2/3b1c4ba9/21a3aef7, применены без перепрогона. Открытыми оставлены только PB-LLM (нужна живая LLM-попытка) и свёртка AC-DONE. Три «вечных» недобора (ручной /meme, фильтры, image_module) закрыты по факту: ручной запуск запрещён владельцем, фильтры и image_module прогнаны живьём."
+    },
+    {
+      "date": "2026-11-13",
+      "slice_ids": [
+        "S4-TRACE",
+        "S7-ACCEPT"
+      ],
+      "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed_version": "2.58.197",
+      "rows_touched": 3,
+      "verified_req_ids": [
+        "P0IM-PB-LLM",
+        "P0IM-AC-DONE"
+      ],
+      "pending_req_ids": [],
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/final-convolution-25876167.md",
+      "artifact_sha256": "5b95c73cb0902bee232f2ca0635d2ae6a9355bd1e5b0771058679377f34ec37e",
+      "note": "Финальное закрытие по решению владельца 2026-11-13: PB-LLM (2 строки) VERIFIED по контролируемому proof на выложенном коде (live) + Approved ревью; естественная LLM-попытка — неблокирующий owner_live_check, не VERIFIED и вне знаменателя. AC-DONE VERIFIED как свёртка (production + review). Итог: 114/114 строк, 77/77 уникальных; release-гейт errors=0. Без новой выкладки и без новых требований."
     }
   ],
   "recorded_limits": [
@@ -6087,8 +6174,9 @@
       "slice": "S4-TRACE",
       "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
       "statement": "После выкладки 2.58.197 (09:41:37Z) попытки обоих чатов снова не дошли до LLM: 3 у A и 4 у B, llm_stages=[] и api_stages=[] (live-extra-2.58.197.json). Код трассы теперь действительно пишет идентичность провайдера/модели, source/revision/sha12 промптов и факты Image API (_llm_identity/_prompt_identity/_image_format, review-3b1c4ba9), но живого носителя этих полей нет.",
-      "consequence": "P0IM-PB-LLM остаётся PENDING (WAITING_EXTERNAL): нужна первая естественная мем-попытка, дошедшая до LLM A/B после кулдауна (A ~3 ч, B ~5 ч от 09:43/09:46Z; остаток квоты 1/1, сброс 2026-11-13T00:00:00Z). Живьём подтверждён только честный null с причиной, без подстановки настроек.",
-      "superseded_statement": "После выкладки 2.58.192 обе мем-попытки реальных чатов остановились на гейте суточной квоты; ни одна не дошла до LLM A/B и Image API. Единственная опубликованная попытка — текстовая (5ccb0131a0c142ad, сообщение 10414)."
+      "consequence": "P0IM-PB-LLM закрыт технически контролируемым прогоном на побайтово выложенном коде (ee2ddeb5 над 25876167: identity, prompt sha12, Image API facts, кольцо, Inspector, отсутствие полного текста, отсутствие лишних вызовов; review-controlled-25876167 Approved). Естественная production-попытка не наблюдалась и вынесена в неблокирующее owner_live_check WO-258197-PB-LLM-LIVE; ложный production-VERIFIED не ставился.",
+      "superseded_statement": "После выкладки 2.58.192 обе мем-попытки реальных чатов остановились на гейте суточной квоты; ни одна не дошла до LLM A/B и Image API. Единственная опубликованная попытка — текстовая (5ccb0131a0c142ad, сообщение 10414).",
+      "updated_at": "2026-11-13"
     },
     {
       "id": "S4TRACE-NO-MANUAL-ATTEMPT-AFTER-DEPLOY",
@@ -6380,6 +6468,11 @@
       "path": "plans/features/p0-init-meme-ux-diag/release-258197/gate-release-25876167.txt",
       "sha256": "5a6d23450b7bd0d56c39952bfbe27c2f0a9a9604d75bbd485ecfe736365672c8",
       "what": "release-гейт на 2.58.197: scoped=114, errors=3 (только открытые PB-LLM ×2 и свёртка AC-DONE); scoped S1-AXES=0, S2-ID=0, S3-OV=0"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258197/gate-release-25876167-final.txt",
+      "sha256": "a7fb88837d893f19a06b1e3fc172d0f26bff2795a2f0ff71540ccc0d2c663bb2",
+      "what": "ФИНАЛЬНЫЙ release-гейт на 2.58.197 после решения владельца: scoped=114, errors=0"
     }
   ],
   "production_baseline_previous": {
@@ -6481,7 +6574,7 @@
     }
   ],
   "epic_totals": {
-    "as_of": "2026-11-12",
+    "as_of": "2026-11-13",
     "deployed": {
       "version": "2.58.197",
       "commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -6496,12 +6589,10 @@
     "required_rows": 114,
     "unique_req_ids": 77,
     "by_status": {
-      "PENDING": 3,
-      "VERIFIED": 111
+      "VERIFIED": 114
     },
     "by_status_unique": {
-      "VERIFIED": 75,
-      "PENDING": 2
+      "VERIFIED": 77
     },
     "by_slice": {
       "A0-ARCH": {
@@ -6523,8 +6614,7 @@
         "VERIFIED": 21
       },
       "S4-TRACE": {
-        "PENDING": 2,
-        "VERIFIED": 12
+        "VERIFIED": 14
       },
       "S5-MEME": {
         "VERIFIED": 6
@@ -6536,15 +6626,11 @@
         "VERIFIED": 6
       },
       "S7-ACCEPT": {
-        "PENDING": 1,
-        "VERIFIED": 16
+        "VERIFIED": 17
       }
     },
     "fully_open_slices": [],
-    "partially_open_slices": [
-      "S4-TRACE",
-      "S7-ACCEPT"
-    ],
+    "partially_open_slices": [],
     "closed_slices": [
       "A0-ARCH",
       "P0IM-OV-HONEST",
@@ -6552,9 +6638,11 @@
       "S1-AXES",
       "S2-ID",
       "S3-OV",
+      "S4-TRACE",
       "S5-MEME",
       "S5b",
-      "S6-FRESH"
+      "S6-FRESH",
+      "S7-ACCEPT"
     ],
     "verified_anchor_breakdown": {
       "basis": "unique_req_id (77)",
@@ -6595,25 +6683,22 @@
       },
       "note": "Предыдущая привязка (992f45ab / 2.58.194) сохранена в binding_log и в verified_anchor_breakdown. Кандидат 16cdb3b8 в релиз пока не входит: deployed_commit карты остаётся 6c11fc08."
     },
-    "open_rows": [
-      {
-        "req_id": "P0IM-PB-LLM",
-        "section": "items",
-        "slice": "S4-TRACE",
-        "status": "PENDING"
-      },
-      {
-        "req_id": "P0IM-PB-LLM",
-        "section": "additional_requirements",
-        "slice": "S4-TRACE",
-        "status": "PENDING"
-      },
-      {
-        "req_id": "P0IM-AC-DONE",
-        "section": "additional_requirements",
-        "slice": "S7-ACCEPT",
-        "status": "PENDING"
-      }
+    "open_rows": [],
+    "epic_status": "DONE",
+    "closure": {
+      "date": "2026-11-13",
+      "decision": "owner: close DONE without waiting for the natural LLM attempt",
+      "verified_rows": 114,
+      "verified_unique": 77,
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/final-convolution-25876167.md",
+      "nonblocking_observations": [
+        "WO-258197-PB-LLM-LIVE",
+        "WO-258194-S5B-DEFERRED"
+      ]
+    },
+    "closed_in_final_pass": [
+      "P0IM-AC-DONE",
+      "P0IM-PB-LLM"
     ]
   },
   "write_scope_amendments": [
@@ -6934,36 +7019,47 @@
     "artifact": "plans/features/p0-init-meme-ux-diag/release-258197/binding-deployed.md",
     "rows": 114,
     "unique": 77,
-    "verified_rows": 111,
-    "verified_unique": 75,
-    "open": [
-      {
-        "req_id": "P0IM-PB-LLM",
-        "status": "PENDING",
-        "slice": "S4-TRACE"
-      },
-      {
-        "req_id": "P0IM-PB-LLM",
-        "status": "PENDING",
-        "slice": "S4-TRACE"
-      },
-      {
-        "req_id": "P0IM-AC-DONE",
-        "status": "PENDING",
-        "slice": "S7-ACCEPT"
-      }
-    ],
+    "verified_rows": 114,
+    "verified_unique": 77,
+    "open": [],
     "not_claimed": [
-      "положительный случай PB-ACCESS (кольцо пусто после рестарта)",
-      "живая LLM-попытка PB-LLM",
+      "естественная production LLM-попытка PB-LLM (неблокирующее наблюдение WO-258197-PB-LLM-LIVE)",
       "живой ручной /meme (запрет владельца 2026-11-12 §6)",
       "живой клик «Показать попытку»",
       "живой race смены чата (S6-SCOPE)",
-      "deferred→delivered цикл S5b (добровольное наблюдение)",
-      "пункт 2 образца OV-SAMPLE кадром не наблюдался",
+      "deferred→delivered цикл S5b (добровольное наблюдение WO-258194-S5B-DEFERRED)",
+      "кадр OV-SAMPLE п.2 (данные и отрисовка покрыты иначе)",
       "TMA-хост на устройстве (ограничение среды)"
     ],
     "gate_release": {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258197/gate-release-25876167-final.txt",
+      "sha256": "a7fb88837d893f19a06b1e3fc172d0f26bff2795a2f0ff71540ccc0d2c663bb2",
+      "stage": "release",
+      "candidate": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "scoped": 114,
+      "errors": 0,
+      "remaining": [],
+      "scoped_slices_zero_errors": [
+        "S1-AXES (24)",
+        "S2-ID (11)",
+        "S3-OV (21)",
+        "S4-TRACE (14)",
+        "S5-MEME (6)",
+        "S5b (3)",
+        "S6-FRESH (6)",
+        "S7-ACCEPT (17)",
+        "R0-INV (9)",
+        "A0-ARCH (1)",
+        "P0IM-OV-HONEST (2)"
+      ],
+      "note": "Все 114 обязательных строк (77 уникальных) VERIFIED; неблокирующие наблюдения вне знаменателя."
+    },
+    "closed_at": "2026-11-13",
+    "owner_live_checks_open": [
+      "WO-258197-PB-LLM-LIVE (non-blocking, agents)"
+    ],
+    "gate_release_previous": {
       "path": "plans/features/p0-init-meme-ux-diag/release-258197/gate-release-25876167.txt",
       "sha256": "5a6d23450b7bd0d56c39952bfbe27c2f0a9a9604d75bbd485ecfe736365672c8",
       "stage": "release",
@@ -6982,5 +7078,29 @@
         "S3-OV (21)"
       ]
     }
-  }
+  },
+  "owner_live_checks": [
+    {
+      "id": "WO-258197-PB-LLM-LIVE",
+      "status": "OPEN",
+      "blocking": false,
+      "owner": "agents",
+      "owner_action_required": false,
+      "verification_tier": "owner_optional",
+      "live_required": false,
+      "contract_ref": "P0IM-PB-LLM",
+      "engineering_req_ids": [
+        "P0IM-PB-LLM"
+      ],
+      "owner_policy_ref": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/final-convolution-25876167.md",
+      "owner_optional_reason": "Владелец 2026-11-13 решил закрыть эпик DONE без ожидания естественной LLM-попытки: техническая часть доказана контролируемым прогоном на выложенном коде (ee2ddeb5 над 25876167), а наблюдение подтверждает лишь конкретные production-значения провайдера/модели.",
+      "trigger": "first natural meme attempt on 2.58.197 that reaches LLM A/B (summary/joke)",
+      "read_fields": "GET /api/initiative/publications/{id} -> chain[].facts.llm|prompt|api; compare provider/model/slot, prompt source/revision/sha12, image facts; last_delivery/message_id",
+      "next_check": "первая естественная мем-попытка после сброса кулдауна/квоты; читается агентом существующим эндпоинтом",
+      "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed_version": "2.58.197",
+      "note": "Владелец не является QA, ручных действий не требуется: наблюдение ведут агенты. Наблюдение вне знаменателя приёмки и не блокирует эпик; при появлении события привязать значения, при расхождении — вернуть строку в работу.",
+      "recorded_at": "2026-11-13"
+    }
+  ]
 }
