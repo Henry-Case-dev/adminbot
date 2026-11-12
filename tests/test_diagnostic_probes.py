@@ -83,6 +83,22 @@ class FakeRing:
         return self.errors_total
 
 
+class FakeConfigCache:
+    """Минимальный ConfigCache-двойник для проверки эффективных настроек."""
+
+    def __init__(self, values=None):
+        self.values = dict(values or {})
+
+    def get(self, key, default=None):
+        return self.values.get(str(key), default)
+
+    def get_updated_at(self, key):
+        return None
+
+    def loaded_at(self):
+        return "2026-11-13T00:00:00+00:00"
+
+
 class SpyCollector:
     def __init__(self, page=None):
         self.deps = rp.ProbeDeps()
@@ -544,6 +560,36 @@ class TestMeasurements:
         from services.memory_health import collect_metrics
         text = await collect_metrics(db, None)
         assert text.startswith("graph_facts: 0")
+
+    @pytest.mark.asyncio
+    async def test_config_repo_origin_is_normalized_without_credentials(self, db):
+        """B1 regression: token-bearing repo_origin не утекает в bundle/page."""
+        from services import hot_config as hot
+
+        token_url = ("https://user:SECRET-TOKEN-9988@github.com/"
+                     "Henry-Case-dev/adminbot.git")
+        cache = FakeConfigCache({"flags.self_diag_repo_origin": token_url})
+        previous = hot.get_config_cache()
+        hot.set_config_cache(cache)
+        try:
+            collector = _collector(db)
+            bundle, page = await _collect(collector, "config.effective")
+            router = _router(collector, db=db)
+            tool_out = await router.dispatch(
+                "inspect_runtime", {"probe": "config.effective"}, _ctx())
+        finally:
+            hot.set_config_cache(previous)
+        page_blob = json.dumps(page, ensure_ascii=False)
+        bundle_blob = json.dumps(bundle.to_dict(), ensure_ascii=False)
+        for blob in (page_blob, bundle_blob, tool_out):
+            assert "SECRET-TOKEN-9988" not in blob
+            assert "user:SECRET" not in blob
+            assert "userinfo" not in blob
+        assert "Henry-Case-dev/adminbot" in tool_out
+        setting = next(item for item in page["sources"][0]["facts"]["settings"]
+                       if item["key"] == "flags.self_diag_repo_origin")
+        assert setting["effective"] == "Henry-Case-dev/adminbot"
+        assert page["status"] in ("ok", "degraded")
 
 
 # ── сценарий/деградация ───────────────────────────────────────────────────

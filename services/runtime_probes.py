@@ -1700,6 +1700,15 @@ _CONFIG_KEYS: tuple[str, ...] = (
 )
 
 
+def _normalize_repo_origin_value(value) -> str | None:
+    """Существующая D4-нормализация: owner/name без userinfo/scheme/host."""
+    try:
+        from services.source_reader import normalize_repo_origin
+        return normalize_repo_origin(value)
+    except Exception:
+        return None
+
+
 def _probe_config_effective(ctx: ProbeContext) -> ProbeObservation:
     cache = None
     try:
@@ -1716,6 +1725,7 @@ def _probe_config_effective(ctx: ProbeContext) -> ProbeObservation:
         source = "code"
         value = None
         updated_at = None
+        invalid_reason = None
         try:
             if cache is not None:
                 sentinel = object()
@@ -1733,14 +1743,30 @@ def _probe_config_effective(ctx: ProbeContext) -> ProbeObservation:
         except Exception:
             source = "unknown"
             value = None
+        if key == "flags.self_diag_repo_origin":
+            # B1 (SELF-DIAG-01 D3 security): значение — repo identity, а не
+            # произвольный URL. Даже non-secret ключ мог быть сохранён с
+            # userinfo/token; наружу отдаём ТОЛЬКО owner/name через
+            # существующую D4-нормализацию, raw URL не покидает probe.
+            raw_value = value
+            normalized = _normalize_repo_origin_value(raw_value)
+            if normalized is not None:
+                value = normalized
+            elif str(raw_value or "").strip():
+                value = None
+                invalid_reason = "invalid_repo_origin"
+            else:
+                value = None
         items.append({
             "key": key,
             "effective": value if isinstance(
-                value, (bool, int, float, str)) else str(value),
+                value, (bool, int, float, str)) else (
+                    None if value is None else str(value)),
             "source": source,
             "updated_at": updated_at,
             "applied_at": loaded_at,
             "pending_restart": False,   # hot-ключи применяются без рестарта
+            **({"reason_code": invalid_reason} if invalid_reason else {}),
         })
     return _observation(
         "config", status=bundle.STATUS_OK, facts={"settings": items},
