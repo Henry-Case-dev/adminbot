@@ -1,26 +1,25 @@
 ﻿# Workflow State
 
-Task: self-diag-01 (queue 3, P0) — final integration review; p0-init-meme-ux-diag is DONE
+Task: vmq-onto-01 (queue 4, P0) — next-slice preparation; self-diag-01 is delivered_awaiting_evidence
 Task source: plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md + plans/owner_inputs/2026-11-13-selfdiag-stage-correct-closure.md
 Status: in_progress
-Primary phase: review
-Active feature: self-diag-01
-Active lanes: Reviewer ses_e2f064977ffeG4ihqAAaXLIe1E (final integration 454727ed)
-Join barriers: final review -> PM full-map binding + full deploy gate -> one release 2.58.198 -> postdeploy -> D7/live -> DONE -> vmq-onto-01.
-Last verified: production 2.58.197 at 2587616759de31283585ffc105c91e7193c2e89e (schema 47, no DDL, rollback c134f93d). Initiative DONE 114/114. Self-diag full train: 55 VERIFIED / 93 REVIEW / 41 READY_FOR_LIVE / 0 PENDING; final integrated candidate code `454727ede7a2577b80dbef1b5d9c1ce3c4a3342d`, docs `8797cd83...`, 131 files +21457/−256 vs 2.58.197, D6+D2+D4+D5-final, one additive runtime_probes merge; tests 41/946/661+1/145/216/42/244+1/22/366/62/38/355/56+1/80/1325/190; allowed pre-existing mca10b 643/644, cfg03, two RED.
-Next unlocks: final review -> PM full-map binding + full deploy gate -> release 2.58.198 -> production verification -> D7/live -> DONE -> vmq-onto-01.
+Primary phase: preparation
+Active feature: vmq-onto-01
+Active lanes: PM vmq-onto-01 preparation (read-only next-slice plan)
+Join barriers: vmq next slice -> Builder/Architect/Reviewer; self-diag 39 deferred live/UI rows are nonblocking postrelease observations.
+Last verified: production 2.58.198 at 234776589c934024ed0e8dceba189fb9d70d3215 (schema 47, no DDL, rollback 25876167). Initiative DONE 114/114. Self-diag: 150 VERIFIED / 39 READY_FOR_LIVE / 0 REVIEW / 0 PENDING; delivery checkpoint `engineering_delivery=PASS`, `acceptance=PENDING_FUTURE_EVIDENCE`, 39 deferred IDs (`release-258198/gate-delivery-23477658.txt`); F3 visual/hard_rules confirmed on prod by Playwright+Browser Use; golden 100; settings/RBAC/UI; secrets 0.
+Next unlocks: vmq-onto-01 next-slice assignment -> implementation/review -> queue continues per the owner order.
 Next execution: awaiting_children
-Review: pending
-Deployment: verified 2.58.197 @ 25876167 (schema 47, no DDL); rollback c134f93d
+Review: not_applicable (self-diag delivery checkpoint; vmq prep)
+Deployment: verified 2.58.198 @ 23477658 (schema 47, no DDL); rollback 25876167
 Human gate: none
-Progress scope: plans/progress_scope.json | initiative DONE 114/114; self-diag 55 VERIFIED / 93 REVIEW / 41 READY / 0 PENDING; source 36/36, queue 40/40
-Updated: 2026-11-13T06:25:00+12:00
+Progress scope: plans/progress_scope.json | initiative DONE 114/114; self-diag delivered 150/39/0/0; vmq prep; source 36/36, queue 40/40
+Updated: 2026-11-13T07:20:00+12:00
 
 ## Facts
 
-- Final integration candidate: D6 16fa04e7 + D2 aa1d4127 + D4 018e8d77 + D5-final b3e9fe6e; only one additive conflict in `runtime_probes.py` (both ProbeSpec blocks kept); no unrelated product changes; test-only F8/L-F11S-1 and tool-canon 17→18 pins reapproved; no DDL/new LLM/store/agent.
-- Approved rows: D0 5 REVIEW, D1 17 VERIFIED, D2 37 VERIFIED/4 READY/2 REVIEW, D3 35 REVIEW/2 READY, D4 16 REVIEW/3 READY, D5 18 REVIEW/3 READY, D6 15 REVIEW/17 READY, D7 12 READY/1 REVIEW (AC-23). 0 PENDING.
-- Residual/live/deferred: D2 Telegram/ACL, D3 real checkup/SEM-08, D4 VPS/GitHub, D5 live group/anonymous admin, D6 live Telegram/UI/writer/golden/history, D7 31 corner cases/live delivery/production audit; all with postrelease_wait + approved_postrelease_wait where applicable. "100% protected" is not claimed; server boundary only.
-- Lineage: candidate from release line 25876167; master f291ca21 is a docs line and does not contain the release; D6 docs 9334c0c2 not merged (code in 16fa04e7; evidence on D6 branch). PM/DevOps must keep the release-line lineage.
+- Self-diag engineering delivery is complete on 2.58.198; 39 live/UI/Telegram/VPS/golden/history observations are deferred under approved waits and do not block the queue. The epic is `WAITING_EXTERNAL`/`delivered_awaiting_evidence`, not DONE; the release gate is red only on those 39 deferred READY rows (no content/approval errors).
+- Initiative epic DONE 114/114 (77/77); PB-LLM natural event is a nonblocking owner_live_check.
+- vmq-onto-01 is queue position 4, P0, blocked_by []; the owner order is self-diag -> vmq. Existing vmq map/evidence shows D2 37 VERIFIED / 4 READY / 3 PENDING and the VMQ-NEXT stage; the PM prep must identify the next runnable slice without a new audit.
 - Backlog: `.gitignore:7`, git log timeout, mca10b 643/644, cfg03 dead knob, two pre-existing RED, send_chunked_reply word >4096, speech `_chat_overrides` fail-open, 200-vs-403, `_probe_deploy_identity` include_commits, conflict status.
 - Owner rules: stage-correct REVIEW before deploy; natural/stat/voluntary waits never block; no fake evidence; no owner QA; no new acceptance stage.
