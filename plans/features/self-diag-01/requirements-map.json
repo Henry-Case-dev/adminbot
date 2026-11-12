@@ -635,6 +635,126 @@
         "SD1-SEM-08": "D7/live"
       },
       "note": "D3 row statuses: REVIEW — 35 записей / 34 unique; PENDING — 2 (EVD-01 D6, SEM-08 live). EVD-12 поднят из FAILED после закрытия B1; EVD-14/19/AC-20 приняты частично (live/D6 остатки)."
+    },
+    "d6": {
+      "slice": "D6 (checkup composition, checkup contract, analytics)",
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_short": "d5e97727",
+      "docs_commit": "ca9e9cb37a295434b8a751e6731e350804059fc3",
+      "base_commit": "722ccfc522ba00a18dc74881913020151ac250aa",
+      "branch": "self-diag/d6",
+      "deployed": false,
+      "status": "REVIEW",
+      "why_not_verified": "Код не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза self-diag строки остаются REVIEW с candidate-bound доказательством.",
+      "correction_chain": {
+        "61e50806": "первый кандидат: Needs Fixes B1-B4",
+        "cbb52d66": "B1/B4 исправлены и подтверждены; Needs Fixes по B2/B3 residuals",
+        "d5e97727": "B2/B3 residuals закрыты; Approved (B1/B4 подтверждены, файлы не менялись)"
+      },
+      "review": {
+        "path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+        "sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+        "verdict": "Approved",
+        "scope": "B2/B3-исправление на d5e97727; B1/B4 подтверждены; D6/self-diag DONE не объявляются",
+        "reviewer": "independent (не Builder)",
+        "previous": {
+          "path": "plans/features/self-diag-01/evidence/d6/review-d6-cbb52d66.md",
+          "sha256": "6c48af0160da2e6e130d9e12ee72d896c0ac803c1b5cc32ee5ed3c978221b007",
+          "verdict": "Needs Fixes (B2/B3); B1/B4 verified"
+        }
+      },
+      "binding": {
+        "path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+        "sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+        "previous": {
+          "path": "plans/features/self-diag-01/evidence/d6/binding-d6-cbb52d66068e0e0595fd91717556ea9d4be22fb0.md",
+          "sha256": "3fc2bde52568b438119ed6f099d3abb45aa0a2691dff3a2e7ba3348a66af1ce5"
+        }
+      },
+      "promotion_note": "review-d6-d5e97727.md существовал только как untracked-файл в worktree self-diag/d6; binding и review cbb52d66 — на ветке self-diag/d6. Все четыре артефакта перенесены в master byte-точно в этом docs-коммите (sha256 зафиксированы).",
+      "diff_scope": "d5e97727: handlers/checkup.py, web/api/routes.py, tests/test_checkup_contract.py, F8 re-pin; B1/B4 и D3/D5/D4 не менялись",
+      "tests": {
+        "contract": "pytest tests/test_checkup_contract.py -q -> 39 passed",
+        "broad": "D6+D3/D4/D5 focused (22 файла) -> 932 passed, 1 warning",
+        "prompt_contracts": "D4-B+prompt (16 файлов) -> 661 passed, 1 failed (pre-existing mca10b pin 643 vs 644; BACKLOG)",
+        "red_green": "RED на cbb52d66 по B2/B3 residual -> GREEN на d5e97727",
+        "mutation": "reviewer mutation: skip-exclusion removed -> test_cooldown_is_not_a_call_or_latency_sample 1 failed; restore -> 39 passed"
+      },
+      "covered_rows": [
+        "SD1-D6-05",
+        "SD1-D6-12",
+        "SD1-D6-16",
+        "SD1-D6-17",
+        "SD1-D6-18"
+      ],
+      "partial_rows": {
+        "SD1-D6-18": "B2-часть; retry/cache/stale остаются null/measured=false",
+        "SD1-D6-12": "B4-часть; UI-рендер — D7",
+        "SD1-D6-16": "B4-часть; UI-рендер блока — D7",
+        "SD1-D6-19": "golden/hypothesis — D7",
+        "SD1-D6-20": "history growth — D7"
+      },
+      "not_covered_rows": {
+        "SD1-D6-01/02/08/09/10/11": "не входили в D6-approval",
+        "SD1-D6-03/04/06/07/22": "live/preprod или не входили в approval",
+        "SD1-AC-01/02/09/19": "D7/live/UI",
+        "SD1-AMX-01/06": "D6 UI/D7",
+        "SD1-D2-32": "D6 UI/D7",
+        "SD1-D6-13/14/15": "D6 UI/D7",
+        "SD1-EVD-02": "не входило в approval",
+        "SD1-GRAL-02/06/07": "не входили в approval"
+      },
+      "duplicate_fix": {
+        "canonical": "SD1-D6-07 (L00352)",
+        "duplicate": "SD1-D6-07b (L00117, disposition=duplicate)",
+        "reason": "два source_line были сведены в один req_id с приёмкой от L00352; канон — L00352, L00117 сохранён как история"
+      },
+      "backlog": [
+        "mca10b pin 643 vs 644 (D4-B, pre-existing)"
+      ]
+    },
+    "D6": {
+      "slice": "D6 (aggregate: checkup composition, contract, analytics)",
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_short": "d5e97727",
+      "docs_commit": "ca9e9cb37a295434b8a751e6731e350804059fc3",
+      "base_commit": "722ccfc522ba00a18dc74881913020151ac250aa",
+      "deployed": false,
+      "status": "REVIEW",
+      "why_not_verified": "D6 принят по B1-B4 на unit/preprod, но не выложен. Map-level candidate_commit остаётся D1 25876167; binding нужен для slice-scoped review D6.",
+      "review": {
+        "path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+        "sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+        "verdict": "Approved"
+      },
+      "binding": {
+        "path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+        "sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9"
+      },
+      "tests": {
+        "contract": "39 passed",
+        "broad": "932 passed",
+        "prompt_contracts": "661 passed, 1 pre-existing failure"
+      },
+      "covered_rows": [
+        "SD1-D6-05",
+        "SD1-D6-12",
+        "SD1-D6-16",
+        "SD1-D6-17",
+        "SD1-D6-18"
+      ],
+      "partial_rows": [
+        "SD1-D6-18",
+        "SD1-D6-12",
+        "SD1-D6-16",
+        "SD1-D6-19",
+        "SD1-D6-20"
+      ],
+      "not_covered_rows": {
+        "D6 unit rows": "не входили в D6-approval",
+        "D7/live/UI": "AC-01/02/09/19, AMX-01/06, D2-32, D6-03/04/06/07/13/14/15/19/20/22, EVD-02, GRAL-02/06/07"
+      },
+      "note": "D6 row statuses: REVIEW — 5 (D6-05/12/16/17/18); PENDING — 27; duplicate/history — 1 (D6-07b). REVIEW = B1-B4 приняты на d5e97727, не выложено; D6-12/16 дополнительно требуют live/UI-доказательства (D7), D6-18 — частично (retry/cache/stale)."
     }
   },
   "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -1366,15 +1486,49 @@
       "acceptance": "Блок «Самодиагностика» показывает snapshot системы, распределение отказов по компонентам, source status, активные задания, CPU/RAM/disk с давлением, degraded integrations, source-code correlation, deployed vs upstream и число непроверенных источников; строки кликабельны с временем, источником, lineage и различением факта/гипотезы.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding-d5e97727 §3: pytest tests/test_checkup_contract.py -q -> 39 passed; broad focused D6+D3/D4/D5 (22 файла) -> 932 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Визуально связанный блок «Самодиагностика»: snapshot системы, распределение отказов, source status, активные задания, CPU/RAM/disk, degraded integrations, source-code correlation, deployed vs upstream.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d6-cbb52d66.md §1/§4 (B1/B4 исправлены и независимо подтверждены; общий вердикт Needs Fixes только по B2/B3)",
+          "observation": "B4: review-d6-cbb52d66 §4 (probe deps, CONFIGURED_FALSE 0, probes не исполняются); review-d6-d5e97727 §3: B4-код вне диффа, configured=0/24 false сохранён.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-cbb52d66.md",
+          "artifact_sha256": "6c48af0160da2e6e130d9e12ee72d896c0ac803c1b5cc32ee5ed3c978221b007",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false,
+          "historical_note": "Ревью относится к предыдущему кандидату cbb52d66; не является одобрением всего D6. B1/B4 в нём проверены, а на d5e97727 подтверждено, что их файлы не менялись."
+        },
+        {
+          "ref": "review-d6-d5e97727.md §1-§5, §7 (Вердикт: Approved для B2/B3-исправления; B1/B4 подтверждены)",
+          "observation": "review-d6-d5e97727 §3: B4-код (checkup_probe_deps) в диффе отсутствует; configured=0/24 false сохраняется; B4 остаётся подтверждённым.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+          "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "ui",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_16.json",
           "description": "снимок блока «Самодиагностика» и раскрытая строка с lineage"
         }
-      ]
+      ],
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: B4-часть (состав источников) принята; фактический UI-рендер блока — D7/live, live_required=true."
     },
     {
       "source_id": "MAN-D7-02",
@@ -1576,7 +1730,8 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L9",
-      "reassignment": "Перенесён владелец D2→D6 по решению Reviewer (2026-11-09): требует отрисованной поверхности «Доступы → Самодиагностика». Политическая часть (9 категорий, view/run/edit, отсутствие второго ACL) реализована и доказана строками SD1-D2-07/SD1-AC-16/SD1-AMX-02."
+      "reassignment": "Перенесён владелец D2→D6 по решению Reviewer (2026-11-09): требует отрисованной поверхности «Доступы → Самодиагностика». Политическая часть (9 категорий, view/run/edit, отсутствие второго ACL) реализована и доказана строками SD1-D2-07/SD1-AC-16/SD1-AMX-02.",
+      "status_note": "PENDING: админ-подраздел «Самодиагностика» с матрицей категорий — D6 UI/D7."
     },
     {
       "source_id": "MAN-AMX-02",
@@ -1828,7 +1983,8 @@
           "description": "снимки матрицы (desktop+mobile), объяснение наследования и причины отказа, проверка после рестарта"
         }
       ],
-      "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L17"
+      "amendment_ref": "plans/owner_inputs/2026-11-09-self-diag-access-matrix.md#L17",
+      "status_note": "PENDING: матрица прав в админке — D6 UI/D7."
     },
     {
       "source_id": "MAN-AMX-07",
@@ -1961,7 +2117,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_ac_01.json",
           "description": "реальный bare чекап в Telegram: handler, cooldown, reply, реакция, вызов collector"
         }
-      ]
+      ],
+      "status_note": "PENDING: живой чекап (handler/cooldown/reply/реакция) — D7/live; в D6-approval не входило."
     },
     {
       "source_id": "MAN-AC-02",
@@ -1983,7 +2140,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_ac_02.json",
           "description": "трасса чекапа с составом переданного evidence"
         }
-      ]
+      ],
+      "status_note": "PENDING: живая передача локальных логов/метрик/памяти/runtime SHA/git metadata в LLM-вызов — D7/live."
     },
     {
       "source_id": "MAN-AC-03",
@@ -2285,7 +2443,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_ac_09.json",
           "description": "hash effective prompt до/после + сохранённая ревизия и живые ответы"
         }
-      ]
+      ],
+      "status_note": "PENDING: байт-идентичность prompt и язвительный стиль на живых ответах — D7/live."
     },
     {
       "source_id": "MAN-AC-10",
@@ -2739,7 +2898,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_ac_19.json",
           "description": "снимки Статус/Аналитика: покрытие, отказы, маскировка"
         }
-      ]
+      ],
+      "status_note": "PENDING: UI Статус/Аналитика и маскировка credential values в карточках — D6 UI/D7."
     },
     {
       "source_id": "MAN-AC-20",
@@ -3014,7 +3174,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_gral_02.json",
           "description": "наблюдаемый артефакт проверки SD1-GRAL-02"
         }
-      ]
+      ],
+      "status_note": "PENDING: второй промпт/Writer для чекапа не создаётся — не входило в D6-approval; отдельного доказательства нет."
     },
     {
       "source_id": "L00032",
@@ -3160,7 +3321,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_evd_02.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-02"
         }
-      ]
+      ],
+      "status_note": "PENDING: один Writer на путь (CheckupService vs Unified Writer) — не входило в D6-approval; отдельного доказательства нет."
     },
     {
       "source_id": "L00095",
@@ -3926,9 +4088,9 @@
       "source_line": 117,
       "source_text_sha256": "d486ca0b0047d9999853f91799a38d80bdc226394b2085ff9b813a6954f491bf",
       "source_excerpt": "- При явном «чекап» минимальные задачи collector детерминированы (логи/метрики/ревизия/commit metadata), независимо от решения LLM. Глубокое изучение файла — когда есть признаки сбоя или дополнительный прямой запрос.",
-      "disposition": "required",
-      "reason": "",
-      "req_id": "SD1-D6-07",
+      "disposition": "duplicate",
+      "reason": "Историческая коллизия: две разные строки источника (L00117 и L00352) были сведены в один req_id SD1-D6-07 с приёмкой от L00352. Канонической оставлена L00352 (source/acceptance совпадают); L00117 сохранён как duplicate/history без удаления источника.",
+      "req_id": "SD1-D6-07b",
       "slice": "D6",
       "acceptance": "При каждом вызове читаются доступный локальный лог, метрики реального процесса и памяти, job statuses, deployed identity и выполняется ограниченная попытка commit metadata.",
       "live_required": true,
@@ -3941,7 +4103,10 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_07.json",
           "description": "trace чекапа: состав реально прочитанного evidence"
         }
-      ]
+      ],
+      "duplicate_of": "SD1-D6-07",
+      "historical_acceptance_note": "acceptance унаследован от канонической строки L00352; собственная норма L00117 (детерминированные минимальные задачи collector при явном «чекап», глубокое чтение только при сбое/прямом запросе) учтена строками SD1-D6-07 (per-call сбор) и SD1-D6-08.",
+      "status_note": "DUPLICATE/HISTORY: не обязательная строка; канон — SD1-D6-07 (L00352)."
     },
     {
       "source_id": "L00118",
@@ -7001,7 +7166,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_01.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-01"
         }
-      ]
+      ],
+      "status_note": "PENDING: output validation перед Telegram-отправкой — не входило в D6-approval (review §5/§6); отдельного candidate-bound доказательства нет."
     },
     {
       "source_id": "L00280",
@@ -7863,7 +8029,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_02.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-02"
         }
-      ]
+      ],
+      "status_note": "PENDING: честность Writer (код не прочитан/нет прав/429) — не входило в D6-approval; отдельного доказательства нет."
     },
     {
       "source_id": "L00336",
@@ -7885,7 +8052,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_gral_06.json",
           "description": "наблюдаемый артефакт проверки SD1-GRAL-06"
         }
-      ]
+      ],
+      "status_note": "PENDING: вывод не выдумывает падение ради стиля — не входило в D6-approval; отдельного доказательства нет."
     },
     {
       "source_id": "L00340",
@@ -7937,7 +8105,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_03.json",
           "description": "hash effective prompt до и после релиза + сохранённая ревизия/история"
         }
-      ]
+      ],
+      "status_note": "PENDING: байт-в-байт сохранение prompts.checkup_system_prompt — live/preprod (D7)."
     },
     {
       "source_id": "L00345",
@@ -7959,7 +8128,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_04.json",
           "description": "живые ответы чекапа на проде: стиль сохранён"
         }
-      ]
+      ],
+      "status_note": "PENDING: язвительный стиль на живых ответах — D7/live."
     },
     {
       "source_id": "L00346",
@@ -7981,7 +8151,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_gral_07.json",
           "description": "наблюдаемый артефакт проверки SD1-GRAL-07"
         }
-      ]
+      ],
+      "status_note": "PENDING: ограничения защищённых ресурсов в backend/sanitization, не в стиле — не входило в D6-approval."
     },
     {
       "source_id": "L00347",
@@ -7995,15 +8166,49 @@
       "acceptance": "Телеметрия содержит prompt_version_used/hash effective prompt, diagnostic_bundle_delivered, bundle_truncated, report_sent без записи содержимого промпта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding-d5e97727 §3: pytest tests/test_checkup_contract.py -q -> 39 passed; broad focused D6+D3/D4/D5 (22 файла) -> 932 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Телеметрия эффективного промпта: per-run prompt_version/hash/length по финальному system, diagnostic_bundle_delivered/bundle_truncated/report_sent без содержимого промпта.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d6-cbb52d66.md §1/§4 (B1/B4 исправлены и независимо подтверждены; общий вердикт Needs Fixes только по B2/B3)",
+          "observation": "B1: review-d6-cbb52d66 §1 (per-run telemetry, два конкурентных чата, DISTINCT_HASHES True, HAS_LAST_RUN False); review-d6-d5e97727 §3: B1-файлы вне диффа, 39 contract включают B1 assertions.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-cbb52d66.md",
+          "artifact_sha256": "6c48af0160da2e6e130d9e12ee72d896c0ac803c1b5cc32ee5ed3c978221b007",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false,
+          "historical_note": "Ревью относится к предыдущему кандидату cbb52d66; не является одобрением всего D6. B1/B4 в нём проверены, а на d5e97727 подтверждено, что их файлы не менялись."
+        },
+        {
+          "ref": "review-d6-d5e97727.md §1-§5, §7 (Вердикт: Approved для B2/B3-исправления; B1/B4 подтверждены)",
+          "observation": "review-d6-d5e97727 §3: B1-файлы (services/checkup_service.py) в диффе отсутствуют; ранее подтверждённые per-run hash/source сохраняются; 39 checkup-contract тестов включают B1 assertions и зелёные.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+          "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_05.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-05"
         }
-      ]
+      ],
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: B1 принят и подтверждён на d5e97727 (B1-файлы не менялись); не выложено."
     },
     {
       "source_id": "L00349",
@@ -8040,7 +8245,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_06.json",
           "description": "реальный bare чекап: reply/cooldown/reaction/busy и время ответа"
         }
-      ]
+      ],
+      "status_note": "PENDING: reply/cooldown/busy/bare-команда на живом пути — D7/live."
     },
     {
       "source_id": "L00352",
@@ -8062,7 +8268,9 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_07.json",
           "description": "trace чекапа: состав реально прочитанного evidence"
         }
-      ]
+      ],
+      "status_note": "PENDING: per-call чтение логов/метрик/identity/commit metadata — не входило в D6-approval; live_required=true (preprod). Каноническая строка (L00352).",
+      "canonical_note": "Каноническая строка SD1-D6-07: source_line 352, source/acceptance совпадают. Исторический дубль L00117 сохранён как SD1-D6-07b (disposition=duplicate)."
     },
     {
       "source_id": "L00353",
@@ -8084,7 +8292,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_08.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-08"
         }
-      ]
+      ],
+      "status_note": "PENDING: углублённое чтение кода только при сбое — не входило в D6-approval; отдельного доказательства нет."
     },
     {
       "source_id": "L00354",
@@ -8106,7 +8315,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_09.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-09"
         }
-      ]
+      ],
+      "status_note": "PENDING: partial/not_checked при неполном evidence — не входило в D6-approval; отдельного доказательства нет."
     },
     {
       "source_id": "L00355",
@@ -8128,7 +8338,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_10.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-10"
         }
-      ]
+      ],
+      "status_note": "PENDING: неверифицируемый admin не блокирует обычный чекап — не входило в D6-approval."
     },
     {
       "source_id": "L00356",
@@ -8150,7 +8361,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_11.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-11"
         }
-      ]
+      ],
+      "status_note": "PENDING: «чекап» не становится командой «покажи промпты» — не входило в D6-approval."
     },
     {
       "source_id": "L00358",
@@ -8194,15 +8406,49 @@
       "acceptance": "Модуль «Обзор» показывает реальные status/probe источников, last observed, runtime type, PID, uptime, deployed_sha, log backend identity, GitHub code-check state, last successful analysis и summary недостающего evidence.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding-d5e97727 §3: pytest tests/test_checkup_contract.py -q -> 39 passed; broad focused D6+D3/D4/D5 (22 файла) -> 932 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Модуль «Обзор» показывает реальные status/probe источников, last observed, runtime type, PID, uptime, deployed_sha, log backend, GitHub code-check, last successful analysis.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d6-cbb52d66.md §1/§4 (B1/B4 исправлены и независимо подтверждены; общий вердикт Needs Fixes только по B2/B3)",
+          "observation": "B4: review-d6-cbb52d66 §4 (checkup_probe_deps из db/memory/fetcher/status; TOTAL 24, CONFIGURED_FALSE 0; probes не исполняются); review-d6-d5e97727 §3: B4-код вне диффа, 0/24 false сохранён.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-cbb52d66.md",
+          "artifact_sha256": "6c48af0160da2e6e130d9e12ee72d896c0ac803c1b5cc32ee5ed3c978221b007",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false,
+          "historical_note": "Ревью относится к предыдущему кандидату cbb52d66; не является одобрением всего D6. B1/B4 в нём проверены, а на d5e97727 подтверждено, что их файлы не менялись."
+        },
+        {
+          "ref": "review-d6-d5e97727.md §1-§5, §7 (Вердикт: Approved для B2/B3-исправления; B1/B4 подтверждены)",
+          "observation": "review-d6-d5e97727 §3: B4-код (checkup_probe_deps) в диффе отсутствует; configured=0/24 false сохраняется; B4 остаётся подтверждённым.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+          "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "ui",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_12.json",
           "description": "скриншот/снимок раздела «Обзор» с реальными measured-состояниями"
         }
-      ]
+      ],
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: B4-часть (configured-источники) принята; UI-рендер остаётся D7/live, live_required=true."
     },
     {
       "source_id": "L00363",
@@ -8224,7 +8470,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_13.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-13"
         }
-      ]
+      ],
+      "status_note": "PENDING: UI «Основные настройки» — D6 UI/D7."
     },
     {
       "source_id": "L00364",
@@ -8246,7 +8493,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_14.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-14"
         }
-      ]
+      ],
+      "status_note": "PENDING: UI «Промпты» — D6 UI/D7."
     },
     {
       "source_id": "L00365",
@@ -8268,7 +8516,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_15.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-15"
         }
-      ]
+      ],
+      "status_note": "PENDING: UI «Модели/Лимиты» — D6 UI/D7."
     },
     {
       "source_id": "L00366",
@@ -8325,7 +8574,8 @@
           "description": "отрисованная поверхность «Доступы → Самодиагностика»: Playwright плюс независимый браузер, desktop и mobile (матрица ролей×категорий, объяснение наследования и причины allow/deny, просмотр аудита без содержимого защищённых данных)"
         }
       ],
-      "reassignment": "Перенесён владелец D2→D6 по решению Reviewer: отображение матрицы и аудита в админке — это отрисованный экран; дублирует по смыслу SD1-AMX-06, второй владелец одной обязанности не создаётся."
+      "reassignment": "Перенесён владелец D2→D6 по решению Reviewer: отображение матрицы и аудита в админке — это отрисованный экран; дублирует по смыслу SD1-AMX-06, второй владелец одной обязанности не создаётся.",
+      "status_note": "PENDING: матрица доступов в админке — D6 UI/D7."
     },
     {
       "source_id": "L00369",
@@ -8369,15 +8619,39 @@
       "acceptance": "Аналитика содержит checkup_triggered, get_bot_health_called, inspect_runtime_called, read_source_attempted/verified, code_unavailable, prompt_readback_requested/allowed/denied и secret_value_disclosures=0 только при измеренном enforcement.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding-d5e97727 §3: pytest tests/test_checkup_contract.py -q -> 39 passed; broad focused D6+D3/D4/D5 (22 файла) -> 932 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Аналитика checkup_triggered/get_bot_health/inspect_runtime/read_source/prompt_readback и secret_value_disclosures=0 только при измеренном покрытии; blocked validation не закрывает gap.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d6-d5e97727.md §1-§5, §7 (Вердикт: Approved для B2/B3-исправления; B1/B4 подтверждены)",
+          "observation": "B3: review-d6-d5e97727 §2 — blocked-валидация больше не эмитит validation, статус берётся из Publication.status; success+blocked -> measured=false/value=null/gaps=checkup:1; paired allowed -> measured=true/value=0.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+          "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_17.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-17"
         }
-      ]
+      ],
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: B3 принят на d5e97727; не выложено."
     },
     {
       "source_id": "L00376",
@@ -8391,15 +8665,46 @@
       "acceptance": "Метрики дают latencies p50/p95 по probes и полному чекапу, % partial vs complete, отказ по каждому backend, частоту retry, cache hits и stale reads.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding-d5e97727 §3: pytest tests/test_checkup_contract.py -q -> 39 passed; broad focused D6+D3/D4/D5 (22 файла) -> 932 passed, 1 warning; D4-B+prompt contracts -> 661 passed, 1 failed (только pre-existing mca10b pin 643 vs 644 — D4-B, BACKLOG). Строка: Latency p50/p95 по probes и полному чекапу, % partial vs complete, отказ по backend; skipped исключены из calls/latency, добавлен triggered.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d6-d5e97727.md §1-§5, §7 (Вердикт: Approved для B2/B3-исправления; B1/B4 подтверждены)",
+          "observation": "B2: review-d6-d5e97727 §1 — report_sent 900 ms + cooldown 0 ms -> calls=1/p50=900; degraded inspect остаётся partial; mutation skip-exclusion red/restore green.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/review-d6-d5e97727.md",
+          "artifact_sha256": "3716ba9cb7264fd3883acb988b1ebfc87a3a2d077503f7e678f647724de75c05",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_18.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-18"
         }
-      ]
+      ],
+      "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: B2-часть принята; retry/cache hits/stale reads остаются честно null/measured=false (partial).",
+      "partial_coverage_2026_11_13": {
+        "slice": "D6",
+        "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+        "covered": "skipped исключены из calls/durations/by_stage; p50/p95 и % partial/complete измеряются; triggered аддитивен.",
+        "remaining": "частота retry, cache hits и stale reads не инструментированы — аналитика честно отдаёт null/measured=false.",
+        "why_status_review": "B2-часть принята на d5e97727; отсутствующая инструментовка retry/cache/stale честно отдаёт null/measured=false и не выдаётся за измеренную."
+      }
     },
     {
       "source_id": "L00377",
@@ -8414,14 +8719,32 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding §4: hypothesis-share/golden eval/history growth по-прежнему честно null/available=false — источников нет; D6-approval эту часть не покрывал.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_19.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-19"
         }
-      ]
+      ],
+      "status_note": "PENDING: golden eval/hypothesis shares/code-vs-wrong-SHA — partial/D7; источников нет, аналитика честно null/available=false.",
+      "partial_coverage_2026_11_13": {
+        "slice": "D6",
+        "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+        "covered": "hypothesis shares/golden eval/code-vs-wrong-SHA честно отдаются как null/available=false — источников нет.",
+        "remaining": "реальные доли observed vs hypothesis, false diagnosis в golden eval и проверки кода против неверного SHA — D7/live.",
+        "why_status_pending": "Часть честно отдаётся как null/available=false; реальные значения — D7/live."
+      }
     },
     {
       "source_id": "L00378",
@@ -8436,14 +8759,32 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d6-d5e97727...md §1-§4 (39/932/661+1)",
+          "observation": "binding §4: hypothesis-share/golden eval/history growth по-прежнему честно null/available=false — источников нет; D6-approval эту часть не покрывал.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d6/binding-d6-d5e97727fd5808df0de137421c713678a699aa86.md",
+          "artifact_sha256": "b3dddca62a47c90686786835a857488c58dca907275e8ea6bbc3295c76a812c9",
+          "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_20.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-20"
         }
-      ]
+      ],
+      "status_note": "PENDING: history growth VPS/DB/WAL/очередей — partial/D7; derived-samples честно null/available=false.",
+      "partial_coverage_2026_11_13": {
+        "slice": "D6",
+        "candidate_commit": "d5e97727fd5808df0de137421c713678a699aa86",
+        "covered": "history growth честно null/available=false — источников derived-samples нет.",
+        "remaining": "реальные derived-samples ресурсов VPS, роста очередей, DB/WAL и свободного места — D7/live.",
+        "why_status_pending": "Часть честно отдаётся как null/available=false; реальные значения — D7/live."
+      }
     },
     {
       "source_id": "L00379",
@@ -8670,7 +9011,8 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d6/sd1_d6_22.json",
           "description": "наблюдаемый артефакт проверки SD1-D6-22"
         }
-      ]
+      ],
+      "status_note": "PENDING: GitHub latency/429/5xx не блокирует — не входило в D6-approval; live/unit отдельно."
     },
     {
       "source_id": "L00389",
@@ -9953,5 +10295,36 @@
       "SD1-SEM-08": "live-LLM context following — D7/live"
     },
     "note": "B1 (credential URL в config.effective) закрыт на 278c19e0 и независимо подтверждён; EVD-12/EVD-14 стали REVIEW-eligible. REVIEW = кандидат принят на unit/preprod, не выложен. PENDING сохраняется только там, где нужен D6/live; VERIFIED — после релиза и deployed SHA. D3/self-diag DONE не объявляются."
+  },
+  "d6_accounting": {
+    "slice": "D6",
+    "convention": "records = записи items + additional_requirements с slice=D6; required = disposition=required",
+    "records_total": 33,
+    "required_records": 32,
+    "duplicate_records": 1,
+    "required_by_status": {
+      "REVIEW": 5,
+      "PENDING": 27
+    },
+    "unique_req_ids": 33,
+    "required_unique_req_ids": 32,
+    "reviewed_candidate": "d5e97727fd5808df0de137421c713678a699aa86",
+    "reviewed_base_candidate": "722ccfc522ba00a18dc74881913020151ac250aa",
+    "deployed": false,
+    "partial_rows_with_evidence": [
+      "SD1-D6-18",
+      "SD1-D6-12",
+      "SD1-D6-16",
+      "SD1-D6-19",
+      "SD1-D6-20"
+    ],
+    "duplicate_fix": {
+      "canonical_req_id": "SD1-D6-07",
+      "canonical_source": "L00352",
+      "duplicate_req_id": "SD1-D6-07b",
+      "duplicate_source": "L00117",
+      "why": "priority: канонической оставлена строка с совпадающими source/acceptance; вторая сохранена как duplicate/history без удаления источника"
+    },
+    "note": "REVIEW = кандидат d5e97727 принят по B1-B4 (B1/B4 подтверждены, B2/B3 исправлены), не выложен. PENDING сохранён там, где D6-approval строку не покрывал или нужен D7/live/UI. VERIFIED появится только после релиза и deployed SHA; D6/self-diag DONE не объявляются."
   }
 }
