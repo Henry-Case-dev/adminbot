@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T05:43:12+12:00",
+  "updated": "2026-11-13T05:50:37+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -927,7 +927,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T05:43:12+12:00",
+      "updated": "2026-11-13T05:50:37+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -935,7 +935,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: D0/D2/D4 closure approved. Only D5-11/12 and AC-23 remain (Builder running); then final integration D2+D4+D5 with D6, full deploy gate, release 2.58.198, D7/live, DONE, vmq-onto-01.",
+      "queue_note": "2026-11-13: all 12 prior PENDING rows closed/approved; full train 55 VERIFIED / 93 REVIEW / 41 READY / 0 PENDING. Final integration D2+D4+D5 with D6 is building; next PM full-map binding + full deploy gate, one release 2.58.198, postdeploy, D7/live, DONE, vmq-onto-01.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -951,18 +951,18 @@
       "slice_status": {
         "D0": "5 REVIEW (addendum approved)",
         "D1": "VERIFIED 2.58.197 @ 25876167",
-        "D2": "37 VERIFIED / 4 READY_FOR_LIVE / 2 REVIEW (D2-23/24, aa1d4127)",
-        "D3": "35 REVIEW / 2 READY_FOR_LIVE",
-        "D4": "16 REVIEW / 3 READY_FOR_LIVE (D4-10/14, 018e8d77)",
-        "D5": "16 REVIEW / 3 READY / 2 BUILDING (D5-11/12, AC-23)",
-        "D6": "15 REVIEW / 17 READY_FOR_LIVE",
-        "D7": "12 READY_FOR_LIVE / 1 BUILDING (AC-23)"
+        "D2": "37 VERIFIED / 4 READY / 2 REVIEW (D2-23/24 aa1d4127)",
+        "D3": "35 REVIEW / 2 READY",
+        "D4": "16 REVIEW / 3 READY (D4-10/14 018e8d77)",
+        "D5": "18 REVIEW / 3 READY (D5-11/12 b3e9fe6e)",
+        "D6": "15 REVIEW / 17 READY",
+        "D7": "12 READY / 1 REVIEW (AC-23 b3e9fe6e)"
       },
       "progress": {
         "verified_records": 55,
-        "review_records": 81,
+        "review_records": 93,
         "ready_for_live": 41,
-        "pending": 12,
+        "pending": 0,
         "total_records": 189,
         "unique": 183
       }
