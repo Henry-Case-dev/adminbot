@@ -982,9 +982,9 @@
                           <span class="w-20 text-gray-400">{{ diagActionTitle(action) }}</span>
                           <label v-for="role in (diagMatrix.roles || [])"
                                  :key="'dr-' + cap + action + role.id"
-                                 class="flex items-center gap-1"
+                                 class="flex items-center gap-1 cursor-pointer"
                                  :title="role.note">
-                            <input type="checkbox"
+                            <input type="checkbox" class="ctl-check__box"
                                    :disabled="!item.configurable || diagRoleImplicit(role.id, action)"
                                    :checked="diagRoleImplicit(role.id, action) || diagRoleHas(cap, action, role.id)"
                                    @change="diagToggleRole(cap, action, role.id)">

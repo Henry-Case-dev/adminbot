@@ -61,6 +61,18 @@ class TestUnifiedCheckboxes:
             raw.append((pos, cls))
         assert not raw, "нативные чекбоксы вне дизайн-системы: %s" % raw[:5]
 
+    def test_self_diag_matrix_uses_design_system_checkbox(self):
+        """SELF-DIAG-01 D6: чекбоксы ролей в матрице «Самодиагностики» — контрол
+        дизайн-системы (`ctl-check__box`), а не нативный input. Семантика
+        (RBAC/диагностическая политика, `diagToggleRole`) не меняется."""
+        start = INDEX.index("data-self-diag-action=")
+        block = INDEX[start:INDEX.index("</label>", start)]
+        assert '<input type="checkbox"' in block
+        tag = block[block.index('<input type="checkbox"'):]
+        tag = tag[:tag.index(">")]
+        assert 'class="ctl-check__box"' in tag, tag
+        assert ":disabled=" in tag and "@change=" in tag
+
     def test_checkbox_box_style_uses_system_tokens(self):
         """Размер/акцент/кольцо фокуса — из токенов, а не локальные значения."""
         rest = CSS[CSS.index("input[type=\"checkbox\"].ctl-check__box"):]

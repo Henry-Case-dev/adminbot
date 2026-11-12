@@ -400,8 +400,11 @@ PG_DB_SHA256_B07 = (
 # единый предикат `is_secret_value`) — SD1-D2-23/24. Состав каталога не менялся:
 # REGISTRY 644 / GROUPS 121 / _TAB_BY_GROUP 119 / TAB_RULES 22, Δ 243;
 # fixtures/TSV переписывать не требуется, переутверждён только SHA256.
+# SELF-DIAG-01 final-fixes (13.11.2026, L-F11S-1 re-pin, DOC-ONLY): описание
+# flags.self_diag_repo_origin переписано без жаргона «URL» (значение/тип/
+# группа/секретность не менялись; REGISTRY 644 / delta 243).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "bcdf8f02998fc0f7e564c1e0dae1affeacc1b62544cd6877fdd0cc4c5e598534")
+    "a7d383958175fefcfaa99e49d0d9f7095f3605933460b59a7893d3bee144d9cf")
 
 
 def _sha256(path: Path) -> str:

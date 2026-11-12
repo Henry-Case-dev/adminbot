@@ -197,11 +197,29 @@ function firstPartyWeb() {
   // Телеметрия ОТДЕЛЕНА от рендера: сеть только в loadStatus, не в кадре.
   assert.ok(APP_JS.indexOf('this._applyHeartbeatSample(this.heartbeatSample())') >= 0,
     'C: телеметрия обновляет снимок из /api/status');
-  const dStart = APP_JS.indexOf('_hbDraw: function');
-  const dEnd = APP_JS.indexOf('loadStatus: async function', dStart);
-  const drawBody = APP_JS.slice(dStart, dEnd > dStart ? dEnd : dStart + 4000);
-  assert.ok(drawBody.indexOf('fetch(') < 0 && drawBody.indexOf('this.api(') < 0,
-    'C: рендер-кадр без сети');
+  // Границы метода — его собственное тело (до следующего члена объект-литерала).
+  // Прежний срез «_hbDraw … loadStatus» захватывал посторонние методы между
+  // ними (например, загрузчики диагностики), и инвариант «кадр без сети»
+  // ложно краснел на чужом сетевом вызове.
+  function memberBody(src, name) {
+    const start = src.indexOf('\n      ' + name + ': ');
+    assert.ok(start >= 0, 'C: метод найден: ' + name);
+    const bodyStart = src.indexOf('{', start);
+    const end = src.indexOf('\n      },', bodyStart);
+    assert.ok(bodyStart > start && end > bodyStart, 'C: границы тела: ' + name);
+    return src.slice(bodyStart, end);
+  }
+  // Контроль экстрактора: сетевой метод действительно даёт сетевой вызов
+  // (иначе инвариант ниже мог бы проходить «вхолостую»).
+  assert.ok(memberBody(APP_JS, 'loadStatus').indexOf('this.api(') >= 0,
+    'C: экстрактор тела видит сетевой вызов (loadStatus)');
+  ['_hbDrawGrid', '_hbDrawPremium', '_hbDrawLegacy', '_hbDraw'].forEach(
+    function (name) {
+      const body = memberBody(APP_JS, name);
+      assert.ok(body.indexOf('fetch(') < 0 && body.indexOf('this.api(') < 0
+        && body.indexOf('XMLHttpRequest') < 0 && body.indexOf('axios') < 0,
+        'C: heartbeat-отрисовка без сети: ' + name);
+    });
   // Canvas 2D, НЕ WebGL.
   assert.ok(APP_JS.indexOf("getContext('2d')") >= 0, 'C: Canvas 2D');
   assert.ok(!/getContext\(['"]webgl/i.test(APP_JS), 'C: WebGL запрещён');
