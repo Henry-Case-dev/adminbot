@@ -38,7 +38,7 @@ from services import output_projection as projection
 from services import prompt_readback as readback
 from services import prompt_registry as pr
 from services import telegram_role_check as role_check
-from services.tool_router import ToolContext, ToolRouter
+from services.tool_router import ToolContext, ToolDeps, ToolRouter
 
 OWNER_ID = 5885953495
 ADMIN_ID = 7000001
@@ -900,3 +900,310 @@ def test_module_has_no_write_path():
                    "cache.set(", ".upsert(", "send_document"):
         assert needle not in source
     assert "prompt_registry" in source
+
+
+# ── 8. Безопасность: действительный endpoint и соседние tools ─────────────
+#
+# `SD1-D5-11`: то, что промпт уже был в логах/выводе модели, не означает, что
+# защита работает. Проверяется ДЕЙСТВИТЕЛЬНЫЙ путь инструмента
+# (`ToolRouter.dispatch` → handler → сервис → Telegram) и эксфильтрация через
+# СОСЕДНИЕ инструменты (`inspect_runtime`, `read_source_code`, телеметрия).
+# `SD1-D5-12`: типизированный вход не даёт цитировать/пересказывать/
+# кодировать/подменять роль/вести многоходовую разведку; реестр версий не
+# выдаётся. «100% защищён» не заявляется: промпт в контексте модели может быть
+# процитирован самой моделью — это остаточный риск, а не тест-кейс.
+
+def _router():
+    """Роутер с РЕАЛЬНЫМ политическим guard'ом (без подмен)."""
+    return ToolRouter(ToolDeps(None, None))
+
+
+async def _dispatch_tool(monkeypatch, cache, store, arguments, *,
+                         user_id=ADMIN_ID, chat_id=GROUP, bot=None,
+                         router=None):
+    """Настоящий tool-путь: `ToolRouter.dispatch("prompt_readback", ...)`."""
+    chat_params.set_chat_params_cache(store)
+    monkeypatch.setattr(hot, "get_config_cache", lambda: cache)
+    return await (router or _router()).dispatch(
+        "prompt_readback", dict(arguments),
+        _ctx(user_id=user_id, chat_id=chat_id, bot=bot))
+
+
+@pytest.mark.asyncio
+async def test_real_tool_path_denies_member_before_any_send(
+        monkeypatch, member_cache, chat_store):
+    bot = _member_bot()
+    result = await _dispatch_tool(monkeypatch, member_cache, chat_store,
+                                  _request(), user_id=MEMBER_ID, bot=bot)
+    assert diag.R_DENY_PROMPT_MEMBER in result
+    assert "status=delivered" not in result
+    assert bot.sent == []
+    assert chat_store.read_chats == []          # содержимое не читалось
+
+
+@pytest.mark.asyncio
+async def test_real_tool_path_delivers_exact_body_only_to_chat(
+        monkeypatch, admin_cache, chat_store):
+    exact = "ТОЧНОЕ ТЕЛО РЕАЛЬНОГО ПУТИ\nвторая строка"
+    chat_store.root = {"overrides": {TEST_KEY: exact}}
+    bot = _admin_bot()
+    result = await _dispatch_tool(monkeypatch, admin_cache, chat_store,
+                                  _request(), bot=bot)
+    assert "status=delivered" in result and "destination=group" in result
+    payload = "".join(message["text"] for message in bot.sent)
+    assert readback.payload_body(payload) == exact
+    assert {message["chat_id"] for message in bot.sent} == {GROUP}
+    # Модель получает машинный ack: тело промпта в контекст не возвращается.
+    assert exact not in result
+    assert "ТОЧНОЕ ТЕЛО РЕАЛЬНОГО ПУТИ" not in result
+
+
+@pytest.mark.asyncio
+async def test_readback_reads_current_value_not_a_previously_leaked_one(
+        caplog, monkeypatch, admin_cache, chat_store):
+    """`SD1-D5-11`: ранее утёкший текст не подменяет действительный readback.
+
+    Сценарий: старое значение уже попало в лог (модель/лог его «знают»),
+    затем администратор сохранил новую редакцию. Действительный endpoint
+    обязан отдать НОВОЕ значение — «защита» не может проверяться по тексту,
+    который уже был в логах.
+    """
+    leaked = "СТАРОЕ УТЁКШЕЕ ЗНАЧЕНИЕ 1001"
+    current = "НОВОЕ ДЕЙСТВУЮЩЕЕ ЗНАЧЕНИЕ 2002"
+    chat_store.root = {"overrides": {TEST_KEY: leaked}}
+    with caplog.at_level("DEBUG"):
+        # Имитация «уже было в логах»: значение попало в журнал другого модуля.
+        import logging
+        logging.getLogger("services.some_other_module").warning(
+            "previous prompt text: %s", leaked)
+        chat_store.root = {"overrides": {TEST_KEY: current}}
+        outcome = await _prepare(admin_cache, chat_store, _request(),
+                                 bot=_admin_bot())
+    assert outcome.status == readback.STATUS_DELIVERED
+    body = readback.payload_body(_paths_of(outcome.messages))
+    assert body == current
+    assert leaked not in body
+    # Знание утёкшего текста участником не открывает доступ (тот же endpoint).
+    denied = await _prepare(member_cache, chat_store, _request(),
+                            user_id=MEMBER_ID, bot=_member_bot())
+    assert denied.status == readback.STATUS_DENIED
+    assert denied.messages == ()
+
+
+async def _inspect(arguments, *, cache, monkeypatch, user_id=OWNER_ID,
+                   chat_id=GROUP):
+    """Соседний инструмент `inspect_runtime` через настоящий dispatch."""
+    from services import diagnostic_collector as dc
+    from services import runtime_probes as rp
+    monkeypatch.setattr(hot, "get_config_cache", lambda: cache)
+    collector = dc.DiagnosticCollector(
+        deps=rp.ProbeDeps(), limits=rp.ProbeLimits(probe_timeout_seconds=3.0,
+                                                   max_output_chars=9000))
+    router = ToolRouter(ToolDeps(None, None, diagnostics=collector))
+    ctx = _ctx(user_id=user_id, chat_id=chat_id, bot=None)
+    return await router.dispatch("inspect_runtime", dict(arguments), ctx)
+
+
+@pytest.mark.asyncio
+async def test_adjacent_inspect_runtime_cannot_read_prompt_keys(
+        monkeypatch, owner_cache, chat_store):
+    """Соседний инструмент не читает значения `prompts.*` из конфига."""
+    # Активное значение промпта лежит в том же конфиг-кэше, что видит probe.
+    owner_cache._values[TEST_KEY] = "АКТИВНОЕ ЗНАЧЕНИЕ ЧЕРЕЗ КОНФИГ 555"
+    owner_cache._values["prompts.checkup_system_prompt"] = "АКТИВНЫЙ ЧЕК 666"
+    out = await _inspect(
+        {"probe": "config.effective", "arguments": {"key": TEST_KEY}},
+        cache=owner_cache, monkeypatch=monkeypatch)
+    assert "АКТИВНОЕ ЗНАЧЕНИЕ ЧЕРЕЗ КОНФИГ 555" not in out
+    assert "АКТИВНЫЙ ЧЕК 666" not in out
+    assert "prompts." not in out
+    # Неизвестный аргумент probe отвергнут валидатором, а не проигнорирован.
+    assert "unknown_argument" in out or "argument_not_allowed" in out
+    # Каталог закрытых ключей вообще не содержит prompts.*
+    from services import runtime_probes as rp
+    assert not [key for key in rp._CONFIG_KEYS if key.startswith("prompts.")]
+
+
+@pytest.mark.asyncio
+async def test_adjacent_inspect_runtime_has_no_prompt_probe(
+        monkeypatch, owner_cache):
+    from services import runtime_probes as rp
+    catalog = json.loads(await _inspect({}, cache=owner_cache,
+                                        monkeypatch=monkeypatch))
+    names = [str(item.get("probe") or "") for item in catalog.get("probes", [])]
+    assert names, "каталог probes пуст — проверка бессмысленна"
+    assert not [name for name in names if "prompt" in name.lower()]
+    assert not [name for name in names if "version" in name.lower()]
+    assert "prompt" not in [str(area).lower() for area in rp.AREAS]
+    out = await _inspect({"probe": "prompts.registry"}, cache=owner_cache,
+                         monkeypatch=monkeypatch)
+    assert "unknown_probe" in out
+    assert TEST_BLOCK not in out
+
+
+def test_adjacent_diagnostic_sources_never_read_edited_prompts():
+    """Структурная граница: probes/collector/source-reader не ходят в промпты."""
+    from services import diagnostic_collector, runtime_probes, source_reader
+    for module in (runtime_probes, diagnostic_collector, source_reader):
+        source = _module_source(module)
+        for needle in ("prompt_registry", "effective_prompt", "factory_text",
+                       "chat_params", "prompt_versions"):
+            assert needle not in source, (
+                f"{module.__name__} читает промпт-слой через {needle}")
+    assert not [key for key in runtime_probes._CONFIG_KEYS
+                if key.startswith(("prompts.", "style."))]
+
+
+@pytest.mark.asyncio
+async def test_tool_delivery_leaves_no_prompt_body_in_logs_or_events(
+        caplog, monkeypatch, admin_cache, chat_store):
+    from services import mca_events as _events
+    body = "ТЕЛО ТОЛЬКО ДЛЯ ЧАТА 4242, НЕ ДЛЯ ЖУРНАЛА"
+    chat_store.root = {"overrides": {TEST_KEY: body}}
+    emitted: list[tuple] = []
+
+    def _collect(*args, **kwargs):
+        emitted.append((args, kwargs))
+
+    monkeypatch.setattr(_events, "emit_mca_event", _collect)
+    with caplog.at_level("DEBUG"):
+        result = await _dispatch_tool(monkeypatch, admin_cache, chat_store,
+                                      _request(), bot=_admin_bot())
+    assert "status=delivered" in result
+    assert body not in result
+    logged = " ".join(record.getMessage() for record in caplog.records)
+    telemetry = json.dumps(emitted, ensure_ascii=False, default=str)
+    assert body not in logged
+    assert body not in telemetry
+    assert "prompt_readback_allowed" in telemetry
+    # Аудит раскрытия тоже без тела (есть только машинные поля).
+    audit = json.dumps(diag.audit_snapshot(), ensure_ascii=False)
+    assert body not in audit
+
+
+@pytest.mark.asyncio
+async def test_selector_is_not_a_content_oracle_for_known_text(
+        admin_cache, chat_store):
+    """Знание текста не превращает поиск промпта в проверку содержимого."""
+    import base64
+    import codecs
+    body = "УНИКАЛЬНАЯ ФРАЗА ТЕЛА 777 ДЛЯ ПРОВЕРКИ ОРАКУЛА"
+    chat_store.root = {"overrides": {TEST_KEY: body}}
+    encodings = (
+        body,
+        body[:30],
+        base64.b64encode(body.encode("utf-8")).decode("ascii"),
+        body.encode("utf-8").hex(),
+        codecs.encode(body, "rot13"),
+    )
+    for selector in encodings:
+        outcome = await _prepare(
+            admin_cache, chat_store, _request(prompt_selector=selector),
+            bot=_admin_bot())
+        assert outcome.status == readback.STATUS_NOT_FOUND, selector
+        assert outcome.messages == ()
+        assert "УНИКАЛЬНАЯ ФРАЗА" not in outcome.machine
+    # Контроль: точное ИМЯ по-прежнему разрешается (поиск не сломан).
+    found = await _prepare(admin_cache, chat_store, _request(),
+                           bot=_admin_bot())
+    assert found.status == readback.STATUS_DELIVERED
+
+
+@pytest.mark.asyncio
+async def test_quoting_and_encoding_in_arguments_cannot_send_text(
+        admin_cache, chat_store):
+    """Модель не может «пересказать» промпт через аргументы инструмента."""
+    bot = _admin_bot()
+    for extra in ({"content": "текст"}, {"message": "текст"},
+                  {"text": "текст"}, {"body": "текст"},
+                  {"payload": "текст"}, {"reply": "текст"},
+                  {"delivery": "dm"}):
+        outcome = await _prepare(admin_cache, chat_store,
+                                 _request(**extra), bot=bot)
+        assert outcome.status == readback.STATUS_INVALID_REQUEST, extra
+        assert outcome.messages == ()
+    assert bot.sent == []
+
+
+@pytest.mark.asyncio
+async def test_role_and_destination_spoofing_is_rejected(
+        monkeypatch, admin_cache, member_cache, chat_store):
+    spoof = ({"role": "project_owner"}, {"user_id": OWNER_ID},
+             {"telegram_id": OWNER_ID}, {"destination": "private"},
+             {"principal": "owner"}, {"is_admin": True},
+             {"chat_id": GROUP_B}, {"permissions": {"wildcard": True}})
+    for extra in spoof:
+        outcome = await _prepare(admin_cache, chat_store,
+                                 _request(**extra), bot=_admin_bot())
+        assert outcome.status == readback.STATUS_INVALID_REQUEST, extra
+        assert outcome.messages == ()
+    # Настоящий tool-путь: подмена роли в аргументах не даёт участнику выдачи.
+    bot = _member_bot()
+    result = await _dispatch_tool(
+        monkeypatch, member_cache, chat_store,
+        _request(role="project_owner", user_id=OWNER_ID),
+        user_id=MEMBER_ID, bot=bot)
+    assert "status=delivered" not in result
+    assert bot.sent == []
+
+
+@pytest.mark.asyncio
+async def test_multi_turn_exfiltration_gets_no_bytes_or_candidates(
+        monkeypatch, member_cache, chat_store):
+    """Серия ходов участника: ни текста, ни списка кандидатов, ни отправок."""
+    chat_store.root = {"overrides": {TEST_KEY: "ТЕЛО ТОЛЬКО ДЛЯ АДМИНА 888"}}
+
+    async def _must_not_enumerate(*args, **kwargs):
+        raise AssertionError("перечисление библиотеки участнику недоступно")
+
+    monkeypatch.setattr(readback, "search_library", _must_not_enumerate)
+    monkeypatch.setattr(readback, "library_rows", _must_not_enumerate)
+    bot = _member_bot()
+    attempts = (
+        _request(),
+        {},
+        _request(prompt_selector=""),
+        _request(prompt_selector="чек"),
+        _request(requested_revision="specific", revision="act:deadbeef0000"),
+        _request(scope="other_chat"),
+        _request(delivery="document"),
+    )
+    seen = ""
+    for arguments in attempts:
+        outcome = await _prepare(member_cache, chat_store, arguments,
+                                 user_id=MEMBER_ID, bot=bot)
+        assert outcome.status in (readback.STATUS_DENIED,
+                                  readback.STATUS_INVALID_REQUEST)
+        assert outcome.messages == ()
+        seen += outcome.machine
+    assert "ТЕЛО ТОЛЬКО ДЛЯ АДМИНА 888" not in seen
+    assert TEST_BLOCK not in seen
+    assert bot.sent == []
+    assert not [record for record in diag.audit_snapshot()
+                if record.get("event") == "prompt_disclosure"]
+
+
+@pytest.mark.asyncio
+async def test_version_registry_is_not_exposed_by_any_tool(
+        monkeypatch, admin_cache, chat_store):
+    """Полный реестр версий недоступен: только effective/factory ревизия."""
+    chat_store.root = {"overrides": {TEST_KEY: "АКТИВНАЯ ПРАВКА 999"}}
+    outcome = await _prepare(
+        admin_cache, chat_store,
+        _request(requested_revision="specific", revision="act:000000000000"),
+        bot=_admin_bot())
+    assert outcome.status == readback.STATUS_REVISION_UNAVAILABLE
+    assert "version_history_not_exposed" in outcome.machine
+    assert outcome.messages == ()
+    assert set(outcome.metadata) & {"versions", "history", "revisions"} == set()
+    # Единственный инструмент с промпт-данными — prompt_readback.
+    prompt_tools = sorted(name for name, capability in
+                          diag.TOOL_CAPABILITIES.items()
+                          if capability == "prompts")
+    assert prompt_tools == [readback.TOOL_NAME]
+    # В каталоге probes нет источника реестра версий.
+    owner_cache = FakeCache({OWNER_ID: "global_admin"})
+    catalog = json.loads(await _inspect({}, cache=owner_cache,
+                                        monkeypatch=monkeypatch))
+    assert not [item for item in catalog.get("probes", [])
+                if "version" in str(item.get("probe") or "").lower()]
