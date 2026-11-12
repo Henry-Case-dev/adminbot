@@ -134,6 +134,10 @@ class ParamSpec:
     migration_class: str = ""
     migration_consumer: str = ""
     migration_ui: str = ""
+    # SELF-DIAG-01 D4-B: канонический repo identity — глобальная настройка.
+    # Категория flags исторически per-chat; этот флаг запрещает чатовый
+    # override (POST chat-scope → 422), не меняя категорию/группу/вкладку.
+    global_only: bool = False
 
     @property
     def pg_key(self) -> str:
@@ -150,8 +154,11 @@ class ParamSpec:
         per_chat = (category ∈ {prompts, limits, flags, reactions, content,
         memory}) and (secret == False). models.* и keys.* — строго
         глобальные (маршрутизация/секреты; BYOK даёт пер-чат только ключ,
-        не модель).
+        не модель). ``global_only`` — точечное исключение для канонических
+        process-wide настроек внутри per-chat категории.
         """
+        if self.global_only:
+            return False
         return (self.category in _PER_CHAT_CATEGORIES) and not self.secret
 
     @property
@@ -3980,6 +3987,21 @@ def _build_registry() -> dict[str, ParamSpec]:
     # фактчека (группа flags_factcheck_delivery, вкладка mod_factcheck).
     for spec in _FACTCHECK_DELIVERY:
         add(spec)
+    # SELF-DIAG-01 / D4-B (contract §2.4): канонический repo identity —
+    # глобальная owner-настройка (не секрет). Значение нормализуется до
+    # owner/name, userinfo/токены вырезаются; чатовый override запрещён
+    # (global_only; repo identity один на процесс). Заводской default —
+    # DEFAULT_REPO_ORIGIN в services/deploy_identity.py; PG-only запись не
+    # сидируется, hot.get отдаёт модульный default. REGISTRY 643→644.
+    add(ParamSpec(None, None, CATEGORY_FLAGS,
+                  "Repo identity SELF-DIAG (owner/name)", "str",
+                  secret=False, pg_id="flags.self_diag_repo_origin",
+                  group="flags_service", global_only=True,
+                  description="Канонический репозиторий SELF-DIAG для чтения "
+                              "собственного кода (owner/name). Глобальная "
+                              "настройка владельца; значения отдельных чатов "
+                              "не используются. URL с логином/токеном "
+                              "нормализуется, секреты не сохраняются."))
     return registry
 
 

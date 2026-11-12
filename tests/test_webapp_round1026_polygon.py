@@ -138,7 +138,7 @@ class TestFlagsAndInvariants:
     def test_catalog_invariants(self):
         from services import param_catalog as pc
         # Базовые числа round1026: 467/426/442/100/98/21 — эпик их не меняет.
-        assert len(pc.REGISTRY) == 643
+        assert len(pc.REGISTRY) == 644
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

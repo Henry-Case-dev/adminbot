@@ -270,7 +270,7 @@ def test_blockE_catalog_random_uses_keys():
     # снята) → 581/119/117/22.
     # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS / +2 mapped (группы
     # limits_qnd|limits_qnd_nostalgia на существующих вкладках), TAB_RULES 22.
-    assert len(pc.REGISTRY) == 643
+    assert len(pc.REGISTRY) == 644
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22
@@ -321,7 +321,7 @@ def test_blockE_f8_check_green_and_baselines():
     assert "643" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 643
+    assert fx["counts"]["REGISTRY"] == 644
     assert fx["counts"]["GROUPS"] == 121
     assert fx["counts"]["TAB_BY_GROUP"] == 119
     assert fx["counts"]["TAB_RULES"] == 22

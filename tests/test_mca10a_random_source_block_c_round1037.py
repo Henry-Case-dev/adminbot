@@ -86,7 +86,7 @@ class TestCatalogContract:
         # initiative.trigger_probability), +2 GROUPS (limits_qnd /
         # limits_qnd_nostalgia), +2 mapped (mod_initiative/mod_nostalgia);
         # TAB_RULES 22 без роста (группы — на существующих вкладках).
-        assert len(pc.REGISTRY) == 643
+        assert len(pc.REGISTRY) == 644
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

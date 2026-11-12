@@ -692,7 +692,7 @@ class TestGroups8424:
         # семантического контракта уроков (группа memory_experience) →
         # memory 59.
         assert counts == {"prompts": 28, "models": 74, "keys": 33,
-                          "limits": 269, "flags": 108, "reactions": 39,
+                          "limits": 269, "flags": 109, "reactions": 39,
                           "content": 5, "memory": 59, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

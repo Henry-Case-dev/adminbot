@@ -510,7 +510,7 @@ class TestClassNegatives:
 
 class TestPins:
     def test_counts_and_artifacts(self):
-        assert len(pc.REGISTRY) == 643
+        assert len(pc.REGISTRY) == 644
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
@@ -519,7 +519,8 @@ class TestPins:
         # QND-NONDET (10.11.2026): +32 ключа limits.qnd_*/compat → 638.
         # VMQ-MEM-TIME (10.11.2026): +5 ключей limits.graph_hist_* /
         # limits.graph_mmr_fetch_k_historical → 643.
-        assert len(tsv) - 1 == 643
+        # SELF-DIAG-01 D4-B: +1 flags.self_diag_repo_origin → 644.
+        assert len(tsv) - 1 == 644
         screen_keys = set()
         for line in (ROOT / "plans/docs/screen-map-round1025.md").read_text(
                 encoding="utf-8").splitlines():

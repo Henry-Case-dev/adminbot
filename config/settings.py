@@ -1500,6 +1500,13 @@ class Settings:
         "SOURCE_READ_MAX_FILE_BYTES", 2_000_000, 1_024)
     SOURCE_READ_GITHUB_TOKEN: ClassVar[str] = _env_str(
         "SOURCE_READ_GITHUB_TOKEN", "")
+    # SELF-DIAG-01 / D4-B: корень локального read-only snapshot для чтения
+    # собственного кода (contract §3.1). Пусто (заводское значение) —
+    # локальный провайдер не активирован, поведение = только GitHub.
+    # Это ClassVar (env-only, Δ dataclass.fields = 0), путь хоста наружу
+    # (в payload/трейсы/записи identity) не попадает.
+    SELF_DIAG_LOCAL_REPO_ROOT: ClassVar[str] = _env_str(
+        "SELF_DIAG_LOCAL_REPO_ROOT", "")
     # ── Раунд 10.37 (MCA-11, ADR-1028-13 D2/D7): env-only ClassVar'ы
     # ToolResult-контракта и лимитов исполнения. Δ каталога = 0 (в
     # param_catalog НЕ входят; F8 NOT_APPLICABLE).

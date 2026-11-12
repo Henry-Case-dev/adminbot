@@ -3315,7 +3315,8 @@ class ToolRouter:
         """Указатель источника для reuse (без текста кода — identity/строки)."""
         truncation = payload.get("truncation") or {}
         return {
-            "provider": "github",
+            "provider": str(payload.get("provider") or "github"),
+            "host": str(payload.get("host") or "github.com"),
             "repo": str(payload.get("repo") or ""),
             "ref": str(payload.get("ref") or ""),
             "commit": str(payload.get("commit") or ""),
@@ -3337,6 +3338,11 @@ class ToolRouter:
             "symbol_found": bool(payload.get("symbol_found")),
             "parameter_only": bool(payload.get("parameter_only")),
             "stage": str(payload.get("stage") or ""),
+            # SELF-DIAG-01 D4-B: локальный источник обязан сохранить свою
+            # пометку и в reuse-ответе (не выдавать local_unverified за GitHub).
+            "local_source_verification": str(
+                payload.get("local_source_verification") or ""),
+            "local_source_note": str(payload.get("local_source_note") or ""),
         }
 
     @staticmethod
@@ -3424,7 +3430,12 @@ class ToolRouter:
                     continue
                 return {
                     "status": "ok", "stage": "fetch", "verified": True,
-                    "host": "github.com",
+                    "host": str(pointer.get("host") or "github.com"),
+                    "provider": str(pointer.get("provider") or "github"),
+                    "local_source_verification": str(
+                        pointer.get("local_source_verification") or ""),
+                    "local_source_note": str(
+                        pointer.get("local_source_note") or ""),
                     "repo": str(pointer.get("repo") or ""),
                     "ref": str(pointer.get("ref") or ""),
                     "commit": str(pointer.get("commit") or ""),

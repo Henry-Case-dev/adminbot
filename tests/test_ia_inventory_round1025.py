@@ -60,7 +60,7 @@ class TestCatalogFrozen:
         # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS / +2 mapped
         # (limits_qnd|limits_qnd_nostalgia на существующих вкладках) →
         # 638/121/119/22; BASELINE переиздан вместе с каталогом.
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 643
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 644
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 121
         assert len(pc._TAB_BY_GROUP) == \
             BASELINE["counts"]["_TAB_BY_GROUP"] == 119

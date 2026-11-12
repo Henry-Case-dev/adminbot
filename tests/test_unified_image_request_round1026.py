@@ -890,7 +890,7 @@ class TestBoundsA3:
         # ASAP5 §22 (REQ-ADMIN-TYPES, 27.10.2026): +5 тумблеров «Типы
         # медиа» (flags_vision_media_types; вкладка mod_vision) →
         # 587/121/119. Канон самого A3 не меняется.
-        assert len(pc.REGISTRY) == 643
+        assert len(pc.REGISTRY) == 644
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

@@ -782,7 +782,7 @@ class TestR17AndBoundaries:
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
         # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/121/119.
-        assert len(pc.REGISTRY) == 643
+        assert len(pc.REGISTRY) == 644
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

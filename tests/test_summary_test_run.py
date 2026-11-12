@@ -464,14 +464,14 @@ def test_catalog_zero_delta():
     # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
     # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы
     # (REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103).
-    assert len(pc.REGISTRY) == 643
+    assert len(pc.REGISTRY) == 644
     assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
     # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
     # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →
     # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
     # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 617
+                if s.category is not None]) == 618
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22

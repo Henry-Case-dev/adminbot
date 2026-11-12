@@ -11,7 +11,11 @@ verified fetch → bounded follow-up → evidence contract).
 * транспорт — строго существующий ``services.safe_fetch.SafeFetcher`` (SSRF,
   редиректы, лимиты байтов/времени, R17-маскирование). Второго HTTP-клиента,
   второго набора секретов и второго transport-контура здесь нет;
-* провайдер сейчас ровно один — GitHub. Остальные хостинги честно
+* провайдеры: GitHub (по умолчанию, сторонние репозитории) и
+  ``LocalSnapshotProvider`` (SELF-DIAG-01 / D4-B): read-only чтение
+  собственного checkout только при точном совпадении ``owner/name`` с
+  каноническим ``repo_origin``. Локальный путь не ходит в сеть, не вызывает
+  shell и не исполняет файлы репозитория; остальные хостинги честно
   ``unsupported``/``provider_unconfigured`` (никаких заявлений о поддержке);
 * ``verified=true`` выдаётся ТОЛЬКО по реальным байтам файла, привязанным к
   конкретному commit (инвариант V1): HTTP 200 для точной идентичности
@@ -33,13 +37,17 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import unquote, urlsplit
 
 from config.settings import settings
+from services import hot_config as hot
+from services.deploy_identity import DEFAULT_REPO_ORIGIN, path_is_denied
 from services.safe_fetch import SafeFetchError
 
 logger = logging.getLogger(__name__)
@@ -79,6 +87,13 @@ KIND_OTHER = "other"
 # ── провайдер/эндпоинты (id вызова, НЕ URL с токенами) ──────────────────────
 PROVIDER_GITHUB = "github"
 PROVIDER_NAME = PROVIDER_GITHUB
+#: SELF-DIAG-01 / D4-B: read-only локальный checkout собственного репозитория.
+PROVIDER_LOCAL = "local_snapshot"
+PROVIDERS = frozenset({PROVIDER_GITHUB, PROVIDER_LOCAL})
+#: Канонический repo identity (contract §2.4): значение по умолчанию —
+#: ``DEFAULT_REPO_ORIGIN`` (``Henry-Case-dev/adminbot``); ключ живёт в
+#: существующем bot_settings/hot-слое, меняется только явной настройкой.
+REPO_ORIGIN_SETTING_KEY = "flags.self_diag_repo_origin"
 ENDPOINT_SEARCH = "search.repositories"
 ENDPOINT_REPO = "repos"
 ENDPOINT_COMMITS = "commits"
@@ -86,6 +101,8 @@ ENDPOINT_TREE = "tree"
 ENDPOINT_CONTENTS = "contents"
 ENDPOINT_BLOBS = "blobs"
 ENDPOINT_RAW = "raw"
+#: Локальное чтение: endpoint-идентификатор, не путь хоста (R17-safe).
+ENDPOINT_LOCAL = PROVIDER_LOCAL
 
 API_BASE = "https://api.github.com"
 RAW_BASE = "https://raw.githubusercontent.com"
@@ -108,6 +125,10 @@ ERR_PROVIDER_UNCONFIGURED = "provider_unconfigured"
 ERR_DISABLED = "disabled"
 ERR_INVALID_URL = "invalid_url"
 ERR_UNSUPPORTED_KIND = "unsupported"
+#: SELF-DIAG-01 D4-B: отказ по единому denylist путей (contract §3.3).
+#: Наружу не подтверждает существование файла; телеметрия использует
+#: существующий код ``permission_denied`` (0 новых кодов REASON_CODES).
+ERR_PATH_DENIED = "path_denied"
 #: Пустой файл — это НЕ «файла нет»: отдельная машинная причина.
 ERR_EMPTY_CONTENT = "empty_content"
 
@@ -130,6 +151,9 @@ _REASON_FOR_CODE = {
     # ответа. Значения `capability_not_ready` в `mca_events.REASON_CODES` НЕТ,
     # поэтому оно здесь не используется (0 новых кодов).
     ERR_UNSUPPORTED_KIND: "parse_error",
+    # Denied-path — отказ политики, а не «файла нет»; существующий код
+    # словаря `permission_denied` (новых telemetry-кодов не вводится).
+    ERR_PATH_DENIED: "permission_denied",
 }
 
 # ── предохранители (потолки — контракт §4) ──────────────────────────────────
@@ -148,6 +172,15 @@ _MAX_REF_CANDIDATES = 4
 _MAX_CANDIDATES = 3
 #: Сколько путей-кандидатов отбирает локатор (§3: ≤3).
 _MAX_LOCATOR_PATHS = 3
+#: Локальная карта: предохранитель обхода (не квота инструкций/чтения).
+_LOCAL_TREE_MAX_ENTRIES = 20_000
+#: Каталоги инструментов/зависимостей: в git-дереве репозитория их нет, а
+#: на диске checkout они могут содержать десятки тысяч файлов. Обход карты
+#: их пропускает; явное чтение конкретного файла этим списком не ограничено.
+_LOCAL_TREE_SKIP_DIRS = frozenset({
+    "__pycache__", "node_modules", ".venv", "venv", ".pytest_cache",
+    ".mypy_cache", ".ruff_cache", ".cache", "build", "dist",
+})
 
 
 # ── env-only конфигурация (прецедент `ARTICLE_TOOL_ENABLED`) ────────────────
@@ -197,6 +230,92 @@ def github_token() -> str:
         return str(getattr(settings, "SOURCE_READ_GITHUB_TOKEN", "") or "").strip()
     except Exception:      # pragma: no cover - защитная ветка
         return ""
+
+
+# ── SELF-DIAG-01 / D4-B: repo identity и локальный snapshot ─────────────────
+
+def local_snapshot_root() -> str:
+    """Корень локального snapshot (env-only ``SELF_DIAG_LOCAL_REPO_ROOT``).
+
+    Пусто (заводское значение) = локальный провайдер не активирован:
+    поведение ``read_source_code`` остаётся ровно прежним (GitHub).
+    """
+    try:
+        return str(getattr(settings, "SELF_DIAG_LOCAL_REPO_ROOT", "") or "").strip()
+    except Exception:      # pragma: no cover - защитная ветка
+        return ""
+
+
+def normalize_repo_origin(value: Any) -> str | None:
+    """URL/спека → канонический ``owner/name`` без схемы и userinfo.
+
+    Принимает ``owner/name``, ``https://user:token@host/owner/name.git``,
+    ``git@host:owner/name.git``. Credentials/схема/host отбрасываются;
+    невалидная форма → ``None``. Значение никогда не содержит секретов.
+    """
+    text = str(value or "").strip().strip('"').strip("'")
+    if not text:
+        return None
+    if "://" in text:
+        try:
+            parts = urlsplit(text)
+        except ValueError:
+            return None
+        if parts.scheme.lower() not in ("http", "https", "ssh", "git"):
+            return None
+        if not parts.hostname:
+            return None
+        path = unquote(parts.path)
+    elif ":" in text and "@" in text.split(":", 1)[0]:
+        # scp-подобный remote: git@github.com:owner/name.git
+        path = text.split(":", 1)[1]
+    else:
+        path = text
+    path = path.replace("\\", "/").strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    segments = [part for part in path.split("/") if part]
+    if len(segments) != 2:
+        return None
+    owner, name = segments
+    if any(part in (".", "..") for part in (owner, name)):
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", owner):
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+        return None
+    return f"{owner}/{name}"
+
+
+#: Последнее наблюдённое эффективное значение — только для события смены.
+#: Нормализованный non-secret идентификатор; никакого кэша identity.
+_REPO_ORIGIN_LAST: str | None = None
+
+
+def configured_repo_origin() -> str:
+    """Канонический repo identity из hot-слоя; default — §2.4.
+
+    Смена разрешена только явной owner-настройкой (param_catalog/hot).
+    Событие ``self_diag.repo_identity_changed`` фиксируется при первом
+    наблюдении нового значения (old/new); actor пишется существующей строкой
+    ``[api] config updated | key=... | by=...`` на записи настройки.
+    """
+    global _REPO_ORIGIN_LAST
+    try:
+        raw = hot.get(REPO_ORIGIN_SETTING_KEY, DEFAULT_REPO_ORIGIN)
+    except Exception:      # pragma: no cover - hot-слой не рвёт чтение
+        raw = DEFAULT_REPO_ORIGIN
+    origin = normalize_repo_origin(raw)
+    if origin is None:
+        if str(raw or "").strip():
+            logger.warning("[self_diag] repo_origin invalid | using default")
+        origin = DEFAULT_REPO_ORIGIN
+    previous = _REPO_ORIGIN_LAST
+    if previous is not None and previous != origin:
+        logger.info("[self_diag] repo_identity_changed | old=%s | new=%s "
+                    "| by=config", previous, origin)
+    _REPO_ORIGIN_LAST = origin
+    return origin
 
 
 # ── отказ провайдера (структурный, без свободного текста наружу) ─────────────
@@ -784,6 +903,297 @@ class GitHubProvider:
                           endpoint=ENDPOINT_RAW)
 
 
+class LocalSnapshotProvider:
+    """Read-only локальный checkout (SELF-DIAG-01 / D4-B, contract §3.1–§3.4).
+
+    Реализует существующий ``Protocol SourceProvider``. Ограничения:
+
+    * читаются только байты внутри ``repo_root`` после ``realpath``;
+      ``..``/абсолютные пути/симлинки наружу → ``path_denied``;
+    * единый denylist ``deploy_identity.path_is_denied`` применяется к
+      каждому чтению/листингу (секреты, бэкапы, ``.git``, ``deploy_*.py``);
+    * чтение commit-pinned: отдаётся только текущий ``HEAD`` checkout;
+      другой commit/ref → честный отказ, без угадывания;
+    * никакой сети/shell/``import``/``exec`` файлов репозитория; байты
+      уходят в существующий конвейер ``decode_source_bytes``/``build_snippet``;
+    * наружу не попадают абсолютные пути хоста: только repo-relative пути.
+    """
+
+    name = PROVIDER_LOCAL
+
+    def __init__(self, repo_root, *, repo_origin=None, identity_reader=None,
+                 max_bytes: int | None = None) -> None:
+        raw_root = str(repo_root or "").strip()
+        self._root = Path(raw_root) if raw_root else None
+        self._explicit_origin = (normalize_repo_origin(repo_origin)
+                                 if repo_origin else "")
+        self._identity_reader = identity_reader
+        self._max_bytes = int(max_bytes or max_file_bytes())
+        #: Локальный провайдер не делает сетевых вызовов (наблюдаемость).
+        self.network_calls = 0
+        self.last_endpoint = ENDPOINT_LOCAL
+        self.uses_auth = False
+
+    # -- конфигурация/идентичность --------------------------------------
+    def expected_origin(self) -> str:
+        return self._explicit_origin or configured_repo_origin()
+
+    def _matches(self, owner: str, repo: str) -> bool:
+        origin = self.expected_origin()
+        if not origin or not owner or not repo:
+            return False
+        return f"{owner}/{repo}".casefold() == origin.casefold()
+
+    def _matches_full(self, repo: str) -> bool:
+        origin = self.expected_origin()
+        if not origin or not str(repo or "").strip():
+            return False
+        return str(repo).strip().casefold() == origin.casefold()
+
+    def _root_dir(self) -> Path | None:
+        if self._root is None:
+            return None
+        try:
+            resolved = self._root.resolve(strict=True)
+        except (OSError, RuntimeError):
+            return None
+        return resolved if resolved.is_dir() else None
+
+    def verification(self) -> dict:
+        """Сжатый срез identity (§2.2) — только несекретные поля.
+
+        Никогда не бросает: ``unknown``/``unavailable`` вместо исключения.
+        """
+        root = self._root_dir()
+        if root is None:
+            return {"code": "unavailable", "reason": "root_missing",
+                    "checkout_sha": None, "dirty": None, "branch": None,
+                    "local_source_verification": "unknown"}
+        reader = self._identity_reader or _default_identity_reader
+        try:
+            record = reader(root)
+        except Exception:
+            record = None
+        if not isinstance(record, dict):
+            return {"code": "unavailable", "reason": "internal_error",
+                    "checkout_sha": None, "dirty": None, "branch": None,
+                    "local_source_verification": "unknown"}
+        local_identity = record.get("local_identity")
+        if not isinstance(local_identity, dict):
+            local_identity = {}
+        dirty = record.get("dirty")
+        return {
+            "code": str(record.get("code") or "unknown"),
+            "reason": str(record.get("reason") or ""),
+            "checkout_sha": record.get("checkout_sha"),
+            "dirty": dirty if isinstance(dirty, bool) else None,
+            "branch": str(local_identity.get("branch") or "") or None,
+            "local_source_verification": str(
+                record.get("local_source_verification") or "unknown"),
+        }
+
+    def _head(self) -> tuple[str, dict]:
+        record = self.verification()
+        sha = str(record.get("checkout_sha") or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+            return "", record
+        return sha, record
+
+    # -- SourceProvider -------------------------------------------------
+    async def search_repos(self, query: str, *,
+                           limit: int = 5) -> list[RepoInfo]:
+        """Локальный поиск ограничен одним репозиторием (без сети)."""
+        text = str(query or "").strip()
+        origin = self.expected_origin()
+        if not text or not origin or self._root_dir() is None:
+            return []
+        haystack = origin.casefold()
+        tokens = [token for token in
+                  re.split(r"[^A-Za-z0-9_.-]+", text.casefold())
+                  if len(token) >= 3]
+        if text.casefold() not in haystack and not any(
+                token in haystack for token in tokens):
+            return []
+        owner, _, name = origin.partition("/")
+        cap = max(1, min(int(limit or 5), 3))
+        return [RepoInfo(owner=owner, name=name,
+                         default_branch="HEAD")][:cap]
+
+    async def resolve_repo(self, owner: str, repo: str) -> RepoInfo | None:
+        if not self._matches(owner, repo):
+            return None
+        if self._root_dir() is None:
+            return None
+        record = self.verification()
+        branch = str(record.get("branch") or "") or "HEAD"
+        return RepoInfo(owner=owner, name=repo, default_branch=branch)
+
+    async def resolve_commit(self, repo: str, ref: str) -> str | None:
+        if not self._matches_full(repo):
+            return None
+        head, record = self._head()
+        if not head:
+            return None
+        text = str(ref or "").strip()
+        if not text:
+            return head
+        lowered = text.lower()
+        if re.fullmatch(r"[0-9a-f]{40}", lowered):
+            return lowered if lowered == head else None
+        branch = str(record.get("branch") or "")
+        accepted = {"HEAD", "head"}
+        if branch:
+            accepted |= {branch, f"refs/heads/{branch}", f"origin/{branch}",
+                         f"refs/remotes/origin/{branch}"}
+        return head if text in accepted else None
+
+    async def list_tree(self, repo: str, commit: str) -> TreeListing | None:
+        if not self._matches_full(repo):
+            return None
+        head, _record = self._head()
+        if not head or str(commit or "").strip().lower() != head:
+            return None
+        root = self._root_dir()
+        if root is None:
+            return None
+        entries: list[TreeEntry] = []
+        truncated = False
+        for current, dirnames, filenames in os.walk(root, followlinks=False):
+            current_path = Path(current)
+            try:
+                rel_dir = current_path.relative_to(root).as_posix()
+            except ValueError:      # pragma: no cover - защитная ветка
+                continue
+            if rel_dir == ".":
+                rel_dir = ""
+            keep: list[str] = []
+            for name in sorted(dirnames):
+                rel = f"{rel_dir}/{name}" if rel_dir else name
+                if name in _LOCAL_TREE_SKIP_DIRS or path_is_denied(rel):
+                    continue
+                if (current_path / name).is_symlink():
+                    continue
+                keep.append(name)
+            dirnames[:] = keep
+            for name in sorted(filenames):
+                rel = f"{rel_dir}/{name}" if rel_dir else name
+                if path_is_denied(rel):
+                    continue
+                item = current_path / name
+                if item.is_symlink():
+                    continue
+                try:
+                    if not item.is_file():
+                        continue
+                    size = int(item.stat().st_size)
+                except OSError:      # pragma: no cover - гонка/права
+                    continue
+                entries.append(TreeEntry(path=rel, kind="blob", sha="",
+                                         size=size))
+                if len(entries) >= _LOCAL_TREE_MAX_ENTRIES:
+                    truncated = True
+                    break
+            if truncated:
+                break
+        entries.sort(key=lambda entry: entry.path)
+        return TreeListing(entries=entries, truncated=truncated)
+
+    async def read_file(self, repo: str, commit: str, path: str,
+                        *, blob_sha: str = "") -> SourceFile | None:
+        if not repo or not commit or not path:
+            return None
+        if not self._matches_full(repo):
+            return None
+        raw_rel = str(path).replace("\\", "/").strip()
+        if not raw_rel or path_is_denied(raw_rel):
+            # Отказ не подтверждает существование файла (§3.3).
+            raise SourceFetchError(ERR_PATH_DENIED, STAGE_FETCH,
+                                   detail="path_denied")
+        if any(":" in part for part in raw_rel.split("/")):
+            # Windows alternate data stream / drive-relative форма: это не
+            # repo-relative путь, наружу не разворачивается.
+            raise SourceFetchError(ERR_PATH_DENIED, STAGE_FETCH,
+                                   detail="path_denied")
+        root = self._root_dir()
+        if root is None:
+            raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
+                                   retryable=False, detail="root_missing")
+        head, _record = self._head()
+        if not head:
+            raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
+                                   retryable=False, detail="no_git")
+        wanted = str(commit or "").strip().lower()
+        if wanted != head:
+            # Рабочий checkout отдаёт только собственный HEAD: другой commit
+            # локально не является commit-pinned чтением.
+            raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
+                                   retryable=False,
+                                   detail="commit_not_available")
+        rel = "/".join(part for part in raw_rel.split("/")
+                       if part not in ("", "."))
+        target = _local_target(root, rel)
+        if target is None:
+            raise SourceFetchError(ERR_PATH_DENIED, STAGE_FETCH,
+                                   detail="path_denied")
+        try:
+            if not target.exists():
+                return None
+            if not target.is_file():
+                raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
+                                       detail="path_is_directory")
+            size = int(target.stat().st_size)
+            if size > self._max_bytes:
+                raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
+                                       detail="file_too_large")
+            with target.open("rb") as handle:
+                data = handle.read(self._max_bytes + 1)
+        except SourceFetchError:
+            raise
+        except OSError as exc:
+            raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
+                                   retryable=False,
+                                   detail="read_error") from exc
+        if len(data) > self._max_bytes:
+            raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
+                                   detail="file_too_large")
+        return SourceFile(path=rel, data=data, sha="", size=len(data),
+                          endpoint=ENDPOINT_LOCAL)
+
+
+def _default_identity_reader(repo_root):
+    """Единственный парсер identity (D4-A), без второго чтения ``.git``."""
+    from services import deploy_identity
+    return deploy_identity.collect_identity(repo_root)
+
+
+def _local_target(root: Path, rel: str) -> Path | None:
+    """Repo-relative путь → путь внутри ``root`` (или None = path_denied)."""
+    parts = [part for part in str(rel or "").split("/")
+             if part not in ("", ".")]
+    if not parts or any(part == ".." for part in parts):
+        return None
+    candidate = root.joinpath(*parts)
+    if candidate.is_symlink():
+        return None
+    try:
+        resolved = candidate.resolve(strict=False)
+    except (OSError, RuntimeError):
+        return None
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return None
+    return resolved
+
+
+def build_local_provider(*, repo_origin=None) -> LocalSnapshotProvider | None:
+    """Сконфигурированный локальный провайдер; пусто = выключен (GitHub)."""
+    root = local_snapshot_root()
+    if not root:
+        return None
+    return LocalSnapshotProvider(root, repo_origin=repo_origin)
+
+
 def _repo_from_api(payload) -> RepoInfo | None:
     """Ответ API → RepoInfo (только реальные поля ответа)."""
     if not isinstance(payload, dict):
@@ -1120,10 +1530,17 @@ class SourceReader:
     поисковый каскад (``ToolDeps.search``) для discovery по описанию; None →
     discovery идёт только через API репозиториев."""
 
-    def __init__(self, *, fetcher=None, provider=None, search=None) -> None:
+    def __init__(self, *, fetcher=None, provider=None, search=None,
+                 local_provider=None, repo_origin=None) -> None:
         self._fetcher = fetcher
         self._provider = provider
         self._search = search
+        self._repo_origin = (normalize_repo_origin(repo_origin)
+                             if repo_origin else "")
+        if local_provider is None and local_snapshot_root():
+            local_provider = build_local_provider(
+                repo_origin=self._repo_origin or None)
+        self._local_provider = local_provider
 
     # -- провайдер/счётчики ---------------------------------------------
     @property
@@ -1131,6 +1548,22 @@ class SourceReader:
         if self._provider is None:
             self._provider = GitHubProvider(self._fetcher, token=github_token())
         return self._provider
+
+    def _provider_for(self, repo: str) -> SourceProvider:
+        """Маршрут по §3.1: local — только точное совпадение с repo_origin."""
+        local = self._local_provider
+        if local is None:
+            return self.provider
+        origin = self._repo_origin or configured_repo_origin()
+        text = str(repo or "").strip()
+        if text and origin and text.casefold() == origin.casefold():
+            return local
+        return self.provider
+
+    def _provider_name(self, state: "_RunState") -> str:
+        provider = state.provider or self.provider
+        name = str(getattr(provider, "name", "") or "")
+        return name if name in PROVIDERS else PROVIDER_GITHUB
 
     def _network_calls(self) -> int:
         return int(getattr(self.provider, "network_calls", 0) or 0)
@@ -1209,15 +1642,18 @@ class SourceReader:
         state.line_end = line_end if line_end else (
             parsed.line_end if parsed is not None else None)
         state.stage = STAGE_DISCOVER
-        info, stop = await self._discover(
+        info, stop, provider = await self._discover(
             state, parsed=parsed, repo=repo, query=query,
             language=language, context_query=context_query)
         if stop is not None:
             return stop
+        state.provider = provider or self.provider
         state.repo = info.full_name
         # Приватный доступ (авторизация использована) → reuse только внутри чата
         # (§3.3: публичный документ можно, приватный контекст — нет).
-        state.repo_scope = "chat" if self.uses_auth else "public"
+        state.repo_scope = ("chat"
+                            if bool(getattr(state.provider, "uses_auth", False))
+                            else "public")
         ref_hint = str(ref or "").strip() or (parsed.ref if parsed else "")
         path_hint = str(path or "").strip() or (parsed.path if parsed else "")
         state.requested_ref = ref_hint
@@ -1275,7 +1711,11 @@ class SourceReader:
     # -- discovery -------------------------------------------------------
     async def _discover(self, state: "_RunState", *, parsed, repo, query,
                         language, context_query):
-        """Определить репозиторий: ссылка → 0 поисковых вызовов, иначе API."""
+        """Определить репозиторий: ссылка → 0 поисковых вызовов, иначе API.
+
+        Возвращает ``(RepoInfo, stop_payload|None, provider|None)``: provider
+        выбирается по точному repo identity (§3.1), а не по эвристике.
+        """
         owner = parsed.owner if parsed is not None else ""
         name = parsed.repo if parsed is not None else ""
         if not owner or not name:
@@ -1283,14 +1723,16 @@ class SourceReader:
             if spec is not None:
                 owner, name = spec
         if owner and name:
-            info = await self.provider.resolve_repo(owner, name)
+            provider = self._provider_for(f"{owner}/{name}")
+            state.provider = provider
+            info = await provider.resolve_repo(owner, name)
             if info is None:
                 raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_DISCOVER,
                                        http=404, detail="repo_not_found")
             _emit_stage(STAGE_DISCOVER, "success",
                         extra={"network_calls": self._network_calls(),
                                "repo_present": True})
-            return (info, None)
+            return (info, None, provider)
         text = str(query or context_query or "").strip()
         if not text:
             raise SourceFetchError(ERR_INVALID_URL, STAGE_DISCOVER,
@@ -1310,11 +1752,12 @@ class SourceReader:
                         extra={"network_calls": self._network_calls(),
                                "verified": False})
             return (None, self._ambiguous_payload(state, top, runner_up,
-                                                  candidates))
+                                                  candidates), None)
+        provider = self._provider_for(top["repo"].full_name)
         _emit_stage(STAGE_DISCOVER, "success",
                     extra={"network_calls": self._network_calls(),
                            "repo_present": True, "verified": False})
-        return (top["repo"], None)
+        return (top["repo"], None, provider)
 
     def _ambiguous_payload(self, state: "_RunState", top: dict,
                            runner_up: dict, candidates: list) -> dict:
@@ -1406,6 +1849,7 @@ class SourceReader:
         Кандидаты «самый длинный ref первым» проверяются ТОЛЬКО реальным
         чтением байт: первый успех = истина, остальные не выполняются (§2)."""
         repo = info.full_name
+        provider = state.provider or self.provider
         if not path_hint and (parsed is None or not parsed.ref_path_candidates):
             commit = await self._commit_for(state, info, ref_hint)
             return (ref_hint, commit, "", None)
@@ -1439,7 +1883,7 @@ class SourceReader:
                 state.not_checked_reason = "budget"
                 return None
             try:
-                source_file = await self.provider.read_file(
+                source_file = await provider.read_file(
                     repo, commit, path_candidate)
             except SourceFetchError as exc:
                 if exc.code == ERR_UNSUPPORTED_KIND:
@@ -1468,6 +1912,7 @@ class SourceReader:
 
     async def _commit_for(self, state: "_RunState", info, ref: str) -> str:
         """ref/branch/tag/commit → 40-hex commit (провенанс чтения)."""
+        provider = state.provider or self.provider
         raw_ref = str(ref or "").strip()
         if re.fullmatch(r"[0-9a-fA-F]{40}", raw_ref or ""):
             return raw_ref.lower()
@@ -1479,7 +1924,7 @@ class SourceReader:
             state.not_checked_reason = "budget"
             raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
                                    retryable=True, detail="request_budget")
-        commit = await self.provider.resolve_commit(info.full_name, wanted)
+        commit = await state.provider.resolve_commit(info.full_name, wanted)
         if not commit:
             raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_FETCH, http=404,
                                    detail="ref_not_found")
@@ -1519,8 +1964,8 @@ class SourceReader:
                                    detail="path_required")
         source_file = prefetched
         if source_file is None:
-            source_file = await self.provider.read_file(info.full_name, commit,
-                                                        path_used)
+            source_file = await state.provider.read_file(info.full_name, commit,
+                                                         path_used)
         if source_file is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
@@ -1558,7 +2003,7 @@ class SourceReader:
                               query: str) -> dict:
         commit = await self._commit_for(state, info, ref_hint)
         state.stage = STAGE_LOCATOR
-        listing = await self.provider.list_tree(info.full_name, commit)
+        listing = await state.provider.list_tree(info.full_name, commit)
         if listing is None:
             return self._payload(state, STATUS_NOT_FOUND,
                                  repo=info.full_name, commit=commit,
@@ -1584,7 +2029,7 @@ class SourceReader:
                 state.not_checked_reason = "budget"
                 break
             try:
-                source_file = await self.provider.read_file(
+                source_file = await state.provider.read_file(
                     info.full_name, commit, entry.path, blob_sha=entry.sha)
             except SourceFetchError as exc:
                 if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND):
@@ -1667,7 +2112,7 @@ class SourceReader:
         # основного файла: цепочка просто помечается неполной (честный
         # not_checked), а не превращается в ошибку инструмента.
         try:
-            listing = await self.provider.list_tree(info.full_name, commit)
+            listing = await state.provider.list_tree(info.full_name, commit)
         except SourceFetchError:
             listing = None
         if listing is None:
@@ -1693,7 +2138,7 @@ class SourceReader:
                 untried.append(entry.path)
                 continue
             try:
-                source_file = await self.provider.read_file(
+                source_file = await state.provider.read_file(
                     info.full_name, commit, entry.path, blob_sha=entry.sha)
             except SourceFetchError as exc:
                 if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND):
@@ -1769,8 +2214,22 @@ class SourceReader:
         # V1.3: `snippet` — ТОЧНАЯ подстрока декодированного текста.
         exact = bool(window.text) and window.text in text
         parameter_only = bool(symbol) and is_parameter_only(lines, symbol)
+        provider_name = self._provider_name(state)
+        local = self._local_verification(state)
         verified = bool(exact and kind == KIND_FILE and bool(lines))
+        if provider_name == PROVIDER_LOCAL:
+            # Локальный checkout подтверждает байты только при чистом HEAD:
+            # при dirty=true/неизвестном состоянии это не commit-pinned байты.
+            verified = bool(verified and _local_bytes_verified(local, commit))
         state.last_lines = lines
+        if verified and provider_name == PROVIDER_LOCAL:
+            verified_url = _local_verified_url(info.full_name, commit, path,
+                                               window.line_range)
+        elif verified:
+            verified_url = _verified_url(info.full_name, commit, path,
+                                         window.line_range)
+        else:
+            verified_url = ""
         payload = self._payload(
             state, STATUS_OK,
             verified=verified,
@@ -1778,9 +2237,7 @@ class SourceReader:
             commit=commit,
             path=path,
             source_kind=kind,
-            verified_url=(_verified_url(info.full_name, commit, path,
-                                        window.line_range)
-                          if verified else ""),
+            verified_url=verified_url,
             line_range=[int(window.line_range[0]), int(window.line_range[1])],
             snippet=window.text,
             snippet_chars=int(window.used_chars),
@@ -1799,13 +2256,15 @@ class SourceReader:
             },
             read_level=_read_level(window, len(lines)))
         payload["provenance"].update({
-            "provider": PROVIDER_GITHUB,
+            "provider": provider_name,
             "endpoint": source_file.endpoint or ENDPOINT_CONTENTS,
             "fetched_at": int(time.time()),
             "bytes": len(source_file.data),
             "sha256": hashlib.sha256(source_file.data).hexdigest(),
             "read_level": payload["read_level"],
         })
+        if provider_name == PROVIDER_LOCAL:
+            _apply_local_provenance(payload, local)
         payload["source_id"] = _source_id(info.full_name, commit, path)
         _emit_stage(stage, "success",
                     extra={"verified": verified,
@@ -1833,8 +2292,10 @@ class SourceReader:
                          else _kind_for_path(path)),
             reason=reason,
             read_level="fetched")
+        provider_name = self._provider_name(state)
+        local = self._local_verification(state)
         payload["provenance"].update({
-            "provider": PROVIDER_GITHUB,
+            "provider": provider_name,
             "endpoint": source_file.endpoint if source_file is not None
             else "",
             "fetched_at": int(time.time()),
@@ -1843,6 +2304,8 @@ class SourceReader:
                        if source_file is not None else ""),
             "read_level": "fetched",
         })
+        if provider_name == PROVIDER_LOCAL:
+            _apply_local_provenance(payload, local)
         payload["source_id"] = _source_id(info.full_name, commit, path)
         _emit_stage(stage, "skipped",
                     reason_code=_REASON_FOR_CODE[ERR_UNSUPPORTED_KIND],
@@ -1853,11 +2316,15 @@ class SourceReader:
 
     def _payload(self, state: "_RunState", status: str, **overrides) -> dict:
         """Базовая форма Evidence Contract §1.1 (все ключи всегда присутствуют)."""
+        provider_name = self._provider_name(state)
+        host = "github.com" if provider_name == PROVIDER_GITHUB \
+            else PROVIDER_LOCAL
         payload: dict = {
             "status": status,
             "stage": state.stage,
             "verified": False,
-            "host": "github.com",
+            "host": host,
+            "provider": provider_name,
             "repo": state.repo,
             "ref": state.requested_ref,
             "commit": "",
@@ -1892,7 +2359,7 @@ class SourceReader:
             "network_calls": self._network_calls(),
             "latency_ms": 0,
             "provenance": {
-                "provider": PROVIDER_GITHUB,
+                "provider": provider_name,
                 "endpoint": "",
                 "fetched_at": 0,
                 "bytes": 0,
@@ -1904,6 +2371,20 @@ class SourceReader:
         payload.update({key: value for key, value in overrides.items()
                         if value is not None})
         return payload
+
+    def _local_verification(self, state: "_RunState") -> dict:
+        """Срез identity локального snapshot (один раз на вызов, §3.1/§3.4)."""
+        if state.provider is None or \
+                getattr(state.provider, "name", "") != PROVIDER_LOCAL:
+            return {}
+        if state.local_identity is None:
+            reader = getattr(state.provider, "verification", None)
+            try:
+                record = reader() if callable(reader) else {}
+            except Exception:      # pragma: no cover - identity не рвёт чтение
+                record = {}
+            state.local_identity = record if isinstance(record, dict) else {}
+        return state.local_identity
 
     def _error_payload(self, state: "_RunState",
                        exc: SourceFetchError) -> dict:
@@ -1934,6 +2415,8 @@ class _RunState:
     stage: str = STAGE_DISCOVER
     repo: str = ""
     repo_scope: str = "public"
+    provider: Any = None
+    local_identity: dict | None = None
     requested_ref: str = ""
     line_start: int | None = None
     line_end: int | None = None
@@ -2081,6 +2564,62 @@ def _read_level(window: SnippetWindow, total_lines: int) -> str:
     return "selected"
 
 
+def _local_bytes_verified(local: dict, commit: str) -> bool:
+    """Локальные байты commit-pinned: чистый checkout того же коммита."""
+    if not isinstance(local, dict) or not local:
+        return False
+    if local.get("dirty") is not False:
+        return False
+    return str(local.get("checkout_sha") or "") == str(commit or "")
+
+
+def _local_source_note(local: dict) -> str:
+    """Человекочитаемая пометка источника (§3.4), без путей хоста."""
+    verification = str(local.get("local_source_verification") or "unknown")
+    sha = str(local.get("checkout_sha") or "")
+    dirty = local.get("dirty")
+    prefix = f"локальная копия {sha}" if sha else "локальная копия"
+    if verification == "verified_deployed":
+        return f"{prefix}: подтверждённая ревизия"
+    if dirty is True:
+        return (f"{prefix}: рабочее дерево изменено; тождество исполняемой "
+                "ревизии не подтверждено")
+    if dirty is False:
+        return f"{prefix}: тождество исполняемой ревизии не подтверждено"
+    return (f"{prefix}: состояние рабочего дерева не определено; тождество "
+            "исполняемой ревизии не подтверждено")
+
+
+def _apply_local_provenance(payload: dict, local: dict) -> None:
+    """Аддитивные поля локального источника (payload + provenance)."""
+    verification = str(local.get("local_source_verification") or "unknown")
+    payload["local_source_verification"] = verification
+    payload["local_source_note"] = _local_source_note(local)
+    payload["provenance"].update({
+        "local_source_verification": verification,
+        "checkout_sha": local.get("checkout_sha"),
+        "dirty": local.get("dirty"),
+    })
+
+
+def _local_verified_url(repo: str, commit: str, path: str,
+                        line_range) -> str:
+    """Repo-relative commit-pinned ссылка локального чтения (§3.2).
+
+    Форма контракта: ``repo://adminbot@<sha>/services/x.py#L10-L20`` — имя
+    репозитория без owner (owner остаётся в поле ``repo``), без путей хоста.
+    """
+    if not repo or not commit or not path:
+        return ""
+    name = str(repo).rstrip("/").rsplit("/", 1)[-1]
+    base = f"repo://{name}@{commit}/{path}"
+    try:
+        start, end = int(line_range[0]), int(line_range[1])
+    except (TypeError, ValueError, IndexError):
+        return base
+    return f"{base}#L{start}-L{end}" if start > 0 and end >= start else base
+
+
 def _verified_url(repo: str, commit: str, path: str, line_range) -> str:
     """Commit-pinned ссылка (никогда не изменяемая ветка) — V1.4."""
     if not repo or not commit or not path:
@@ -2101,13 +2640,17 @@ def _source_id(repo: str, commit: str, path: str) -> str:
 __all__ = [
     "STATUSES", "STAGES", "OPERATIONS", "SUPPORTED_HOSTS",
     "STATUS_OK", "STATUS_AMBIGUOUS", "STATUS_NOT_FOUND", "STATUS_UNSUPPORTED",
-    "STATUS_ERROR", "PROVIDER_GITHUB", "SourceFetchError", "RepoInfo",
-    "TreeEntry", "TreeListing", "SourceFile", "ParsedSourceUrl",
-    "SourceProvider", "GitHubProvider", "SourceReader", "parse_source_url",
-    "parse_repo_spec", "rank_paths", "rank_sibling_paths", "build_snippet",
-    "sibling_identifiers", "is_parameter_only", "locate_symbol_line",
-    "language_for_path", "decode_file_text", "split_lines",
-    "source_read_enabled", "max_files", "max_depth", "max_requests",
-    "max_file_bytes", "github_token", "decode_source_bytes", "DecodedSource",
-    "line_spans", "strip_line_ending", "ERR_EMPTY_CONTENT",
+    "STATUS_ERROR", "PROVIDER_GITHUB", "PROVIDER_LOCAL", "PROVIDERS",
+    "REPO_ORIGIN_SETTING_KEY", "DEFAULT_REPO_ORIGIN", "SourceFetchError",
+    "RepoInfo", "TreeEntry", "TreeListing", "SourceFile", "ParsedSourceUrl",
+    "SourceProvider", "GitHubProvider", "LocalSnapshotProvider",
+    "SourceReader", "parse_source_url", "parse_repo_spec", "rank_paths",
+    "rank_sibling_paths", "build_snippet", "sibling_identifiers",
+    "is_parameter_only", "locate_symbol_line", "language_for_path",
+    "decode_file_text", "split_lines", "source_read_enabled", "max_files",
+    "max_depth", "max_requests", "max_file_bytes", "github_token",
+    "decode_source_bytes", "DecodedSource", "local_snapshot_root",
+    "normalize_repo_origin", "configured_repo_origin",
+    "build_local_provider", "line_spans", "strip_line_ending",
+    "ERR_EMPTY_CONTENT", "ERR_PATH_DENIED",
 ]
