@@ -5,8 +5,8 @@ Task source: root prompt + plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-co
 Status: in_progress
 Primary phase: review
 Active feature: p0-init-meme-ux-diag
-Active lanes: ses_e334070f6ffe0gz57onBbpoNd9 (Builder: adding UI and post-release coverage to the accepted matrix)
-Join barriers: two live acceptance checks and the S5-MEME live half wait on real events - a paid image reaching the `publisher_not_bound` branch, a delivered row carrying the message id, and a natural manual `/meme`. The last autonomous tick ended at `no_random_hit`, so no paid image was produced and the branch could not fire; this is an external wait with an agent trigger, not an owner task.
+Active lanes: ses_e327c711effe0nqu5O3uLCZvJ5 (Builder: trace product gaps - stale state, LLM/image counters, step duration and request id, generated counter); ses_e327c2834ffebUlotJr4LH7NlB (Architect: bounded identity contract for A0-ARCH, RW-D4 residual window and ID-CONC)
+Join barriers: the deferred-chain live event and a natural manual `/meme` remain external; everything else that holds the epic open is now assigned to an executor.
 Join barriers: S6 waits for the S5b verdict; any release must take web files from the `bcc090a3` line because `master` is 930 KB behind on the interface.
 
 DELIVERY-LINEAGE WARNING (verified twice, independent reviewers): `master` is not an ancestor of the production line. `web/app.js` is 1 331 753 bytes on `master` versus 2 262 122 at `bcc090a3`; `index.html` is 929 056 versus 1 328 853. Building a release from `master` would delete roughly 930 KB of the shipped interface. Releases branch from the current production commit and cherry-pick approved commits.
