@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T22:07:57+12:00",
+  "updated": "2026-11-12T23:11:41+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -927,15 +927,17 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-09",
+      "updated": "2026-11-12T23:11:41+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
-      "blocker_sources": {},
-      "execution_state": "queued",
+      "blocker_sources": {
+        "ARCH-D4-IDENT": "plans/features/self-diag-01/requirements-map.json"
+      },
+      "execution_state": "architecture_contract",
       "position_basis": "owner decision",
-      "queue_note": "owner-priority epic: extended self-diagnostics",
+      "queue_note": "2026-11-12: D1 closed at 2.58.197/25876167 - 17/17 rows VERIFIED, D1 scoped gate stage=review scoped=18 errors=0; D2 remains 37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING. Next slice D4-IDENT requires an Architect contract (deployed_sha source, identity record, local snapshot trust, D6 seam); D4-A Builder follows the contract. D3/D5/D6/D7 remain PENDING.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -947,7 +949,23 @@
       "queue_after": [
         "p0-init-meme-ux-diag"
       ],
-      "queue_after_note": "Владелец 2026-11-12: следующая задача после текущего эпика — самодиагностика."
+      "queue_after_note": "Владелец 2026-11-12: следующая задача после текущего эпика — самодиагностика.",
+      "slice_status": {
+        "D0": "historical artifact needs refresh",
+        "D1": "VERIFIED 2.58.197 @ 25876167 (map commit 6b48479a)",
+        "D2": "37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING (c087253d/2.58.188, files byte-identical at 25876167)",
+        "D3": "PENDING",
+        "D4": "PENDING (ARCHITECT_REQUIRED: identity contract)",
+        "D5": "PENDING",
+        "D6": "PENDING (waits D1+D3+D4+D5)",
+        "D7": "PENDING"
+      },
+      "progress": {
+        "verified_unique": 52,
+        "unique": 184,
+        "d1_verified": 17,
+        "d1_total": 17
+      }
     },
     {
       "id": "smart-module-semantic-routing-p0",
