@@ -1,15 +1,16 @@
-# Closure train C-rows — привязка к коду `21a3aef7`
+# Closure train C-rows — привязка к коду `895764e2`
 
 Эпик: `p0-init-meme-ux-diag`. База: `c134f93d` (release/2.58.195, production).
 Ветка: `fix/p0im-closure-train`. Код-кандидат:
-`21a3aef78dba022e52cff21f9a87cbbccfce55fe` (поверх `3b1c4ba9`; docs `87b5f0e4` —
+`895764e27f6597421ac4f496853474392c95b48a` (поверх `21a3aef7`; docs `e314dd3f` —
 предыдущая привязка). Документ: привязка доказательств Builder; статусы строк
 НЕ переведены — это делает Reviewer/PM.
 
-Диапазон изменения против базы: **15 файлов кода/тестов, +1891/−58** плюс этот
-evidence-документ. Код-кандидат собран тремя коммитами: `0398675a` (закрытие
-C-строк), `3b1c4ba9` (два блокера Reviewer) и `21a3aef7` (test-contract fix
-после DevOps-остановки 2.58.196). Этот документ — следующий docs-коммит.
+Диапазон изменения против базы: **15 файлов кода/тестов, +1920/−60** плюс этот
+evidence-документ. Код-кандидат собран четырьмя коммитами: `0398675a` (закрытие
+C-строк), `3b1c4ba9` (два блокера Reviewer), `21a3aef7` (test-contract fix
+после DevOps-остановки 2.58.196) и `895764e2` (live OV-LIST defect: нормализация
+`attempt_mode="automatic"`). Этот документ — следующий docs-коммит.
 
 Новых таблиц, колонок, флагов, настроек, промптов, моделей, эндпоинтов и
 планировщиков нет. Полный текст промптов по-прежнему не пишется в журнал
@@ -111,6 +112,43 @@ diagnostic — **519 passed / 4 failed** (база 2.58.195 — 510/4; +9 нов
 тестов, новых падений 0); 7-файловый closure set — **204 passed**; JS
 `INITIATIVE-UI-OK` / `P0IM-OV-HONESTY-OK` / `test_webapp_js_unit.py`
 **45 passed**; e2e — те же 2 предсуществующих / 0.
+
+### Live OV-LIST defect 2.58.196 (rollback) и исправление
+
+**Живое наблюдение.** После выкладки 2.58.196 обзор на ОБОИХ чатах показывал
+«способ не записан» у реальных попыток. Артефакты:
+`release-258196/live-ui-events-2.58.196.json` (mode label на обеих чатах),
+`analytics-shape-2.58.196.json` (`detail_head` =
+`{"attempt_mode":"automatic","mode":"automatic"}`), скриншоты
+`live-overview-chatA/B-2.58.196.png`. DevOps откатил на 2.58.195.
+
+**Причина.** Пайплайн пишет в терминальный `detail` `attempt_mode="automatic"`
+(`services/meme_initiative.py`), серверный `attempt_mode_of()` нормализует
+`automatic→auto` для API, но обзорный `initiativeRecentEvents` читал СЫРОЙ
+`facts.attempt_mode` и сравнивал только с `'auto'`/`'manual'`. Живое значение
+не распознавалось.
+
+**Исправление.** В `web/app.js` добавлен `iniNormalizeAttemptMode(raw)`:
+`trim().toLowerCase()`; `manual` → `manual`; `auto`/`automatic` → `auto`;
+остальное → `''` («способ не записан»). Он используется в
+`initiativeRecentEvents` и в оси `iniAttemptAxis` (там неизвестный сырой код
+по-прежнему печатается как `код: …`). Из `mode` этапа «прикол» (бюджет длины)
+режим НЕ выводится; время/текст не используются. Пайплайн и API-нормализация
+не менялись.
+
+**RED→GREEN.** JS-фикстура переведена на ЖИВОЕ значение
+`{"attempt_mode":"automatic"}`; на старом сравнении тест падал
+`AssertionError: живое значение "automatic" не нормализовано в auto`
+(`'' !== 'auto'`). После фикса `node tests/js/initiative_ui_rework_test.js` →
+`INITIATIVE-UI-OK`. Добавлены случаи: `automatic` → «автоматически»,
+`AUTOMATIC` (регистр) → «автоматически», `manual` → «вручную (/meme)»,
+`weird` и отсутствие `attempt_mode` → «способ не записан»; `mode:"fixed"` у
+этапа «прикол» способом не считается.
+
+**Результаты.** JS `initiative_ui_rework` — `INITIATIVE-UI-OK`;
+`p0im_ov_honesty` — OK; `test_webapp_js_unit.py` — **45 passed**; 7-файловый
+closure set — **204 passed**; 22-файловая серия — **519 passed / 4 failed**
+(те же предсуществующие, новых 0); e2e — те же 2 предсуществующих / 0.
 
 ---
 
@@ -253,15 +291,21 @@ e2e-сценарий «трасса → Inspector» не добавлялся (�
 попытки: `вручную (/meme)` / `автоматически` / `способ не записан`. Источник —
 уже пришедший `analytics.attempts`; берётся ТОЛЬКО `attempt_mode` из detail
 терминальной строки (ключ `mode` у этапа «прикол» — бюджет длины и не
-используется). Нового API/запроса нет.
+используется). Записанное значение НОРМАЛИЗУЕТСЯ: `trim().toLowerCase()`;
+`manual` → manual, `auto`/`automatic` → auto, остальное → пусто. Это закрывает
+живой дефект 2.58.196, где пайплайн пишет `"automatic"`, а UI ждал `"auto"`.
+Нового API/запроса нет.
 
 | Факт | Где | Строка |
 |---|---|---|
-| разбор `attempt_mode` и подпись строки | `web/app.js` | `initiativeRecentEvents` 10745+ |
+| нормализация записанного `attempt_mode` (`automatic`→auto) | `web/app.js` | `iniNormalizeAttemptMode` 4477 |
+| разбор `attempt_mode` и подпись строки | `web/app.js` | `initiativeRecentEvents` 10769+ |
 | видимая метка в строке события | `web/index.html` | 2208 |
 
-**Тесты.** JS `closureTrainSuite`: manual/auto по терминальной строке, `mode`
-этапа «прикол» не выдаётся за способ, историческая строка — «способ не записан».
+**Тесты.** JS `closureTrainSuite`: живое значение `automatic` → «автоматически»,
+`AUTOMATIC` (регистр) → «автоматически», `manual` → «вручную (/meme)»,
+`weird`/отсутствие → «способ не записан»; `mode:"fixed"` этапа «прикол» способом
+не считается. RED на старом сравнении: `'' !== 'auto'`.
 
 **Честные пределы.** Обзор получает `analytics.attempts` ограниченным окном
 (20 строк этапов). Для очень длинной серии попыток терминальная строка
@@ -328,7 +372,7 @@ heartbeat/provider — проекция существующих расчёто�
 
 ---
 
-## 7. Прогоны (кандидат `21a3aef7`, база `c134f93d`)
+## 7. Прогоны (кандидат `895764e2`, база `c134f93d`)
 
 `PYTHONDONTWRITEBYTECODE=1`, `-p no:cacheprovider`, изолированные temp-SQLite;
 production не затрагивался.
@@ -346,7 +390,7 @@ production не затрагивался.
 | pytest `tests/test_publication_binding_delivery.py` | **8 passed** |
 | pytest `tests/test_speech_inspector_exact.py` | **23 passed** (было 17; +6, включая RED→GREEN correlation) |
 | Совместный прогон семи файлов выше | **204 passed**, 1 warning (deprecation) |
-| `node tests/js/initiative_ui_rework_test.js` | `INITIATIVE-UI-OK` (`closureTrainSuite`, correlation guards) |
+| `node tests/js/initiative_ui_rework_test.js` | `INITIATIVE-UI-OK` (`closureTrainSuite`: correlation guards + OV-LIST live-shape `attempt_mode:"automatic"`→«автоматически») |
 | `node tests/js/p0im_ov_honesty_test.js` | `P0IM-OV-HONESTY-OK` |
 | pytest `tests/test_webapp_js_unit.py` | **45 passed** |
 | pytest `tests/test_soul1_w6_speech_ui.py` (затронутый Inspector-контур) | **23 passed** |
@@ -422,6 +466,11 @@ Prod 2.58.195 не изменялся. Живой снимок payload этог�
 
 ## 11. Находки
 
+- `IN_SCOPE` (живой дефект 2.58.196, OV-LIST, исправлено): UI сравнивал СЫРОЙ
+  `attempt_mode` с `auto`, а пайплайн пишет `automatic`; на обоих чатах обзор
+  показывал «способ не записан». Значение нормализуется (`automatic→auto`),
+  фикстура переведена на живое значение, RED→GREEN зафиксирован в §0.
+  Пайплайн/API-нормализация не менялись.
 - `IN_SCOPE` (тестовый контракт, DevOps stop 2.58.196, исправлено): двойник
   `release_manual_priority` в `test_initiative_coordination.py` сохранял старую
   подпись без keyword-only `job_id`. Обновлён только тест; продуктовая
@@ -457,7 +506,7 @@ Prod 2.58.195 не изменялся. Живой снимок payload этог�
  handlers/meme_command.py                     |  28 +-
  services/initiative_diagnostics.py           |  72 +-
  services/meme_initiative.py                  | 143 +-
- tests/js/initiative_ui_rework_test.js        | 365 ++++
+ tests/js/initiative_ui_rework_test.js        | 382 ++++
  tests/test_evol014_meme_initiative.py        | 188 ++
  tests/test_initiative_coordination.py        |  14 +-
  tests/test_initiative_publications_api.py    | 181 ++
@@ -467,9 +516,9 @@ Prod 2.58.195 не изменялся. Живой снимок payload этог�
  tests/test_speech_inspector_exact.py         | 193 ++
  web/api/initiative_publications.py           |  77 +
  web/api/speech.py                            | 141 +-
- web/app.js                                   | 266 +-
+ web/app.js                                   | 280 +-
  web/index.html                               | 127 +-
- 15 files changed, 1891 insertions(+), 58 deletions(-)
+ 15 files changed, 1920 insertions(+), 60 deletions(-)
 ```
 
 (плюс этот evidence-документ и `review-931945b7.md` в docs-коммите).
