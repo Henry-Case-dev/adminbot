@@ -1,0 +1,451 @@
+{
+  "task": "VMQ-MEM NEXT-02 cause decomposition (read-only)",
+  "base_code": "23477658 (2.58.198)",
+  "candidate": "c0de0c2b",
+  "date": "2026-11-13",
+  "raw_traces": {
+    "raw-base-1.json": {
+      "path": "evidence/vmq-mem/next-stage/next2-measure-2026-11-13-raw-base-1.json",
+      "sha256": "253ff5bcbdeea5f428ae738cb072a4805e455d255ebb67677eae9afdeab53223",
+      "tag": "base-23477658-1",
+      "git_head": "234776589c934024ed0e8dceba189fb9d70d3215"
+    },
+    "raw-base-2.json": {
+      "path": "evidence/vmq-mem/next-stage/next2-measure-2026-11-13-raw-base-2.json",
+      "sha256": "3270635c70d9719e8814ed06e3fa993766a29c38aa25f1319c60f060f52244b5",
+      "tag": "base-23477658-2",
+      "git_head": "234776589c934024ed0e8dceba189fb9d70d3215"
+    },
+    "raw-cand-1.json": {
+      "path": "evidence/vmq-mem/next-stage/next2-measure-2026-11-13-raw-cand-1.json",
+      "sha256": "707eda0e8f1f42730693d9eca08cd1c0903031ef0c501ad7958337c62901a00e",
+      "tag": "cand-c0de0c2b-1",
+      "git_head": "c0de0c2b6a5f7b117c40e26c17bce94652cd5a6a"
+    },
+    "raw-cand-2.json": {
+      "path": "evidence/vmq-mem/next-stage/next2-measure-2026-11-13-raw-cand-2.json",
+      "sha256": "ec10fccde26bc90e9a48810541b58ba5139a3e19acccf080e1bbcbb69cf152a7",
+      "tag": "cand-c0de0c2b-2",
+      "git_head": "c0de0c2b6a5f7b117c40e26c17bce94652cd5a6a"
+    }
+  },
+  "metric_reproduction": {
+    "definition": "A1..A15 x {historical,auto}; numerator = rendered final-block rows dated 2026; denominator = all rendered final-block rows",
+    "per_run": {
+      "raw-base-1.json": {
+        "n_2026": 56,
+        "n_rows": 88,
+        "share_pct": 63.64
+      },
+      "raw-base-2.json": {
+        "n_2026": 56,
+        "n_rows": 91,
+        "share_pct": 61.54
+      },
+      "raw-cand-1.json": {
+        "n_2026": 53,
+        "n_rows": 86,
+        "share_pct": 61.63
+      },
+      "raw-cand-2.json": {
+        "n_2026": 47,
+        "n_rows": 76,
+        "share_pct": 61.84
+      }
+    },
+    "matches_summary_values": true
+  },
+  "stage_year_table": {
+    "raw-base-1.json": {
+      "base_slice": {
+        "2022": 0,
+        "2023": 10,
+        "2024": 24,
+        "2025": 32,
+        "2026": 234,
+        "_total": 300
+      },
+      "period_pool": {
+        "2022": 90,
+        "2023": 153,
+        "2024": 62,
+        "2025": 155,
+        "2026": 0,
+        "_total": 460
+      },
+      "period_accepted_into_slice": {
+        "2022": 6,
+        "2023": 9,
+        "2024": 3,
+        "2025": 7,
+        "2026": 0,
+        "_total": 25
+      },
+      "pre_rerank_rows": {
+        "2022": 6,
+        "2023": 18,
+        "2024": 21,
+        "2025": 33,
+        "2026": 211,
+        "_total": 289
+      },
+      "final_block": {
+        "2022": 6,
+        "2023": 8,
+        "2024": 8,
+        "2025": 10,
+        "2026": 56,
+        "_total": 88
+      }
+    },
+    "raw-base-2.json": {
+      "base_slice": {
+        "2022": 0,
+        "2023": 10,
+        "2024": 24,
+        "2025": 32,
+        "2026": 234,
+        "_total": 300
+      },
+      "period_pool": {
+        "2022": 90,
+        "2023": 153,
+        "2024": 62,
+        "2025": 155,
+        "2026": 0,
+        "_total": 460
+      },
+      "period_accepted_into_slice": {
+        "2022": 6,
+        "2023": 9,
+        "2024": 3,
+        "2025": 7,
+        "2026": 0,
+        "_total": 25
+      },
+      "pre_rerank_rows": {
+        "2022": 6,
+        "2023": 18,
+        "2024": 21,
+        "2025": 33,
+        "2026": 211,
+        "_total": 289
+      },
+      "final_block": {
+        "2022": 6,
+        "2023": 7,
+        "2024": 9,
+        "2025": 13,
+        "2026": 56,
+        "_total": 91
+      }
+    },
+    "raw-cand-1.json": {
+      "base_slice": {
+        "2022": 0,
+        "2023": 10,
+        "2024": 24,
+        "2025": 32,
+        "2026": 234,
+        "_total": 300
+      },
+      "period_pool": {
+        "2022": 90,
+        "2023": 153,
+        "2024": 62,
+        "2025": 155,
+        "2026": 0,
+        "_total": 460
+      },
+      "period_accepted_into_slice": {
+        "2022": 6,
+        "2023": 9,
+        "2024": 3,
+        "2025": 7,
+        "2026": 0,
+        "_total": 25
+      },
+      "pre_rerank_rows": {
+        "2022": 6,
+        "2023": 18,
+        "2024": 21,
+        "2025": 33,
+        "2026": 211,
+        "_total": 289
+      },
+      "final_block": {
+        "2022": 6,
+        "2023": 7,
+        "2024": 8,
+        "2025": 12,
+        "2026": 53,
+        "_total": 86
+      }
+    },
+    "raw-cand-2.json": {
+      "base_slice": {
+        "2022": 0,
+        "2023": 10,
+        "2024": 24,
+        "2025": 32,
+        "2026": 234,
+        "_total": 300
+      },
+      "period_pool": {
+        "2022": 90,
+        "2023": 153,
+        "2024": 62,
+        "2025": 155,
+        "2026": 0,
+        "_total": 460
+      },
+      "period_accepted_into_slice": {
+        "2022": 6,
+        "2023": 9,
+        "2024": 3,
+        "2025": 7,
+        "2026": 0,
+        "_total": 25
+      },
+      "pre_rerank_rows": {
+        "2022": 6,
+        "2023": 18,
+        "2024": 21,
+        "2025": 33,
+        "2026": 211,
+        "_total": 289
+      },
+      "final_block": {
+        "2022": 6,
+        "2023": 7,
+        "2024": 9,
+        "2025": 7,
+        "2026": 47,
+        "_total": 76
+      }
+    }
+  },
+  "stage_invariance": {
+    "stages_byte_identical_across_all_4_files": true,
+    "verified_fields": [
+      "base_slice_ids",
+      "period_pool (id,year,proxy)",
+      "period_rows",
+      "rows_returned_ids",
+      "period_stats_service.rejected_subject",
+      "period_kept"
+    ]
+  },
+  "section2_decomposition": {
+    "threshold_min_stems": 2,
+    "reason_labels": {
+      "rejected": "lexical_threshold_applied",
+      "knn_historical": "vector_leg_no_threshold"
+    },
+    "A1_A15_historical_lexical_pool": {
+      "total": 191,
+      "stems_shared_histogram": {
+        "0": 113,
+        "1": 78
+      },
+      "accepted": 0,
+      "rejected": 191
+    },
+    "all_17_items_both_policies": {
+      "knn_accepted": 6,
+      "knn_no_threshold_accepted": 67,
+      "knn_rejected": 55,
+      "lex_rejected": 402,
+      "lex_shared_0": 208,
+      "lex_shared_1": 194
+    }
+  },
+  "lexical_pool_attribution_A1_A15_historical": {
+    "dropped_token:был": 2,
+    "dropped_token:в": 3,
+    "dropped_token:и": 2,
+    "dropped_token:к": 7,
+    "dropped_token:на": 5,
+    "dropped_token:про": 17,
+    "dropped_token:с": 46,
+    "dropped_token:со": 9,
+    "dropped_token:там": 2,
+    "dropped_token:что": 65,
+    "matched_only_by_prefix_of_content_token": 33,
+    "matched_only_via_token_dropped_by_len4_cut": 97,
+    "matched_via_dropped_and_content_token": 61
+  },
+  "fts_function_word_proof": {
+    "query_A1": "почему Vasek был недоволен отношением к себе в чате?",
+    "tokens": [
+      "почему",
+      "vasek",
+      "был",
+      "недоволен",
+      "отношением",
+      "к",
+      "себе",
+      "в",
+      "чате"
+    ],
+    "tokens_dropped_by_section2_len4_cut": [
+      "был",
+      "к",
+      "в"
+    ],
+    "match_string_full": "\"почему\"* OR \"почем\"* OR \"vasek\"* OR \"был\"* OR \"недоволен\"* OR \"отношением\"* OR \"отношени\"* OR \"к\"* OR \"себе\"* OR \"в\"* OR \"чате\"*",
+    "match_string_without_dropped": "\"почему\"* OR \"почем\"* OR \"vasek\"* OR \"недоволен\"* OR \"отношением\"* OR \"отношени\"* OR \"себе\"* OR \"чате\"*",
+    "fts_rows_full": 32,
+    "fts_rows_without_dropped": 7,
+    "single_token_pull": {
+      "к": 32,
+      "в": 32,
+      "был": 3
+    },
+    "raw_period_pool_ids_A1": [
+      1753,
+      1787,
+      1776,
+      1763,
+      1785,
+      1796,
+      1762,
+      1710,
+      1772,
+      1713,
+      1797,
+      1721,
+      1781,
+      1728,
+      1790,
+      1752
+    ],
+    "note": "raw pool == first 16 of the full FTS result (LIMIT fetch_k*2=32, then slot/append stages)",
+    "db_copy_sha256": "5310e91e282813f6342c950eb3ee182dc93e9ad6fdf54fdd91d3287e394082b2"
+  },
+  "period_window_and_slots": {
+    "period_pool_year_histogram_all_items": {
+      "2022": 94,
+      "2023": 169,
+      "2024": 76,
+      "2025": 191
+    },
+    "period_pool_2026_rows": 0,
+    "exclude_years_always_contains_2026": true,
+    "slot_budget_per_query": 2,
+    "slot_budget_divisor": 5,
+    "accepted_into_slice_A1_A15": 25,
+    "surviving_into_final_block_A1_A15": 15,
+    "dropped_by_rerank": 10,
+    "budget_sensitivity_rows_in_slice": {
+      "2": 25,
+      "3": 30,
+      "4": 33,
+      "6": 33,
+      "10": 33
+    },
+    "dominant_residual_constraint": "year-dedup against base_slice years (year in seen_years) saturates at 33"
+  },
+  "share_2026_origin": {
+    "final_2026_rows_are_100pct_base_retrieval": true,
+    "period_rows_in_final_block": 15,
+    "period_rows_2026_in_final_block": 0,
+    "base_rows_in_final_block": 73,
+    "base_rows_2026_in_final_block": 56,
+    "base_slice_2026_share_pct": 78.0,
+    "pre_rerank_2026_share_pct": 73.01,
+    "rerank_selection_rate_by_year": {
+      "2022": {
+        "avail": 6,
+        "took": 6,
+        "rate_pct": 100.0
+      },
+      "2023": {
+        "avail": 18,
+        "took": 8,
+        "rate_pct": 44.4
+      },
+      "2024": {
+        "avail": 21,
+        "took": 8,
+        "rate_pct": 38.1
+      },
+      "2025": {
+        "avail": 33,
+        "took": 10,
+        "rate_pct": 30.3
+      },
+      "2026": {
+        "avail": 211,
+        "took": 56,
+        "rate_pct": 26.5
+      }
+    },
+    "rerank_rate_2026_base_rows_pct": 23.9,
+    "rerank_rate_non2026_base_rows_pct": 25.8,
+    "interpretation": "reranker is near year-neutral on base rows; the 15 period rows are the only dilution",
+    "rows_needed_for_58_1pct_at_56_numerator": 97,
+    "deficit_rows": 9,
+    "corpus_2026_share_pct": 65.0,
+    "threshold_below_corpus_base_rate": true
+  },
+  "noise_analysis": {
+    "cluster_bootstrap": {
+      "raw-base-1.json": {
+        "point_pct": 63.64,
+        "ci95": [
+          52.44,
+          72.73
+        ],
+        "p_share_le_58_1": 0.1558
+      },
+      "raw-base-2.json": {
+        "point_pct": 61.54,
+        "ci95": [
+          50.62,
+          70.83
+        ],
+        "p_share_le_58_1": 0.2653
+      },
+      "raw-cand-1.json": {
+        "point_pct": 61.63,
+        "ci95": [
+          50.0,
+          71.13
+        ],
+        "p_share_le_58_1": 0.265
+      },
+      "raw-cand-2.json": {
+        "point_pct": 61.84,
+        "ci95": [
+          50.0,
+          70.24
+        ],
+        "p_share_le_58_1": 0.2453
+      }
+    },
+    "resampling_unit": "30 units = A1..A15 x {historical,auto}",
+    "units_identical_across_all_4_runs": 10,
+    "units_total": 30,
+    "sum_abs_delta_2026_vs_base1": {
+      "raw-base-2.json": 10,
+      "raw-cand-1.json": 5,
+      "raw-cand-2.json": 13
+    },
+    "verdict": "below run-to-run noise; and the candidate has no causal channel (see candidate_noop_proof)"
+  },
+  "candidate_noop_proof": {
+    "diff_23477658_to_c0de0c2b": [
+      "direct_chat_service._rag_period_subject_filter: iterate lexical_rows + vector_rows instead of vector_rows + lexical_rows",
+      "mca_retrieval_context: additive knn_ms/fts_ms timing instrumentation (no selection effect)"
+    ],
+    "no_effect_when_accepted_lexical_is_zero": true,
+    "accepted_lexical_rows_measured": 0,
+    "accepted_lexical_rows_total_lexical_pool_rows": "0 / 402",
+    "delivery_identical_all_4_runs": {
+      "historical": 8,
+      "auto": 7,
+      "of": 15
+    }
+  }
+}
