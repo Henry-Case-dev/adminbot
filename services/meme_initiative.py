@@ -1052,6 +1052,15 @@ ATTEMPT_SPOOL_MAX_ROWS = 500
 ATTEMPT_SPOOL_BATCH = 200
 #: Сколько порций переносим за один вызов (остальное — следующим вызовом).
 ATTEMPT_SPOOL_MAX_BATCHES = 20
+#: Потолок строк, удерживаемых процессом, когда недоступны ОБА носителя.
+#: Вытеснение самой старой строки сопровождается её полной ERROR-записью:
+#: ни одна строка не исчезает анонимно (инвариант D, arch §1).
+ATTEMPT_UNPERSISTED_MAX = 200
+#: Поля строки попытки, которые переносят носители (спул и аварийный лог) —
+#: ровно тот набор, что уже лежит в журнале: новых полей и секретов нет.
+SPOOL_FIELDS = ("attempt_id", "chat_id", "job_id", "ts", "stage", "outcome",
+                "reason_code", "detail", "limit_source", "limit_value",
+                "window_messages")
 
 
 def _parse_spool_row(line: str) -> dict | None:
@@ -1068,6 +1077,16 @@ def _parse_spool_row(line: str) -> dict | None:
     return None
 
 
+def _spool_payload(row: dict) -> dict:
+    """Payload строки попытки для носителей — тот же формат, что в спуле.
+
+    Один хелпер на оба места (durable-спул и аварийный ERROR-лог): формат
+    записи не дублируется и не изобретается заново.
+    """
+    source = row if isinstance(row, dict) else {}
+    return {key: source.get(key) for key in SPOOL_FIELDS}
+
+
 class SqliteQuotaLedger:
     """Файловый журнал. Каждый reserve — своё соединение и BEGIN IMMEDIATE.
 
@@ -1078,6 +1097,11 @@ class SqliteQuotaLedger:
 
     def __init__(self, path: str) -> None:
         self.path = str(path)
+        #: Строки, которые не принял НИ журнал, НИ спул (оба носителя в одном
+        #: каталоге, значит их совместный отказ — файловый). Живут в процессе
+        #: и переносятся в первый освободившийся носитель при следующей записи
+        #: (см. `_retry_unpersisted`). Потолок — `ATTEMPT_UNPERSISTED_MAX`.
+        self._unpersisted: list[dict] = []
 
     def apply_schema(self) -> None:
         """Применить DDL журнала (тест/миграция v40 + бронь публикации v41).
@@ -1294,13 +1318,19 @@ class SqliteQuotaLedger:
         в памяти процесса, а журнал (единственный источник правды для витрины)
         её не видел — отсюда «77 строк за сутки» при 228 реальных.
 
-        Теперь: (1) сначала пробуем дозаписать ранее отложенное; (2) пишем с
-        ОГРАНИЧЕННЫМ числом повторов (транзиентная блокировка SQLite); (3) если
-        журнал всё равно недоступен — строка уходит в durable-спул рядом с
-        журналом (`<db>.attempts.pending.jsonl`) и видна читателю сразу
-        (`attempts()` склеивает спул с таблицей). Новых таблиц и очередей нет.
+        Теперь: (1) сначала пробуем дозаписать ранее отложенное (спул и
+        удержанные строки); (2) пишем с ОГРАНИЧЕННЫМ числом повторов
+        (транзиентная блокировка SQLite); (3) если журнал всё равно недоступен —
+        строка уходит в durable-спул рядом с журналом
+        (`<db>.attempts.pending.jsonl`) и видна читателю сразу (`attempts()`
+        склеивает спул с таблицей); (4) если недоступны ОБА носителя — строка
+        удерживается процессом (`_unpersisted`) и переносится в первый
+        освободившийся носитель, а её ПОЛНОЕ содержимое уходит в лог
+        (инвариант D: потеря не сводится к анонимному предупреждению).
+        Новых таблиц и очередей нет.
         """
         self._flush_pending_attempts()
+        self._retry_unpersisted()
         last_error: Exception | None = None
         for attempt in range(ATTEMPT_WRITE_ATTEMPTS):
             try:
@@ -1316,11 +1346,74 @@ class SqliteQuotaLedger:
                 "| error=%s", str(row.get("attempt_id"))[:12],
                 type(last_error).__name__)
             return
+        self._hold_unpersisted(row, last_error)
+
+    def _hold_unpersisted(self, row: dict, error: Exception | None) -> None:
+        """Удержать строку в процессе и записать её ЦЕЛИКОМ в лог.
+
+        Это последний рубеж инварианта D: носителей нет, поэтому факт живёт в
+        процессе до первого освободившегося носителя, а в лог уходит ПОЛНАЯ
+        строка (``_spool_payload``: attempt_id, outcome, reason_code, detail с
+        ``attempt_mode`` и фактами публикации). Прежняя запись с
+        ``attempt[:12]`` и типом ошибки не позволяла восстановить содержание
+        попытки. Потолок списка — ``ATTEMPT_UNPERSISTED_MAX``: вытесняемая
+        (самая старая) строка тоже пишется в лог целиком.
+        """
+        row = dict(row)
+        attempt_id = str(row.get("attempt_id") or "")
+        # Одна и та же строка не удерживается дважды: повтор удержания — это
+        # повторная неудача записи того же attempt_id, а не новая попытка.
+        if not any(str(item.get("attempt_id") or "") == attempt_id
+                   for item in self._unpersisted):
+            self._unpersisted.append(row)
+        while len(self._unpersisted) > ATTEMPT_UNPERSISTED_MAX:
+            evicted = self._unpersisted.pop(0)
+            self._log_held_row(
+                evicted, error, note="evicted over cap=%d"
+                % ATTEMPT_UNPERSISTED_MAX)
+        self._log_held_row(row, error, note="held")
+
+    def _log_held_row(self, row: dict, error: Exception | None,
+                      *, note: str) -> None:
+        """Полная строка попытки в лог: JSON без усечения полей и id."""
+        try:
+            payload = json.dumps(_spool_payload(row), ensure_ascii=False)
+        except (TypeError, ValueError):
+            payload = json.dumps(_spool_payload(row), ensure_ascii=False,
+                                 default=str)
         logger.error(
-            "[meme] attempt LOST (journal and spool unavailable) | attempt=%s "
-            "| chat=%s | stage=%s | error=%s",
-            str(row.get("attempt_id"))[:12], row.get("chat_id"),
-            row.get("stage"), type(last_error).__name__)
+            "[meme] attempt LOST (journal and spool unavailable) | %s | "
+            "error=%s | row=%s", note,
+            type(error).__name__ if error is not None else "", payload)
+
+    def _retry_unpersisted(self) -> None:
+        """Перенести удержанные строки в первый ДОСТУПНЫЙ носитель.
+
+        Вызывается в начале `record_attempt` после переноса спула: журнал мог
+        освободиться. На каждую строку — одна попытка журнала, при отказе одна
+        попытка спула; успех любого носителя убирает строку из списка.
+        Идемпотентность обеспечивает `attempt_id` (`INSERT OR IGNORE` и слияние
+        по ключу), поэтому повторный перенос не создаёт дубля. Никогда не
+        бросает и не логирует заново: первая полная запись уже сделана при
+        удержании.
+        """
+        if not self._unpersisted:
+            return
+        batch = list(self._unpersisted[:ATTEMPT_SPOOL_BATCH])
+        for row in batch:
+            try:
+                self._insert_attempt(row)
+                stored = True
+            except Exception:
+                stored = self._spool_attempt(row)
+            if not stored:
+                # Оба носителя всё ещё недоступны: строка остаётся удержанной,
+                # следующая попытка — следующим вызовом записи.
+                return
+            attempt_id = str(row.get("attempt_id") or "")
+            self._unpersisted = [
+                item for item in self._unpersisted
+                if str(item.get("attempt_id") or "") != attempt_id]
 
     def _insert_attempt(self, row: dict) -> None:
         conn = _connect(self.path)
@@ -1347,11 +1440,7 @@ class SqliteQuotaLedger:
     def _spool_attempt(self, row: dict) -> bool:
         """Дописать строку в durable-спул. Возвращает «сохранено ли»."""
         try:
-            payload = {key: row.get(key) for key in (
-                "attempt_id", "chat_id", "job_id", "ts", "stage", "outcome",
-                "reason_code", "detail", "limit_source", "limit_value",
-                "window_messages")}
-            line = json.dumps(payload, ensure_ascii=False)
+            line = json.dumps(_spool_payload(row), ensure_ascii=False)
             with open(self.pending_path(), "a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
                 handle.flush()

@@ -1615,4 +1615,278 @@ def test_spool_keeps_unread_tail_when_batch_is_limited(tmp_path, monkeypatch):
         conn.close()
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# architecture-identity.md §1 — инвариант D: совместный отказ журнала и спула
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST-LIFECYCLE: CONTRACT owner=OI-2026-11-11-P0-INIT-MEME-UX-DIAG
+# (RW-D4-BOTH-WRITE-FAIL: содержание терминальной попытки не сводится к
+# анонимному предупреждению; строка удерживается процессом, переносится в
+# первый освободившийся носитель, иначе её ПОЛНЫЙ payload уходит в лог).
+
+
+def _publication_row(attempt_id, *, chat_id=-100, ts=None, reason="sent",
+                     outcome="published", job_id="run-1"):
+    """Строка как её пишет `_finish`: detail несёт режим и факты публикации."""
+    detail = json.dumps({
+        "attempt_mode": "manual",
+        "detail": "sent",
+        "publication": {
+            "output": {"ledger_id": 7, "tg_message_id": 4321},
+            "delivery": "sent",
+            "manual": True,
+        },
+    }, ensure_ascii=False)
+    row = _attempt_row(attempt_id, chat_id=chat_id, ts=ts)
+    row.update(outcome=outcome, reason_code=reason, detail=detail,
+               job_id=job_id)
+    return row
+
+
+def _break_journal(monkeypatch):
+    """Журнал недоступен постоянно (диск/права/IO — не транзиентный лок)."""
+
+    def broken(self, row):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt", broken)
+
+
+def _break_spool(monkeypatch):
+    """Спул недоступен: тот же каталог, что у журнала (файловый отказ)."""
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_spool_attempt",
+                        lambda self, row: False)
+    return True
+
+
+def test_both_carriers_ok_puts_the_row_in_the_journal_only(tmp_path,
+                                                           monkeypatch):
+    """Контроль: оба носителя живы — строка в журнале, удержания нет."""
+    led = _ledger(tmp_path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+
+    led.record_attempt(_publication_row("ok-1"))
+
+    assert led._unpersisted == []
+    assert not pathlib.Path(led.pending_path()).exists()
+    assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
+        ["ok-1"]
+
+
+def test_journal_failure_keeps_the_row_in_the_spool_without_holding(
+        tmp_path, monkeypatch):
+    """Свойство 1: спул работает — строка durable-спулится, удержания нет."""
+    led = _ledger(tmp_path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    _break_journal(monkeypatch)
+
+    led.record_attempt(_publication_row("spooled-A"))
+
+    assert pathlib.Path(led.pending_path()).exists()
+    assert led._unpersisted == [], "спул справился — удерживать нечего"
+    assert [row["attempt_id"] for row in led.attempts(-100, limit=5)] == \
+        ["spooled-A"]
+    assert led.attempts(-101, limit=5) == []
+
+
+def test_both_carriers_fail_hold_the_row_then_flush_it_exactly_once(
+        tmp_path, monkeypatch):
+    """Свойство 2: оба носителя упали → строка удержана и перенесена ровно раз.
+
+    Mutation: убрать `_retry_unpersisted()` из `record_attempt` — строка навсегда
+    остаётся в `_unpersisted`, в журнале её нет, тест красный.
+    """
+    led = _ledger(tmp_path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    original_insert = meme.SqliteQuotaLedger._insert_attempt
+    original_spool = meme.SqliteQuotaLedger._spool_attempt
+    _break_journal(monkeypatch)
+    _break_spool(monkeypatch)
+
+    led.record_attempt(_publication_row("held-1", ts=NOW.timestamp()))
+
+    assert [row["attempt_id"] for row in led._unpersisted] == ["held-1"]
+    assert not pathlib.Path(led.pending_path()).exists()
+    assert led.attempts(-100, limit=5) == [], "в журнале строки ещё нет"
+
+    # Носители освободились: следующая ЗАПИСЬ сначала переносит удержанное.
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt",
+                        original_insert)
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_spool_attempt",
+                        original_spool)
+    led.record_attempt(_publication_row("held-2", ts=NOW.timestamp() + 1))
+
+    rows = led.attempts(-100, limit=10)
+    assert sorted(row["attempt_id"] for row in rows) == ["held-1", "held-2"]
+    assert led._unpersisted == [], "удержанная строка перенесена"
+    # Ровно один раз: повторная запись того же attempt_id — no-op (ID2).
+    led.record_attempt(_publication_row("held-1"))
+    ids = [row["attempt_id"] for row in led.attempts(-100, limit=10)]
+    assert ids.count("held-1") == 1, ids
+
+
+def test_both_carriers_fail_log_the_full_row_without_truncation(
+        tmp_path, monkeypatch, caplog):
+    """Свойство 3: последний рубеж — ПОЛНАЯ строка в логе, без усечения.
+
+    Mutation: вернуть прежнюю запись `attempt[:12] + тип ошибки` — JSON в логе
+    не разбирается и/или в нём нет outcome/reason_code/фактов публикации.
+    """
+    led = _ledger(tmp_path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    _break_journal(monkeypatch)
+    _break_spool(monkeypatch)
+    attempt_id = "attempt-" + "0123456789abcdef"      # длиннее 12 символов
+    caplog.set_level("ERROR")
+
+    led.record_attempt(_publication_row(attempt_id))
+
+    errors = [rec for rec in caplog.records
+              if rec.levelno == 40 and "attempt LOST" in rec.getMessage()]
+    assert len(errors) == 1, [r.getMessage() for r in caplog.records]
+    message = errors[0].getMessage()
+    payload = json.loads(message.split("row=", 1)[1])
+    assert payload["attempt_id"] == attempt_id, "id не усечён"
+    assert payload["outcome"] == "published"
+    assert payload["reason_code"] == "sent"
+    assert set(payload) == set(meme.SPOOL_FIELDS)
+    detail = json.loads(payload["detail"])
+    assert detail["attempt_mode"] == "manual"
+    assert detail["publication"]["output"]["tg_message_id"] == 4321
+    assert detail["publication"]["delivery"] == "sent"
+
+
+def test_held_row_is_not_fabricated_into_the_read_model(tmp_path, monkeypatch):
+    """Свойство 4: что именно видит durable-читатель, пока строка удержана.
+
+    Держится такая гарантия: удержанная строка не подделывается (не появляется
+    половинчатой и не сливается с чужой), не теряется (полный payload в логе) и
+    переносится в первый освободившийся носитель при следующей записи. Пока
+    переноса не было, durable-читатель показывает ПРЕДЫДУЩУЮ попытку — это
+    принятое остаточное окно RW-D4-BOTH-WRITE-FAIL (architecture-identity.md
+    §1), а не выданная за правду «последняя» попытка: строки с удержанным
+    `attempt_id` в ответе нет вовсе.
+    """
+    led = _ledger(tmp_path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    led.record_attempt(_publication_row("older", ts=NOW.timestamp()))
+    original_insert = meme.SqliteQuotaLedger._insert_attempt
+    original_spool = meme.SqliteQuotaLedger._spool_attempt
+    _break_journal(monkeypatch)
+    _break_spool(monkeypatch)
+
+    led.record_attempt(_publication_row("held", ts=NOW.timestamp() + 60))
+
+    rows = led.attempts(-100, limit=10)
+    assert [row["attempt_id"] for row in rows] == ["older"], rows
+    assert all(row.get("outcome") for row in rows), "половинчатых строк нет"
+
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_insert_attempt",
+                        original_insert)
+    monkeypatch.setattr(meme.SqliteQuotaLedger, "_spool_attempt",
+                        original_spool)
+    led.record_attempt(_publication_row("after", ts=NOW.timestamp() + 120))
+
+    ids = [row["attempt_id"] for row in led.attempts(-100, limit=10)]
+    assert ids == ["after", "held", "older"], ids
+
+
+def test_unpersisted_cap_logs_the_oldest_in_full(tmp_path, monkeypatch, caplog):
+    """Свойство 5: за потолком 200 самая старая строка пишется в лог целиком.
+
+    Mutation: молча вытеснять (`pop(0)` без записи) — в логе нет evicted-строки,
+    факт пропадает анонимно, тест красный.
+    """
+    led = _ledger(tmp_path)
+    monkeypatch.setattr(meme, "ATTEMPT_WRITE_DELAYS", ())
+    _break_journal(monkeypatch)
+    _break_spool(monkeypatch)
+    total = meme.ATTEMPT_UNPERSISTED_MAX + 1
+    caplog.set_level("ERROR")
+
+    for index in range(total):
+        led.record_attempt(_attempt_row("cap-%03d" % index,
+                                        ts=NOW.timestamp() + index))
+
+    assert len(led._unpersisted) == meme.ATTEMPT_UNPERSISTED_MAX
+    assert led._unpersisted[0]["attempt_id"] == "cap-001"
+    assert led._unpersisted[-1]["attempt_id"] == "cap-%03d" % (total - 1)
+
+    evicted = [rec.getMessage() for rec in caplog.records
+               if "evicted over cap" in rec.getMessage()]
+    assert len(evicted) == 1, evicted
+    payload = json.loads(evicted[0].split("row=", 1)[1])
+    assert payload["attempt_id"] == "cap-000"
+    assert set(payload) == set(meme.SPOOL_FIELDS)
+    assert payload["stage"] == meme.STAGE_PUBLISH
+
+
+def test_id_conc_aggregator_keeps_chats_and_competitors_apart(tmp_path):
+    """P0IM-ID-CONC: одинаковый `ts` и конкурирующие холдеры не сливаются.
+
+    (а) две попытки в РАЗНЫХ чатах с одинаковым `ts` — две группы, изоляция
+    чтения по чату; (б) два конкурирующих холдера в одном чате дают две
+    терминальные строки с разными родителями: прошедшую и конфликтную, без
+    третьей псевдо-группы `row:{attempt_id}` и без потери строки.
+
+    Предусловие ID5: один процесс-писатель на файл журнала (systemd-инстанс
+    один); спул-дренаж с `os.replace` рассчитан именно на это.
+    """
+    from services import publication_coordination as pub
+    from web.api.initiative_publications import _meme_attempts_grouped
+
+    led = _ledger(tmp_path)
+    ts = int(NOW.timestamp())
+    led.record_attempt(_publication_row(
+        "a-1", chat_id=-100, ts=ts, job_id="meme:-100:2026-11-03:aaaa"))
+    led.record_attempt(_publication_row(
+        "b-1", chat_id=-101, ts=ts, job_id="meme:-101:2026-11-03:bbbb"))
+
+    rows_a = led.attempts(-100, limit=10)
+    rows_b = led.attempts(-101, limit=10)
+    assert [row["attempt_id"] for row in rows_a] == ["a-1"]
+    assert [row["attempt_id"] for row in rows_b] == ["b-1"]
+    groups_a = _meme_attempts_grouped(rows_a)
+    groups_b = _meme_attempts_grouped(rows_b)
+    assert len(groups_a) == 1 and len(groups_b) == 1
+    # Один и тот же ts и одинаковый текст не склеивают попытки: ключ — родитель.
+    both = _meme_attempts_grouped(rows_a + rows_b)
+    assert len(both) == 2, both
+    assert {item["attempt_id"] for item in both} == {
+        "meme:meme:-100:2026-11-03:aaaa", "meme:meme:-101:2026-11-03:bbbb"}
+
+    # (б) конкурирующие холдеры в одном чате.
+    store = pub.SqliteClaimStore(led.path)
+    first = store.acquire(chat_id=-102, holder_kind=pub.KIND_TEXT_INITIATIVE,
+                          now=ts)
+    assert first.granted is True
+    assert store.begin_sending(chat_id=-102, claim_id=first.claim_id,
+                               now=ts).granted is True
+    contender = store.acquire(chat_id=-102, holder_kind=pub.KIND_MEME_INITIATIVE,
+                              now=ts, interval_seconds=1800)
+    assert contender.granted is False
+    # Автоматический путь честно видит занятый слот: конфликт + где именно
+    # (семантика брони не меняется — S5-MEME её уже зафиксировал).
+    assert contender.reason == pub.REASON_CONFLICT
+    assert contender.detail == pub.DETAIL_CLAIM_HELD
+    assert contender.state == "sending"
+
+    led.record_attempt(_publication_row(
+        "holder-win", chat_id=-102, ts=ts, reason="sent",
+        job_id="meme:-102:2026-11-03:win"))
+    led.record_attempt(_publication_row(
+        "holder-lose", chat_id=-102, ts=ts, reason="publication_in_flight",
+        outcome="skipped", job_id="meme:-102:2026-11-03:lose"))
+
+    groups = _meme_attempts_grouped(led.attempts(-102, limit=10))
+    assert len(groups) == 2, groups
+    assert all(not item["attempt_id"].startswith("meme:row:") for item in groups)
+    assert all(item["job_id"] for item in groups)
+    assert all(item["incomplete_historical"] is False for item in groups)
+    assert {item["reason_code"] for item in groups} == {
+        "sent", "publication_in_flight"}
+    # Ни одна из двух строк не исчезла: журнал содержит обе.
+    assert sorted(row["attempt_id"] for row in led.attempts(-102, limit=10)) == \
+        ["holder-lose", "holder-win"]
+
+
 
