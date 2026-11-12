@@ -4471,6 +4471,15 @@
     auto: 'автоматически',
     unknown: 'способ не записан',
   };
+  //: §P0IM-OV-LIST: пайплайн пишет в detail `attempt_mode="automatic"`,
+  //: а не `"auto"`. UI нормализует ЗАПИСАННОЕ значение и не сравнивает
+  //: сырое `automatic` с `auto`; неизвестное значение остаётся пустым.
+  function iniNormalizeAttemptMode(raw) {
+    var mode = String(raw || '').trim().toLowerCase();
+    if (mode === 'manual') return 'manual';
+    if (mode === 'auto' || mode === 'automatic') return 'auto';
+    return '';
+  }
   //: Исход попытки и строки журнала — по-человечески, без машинных токенов.
   //: «Молчание» — это РЕШЕНИЕ бота, а не остановка: так оно и написано.
   var INI_OUTCOME_LABELS = {
@@ -4939,9 +4948,10 @@
     var a = (attempt && typeof attempt === 'object') ? attempt : null;
     var at = (a && a.at != null) ? Number(a.at) : null;
     if (at != null && (!isFinite(at) || at <= 0)) at = null;
-    var mode = String((a && a.mode) || '');
+    var rawMode = String((a && a.mode) || '');
+    var mode = iniNormalizeAttemptMode(rawMode);
     var modeLabel = (INI_ATTEMPT_MODE_LABELS[mode]
-      || (mode ? (INI_CODE_PREFIX + mode) : 'способ не записан'));
+      || (rawMode ? (INI_CODE_PREFIX + rawMode) : 'способ не записан'));
     var outcome = String((a && a.outcome) || '');
     var outcomeText = iniOutcomeLabel(outcome, 'исход не записан');
     var stage = String((a && a.stop_stage) || '');
@@ -10759,8 +10769,8 @@
           }
           var attemptMode = (facts && typeof facts === 'object'
                              && !Array.isArray(facts))
-            ? String(facts.attempt_mode || '') : '';
-          if (attemptMode === 'manual' || attemptMode === 'auto') {
+            ? iniNormalizeAttemptMode(facts.attempt_mode) : '';
+          if (attemptMode) {
             modesByJob[job] = attemptMode;
           }
         });

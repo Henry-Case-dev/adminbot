@@ -2747,6 +2747,9 @@ async function closureTrainSuite() {
   assert.strictEqual(normalMode.speechInspectorMode, 'preview');
 
   // ═══ P0IM-OV-LIST: manual/auto в строках обзора (5 последних) ══════════
+  // Живая форма: пайплайн пишет в терминальный detail `attempt_mode`
+  // `"automatic"`/`"manual"`, а НЕ `"auto"`. UI обязан нормализовать это
+  // значение; `mode` этапа «прикол» — бюджет длины и способом не является.
   const events = computed.initiativeRecentEvents.call({
     initiativeVitality: null,
     memeSettings: { analytics: { attempts: [
@@ -2757,7 +2760,13 @@ async function closureTrainSuite() {
         detail: '{"attempt_mode":"manual"}' },
       { ts: NOW_TS - 10, job_id: 'job-auto', stage: 'publish',
         outcome: 'sent', reason_code: '',
-        detail: '{"attempt_mode":"auto"}' },
+        detail: '{"attempt_mode":"automatic"}' },
+      { ts: NOW_TS - 12, job_id: 'job-auto-upper', stage: 'publish',
+        outcome: 'sent', reason_code: '',
+        detail: '{"attempt_mode":"AUTOMATIC"}' },
+      { ts: NOW_TS - 13, job_id: 'job-unknown', stage: 'publish',
+        outcome: 'sent', reason_code: '',
+        detail: '{"attempt_mode":"weird"}' },
       { ts: NOW_TS - 15, job_id: 'job-old', stage: 'publish',
         outcome: 'sent', reason_code: '', detail: '' },
     ] } },
@@ -2768,9 +2777,17 @@ async function closureTrainSuite() {
     'manual-попытка не распознана по attempt_mode');
   assert.ok(byJob['meme:job-manual'].text.indexOf('вручную (/meme)') === 0,
     'manual/auto не в строке обзора: ' + byJob['meme:job-manual'].text);
-  assert.strictEqual(byJob['meme:job-auto'].mode, 'auto');
+  assert.strictEqual(byJob['meme:job-auto'].mode, 'auto',
+    'живое значение "automatic" не нормализовано в auto');
   assert.ok(byJob['meme:job-auto'].text.indexOf('автоматически') === 0,
-    'auto не в строке обзора: ' + byJob['meme:job-auto'].text);
+    'automatic не в строке обзора: ' + byJob['meme:job-auto'].text);
+  assert.strictEqual(byJob['meme:job-auto-upper'].mode, 'auto',
+    'AUTOMATIC не нормализован регистром');
+  assert.ok(byJob['meme:job-auto-upper'].text.indexOf('автоматически') === 0);
+  assert.strictEqual(byJob['meme:job-unknown'].mode, '',
+    'неизвестное значение выдано за auto/manual');
+  assert.ok(byJob['meme:job-unknown'].text.indexOf('способ не записан') === 0,
+    'неизвестный режим не назван честно: ' + byJob['meme:job-unknown'].text);
   assert.strictEqual(byJob['meme:job-old'].mode, '',
     'исторической строке выдуман способ');
   assert.ok(byJob['meme:job-old'].text.indexOf('способ не записан') === 0);
