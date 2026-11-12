@@ -1648,7 +1648,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "pending_reason": "После выкладки 2.58.192 ни одна попытка не дошла до LLM/Image API: мем-попытки обоих чатов стоят на гейте суточной квоты, опубликованная текстовая показывает только решение → отправку → результат. Поэтому в одной попытке не подтверждены фактический провайдер/модель/слот, версии и источники системных промптов, реально отправленные messages, выжимка и прикол, итоговый image prompt, запрос/статус image API, формат и наличие картинки. Код это выводит (joke.note: манифест, ревизии, «модель не записана» — тест 13.1), но живого носителя нет."
+      "pending_reason": "Живой носитель теперь есть: попытка meme:-1004482340693:2026-11-12:5dbad95f9091 прошла summary → joke → image_generation → publish и доставлена (tg 11107). Но в одной попытке не подтверждены фактические провайдер/модель/слот, реально отправленные messages и версии системных промптов: в detail шага joke есть только chars и ревизии слоёв речи, в шаге image_generation — chars/template_revision, модели нет. Остаток — не доказательство, а недостающие поля продукта; строка остаётся PENDING."
     },
     {
       "source_id": "MANUAL-L104-B",
@@ -2471,12 +2471,35 @@
       "acceptance": "Независимая проверка покрывает: оба чата; включён/выключен/unknown; ожидание сообщений; автоматический кулдаун; дневную квоту; 100% вероятности, когда жребий не нужен; отсутствие повода у L1 — и для каждого случая карточка показывает «Разрешено: ВКЛ» с собственной причиной ожидания.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+          "type": "test",
+          "ref": "Одобренная приёмочная матрица S7-ACCEPT (кандидат 992f45ab, 29 проверок: 28 passed / 0 failed / 1 not_yet / 0 blocked, run_ok=false, run_status=partial); строка заявляется только при всех passed её проверках (12 проверок строки)",
+          "observation": "Проверки строки: слои чата/общего/заводского, enabled=false и null (unknown), «разрешено ВКЛ + waiting» на шести ожиданиях (кулдаун полным путём, мало сообщений, квота, тихие часы, жребий, отложенный артефакт), живой payload двух боевых чатов. Наблюдения: AC-MATRIX-CONFIG-FACTORY/GLOBAL/CHAT: configuration.enabled=true с названным слоем и источником; AC-MATRIX-CONFIG-OFF: enabled=false + readiness=blocked, а не ожидание; AC-MATRIX-CONFIG-UNKNOWN: enabled=null, source=read_failed, readiness=unknown; AC-MATRIX-WAIT-COOLDOWN/MESSAGES/QUOTA/QUIET/LOTTERY/DEFERRED: enabled=true + waiting с собственной причиной, ETA только по доказанному основанию; AC-LIVE-ENDPOINT-AXES: два боевых чата, readiness=ready/waiting, delivery=confirmed.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+          "artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Прогон против выложенной сборки 2.58.194 (6c11fc08) и живая цепочка доставки 2026-11-12T00:34:19Z; привязка PM",
+          "observation": "Сборка, против которой шёл прогон: 2.58.194 / 6c11fc08 (healthz ok, штамп в DOM 2.58.194). Живая цепочка: журнал attempt_id 9e6da9ef…, чат -1004482340693, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 с тем же чатом, id и sent_at, correlation_id=meme:-1004482340693:2026-11-12:5dbad95f9091 равен job_id; эндпоинт в 00:45Z отдаёт last_delivery confirmed с message_id 11107 и тем же run_id; 1 из 71 доставленной строки несёт блок publication (70 прежних — нет).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+        }
+      ],
       "covered_by": [
         "HMF-ACC-02"
       ],
-      "delta": "Приёмка доставки уже существовала; добавляется матрица конфигурационных состояний именно для пяти осей."
+      "delta": "Приёмка доставки уже существовала; добавляется матрица конфигурационных состояний именно для пяти осей.",
+      "not_covered": [
+        "«100% вероятности, когда жребий не нужен»",
+        "«отсутствие повода у L1»"
+      ],
+      "pending_reason": "Матрица закрыла 12 проверок строки. НЕ закрыто этой матрицей: «100% вероятности, когда жребий не нужен» и «отсутствие повода у L1» — эти два пункта acceptance строки остаются без доказательства. Поэтому REVIEW, а не VERIFIED: остаток закрывается двумя проверками приёмки, а не повторным ревью доказанного.",
+      "open_acceptance": "Матрица закрыла 12 проверок строки. НЕ закрыто этой матрицей: «100% вероятности, когда жребий не нужен» и «отсутствие повода у L1» — эти два пункта acceptance строки остаются без доказательства. Поэтому REVIEW, а не VERIFIED: остаток закрывается двумя проверками приёмки, а не повторным ревью доказанного."
     },
     {
       "source_id": "MANUAL-L134-B",
@@ -2490,10 +2513,36 @@
       "acceptance": "Независимая проверка покрывает: ранние гейты без job_id (регрессия); обрыв после LLM A/B и после image API; пустое изображение; конфликт отправок; провайдерные исключения; delivery_unknown; старые неполные записи — во всех случаях попытка остаётся одной связной историей с честным исходом.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+          "type": "test",
+          "ref": "Одобренная приёмочная матрица S7-ACCEPT (кандидат 992f45ab, 29 проверок: 28 passed / 0 failed / 1 not_yet / 0 blocked, run_ok=false, run_status=partial); строка заявляется только при всех passed её проверках (5 проверок строки)",
+          "observation": "Проверки строки: провайдерное исключение с этапом остановки, отсутствие строки журнала, три состояния доставки, незнакомый код причины, реальный message_id доставки. Наблюдения: AC-TRACE-STOPPED: одна связная история, stop_stage=image_generation; AC-TRACE-NEVER-STARTED: пустой журнал не выдаётся за попытку; AC-DELIVERY-THREE-STATES: confirmed(message_id 910011)/unknown/never различимы; AC-CODES-UNKNOWN-READABLE: незнакомый код сохранён и подписан; AC-LIVE-MESSAGE-ID: журнал 9e6da9ef…, tg_message_id 11107, сверен с mca_bot_outputs 1620 и last_delivery.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+          "artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Прогон против выложенной сборки 2.58.194 (6c11fc08) и живая цепочка доставки 2026-11-12T00:34:19Z; привязка PM",
+          "observation": "Сборка, против которой шёл прогон: 2.58.194 / 6c11fc08 (healthz ok, штамп в DOM 2.58.194). Живая цепочка: журнал attempt_id 9e6da9ef…, чат -1004482340693, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 с тем же чатом, id и sent_at, correlation_id=meme:-1004482340693:2026-11-12:5dbad95f9091 равен job_id; эндпоинт в 00:45Z отдаёт last_delivery confirmed с message_id 11107 и тем же run_id; 1 из 71 доставленной строки несёт блок publication (70 прежних — нет).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+        }
+      ],
       "covered_by": [],
-      "delta": "Новое: обязательный набор отказных сценариев для идентичности и учёта попыток."
+      "delta": "Новое: обязательный набор отказных сценариев для идентичности и учёта попыток.",
+      "not_covered": [
+        "ранние гейты без job_id",
+        "обрыв после LLM A/B",
+        "пустое изображение",
+        "конфликт отправок",
+        "старые неполные записи"
+      ],
+      "pending_reason": "Матрица закрыла 5 проверок строки, включая реальный message_id. НЕ закрыто этой матрицей: ранние гейты без job_id, обрыв после LLM A/B, пустое изображение, конфликт отправок, старые неполные записи. Отдельно: живая цепочка publisher_not_bound → отложено → доставлено не наблюдалась (единственный живой not_yet, WO-258194-S5B-DEFERRED).",
+      "open_acceptance": "Матрица закрыла 5 проверок строки, включая реальный message_id. НЕ закрыто этой матрицей: ранние гейты без job_id, обрыв после LLM A/B, пустое изображение, конфликт отправок, старые неполные записи. Отдельно: живая цепочка publisher_not_bound → отложено → доставлено не наблюдалась (единственный живой not_yet, WO-258194-S5B-DEFERRED)."
     },
     {
       "source_id": "MANUAL-L134-C",
@@ -2508,11 +2557,25 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Частично: истечение manual_priority_until на живой автоматической попытке 2.58.194",
+          "observation": "publication.claim.manual_priority_until=1794403592 истёк к моменту публикации 1794443659; публикация прошла с manual=false, гейт ok, ожидания по маркеру не было. Ручной половины строки это не закрывает.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+        }
+      ],
       "covered_by": [
         "MEME-IIC-REVIEW-MANUAL"
       ],
-      "delta": "Сценарий приоритета при готовом авто-посте уже проверялся; добавляется исчерпанная квота и истечение TTL."
+      "delta": "Сценарий приоритета при готовом авто-посте уже проверялся; добавляется исчерпанная квота и истечение TTL.",
+      "pending_reason": "Живого ручного /meme при исчерпанной квоте не было и исполнять его от имени владельца запрещено. Половина про истечение TTL наблюдалась живьём на 2.58.194: автопубликация 2026-11-12T00:34:19Z прошла при истёкшем manual_priority_until=1794403592 с manual=false и без ожидания по маркеру. Остаётся живой ручной результат при исчерпанной квоте (публикуется ручной, автоматический откладывается с причиной). Владельцу как проверка не передаётся: наблюдение ведут агенты.",
+      "open_acceptance": "Живого ручного /meme при исчерпанной квоте не было и исполнять его от имени владельца запрещено. Половина про истечение TTL наблюдалась живьём на 2.58.194: автопубликация 2026-11-12T00:34:19Z прошла при истёкшем manual_priority_until=1794403592 с manual=false и без ожидания по маркеру. Остаётся живой ручной результат при исчерпанной квоте (публикуется ручной, автоматический откладывается с причиной). Владельцу как проверка не передаётся: наблюдение ведут агенты.",
+      "not_covered": [
+        "живой ручной /meme при исчерпанной квоте (TTL-половина доказана живьём)"
+      ]
     },
     {
       "source_id": "MANUAL-L134-3",
@@ -2526,12 +2589,35 @@
       "acceptance": "Независимая проверка покрывает RBAC admin/чужой чат, полную трассу без утечки секретов, подтверждение реального сообщения Telegram и конкурирующие чаты/держателей брони.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+          "type": "test",
+          "ref": "Одобренная приёмочная матрица S7-ACCEPT (кандидат 992f45ab, 29 проверок: 28 passed / 0 failed / 1 not_yet / 0 blocked, run_ok=false, run_status=partial); строка заявляется только при всех passed её проверках (2 проверок строки)",
+          "observation": "Проверки строки: не-админ 403, запрос без чата 422, ответ админа не смешивает чаты; подтверждение реального сообщения Telegram. Наблюдения: AC-RBAC-NONADMIN-DENIED: 403 на диагностике и журнале, 422 без X-Chat-Id; AC-RBAC-NO-CROSS-CHAT-LEAK: chat_id=A, run_id=A-ONLY, message_id=510, запрос B отдаёт B-ONLY. Подтверждение реального сообщения закрыто живой цепочкой 2026-11-12T00:34:19Z: tg_message_id 11107 в чате -1004482340693, сверен с mca_bot_outputs и last_delivery.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+          "artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Прогон против выложенной сборки 2.58.194 (6c11fc08) и живая цепочка доставки 2026-11-12T00:34:19Z; привязка PM",
+          "observation": "Сборка, против которой шёл прогон: 2.58.194 / 6c11fc08 (healthz ok, штамп в DOM 2.58.194). Живая цепочка: журнал attempt_id 9e6da9ef…, чат -1004482340693, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 с тем же чатом, id и sent_at, correlation_id=meme:-1004482340693:2026-11-12:5dbad95f9091 равен job_id; эндпоинт в 00:45Z отдаёт last_delivery confirmed с message_id 11107 и тем же run_id; 1 из 71 доставленной строки несёт блок publication (70 прежних — нет).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+        }
+      ],
       "covered_by": [
         "SD1-D7-02"
       ],
-      "delta": "Корнер-кейсы доставки и прав уже были заявлены в самодиагностике; здесь они применяются к трассе инициативы."
+      "delta": "Корнер-кейсы доставки и прав уже были заявлены в самодиагностике; здесь они применяются к трассе инициативы.",
+      "not_covered": [
+        "полная трасса без утечки секретов",
+        "конкурирующие чаты/держатели брони"
+      ],
+      "pending_reason": "Матрица закрыла 2 проверки строки; подтверждение реального сообщения Telegram закрыто живой цепочкой 00:34Z. НЕ закрыто: скан полной трассы без утечки секретов и конкурирующие чаты/держатели брони. Оба пункта требуют отдельной проверки, поэтому REVIEW.",
+      "open_acceptance": "Матрица закрыла 2 проверки строки; подтверждение реального сообщения Telegram закрыто живой цепочкой 00:34Z. НЕ закрыто: скан полной трассы без утечки секретов и конкурирующие чаты/держатели брони. Оба пункта требуют отдельной проверки, поэтому REVIEW."
     },
     {
       "source_id": "MANUAL-L134-4",
@@ -2545,12 +2631,34 @@
       "acceptance": "Независимая проверка покрывает десктоп и мобильную Mini App, переключение scope при медленном API и собственные контрпримеры Reviewer, включая живые проверки без лишних публикаций в рабочие чаты.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+          "type": "test",
+          "ref": "Одобренная приёмочная матрица S7-ACCEPT (кандидат 992f45ab, 29 проверок: 28 passed / 0 failed / 1 not_yet / 0 blocked, run_ok=false, run_status=partial); строка заявляется только при всех passed её проверках (4 проверок строки)",
+          "observation": "Проверки строки: рендеры отданной сборки на двух боевых чатах в 1536×960 и 390×844, отсутствие горизонтальной прокрутки и обрезки, гонка scope при медленном API, контрпример «чужой chat_id + истёкший маркер». Наблюдения: AC-VISUAL-AXES-DESKTOP/MOBILE: doc.scrollWidth=clientWidth (1536/1536, 390/390), обрезанных id/дат 0, версия в DOM 2.58.194, восемь строк осей обеих карточек видимы и непусты; AC-VISUAL-STALE-DISCARD: задержка 2.4 с, поздний ответ отброшен, sentinel 777000111 не появился, после ответа — данные чата B; AC-VISUAL-FOREIGN-EXPIRED: чужой chat_id отклонён с причиной, sentinel 777000112 отсутствует, истёкший маркер не изменил ось и не дал busy.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+          "artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "ui",
+          "ref": "Прогон против выложенной сборки 2.58.194 (6c11fc08) и живая цепочка доставки 2026-11-12T00:34:19Z; привязка PM",
+          "observation": "Сборка, против которой шёл прогон: 2.58.194 / 6c11fc08 (healthz ok, штамп в DOM 2.58.194). Живая цепочка: журнал attempt_id 9e6da9ef…, чат -1004482340693, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 с тем же чатом, id и sent_at, correlation_id=meme:-1004482340693:2026-11-12:5dbad95f9091 равен job_id; эндпоинт в 00:45Z отдаёт last_delivery confirmed с message_id 11107 и тем же run_id; 1 из 71 доставленной строки несёт блок publication (70 прежних — нет).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+        }
+      ],
       "covered_by": [
         "HMF-UI-08"
       ],
-      "delta": "Адаптивность уже требовалась; добавляется гонка scope при медленном API и запрет шумных живых проверок."
+      "delta": "Адаптивность уже требовалась; добавляется гонка scope при медленном API и запрет шумных живых проверок.",
+      "not_covered": [
+        "собственные контрпримеры Reviewer под это изменение UI"
+      ],
+      "pending_reason": "Матрица закрыла 4 проверки на отданной сборке. НЕ закрыто этой матрицей: собственные контрпримеры Reviewer под это изменение UI — в матрице их нет по построению. Реальный Telegram-клиент устройства не проверялся (Chromium с мобильным вьюпортом против отданной страницы) — это ограничение среды, записано в recorded_limits, а не действие владельца.",
+      "open_acceptance": "Матрица закрыла 4 проверки на отданной сборке. НЕ закрыто этой матрицей: собственные контрпримеры Reviewer под это изменение UI — в матрице их нет по построению. Реальный Telegram-клиент устройства не проверялся (Chromium с мобильным вьюпортом против отданной страницы) — это ограничение среды, записано в recorded_limits, а не действие владельца."
     },
     {
       "source_id": "MANUAL-L136-A",
@@ -2567,7 +2675,9 @@
       "status": "PENDING",
       "evidence": [],
       "covered_by": [],
-      "delta": "Новое: сводный критерий приёмки корректива."
+      "delta": "Новое: сводный критерий приёмки корректива.",
+      "pending_reason": "Агрегат по всем срезам: 114 обязательных строк, 77 уникальных req_id; VERIFIED 60, REVIEW 25 (S7-ACCEPT 5, S3-OV 11, S5-MEME 6, S6-FRESH 3), READY_FOR_LIVE 2, PENDING 27. Открыты срезы: A0-ARCH, S5-MEME, S7-ACCEPT, S3-OV, S1-AXES, S2-ID, S4-TRACE, S6-FRESH, S5b. Агрегат нельзя закрыть по одной строке — он собирается из остатков названных срезов.",
+      "open_acceptance": "Агрегат по всем срезам: 114 обязательных строк, 77 уникальных req_id; VERIFIED 60, REVIEW 25 (S7-ACCEPT 5, S3-OV 11, S5-MEME 6, S6-FRESH 3), READY_FOR_LIVE 2, PENDING 27. Открыты срезы: A0-ARCH, S5-MEME, S7-ACCEPT, S3-OV, S1-AXES, S2-ID, S4-TRACE, S6-FRESH, S5b. Агрегат нельзя закрыть по одной строке — он собирается из остатков названных срезов."
     },
     {
       "source_id": "MANUAL-L136-B",
@@ -2671,13 +2781,35 @@
       "acceptance": "После релиза приложены скриншоты двух чатов (обзор, история, раскрытая трасса), результаты независимого Reviewer, артефакты реальной доставки или отказа и статус продакшена.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+          "type": "test",
+          "ref": "Одобренная приёмочная матрица S7-ACCEPT (кандидат 992f45ab, 29 проверок: 28 passed / 0 failed / 1 not_yet / 0 blocked, run_ok=false, run_status=partial); строка заявляется только при всех passed её проверках (1 проверок строки)",
+          "observation": "Проверки строки: послерелизные снимки двух боевых чатов: обзор, раскрытая трасса, счётчики/квота, строка доставки, штамп версии и сверка с выложенным SHA. Наблюдения: AC-POSTREL-BOTH-CHATS: два чата, версия на странице 2.58.194, выложено 2.58.194 (6c11fc08); доставка «подтверждено · 12.11 00:34 · чат -100448…»; квота «1 / 3 · Осталось 2» после сброса; трасса — пропущено; артефакты реальной доставки есть (журнал 9e6da9ef… / mca_bot_outputs 1620 / last_delivery 11107).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+          "artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Прогон против выложенной сборки 2.58.194 (6c11fc08) и живая цепочка доставки 2026-11-12T00:34:19Z; привязка PM",
+          "observation": "Сборка, против которой шёл прогон: 2.58.194 / 6c11fc08 (healthz ok, штамп в DOM 2.58.194). Живая цепочка: журнал attempt_id 9e6da9ef…, чат -1004482340693, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 с тем же чатом, id и sent_at, correlation_id=meme:-1004482340693:2026-11-12:5dbad95f9091 равен job_id; эндпоинт в 00:45Z отдаёт last_delivery confirmed с message_id 11107 и тем же run_id; 1 из 71 доставленной строки несёт блок publication (70 прежних — нет).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+        }
+      ],
       "covered_by": [
         "HMF-ACC-01",
         "HMF-ACC-03"
       ],
-      "delta": "Формат доказательств релиза уже существует; здесь он применяется к этому кандидату."
+      "delta": "Формат доказательств релиза уже существует; здесь он применяется к этому кандидату.",
+      "not_covered": [
+        "продуктовый вердикт независимого Reviewer по выложенному релизу"
+      ],
+      "pending_reason": "Послерелизные снимки двух чатов со штампом версии, сверкой SHA, строкой доставки, счётчиками/квотой и раскрытой трассой — есть. НЕ закрыто: продуктовый вердикт независимого Reviewer по выложенному релизу (Review: pending). Живой Telegram-клиент устройства — ограничение среды, не acceptance.",
+      "open_acceptance": "Послерелизные снимки двух чатов со штампом версии, сверкой SHA, строкой доставки, счётчиками/квотой и раскрытой трассой — есть. НЕ закрыто: продуктовый вердикт независимого Reviewer по выложенному релизу (Review: pending). Живой Telegram-клиент устройства — ограничение среды, не acceptance."
     },
     {
       "source_id": "MANUAL-L120-S5B",
@@ -2736,7 +2868,7 @@
       "acceptance": "Для попытки мема, закрытой без отправки, read-model/API отдаёт last_delivery = «не доставлено» с точным кодом причины (в том числе publisher_not_bound), а не пустоту и не «опубликовано»; число изображений и число подтверждённых отправок в одной попытке различаются.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
@@ -2761,13 +2893,31 @@
           "observation": "Граница живой половины: что наблюдалось на 2.58.194 и почему статус не повышен; триггер записан один раз в waiting_observations.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
           "artifact_sha256": "ce52558a323f1bafd1e6ae14f78c15394cf594746c5fe7df3c2c62f00fae9854"
+        },
+        {
+          "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+          "type": "test",
+          "ref": "Одобренная приёмка S7-ACCEPT (992f45ab): независимая кросс-проверка факта доставки в терминальной строке на выложенной сборке",
+          "observation": "AC-LIVE-MESSAGE-ID в составе матрицы: журнал 9e6da9ef…, tg_message_id 11107 сверен с mca_bot_outputs 1620, эндпоинт отдаёт last_delivery confirmed с тем же id и run_id. Факт попытки и факт доставки — разные записи, счётчики изображений/отправок не слиты.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+          "artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая цепочка доставки 2026-11-12T00:34:19Z на 2.58.194 и привязка PM",
+          "observation": "journal row attempt_id=9e6da9ef…, chat -1004482340693, 2026-11-12T00:34:19Z, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 с тем же чатом/id/sent_at и correlation_id=meme:-1004482340693:2026-11-12:5dbad95f9091 (= job_id); эндпоинт 00:45Z: last_delivery={confirmed, message_id 11107, run_id тот же}; доставка после выкладки 2.58.194; 70 прежних доставленных строк блока publication не несут.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+          "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
         }
       ],
       "delta": "Новое: отделяет ось доставки от оси попытки для отказов publisher_not_bound.",
-      "pending_reason": "Инженерная половина доказана на e92cdcd5: для закрытой без отправки попытки пишется not_delivered с reason_code=publisher_not_bound, временем, destination, message_id=null и ровно набором LAST_DELIVERY_FIELDS, а подтверждённая отправка (4242) не перезаписывается более поздним «не доставлено». Живая половина не наблюдалась: ни одной реальной попытки мема с publisher_not_bound после изменения не было. После 2.58.194 живого случая «закрыто без отправки, затем доставлено позже» не было (квота 3/3); порядок «более поздний отказ не перезаписывает подтверждённую отправку» остаётся доказанным только на кандидате.",
+      "pending_reason": null,
       "live_obligation": "На реальной попытке мема с publisher_not_bound read-model отдаёт last_delivery.status=not_delivered с reason_code=publisher_not_bound, временем и destination, message_id=null; после реальной поздней доставки того же чата последняя подтверждённая отправка показывает непустой message_id и более поздним отказом не стирается. Проверяется по журналу попыток и полям task_jobs, без ручного участия владельца.",
       "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась.",
-      "deploy_258193": "НЕ входит в 2.58.193: e92cdcd5 не выложен (в релизной цепочке его нет). Статус не меняется: инженерная половина доказана на кандидате, живая половина ждёт собственной выкладки под-среза и реального случая publisher_not_bound → deferred → delivered."
+      "deploy_258193": "НЕ входит в 2.58.193: e92cdcd5 не выложен (в релизной цепочке его нет). Статус не меняется: инженерная половина доказана на кандидате, живая половина ждёт собственной выкладки под-среза и реального случая publisher_not_bound → deferred → delivered.",
+      "open_acceptance": null,
+      "status_note": "Живая половина закрыта событием 2026-11-12T00:34:19Z (после сброса квоты): доставленная попытка мема несёт отдельную строку вывода publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}, сверенную с mca_bot_outputs (output_id 1620, тот же чат, id и sent_at, correlation_id равен job_id) и с last_delivery (confirmed, message_id 11107); счётчики считаются раздельно (spent 3 / delivered 2 / not_delivered 1, причина publisher_not_bound показана текстом «израсходовано без отправки: 1 (отправитель не привязан в этом процессе)»). Порядок «поздний отказ не перезаписывает подтверждённую отправку» остаётся доказанным на кандидате e92cdcd5: на живых данных обратного порядка не встречалось, и это ограничение записано."
     },
     {
       "source_id": "MANUAL-L083-S5B",
@@ -3556,7 +3706,7 @@
         "MEME-JOKE-DIAG-REVISIONS"
       ],
       "delta": "Prompt manifest и ревизии слоёв уже отдавались, Effective Prompt Inspector показывает реальный payload; добавляется сквозная связка промпт → image → доставка по одной попытке.",
-      "pending_reason": "После выкладки 2.58.192 ни одна попытка не дошла до LLM/Image API: мем-попытки обоих чатов стоят на гейте суточной квоты, опубликованная текстовая показывает только решение → отправку → результат. Поэтому в одной попытке не подтверждены фактический провайдер/модель/слот, версии и источники системных промптов, реально отправленные messages, выжимка и прикол, итоговый image prompt, запрос/статус image API, формат и наличие картинки. Код это выводит (joke.note: манифест, ревизии, «модель не записана» — тест 13.1), но живого носителя нет."
+      "pending_reason": "Живой носитель теперь есть: попытка meme:-1004482340693:2026-11-12:5dbad95f9091 прошла summary → joke → image_generation → publish и доставлена (tg 11107). Но в одной попытке не подтверждены фактические провайдер/модель/слот, реально отправленные messages и версии системных промптов: в detail шага joke есть только chars и ревизии слоёв речи, в шаге image_generation — chars/template_revision, модели нет. Остаток — не доказательство, а недостающие поля продукта; строка остаётся PENDING."
     },
     {
       "source_id": "L00043",
@@ -4241,7 +4391,7 @@
       "accounting_note": "S4 не переписывает строки S1/S3; P0IM-BAN-CONFLATE по-прежнему ждёт S4 (PB-COUNT). Строки PB-* двух исходных указателей (L00045/L00047/L00041 и MANUAL-L100/L102/L104/L106/L108) обновлены синхронно."
     },
     "S5b": {
-      "state": "DEPLOYED IN 2.58.194 (6c11fc08), NOT VERIFIED: 3 строки READY_FOR_LIVE",
+      "state": "DEPLOYED IN 2.58.194 (6c11fc08): 1 строка VERIFIED (DELIVERY-FACT, закрыта живой цепочкой 00:34:19Z), 2 строки READY_FOR_LIVE (NODISCARD, QUOTA)",
       "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
       "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
       "owns_req_ids": [
@@ -4250,8 +4400,15 @@
         "P0IM-S5B-QUOTA"
       ],
       "evidence_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
-      "live_half": "Не наблюдалась: квота мемов исчерпана в обоих чатах (3/3, сброс 2026-11-12T00:00:00Z). Живые счётчики отказа (not_delivered=1, publisher_not_bound=1) и подтверждённые отправки с непустым message_id читаются новым кодом верно, но решение «не выбрасывать оплаченное» на живом тике не срабатывало.",
-      "trigger": "WO-258194-S5B-DEFERRED (карта, waiting_observations)."
+      "live_half": "Факт доставки закрыт живьём (00:34:19Z: publication.output, mca_bot_outputs 1620, last_delivery 11107). НЕ наблюдалась цепочка publisher_not_bound → отложено → доставлено: в снимке 00:45Z две отложенные строки, обе claim_held и созданы до выкладки. Живая половина NODISCARD/QUOTA ждёт именно этого события.",
+      "trigger": "WO-258194-S5B-DEFERRED (карта, waiting_observations).",
+      "verified_req_ids": [
+        "P0IM-S5B-DELIVERY-FACT"
+      ],
+      "ready_for_live_req_ids": [
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-QUOTA"
+      ]
     },
     "S5-MEME": {
       "state": "ВЫЛОЖЕНО в 2.58.193 (7a7cd0ce): 6 строк (5 уникальных) в REVIEW — кандидат одобрен и выложен, живая половина не наблюдалась",
@@ -4346,6 +4503,37 @@
       "evidence_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
       "accepted_observations": "Пояс из backend с источником и серверным штампом, заводской слой назван честно; истёкший маркер читается как истёкший, полосы координации нет; слои гейтов пришли с сервера; карточка чужого чата берёт пояс из его же ответа.",
       "remaining": "image_module/heartbeat/провайдеры в живом payload не наблюдались (EFFECTIVE); гоночный guard от позднего ответа другого чата вживую не воспроизводился (SCOPE). См. recorded_limits."
+    },
+    "S7-ACCEPT": {
+      "state": "ПРИЁМКА ОДОБРЕНА на 992f45ab (HEAD 8d2553ed, база dc699c72) против выложенной 2.58.194 (6c11fc08): 29 проверок — 28 passed, 0 failed, 1 not_yet, 0 blocked; run_ok=false, partial. Пять строк привязаны в REVIEW, одна строка S5b закрыта живьём",
+      "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+      "candidate_head": "8d2553ed",
+      "base_commit": "dc699c72",
+      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "deployed_version": "2.58.194",
+      "branch": "init/meme-s7-accept",
+      "evidence_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+      "evidence_artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4",
+      "matrix_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+      "matrix_artifact_sha256": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9",
+      "claimed_rows": {
+        "P0IM-AC-MATRIX-CONFIG": 12,
+        "P0IM-AC-MATRIX-FAIL": 5,
+        "P0IM-AC-MATRIX-RBAC": 2,
+        "P0IM-AC-MATRIX-UI": 4,
+        "P0IM-AC-POSTREL": 1
+      },
+      "not_claimed": {
+        "P0IM-AC-MATRIX-MANUAL": "живой ручной /meme при исчерпанной квоте; TTL-половина доказана живьём",
+        "P0IM-AC-DONE": "агрегат по всем срезам"
+      },
+      "reason_for_review": "Заявка строки возможна только при всех passed её проверках, но заявка ≠ полное acceptance: у каждой строки остаётся названный недобор (см. not_covered в строках). VERIFIED только там, где acceptance закрыт целиком — таких строк в этой приёмке не появилось.",
+      "live_half": "Живая цепочка доставки 00:34:19Z: журнал 9e6da9ef… с publication.output {ledger_id 1620, tg_message_id 11107}, mca_bot_outputs 1620 с тем же correlation_id, last_delivery confirmed с тем же id; 70 прежних доставленных строк блока publication не несут.",
+      "limits": [
+        "Реальный Telegram-клиент устройства не проверялся (Chromium + мобильный вьюпорт отданной страницы) — ограничение среды.",
+        "Живой ручной /meme при исчерпанной квоте не выполнялся: исполнять команду от имени владельца запрещено.",
+        "Контрпримеры Reviewer под последующие изменения UI — постоянное обязательство ревью, не одноразовое доказательство."
+      ]
     }
   },
   "binding_log": [
@@ -4569,6 +4757,51 @@
         "HON": "5c290209d9d09a243589969224d0dd34c728af2ef3ffecfa651697a40544a528"
       },
       "note": "Привязка к выложенному 7a7cd0ce, не «зелёной серией»: два новых обязательства закрыты живым продом + DOM на выложенной сборке; пять строк S5-MEME переведены в REVIEW (кандидат одобрен и выложен, живая половина не наблюдалась); LIST/L3 перепривязаны без повышения статуса. Состав релиза: два из шести коммитов — только доказательства (1957c0e9 → 48e8d5ed, 32939c7a → e4567ddb), код честности — f8846e49 → cd7c1ff2 и a5d89cac → 5dbe35d2."
+    },
+    {
+      "date": "2026-11-12",
+      "slice_ids": [
+        "S7-ACCEPT",
+        "S5b"
+      ],
+      "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+      "candidate_head": "8d2553ed",
+      "base_commit": "dc699c72",
+      "branch": "init/meme-s7-accept",
+      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "deployed_version": "2.58.194",
+      "approved_req_ids": [
+        "P0IM-AC-MATRIX-CONFIG",
+        "P0IM-AC-MATRIX-FAIL",
+        "P0IM-AC-MATRIX-RBAC",
+        "P0IM-AC-MATRIX-UI",
+        "P0IM-AC-POSTREL"
+      ],
+      "review_req_ids": [
+        "P0IM-AC-MATRIX-CONFIG",
+        "P0IM-AC-MATRIX-FAIL",
+        "P0IM-AC-MATRIX-RBAC",
+        "P0IM-AC-MATRIX-UI",
+        "P0IM-AC-POSTREL"
+      ],
+      "verified_req_ids": [
+        "P0IM-S5B-DELIVERY-FACT"
+      ],
+      "rows_touched": 7,
+      "artifacts": [
+        "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+        "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.json",
+        "plans/features/p0-init-meme-ux-diag/evidence/s7accept/matrix-prod.md"
+      ],
+      "artifact_sha256": {
+        "BIND": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4",
+        "MATRIX": "3009c0a73a8fe83f10ccea92876816425d4d08ba9f7841a3ba7a95a488de5ca9",
+        "MATRIX_MD": "0320f254976ca06bf497ae23714523a2a6d4b274b620d13ddb1ee1664d727cad"
+      },
+      "waiting_observations_closed": [
+        "WO-258193-MEME-DELIVERED-ID"
+      ],
+      "note": "Строки приёмки не повышены до VERIFIED: у каждой остаётся названный недобор (not_covered). Живой message_id закрыл ровно обязательство S5b-DELIVERY-FACT и наблюдение WO-258193-MEME-DELIVERED-ID; NODISCARD/QUOTA ждут отложенной цепочки, MM-* — живого ручного /meme, MATRIX-MANUAL и AC-DONE открыты."
     }
   ],
   "recorded_limits": [
@@ -4655,6 +4888,34 @@
       "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
       "statement": "Живого случая «publisher_not_bound → отложено → доставлено» после выкладки не было (квота мемов 3/3 в обоих чатах, сброс 2026-11-12T00:00:00Z).",
       "consequence": "Три строки S5b остаются READY_FOR_LIVE; их живая половина ждёт реального события (WO-258194-S5B-DEFERRED), а не действия агента."
+    },
+    {
+      "id": "S7-REAL-TELEGRAM-CLIENT-NOT-CHECKED",
+      "slice": "S7-ACCEPT",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Мобильный UI снят Chromium с вьюпортом 390×844 против отданной страницы с реальным initData; настоящий TMA-хост на устройстве не проверялся.",
+      "consequence": "P0IM-AC-MATRIX-UI держится в REVIEW по остатку «контрпримеры Reviewer», а не по клиенту: клиент устройства — ограничение среды, владельцу как проверка не передаётся."
+    },
+    {
+      "id": "S7-MANUAL-MEME-UNDER-EXHAUSTED-QUOTA-NOT-RUN",
+      "slice": "S7-ACCEPT",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Живой ручной /meme при исчерпанной квоте не выполнялся: исполнять команду от имени владельца запрещено, чужой ручной запуск не воспроизводим.",
+      "consequence": "P0IM-AC-MATRIX-MANUAL остаётся PENDING с названным остатком; TTL-половина (истёкший manual_priority_until не блокирует и не показывается ожиданием) наблюдалась живьём 00:34:19Z."
+    },
+    {
+      "id": "S7-REVIEWER-COUNTEREXAMPLES-ARE-PER-CHANGE",
+      "slice": "S7-ACCEPT",
+      "candidate_commit": "992f45ab320be099232fa29e4e96817fed285405",
+      "statement": "Собственные контрпримеры Reviewer к UI — обязательство каждого изменения UI, а не одноразовый артефакт; в матрице их нет по построению.",
+      "consequence": "P0IM-AC-MATRIX-UI остаётся REVIEW до одного адресного контрпримера Reviewer на это изменение."
+    },
+    {
+      "id": "S5B-DELIVERY-ORDER-ON-CANDIDATE-ONLY",
+      "slice": "S5b",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Порядок «поздний отказ не перезаписывает подтверждённую отправку» проверен на кандидате e92cdcd5; на живых данных обратного порядка (отказ позже подтверждённой отправки) не встречалось.",
+      "consequence": "Не мешает VERIFIED P0IM-S5B-DELIVERY-FACT (acceptance строки этого не требует), но и не считается живым доказательством."
     }
   ],
   "next_release_note": {
@@ -4671,7 +4932,7 @@
       {
         "commit": "e92cdcd5",
         "scope": "S5b — publisher_not_bound не выбрасывает оплаченное изображение",
-        "state": "одобрено независимым Reviewer, НЕ выложено; живая половина требует выкладки под-среза"
+        "state": "выложено в 2.58.194 (6c11fc08); живая половина NODISCARD/QUOTA ждёт отложенной цепочки"
       },
       {
         "commit": null,
@@ -4689,7 +4950,8 @@
         "state": "S6 зависит от P0IM-OV-HONEST по web/app.js; S7 — после S6"
       }
     ],
-    "note": "Отдельная релизная задача не создаётся: заметка для DevOps и оркестратора. Из шести коммитов 2.58.193 два (1957c0e9, 32939c7a) — только доказательства: описывая состав релиза, не считать их кодом."
+    "note": "Отдельная релизная задача не создаётся: заметка для DevOps и оркестратора. Из шести коммитов 2.58.193 два (1957c0e9, 32939c7a) — только доказательства: описывая состав релиза, не считать их кодом.",
+    "acceptance_note": "S7-ACCEPT одобрена на 992f45ab против 2.58.194: 29 проверок, 28 passed / 1 not_yet (отложенная цепочка) / 0 failed."
   },
   "candidate_history": [
     {
@@ -4746,6 +5008,11 @@
       "commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
       "role": "выложенный релизный коммит 2.58.193",
       "state": "выложен 2026-11-11T20:51:22Z, healthz 2.58.193, NRestarts=0, схема v47, откат bcc090a3"
+    },
+    {
+      "commit": "992f45ab320be099232fa29e4e96817fed285405",
+      "role": "S7-ACCEPT: приёмочная матрица 29 проверок на реальных журналах/эндпоинте и отданной сборке (тесты + документы), продуктового кода нет",
+      "state": "одобрено независимым Reviewer против выложенной 2.58.194 (6c11fc08); 28 passed / 1 not_yet / 0 failed; 5 строк карты в REVIEW, S5b-DELIVERY-FACT закрыт живьём"
     }
   ],
   "deployed_version": "2.58.194",
@@ -4888,143 +5155,149 @@
       "version": "2.58.194",
       "commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26"
     },
+    "acceptance_candidate": {
+      "commit": "992f45ab320be099232fa29e4e96817fed285405",
+      "head": "8d2553ed",
+      "branch": "init/meme-s7-accept",
+      "base": "dc699c72",
+      "state": "одобрена независимым Reviewer против выложенной 2.58.194; 29 проверок: 28 passed / 0 failed / 1 not_yet / 0 blocked, run_ok=false, partial",
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+      "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+    },
     "required_rows": 114,
     "unique_req_ids": 77,
     "by_status": {
-      "PENDING": 32,
-      "VERIFIED": 59,
-      "REVIEW": 20,
-      "READY_FOR_LIVE": 3
+      "VERIFIED": 60,
+      "REVIEW": 25,
+      "READY_FOR_LIVE": 2,
+      "PENDING": 27
     },
     "by_status_unique": {
-      "PENDING": 23,
-      "VERIFIED": 37,
-      "REVIEW": 14,
-      "READY_FOR_LIVE": 3
+      "VERIFIED": 38,
+      "REVIEW": 19,
+      "READY_FOR_LIVE": 2,
+      "PENDING": 18
     },
     "by_slice": {
-      "A0-ARCH": {
-        "PENDING": 1,
-        "rows": 1,
-        "unique": 1
+      "S7-ACCEPT": {
+        "REVIEW": 5,
+        "PENDING": 12,
+        "rows": 17,
+        "unique": 12
       },
-      "P0IM-OV-HONEST": {
-        "VERIFIED": 2,
-        "rows": 2,
-        "unique": 2
+      "S3-OV": {
+        "VERIFIED": 10,
+        "REVIEW": 11,
+        "rows": 21,
+        "unique": 14
+      },
+      "S1-AXES": {
+        "VERIFIED": 21,
+        "PENDING": 3,
+        "rows": 24,
+        "unique": 10
       },
       "R0-INV": {
         "VERIFIED": 9,
         "rows": 9,
         "unique": 7
       },
-      "S1-AXES": {
-        "PENDING": 3,
-        "VERIFIED": 21,
-        "rows": 24,
-        "unique": 10
-      },
       "S2-ID": {
-        "PENDING": 3,
         "VERIFIED": 8,
+        "PENDING": 3,
         "rows": 11,
         "unique": 8
-      },
-      "S3-OV": {
-        "REVIEW": 11,
-        "VERIFIED": 10,
-        "rows": 21,
-        "unique": 14
-      },
-      "S4-TRACE": {
-        "PENDING": 8,
-        "VERIFIED": 6,
-        "rows": 14,
-        "unique": 11
       },
       "S5-MEME": {
         "REVIEW": 6,
         "rows": 6,
         "unique": 5
       },
-      "S5b": {
-        "READY_FOR_LIVE": 3,
-        "rows": 3,
-        "unique": 3
+      "S4-TRACE": {
+        "VERIFIED": 6,
+        "PENDING": 8,
+        "rows": 14,
+        "unique": 11
       },
       "S6-FRESH": {
-        "REVIEW": 3,
         "VERIFIED": 3,
+        "REVIEW": 3,
         "rows": 6,
         "unique": 4
       },
-      "S7-ACCEPT": {
-        "PENDING": 17,
-        "rows": 17,
-        "unique": 12
+      "A0-ARCH": {
+        "PENDING": 1,
+        "rows": 1,
+        "unique": 1
+      },
+      "S5b": {
+        "VERIFIED": 1,
+        "READY_FOR_LIVE": 2,
+        "rows": 3,
+        "unique": 3
+      },
+      "P0IM-OV-HONEST": {
+        "VERIFIED": 2,
+        "rows": 2,
+        "unique": 2
       }
     },
     "fully_open_slices": [
       "A0-ARCH",
       "S5-MEME",
-      "S5b",
       "S7-ACCEPT"
     ],
     "partially_open_slices": [
+      "S3-OV",
       "S1-AXES",
       "S2-ID",
-      "S3-OV",
       "S4-TRACE",
-      "S6-FRESH"
+      "S6-FRESH",
+      "S5b"
     ],
     "closed_slices": [
-      "P0IM-OV-HONEST",
-      "R0-INV"
+      "R0-INV",
+      "P0IM-OV-HONEST"
     ],
     "verified_anchor_breakdown": {
       "basis": "unique_req_id (77)",
-      "with_6c11fc08": 4,
+      "with_6c11fc08": 5,
       "pre_deploy_only": 33,
       "rows_basis": {
-        "verified_rows": 59,
-        "rows_with_6c11fc08_evidence": 5,
+        "verified_rows": 60,
+        "rows_with_6c11fc08_evidence": 6,
         "rows_anchored_earlier": 54
       },
-      "note": "Якоря прошлых кандидатов — бухгалтерия карты, а не отсутствие продукта: строки доказаны на 4c59a483/726736ee/a6884ad7/bcc090a3/7a7cd0ce, и в дельту 2.58.194 они не входят."
+      "note": "Якоря прошлых кандидатов — бухгалтерия карты, а не отсутствие продукта: строки доказаны на 4c59a483/726736ee/a6884ad7/bcc090a3/7a7cd0ce, и в дельту 2.58.194 они не входят. Release-гейт считает такие строки «no evidence bound to reviewed candidate» — это ожидаемое следствие привязки к выложенному коммиту, а не регресс."
     },
     "bound_in_this_pass": {
-      "release": "2.58.194",
+      "acceptance_candidate": "992f45ab320be099232fa29e4e96817fed285405",
       "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
-      "rows_rebound": [
-        "P0IM-S5B-NODISCARD",
-        "P0IM-S5B-DELIVERY-FACT",
-        "P0IM-S5B-QUOTA",
-        "P0IM-S6-TZ",
-        "P0IM-S6-EXPIRED",
-        "P0IM-S6-EFFECTIVE",
-        "P0IM-S6-SCOPE",
-        "P0IM-OV-HONEST-LINE",
-        "P0IM-OV-HONEST-UNAVAIL"
+      "release": "2.58.194",
+      "rows_bound": [
+        "P0IM-AC-MATRIX-CONFIG",
+        "P0IM-AC-MATRIX-FAIL",
+        "P0IM-AC-MATRIX-RBAC",
+        "P0IM-AC-MATRIX-UI",
+        "P0IM-AC-POSTREL"
       ],
+      "rows_bound_status": "REVIEW — заявка строки есть, acceptance строки закрыт не полностью (остаток в not_covered)",
       "new_verified": [
-        "P0IM-S6-TZ",
-        "P0IM-S6-EXPIRED"
-      ],
-      "moved_to_review": [
-        "P0IM-S6-EFFECTIVE",
-        "P0IM-S6-SCOPE"
+        "P0IM-S5B-DELIVERY-FACT"
       ],
       "kept_ready_for_live": [
         "P0IM-S5B-NODISCARD",
-        "P0IM-S5B-DELIVERY-FACT",
         "P0IM-S5B-QUOTA"
       ],
-      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
-      "artifact_sha256": "ce52558a323f1bafd1e6ae14f78c15394cf594746c5fe7df3c2c62f00fae9854",
-      "artifact_2": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
-      "artifact_2_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9",
-      "waiting_observation": "WO-258194-S5B-DEFERRED",
-      "note": "Живые данные 2.58.194 привязаны к 6c11fc08; строки, доказанные на прошлых кандидатах, не перепривязаны — release-гейт считает их якорями прошлых кандидатов (бухгалтерия, не продукт)."
+      "kept_open": [
+        "P0IM-AC-MATRIX-MANUAL",
+        "P0IM-AC-DONE"
+      ],
+      "waiting_observation_closed": "WO-258193-MEME-DELIVERED-ID",
+      "only_live_not_yet": "AC-LIVE-DEFERRED-CHAIN (WO-258194-S5B-DEFERRED)",
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+      "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4",
+      "note": "Матрица не заявляет P0IM-AC-MATRIX-MANUAL и P0IM-AC-DONE. Живой message_id закрыл обязательство S5b и наблюдение WO-258193-MEME-DELIVERED-ID; S5B-NODISCARD/QUOTA ждут именно отложенной цепочки, а MM-* — живого ручного /meme."
     }
   },
   "write_scope_amendments": [
@@ -5164,7 +5437,7 @@
   "waiting_observations": [
     {
       "id": "WO-258193-MEME-DELIVERED-ID",
-      "status": "WAITING_REAL_EVENT",
+      "status": "CLOSED",
       "owner": "agents",
       "owner_action_required": false,
       "release": "2.58.193",
@@ -5196,7 +5469,24 @@
       ],
       "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258193/deploy.md",
       "artifact_sha256": "def2841ac9d174b09c9468b30b688a22cc59feb2b69a5a3906c2d33b2e3b1b31",
-      "recorded_at": "2026-11-12"
+      "recorded_at": "2026-11-12",
+      "closed_at": "2026-11-12",
+      "closed_by": "S7-ACCEPT (992f45ab), независимо проверено Reviewer",
+      "closure": {
+        "trigger_fired": "Сброс суточной квоты 2026-11-12T00:00:00Z и первая автономная публикация мема: 2026-11-12T00:34:19Z, чат -1004482340693, job_id meme:-1004482340693:2026-11-12:5dbad95f9091",
+        "observed": "journal row attempt_id=9e6da9ef…, stage=publish, outcome=published, reason_code=sent, attempt_mode=automatic, publication.output={\"ledger_id\":1620,\"tg_message_id\":11107}; mca_bot_outputs output_id=1620 (тот же чат, tg_message_id, sent_at), correlation_id равен job_id; эндпоинт 00:45Z: last_delivery={confirmed, message_id 11107, run_id тот же}",
+        "rows_with_publication": "1 из 71 доставленной строки в окне снимка; 70 прежних строк блока publication не несут — блок пишет сборка начиная с S5b",
+        "feeds_settled": [
+          "P0IM-S5B-DELIVERY-FACT"
+        ],
+        "still_open_elsewhere": [
+          "P0IM-MM-PRIO (живой ручной маркер, не доставка)",
+          "P0IM-S5B-NODISCARD",
+          "P0IM-S5B-QUOTA (отложенная цепочка)"
+        ],
+        "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
+        "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4"
+      }
     },
     {
       "id": "WO-258194-S5B-DEFERRED",
@@ -5219,7 +5509,8 @@
       ],
       "blocks_release": false,
       "check_owner": "agent",
-      "next_check": "После 2026-11-12T00:00:00Z при первой реальной автономной публикации: проверяют агенты по БД, API, журналу и экрану; владелец для этого не привлекается."
+      "next_check": "После 2026-11-12T00:00:00Z при первой реальной автономной публикации: проверяют агенты по БД, API, журналу и экрану; владелец для этого не привлекается.",
+      "only_live_not_yet_note": "Остаётся единственной живой проверкой в состоянии not_yet (AC-LIVE-DEFERRED-CHAIN). Триггер и поля чтения не менялись."
     }
   ],
   "deployed_rollback": {

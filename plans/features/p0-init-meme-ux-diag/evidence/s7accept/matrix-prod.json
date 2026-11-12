@@ -1,0 +1,774 @@
+{
+  "schema": "p0im-accept-matrix/1",
+  "generated_at": 1794446087,
+  "meta": {
+    "candidate_sha": "6d3b566e633c40088463be6d5f4ef8912f260cab",
+    "candidate_branch": "init/meme-s7-accept",
+    "matrix_script_sha256": "205512b816c05038a9450d10d1165a8248b480670670937772d87bc720b08614",
+    "visual_script_sha256": "95fa07684173174d838d32f9acb65066aadd4a995cb2feb5b4b4d7c4db9c65b9",
+    "mode": "code+live+visual",
+    "self_check": false,
+    "snapshot_path": "plans\\features\\p0-init-meme-ux-diag\\evidence\\s7accept\\prod-snapshot-2.58.194.json",
+    "snapshot_collected_at": "2026-11-12T00:45:23Z",
+    "snapshot_source": "prod",
+    "snapshot_version": "2.58.194",
+    "snapshot_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+    "served_version": "2.58.194",
+    "deployed_version": "2.58.194",
+    "deployed_sha": "6c11fc08",
+    "visual": {
+      "visual_ran": true,
+      "served_version": "2.58.194",
+      "deployed_version": "2.58.194",
+      "deployed_sha": "6c11fc08",
+      "artifacts_dir": "plans\\features\\p0-init-meme-ux-diag\\evidence\\s7accept\\visual",
+      "screenshots": [
+        "ac-postrel-overview--1002661910336.png",
+        "ac-postrel-overview--1004482340693.png",
+        "ac-postrel-trace--1002661910336.png",
+        "ac-postrel-trace--1004482340693.png",
+        "ac-visual-axes-desktop--1002661910336.png",
+        "ac-visual-axes-desktop--1004482340693.png",
+        "ac-visual-axes-mobile--1002661910336.png",
+        "ac-visual-axes-mobile--1004482340693.png",
+        "ac-visual-expired-marker.png",
+        "ac-visual-foreign-chat.png",
+        "ac-visual-stale-after.png"
+      ],
+      "measurements_path": "plans\\features\\p0-init-meme-ux-diag\\evidence\\s7accept\\visual\\visual-measurements.json"
+    },
+    "synthetic_chats": [
+      -100777,
+      -100778
+    ],
+    "note": "Сценарии kind=code проверяют поведение кандидата на реальных журналах; живые — снимок прода; визуальные — отданную сборку в браузере на двух боевых чатах.",
+    "json_path": "plans\\features\\p0-init-meme-ux-diag\\evidence\\s7accept\\run\\result.json",
+    "summary_path": "plans\\features\\p0-init-meme-ux-diag\\evidence\\s7accept\\run\\SUMMARY.md"
+  },
+  "slice_rows": [
+    "P0IM-AC-MATRIX-CONFIG",
+    "P0IM-AC-MATRIX-FAIL",
+    "P0IM-AC-MATRIX-MANUAL",
+    "P0IM-AC-MATRIX-RBAC",
+    "P0IM-AC-MATRIX-UI",
+    "P0IM-AC-DONE",
+    "P0IM-AC-POSTREL"
+  ],
+  "required_checks": [
+    "AC-MATRIX-CONFIG-FACTORY",
+    "AC-MATRIX-CONFIG-GLOBAL",
+    "AC-MATRIX-CONFIG-CHAT",
+    "AC-MATRIX-CONFIG-OFF",
+    "AC-MATRIX-CONFIG-UNKNOWN",
+    "AC-MATRIX-WAIT-COOLDOWN",
+    "AC-MATRIX-WAIT-MESSAGES",
+    "AC-MATRIX-WAIT-QUOTA",
+    "AC-MATRIX-WAIT-QUIET",
+    "AC-MATRIX-WAIT-LOTTERY",
+    "AC-MATRIX-WAIT-DEFERRED",
+    "AC-EXPIRED-NOT-BUSY",
+    "AC-DELIVERY-THREE-STATES",
+    "AC-TRACE-PUBLISHED",
+    "AC-TRACE-STOPPED",
+    "AC-TRACE-NEVER-STARTED",
+    "AC-FRESH-TZ-SOURCE",
+    "AC-FRESH-SNAPSHOT-STAMP",
+    "AC-CODES-UNKNOWN-READABLE",
+    "AC-RBAC-NONADMIN-DENIED",
+    "AC-RBAC-NO-CROSS-CHAT-LEAK",
+    "AC-LIVE-DEFERRED-CHAIN",
+    "AC-LIVE-MESSAGE-ID",
+    "AC-LIVE-ENDPOINT-AXES",
+    "AC-VISUAL-AXES-DESKTOP",
+    "AC-VISUAL-AXES-MOBILE",
+    "AC-VISUAL-STALE-DISCARD",
+    "AC-VISUAL-FOREIGN-EXPIRED",
+    "AC-POSTREL-BOTH-CHATS"
+  ],
+  "absent_required_checks": [],
+  "checks": [
+    {
+      "id": "AC-MATRIX-CONFIG-FACTORY",
+      "title": "configuration: заводское значение названо заводским",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "configuration.enabled=true, слои: chat_toggle=factory, meme_settings=factory, module_gate=global, observer=global; источник решения 'meme_settings'",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-CONFIG-GLOBAL",
+      "title": "configuration: общая настройка названа общей",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "configuration.enabled=true, слои: chat_toggle=global, meme_settings=global, module_gate=global, observer=global; источник решения 'meme_settings'",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-CONFIG-CHAT",
+      "title": "configuration: сохранённый override чата назван слоем чата",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "configuration.enabled=true, слои: chat_toggle=chat, meme_settings=chat, module_gate=global, observer=global; источник решения 'chat'",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-CONFIG-OFF",
+      "title": "configuration: выключенный механизм — это ВЫКЛ и blocked, а не ожидание",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "meme: configuration.enabled=false, readiness=blocked; текстовая инициатива остаётся True",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-CONFIG-UNKNOWN",
+      "title": "configuration: нечитаемая настройка — unknown, а не ВЫКЛ",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "configuration.enabled=null, source=read_failed, readiness=unknown",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-WAIT-COOLDOWN",
+      "title": "ожидание: кулдаун — включено + waiting (полный путь)",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "enabled=true, waiting/cooldown (cooldown_active), «не раньше» 1800003300 = последний вызов + 3600 с",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-WAIT-MESSAGES",
+      "title": "ожидание: нехватка сообщений — включено + waiting",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "enabled=true, waiting/not_enough_messages, код not_enough_messages, основание unknown",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-WAIT-QUOTA",
+      "title": "ожидание: дневная квота — включено + waiting с границей сброса",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "enabled=true, waiting/quota, код daily_quota_reached, основание quota_next_reset",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-WAIT-QUIET",
+      "title": "ожидание: тихие часы — включено + waiting",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "enabled=true, waiting/quiet_hours, код quiet_hours, основание quiet_hours",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-WAIT-LOTTERY",
+      "title": "ожидание: жребий не выпал — включено + waiting без выдуманного ETA",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "enabled=true, waiting/lottery, код no_random_hit, основание unknown",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-MATRIX-WAIT-DEFERRED",
+      "title": "ожидание: отложенный артефакт — включено + waiting/deferred",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "enabled=true, waiting/deferred, код publication_conflict, основание unknown",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-EXPIRED-NOT-BUSY",
+      "title": "истёкший маркер и просроченная бронь не выглядят ожиданием",
+      "kind": "code",
+      "rows": [],
+      "status": "passed",
+      "observed": "publication.manual_priority_active=false, expired=true, readiness=waiting, next_basis=unknown",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-DELIVERY-THREE-STATES",
+      "title": "три состояния доставки различимы",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-FAIL"
+      ],
+      "status": "passed",
+      "observed": "confirmed(message_id=910011) / unknown / never — три разных состояния",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-TRACE-PUBLISHED",
+      "title": "трасса опубликованной попытки читается одной историей",
+      "kind": "code",
+      "rows": [],
+      "status": "passed",
+      "observed": "run_id=J-pub, outcome=published, stop_stage=publish, mode=auto, incomplete=false",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-TRACE-STOPPED",
+      "title": "трасса остановленной попытки называет этап остановки",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-FAIL"
+      ],
+      "status": "passed",
+      "observed": "run_id=J-stop, outcome=failed, stop_stage=image_generation (один связный run)",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-TRACE-NEVER-STARTED",
+      "title": "отсутствие попытки не выдаётся за попытку",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-FAIL"
+      ],
+      "status": "passed",
+      "observed": "пустой журнал → last_attempt без времени и без run_id",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-CODES-UNKNOWN-READABLE",
+      "title": "незнакомый код причины читается и не теряется",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-FAIL"
+      ],
+      "status": "passed",
+      "observed": "незнакомый код сохранён (matrix_unknown_reason_from_future_release), подпись не пустая ('matrix_unknown_reason_from_future_release'), ось честно unknown, известный код имеет русскую подпись",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-RBAC-NONADMIN-DENIED",
+      "title": "не-админ получает отказ, запрос без чата отвергается",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-RBAC"
+      ],
+      "status": "passed",
+      "observed": "не-админ: 403 на диагностике и журнале; запрос без X-Chat-Id: 422",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-RBAC-NO-CROSS-CHAT-LEAK",
+      "title": "ответ админа не смешивает данные другого чата",
+      "kind": "code",
+      "rows": [
+        "P0IM-AC-MATRIX-RBAC"
+      ],
+      "status": "passed",
+      "observed": "админ: chat_id=A, run_id=A-ONLY, message_id=510; запрос B отдаёт B-ONLY — данные чатов не смешаны",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-FRESH-TZ-SOURCE",
+      "title": "свежесть: пояс чата и его источник",
+      "kind": "code",
+      "rows": [],
+      "status": "passed",
+      "observed": "пояс: Europe/Moscow (chat) / Asia/Tokyo (global); смещение 10800 с",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-FRESH-SNAPSHOT-STAMP",
+      "title": "свежесть: серверный штамп и чат-скоуп ответа",
+      "kind": "code",
+      "rows": [],
+      "status": "passed",
+      "observed": "basis=server_snapshot, generated_at=1800000300 своего ответа, chat_id=-100777",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-LIVE-DEFERRED-CHAIN",
+      "title": "реальная цепочка publisher_not_bound → deferred → delivered",
+      "kind": "live",
+      "rows": [],
+      "status": "not_yet",
+      "observed": "события в снимке нет: отложенных строк 2 (причины: claim_held×2); строк журнала 500; доставок с correlation_id 463",
+      "missing": [
+        "task_jobs.kind='meme.pending_publish'",
+        "task_jobs.payload.deferred_detail='publisher_not_bound'",
+        "task_jobs.payload.run_id",
+        "task_jobs.status (терминальный)",
+        "meme_initiative_attempt.job_id = payload.run_id",
+        "mca_bot_outputs.correlation_id = payload.run_id",
+        "mca_bot_outputs.tg_message_id IS NOT NULL"
+      ],
+      "reason": "отложенных строк с publisher_not_bound в снимке нет (встреченные причины: claim_held×2)",
+      "detail": {}
+    },
+    {
+      "id": "AC-LIVE-MESSAGE-ID",
+      "title": "доставленная попытка с реальным message_id в журнале",
+      "kind": "live",
+      "rows": [
+        "P0IM-AC-MATRIX-FAIL"
+      ],
+      "status": "passed",
+      "observed": "job_id=meme:-1004482340693:2026-11-12:5dbad95f9091, chat_id=-1004482340693, message_id=11107 сверен с mca_bot_outputs",
+      "missing": [],
+      "reason": "",
+      "detail": {
+        "job_id": "meme:-1004482340693:2026-11-12:5dbad95f9091",
+        "message_id": 11107
+      }
+    },
+    {
+      "id": "AC-LIVE-ENDPOINT-AXES",
+      "title": "живой payload эндпоинта: оси, слои и штамп на двух чатах",
+      "kind": "live",
+      "rows": [
+        "P0IM-AC-MATRIX-CONFIG"
+      ],
+      "status": "passed",
+      "observed": "-1002661910336: enabled=True/True, readiness=ready, attempt='meme:-1002661910336:2026-11-12:ebe6f1195118', delivery=confirmed; -1004482340693: enabled=True/True, readiness=waiting, attempt='meme:-1004482340693:2026-11-12:5ce9f57d713b', delivery=confirmed",
+      "missing": [],
+      "reason": "",
+      "detail": {}
+    },
+    {
+      "id": "AC-VISUAL-AXES-DESKTOP",
+      "title": "пять осей и геометрия, 1536×960",
+      "kind": "visual",
+      "rows": [
+        "P0IM-AC-MATRIX-UI"
+      ],
+      "status": "passed",
+      "observed": "2 чата; doc.scrollWidth=1536 doc.clientWidth=1536 body.scrollWidth=1536; обрезанных id/дат — 0; версия 2.58.194; text: config='Разрешеновключено — глобальный выключате' now='Сейчасждёт: мало сообщений в окне (код: ' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'; meme: config='Разрешеновключено — настройки мемов этог' now='Сейчасждёт: кулдаун, осталось 5 ч 20 мин' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 12.11 0'",
+      "missing": [],
+      "reason": "",
+      "detail": {
+        "chats": [
+          {
+            "chat_id": -1004482340693,
+            "chat_title": "Неистово супер крутые криэйторы гиперковейера гиперговна",
+            "axes_ok": true,
+            "width": "doc.scrollWidth=1536 doc.clientWidth=1536 body.scrollWidth=1536",
+            "clipped": 0,
+            "version": "2.58.194",
+            "snapshot": "снимок: 12.11 01:13 (сервер)",
+            "tz": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+            "readiness_meme": "waiting",
+            "axes": "text: config='Разрешеновключено — глобальный выключате' now='Сейчасждёт: мало сообщений в окне (код: ' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'; meme: config='Разрешеновключено — настройки мемов этог' now='Сейчасждёт: кулдаун, осталось 5 ч 20 мин' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 12.11 0'"
+          },
+          {
+            "chat_id": -1002661910336,
+            "chat_title": "PERMsoc: кукярик",
+            "axes_ok": true,
+            "width": "doc.scrollWidth=1536 doc.clientWidth=1536 body.scrollWidth=1536",
+            "clipped": 0,
+            "version": "2.58.194",
+            "snapshot": "снимок: 12.11 01:13 (сервер)",
+            "tz": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+            "readiness_meme": "ready",
+            "axes": "text: config='Разрешеновключено — глобальный выключате' now='Сейчасждёт: мало сообщений в окне (код: ' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'; meme: config='Разрешеновключено — настройки мемов этог' now='Сейчасможет сработать сейчас — ничего не' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-VISUAL-AXES-MOBILE",
+      "title": "пять осей и геометрия, 390×844",
+      "kind": "visual",
+      "rows": [
+        "P0IM-AC-MATRIX-UI"
+      ],
+      "status": "passed",
+      "observed": "2 чата; doc.scrollWidth=390 doc.clientWidth=390 body.scrollWidth=390; обрезанных id/дат — 0; версия 2.58.194; text: config='Разрешеновключено — глобальный выключате' now='Сейчасждёт: мало сообщений в окне (код: ' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'; meme: config='Разрешеновключено — настройки мемов этог' now='Сейчасждёт: кулдаун, осталось 5 ч 20 мин' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 12.11 0'",
+      "missing": [],
+      "reason": "",
+      "detail": {
+        "chats": [
+          {
+            "chat_id": -1004482340693,
+            "chat_title": "Неистово супер крутые криэйторы гиперковейера гиперговна",
+            "axes_ok": true,
+            "width": "doc.scrollWidth=390 doc.clientWidth=390 body.scrollWidth=390",
+            "clipped": 0,
+            "version": "2.58.194",
+            "snapshot": "снимок: 12.11 01:14 (сервер)",
+            "tz": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+            "readiness_meme": "waiting",
+            "axes": "text: config='Разрешеновключено — глобальный выключате' now='Сейчасждёт: мало сообщений в окне (код: ' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'; meme: config='Разрешеновключено — настройки мемов этог' now='Сейчасждёт: кулдаун, осталось 5 ч 20 мин' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 12.11 0'"
+          },
+          {
+            "chat_id": -1002661910336,
+            "chat_title": "PERMsoc: кукярик",
+            "axes_ok": true,
+            "width": "doc.scrollWidth=390 doc.clientWidth=390 body.scrollWidth=390",
+            "clipped": 0,
+            "version": "2.58.194",
+            "snapshot": "снимок: 12.11 01:14 (сервер)",
+            "tz": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+            "readiness_meme": "ready",
+            "axes": "text: config='Разрешеновключено — глобальный выключате' now='Сейчасждёт: мало сообщений в окне (код: ' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'; meme: config='Разрешеновключено — настройки мемов этог' now='Сейчасможет сработать сейчас — ничего не' attempt='Последняя попытка12.11 01:09 · автоматич' delivery='Последняя отправкаподтверждено · 11.11 1'"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-VISUAL-STALE-DISCARD",
+      "title": "гонка scope при медленном API",
+      "kind": "visual",
+      "rows": [
+        "P0IM-AC-MATRIX-UI"
+      ],
+      "status": "passed",
+      "observed": "переключение -1004482340693→-1002661910336 при ответе в полёте (задержка 2.4 с); sentinel 777000111 не появился; карточка после смены: '', после прихода позднего ответа: 'Сейчасможет сработать сейчас — ничего не мешает'",
+      "missing": [],
+      "reason": "",
+      "detail": {
+        "primary": -1004482340693,
+        "secondary": -1002661910336,
+        "switched": true,
+        "stale_injected": 2,
+        "stale_arrived": true,
+        "stale_applied": false,
+        "diag_error": "",
+        "immediately_after_switch": "",
+        "after_stale": "Сейчасможет сработать сейчас — ничего не мешает"
+      }
+    },
+    {
+      "id": "AC-VISUAL-FOREIGN-EXPIRED",
+      "title": "контрпример: чужой chat_id и истёкший маркер",
+      "kind": "visual",
+      "rows": [
+        "P0IM-AC-MATRIX-UI"
+      ],
+      "status": "passed",
+      "observed": "чужой chat_id=-1002661910336 отклонён (карточка «Сейчаснет данных», причина «Состояние механизмов не прочитано: Диагностика при»), sentinel 777000112 в DOM отсутствует; истёкший маркер не изменил ось ('Сейчасждёт: кулдаун, осталось 5 ч 19 мин (код: coo') и не дал busy",
+      "missing": [],
+      "reason": "",
+      "detail": {
+        "foreign": {
+          "phase": "foreign_chat_id",
+          "foreign_chat": -1002661910336,
+          "sentinel": 777000112,
+          "sentinel_in_dom": false,
+          "baseline_now": "Сейчасждёт: кулдаун, осталось 5 ч 19 мин (код: cooldown_active)",
+          "foreign_now": "Сейчаснет данных",
+          "foreign_effect": "НЕИЗВЕСТНО",
+          "diag_error": "Состояние механизмов не прочитано: Диагностика пришла для другого чата и отброшена — обновите экран",
+          "card_cleared": true,
+          "reason_named": true
+        },
+        "expired": {
+          "phase": "expired_marker",
+          "before_now": "Сейчасждёт: кулдаун, осталось 5 ч 19 мин (код: cooldown_active)",
+          "after_now": "Сейчасждёт: кулдаун, осталось 5 ч 19 мин (код: cooldown_active)",
+          "readiness_unchanged": true,
+          "effect_before": "ВКЛ",
+          "effect_after": "ВКЛ",
+          "readiness_state_after": "waiting",
+          "text_has_priority_word": false
+        }
+      }
+    },
+    {
+      "id": "AC-POSTREL-BOTH-CHATS",
+      "title": "послерелизные снимки: обзор, трасса, счётчики, доставка/квота",
+      "kind": "visual",
+      "rows": [
+        "P0IM-AC-POSTREL"
+      ],
+      "status": "passed",
+      "observed": "2 чата, версия на странице 2.58.194, выложено 2.58.194 (6c11fc08); доставка: 'Последняя отправкаподтверждено · 12.11 00:34 · чат -10044823'; счётчики/квота: 'Дневная квотаГенерации сегодня: 1 / 3 · Осталось: 2 · сброс:'; трасса: пропущено",
+      "missing": [],
+      "reason": "",
+      "detail": {
+        "chats": [
+          {
+            "chat_id": -1004482340693,
+            "chat_title": "Неистово супер крутые криэйторы гиперковейера гиперговна",
+            "version": "2.58.194",
+            "tz": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+            "snapshot": "снимок: 12.11 01:14 (сервер)",
+            "delivery": "Последняя отправкаподтверждено · 12.11 00:34 · чат -1004482340693 · сообщение 11107",
+            "quota": "Дневная квотаГенерации сегодня: 1 / 3 · Осталось: 2 · сброс: 2026-11-13T00:00:00+00:00",
+            "counters_check": "Последняя проверка12.11 01:14",
+            "attempt": "Последняя попытка12.11 01:14 · автоматически · пропущено · остановилось: пропуск",
+            "trace": {
+              "kind": "Мемы",
+              "mode": "автоматически",
+              "outcome": "пропущено",
+              "status": "",
+              "attempt": "",
+              "head": "Попыткаmeme:meme:-1004482340693:2026-11-12:0e938c4ed91cМеханизмМемыРежимавтоматическиИсходпропущеноДоставкане доставлено"
+            },
+            "trace_steps": [
+              "trigger=Триггер (проход инициативы)выполнено12.11 01:14инициативный ",
+              "gates=Обязательные гейтыпропущено12.11 01:14остановилось на ворота",
+              "messages=Чтение сообщенийнет данныхнет записи об окне сообщений",
+              "summary=Выжимка (LLM A)не выполнялосьдо выжимки не дошло",
+              "joke=Прикол (LLM B)не выполнялосьдо прикола не дошло",
+              "image=Запрос картинкине выполнялосьдо запроса картинки не дошло",
+              "claim=Бронь публикациине выполнялосьдо брони не дошло",
+              "send=Отправка в Telegramне выполнялосьдо отправки не дошло",
+              "result=Видимый результатошибкавидимого результата нет: отправки не "
+            ]
+          },
+          {
+            "chat_id": -1002661910336,
+            "chat_title": "PERMsoc: кукярик",
+            "version": "2.58.194",
+            "tz": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+            "snapshot": "снимок: 12.11 01:15 (сервер)",
+            "delivery": "Последняя отправкаподтверждено · 11.11 13:14 · чат -1002661910336 · сообщение 1210056",
+            "quota": "Дневная квотаГенерации сегодня: 0 / 3 · Осталось: 3 · сброс: 2026-11-13T00:00:00+00:00",
+            "counters_check": "Последняя проверка12.11 01:14",
+            "attempt": "Последняя попытка12.11 01:14 · автоматически · пропущено · остановилось: пропуск",
+            "trace": {
+              "kind": "Мемы",
+              "mode": "автоматически",
+              "outcome": "пропущено",
+              "status": "",
+              "attempt": "",
+              "head": "Попыткаmeme:meme:-1002661910336:2026-11-12:4c80bf2d2405МеханизмМемыРежимавтоматическиИсходпропущеноДоставкане доставлено"
+            },
+            "trace_steps": [
+              "trigger=Триггер (проход инициативы)выполнено12.11 01:14инициативный ",
+              "gates=Обязательные гейтыпропущено12.11 01:14остановилось на ворота",
+              "messages=Чтение сообщенийнет данныхнет записи об окне сообщений",
+              "summary=Выжимка (LLM A)не выполнялосьдо выжимки не дошло",
+              "joke=Прикол (LLM B)не выполнялосьдо прикола не дошло",
+              "image=Запрос картинкине выполнялосьдо запроса картинки не дошло",
+              "claim=Бронь публикациине выполнялосьдо брони не дошло",
+              "send=Отправка в Telegramне выполнялосьдо отправки не дошло",
+              "result=Видимый результатошибкавидимого результата нет: отправки не "
+            ]
+          }
+        ],
+        "deployed_sha": "6c11fc08"
+      }
+    }
+  ],
+  "counts": {
+    "passed": 28,
+    "failed": 0,
+    "not_yet": 1,
+    "blocked": 0
+  },
+  "row_coverage": {
+    "P0IM-AC-MATRIX-CONFIG": {
+      "passed": 12,
+      "failed": 0,
+      "not_yet": 0,
+      "blocked": 0
+    },
+    "P0IM-AC-MATRIX-FAIL": {
+      "passed": 5,
+      "failed": 0,
+      "not_yet": 0,
+      "blocked": 0
+    },
+    "P0IM-AC-MATRIX-RBAC": {
+      "passed": 2,
+      "failed": 0,
+      "not_yet": 0,
+      "blocked": 0
+    },
+    "P0IM-AC-MATRIX-UI": {
+      "passed": 4,
+      "failed": 0,
+      "not_yet": 0,
+      "blocked": 0
+    },
+    "P0IM-AC-POSTREL": {
+      "passed": 1,
+      "failed": 0,
+      "not_yet": 0,
+      "blocked": 0
+    }
+  },
+  "row_notes": {
+    "P0IM-AC-MATRIX-CONFIG": {
+      "claimed": true,
+      "covered": "слой каждого гейта (чат/общий/заводской), «разрешено ВКЛ» при каждом ожидании (кулдаун — полный путь, нехватка сообщений, квота, тихие часы, жребий, отложенный артефакт), выключенный и нечитаемый configuration, живой payload двух боевых чатов с осями и слоями",
+      "not_covered": "«100% вероятности, когда жребий не нужен» и «отсутствие повода у L1» — этой матрицей не проверяются"
+    },
+    "P0IM-AC-MATRIX-FAIL": {
+      "claimed": true,
+      "covered": "провайдерное исключение на этапе картинки (одна связная история с этапом остановки), отсутствие строки журнала, три состояния доставки включая delivery_unknown, незнакомый код причины, реальный message_id доставленной попытки",
+      "not_covered": "ранние гейты без job_id, обрыв после LLM A/B, пустое изображение, конфликт отправок, старые неполные записи — этой матрицей не проверяются; живая цепочка publisher_not_bound → deferred → delivered ещё НЕ НАБЛЮДАЛАСЬ (отдельная проверка AC-LIVE-DEFERRED-CHAIN)"
+    },
+    "P0IM-AC-MATRIX-RBAC": {
+      "claimed": true,
+      "covered": "не-админ получает 403, запрос без чата — 422, ответ админа не смешивает данные другого чата (run_id и message_id своего чата)",
+      "not_covered": "полная трасса без утечки секретов не сканируется; конкурирующие чаты и держатели брони этой матрицей не проверяются"
+    },
+    "P0IM-AC-MATRIX-UI": {
+      "covered": "реальные рендеры отданной сборки на двух боевых чатах в двух вьюпортах: пять осей обеих карточек, отсутствие горизонтальной прокрутки, отсутствие обрезанных id и дат, гонка scope при медленном ответе (поздний ответ отброшен, причина на экране), контрпример «чужой chat_id и истёкший маркер»",
+      "not_covered": "контрпримеры Reviewer, которые нужно придумывать заново под каждое изменение UI, и мобильный Telegram клиент (реальный TMA-хост): проверяется Chromium с мобильным вьюпортом"
+    },
+    "P0IM-AC-MATRIX-MANUAL": {
+      "covered": "",
+      "not_covered": "нужен живой ручной `/meme` при исчерпанной квоте и истечение manual_priority_until на проде. Матрица проверяет только семантику истёкшего маркера (AC-EXPIRED-NOT-BUSY и визуальный контрпример)"
+    },
+    "P0IM-AC-POSTREL": {
+      "covered": "послерелизные снимки отданной сборки по обоим боевым чатам: обзор, раскрытая трасса попытки, строка счётчиков/квоты и строка доставки, штамп версии в DOM и сверка с выложенным SHA",
+      "not_covered": "Telegram-клиент реального устройства и продуктовый вердикт Reviewer по релизу"
+    },
+    "P0IM-AC-DONE": {
+      "claimed": false,
+      "covered": "",
+      "not_covered": "агрегатный критерий готовности: собирается PM по всем срезам эпика, отдельной проверкой не закрывается"
+    }
+  },
+  "row_claims": {
+    "P0IM-AC-MATRIX-CONFIG": {
+      "status": "claimed_by_matrix",
+      "checks": [
+        "AC-MATRIX-CONFIG-FACTORY",
+        "AC-MATRIX-CONFIG-GLOBAL",
+        "AC-MATRIX-CONFIG-CHAT",
+        "AC-MATRIX-CONFIG-OFF",
+        "AC-MATRIX-CONFIG-UNKNOWN",
+        "AC-MATRIX-WAIT-COOLDOWN",
+        "AC-MATRIX-WAIT-MESSAGES",
+        "AC-MATRIX-WAIT-QUOTA",
+        "AC-MATRIX-WAIT-QUIET",
+        "AC-MATRIX-WAIT-LOTTERY",
+        "AC-MATRIX-WAIT-DEFERRED",
+        "AC-LIVE-ENDPOINT-AXES"
+      ],
+      "covered": "слой каждого гейта (чат/общий/заводской), «разрешено ВКЛ» при каждом ожидании (кулдаун — полный путь, нехватка сообщений, квота, тихие часы, жребий, отложенный артефакт), выключенный и нечитаемый configuration, живой payload двух боевых чатов с осями и слоями",
+      "not_covered": "«100% вероятности, когда жребий не нужен» и «отсутствие повода у L1» — этой матрицей не проверяются"
+    },
+    "P0IM-AC-MATRIX-FAIL": {
+      "status": "claimed_by_matrix",
+      "checks": [
+        "AC-DELIVERY-THREE-STATES",
+        "AC-TRACE-STOPPED",
+        "AC-TRACE-NEVER-STARTED",
+        "AC-CODES-UNKNOWN-READABLE",
+        "AC-LIVE-MESSAGE-ID"
+      ],
+      "covered": "провайдерное исключение на этапе картинки (одна связная история с этапом остановки), отсутствие строки журнала, три состояния доставки включая delivery_unknown, незнакомый код причины, реальный message_id доставленной попытки",
+      "not_covered": "ранние гейты без job_id, обрыв после LLM A/B, пустое изображение, конфликт отправок, старые неполные записи — этой матрицей не проверяются; живая цепочка publisher_not_bound → deferred → delivered ещё НЕ НАБЛЮДАЛАСЬ (отдельная проверка AC-LIVE-DEFERRED-CHAIN)"
+    },
+    "P0IM-AC-MATRIX-RBAC": {
+      "status": "claimed_by_matrix",
+      "checks": [
+        "AC-RBAC-NONADMIN-DENIED",
+        "AC-RBAC-NO-CROSS-CHAT-LEAK"
+      ],
+      "covered": "не-админ получает 403, запрос без чата — 422, ответ админа не смешивает данные другого чата (run_id и message_id своего чата)",
+      "not_covered": "полная трасса без утечки секретов не сканируется; конкурирующие чаты и держатели брони этой матрицей не проверяются"
+    },
+    "P0IM-AC-MATRIX-UI": {
+      "status": "claimed_by_matrix",
+      "checks": [
+        "AC-VISUAL-AXES-DESKTOP",
+        "AC-VISUAL-AXES-MOBILE",
+        "AC-VISUAL-STALE-DISCARD",
+        "AC-VISUAL-FOREIGN-EXPIRED"
+      ],
+      "covered": "реальные рендеры отданной сборки на двух боевых чатах в двух вьюпортах: пять осей обеих карточек, отсутствие горизонтальной прокрутки, отсутствие обрезанных id и дат, гонка scope при медленном ответе (поздний ответ отброшен, причина на экране), контрпример «чужой chat_id и истёкший маркер»",
+      "not_covered": "контрпримеры Reviewer, которые нужно придумывать заново под каждое изменение UI, и мобильный Telegram клиент (реальный TMA-хост): проверяется Chromium с мобильным вьюпортом"
+    },
+    "P0IM-AC-POSTREL": {
+      "status": "claimed_by_matrix",
+      "checks": [
+        "AC-POSTREL-BOTH-CHATS"
+      ],
+      "covered": "послерелизные снимки отданной сборки по обоим боевым чатам: обзор, раскрытая трасса попытки, строка счётчиков/квоты и строка доставки, штамп версии в DOM и сверка с выложенным SHA",
+      "not_covered": "Telegram-клиент реального устройства и продуктовый вердикт Reviewer по релизу"
+    }
+  },
+  "rows_not_claimed": {
+    "P0IM-AC-MATRIX-MANUAL": {
+      "status": "not_covered_by_matrix",
+      "reason": "нужен живой ручной `/meme` при исчерпанной квоте и истечение manual_priority_until на проде. Матрица проверяет только семантику истёкшего маркера (AC-EXPIRED-NOT-BUSY и визуальный контрпример)",
+      "covered": "",
+      "not_covered": "нужен живой ручной `/meme` при исчерпанной квоте и истечение manual_priority_until на проде. Матрица проверяет только семантику истёкшего маркера (AC-EXPIRED-NOT-BUSY и визуальный контрпример)"
+    },
+    "P0IM-AC-DONE": {
+      "status": "not_covered_by_matrix",
+      "reason": "агрегатный критерий готовности: собирается PM по всем срезам эпика, отдельной проверкой не закрывается",
+      "covered": "",
+      "not_covered": "агрегатный критерий готовности: собирается PM по всем срезам эпика, отдельной проверкой не закрывается"
+    }
+  },
+  "failed": [],
+  "blocked": [],
+  "not_yet": [
+    "AC-LIVE-DEFERRED-CHAIN"
+  ],
+  "run_ok": false,
+  "run_status": "partial"
+}
