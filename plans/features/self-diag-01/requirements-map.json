@@ -463,6 +463,178 @@
         "SD1-AC-13": "D7/live"
       },
       "note": "D5 row statuses: REVIEW — 15 записей / 15 unique; PENDING — 6. D5-02/AMX-04 ждут D6-регистрации; D5-11/12 — model-context цитирование; AC-12/13 — живой Telegram (D7). D5-05 unit REVIEW при live_required=true: живая часть идёт через AC-12 и не выдаётся за проверенную."
+    },
+    "d3": {
+      "slice": "D3 (runtime probes, evidence bundle, collector)",
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_short": "278c19e0",
+      "docs_commit": "48fc1c630161aaeead20da98b93fe28b0e3f5ee6",
+      "base_commit": "722ccfc522ba00a18dc74881913020151ac250aa",
+      "branch": "self-diag/d3",
+      "deployed": false,
+      "status": "REVIEW",
+      "why_not_verified": "Код не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза self-diag строки остаются REVIEW с candidate-bound доказательством.",
+      "correction_chain": {
+        "previous_candidate": "fd7567388c9629692ca999301385dbda42bec842",
+        "previous_verdict": "Needs Fixes (B1: credential URL в config.effective)",
+        "fix": "278c19e0 нормализует flags.self_diag_repo_origin через source_reader.normalize_repo_origin",
+        "approval": "review-d3-278c19e0.md (Approved для B1); единственный блокер закрыт"
+      },
+      "review": {
+        "path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+        "sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+        "verdict": "Approved",
+        "scope": "D3-исправление B1, unit/preprod; D3/self-diag DONE не объявляются",
+        "reviewer": "independent (не Builder)",
+        "historical": {
+          "path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "verdict": "Needs Fixes (only B1)",
+          "use": "row-level аудит, не одобрение"
+        }
+      },
+      "binding": {
+        "path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+        "sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7"
+      },
+      "code": {
+        "services/runtime_probes.py": {
+          "change": "_normalize_repo_origin_value + ветка flags.self_diag_repo_origin в _probe_config_effective"
+        },
+        "tests/test_diagnostic_probes.py": {
+          "change": "regression test: token URL -> no token в bundle/page/tool_out"
+        }
+      },
+      "tests": {
+        "focused": "pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -q -> 80 passed",
+        "combined": "focused 35-file set -> 1325 passed, 1 warning",
+        "red_green": "RED на fd756738 (token в bundle/page/tool) -> GREEN на 278c19e0",
+        "mutation": "reviewer mutation: bypass normalize_repo_origin -> regression-тест 1 failed; restore -> 80 passed",
+        "pre_existing_red_not_d3": [
+          "tests/test_addtr_tools_minifix.py::test_l1_seam_announce_then_execute_once",
+          "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff"
+        ]
+      },
+      "covered_rows": [
+        "SD1-AC-04",
+        "SD1-AC-05",
+        "SD1-AC-18",
+        "SD1-AC-20",
+        "SD1-D3-01",
+        "SD1-D3-02",
+        "SD1-D3-03",
+        "SD1-D3-04",
+        "SD1-D3-05",
+        "SD1-D3-06",
+        "SD1-D3-07",
+        "SD1-D3-08",
+        "SD1-EVD-03",
+        "SD1-EVD-04",
+        "SD1-EVD-05",
+        "SD1-EVD-06",
+        "SD1-EVD-07",
+        "SD1-EVD-08",
+        "SD1-EVD-09",
+        "SD1-EVD-10",
+        "SD1-EVD-11",
+        "SD1-EVD-12",
+        "SD1-EVD-13",
+        "SD1-EVD-14",
+        "SD1-EVD-15",
+        "SD1-EVD-17",
+        "SD1-EVD-18",
+        "SD1-EVD-19",
+        "SD1-SEM-01",
+        "SD1-SEM-03",
+        "SD1-SEM-06",
+        "SD1-SEM-07",
+        "SD1-SEM-11",
+        "SD1-SEM-12"
+      ],
+      "partial_rows": {
+        "SD1-EVD-14": "live voice/STT/provider — D7/live",
+        "SD1-EVD-19": "реальный restart/durable job — D6/D7/live",
+        "SD1-AC-20": "внешние GitHub/DB/429/SHA/parallel/restart — D6/D7/live",
+        "SD1-EVD-10": "commits_since_deploy=None до D6"
+      },
+      "not_covered_rows": {
+        "SD1-EVD-01": "explicit handlers/checkup.py wiring — D6",
+        "SD1-SEM-08": "live-LLM context following — D7/live"
+      },
+      "residual": [
+        "D6: checkup wiring, prompt_readback registration поверх 17-го inspect_runtime, UI/analytics, commits_since_deploy",
+        "D7/live: VPS/journald/systemd/PSI/DNS/GitHub/Telegram, внешние таймауты/429"
+      ]
+    },
+    "D3": {
+      "slice": "D3 (aggregate: probes/collector/bundle, unit/preprod)",
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_short": "278c19e0",
+      "docs_commit": "48fc1c630161aaeead20da98b93fe28b0e3f5ee6",
+      "base_commit": "722ccfc522ba00a18dc74881913020151ac250aa",
+      "deployed": false,
+      "status": "REVIEW",
+      "why_not_verified": "D3 принят независимым ревью после B1 на unit/preprod, но не выложен. Map-level candidate_commit остаётся D1 25876167; binding нужен для slice-scoped review D3.",
+      "review": {
+        "path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+        "sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+        "verdict": "Approved"
+      },
+      "binding": {
+        "path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+        "sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7"
+      },
+      "tests": {
+        "focused": "80 passed",
+        "combined": "1325 passed"
+      },
+      "covered_rows": [
+        "SD1-AC-04",
+        "SD1-AC-05",
+        "SD1-AC-18",
+        "SD1-AC-20",
+        "SD1-D3-01",
+        "SD1-D3-02",
+        "SD1-D3-03",
+        "SD1-D3-04",
+        "SD1-D3-05",
+        "SD1-D3-06",
+        "SD1-D3-07",
+        "SD1-D3-08",
+        "SD1-EVD-03",
+        "SD1-EVD-04",
+        "SD1-EVD-05",
+        "SD1-EVD-06",
+        "SD1-EVD-07",
+        "SD1-EVD-08",
+        "SD1-EVD-09",
+        "SD1-EVD-10",
+        "SD1-EVD-11",
+        "SD1-EVD-12",
+        "SD1-EVD-13",
+        "SD1-EVD-14",
+        "SD1-EVD-15",
+        "SD1-EVD-17",
+        "SD1-EVD-18",
+        "SD1-EVD-19",
+        "SD1-SEM-01",
+        "SD1-SEM-03",
+        "SD1-SEM-06",
+        "SD1-SEM-07",
+        "SD1-SEM-11",
+        "SD1-SEM-12"
+      ],
+      "partial_rows": [
+        "SD1-EVD-14",
+        "SD1-EVD-19",
+        "SD1-AC-20",
+        "SD1-EVD-10"
+      ],
+      "not_covered_rows": {
+        "SD1-EVD-01": "D6",
+        "SD1-SEM-08": "D7/live"
+      },
+      "note": "D3 row statuses: REVIEW — 35 записей / 34 unique; PENDING — 2 (EVD-01 D6, SEM-08 live). EVD-12 поднят из FAILED после закрытия B1; EVD-14/19/AC-20 приняты частично (live/D6 остатки)."
     }
   },
   "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -772,15 +944,49 @@
       "acceptance": "Категории наблюдений §5 (процесс, CPU/память, диски, FDs/сокеты, локальные логи, systemd/контейнер, планировщик, доставка Telegram, STT/vision, LLM/инструменты, память/GraphRAG, БД, конфигурация, деплой, зависимости, сеть, инциденты) доступны через зарегистрированные typed probes с явными границами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: 17 AREAS и 24 built-in probe; категории §5 доступны через зарегистрированные typed probes с явными границами.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "17 AREAS и 24 built-in probe; категории §5 доступны через зарегистрированные typed probes с явными границами. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: 17 AREAS и 24 built-in probe; категории §5 доступны через зарегистрированные typed probes с явными границами.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_03.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-03"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-D3-04",
@@ -794,15 +1000,49 @@
       "acceptance": "Подмодули регистрируют typed DiagnosticProbe по существующему реестру с контрактом, статусом и разрешённой областью чтения, не требуя правки центрального кода при появлении нового сервиса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Typed DiagnosticProbe в существующем реестре: контракт/статус/разрешённая область чтения; новый сервис не требует правки центрального кода.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Typed DiagnosticProbe в существующем реестре: контракт/статус/разрешённая область чтения; новый сервис не требует правки центрального кода. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Typed DiagnosticProbe в существующем реестре: контракт/статус/разрешённая область чтения; новый сервис не требует правки центрального кода.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_04.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-04"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-D3-05",
@@ -816,15 +1056,49 @@
       "acceptance": "Delta-метрики CPU/IO требуют двух реальных наблюдений или системного агрегата; по одному измерению отдаются счётчики без вычисленных процентов, а мониторинг не создаёт заметной нагрузки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: CPU-проценты только после двух реальных наблюдений, по одному — счётчики без процентов; db.integrity — только expensive-режим.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "CPU-проценты только после двух реальных наблюдений, по одному — счётчики без процентов; db.integrity — только expensive-режим. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: CPU-проценты только после двух реальных наблюдений, по одному — счётчики без процентов; db.integrity — только expensive-режим.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_05.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-05"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-D3-06",
@@ -838,15 +1112,49 @@
       "acceptance": "Для остановки единственного процесса предусмотрена интеграция с существующим внешним watchdog/monitor либо правдивая post-restart реконструкция, без обещания ответа от упавшего процесса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Для остановки единственного процесса — существующий внешний watchdog/monitor либо честная post-restart реконструкция; обещания ответа от упавшего процесса нет.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Для остановки единственного процесса — существующий внешний watchdog/monitor либо честная post-restart реконструкция; обещания ответа от упавшего процесса нет. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Для остановки единственного процесса — существующий внешний watchdog/monitor либо честная post-restart реконструкция; обещания ответа от упавшего процесса нет.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_06.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-06"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-EVD-04",
@@ -860,15 +1168,49 @@
       "acceptance": "Существует один сериализуемый DiagnosticEvidenceBundle, согласованный с существующими mca_events/source_refs, без второй БД и без несовместимого дублирующего контракта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Один сериализуемый DiagnosticEvidenceBundle, согласованный с существующими SourceRef/mca_events; второй БД/DDL и дублирующего контракта нет.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Один сериализуемый DiagnosticEvidenceBundle, согласованный с существующими SourceRef/mca_events; второй БД/DDL и дублирующего контракта нет. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Один сериализуемый DiagnosticEvidenceBundle, согласованный с существующими SourceRef/mca_events; второй БД/DDL и дублирующего контракта нет.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_04.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-04"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-EVD-13",
@@ -882,15 +1224,49 @@
       "acceptance": "Причинно важный traceback сохраняется как stack summary с источниками и continuation по бюджету, без тупой обрезки по первым N символам и без гигабайтных логов в модель.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Traceback сохраняется как stack summary с источниками и continuation по бюджету, без обрезки по первым N символам и без гигабайтных логов в модель.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Traceback сохраняется как stack summary с источниками и continuation по бюджету, без обрезки по первым N символам и без гигабайтных логов в модель. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Traceback сохраняется как stack summary с источниками и continuation по бюджету, без обрезки по первым N символам и без гигабайтных логов в модель.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_13.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-13"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-D5-01",
@@ -1078,15 +1454,49 @@
       "acceptance": "«чекап» остаётся специальным быстрым вызовом диагностики; словари синонимов и регулярки для дополнительных выражений не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: «чекап» остаётся единственным специальным быстрым вызовом; новые словари синонимов/регулярки не создавались.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "«чекап» остаётся единственным специальным быстрым вызовом; новые словари синонимов/регулярки не создавались. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: «чекап» остаётся единственным специальным быстрым вызовом; новые словари синонимов/регулярки не создавались.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_01.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-01"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-SEM-12",
@@ -1100,15 +1510,49 @@
       "acceptance": "Исторически зарегистрированные алиасы/префиксы чекапа инвентаризированы, совместимость подтверждена тестами, новых алиасов не добавлено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Исторические алиасы/префиксы чекапа инвентаризированы, совместимость подтверждена тестами, новых алиасов не добавлено.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Исторические алиасы/префиксы чекапа инвентаризированы, совместимость подтверждена тестами, новых алиасов не добавлено. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Исторические алиасы/префиксы чекапа инвентаризированы, совместимость подтверждена тестами, новых алиасов не добавлено.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_12.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-12"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-AMX-01",
@@ -1592,15 +2036,49 @@
       "acceptance": "get_bot_health и свободный вопрос через Tool Calling используют те же evidence/probes без второй инсталляции сборщика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: get_bot_health и ответ через Tool Calling используют те же evidence/probes; второй инсталляции сборщика нет; collect_for_checkup() идёт через тот же collector.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "get_bot_health и ответ через Tool Calling используют те же evidence/probes; второй инсталляции сборщика нет; collect_for_checkup() идёт через тот же collector. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: get_bot_health и ответ через Tool Calling используют те же evidence/probes; второй инсталляции сборщика нет; collect_for_checkup() идёт через тот же collector.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_ac_04.json",
           "description": "наблюдаемый артефакт проверки SD1-AC-04"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: shared collector принят; explicit handler wiring — EVD-01/D6."
     },
     {
       "source_id": "MAN-AC-05",
@@ -1614,15 +2092,49 @@
       "acceptance": "Нет новых regex, keyword-роутов или массивов фраз для вопросов о состоянии, коде, промптах и доступах; «чекап» остаётся единственным специальным ключевым вызовом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Нет новых regex, keyword-роутов и массивов фраз для вопросов о состоянии/коде/промптах/доступах; «чекап» — единственный специальный ключевой вызов.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Нет новых regex, keyword-роутов и массивов фраз для вопросов о состоянии/коде/промптах/доступах; «чекап» — единственный специальный ключевой вызов. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Нет новых regex, keyword-роутов и массивов фраз для вопросов о состоянии/коде/промптах/доступах; «чекап» — единственный специальный ключевой вызов.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_ac_05.json",
           "description": "наблюдаемый артефакт проверки SD1-AC-05"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-AC-06",
@@ -2163,15 +2675,49 @@
       "acceptance": "CPU/RAM/disk/process/job/provider/DB/network метрики основаны на замерах, содержат timestamp, scope, source, status, latency и reason_code; зелёных placeholder нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: CPU/RAM/disk/process/job/provider/DB/network метрики основаны на замерах, содержат timestamp/scope/source/status/latency/reason_code; зелёных placeholder нет.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "CPU/RAM/disk/process/job/provider/DB/network метрики основаны на замерах, содержат timestamp/scope/source/status/latency/reason_code; зелёных placeholder нет. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: CPU/RAM/disk/process/job/provider/DB/network метрики основаны на замерах, содержат timestamp/scope/source/status/latency/reason_code; зелёных placeholder нет.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_ac_18.json",
           "description": "наблюдаемый артефакт проверки SD1-AC-18"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "MAN-AC-19",
@@ -2207,15 +2753,56 @@
       "acceptance": "Зависания GitHub или DB, 429, несовпадение SHA, параллельные запросы и перезапуски дают graceful degradation, не блокируют ответы навсегда и не отменяют исправную часть диагностики.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Локальные таймауты/degradation и кэш-дедупликация проверены; исправная часть диагностики не отменяется.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Локальные таймауты/degradation и кэш-дедупликация проверены; исправная часть диагностики не отменяется. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Локальные таймауты/degradation и кэш-дедупликация проверены; исправная часть диагностики не отменяется.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_ac_20.json",
           "description": "наблюдаемый артефакт проверки SD1-AC-20"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: local-часть принята; внешние live-сценарии — D6/D7/live.",
+      "partial_coverage_2026_11_13": {
+        "slice": "D3",
+        "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+        "covered": "локальные таймауты/degradation, дедупликация и сохранение исправной части диагностики.",
+        "remaining": "реальные зависания GitHub/DB, 429, несовпадение SHA, параллельные запросы/перезапуски во внешней среде — D6/D7/live (review §5).",
+        "why_status_review": "Строка принята не целиком: покрытая часть доказана на кандидате 278c19e0; остаток назван и принадлежит D6/D7/live."
+      }
     },
     {
       "source_id": "MAN-AC-21",
@@ -2526,14 +3113,32 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: collect_for_checkup() использует тот же collector/probes и переданные логи, без второго чтения журнала; explicit handlers/checkup.py не изменён.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_01.json",
           "description": "сопоставимый evidence одного состава из чекапа и из Tool Calling"
         }
-      ]
+      ],
+      "status_note": "PENDING: explicit чекап wiring — D6; seam уже есть (review §5-§6). REVIEW не выставляется.",
+      "partial_coverage_2026_11_13": {
+        "slice": "D3",
+        "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+        "covered": "collect_for_checkup() seam и общий collector доказаны; второго сборщика/чтения журнала нет.",
+        "remaining": "explicit wiring handlers/checkup.py — D6; live_required=true (preprod).",
+        "why_status_pending": "Строка принята не целиком: покрытая часть доказана на кандидате 278c19e0; остаток назван и принадлежит D6/D7/live."
+      }
     },
     {
       "source_id": "L00094",
@@ -2569,15 +3174,49 @@
       "acceptance": "Один расширяемый read-only инструмент inspect_runtime с area/probe/scope/time_window/cursor и аргументами зарегистрированной операции; отдельный LLM tool на каждую Linux-команду не создаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Один расширяемый read-only inspect_runtime: area/probe/scope/time_window/cursor и аргументы зарегистрированной операции; tool_schemas добавляет 17-й инструмент; отдельного LLM tool на каждую Linux-команду нет.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Один расширяемый read-only inspect_runtime: area/probe/scope/time_window/cursor и аргументы зарегистрированной операции; tool_schemas добавляет 17-й инструмент; отдельного LLM tool на каждую Linux-команду нет. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Один расширяемый read-only inspect_runtime: area/probe/scope/time_window/cursor и аргументы зарегистрированной операции; tool_schemas добавляет 17-й инструмент; отдельного LLM tool на каждую Linux-команду нет.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_01.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-01"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00096",
@@ -2645,15 +3284,49 @@
       "acceptance": "investigate_incident реализован как сценарий существующего координатора инструментов, без дополнительной LLM-стадии ради стадии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: investigate_incident — сценарий существующего координатора probes (11 children), без дополнительной LLM-стадии; db.integrity в сценарий не входит.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "investigate_incident — сценарий существующего координатора probes (11 children), без дополнительной LLM-стадии; db.integrity в сценарий не входит. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: investigate_incident — сценарий существующего координатора probes (11 children), без дополнительной LLM-стадии; db.integrity в сценарий не входит.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_03.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-03"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00098",
@@ -2734,15 +3407,49 @@
       "acceptance": "Состояния declared/configured/probe succeeded/healthy различаются и меняются от реальных измерений и их актуальности, без завышения доступности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: declared/configured/probe_succeeded/healthy различаются в bundle и меняются от фактических измерений; permission_decision/latency/reason присутствуют, доступность не завышается.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "declared/configured/probe_succeeded/healthy различаются в bundle и меняются от фактических измерений; permission_decision/latency/reason присутствуют, доступность не завышается. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: declared/configured/probe_succeeded/healthy различаются в bundle и меняются от фактических измерений; permission_decision/latency/reason присутствуют, доступность не завышается.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_02.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-02"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00100",
@@ -2808,15 +3515,49 @@
       "acceptance": "«чекап» остаётся специальным быстрым вызовом диагностики; словари синонимов и регулярки для дополнительных выражений не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: «чекап» остаётся единственным специальным быстрым вызовом; новые словари синонимов/регулярки не создавались.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "«чекап» остаётся единственным специальным быстрым вызовом; новые словари синонимов/регулярки не создавались. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: «чекап» остаётся единственным специальным быстрым вызовом; новые словари синонимов/регулярки не создавались.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_01.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-01"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00107",
@@ -2876,15 +3617,49 @@
       "acceptance": "Нет условий вида if \"сбой\" in message или классификации по массиву ключевых фраз; модель выбирает capability по назначению и tool schemas.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Нет условий if \"сбой\" in message и классификации по массиву ключевых фраз; модель выбирает capability по назначению и tool schemas.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Нет условий if \"сбой\" in message и классификации по массиву ключевых фраз; модель выбирает capability по назначению и tool schemas. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Нет условий if \"сбой\" in message и классификации по массиву ключевых фраз; модель выбирает capability по назначению и tool schemas.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_03.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-03"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00109",
@@ -3006,15 +3781,49 @@
       "acceptance": "Инструменты технически доступны L1/Direct для обычной реплики, упоминания и reply; инициатива бота не получает повышенных прав автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Инструменты доступны L1/Direct для обычной реплики, упоминания и reply; инициатива бота не получает повышенных прав автоматически.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Инструменты доступны L1/Direct для обычной реплики, упоминания и reply; инициатива бота не получает повышенных прав автоматически. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Инструменты доступны L1/Direct для обычной реплики, упоминания и reply; инициатива бота не получает повышенных прав автоматически.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_06.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-06"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00115",
@@ -3028,15 +3837,49 @@
       "acceptance": "Capability advertised только когда зарегистрирована и применима, ready — только после проверяемого успешного probe; неполадка доставляется в ToolResult с reason code.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Capability advertised только когда зарегистрирована и применима; ready — только после успешного probe; неполадка доставляется в ToolResult с reason code.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Capability advertised только когда зарегистрирована и применима; ready — только после успешного probe; неполадка доставляется в ToolResult с reason code. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Capability advertised только когда зарегистрирована и применима; ready — только после успешного probe; неполадка доставляется в ToolResult с reason code.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_07.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-07"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00116",
@@ -3051,14 +3894,32 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Структурно нет keyword-роутинга: модель выбирает capability по назначению и tool schemas; live-LLM следование контексту не проверялось.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_08.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-08"
         }
-      ]
+      ],
+      "status_note": "PENDING: live-LLM проверка не выполнялась; структурная проверка не заменяет live (review §5).",
+      "partial_coverage_2026_11_13": {
+        "slice": "D3",
+        "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+        "covered": "структурное отсутствие keyword-роутинга и выбор capability моделью.",
+        "remaining": "живое LLM-следование контексту («а что с голосовыми?», «посмотри последнюю правку») — D7/live.",
+        "why_status_pending": "Строка принята не целиком: покрытая часть доказана на кандидате 278c19e0; остаток назван и принадлежит D6/D7/live."
+      }
     },
     {
       "source_id": "L00117",
@@ -6353,15 +7214,49 @@
       "acceptance": "observed_at фиксирует время измерения, а не время генерации ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: observed_at фиксирует время измерения probe, а не время генерации ответа.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "observed_at фиксирует время измерения probe, а не время генерации ответа. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: observed_at фиксирует время измерения probe, а не время генерации ответа.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_05.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-05"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00317",
@@ -6375,15 +7270,49 @@
       "acceptance": "source_id и истинный owner источника (journal текущего unit, system probe, SQL read-only, GitHub commit) присутствуют в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: source_id и истинный owner источника (journal текущего unit, system probe, SQL read-only, GitHub commit) присутствуют в evidence.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "source_id и истинный owner источника (journal текущего unit, system probe, SQL read-only, GitHub commit) присутствуют в evidence. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: source_id и истинный owner источника (journal текущего unit, system probe, SQL read-only, GitHub commit) присутствуют в evidence.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_06.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-06"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00318",
@@ -6397,15 +7326,49 @@
       "acceptance": "scope evidence — текущий chat/host/instance; чтение чужих чатов по ошибке невозможно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: scope evidence — текущий chat/host/instance; чтение чужих чатов по ошибке не предусмотрено.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "scope evidence — текущий chat/host/instance; чтение чужих чатов по ошибке не предусмотрено. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: scope evidence — текущий chat/host/instance; чтение чужих чатов по ошибке не предусмотрено.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_07.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-07"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00319",
@@ -6419,15 +7382,49 @@
       "acceptance": "status принимает ok/degraded/unavailable/permission_denied/not_configured/stale/unsupported/unknown/not_checked и отражает фактическое состояние.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Закрытый набор статусов ok/degraded/unavailable/permission_denied/not_configured/stale/unsupported/unknown/not_checked отражает фактическое состояние.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Закрытый набор статусов ok/degraded/unavailable/permission_denied/not_configured/stale/unsupported/unknown/not_checked отражает фактическое состояние. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Закрытый набор статусов ok/degraded/unavailable/permission_denied/not_configured/stale/unsupported/unknown/not_checked отражает фактическое состояние.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_08.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-08"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00320",
@@ -6441,15 +7438,49 @@
       "acceptance": "coverage показывает, какие части лога/кода/окон реально проверены, где обрезка и почему.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: coverage показывает, какие части лога/кода/окон реально проверены, где обрезка и почему.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "coverage показывает, какие части лога/кода/окон реально проверены, где обрезка и почему. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: coverage показывает, какие части лога/кода/окон реально проверены, где обрезка и почему.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_09.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-09"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00321",
@@ -6463,15 +7494,49 @@
       "acceptance": "runtime_sha, git_head_sha, source_verified, commits_since_deploy, git_metadata_attempted и code_lookup_attempted отображаются раздельно и честно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: runtime_sha/git_head_sha/source_verified/commits_since_deploy/git_metadata_attempted/code_lookup_attempted раздельно и честно; commits_since_deploy=None до D6.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "runtime_sha/git_head_sha/source_verified/commits_since_deploy/git_metadata_attempted/code_lookup_attempted раздельно и честно; commits_since_deploy=None до D6. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: runtime_sha/git_head_sha/source_verified/commits_since_deploy/git_metadata_attempted/code_lookup_attempted раздельно и честно; commits_since_deploy=None до D6.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_10.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-10"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; commits_since_deploy остаётся None до D6."
     },
     {
       "source_id": "L00322",
@@ -6485,15 +7550,49 @@
       "acceptance": "Типы утверждений observed/correlated/hypothesis/unknown/not_checked различаются без принудительных процентов уверенности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Пять claim kinds observed/correlated/hypothesis/unknown/not_checked различаются без принудительных процентов уверенности.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Пять claim kinds observed/correlated/hypothesis/unknown/not_checked различаются без принудительных процентов уверенности. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Пять claim kinds observed/correlated/hypothesis/unknown/not_checked различаются без принудительных процентов уверенности.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_11.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-11"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00323",
@@ -6507,15 +7606,39 @@
       "acceptance": "redaction_count по техническому классу, permission_decision без secret values, latency_ms и reason_code присутствуют в результате.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: B1 закрыт: credential URL (user:SECRET-TOKEN-9988@...) не выходит из probe; facts.settings/bundle/page/tool_out без токена; effective=Henry-Case-dev/adminbot; невалидный непустой -> None + reason_code=invalid_repo_origin. redaction_count/permission_decision/latency_ms/reason_code на месте.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "B1 закрыт: credential URL (user:SECRET-TOKEN-9988@...) не выходит из probe; facts.settings/bundle/page/tool_out без токена; effective=Henry-Case-dev/adminbot; невалидный непустой -> None + reason_code=invalid_repo_origin. redaction_count/permission_decision/latency_ms/reason_code на месте. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_12.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-12"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: B1 закрыт и независимо подтверждён; unit/preprod принят, не выложено."
     },
     {
       "source_id": "L00327",
@@ -6544,15 +7667,49 @@
       "acceptance": "Семантический Tool Calling выбирает существующий diagnostic capability, а backend удостоверяет chat scope и выдаёт доступ к техническим данным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Семантический Tool Calling выбирает существующий diagnostic capability; backend удостоверяет chat scope и выдаёт доступ к техническим данным.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Семантический Tool Calling выбирает существующий diagnostic capability; backend удостоверяет chat scope и выдаёт доступ к техническим данным. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Семантический Tool Calling выбирает существующий diagnostic capability; backend удостоверяет chat scope и выдаёт доступ к техническим данным.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_sem_11.json",
           "description": "наблюдаемый артефакт проверки SD1-SEM-11"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00332",
@@ -6566,15 +7723,46 @@
       "acceptance": "Инцидентный сценарий собирает фактический runtime, время деплоя и версии, входящие voice-сообщения, STT queue, last success/error, latency и provider status.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Сценарий собирает 11 источников, включая config:effective; config-источник нормализован и не содержит токен (B1 fix); page честно отдаёт total_sources/omitted_source_ids.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Сценарий собирает 11 источников, включая config:effective; config-источник нормализован и не содержит токен (B1 fix); page честно отдаёт total_sources/omitted_source_ids. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_14.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-14"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit-часть сценария принята; живые voice/STT/provider данные остаются D7/live.",
+      "partial_coverage_2026_11_13": {
+        "slice": "D3",
+        "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+        "covered": "сборка фактического runtime/deploy/voice/STT/provider/config/logs/incidents и нормализованный config-источник без токена.",
+        "remaining": "живые voice/STT/provider данные (реальные provider status/latency, STT queue в проде) — D7/live (review §5-§6).",
+        "why_status_review": "Строка принята не целиком: покрытая часть доказана на кандидате 278c19e0; остаток назван и принадлежит D6/D7/live."
+      }
     },
     {
       "source_id": "L00333",
@@ -6588,15 +7776,49 @@
       "acceptance": "По correlation IDs находятся конкретные таймауты и стадии; проверяется состояние scheduler и effective flag, а не догадка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: По correlation IDs находятся конкретные таймауты и стадии; проверяется состояние scheduler и effective flag, а не догадка.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "По correlation IDs находятся конкретные таймауты и стадии; проверяется состояние scheduler и effective flag, а не догадка. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: По correlation IDs находятся конкретные таймауты и стадии; проверяется состояние scheduler и effective flag, а не догадка.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_15.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-15"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00334",
@@ -7289,15 +8511,49 @@
       "acceptance": "Минимальные probes быстрые; дорогие (глубокий integrity check, полный diff, history traversal) выполняются только при необходимости; бюджеты редактируемые, не хардкод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Дешёвые probes быстрые; дорогие (глубокий integrity, полный diff, history traversal) — только при необходимости; бюджеты редактируемые, не хардкод.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Дешёвые probes быстрые; дорогие (глубокий integrity, полный diff, history traversal) — только при необходимости; бюджеты редактируемые, не хардкод. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Дешёвые probes быстрые; дорогие (глубокий integrity, полный diff, history traversal) — только при необходимости; бюджеты редактируемые, не хардкод.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_17.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-17"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00386",
@@ -7311,15 +8567,49 @@
       "acceptance": "Один короткоживущий validated snapshot обслуживает совместимые проверки, одновременные запросы дедуплицируются без смешивания чатов и ролей; cache по runtime_sha+probe args+scope+permission class инвалидируется после деплоя/рестарта/смены настроек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Cache key = args/scope/chat/permission class/role + runtime_sha + config token; per-key lock дедуплицирует одновременные запросы без смешивания чатов/ролей; cursor валидируется; cancelled execute не сохраняется.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Cache key = args/scope/chat/permission class/role + runtime_sha + config token; per-key lock дедуплицирует одновременные запросы без смешивания чатов/ролей; cursor валидируется; cancelled execute не сохраняется. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Cache key = args/scope/chat/permission class/role + runtime_sha + config token; per-key lock дедуплицирует одновременные запросы без смешивания чатов/ролей; cursor валидируется; cancelled execute не сохраняется.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_18.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-18"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00387",
@@ -7394,15 +8684,56 @@
       "acceptance": "Cancellation/restart завершают инструмент в рамках task lifecycle; фоновая задача имеет durable job и корректный статус без обещания доставки без сохранённого delivery path.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Cancellation завершает инструмент в рамках task lifecycle; отменённый execute не сохраняется в кэш; durable job/обещание доставки без delivery path не вводится.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Cancellation завершает инструмент в рамках task lifecycle; отменённый execute не сохраняется в кэш; durable job/обещание доставки без delivery path не вводится. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Cancellation завершает инструмент в рамках task lifecycle; отменённый execute не сохраняется в кэш; durable job/обещание доставки без delivery path не вводится.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_evd_19.json",
           "description": "наблюдаемый артефакт проверки SD1-EVD-19"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit-часть cancellation принята; реальный restart — D6/D7/live.",
+      "partial_coverage_2026_11_13": {
+        "slice": "D3",
+        "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+        "covered": "отмена в рамках task lifecycle и отсутствие сохранения отменённого execute.",
+        "remaining": "реальный restart/durable job и корректный статус после рестарта — D6/D7/live (review §5).",
+        "why_status_review": "Строка принята не целиком: покрытая часть доказана на кандидате 278c19e0; остаток назван и принадлежит D6/D7/live."
+      }
     },
     {
       "source_id": "L00390",
@@ -7455,15 +8786,49 @@
       "acceptance": "Валидируются JSON schema, временные диапазоны и пути; LLM не может подменить unit или прочитать произвольный root/путь/SQL; лимиты размера и времени задаются engineering settings.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Валидация JSON schema/временных диапазонов/путей: произвольные path/root/unit/sql/chat/user/host/port/token args отвергаются DENIED_ARGUMENT_KEYS/schema; лимиты размера/времени — engineering settings.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Валидация JSON schema/временных диапазонов/путей: произвольные path/root/unit/sql/chat/user/host/port/token args отвергаются DENIED_ARGUMENT_KEYS/schema; лимиты размера/времени — engineering settings. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Валидация JSON schema/временных диапазонов/путей: произвольные path/root/unit/sql/chat/user/host/port/token args отвергаются DENIED_ARGUMENT_KEYS/schema; лимиты размера/времени — engineering settings.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_07.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-07"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00392",
@@ -7477,15 +8842,49 @@
       "acceptance": "Prompt injection в README, коммитах, журналах, stdout и SQL text трактуется как недоверенные данные и не становится полномочием tool-call или системной инструкцией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d3-278c19e0...-b1.md §2-§4 (80 passed, 1325 focused)",
+          "observation": "binding §3: pytest tests/test_evidence_bundle.py tests/test_diagnostic_probes.py -> 80 passed; focused 35-file set -> 1325 passed (1 Starlette/httpx warning); независимая mutation (bypass normalize_repo_origin) -> regression-тест RED, restore -> 80 passed. Строка: Prompt injection в README/коммитах/логах/stdout/SQL трактуется как недоверенные данные и не даёт полномочий tool-call/системной инструкции.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/binding-d3-278c19e0bbe452a731cb6066102fbe9c47d34bd0-b1.md",
+          "artifact_sha256": "598ebaa2d26428baad2c3868cd925c8df13356ebcbe5827d8672cd9d0aa2d5c7",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-278c19e0.md §2-§5, §9 (Вердикт: Approved для D3-исправления B1)",
+          "observation": "Prompt injection в README/коммитах/логах/stdout/SQL трактуется как недоверенные данные и не даёт полномочий tool-call/системной инструкции. Reviewer Approved на 278c19e0: B1 закрыт; D3-строки кроме EVD-12/14 не менялись, их независимый row-level аудит выполнен в fd756738 §5.",
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-278c19e0.md",
+          "artifact_sha256": "ba21969f7cf582db44a05bf250c5692865b0f6d224aa4b181a335e4c29d7be17",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false
+        },
+        {
+          "ref": "review-d3-fd756738.md §2, §5 (историческое независимое ревью: Needs Fixes только по B1)",
+          "observation": "Независимое историческое ревью fd756738 отнесло строку к REVIEW-eligible после исправления B1 (§5); аудит поведения: Prompt injection в README/коммитах/логах/stdout/SQL трактуется как недоверенные данные и не даёт полномочий tool-call/системной инструкции.",
+          "type": "inspection",
+          "artifact_path": "plans/features/self-diag-01/evidence/d3/review-d3-fd756738.md",
+          "artifact_sha256": "1b1b595adc5cf9905aa790ad8836bf1dc03c4c6db682e79ef6dc420f9f804866",
+          "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+          "candidate_deployed": false,
+          "historical_note": "Это ревью относится к предыдущему кандидату fd756738 и не является одобрением; используется только как история row-level аудита. Единственный блокер B1 исправлен и независимо подтверждён на 278c19e0."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d3/sd1_d3_08.json",
           "description": "наблюдаемый артефакт проверки SD1-D3-08"
         }
-      ]
+      ],
+      "candidate_commit": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: unit/preprod принят на 278c19e0; не выложено."
     },
     {
       "source_id": "L00394",
@@ -8523,5 +9922,36 @@
       "SD1-AC-13": "live Telegram (D7)"
     },
     "note": "REVIEW = кандидат c7b90b26 принят независимым ревью (unit/preprod), не выложен и не зарегистрирован в tool-пути. PENDING сохранён там, где D5 ничего не закрывал (D6-регистрация, model-context цитирование, живой Telegram). VERIFIED появится только после релиза self-diag и привязки к deployed SHA; D5/self-diag DONE не объявляются."
+  },
+  "d3_accounting": {
+    "slice": "D3",
+    "convention": "records = записи items + additional_requirements с slice=D3; unique_req_ids = свёртка по req_id",
+    "records_total": 37,
+    "records_by_status": {
+      "REVIEW": 35,
+      "PENDING": 2
+    },
+    "unique_req_ids": 36,
+    "unique_req_ids_by_status": {
+      "REVIEW": 34,
+      "PENDING": 2
+    },
+    "reviewed_candidate": "278c19e0bbe452a731cb6066102fbe9c47d34bd0",
+    "reviewed_base_candidate": "722ccfc522ba00a18dc74881913020151ac250aa",
+    "previous_candidate": "fd7567388c9629692ca999301385dbda42bec842",
+    "deployed": false,
+    "partial_rows_with_evidence": [
+      "SD1-EVD-14",
+      "SD1-EVD-19",
+      "SD1-AC-20",
+      "SD1-EVD-10",
+      "SD1-EVD-01",
+      "SD1-SEM-08"
+    ],
+    "pending_reason": {
+      "SD1-EVD-01": "explicit handlers/checkup.py wiring — D6; live_required=true",
+      "SD1-SEM-08": "live-LLM context following — D7/live"
+    },
+    "note": "B1 (credential URL в config.effective) закрыт на 278c19e0 и независимо подтверждён; EVD-12/EVD-14 стали REVIEW-eligible. REVIEW = кандидат принят на unit/preprod, не выложен. PENDING сохраняется только там, где нужен D6/live; VERIFIED — после релиза и deployed SHA. D3/self-diag DONE не объявляются."
   }
 }
