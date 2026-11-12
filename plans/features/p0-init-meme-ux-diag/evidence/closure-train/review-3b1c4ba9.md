@@ -150,3 +150,50 @@ Housekeeping: probe run
 WorkspaceData/runs/.../probe-38df484ade closed, temporary c134f93d worktree for
 the baseline e2e comparison removed, all review servers and browser tabs closed;
 the candidate worktree stays for DevOps.
+
+---
+
+# Focused re-review: test-only fix after the DevOps stop of 2.58.196. Verdict: Approved (unchanged).
+
+Tip: code 21a3aef78dba022e52cff21f9a87cbbccfce55fe, docs e314dd3f5ca2d42a913e21cbcc28978dbe1e2c55,
+branch fix/p0im-closure-train; previously approved code 3b1c4ba9 / docs 87b5f0e4.
+
+Scope proof: git diff 87b5f0e4..21a3aef7 touches only tests/test_initiative_coordination.py
+(+11/-3) and the evidence binding; git diff 3b1c4ba9..21a3aef7 -- services web handlers
+is empty (0 lines). Product code and approved behaviour are byte-identical to the
+approved candidate, so the previous ledger stands unchanged.
+
+Test diff read (assertions, not prose): the coordination stub now accepts
+_clear(chat_id, mark, **kwargs) and records kwargs.get("job_id"); the pipeline stub
+sets trace.job_id = "meme-job-coord-1", mirroring the real pipeline which mints the
+id before the first gate. The assertions are still an exact ordered list
+delete -> priority -> pipeline("5") -> clear(CHAT, until, "meme-job-coord-1") plus
+sum of clear rows == 1. So the contract is not weakened: the sequence is unchanged,
+until is still asserted, exactly one clear is asserted, and a non-empty forwarded
+job_id is enforced by the exact tuple match (an empty or missing job_id fails).
+Nothing was deleted from the test.
+
+Checks executed on 21a3aef7:
+- tests/test_initiative_coordination.py::test_command_marks_priority_before_generation: 1 passed.
+- tests/test_initiative_coordination.py: 56 passed / 4 failed; the base c134f93d run in a
+  separate worktree gives 56 passed / 4 failed with the identical four names
+  (test_act_on_opportunity_conflict_defers_to_intent, test_evaluate_phase_precheck_blocks_before_llm,
+  test_t1_nostalgia_delegated_refusal_sends_nothing, test_t5_every_text_send_site_passes_publish_guard).
+- 22-file meme/initiative/publication/diagnostic series: candidate 519 passed / 4 failed,
+  base 510 passed / 4 failed - same four failures, +9 new passing tests, no new failure.
+- 7-file closure set: 204 passed. JS: INITIATIVE-UI-OK, P0IM-OV-HONESTY-OK.
+- e2e: ui_inspector_exact_e2e checks=142 failures=0; ui_initiative_rework_e2e the same two
+  pre-existing failures (1536/390 export source), already reproduced on c134f93d.
+  Tracked screenshots restored with git checkout; candidate worktree clean.
+
+Release: the closure train may proceed as 2.58.196 from docs e314dd3f / code 21a3aef7
+with a fresh version bump. Approved rows are unchanged: P0IM-PB-ACCESS, P0IM-PB-LLM,
+P0IM-PB-MANUAL, P0IM-OV-LIST, P0IM-S6-EFFECTIVE, P0IM-AC-MATRIX-FAIL, P0IM-AC-NODUP,
+P0IM-AC-MATRIX-CONFIG, P0IM-AC-MATRIX-RBAC. The 2.58.195 rows ID-FINISH, ID-CONC,
+PB-VOCAB, PB-COUNT, PB-STEP, BAN-CONFLATE continue to apply.
+
+Residual limitations unchanged: process-wide 24-record ring; full prompt text is never
+durable (historical/evicted rows are honestly not_recorded); the closure-train UI meta
+rows are covered by API/view-model/template evidence plus the Playwright e2e, not by a
+browser render with these fixtures; live rows OV-SAMPLE, PB-FILTERS, AC-SETTINGS and
+AC-DONE remain for DevOps on the deployed artifact.
