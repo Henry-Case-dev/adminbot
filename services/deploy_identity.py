@@ -1511,6 +1511,7 @@ def _correlation_base(observed_at: str, reason: str = "") -> dict:
             "verdict": "not_comparable",
             "candidate_count": 0,
             "excluded_count": 0,
+            "excluded_undeployed_count": 0,
             "newest_commit": None,
             "newest_deployed": False,
             "newest_blamed": False,
@@ -1815,7 +1816,9 @@ def _correlate_traceback(repo_root, *, traceback_text, event_at,
     excluded = [c for c in commits_out if not c.get("deployed")]
     if relation == "event_before_release":
         # Событие раньше установки релиза: изменение релиза не может быть
-        # причиной. Оно остаётся видимым, но помечено как не-виновное.
+        # причиной. Оно остаётся видимым с исходным deployed=true (не
+        # подменяется на «undeployed»); вердикт event_precedes_release
+        # объясняет, почему причиной оно быть не может.
         excluded.extend({**item, "reason": "event_precedes_release"}
                         for item in candidates)
         candidates = []
@@ -1830,9 +1833,11 @@ def _correlate_traceback(repo_root, *, traceback_text, event_at,
     result["excluded"] = [{
         "sha": item["sha"],
         "path": item["path"],
-        "deployed": False,
+        "deployed": bool(item.get("deployed")),
         "reason": item.get("reason") or "undeployed_commit",
     } for item in excluded]
+    excluded_undeployed = [item for item in excluded
+                           if not item.get("deployed")]
 
     newest_sha = (excluded[0]["sha"] if excluded
                   else (checkout_sha or upstream_sha))
@@ -1854,6 +1859,7 @@ def _correlate_traceback(repo_root, *, traceback_text, event_at,
         "verdict": verdict,
         "candidate_count": len(candidates),
         "excluded_count": len(excluded),
+        "excluded_undeployed_count": len(excluded_undeployed),
     })
     result["truncated"] = bool(truncated)
 

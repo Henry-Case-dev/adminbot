@@ -1901,6 +1901,19 @@ def _latest_error_traceback(ctx: ProbeContext) -> tuple[dict | None, str]:
     return None, "no_error_traceback"
 
 
+def _correlation_budget(probe_timeout) -> float:
+    """Внутренний дедлайн строго меньше внешнего probe-timeout.
+
+    Нижняя граница 0.2 c не даёт мгновенному таймауту, верхняя 3 c
+    удерживает корреляцию в существующем git-бюджете identity.
+    """
+    try:
+        outer = float(probe_timeout)
+    except (TypeError, ValueError):
+        outer = 5.0
+    return min(3.0, max(0.2, outer - 0.4))
+
+
 async def _identity_for_correlation(ctx: ProbeContext, root):
     from services import deploy_identity
 
@@ -1910,7 +1923,7 @@ async def _identity_for_correlation(ctx: ProbeContext, root):
         record = await asyncio.wait_for(
             asyncio.to_thread(collector, root,
                               process_started_at=process_started_at),
-            timeout=max(1.5, float(ctx.limits.probe_timeout_seconds)))
+            timeout=_correlation_budget(ctx.limits.probe_timeout_seconds))
     except Exception:
         return {}
     return record if isinstance(record, dict) else {}
@@ -1936,8 +1949,9 @@ async def _probe_deploy_traceback(ctx: ProbeContext) -> ProbeObservation:
     root = _default_repo_root(ctx.deps)
     identity = await _identity_for_correlation(ctx, root)
     # Внутренний дедлайн обязан сработать раньше внешнего probe-timeout,
-    # иначе честный degraded подменяется общим probe_timeout.
-    budget = max(1.5, float(ctx.limits.probe_timeout_seconds) - 0.4)
+    # иначе честный degraded подменяется общим probe_timeout. Верхний предел
+    # 3 c держит корреляцию в рамках существующего git-бюджета identity.
+    budget = _correlation_budget(ctx.limits.probe_timeout_seconds)
     try:
         correlation = await asyncio.wait_for(
             asyncio.to_thread(
@@ -1983,7 +1997,8 @@ async def _probe_deploy_traceback(ctx: ProbeContext) -> ProbeObservation:
         "newest_commit": blame.get("newest_commit"),
         "newest_commit_blamed": bool(blame.get("newest_blamed")),
         "deployed_candidates": blame.get("candidate_count"),
-        "excluded_undeployed": blame.get("excluded_count"),
+        "excluded_undeployed": blame.get("excluded_undeployed_count"),
+        "excluded_total": blame.get("excluded_count"),
         "truncated": bool(correlation.get("truncated")),
         "correlation": correlation,
     }

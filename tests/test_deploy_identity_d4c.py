@@ -496,6 +496,28 @@ def test_event_before_release_does_not_blame_release_change(tmp_path):
     assert repo["b"] not in [item["sha"] for item in before["candidates"]]
     assert repo["c"] not in [item["sha"] for item in before["candidates"]]
 
+    # Релизный коммит остаётся deployed=true: он исполняется, просто событие
+    # произошло раньше установки релиза, поэтому он не может быть причиной.
+    release_entries = [item for item in before["excluded"]
+                       if item["sha"] == repo["b"]]
+    assert release_entries
+    assert all(item["deployed"] is True for item in release_entries)
+    assert {item["reason"] for item in release_entries} == {
+        "event_precedes_release"}
+
+    # Неразвёрнутый C остаётся единственным deployed=false.
+    undeployed_entries = [item for item in before["excluded"]
+                          if item["sha"] == repo["c"]]
+    assert undeployed_entries
+    assert all(item["deployed"] is False for item in undeployed_entries)
+    assert {item["reason"] for item in undeployed_entries} == {
+        "undeployed_commit"}
+    assert before["blame"]["candidate_count"] == 0
+    assert before["blame"]["excluded_count"] == 3
+    assert before["blame"]["excluded_undeployed_count"] == 2
+    assert before["blame"]["newest_deployed"] is False
+    assert before["blame"]["newest_blamed"] is False
+
 
 # ── 8. probe/collector seam: факты, source_ref, code_lookup ──────────────
 
@@ -622,6 +644,72 @@ async def test_probe_timeout_degrades_without_raising(tmp_path, monkeypatch):
     assert source["status"] == "degraded"
     assert source["reason_code"] == "correlation_timeout"
     assert set(source["not_checked"]) == set(di.CORRELATION_AXES)
+
+
+@pytest.mark.asyncio
+@requires_git
+async def test_low_probe_timeout_keeps_correlation_timeout_reason(
+        tmp_path, monkeypatch):
+    """probe_timeout=1.0: внутренний дедлайн меньше внешнего, причина честная."""
+    from services import diagnostic_collector as dc
+    from services import runtime_probes as rp
+
+    repo = _build_repo(tmp_path)
+    ring = _Ring([_error_entry(_traceback_text(repo))])
+
+    def slow(*args, **kwargs):
+        time.sleep(2.0)
+        return di._correlation_base("now")
+
+    from services import deploy_identity as identity_module
+    monkeypatch.setattr(identity_module, "correlate_traceback", slow)
+    assert rp._correlation_budget(1.0) <= 0.6
+    assert rp._correlation_budget(1.0) < 1.0
+    assert rp._correlation_budget(5.0) <= 3.0
+    collector = dc.DiagnosticCollector(
+        deps=_probe_deps(log_ring_getter=lambda: ring,
+                         repo_root=str(repo["root"]),
+                         status=_Status(_now() - timedelta(minutes=1))),
+        limits=rp.ProbeLimits(probe_timeout_seconds=1.0))
+    _, page = await collector.collect(dc.CollectionRequest(
+        probe="deploy.traceback", chat_id=-100, scope="current_chat"))
+    source = page["sources"][0]
+    assert source["status"] == "degraded", source
+    assert source["status"] != "unavailable"
+    assert source["reason_code"] == "correlation_timeout", source
+    assert source["reason_code"] != "probe_timeout"
+    assert set(source["not_checked"]) == set(di.CORRELATION_AXES)
+
+
+@pytest.mark.asyncio
+@requires_git
+async def test_probe_counts_only_truly_undeployed_commits(tmp_path):
+    """Прошлое событие: deployed SHA в excluded остаётся deployed=true."""
+    from services import diagnostic_collector as dc
+    from services import runtime_probes as rp
+
+    repo = _build_repo(tmp_path)
+    entry = _error_entry(_traceback_text(repo))
+    entry["ts"] = _iso(_now() - timedelta(minutes=30))
+    ring = _Ring([entry])
+    collector = dc.DiagnosticCollector(
+        deps=_probe_deps(log_ring_getter=lambda: ring,
+                         repo_root=str(repo["root"]),
+                         status=_Status(_now() - timedelta(minutes=1))),
+        limits=rp.ProbeLimits(probe_timeout_seconds=5.0))
+    _, page = await collector.collect(dc.CollectionRequest(
+        probe="deploy.traceback", chat_id=-100, scope="current_chat"))
+    facts = page["sources"][0]["facts"]
+    assert facts["blame_verdict"] == "event_precedes_release"
+    # excluded: неразвёрнутый C по двум путям + релизный deploy-коммит.
+    assert facts["excluded_undeployed"] == 2
+    assert facts["excluded_total"] == 3
+    excluded = facts["correlation"]["excluded"]
+    release_entries = [item for item in excluded if item["sha"] == repo["b"]]
+    assert release_entries and all(item["deployed"] is True
+                                   for item in release_entries)
+    assert all(item["deployed"] is False for item in excluded
+               if item["sha"] == repo["c"])
 
 
 @pytest.mark.asyncio
