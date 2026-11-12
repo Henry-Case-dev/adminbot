@@ -293,7 +293,9 @@
       ],
       "acceptance": "Для своего репозитория подтверждаются deployed_sha/образ, затем checkout_sha, dirty-state и remote HEAD; код master/HEAD не выдаётся за исполняемый; локальный snapshot помечается local_unverified без доказательства; сервис продолжает читать сторонние репозитории; на каждый чекап есть ограниченная попытка commit metadata.",
       "risk": "R2",
-      "next_role": "Builder",
+      "next_role": "Builder (D4-B) — D4-A в REVIEW на 8c035908, не выложен",
+      "status": "REVIEW (D4-A)",
+      "status_note": "2026-11-13: D4-A (collector deployed identity) Approved на 8c035908, строки SD1-D4-05/06/08 -> REVIEW; часть SD1-D4-12/07/D2-25/D2-29 доказана частично и остаётся PENDING. VERIFIED — только после релиза self-diag. См. requirements-map slice_candidate_bindings.d4a.",
       "mode": "writer",
       "coherence": "Один наблюдаемый исход: ответ о коде привязан к фактически исполняемой ревизии, а не к HEAD репозитория.",
       "requirements": [

@@ -215,4 +215,35 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
   D1-DOC-1 (ARCHITECTURE.md line 119). Ни один не блокирует D1 и не является
   новым требованием.
 
+## 11. D4-A (2026-11-13): Approved, но не выложен — строки в REVIEW
+
+Слайс **D4-A** (collector deployed identity) принят независимым ревью на кандидате
+**`8c035908`** (база `25876167`/2.58.197, ветка `self-diag/d4a`, docs `7ad8b2f7`),
+контракт **v1.1 (Amendment 1)** — `architecture-d4-identity.md`. **Деплоя не было**,
+поэтому строки не переводятся в `VERIFIED`.
+
+- **Закрыто кандидатом:** `SD1-D4-05`, `SD1-D4-06`, `SD1-D4-08` → статус **`REVIEW`**
+  (candidate-approved, не deployed). `VERIFIED` появится только после релиза
+  self-diag на выложенном SHA.
+- **Доказано частично (статус остаётся `PENDING`):** `SD1-D4-12` (часть «код не
+  исполняется»), `SD1-D4-07` (семантика `local_unverified`), `SD1-D2-25`
+  (канонический path-predicate), `SD1-D2-29` (subset 29a). У каждой записи evidence
+  помечен `partial=true` с явным остатком (D4-B/D6).
+- **Не входит в D4-A:** `SD1-D4-01/03/04/13`, `SD1-SEM-04`, `SD1-AC-17`, полный
+  `SD1-D4-07` (D4-B); `SD1-D4-09/10/14`, `SD1-D2-29b` (D6); live-часть `AC-03/06/17`.
+- **Тесты:** `tests/test_deploy_identity.py` — 38 passed; комбинированный прогон с
+  четырьмя checkup-наборами — 149 passed; независимая mutation (B1) наблюдалась.
+- **Честные границы:** production `.deploy/release.json` отсутствует, поэтому в
+  проде D4-A покажет `local_unverified` (допустимо по `SD1-D4-08`) до первого
+  штатного deploy-прогона DevOps; `process_started_at` — шов D6; live/UI/container
+  не запускались; прод и код не менялись.
+- **Backlog:** `SD1-D4A-B-1` (`.gitignore:7` `deploy_*.py` матчит модуль — packaging
+  risk для D4-B/DevOps) и `SD1-D4A-B-2` (`git log` timeout → `git_unavailable`
+  вместо `git_timeout`) — в `plans/backlog.md`, не блокеры.
+- **Ограничение гейта:** `requirements_gate.py` принимает только один map-level
+  `candidate_commit` (сейчас `25876167` — D1) и на review-стадии допускает только
+  `VERIFIED`. Поэтому D4-скоуп на `8c035908` даёт ровно `candidate mismatch` +
+  19 записей не-`VERIFIED` (`errors=20`); это ограничение книжного гейта, а не
+  дефект кандидата. D1-гейт остаётся `errors=0`.
+
 

@@ -1,6 +1,7 @@
 # SELF-DIAG-01 / D4-IDENT — контракт deployed identity и локального snapshot
 
-**Роль:** Architect. **Дата:** 12.11.2026. **Область:** только слайс D4 (`SD1-D4-*`, `SD1-SEM-04`,
+**Роль:** Architect. **Дата:** 12.11.2026. **Версия контракта: 1.1** (Amendment 1 — уточнение path-правила,
+закрытых наборов и схемы манифеста; схема записи остаётся 1). **Область:** только слайс D4 (`SD1-D4-*`, `SD1-SEM-04`,
 `SD1-D2-25`, `SD1-D2-29a`, `SD1-AC-03/06/17`). **Предшественники:** `plan.md` §2–§4, `slice-graph.json`
 (`D4`, `dependency_decisions`), `requirements-map.json` (19 записей / 18 `req_id` в D4),
 `evidence/d1/review-d1-2026-11-12.md` §9, `reports/deploy-2.58.188.md`.
@@ -612,3 +613,91 @@ identity при этом автоматически уходит в `local_unver
 
 Housekeeping: этот проход не создавал временных артефактов вне прочитанных файлов; рабочее дерево не
 изменялось, кроме этого документа.
+
+---
+
+## Amendment 1 — уточнение path-правила, закрытых наборов и схемы манифеста
+
+**Дата:** 12.11.2026. **Основание:** независимое ревью `673fa0e6` (доки `393064d8`), блокеры B1–B3.
+Решения §1.1 (manifest→git→env), §1.5 (`local_unverified` без манифеста), §2.2 (пять условий
+`verified_deployed`), §2.5 (один потребитель), §3.2 (без shell/сеть/`.env`/бэкапов, без исполнения кода
+репозитория), шов `process_started_at`, кламп `recent_commits` 1..5, запрет кэша/записи **в силе без
+изменений**. Риск `.gitignore:7` (packaging) остаётся BACKLOG/D4-B и контрактом не является.
+Схема записи остаётся **1**; версия контракта — 1.1.
+
+### B1. Правило путей (закрытое, вместо §3.3-списка по basename)
+
+Нормализация `rel_path`: `\`→`/`, разбить по `/`, отбросить `""` и `.`; `..`, абсолютный путь, буква
+диска, пустая/нестроковая строка → **denied**. Для каждого компонента: `c = part.strip().lower()`;
+для сравнения точных имён `ct = c.rstrip(". ")` (Windows-алиасы вида `.env.`).
+
+Deny, если выполняется **любое**:
+1. любой компонент `== ".git"`;
+2. любой компонент **содержит** одну из подстрок: `credential`, `secret`, `cookie` — **на любой глубине**
+   (покрывает `config/credentials/…`, `config/secrets/…`, `media/cookies/…`); подстроки `token` в наборе
+   **нет** (ложные срабатывания на `tokenizer.py` и подобных исходниках);
+3. любой компонент входит в `{backups, logs, migrate_history, chrome-profile, bot-chrome-profile}`;
+4. basename (`ct`) совпадает с набором: `.env`, `.env.*` (кроме ровно `.env.example`), `*.pem`, `*.key`,
+   `*.p12`, `id_rsa*`, `id_ed25519*`, `*.db`, `*.db-wal`, `*.db-shm`, `pre_migration_*.db`,
+   `local_database.db`, `*.log`, `deploy_commands.txt`, `deploy_result.json`, `check_remote_bot.py`;
+5. basename совпадает с `deploy_*.py` — **на любой глубине** (покрывает `services/deploy_evil.py`).
+   Единственное исключение, точное совпадение полного пути: `services/deploy_identity.py` (self-read кода
+   модуля). Исключение не расширяется на другие каталоги, подкаталоги и варианты регистра пути.
+
+`True` = отказ; симлинк/выход за корень по-прежнему отвергаются отдельно (`_within`/`realpath`), поэтому
+правило покрывает только лексику пути и не заменяет проверку `realpath`. Минимальная правка Builder:
+в существующем `path_is_denied` проверять подстроки и denied-dirs по **всем** компонентам (сейчас только
+basename) и убрать ограничение `len(parts) == 1` у `deploy_*.py`; новый модуль не создаётся.
+Консервативные ложные срабатывания (`docs/secret-management.md`) — намеренное поведение, не дефект.
+
+### B2. Закрытые наборы: решение по каждому лишнему элементу
+
+`REASONS` — дополняется ровно тремя, смысл фиксирован:
+- `no_process_start` — **в schema 1**: `process_started_at` не передан/не разобран → `local_unverified`;
+  D6-потребитель: `deploy_identity.reason` в блоке identity («проверка запуска не выполнена»), снимает
+  бейдж «подтверждено».
+- `version_unknown` — **в schema 1**: манифест валиден, но runtime `APP_VERSION` недоступен →
+  `local_unverified`; D6: тот же `reason`, UI не имеет права печатать «версия совпадает».
+- `internal_error` — **в schema 1** с узким смыслом: только перехват непредвиденного исключения на
+  верхнем уровне `collect_identity`/`recent_commits` (код `unavailable`); D6: `reason`, текст «проверка не
+  выполнена». Не общая свалка для известных ветвей.
+- Следствие закрытого набора: `dirty == true` при валидном манифесте обязано давать
+  `reason = "dirty_tracked"`, а не `dirty_unknown` (`dirty_unknown` = «не удалось определить»).
+
+Поля записи, **входящие в schema 1** (в §2.2 добавляются явно; `null`, если манифеста нет):
+- `effect` (`"deploy"|"rollback"`, только из манифеста), `previous_sha`, `previous_version` —
+  D6-потребитель: блок «релиз/откат» (что выложено и что было заменено); значения не выводятся.
+- `upstream_head = {sha, ref, observed_at, reason}` — `reason` (`""`|`no_remote_ref`): D6 печатает
+  «remote HEAD локально не наблюдается» вместо пустоты.
+- `conflict_values` — **в schema 1**, только при `code="mismatch"`: `{source_name: value}` строго по
+  источникам из `conflict`, значения = 40-hex SHA или строка версии; D6-потребитель: строка расхождения
+  с обоими значениями (иначе env-значение нигде в записи не видно).
+- `local_identity.upstream_ref` — **удалить**: дубль `upstream_head.ref`; тест/эвиденс выровнять на
+  `upstream_head.ref`.
+
+### B3. Схема манифеста: `schema` — опционально
+
+`schema` **не обязателен**; отсутствие = схема 1 (обратная совместимость; минимальная обязанность DevOps —
+четыре обязательных поля `deployed_sha`, `deployed_at`, `version`, `effect`). Если `schema` присутствует
+и `!= 1` → `unknown/manifest_incomplete` (будущую версию не угадываем). Неизвестные ключи по-прежнему
+отвергаются (`manifest_incomplete`) — закрытый набор §1.2 сохраняется.
+Тесты Builder: (B3-a) манифест ровно из четырёх обязательных полей, HEAD/sha/version/process сходятся →
+`verified_deployed`, `sources` содержит `release_manifest`; (B3-b) тот же манифест с `schema: 2` →
+`unknown/manifest_incomplete`; (B1) четыре кейса ревьюера (`config/credentials/notes.txt`,
+`config/secrets/notes.txt`, `media/cookies/notes.txt`, `services/deploy_evil.py`) → `True`, плюс
+`services/deploy_identity.py` → `False`; (B2) `upstream_ref` отсутствует в записи, `dirty=true` даёт
+`dirty_tracked`, `no_process_start`/`version_unknown` наблюдаемы.
+
+### Builder D4-A fix list (только B1/B2/B3; D6 и D4-B не трогать)
+
+1. `path_is_denied`: правило B1 целиком (все компоненты; `deploy_*.py` на любой глубине; одно точное
+   исключение `services/deploy_identity.py`).
+2. `collect_identity`: убрать `local_identity.upstream_ref`; `effect`/`previous_sha`/`previous_version`
+   оставить в записи (уже парсятся); `conflict_values` — только при `mismatch`; `dirty=true` →
+   `dirty_tracked`; три причины оставить и перечислить закрытым списком в docstring.
+3. `_read_manifest`: `schema` опционален (отсутствие = 1), явная версия `!= 1` отвергается.
+4. `tests/test_deploy_identity.py`: кейсы B1 (4+1), B2 (3 проверки), B3 (a+b); эвиденс `evidence/d4/`
+   пересобрать на новом кандидате.
+
+**Вердикт: `ARCH_AMENDMENT_READY`** — контракт v1.1; повторное ревью на новом SHA после правок B1/B2/B3,
+без расширения слайса. Файл: `plans/features/self-diag-01/architecture-d4-identity.md`.

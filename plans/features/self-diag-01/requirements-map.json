@@ -38,6 +38,107 @@
       "candidate": "2587616759de31283585ffc105c91e7193c2e89e",
       "deployed_version": "2.58.197",
       "why": "candidate_commit и deployed_commit карты хранятся в полной форме, совпадающей со строкой --candidate/--deployed-commit гейта."
+    },
+    "per_slice": {
+      "d4a": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "note": "D4-A — candidate-approved, не выложен: slice-level candidate 8c035908. Map-level candidate_commit остаётся 25876167 (D1/2.58.197); D2 сохраняет c087253d/2.58.188. Гейт сравнивает только map-level candidate, поэтому D4-скоуп на 8c035908 даёт candidate mismatch — это ограничение гейта, а не дефект привязки."
+    }
+  },
+  "slice_candidate_bindings": {
+    "d4a": {
+      "slice": "D4-A (collector deployed identity)",
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_short": "8c035908",
+      "docs_commit": "7ad8b2f72ba77aeebc4a77c9eab7b20463bcf0a7",
+      "base_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "branch": "self-diag/d4a",
+      "deployed": false,
+      "status": "REVIEW",
+      "why_not_verified": "Код не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза self-diag строки остаются REVIEW с candidate-bound доказательством.",
+      "contract": {
+        "path": "plans/features/self-diag-01/architecture-d4-identity.md",
+        "sha256": "83c9d16c072705b43c7c74195d6843700d7bf56ba729250f29bf7ff0803f960c",
+        "version": "1.1 (Amendment 1)",
+        "frozen_by": "Architect; ARCH_AMENDMENT_READY"
+      },
+      "review": {
+        "path": "plans/features/self-diag-01/evidence/d4/review-d4a-8c035908.md",
+        "sha256": "b2db36cbf517adec9c1ee7038512a8dc283af4db750a2c7aa2336b12c5df2bb9",
+        "verdict": "Approved",
+        "reviewer": "independent (не Builder)"
+      },
+      "binding": {
+        "path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+        "sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612"
+      },
+      "code": {
+        "services/deploy_identity.py": {
+          "lines": 1162,
+          "sha256": "1e394ea9db9e75626a10b2bc14ff3322737640bf96296a56b556a25618e99f22"
+        },
+        "tests/test_deploy_identity.py": {
+          "lines": 842,
+          "sha256": "ef308a8542a6631f4cfdbc3083578f1abe829e54bbc49f6d28555a72447600a1"
+        }
+      },
+      "tests": {
+        "focused": "pytest tests/test_deploy_identity.py -q -> 38 passed",
+        "combined": "test_deploy_identity + test_checkup_service + test_checkup_prompts + test_checkup_handlers + test_checkup_logs_fetcher -> 149 passed",
+        "mutation": "reviewer mutation: remove \"credential\" from _DENIED_SUBSTRINGS -> 1 failed / 37 deselected; restore -> 38 passed"
+      },
+      "covered_rows": [
+        "SD1-D4-05",
+        "SD1-D4-06",
+        "SD1-D4-08"
+      ],
+      "partial_rows": {
+        "SD1-D4-12": {
+          "covered": "исполняемый код репозитория не импортируется и не исполняется (тест repository_code_is_never_imported_or_executed); нет shell/сети/.env/бэкапов",
+          "remaining": "полная часть «дополнительные данные через существующие GitHub/SafeFetcher методы» — D4-B/AC-17",
+          "obs": "D4-A доказывает только отрицательную половину строки: модуль собирает identity без импорта/исполнения кода репозитория, без shell и сети, не читает .env/backups. Положительная часть (получение данных через GitHub/SafeFetcher) в этом кандидате не реализована."
+        },
+        "SD1-D4-07": {
+          "covered": "семантика local_unverified при неподтверждённом тождестве (нет манифеста / dirty / нет process_start)",
+          "remaining": "полный provider/routing: LocalSnapshotProvider и маршрутизация SourceReader — D4-B",
+          "obs": "D4-A при неподтверждённом тождестве возвращает local_unverified с причиной и не выдаёт себя за проверенный код; маршрутизация чтения (сначала проверенная локальная копия, затем commit-pinned GitHub) остаётся D4-B."
+        },
+        "SD1-D2-25": {
+          "covered": "канонический path_is_denied predicate: компоненты любой глубины, credential/secret/cookie, denied dirs, basename-правила, deploy_*.py на любой глубине с единственным self-read исключением",
+          "remaining": "интеграция с механизмом чтения файлов и typed settings adapter (D4-B/D6)",
+          "obs": "D4-A даёт проверяемый предикат запрета (mutation: удаление «credential» ломает тест), но не подключает его к file reader. Само требование «не отдавать credentials ни при каком scope» закрывается только после интеграции."
+        },
+        "SD1-D2-29": {
+          "covered": "subset 29a: запись identity и source-ссылки не содержат секретов (закрытые наборы, path-deny, нет .env/credential путей)",
+          "remaining": "caching/traces/debug requests/tool call arguments/retries/structured exceptions/preview — 29b и D6",
+          "obs": "В кандидате запись и ссылки формируются из закрытого набора полей и не включают значения секретов; остальные каналы (кэш, трассы, debug, retries, preview) этим слайсом не покрыты."
+        }
+      },
+      "not_covered": [
+        "SD1-D4-01",
+        "SD1-D4-03",
+        "SD1-D4-04",
+        "SD1-D4-13",
+        "SD1-SEM-04",
+        "SD1-AC-17"
+      ],
+      "d6_rows": [
+        "SD1-D4-09",
+        "SD1-D4-10",
+        "SD1-D4-14",
+        "SD1-D2-29b"
+      ],
+      "honest_limits": [
+        "Production .deploy/release.json отсутствует: в проде D4-A покажет local_unverified до первого штатного deploy-прогона DevOps (допустимо по SD1-D4-08).",
+        "process_started_at — шов: D6 обязан передать status.started_at; без него verified_deployed невозможен.",
+        "recent_commits: exact-vs-ancestor semantics deployed=true подтверждает D6; реальный бюджет <=3 git-вызова на чекап и лог [checkup] identity не live-проверены.",
+        "Live/UI/container не запускались; слайс — чистая функция.",
+        "Прод-манифест/деплой не выполнялись; прод, master, settings, prompts, handlers/checkup.py, checkup_service.py, source_reader.py, capability_registry.py, web/*, .gitignore не менялись."
+      ],
+      "backlog_refs": [
+        "SD1-D4A-B-1",
+        "SD1-D4A-B-2"
+      ],
+      "gate_limitation": "requirements_gate.py принимает только один map-level candidate_commit и на review-стадии допускает только VERIFIED; поэтому D4-скоуп на 8c035908 не может быть зелёным до деплоя: candidate mismatch + 19 записей не VERIFIED. Это ограничение книжного гейта, а не дефект кандидата; статусы фиксируются как REVIEW/PENDING с evidence."
     }
   },
   "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
@@ -2495,15 +2596,40 @@
       "acceptance": "Сначала подтверждаются deployed_sha и id образа/артефакта, затем checkout_sha, dirty-state и remote HEAD; repo_origin, deployed_sha, local_source_verification, upstream_head и version_provenance показываются раздельно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §2, §4, §6; review-d4a-8c035908.md §6-§8",
+          "observation": [
+            "Порядок и раздельность подтверждены чистой функцией collect_identity на кандидате: приоритет manifest -> git HEAD -> env (env только при отсутствии манифеста), в записи раздельно repo_origin, deployed_sha, checkout_sha, dirty, upstream_head, version_provenance, local_source_verification и artifact; 19 ключей записи, закрытые вложенные наборы (contract v1.1 §2). 38 тестов модуля, 149 в комбинированном прогоне; upstream_head без remote ref даёт честный reason no_remote_ref."
+          ],
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §6-§8"
+        },
+        {
+          "ref": "review-d4a-8c035908.md §8-§10",
+          "observation": "Reviewer: D4-A может закрыть SD1-D4-05; вердикт Approved на 8c035908; D4/self-diag DONE не объявляются.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/review-d4a-8c035908.md",
+          "artifact_sha256": "b2db36cbf517adec9c1ee7038512a8dc283af4db750a2c7aa2336b12c5df2bb9",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_d4_05.json",
           "description": "наблюдаемый артефакт проверки SD1-D4-05"
         }
-      ]
+      ],
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: кандидат 8c035908 принят ревью, но не выложен. VERIFIED только после релиза self-diag на выложенном SHA."
     },
     {
       "source_id": "L00127",
@@ -2517,15 +2643,40 @@
       "acceptance": "Код master/HEAD не выдаётся за текущий, если процесс исполняет другой commit, бинарник или образ либо рабочий каталог изменён после запуска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §2, §4, §6; review-d4a-8c035908.md §6-§8",
+          "observation": [
+            "HEAD/master не выдаётся за исполняемое: без манифеста код даёт local_unverified; manifest_sha != HEAD -> mismatch с обоими SHA (conflict_values только при mismatch); dirty=true -> local_unverified/dirty_tracked; verified_deployed только при пяти условиях (manifest, sha==checkout, dirty=false, version==APP_VERSION, process_started_at >= deployed_at); dirty_unknown остаётся только при неопределимом dirty."
+          ],
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §6-§8"
+        },
+        {
+          "ref": "review-d4a-8c035908.md §8-§10",
+          "observation": "Reviewer: D4-A может закрыть SD1-D4-06; вердикт Approved на 8c035908; D4/self-diag DONE не объявляются.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/review-d4a-8c035908.md",
+          "artifact_sha256": "b2db36cbf517adec9c1ee7038512a8dc283af4db750a2c7aa2336b12c5df2bb9",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_d4_06.json",
           "description": "наблюдаемый артефакт проверки SD1-D4-06"
         }
-      ]
+      ],
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: кандидат 8c035908 принят ревью, но не выложен. VERIFIED только после релиза self-diag на выложенном SHA."
     },
     {
       "source_id": "L00128",
@@ -2540,14 +2691,37 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §1-§3, §6; review-d4a-8c035908.md §8",
+          "observation": "D4-A при неподтверждённом тождестве возвращает local_unverified с причиной и не выдаёт себя за проверенный код; маршрутизация чтения (сначала проверенная локальная копия, затем commit-pinned GitHub) остаётся D4-B.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §8",
+          "partial": true,
+          "covered_part": "семантика local_unverified при неподтверждённом тождестве (нет манифеста / dirty / нет process_start)",
+          "remaining_part": "полный provider/routing: LocalSnapshotProvider и маршрутизация SourceReader — D4-B"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_d4_07.json",
           "description": "наблюдаемый артефакт проверки SD1-D4-07"
         }
-      ]
+      ],
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "partial_coverage_2026_11_13": {
+        "slice": "D4-A",
+        "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+        "covered": "семантика local_unverified при неподтверждённом тождестве (нет манифеста / dirty / нет process_start)",
+        "remaining": "полный provider/routing: LocalSnapshotProvider и маршрутизация SourceReader — D4-B",
+        "why_status_stays_pending": "Строка принята не целиком: покрытая половина доказана на кандидате, остаток принадлежит D4-B/D6. Статус PENDING сохраняется, evidence помечен partial=true."
+      }
     },
     {
       "source_id": "L00129",
@@ -2561,15 +2735,40 @@
       "acceptance": "При отсутствии SHA применяется локальная идентификация сборки, но строки не называются verified_deployed_code до получения доказательства.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §2, §4, §6; review-d4a-8c035908.md §6-§8",
+          "observation": [
+            "При отсутствии SHA/манифеста применяется локальная идентификация сборки (checkout_sha, dirty, branch, checkout_mtime) без статуса verified; без process_started_at — local_unverified/no_process_start; version_unknown также local_unverified. Строки не называются verified_deployed_code до доказательства; прод без .deploy/release.json честно показывает local_unverified (review §9)."
+          ],
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §6-§8"
+        },
+        {
+          "ref": "review-d4a-8c035908.md §8-§10",
+          "observation": "Reviewer: D4-A может закрыть SD1-D4-08; вердикт Approved на 8c035908; D4/self-diag DONE не объявляются.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/review-d4a-8c035908.md",
+          "artifact_sha256": "b2db36cbf517adec9c1ee7038512a8dc283af4db750a2c7aa2336b12c5df2bb9",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_d4_08.json",
           "description": "наблюдаемый артефакт проверки SD1-D4-08"
         }
-      ]
+      ],
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "status_note": "REVIEW: кандидат 8c035908 принят ревью, но не выложен. VERIFIED только после релиза self-diag на выложенном SHA."
     },
     {
       "source_id": "L00130",
@@ -2650,14 +2849,37 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §1-§3, §6; review-d4a-8c035908.md §8",
+          "observation": "D4-A доказывает только отрицательную половину строки: модуль собирает identity без импорта/исполнения кода репозитория, без shell и сети, не читает .env/backups. Положительная часть (получение данных через GitHub/SafeFetcher) в этом кандидате не реализована.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §8",
+          "partial": true,
+          "covered_part": "исполняемый код репозитория не импортируется и не исполняется (тест repository_code_is_never_imported_or_executed); нет shell/сети/.env/бэкапов",
+          "remaining_part": "полная часть «дополнительные данные через существующие GitHub/SafeFetcher методы» — D4-B/AC-17"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_d4_12.json",
           "description": "наблюдаемый артефакт проверки SD1-D4-12"
         }
-      ]
+      ],
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "partial_coverage_2026_11_13": {
+        "slice": "D4-A",
+        "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+        "covered": "исполняемый код репозитория не импортируется и не исполняется (тест repository_code_is_never_imported_or_executed); нет shell/сети/.env/бэкапов",
+        "remaining": "полная часть «дополнительные данные через существующие GitHub/SafeFetcher методы» — D4-B/AC-17",
+        "why_status_stays_pending": "Строка принята не целиком: покрытая половина доказана на кандидате, остаток принадлежит D4-B/D6. Статус PENDING сохраняется, evidence помечен partial=true."
+      }
     },
     {
       "source_id": "L00135",
@@ -4427,7 +4649,21 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §1-§3, §6; review-d4a-8c035908.md §8",
+          "observation": "D4-A даёт проверяемый предикат запрета (mutation: удаление «credential» ломает тест), но не подключает его к file reader. Само требование «не отдавать credentials ни при каком scope» закрывается только после интеграции.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §8",
+          "partial": true,
+          "covered_part": "канонический path_is_denied predicate: компоненты любой глубины, credential/secret/cookie, denied dirs, basename-правила, deploy_*.py на любой глубине с единственным self-read исключением",
+          "remaining_part": "интеграция с механизмом чтения файлов и typed settings adapter (D4-B/D6)"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4436,7 +4672,16 @@
         }
       ],
       "remaining": "Не реализовано: чтение файлов (.env, credential-конфиги) не ограничено — source reader этим кандидатом не менялся. Закрывается в D4: ограничение области чтения файлов и переход на typed settings adapter вместо чтения сырых конфигов; проверка — попытка прочитать credential-файл через инструмент при любом scope должна быть отклонена.",
-      "reassignment": "Решение владельца 2026-11-10: D4 — ограничение принадлежит тому же слайсу, который вводит сам механизм чтения (source reader, deploy identity, SHA и история коммитов), поэтому запрет на чтение .env/credential-конфигов живёт вместе с ним."
+      "reassignment": "Решение владельца 2026-11-10: D4 — ограничение принадлежит тому же слайсу, который вводит сам механизм чтения (source reader, deploy identity, SHA и история коммитов), поэтому запрет на чтение .env/credential-конфигов живёт вместе с ним.",
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "partial_coverage_2026_11_13": {
+        "slice": "D4-A",
+        "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+        "covered": "канонический path_is_denied predicate: компоненты любой глубины, credential/secret/cookie, denied dirs, basename-правила, deploy_*.py на любой глубине с единственным self-read исключением",
+        "remaining": "интеграция с механизмом чтения файлов и typed settings adapter (D4-B/D6)",
+        "why_status_stays_pending": "Строка принята не целиком: покрытая половина доказана на кандидате, остаток принадлежит D4-B/D6. Статус PENDING сохраняется, evidence помечен partial=true."
+      }
     },
     {
       "source_id": "L00272",
@@ -4682,7 +4927,21 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
+      "evidence": [
+        {
+          "ref": "binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md §1-§3, §6; review-d4a-8c035908.md §8",
+          "observation": "В кандидате запись и ссылки формируются из закрытого набора полей и не включают значения секретов; остальные каналы (кэш, трассы, debug, retries, preview) этим слайсом не покрыты.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+          "artifact_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+          "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+          "candidate_deployed": false,
+          "review_ref": "review §8",
+          "partial": true,
+          "covered_part": "subset 29a: запись identity и source-ссылки не содержат секретов (закрытые наборы, path-deny, нет .env/credential путей)",
+          "remaining_part": "caching/traces/debug requests/tool call arguments/retries/structured exceptions/preview — 29b и D6"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -4703,7 +4962,16 @@
           "stage": "D6",
           "text": "Секретные значения исключены из HTML/Markdown preview админской поверхности; проверка — предпросмотр карточек и строк диагностики с заведомо известным секретом не содержит его значения (рендер, Playwright плюс независимый браузер, desktop и mobile)."
         }
-      ]
+      ],
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "candidate_deployed": false,
+      "partial_coverage_2026_11_13": {
+        "slice": "D4-A",
+        "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+        "covered": "subset 29a: запись identity и source-ссылки не содержат секретов (закрытые наборы, path-deny, нет .env/credential путей)",
+        "remaining": "caching/traces/debug requests/tool call arguments/retries/structured exceptions/preview — 29b и D6",
+        "why_status_stays_pending": "Строка принята не целиком: покрытая половина доказана на кандидате, остаток принадлежит D4-B/D6. Статус PENDING сохраняется, evidence помечен partial=true."
+      }
     },
     {
       "source_id": "L00281",
@@ -6766,6 +7034,54 @@
         "реальный container/second VPS не запускался (AC-07 production scope)",
         "авторизованный click-through админки не выполнялся"
       ]
+    },
+    {
+      "id": "REV-D4A-8c035908-01",
+      "slice": "D4-A",
+      "verdict": "APPROVED",
+      "candidate_commit": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+      "docs_commit": "7ad8b2f72ba77aeebc4a77c9eab7b20463bcf0a7",
+      "base_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed": false,
+      "reviewed_at": "2026-11-12",
+      "reviewer": "independent review (не Builder)",
+      "artifact_path": "plans/features/self-diag-01/evidence/d4/review-d4a-8c035908.md",
+      "artifact_sha256": "b2db36cbf517adec9c1ee7038512a8dc283af4db750a2c7aa2336b12c5df2bb9",
+      "binding_path": "plans/features/self-diag-01/evidence/d4/binding-d4a-8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7.md",
+      "binding_sha256": "1afc5edc5d1ddbfbf60d9138f7e0c731300d04be3d58a75cefa8c3d108fbc612",
+      "contract": "architecture-d4-identity.md v1.1 (Amendment 1)",
+      "verdict_detail": "Approved для D4-A: B1/B2/B3 закрыты, прежнее поведение сохранено (38/149 passed, независимая mutation). D4/self-diag DONE не объявляются; деплоя не было.",
+      "scope_covered": [
+        "SD1-D4-05",
+        "SD1-D4-06",
+        "SD1-D4-08"
+      ],
+      "scope_partial": {
+        "SD1-D4-12": "полная часть «дополнительные данные через существующие GitHub/SafeFetcher методы» — D4-B/AC-17",
+        "SD1-D4-07": "полный provider/routing: LocalSnapshotProvider и маршрутизация SourceReader — D4-B",
+        "SD1-D2-25": "интеграция с механизмом чтения файлов и typed settings adapter (D4-B/D6)",
+        "SD1-D2-29": "caching/traces/debug requests/tool call arguments/retries/structured exceptions/preview — 29b и D6"
+      },
+      "not_covered": [
+        "SD1-D4-01",
+        "SD1-D4-03",
+        "SD1-D4-04",
+        "SD1-D4-13",
+        "SD1-SEM-04",
+        "SD1-AC-17"
+      ],
+      "status_effect": "3 записи D4 -> REVIEW; 4 записи (D4-12, D4-07, D2-25, D2-29) остаются PENDING с partial evidence; остальные D4/D6-строки не менялись.",
+      "limits": [
+        "Production .deploy/release.json отсутствует: в проде D4-A покажет local_unverified до первого штатного deploy-прогона DevOps (допустимо по SD1-D4-08).",
+        "process_started_at — шов: D6 обязан передать status.started_at; без него verified_deployed невозможен.",
+        "recent_commits: exact-vs-ancestor semantics deployed=true подтверждает D6; реальный бюджет <=3 git-вызова на чекап и лог [checkup] identity не live-проверены.",
+        "Live/UI/container не запускались; слайс — чистая функция.",
+        "Прод-манифест/деплой не выполнялись; прод, master, settings, prompts, handlers/checkup.py, checkup_service.py, source_reader.py, capability_registry.py, web/*, .gitignore не менялись."
+      ],
+      "backlog_refs": [
+        "SD1-D4A-B-1",
+        "SD1-D4A-B-2"
+      ]
     }
   ],
   "fix_chain": [
@@ -6873,5 +7189,28 @@
     "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
     "review_evidence_id": "REV-D1-2026-11-12-01"
   },
-  "artefact_rebinding_note_2026_11_12": "2026-11-12 (D1 closure): map-level candidate_commit/deployed_commit переведены на 25876167/2.58.197; D1-строки получили row-level evidence на inventory/cleanup/probe/review и переведены в VERIFIED (18 записей / 17 req_id). D2-записи, deployment_2_58_188 и candidate_binding.candidate c087253d сохранены без перезаписи; проверено, что 9/9 файлов среза D2 в 25876167 побайтово равны c087253d."
+  "artefact_rebinding_note_2026_11_12": "2026-11-12 (D1 closure): map-level candidate_commit/deployed_commit переведены на 25876167/2.58.197; D1-строки получили row-level evidence на inventory/cleanup/probe/review и переведены в VERIFIED (18 записей / 17 req_id). D2-записи, deployment_2_58_188 и candidate_binding.candidate c087253d сохранены без перезаписи; проверено, что 9/9 файлов среза D2 в 25876167 побайтово равны c087253d.",
+  "d4_accounting": {
+    "slice": "D4",
+    "convention": "records = записи items + additional_requirements с slice=D4; unique_req_ids = свёртка по req_id",
+    "records_total": 19,
+    "records_by_status": {
+      "REVIEW": 3,
+      "PENDING": 16
+    },
+    "unique_req_ids": 18,
+    "unique_req_ids_by_status": {
+      "REVIEW": 3,
+      "PENDING": 15
+    },
+    "reviewed_candidate": "8c0359085c5e6419dd27ac7e5c3dc3b8cb98cdf7",
+    "deployed": false,
+    "partial_rows_with_evidence": [
+      "SD1-D4-12",
+      "SD1-D4-07",
+      "SD1-D2-25",
+      "SD1-D2-29"
+    ],
+    "note": "REVIEW означает candidate-approved, не выложено. VERIFIED появится только после релиза self-diag и привязки к deployed SHA; 3 REVIEW-строки нельзя считать DONE эпика."
+  }
 }
