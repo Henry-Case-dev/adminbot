@@ -927,7 +927,7 @@ class TestBounds:
         assert APP_VERSION == "2.58.197"
 
     def test_canon_twelve_tools(self):
-        assert len(TOOL_CALLING_TOOLS) == 16
+        assert len(TOOL_CALLING_TOOLS) == 17
 
     def test_kill_switch_not_in_catalog(self):
         assert "DIRECT_DECISION_MAKING_ENABLED" not in pc.REGISTRY

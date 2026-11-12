@@ -1169,12 +1169,13 @@ class TestFlagsAndCanon:
         from services.tool_schemas import TOOL_CALLING_TOOLS
         # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост);
         # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост).
-        assert len(TOOL_CALLING_TOOLS) == 16
+        assert len(TOOL_CALLING_TOOLS) == 17
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names[-5] == "get_user_context"
-        assert names[-4] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
-        assert names[-3] == "fact_check"   # MCA-20 (ADR-1028-20 §7.5)
-        assert names[-2] == "edit_image"   # ASAP5 §20 (edit-route)
-        assert names[-1] == "read_source_code"   # EVOL-SRC-READER (W6)
+        assert names[-6] == "get_user_context"
+        assert names[-5] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
+        assert names[-4] == "fact_check"   # MCA-20 (ADR-1028-20 §7.5)
+        assert names[-3] == "edit_image"   # ASAP5 §20 (edit-route)
+        assert names[-2] == "read_source_code"   # EVOL-SRC-READER (W6)
+        assert names[-1] == "inspect_runtime"   # SELF-DIAG-01 D3
         assert "request_reference" not in names
         assert "portrait" not in names

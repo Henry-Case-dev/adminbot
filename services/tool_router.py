@@ -1222,7 +1222,7 @@ class ToolDeps:
     def __init__(self, search, memory, aliases=None, *, video=None,
                  downloader=None, health=None, db=None,
                  download_cooldown=None, llm=None, transcriber=None,
-                 extractor=None, source_reader=None) -> None:
+                 extractor=None, source_reader=None, diagnostics=None) -> None:
         self.search = search            # SearchAggregator
         self.memory = memory            # MemoryManager
         self.aliases = aliases          # AliasResolver | None
@@ -1250,6 +1250,11 @@ class ToolDeps:
         # роутер собирает штатный (SafeFetcher + GitHubProvider) лениво; тесты
         # передают подменный провайдер (детерминизм, без сети).
         self.source_reader = source_reader
+        # SELF-DIAG-01 D3: единый read-only диагностический collector для
+        # `inspect_runtime` И `get_bot_health` (не вторая инсталляция probes).
+        # None → роутер собирает один экземпляр лениво из существующих
+        # db/memory/logs-зависимостей.
+        self.diagnostics = diagnostics
 
 
 class ToolContext:
@@ -1366,6 +1371,10 @@ class ToolContext:
         # действует серверный `auto`). Аддитивное поле, читается профилем и
         # обзором памяти; второй meanings-канал не создаётся.
         self.memory_scope = ""
+        # SELF-DIAG-01 D3: решение политики D2 для текущего диагностического
+        # вызова (без секретов). Заполняется `_diagnostic_guard` ДО исполнения;
+        # `inspect_runtime` кладёт его в bundle.access.permission_decision.
+        self.diagnostic_decision: dict | None = None
 
     def result_for(self, tool_name: str) -> dict | None:
         """A2 (ADR-1026-15 D1/D6): последний envelope-результат инструмента.
@@ -1427,6 +1436,9 @@ class ToolRouter:
             # EVOL-SRC-READER (W6): проверенное чтение исходников
             # (discover|locate|read) поверх существующего SafeFetcher.
             "read_source_code": self._read_source_code,
+            # SELF-DIAG-01 D3: один расширяемый read-only инструмент
+            # диагностики (area/probe/scope/time_window/cursor/arguments).
+            "inspect_runtime": self._inspect_runtime,
         }
         method = registry.get(name)
         if method is None:
@@ -1483,8 +1495,33 @@ class ToolRouter:
             cache=cache, bot=getattr(ctx, "bot", None), pg=pg,
             destination="tool")
         if decision is None or decision.allowed:
+            self._remember_decision(ctx, decision)
             return None
         return diag.denial_message(decision, tool_name=name)
+
+    @staticmethod
+    def _remember_decision(ctx, decision) -> None:
+        """SELF-DIAG-01 D3: сохранить решение политики для bundle.access.
+
+        Только машинные поля (role/effect/reason/class) — без message и без
+        секретных значений; аргументы модели сюда не попадают.
+        """
+        if decision is None:
+            return
+        try:
+            ctx.diagnostic_decision = {
+                "evaluated": True,
+                "effect": decision.effect,
+                "reason_code": decision.reason_code,
+                "capability": decision.capability,
+                "action": decision.action,
+                "data_class": decision.data_class,
+                "role": decision.role,
+                "matrix_role": decision.matrix_role,
+                "source": decision.source,
+            }
+        except Exception:      # pragma: no cover - защитная ветка
+            ctx.diagnostic_decision = None
 
     async def _diagnostic_output(self, name: str, ctx, result: str) -> str:
         """Перепроверка прав + удаление секретов перед отдачей результата."""
@@ -4977,6 +5014,175 @@ class ToolRouter:
         logger.info("[tools] download quality menu sent | chat=%s | qualities=%d",
                     ctx.chat_id, len(qualities))
 
+    async def _inspect_runtime(self, arguments: dict,
+                               ctx: ToolContext) -> str:
+        """SELF-DIAG-01 D3: единый read-only диагностический вход.
+
+        Один инструмент на все области; конкретная операция — зарегистрированный
+        typed probe. Без LLM, без shell/SQL и без чтения чужого chat scope:
+        ``chat_id`` берётся только из ``ctx``, аргументы модели проходят
+        валидацию схемы probe. Никогда не бросает (контракт ToolRouter).
+        """
+        from services import diagnostic_collector as dc
+        from services import runtime_probes as probes
+
+        args = arguments if isinstance(arguments, dict) else {}
+        allowed = {"area", "probe", "scope", "time_window", "cursor",
+                   "arguments"}
+        unknown = [key for key in args if key not in allowed]
+        if unknown:
+            return self._inspect_error("unknown_tool_argument", ctx)
+        area = str(args.get("area") or "").strip()
+        if area and area not in probes.AREAS:
+            return self._inspect_error("unknown_area", ctx)
+        probe = str(args.get("probe") or "").strip()
+        scope = str(args.get("scope") or "current_chat").strip()
+        if scope not in probes.REQUEST_SCOPES:
+            return self._inspect_error("invalid_scope", ctx)
+        cursor = str(args.get("cursor") or "").strip()
+        op_args = args.get("arguments")
+        if op_args is None:
+            op_args = {}
+        if not isinstance(op_args, dict):
+            return self._inspect_error("arguments_must_be_object", ctx)
+        try:
+            collector = self._diagnostics()
+        except Exception as exc:
+            logger.warning("[tools] diagnostics init failed | error=%s",
+                           type(exc).__name__)
+            return "ОШИБКА inspect_runtime: коллектор недоступен"
+        if not probe:
+            catalog = probes.probe_catalog(deps=collector.deps, area=area)
+            catalog["scope_values"] = list(probes.REQUEST_SCOPES)
+            catalog["hint"] = (
+                "call inspect_runtime again with area+probe; "
+                "probe='investigate_incident' is the incident scenario")
+            limit = collector.limits.max_output_chars
+            while (len(json.dumps(catalog, ensure_ascii=False)) > limit
+                   and catalog["probes"]):
+                catalog["probes"].pop()
+                catalog["truncated"] = True
+            if catalog["probes"] or len(
+                    json.dumps(catalog, ensure_ascii=False)) <= limit:
+                return json.dumps(catalog, ensure_ascii=False)
+            return json.dumps({
+                "schema": "self-diag-01/d3-catalog-v1",
+                "areas": list(probes.AREAS),
+                "probes": [],
+                "truncated": True,
+                "reason_code": "output_budget_exceeded",
+            }, ensure_ascii=False)
+        request = dc.CollectionRequest(
+            probe=probe, area=area, scope=scope,
+            time_window=args.get("time_window"), cursor=cursor,
+            arguments=op_args, chat_id=getattr(ctx, "chat_id", None),
+            permission=getattr(ctx, "diagnostic_decision", None),
+            request_id=secrets.token_hex(16))
+        try:
+            _, page = await collector.collect(request)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("[tools] inspect_runtime failed | probe=%s | "
+                           "error=%s", probe, type(exc).__name__)
+            return f"ОШИБКА inspect_runtime: {type(exc).__name__}"
+        text = json.dumps(page, ensure_ascii=False)
+        status = str(page.get("status") or "")
+        reason = str(page.get("reason_code") or "")[:120]
+        partial = status not in ("", "ok")
+        signal: dict = {"partial": partial}
+        if status == "unavailable":
+            signal["status"] = "error"
+            signal["error_code"] = reason or "runtime_unavailable"
+        elif status == "permission_denied":
+            signal["status"] = "denied"
+            signal["error_code"] = reason or "permission_denied"
+        if reason:
+            signal["reason"] = reason
+        refs = [str(src.get("source_id")) for src in page.get("sources") or ()
+                if isinstance(src, dict) and src.get("source_id")]
+        if refs:
+            signal["evidence_refs"] = refs
+        ctx.tool_result_signal = signal
+        self._emit_inspect_event(ctx, page)
+        if len(text) > collector.limits.max_output_chars:
+            return json.dumps({
+                "schema": "self-diag-01/d3-bundle-v1",
+                "status": "degraded",
+                "reason_code": "output_budget_exceeded",
+                "probe": page.get("probe"),
+                "truncated": True,
+                "sources": [],
+                "not_checked": ["output_budget_exceeded"],
+            }, ensure_ascii=False)
+        return text
+
+    @staticmethod
+    def _inspect_error(reason: str, ctx: ToolContext) -> str:
+        """Структурный отказ валидатора без исполнения probes."""
+        status = ("permission_denied"
+                  if reason in ("invalid_scope", "argument_not_allowed")
+                  else "unsupported")
+        ctx.tool_result_signal = {
+            "status": ("denied" if status == "permission_denied" else "error"),
+            "error_code": reason[:64],
+            "reason": reason[:120],
+            "partial": True,
+        }
+        payload = {
+            "schema": "self-diag-01/d3-bundle-v1",
+            "status": status,
+            "reason_code": reason,
+            "sources": [],
+            "not_checked": [reason],
+            "access": {"chat_id": getattr(ctx, "chat_id", None)},
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
+    def _emit_inspect_event(ctx: ToolContext, page: dict) -> None:
+        """Существующая телеметрия §13.3: код/числа, без payloads."""
+        try:
+            status = str(page.get("status") or "")
+            outcome = ("success" if status in ("ok", "degraded")
+                       else "failed" if status == "unavailable" else "skipped")
+            level = ("INFO" if status == "ok" else "WARN")
+            _mca_events.emit_mca_event(
+                "inspect_runtime_called", outcome=outcome, level=level,
+                component="self_diag",
+                stage=str(page.get("probe") or "inspect_runtime")[:120],
+                status=status[:40],
+                duration_ms=int(page.get("latency_ms") or 0),
+                chat_id=getattr(ctx, "chat_id", None))
+        except Exception:      # pragma: no cover - телеметрия fail-open
+            return
+
+    def _status_service(self):
+        try:
+            from services.status_service import status as _status
+            return _status
+        except Exception:
+            return None
+
+    def _diagnostics(self):
+        """Один collector на роутер (общий для inspect_runtime/get_bot_health)."""
+        existing = getattr(self.deps, "diagnostics", None)
+        if existing is not None:
+            return existing
+        from services.diagnostic_collector import DiagnosticCollector
+        from services.runtime_probes import ProbeDeps, ProbeLimits
+
+        health = self.deps.health
+        db = self.deps.db or getattr(self.deps.memory, "db", None)
+        collector = DiagnosticCollector(
+            deps=ProbeDeps(
+                db=db, memory=self.deps.memory,
+                logs_fetcher=getattr(health, "fetcher", None),
+                status=self._status_service()),
+            limits=ProbeLimits.from_env())
+        self.deps.diagnostics = collector
+        return collector
+
     async def _get_bot_health(self, arguments: dict, ctx: ToolContext) -> str:
         """Здоровье бота: тот же путь, что роутер 0g — CheckupLogsFetcher.fetch
         → CheckupService.checkup. Кулдаун не применяем (вызов по интенту LLM;
@@ -4993,7 +5199,25 @@ class ToolRouter:
             return "ОШИБКА get_bot_health: сервис недоступен"
         try:
             logs, used_fallback = await health.fetcher.fetch()
-            report = await health.service.checkup(logs, used_fallback)
+            # SELF-DIAG-01 D3 (§2.1 п.1, AC-04): тот же collector, что у
+            # `inspect_runtime`, отдаёт структурированные факты и в этот вход.
+            # Ошибка collector'а не отменяет исправный чекап (graceful
+            # degradation): отчёт строится на логах, как раньше.
+            facts_text = ""
+            try:
+                collector = self._diagnostics()
+                _, facts_text = await collector.collect_for_checkup(
+                    logs_text=logs, used_fallback=used_fallback,
+                    chat_id=getattr(ctx, "chat_id", None),
+                    permission=getattr(ctx, "diagnostic_decision", None))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("[tools] get_bot_health facts failed | "
+                               "error=%s", type(exc).__name__)
+                facts_text = ""
+            payload = (facts_text + "\n" + logs) if facts_text else logs
+            report = await health.service.checkup(payload, used_fallback)
         except Exception as exc:
             logger.warning("[tools] get_bot_health failed | error=%s",
                            type(exc).__name__)

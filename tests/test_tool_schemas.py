@@ -39,7 +39,7 @@ class TestToolSchemas:
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
             "recognize_image", "fact_check", "edit_image",
-            "read_source_code"]
+            "read_source_code", "inspect_runtime"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -123,7 +123,7 @@ class TestToolSchemas:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "transcribe_video", "fetch_article",
             "get_user_context", "recognize_image", "fact_check",
-            "read_source_code"]
+            "read_source_code", "inspect_runtime"]
         assert LORE_COMPILER_TOOL_NAME not in disabled
 
     def test_active_tools_image_flag_gate(self):
@@ -137,7 +137,7 @@ class TestToolSchemas:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "transcribe_video",
             "fetch_article", "get_user_context", "recognize_image",
-            "fact_check", "read_source_code"]
+            "fact_check", "read_source_code", "inspect_runtime"]
         names_on = [t["function"]["name"]
                     for t in active_tools(image_generation_enabled=True)]
         assert names_on == [
@@ -146,21 +146,21 @@ class TestToolSchemas:
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
             "recognize_image", "fact_check", "edit_image",
-            "read_source_code"]
+            "read_source_code", "inspect_runtime"]
 
     def test_active_tools_default_on(self):
         """О3: код-дефолт «Летописца» — ON; F19 transcribe_video, A2
         fetch_article, A6 get_user_context и MCA-20 fact_check — ON по
-        умолчанию (image OFF → 14 имён)."""
-        assert len(active_tools()) == 14
+        умолчанию (image OFF → 15 имён; +inspect_runtime D3)."""
+        assert len(active_tools()) == 15
 
     def test_active_tools_does_not_mutate_snapshot(self):
         """active_tools возвращает новый список — снапшот не мутируется.
         (lore OFF → compile_lore_story исключён; image OFF → generate_image
-        и edit_image исключены: 16 − 3 = 13.)"""
+        и edit_image исключены: 17 − 3 = 14.)"""
         off = active_tools(False)
-        assert len(off) == 13
-        assert len(TOOL_CALLING_TOOLS) == 16
+        assert len(off) == 14
+        assert len(TOOL_CALLING_TOOLS) == 17
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
     # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
@@ -181,4 +181,4 @@ class TestToolSchemas:
     def test_all_tools_list_is_mutable_snapshot(self):
         # A6 (ADR-1026-18 D1): канон R9 = 12; MCA-19 (ADR-1028-19 §8.6) = 13;
         # MCA-20 = 14; ASAP5 §20 (edit-route) = 15; EVOL-SRC-READER (W6) = 16.
-        assert len(TOOL_CALLING_TOOLS) == 16
+        assert len(TOOL_CALLING_TOOLS) == 17

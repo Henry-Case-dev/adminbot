@@ -179,7 +179,7 @@ class TestCanon:
     def test_twelve_tools_transcribe_tenth(self):
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
         # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост).
-        assert len(names) == 16
+        assert len(names) == 17
         assert names[:10] == _FIRST_NINE + ["transcribe_video"]
         assert names[9] == "transcribe_video"
         assert names[10] == "fetch_article"      # A2 (ADR-1026-15 D5)
@@ -205,11 +205,11 @@ class TestFlag:
         names = [t["function"]["name"]
                  for t in active_tools(True, image_generation_enabled=True)]
         assert "transcribe_video" not in names
-        assert len(names) == 15                 # 9 базовых + generate_image +
+        assert len(names) == 16                 # 9 базовых + generate_image +
         #                                         fetch_article + get_user_context
         #                                         + recognize_image + fact_check
         #                                         + edit_image (ASAP5 §20)
-        assert len(TOOL_CALLING_TOOLS) == 16    # схема/канон безусловны
+        assert len(TOOL_CALLING_TOOLS) == 17    # схема/канон безусловны
 
     def test_flag_on_includes(self, monkeypatch):
         monkeypatch.setattr(type(settings),

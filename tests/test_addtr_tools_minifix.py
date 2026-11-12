@@ -189,7 +189,13 @@ async def test_health_real_executor_report_flows_to_writer_context():
         announced={"get_bot_health"})
     assert result is not None
     fetcher.fetch.assert_awaited_once()
-    service.checkup.assert_awaited_once_with("logs", False)
+    # SELF-DIAG-01 D3 (§2.1 п.1): тот же collector добавляет структурированные
+    # факты к вводу чекапа; исходные логи идут следом без изменений.
+    service.checkup.assert_awaited_once()
+    payload, fallback = service.checkup.await_args.args
+    assert fallback is False
+    assert payload.startswith("DIAGNOSTIC_EVIDENCE")
+    assert payload.endswith("\nlogs")
     assert HEALTH_REPORT in (result.tool_context or "")
 
 

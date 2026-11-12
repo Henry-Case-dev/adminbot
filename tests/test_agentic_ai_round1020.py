@@ -540,7 +540,7 @@ class TestToolSchemasEnCanon:
         # 10.26 (A2/ADR-1026-15 D5): +fetch_article → 11;
         # 10.26 (A6/ADR-1026-18 D1): +get_user_context → 12;
         # EVOL-SRC-READER (W6): +read_source_code → 16.
-        assert len(TOOL_CALLING_TOOLS) == 16
+        assert len(TOOL_CALLING_TOOLS) == 17
         for tool in TOOL_CALLING_TOOLS:
             fn = tool["function"]
             desc = fn["description"]
@@ -581,7 +581,7 @@ class TestToolSchemasEnCanon:
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
             "recognize_image", "fact_check", "edit_image",
-            "read_source_code"]
+            "read_source_code", "inspect_runtime"]
         assert TOOL_CALLING_TOOLS[0]["function"]["parameters"]["required"] == ["query"]
 
     def test_description_snapshot(self):

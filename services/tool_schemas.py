@@ -959,6 +959,120 @@ TOOL_READ_SOURCE_CODE = {
     },
 }
 
+# SELF-DIAG-01 D3 (`SD1-D3-01`, ТЗ §2.1 п.3): канон 16→**17** —
+# `inspect_runtime` в КОНЕЦ («новое — в хвост», ADR-1020-4), первые 16 —
+# байт-в-байт. Один расширяемый read-only инструмент: не по одному LLM-tool
+# на Linux-команду. Области/операции реестра живут в `services/runtime_probes`,
+# поэтому новый probe не меняет эту схему; список `area` — закрытый, как в
+# реестре (тест сверяет равенство).
+_INSPECT_RUNTIME_AREAS: tuple[str, ...] = (
+    "process", "resources", "disks", "fds_sockets", "logs", "service",
+    "scheduler", "telegram", "media", "llm", "memory", "db", "config",
+    "deploy", "dependencies", "network", "incidents",
+)
+TOOL_INSPECT_RUNTIME = {
+    "type": "function",
+    "function": {
+        "name": "inspect_runtime",
+        "description": (
+            "Read-only diagnostic probes of the RUNNING bot and its host: "
+            "process/runtime, CPU/memory/disks/FDs, local logs, "
+            "systemd/container identity, scheduler/jobs, Telegram delivery, "
+            "STT/voice queue, LLM/tool telemetry, memory/GraphRAG, DB, "
+            "effective config, deploy identity, provider dependencies, "
+            "network DNS and active incidents. Call when the user asks about "
+            "the bot's state, why something failed, resource usage, deploy "
+            "revision, queues, jobs, logs or dependencies. There is ONE tool "
+            "for all of that. Call it with no area/probe (or only area) to "
+            "list the registered probes and their arguments; then call it "
+            "again with the concrete probe. probe='investigate_incident' in "
+            "area 'incidents' runs the investigation scenario: it collects "
+            "deploy identity, runtime, voice/STT, providers, logs/events, "
+            "scheduler, effective flags and active incidents in one call - "
+            "use it for questions like 'why did voice stop after the "
+            "update?'. HOW TO READ THE RESULT: JSON bundle with status "
+            "ok|degraded|unavailable|permission_denied|not_configured|"
+            "stale|unsupported|unknown|not_checked. declared, configured, "
+            "probe_succeeded and healthy are FOUR DIFFERENT facts: a "
+            "declared probe is not configured, a configured probe did not "
+            "necessarily succeed, and a successful probe is not proof of "
+            "health. facts are measured values; observed_at is the "
+            "measurement time; sources[].coverage says what was actually "
+            "checked and where it was truncated; not_checked lists what was "
+            "NOT examined. Report only what the bundle shows; never upgrade "
+            "not_checked/unknown into a guessed answer. There is no shell, "
+            "SSH, SQL, arbitrary path or arbitrary unit here: arguments are "
+            "validated against the registered probe and chat scope always "
+            "comes from the authenticated Telegram context. If the result "
+            "has next_cursor, pass it back to continue the same page; "
+            "probe_next_cursor continues the probe's own pagination."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "area": {
+                    "type": "string",
+                    "enum": list(_INSPECT_RUNTIME_AREAS),
+                    "description": ("Diagnostic area. Omit together with "
+                                    "probe to list everything."),
+                },
+                "probe": {
+                    "type": "string",
+                    "description": ("Registered probe/operation name from "
+                                    "the catalog (e.g. 'logs.window', "
+                                    "'deploy.identity', "
+                                    "'incidents.investigate_incident'). "
+                                    "Omit to list the probes of the area."),
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": ["current_chat", "host", "instance"],
+                    "description": ("Data boundary. current_chat = only this "
+                                    "chat's scoped data; host/instance = "
+                                    "public technical host/instance data. "
+                                    "Chat-scoped probes refuse other "
+                                    "scopes."),
+                },
+                "time_window": {
+                    "type": "object",
+                    "properties": {
+                        "since": {"type": "string",
+                                  "description": "ISO-8601 start (UTC)."},
+                        "until": {"type": "string",
+                                  "description": "ISO-8601 end (UTC)."},
+                        "last_seconds": {
+                            "type": "integer", "minimum": 1,
+                            "description": ("Alternative to since/until: "
+                                            "the last N seconds."),
+                        },
+                    },
+                    "additionalProperties": False,
+                    "description": ("Bounded observation window; too wide or "
+                                    "in the future is rejected."),
+                },
+                "cursor": {
+                    "type": "string",
+                    "description": ("Opaque continuation token from a "
+                                    "previous result (next_cursor). Never "
+                                    "invent one."),
+                },
+                "arguments": {
+                    "type": "object",
+                    "description": ("Arguments of the CONCRETE registered "
+                                    "operation, as listed in its catalog "
+                                    "entry (e.g. correlation_id, limit, "
+                                    "mount, include_stack, include_commits). "
+                                    "Unknown arguments are rejected; path/"
+                                    "unit/sql/chat_id are never accepted."),
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+}
+
+#: SELF-DIAG-01 D3: имя единого диагностического инструмента.
+INSPECT_RUNTIME_TOOL_NAME = "inspect_runtime"
+
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -976,6 +1090,7 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_FACT_CHECK,
     TOOL_EDIT_IMAGE,
     TOOL_READ_SOURCE_CODE,
+    TOOL_INSPECT_RUNTIME,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
