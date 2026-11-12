@@ -1439,6 +1439,10 @@ class ToolRouter:
             # SELF-DIAG-01 D3: один расширяемый read-only инструмент
             # диагностики (area/probe/scope/time_window/cursor/arguments).
             "inspect_runtime": self._inspect_runtime,
+            # SELF-DIAG-01 D5/D6 (`SD1-D5-02`, `SD1-AMX-04`): защищённый
+            # серверный readback промпта. Типизированный запрос исполняет
+            # существующий handler; второго tool-loop/ACL/промпта нет.
+            "prompt_readback": self._prompt_readback,
         }
         method = registry.get(name)
         if method is None:
@@ -1450,6 +1454,12 @@ class ToolRouter:
         blocked = await self._diagnostic_guard(name, ctx)
         if blocked is not None:
             return blocked
+        started = time.monotonic()
+        if name == "read_source_code":
+            self._emit_diag_tool_event(
+                "read_source_attempted", ctx,
+                status=str((arguments or {}).get("operation") or "read")
+                if isinstance(arguments, dict) else "read")
         try:
             result = await method(arguments, ctx)
         except Exception as exc:
@@ -1458,6 +1468,9 @@ class ToolRouter:
             logger.warning("[tools] exec failed | tool=%s | error=%s",
                            name, type(exc).__name__)
             return f"ОШИБКА {name}: {type(exc).__name__}"
+        # SELF-DIAG-01 D6: машинная телеметрия существующих диагностических
+        # инструментов (без текстов/URL/ключей) — источник аналитики админки.
+        self._emit_tool_outcome(name, arguments, result, ctx, started)
         # SELF-DIAG-01 D2: перепроверка прав ПЕРЕД возвратом защищённого
         # результата (revocation действует на уже запущенную проверку) +
         # структурное удаление секретов из результата инструмента.
@@ -1561,8 +1574,120 @@ class ToolRouter:
             return (f"ОШИБКА {name}: вывод заблокирован "
                     "(политика недоступна)")
         if not sanitized.allowed:
+            self._emit_diag_tool_event("diagnostic_output_validated", ctx,
+                                       status="blocked")
             return f"ОШИБКА {name}: вывод заблокирован политикой секретов"
+        # SELF-DIAG-01 D6 (`SD1-D6-17`): измеренный enforcement — каждая
+        # отдача защищённого результата проходит через sanitize; статус
+        # redaction виден аналитике (значения не пишутся).
+        self._emit_diag_tool_event(
+            "diagnostic_output_validated", ctx,
+            status=str(sanitized.report.status or "clean")[:40])
         return sanitized.text
+
+    # ── SELF-DIAG-01 D6: prompt_readback + машинная телеметрия ─────────
+    #
+    # Регистрация инструмента = ровно три шва (D5 §«Регистрация»):
+    # `tool_schemas.TOOL_CALLING_TOOLS`, этот реестр и
+    # `diagnostic_policy.CAPABILITIES["prompts"].tool_names`. Ни второго
+    # tool-loop, ни второго ACL, ни второго промпта здесь нет.
+
+    async def _prompt_readback(self, arguments: dict, ctx) -> str:
+        """Серверный readback промпта: типизированный запрос D5 handler'а.
+
+        Модель не получает тело промпта — только машинный ack. Права
+        проверяет существующая политика D2 внутри handler'а; аргументы
+        модели доступа не повышают.
+        """
+        from handlers.prompt_readback import prompt_readback as _handler
+        self._emit_diag_tool_event(
+            "prompt_readback_requested", ctx,
+            status=str((arguments or {}).get("requested_revision") or "")
+            if isinstance(arguments, dict) else "")
+        result = await _handler(arguments, ctx)
+        self._note_prompt_readback_outcome(ctx, result)
+        return result
+
+    @staticmethod
+    def _ack_fields(text) -> dict:
+        """Разобрать машинный ack `prompt_readback` (без свободного текста)."""
+        fields: dict = {}
+        for token in str(text or "").split():
+            if "=" not in token:
+                continue
+            key, _, value = token.partition("=")
+            if key in ("status", "reason", "destination", "chunks",
+                       "prompt_id", "revision", "source", "classification"):
+                fields[key] = value
+        return fields
+
+    def _note_prompt_readback_outcome(self, ctx, text) -> None:
+        """Статус ack → out-of-band сигнал ToolResult (denied ≠ ok)."""
+        fields = self._ack_fields(text)
+        status = fields.get("status") or ("error" if str(text).startswith(
+            "ОШИБКА") else "")
+        reason = str(fields.get("reason") or "")[:64]
+        signal: dict = {"partial": status in ("partial", "ambiguous",
+                                              "unverified", "not_found")}
+        if status in ("denied", "unverified", "blocked"):
+            signal["status"] = "denied"
+        elif status in ("invalid_request", "unavailable", "ambiguous",
+                        "not_found", "revision_unavailable", "partial"):
+            signal["status"] = "error"
+        if reason:
+            signal["error_code"] = reason
+            signal["reason"] = reason
+        try:
+            ctx.tool_result_signal = signal
+        except Exception:      # pragma: no cover - произвольный ctx в тестах
+            pass
+        if status in ("denied", "unverified", "blocked"):
+            self._emit_diag_tool_event("prompt_readback_denied", ctx,
+                                       status=reason or status)
+        elif status:
+            self._emit_diag_tool_event("prompt_readback_allowed", ctx,
+                                       status=status)
+
+    def _emit_read_source_outcome(self, result, ctx, duration_ms: int) -> None:
+        """`read_source_attempted/verified` и `code_unavailable` по payload."""
+        try:
+            payload = json.loads(str(result or ""))
+        except Exception:
+            return
+        if not isinstance(payload, dict):
+            return
+        status = str(payload.get("status") or "")
+        if bool(payload.get("verified")):
+            self._emit_diag_tool_event(
+                "read_source_verified", ctx,
+                status=str(payload.get("read_level") or status)[:40],
+                duration_ms=duration_ms)
+        if status in ("unavailable", "not_configured", "permission_denied",
+                      "unsupported") or payload.get("error") == "disabled":
+            self._emit_diag_tool_event(
+                "code_unavailable", ctx,
+                status=status or str(payload.get("error") or "")[:40],
+                duration_ms=duration_ms)
+
+    def _emit_tool_outcome(self, name: str, arguments, result, ctx,
+                           started: float) -> None:
+        """Один хук: телеметрия существующих диагностических инструментов."""
+        duration_ms = int((time.monotonic() - started) * 1000)
+        if name == "read_source_code":
+            self._emit_read_source_outcome(result, ctx, duration_ms)
+
+    @staticmethod
+    def _emit_diag_tool_event(event_name: str, ctx, *, status: str = "",
+                              duration_ms: int = 0) -> None:
+        """Существующий контракт `mca_events` (код/числа, без payloads)."""
+        try:
+            _mca_events.emit_mca_event(
+                event_name, outcome="success", component="self_diag",
+                stage="tool", status=str(status or "")[:40] or None,
+                duration_ms=int(duration_ms or 0),
+                chat_id=getattr(ctx, "chat_id", None))
+        except Exception:      # pragma: no cover - телеметрия fail-open
+            return
 
     # ── execute_web_search ────────────────────────────────────────
 
@@ -5193,6 +5318,9 @@ class ToolRouter:
         инструмент не делает сетевой/LLM-вызов, а возвращает честную ошибку."""
         if not hot.get("flags.checkup_enabled", settings.CHECKUP_ENABLED):
             return "ОШИБКА get_bot_health: модуль выключен"
+        # SELF-DIAG-01 D6 (`SD1-D6-17`): счётчик реальных вызовов входа.
+        self._emit_diag_tool_event("get_bot_health_called", ctx,
+                                   status="called")
         health = self.deps.health
         if health is None or getattr(health, "service", None) is None \
                 or getattr(health, "fetcher", None) is None:

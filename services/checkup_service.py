@@ -2,7 +2,14 @@
 Epic 60 (64.5, T-466): db+memory → data-секция <memory_health> в user-контенте.
 Epic 61 (64.5 хотфикс, D250/T-501): секция метрик собирается ПЕРВОЙ с
 резервом длины (логи режутся до MAX_INPUT − len(секции) — метрики всегда
-живы); escape РОВНО ОДИН раз на финальной обёртке <system_logs>."""
+живы); escape РОВНО ОДИН раз на финальной обёртке <system_logs>.
+
+SELF-DIAG-01 D6 (`SD1-D6-05`): сервис не меняет промпт и не пишет его
+содержимое — наружу отдаётся только машинная телеметрия эффективного
+промпта (source/version/hash) в ``last_run``; хендлер кладёт её в
+существующий mca-событийный контур.
+"""
+import hashlib
 import logging
 import re
 import time
@@ -42,6 +49,9 @@ class CheckupService:
         self.db = db
         self.memory = memory
         self.metrics_enabled = metrics_enabled
+        #: SELF-DIAG-01 D6 (`SD1-D6-05`): машинная телеметрия последнего
+        #: прогона — БЕЗ текста промпта и без текста отчёта.
+        self.last_run: dict = {}
 
     async def checkup(self, logs_text: str, used_fallback: bool,
                       chat_id: int | None = None) -> str:
@@ -56,6 +66,10 @@ class CheckupService:
         # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
         system_prompt = resolve_prompt("prompts.checkup_system_prompt",
                                        CHECKUP_SYSTEM_PROMPT)
+        # SELF-DIAG-01 D6 (`SD1-D6-05`): телеметрия эффективного промпта —
+        # только source/version/hash/длины. Содержимое не выходит из сервиса;
+        # сам промпт по-прежнему уходит в LLM байт-в-байт.
+        self.last_run = self._prompt_telemetry(system_prompt)
         max_symbols = hot.get("limits.checkup_max_symbols",
                               settings.CHECKUP_MAX_SYMBOLS)
         max_input = hot.get("limits.checkup_max_input_symbols",
@@ -90,12 +104,14 @@ class CheckupService:
             "\n\n<memory_health>\n" + metrics + "\n</memory_health>"
         ) if metrics else ""
         logs_budget = max_input - len(metrics_section)
+        input_truncated = False
         if len(user_content) > logs_budget:
             logger.warning(
                 "[checkup] input truncated | chars=%d -> %d",
                 len(user_content), logs_budget,
             )
             user_content = user_content[:logs_budget]
+            input_truncated = True
         body = user_content + metrics_section
         user = f"<system_logs>{escape_xml_text(body)}</system_logs>"
         started = time.monotonic()
@@ -109,6 +125,14 @@ class CheckupService:
             "checkup LLM OK | out_chars=%d | latency_ms=%.0f | used_fallback=%s",
             len(raw), (time.monotonic() - started) * 1000.0, used_fallback,
         )
+        self.last_run.update({
+            "latency_ms": int((time.monotonic() - started) * 1000.0),
+            "report_chars": len(raw),
+            "metrics_included": bool(metrics),
+            "input_truncated": bool(input_truncated),
+            "used_fallback": bool(used_fallback),
+            "chat_scoped": chat_id is not None,
+        })
         raw = cleanup_llm_text(raw)
         if not raw.strip():
             # Epic 60 (65.1, T-469): пустой ответ → молчание + 🗿 (хендлер
@@ -123,6 +147,28 @@ class CheckupService:
         if chat_id is not None:
             raw = await self._apply_outbound_style(raw, chat_id)
         return raw
+
+    @staticmethod
+    def _prompt_telemetry(system_prompt: str) -> dict:
+        """SELF-DIAG-01 D6 (`SD1-D6-05`): source/version/hash эффективного
+        промпта — БЕЗ текста. Hash считается по ровно тем байтам, что ушли
+        в system-сообщение (до подстановки ``{max_symbols}``), поэтому
+        compare «до/после релиза» опирается на факт, а не на намерение."""
+        text = str(system_prompt or "")
+        try:
+            value = hot.get("prompts.checkup_system_prompt",
+                            CHECKUP_SYSTEM_PROMPT)
+            source = ("global" if isinstance(value, str) and value.strip()
+                      else "default")
+        except Exception:      # pragma: no cover - кэш не поднят
+            source = "default"
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return {
+            "prompt_source": source,
+            "prompt_hash": digest[:16],
+            "prompt_version_used": f"{source}:{digest[:12]}",
+            "prompt_chars": len(text),
+        }
 
     @staticmethod
     async def _apply_outbound_style(text: str, chat_id: int) -> str:

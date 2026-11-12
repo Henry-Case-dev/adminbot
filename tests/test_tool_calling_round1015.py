@@ -107,7 +107,7 @@ class TestToolSet:
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
             "recognize_image", "fact_check", "edit_image",
-            "read_source_code", "inspect_runtime"]
+            "read_source_code", "inspect_runtime", "prompt_readback"]
 
     def test_existing_schemas_unchanged(self):
         """Существующие 3 схемы — те же объекты и та же форма (не менялись)."""
@@ -670,9 +670,9 @@ class TestDirectChatContext:
         # генерации изображений default ON; 10.24 (F19): transcribe_video
         # default ON; 10.26 (A2): fetch_article default ON; 10.26 (A6):
         # get_user_context default ON; MCA-19 (ADR-1028-19 §8.6):
-        # recognize_image default ON; W6: read_source_code default ON
-        # → 16 инструментов.
-        assert len(captured["tools"]) == 17
+        # recognize_image default ON; W6: read_source_code default ON;
+        # D3: inspect_runtime; D5/D6: prompt_readback → 18 инструментов.
+        assert len(captured["tools"]) == 18
 
     @pytest.mark.asyncio
     async def test_targetless_media_word_request_normal_tool_path(

@@ -157,7 +157,11 @@ CAPABILITIES: tuple[Capability, ...] = (
         "Метрики памяти и служебная аналитика в границах текущего чата"),
     Capability(
         "prompts", "Промпты", PROMPT_CONTENT, ("view", "edit"),
-        "Действующие промпты этого чата; чтение и редактирование раздельны"),
+        "Действующие промпты этого чата; чтение и редактирование раздельны",
+        # SELF-DIAG-01 D5/D6 (`SD1-D5-02`, `SD1-AMX-04`): защищённый
+        # серверный readback — тот же инструмент, что исполняет
+        # `ToolRouter.dispatch`; отдельных ACL нет.
+        ("prompt_readback",)),
     Capability(
         "deep_diagnostics", "Глубокая диагностика", CHAT_SCOPED,
         ("view", "run"),

@@ -855,7 +855,7 @@ def _wire_checkup(monkeypatch, service, fetcher, cache, pg):
     from handlers import checkup as checkup_mod
     checkup_mod._service = None
     checkup_mod._fetcher = None
-    checkup_mod.setup_checkup(service, fetcher)
+    checkup_mod.setup_checkup(service, fetcher, diagnostics=False)
     checkup_mod._cooldown._last.clear()
     monkeypatch.setattr(checkup_mod, "_diag_runtime", lambda: (cache, pg))
     return checkup_mod

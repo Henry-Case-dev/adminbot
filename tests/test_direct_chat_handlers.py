@@ -506,7 +506,7 @@ class TestBotwordPriorityIntegration:
         fetcher.fetch = AsyncMock(return_value=("logs", False))
         service = MagicMock()
         service.checkup = AsyncMock(return_value="отчёт по серваку")
-        checkup_mod.setup_checkup(service, fetcher)
+        checkup_mod.setup_checkup(service, fetcher, diagnostics=False)
 
         dc_service = MagicMock()
         dc_service.handle = AsyncMock()

@@ -42,6 +42,7 @@ def checkup_cleanup():
     yield
     checkup_mod._service = None
     checkup_mod._fetcher = None
+    checkup_mod._diagnostics = None
     checkup_mod._cooldown._last.clear()
 
 
@@ -58,7 +59,8 @@ def _make_msg(text=None, caption=None, message_id=1, user_id=1, chat_id=CHAT_ID)
 
 
 def _wire(service=None, fetcher=None):
-    checkup_mod.setup_checkup(service, fetcher)
+    # SELF-DIAG-01 D6: изолированный тест — probes не исполняются (DI opt-out).
+    checkup_mod.setup_checkup(service, fetcher, diagnostics=False)
 
 
 class TestCheckupTriggers:

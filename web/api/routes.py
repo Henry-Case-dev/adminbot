@@ -3623,6 +3623,344 @@ async def get_status_media_health(
     return {"available": True, **audit}
 
 
+# ── SELF-DIAG-01 D6: «Самодиагностика» (существующая страница Статуса) ──────
+#
+# Один read-only снимок фактического состояния + аналитика существующего
+# события `inspect_runtime_called`. Новых страниц/агентов/LLM/DDL нет:
+# источники — `status_service`, каталог `runtime_probes` (без исполнения),
+# `deploy_identity` (D4), `memory_health`/`mca_events` (существующие).
+
+_SELF_DIAG_TTL = 30.0
+_self_diag_cache: dict = {}          # key -> (monotonic_ts, payload)
+
+
+def _self_diag_jsonable(value):
+    try:
+        return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+    except Exception:
+        return None
+
+
+def _self_diag_window(hours: int = 24) -> tuple[int, int]:
+    """(since_ts, until_ts) окна аналитики — unix секунды."""
+    until = int(time.time())
+    return until - int(max(1, min(168, hours)) * 3600), until
+
+
+async def _self_diag_event_rows(db, since: int, *, limit: int = 2000):
+    """Bounded выборка существующих событий (без новых таблиц)."""
+    if db is None:
+        return []
+    try:
+        cursor = await db.db.execute(
+            "SELECT ts, event_name, outcome, status, stage, duration_ms, "
+            "attempt, source_ref_json FROM mca_events WHERE ts >= ? "
+            "ORDER BY ts DESC LIMIT ?", (int(since), int(limit)))
+        return [dict(row) for row in await cursor.fetchall()]
+    except Exception:
+        logger.warning("[api] self-diagnosis events query failed", exc_info=True)
+        return []
+
+
+def _self_diag_stats(rows: list, event_name: str) -> dict:
+    """p50/p95/partial по существующим полям события (без домыслов)."""
+    from web.api.analytics import _p50, _p95
+    subset = [r for r in rows if r.get("event_name") == event_name]
+    durations = [r.get("duration_ms") for r in subset
+                 if isinstance(r.get("duration_ms"), (int, float))]
+    partial = [r for r in subset
+               if str(r.get("status") or "") not in ("", "ok")]
+    by_stage: dict = {}
+    for row in subset:
+        stage = str(row.get("stage") or "")
+        bucket = by_stage.setdefault(stage, {"calls": 0, "failed": 0,
+                                             "durations": []})
+        bucket["calls"] += 1
+        if str(row.get("status") or "") not in ("", "ok"):
+            bucket["failed"] += 1
+        if isinstance(row.get("duration_ms"), (int, float)):
+            bucket["durations"].append(row["duration_ms"])
+    stages = []
+    for stage, bucket in sorted(by_stage.items(),
+                                key=lambda kv: -kv[1]["calls"]):
+        stages.append({
+            "stage": stage,
+            "calls": bucket["calls"],
+            "failed": bucket["failed"],
+            "p50_ms": _p50(bucket["durations"]),
+            "p95_ms": _p95(bucket["durations"]),
+        })
+    last_ok = None
+    for row in subset:
+        if str(row.get("status") or "") in ("", "ok"):
+            last_ok = int(row.get("ts") or 0)
+            break
+    return {
+        "calls": len(subset),
+        "partial": len(partial),
+        "complete": len(subset) - len(partial),
+        "partial_share": (round(len(partial) / len(subset), 4)
+                          if subset else None),
+        "p50_ms": _p50(durations),
+        "p95_ms": _p95(durations),
+        "by_stage": stages,
+        "last_success_ts": last_ok,
+        "measured": bool(subset),
+    }
+
+
+def _self_diag_count(rows: list, event_name: str) -> int:
+    return sum(1 for r in rows if r.get("event_name") == event_name)
+
+
+async def _self_diag_payload(chat_id: int | None) -> dict:
+    from config.settings import APP_VERSION
+    from services import deploy_identity as deploy
+    from services import memory_health, mca_events as _me
+    from services import runtime_probes as probes
+    from services import source_reader
+    from services.status_service import status as _status
+    from services import lore_runtime
+
+    since, until = _self_diag_window(24)
+    db = lore_runtime.get_lore_db()
+    rows = await _self_diag_event_rows(db, since)
+
+    server = _status._server_metrics()
+    started_at = getattr(_status, "started_at", None)
+    started_iso = None
+    uptime_seconds = None
+    if started_at is not None:
+        try:
+            started_iso = (started_at.isoformat()
+                           if hasattr(started_at, "isoformat")
+                           else str(started_at))
+            uptime_seconds = int((datetime.datetime.now(
+                datetime.timezone.utc) - started_at).total_seconds())
+        except Exception:
+            uptime_seconds = None
+    runtime: dict = {
+        "app_version": getattr(_status, "version", APP_VERSION),
+        "pid": (server.get("process") or {}).get("pid"),
+        "started_at": started_iso,
+        "uptime_seconds": uptime_seconds,
+        "runtime_type": "python",
+    }
+    try:
+        import platform
+        runtime["python"] = platform.python_version()
+        runtime["platform"] = platform.system()
+    except Exception:      # pragma: no cover - защитная ветка
+        pass
+    identity: dict = {}
+    try:
+        root = probes.default_repo_root(probes.ProbeDeps())
+        identity = await asyncio.to_thread(
+            deploy.collect_identity, root, process_started_at=started_at)
+    except Exception:
+        logger.warning("[api] self-diagnosis identity failed", exc_info=True)
+    identity = identity if isinstance(identity, dict) else {}
+    runtime.update({
+        "deployed_sha": str(identity.get("deployed_sha") or "")[:40],
+        "checkout_sha": str(identity.get("checkout_sha") or "")[:40],
+        "branch": str(identity.get("branch") or "")[:120],
+        "dirty": (bool(identity.get("dirty")) if identity else None),
+        "repo_origin": str(identity.get("repo_origin") or "")[:120],
+        "identity_source": str(identity.get("source") or "")[:40],
+        "commits_since_deploy": identity.get("commits_since_deploy"),
+        "local_source_verification": str(
+            identity.get("local_source_verification") or "")[:40],
+    })
+    # Источники: declared/configured из каталога probes (без исполнения) +
+    # последнее НАБЛЮДЁННОЕ событие по этому probe (lineage/время).
+    last_by_stage: dict = {}
+    for row in rows:
+        if row.get("event_name") != "inspect_runtime_called":
+            continue
+        stage = str(row.get("stage") or "")
+        if stage and stage not in last_by_stage:
+            last_by_stage[stage] = row
+    try:
+        catalog = probes.probe_catalog(area="")
+        items = catalog.get("probes") or []
+    except Exception:
+        items = []
+    sources = []
+    for item in items:
+        probe_id = str(item.get("probe") or "")
+        seen = last_by_stage.get(probe_id)
+        sources.append({
+            "id": probe_id,
+            "area": str(item.get("area") or ""),
+            "title": str(item.get("title") or "")[:160],
+            "declared": True,
+            "configured": bool(item.get("configured")),
+            "status": (str(seen.get("status") or "ok") if seen
+                       else "not_checked"),
+            "last_observed": (int(seen.get("ts") or 0) if seen else None),
+            "duration_ms": (int(seen.get("duration_ms") or 0)
+                            if seen else None),
+            "lineage": (f"probe:{probe_id}" if seen else "catalog:declared"),
+            "fact_kind": "observed" if seen else "declared",
+        })
+    missing = [s for s in sources if s["status"] in ("not_checked", "stale")]
+    inspect = _self_diag_stats(rows, "inspect_runtime_called")
+    checkup = _self_diag_stats(rows, "checkup_triggered")
+    health = _self_diag_stats(rows, "get_bot_health_called")
+    validated = _self_diag_count(rows, "diagnostic_output_validated")
+    prompt_allowed = _self_diag_count(rows, "prompt_readback_allowed")
+    deliveries = (inspect["complete"] + checkup["calls"] + prompt_allowed
+                  + health["calls"])
+    secret_measured = bool(deliveries) and validated >= deliveries
+    event_names = (
+        "checkup_triggered", "get_bot_health_called",
+        "inspect_runtime_called", "read_source_attempted",
+        "read_source_verified", "code_unavailable",
+        "prompt_readback_requested", "prompt_readback_allowed",
+        "prompt_readback_denied", "diagnostic_output_validated",
+    )
+    analytics = {
+        "window_hours": 24,
+        "generated_at": datetime.datetime.now(
+            datetime.timezone.utc).isoformat(),
+        "inspect_runtime": inspect,
+        "checkup": checkup,
+        "get_bot_health": health,
+        "event_counts": {name: _self_diag_count(rows, name)
+                         for name in event_names},
+        # `0` выдаётся ТОЛЬКО когда enforcement реально измерен на всех
+        # доставках окна; иначе — null (не «зелёный placeholder»).
+        "secret_value_disclosures": {
+            "value": 0 if secret_measured else None,
+            "measured": secret_measured,
+            "reason": ("enforcement_measured" if secret_measured
+                       else "no_measured_deliveries"),
+        },
+        "retries": {"value": None, "measured": False},
+        "cache_hits": {"value": None, "measured": False},
+        "stale_reads": {"value": None, "measured": False},
+        "observed_vs_hypothesis": {
+            "observed": inspect["complete"],
+            "hypothesis": None,
+            "measured": bool(inspect["calls"]),
+            "note": ("доли hypothesis считаются Writer'ом на живых ответах "
+                     "(D7), в событиях их нет"),
+        },
+        "golden_eval": {"available": False, "reason": "golden_set_d7"},
+        "db_growth": {"available": False,
+                      "reason": "no_time_series_store"},
+        "queue_growth": {"available": False,
+                         "reason": "no_time_series_store"},
+    }
+    resources: dict = {"available": bool(server), "source": "psutil"}
+    if server:
+        resources.update({
+            "cpu_percent": server.get("cpu_percent"),
+            "cpu_count": server.get("cpu_count"),
+            "memory": server.get("memory"),
+            "disk": server.get("disk"),
+            "process": server.get("process"),
+            "loadavg": server.get("loadavg"),
+            "samples": [{
+                "ts": int(time.time()),
+                "pid": (server.get("process") or {}).get("pid"),
+                "cpu_percent": server.get("cpu_percent"),
+                "mem_percent": (server.get("memory") or {}).get("percent"),
+                "disk_percent": (server.get("disk") or {}).get("percent"),
+                "source": "psutil",
+            }],
+        })
+    try:
+        metrics = await _me.metrics(db)
+    except Exception:
+        metrics = {}
+    groups = (metrics.get("metrics") or {}) if metrics else {}
+    resources["db"] = _self_diag_jsonable(groups.get("db"))
+    resources["known_missing"] = _self_diag_jsonable(metrics.get("unknown")) \
+        if metrics else None
+    jobs = _self_diag_jsonable(
+        {key: groups.get(key) for key in ("tasks", "archive", "lock")}) \
+        if metrics else None
+    try:
+        storage_text = await memory_health.collect_metrics(db, None)
+    except Exception:
+        storage_text = None
+    integrations = _self_diag_jsonable(groups.get("providers")) \
+        if metrics else None
+    return {
+        "available": True,
+        "generated_at": datetime.datetime.now(
+            datetime.timezone.utc).isoformat(),
+        "chat_id": chat_id,
+        "runtime": runtime,
+        "sources": sources,
+        "missing_evidence": {
+            "count": len(missing),
+            "items": [s["id"] for s in missing][:40],
+        },
+        "resources": resources,
+        "jobs": jobs,
+        "integrations": integrations,
+        "code_check": {
+            "source_read_enabled": bool(source_reader.source_read_enabled()),
+            "provider": ("local_snapshot"
+                         if str(getattr(settings,
+                                        "SELF_DIAG_LOCAL_REPO_ROOT", "")
+                                or "").strip() else "github"),
+            "repo_origin": runtime.get("repo_origin") or "",
+        },
+        "storage_text": storage_text,
+        "analytics": analytics,
+        "window": {"since": since, "until": until},
+    }
+
+
+@api_router.get("/status/self-diagnosis")
+async def get_status_self_diagnosis(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """SELF-DIAG-01 D6 (`SD1-D6-12`, `SD1-D6-16`-`SD1-D6-20`).
+
+    Снимок фактического состояния процесса/хоста и аналитика существующего
+    события `inspect_runtime_called` (+ счётчики входов чекапа/readback/
+    read_source и измеренного output-enforcement). Источник — существующие
+    сервисы и таблица `mca_events`; TTL-кэш 30с, чтобы не дёргать psutil/БД
+    на каждый рендер. Значения без источника — null/`measured=false`, не 0.
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    cache = get_cache(request)
+    # Права: те же существующие категории D2. Наблюдаемость без защищённых
+    # значений: credential values не выдаются никому (см. secret_policy).
+    allowed = True
+    try:
+        from services import diagnostic_policy as diag_srv
+        role_ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+        decision = await diag_srv.decide(
+            "bot_server_state", "view", telegram_id=user.id,
+            chat_id=chat_id, cache=cache,
+            pg=(getattr(cache, "pg", None)
+                if getattr(getattr(cache, "pg", None), "pool", None) else None),
+            destination="web_status")
+        allowed = bool(decision.allowed)
+        role = getattr(role_ctx, "role", None)
+    except Exception:
+        allowed = False
+        role = None
+    if not allowed:
+        return {"available": False, "restricted": True,
+                "reason": "denied_bot_server_state_view",
+                "role": role}
+    key = ("self-diag", chat_id)
+    cached = _self_diag_cache.get(key)
+    if cached is not None and (time.monotonic() - cached[0]) < _SELF_DIAG_TTL:
+        return cached[1]
+    payload = await _self_diag_payload(chat_id)
+    _self_diag_cache[key] = (time.monotonic(), payload)
+    return payload
+
+
 @api_router.get("/status/logs")
 async def get_status_logs(
     request: Request,

@@ -586,9 +586,10 @@ class TestFetchArticle:
     def test_atomic_registration_canon_twelve(self):
         # A6 (ADR-1026-18 D1): канон 11 → 12 (get_user_context в хвост).
         # ASAP5 §20 (edit-route): канон → 15 (+edit_image в хвост);
-        # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост).
-        assert len(TOOL_CALLING_TOOLS) == 17
-        assert TOOL_CALLING_TOOLS[-6] is TOOL_GET_USER_CONTEXT
+        # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост);
+        # SELF-DIAG-01 D3 → 17 (inspect_runtime); D5/D6 → 18 (prompt_readback).
+        assert len(TOOL_CALLING_TOOLS) == 18
+        assert TOOL_CALLING_TOOLS[-7] is TOOL_GET_USER_CONTEXT
         assert TOOL_CALLING_TOOLS[10] is TOOL_FETCH_ARTICLE
         assert TOOL_FETCH_ARTICLE["function"]["name"] == ARTICLE_TOOL_NAME
         params = TOOL_FETCH_ARTICLE["function"]["parameters"]
@@ -604,7 +605,7 @@ class TestFetchArticle:
         monkeypatch.setattr(type(settings), "ARTICLE_TOOL_ENABLED", False)
         names = [t["function"]["name"] for t in active_tools()]
         assert ARTICLE_TOOL_NAME not in names
-        assert len(TOOL_CALLING_TOOLS) == 17    # схема/канон безусловны (A6)
+        assert len(TOOL_CALLING_TOOLS) == 18    # схема/канон безусловны (A6)
 
     def test_factcheck_tools_unchanged(self):
         names = [t["function"]["name"] for t in factcheck_tools()]
@@ -815,7 +816,7 @@ class TestR17AndBoundaries:
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "get_user_context", "recognize_image",
             "fact_check", "edit_image", "read_source_code",
-            "inspect_runtime"]
+            "inspect_runtime", "prompt_readback"]
         assert [t["function"]["name"]
                 for t in active_tools(True, image_generation_enabled=True)] == \
             legacy

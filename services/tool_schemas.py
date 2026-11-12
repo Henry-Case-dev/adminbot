@@ -1073,6 +1073,24 @@ TOOL_INSPECT_RUNTIME = {
 #: SELF-DIAG-01 D3: имя единого диагностического инструмента.
 INSPECT_RUNTIME_TOOL_NAME = "inspect_runtime"
 
+
+def _prompt_readback_definition() -> dict:
+    """SELF-DIAG-01 D5/D6 (`SD1-D5-02`, `SD1-AMX-04`): типизированная схема
+    `prompt_readback` берётся из её единственного владельца
+    (`handlers.prompt_readback.TOOL_DEFINITION`) — второго описания нет.
+
+    Импорт ленивый: `handlers.*` не должен попадать в импорт-граф схем при
+    старте (схемы читаются и тестами каталога)."""
+    import copy
+    from handlers.prompt_readback import TOOL_DEFINITION
+    return copy.deepcopy(TOOL_DEFINITION)
+
+
+#: SELF-DIAG-01 D5: имя инструмента защищённого readback промпта.
+PROMPT_READBACK_TOOL_NAME = "prompt_readback"
+#: D5-схема, зарегистрированная в каноне (18-я запись, «новое — в хвост»).
+TOOL_PROMPT_READBACK: dict = _prompt_readback_definition()
+
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -1091,6 +1109,9 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_EDIT_IMAGE,
     TOOL_READ_SOURCE_CODE,
     TOOL_INSPECT_RUNTIME,
+    # SELF-DIAG-01 D5/D6 (`SD1-D5-02`): защищённый серверный readback
+    # промпта — 18-я запись в хвосте; существующие 17 имён байт-в-байт.
+    TOOL_PROMPT_READBACK,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).

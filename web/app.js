@@ -6782,6 +6782,28 @@
         statusData: null,
         statusError: null,
         statusTimer: null,
+        // SELF-DIAG-01 D6 (`SD1-D6-12/16`): блок «Самодиагностика» на
+        // существующей странице «Статус» — снимок фактического состояния +
+        // аналитика существующего события `inspect_runtime_called`.
+        // Новых поллеров нет: загрузка по кнопке/открытию, TTL на сервере.
+        selfDiag: null,
+        selfDiagError: '',
+        selfDiagBusy: false,
+        selfDiagOpen: {},
+        // SELF-DIAG-01 D6 (`SD1-AMX-01/06`, `SD1-D2-32`): подраздел
+        // «Самодиагностика» в СУЩЕСТВУЮЩИХ «Доступах» — матрица
+        // роль×категория через уже выложенные `/api/access/diagnostic_policy*`.
+        diagPanelOpen: false,
+        diagMatrix: null,
+        diagMatrixScope: 'global',
+        diagMatrixError: '',
+        diagMatrixBusy: false,
+        diagSaving: {},
+        diagExplainId: '',
+        diagExplain: null,
+        diagExplainBusy: false,
+        diagAudit: null,
+        diagAuditBusy: false,
         // B1/OD8 (T-1128/T-1129): компактный список доступности ключей +
         // временной график (GET /api/status/key-history, leak-safe).
         keyHistory: null,
@@ -29736,6 +29758,226 @@
           this._hbDrawPremium(ts, ctx, cv, dpr, st);
         }
         this.hbLastDraw = ts || 0;
+      },
+      // ═══ SELF-DIAG-01 D6: «Самодиагностика» ═══════════════════════════
+      // Существующие поверхности: GET /api/status/self-diagnosis (снимок +
+      // аналитика `inspect_runtime_called`) и уже выложенные
+      // /api/access/diagnostic_policy* (матрица роль×категория). Новых
+      // страниц/агентов/LLM/сторов нет; отсутствующее значение показывается
+      // как «—», а не как 0/«всё хорошо».
+      diagActionTitle: function (action) {
+        return { view: 'Просмотр', run: 'Запуск', edit: 'Правка' }[action]
+          || action;
+      },
+      diagSourceTitle: function (source) {
+        return {
+          class_default: 'по классу данных',
+          global_override: 'глобальная настройка',
+          chat_override: 'настройка чата',
+        }[source] || (source || '—');
+      },
+      diagFieldOf: function (action) {
+        return action === 'view' ? 'view_roles'
+          : (action === 'run' ? 'run_roles' : 'edit_roles');
+      },
+      diagRoleHas: function (cap, action, role) {
+        var item = this.diagMatrix && this.diagMatrix.items
+          ? this.diagMatrix.items[cap] : null;
+        if (!item || !item.effective) return false;
+        var field = this.diagFieldOf(action);
+        return (item.effective[field] || []).indexOf(role) >= 0;
+      },
+      diagRoleImplicit: function (role, action) {
+        // Владелец неявный: view/run разрешены классом, edit — нет.
+        return role === 'global_admin' && action !== 'edit';
+      },
+      diagToggleRole: function (cap, action, role) {
+        var item = this.diagMatrix && this.diagMatrix.items
+          ? this.diagMatrix.items[cap] : null;
+        if (!item || !item.configurable) return;
+        if (role === 'global_admin') return;   // неявное правило не правится
+        var field = this.diagFieldOf(action);
+        var roles = (item.effective[field] || []).slice();
+        var index = roles.indexOf(role);
+        if (index >= 0) roles.splice(index, 1); else roles.push(role);
+        item.effective[field] = roles;
+      },
+      diagEffectiveRoles: function (cap, action) {
+        var item = this.diagMatrix && this.diagMatrix.items
+          ? this.diagMatrix.items[cap] : null;
+        if (!item) return [];
+        return (item.effective[this.diagFieldOf(action)] || []).slice();
+      },
+      loadDiagMatrix: async function () {
+        this.diagMatrixBusy = true;
+        this.diagMatrixError = '';
+        try {
+          this.diagMatrix = await this.api('/api/access/diagnostic_policy');
+        } catch (e) {
+          this.diagMatrixError = e.status === 403
+            ? 'Матрица «Самодиагностики» доступна только владельцу бота.'
+            : ('Не удалось загрузить матрицу: ' + e.message);
+          this.diagMatrix = null;
+        } finally {
+          this.diagMatrixBusy = false;
+        }
+      },
+      openDiagPanel: function () {
+        this.diagPanelOpen = !this.diagPanelOpen;
+        if (this.diagPanelOpen && !this.diagMatrix) this.loadDiagMatrix();
+      },
+      diagScopeIsChat: function () {
+        return this.diagMatrixScope === 'chat' && this.activeChatId != null;
+      },
+      saveDiagCapability: async function (cap) {
+        if (!this.diagMatrix) return;
+        var item = this.diagMatrix.items[cap];
+        if (!item || !item.configurable) return;
+        var body = {
+          view_roles: this.diagEffectiveRoles(cap, 'view'),
+          run_roles: this.diagEffectiveRoles(cap, 'run'),
+          edit_roles: this.diagEffectiveRoles(cap, 'edit'),
+        };
+        this.diagSaving[cap] = true;
+        try {
+          var path = this.diagScopeIsChat()
+            ? ('/api/access/chats/' + this.activeChatId
+               + '/diagnostic_policy/' + encodeURIComponent(cap))
+            : ('/api/access/diagnostic_policy/' + encodeURIComponent(cap));
+          await this.api(path, { method: 'PUT', body: JSON.stringify(body) });
+          this.toast('Права «' + (item.title || cap) + '» сохранены', 'ok');
+          await this.loadDiagMatrix();
+        } catch (e) {
+          this.toast('Не сохранено: ' + e.message, 'err');
+        } finally {
+          this.diagSaving[cap] = false;
+        }
+      },
+      resetDiagCapability: async function (cap) {
+        var item = this.diagMatrix && this.diagMatrix.items
+          ? this.diagMatrix.items[cap] : null;
+        this.diagSaving[cap] = true;
+        try {
+          var path = this.diagScopeIsChat()
+            ? ('/api/access/chats/' + this.activeChatId
+               + '/diagnostic_policy/' + encodeURIComponent(cap))
+            : ('/api/access/diagnostic_policy/' + encodeURIComponent(cap));
+          await this.api(path, { method: 'DELETE' });
+          this.toast('Перекрытие «' + (item && item.title || cap)
+                     + '» сброшено', 'ok');
+          await this.loadDiagMatrix();
+        } catch (e) {
+          this.toast('Не сброшено: ' + e.message, 'err');
+        } finally {
+          this.diagSaving[cap] = false;
+        }
+      },
+      explainDiagAccess: async function () {
+        var raw = String(this.diagExplainId || '').trim();
+        if (!raw) return;
+        this.diagExplainBusy = true;
+        try {
+          this.diagExplain = await this.api(
+            '/api/access/diagnostic_policy/explain?telegram_id='
+            + encodeURIComponent(raw));
+        } catch (e) {
+          this.diagExplain = null;
+          this.toast('Объяснение недоступно: ' + e.message, 'err');
+        } finally {
+          this.diagExplainBusy = false;
+        }
+      },
+      loadDiagAudit: async function () {
+        this.diagAuditBusy = true;
+        try {
+          var data = await this.api('/api/access/diagnostic_policy/audit?limit=50');
+          this.diagAudit = (data && data.items) || [];
+        } catch (e) {
+          this.diagAudit = null;
+          this.toast('Аудит недоступен: ' + e.message, 'err');
+        } finally {
+          this.diagAuditBusy = false;
+        }
+      },
+      diagAuditLine: function (rec) {
+        var bits = [rec && rec.event, rec && rec.capability, rec && rec.action];
+        if (rec && rec.effect) bits.push('→ ' + rec.effect);
+        if (rec && rec.reason_code) bits.push(rec.reason_code);
+        if (rec && rec.ts) bits.push(this.selfDiagTs(rec.ts));
+        return bits.filter(function (x) { return !!x; }).join(' · ');
+      },
+      loadSelfDiagnosis: async function () {
+        this.selfDiagBusy = true;
+        this.selfDiagError = '';
+        try {
+          this.selfDiag = await this.api('/api/status/self-diagnosis',
+                                         { silent403: true });
+          if (this.selfDiag && this.selfDiag.available === false) {
+            this.selfDiagError =
+              'Самодиагностика ограничена политикой доступа ('
+              + (this.selfDiag.reason || 'denied') + ').';
+          }
+        } catch (e) {
+          this.selfDiag = null;
+          this.selfDiagError = 'Не удалось получить самодиагностику ('
+            + (e.status ? 'HTTP ' + e.status : 'ошибка сети') + ').';
+        } finally {
+          this.selfDiagBusy = false;
+        }
+      },
+      selfDiagToggle: function (id) {
+        this.selfDiagOpen[id] = !this.selfDiagOpen[id];
+      },
+      selfDiagTs: function (ts) {
+        if (ts == null || ts === '') return '—';
+        var value = Number(ts);
+        if (!isFinite(value) || value <= 0) {
+          var parsed = new Date(ts);
+          return isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString();
+        }
+        return new Date(value * 1000).toLocaleString();
+      },
+      selfDiagBadge: function (status) {
+        var ok = ['ok', 'success', 'report_sent', 'clean', 'delivered',
+                  'called'].indexOf(String(status || '')) >= 0;
+        var warn = ['degraded', 'partial', 'stale', 'not_checked',
+                    'blocked', 'denied', 'unverified'].indexOf(
+                      String(status || '')) >= 0;
+        return ok ? 'badge-ok' : (warn ? 'badge-warn' : 'badge-muted');
+      },
+      selfDiagStatusLabel: function (status) {
+        return {
+          ok: 'работает', degraded: 'деградация', unavailable: 'недоступно',
+          not_checked: 'не проверялось', stale: 'устарело',
+          report_sent: 'отчёт отправлен', blocked: 'заблокировано',
+          denied: 'отказ', clean: 'без секретов', called: 'вызывался',
+        }[String(status || '')] || (status || '—');
+      },
+      selfDiagNumber: function (value, suffix) {
+        if (value === null || value === undefined) return '—';
+        return String(value) + (suffix || '');
+      },
+      selfDiagCount: function (name) {
+        var counts = (this.selfDiag && this.selfDiag.analytics
+                      && this.selfDiag.analytics.event_counts) || {};
+        return counts[name] === undefined ? '—' : counts[name];
+      },
+      selfDiagSecretRows: function () {
+        var stats = (this.selfDiag && this.selfDiag.analytics) || {};
+        var names = ['checkup_triggered', 'get_bot_health_called',
+                     'inspect_runtime_called', 'read_source_attempted',
+                     'read_source_verified', 'code_unavailable',
+                     'prompt_readback_requested', 'prompt_readback_allowed',
+                     'prompt_readback_denied', 'diagnostic_output_validated'];
+        return names.map(function (name) {
+          return { name: name, value: (stats.event_counts || {})[name] };
+        });
+      },
+      selfDiagSourceRows: function () {
+        var list = (this.selfDiag && this.selfDiag.sources) || [];
+        return list.filter(function (row) {
+          return row && row.id;
+        });
       },
       loadStatus: async function () {
         var epoch = this.scopeEpoch;   // D2: снимок scope (permsoc-телеметрия per chat)

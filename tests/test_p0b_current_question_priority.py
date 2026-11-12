@@ -555,7 +555,7 @@ class TestEarlyHandlersDoNotSwallowNaturalLanguage:
     @pytest.mark.parametrize("text", TEXTS)
     async def test_checkup_handler_does_not_consume(self, env, text):
         from handlers import checkup as cm
-        cm.setup_checkup(MagicMock(), MagicMock(), db=None)
+        cm.setup_checkup(MagicMock(), MagicMock(), db=None, diagnostics=False)
         try:
             bot = _bot()
             assert await cm.checkup_handler(

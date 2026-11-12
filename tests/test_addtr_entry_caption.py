@@ -366,7 +366,7 @@ class TestAdtrEntryDispatcher:
         fetcher.fetch = AsyncMock(return_value=("logs", False))
         checkup_service = MagicMock()
         checkup_service.checkup = AsyncMock(return_value="отчёт по серваку")
-        checkup_mod.setup_checkup(checkup_service, fetcher)
+        checkup_mod.setup_checkup(checkup_service, fetcher, diagnostics=False)
 
         dc_service = MagicMock()
         dc_service.handle = AsyncMock()

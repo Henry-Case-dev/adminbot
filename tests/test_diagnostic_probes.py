@@ -214,14 +214,18 @@ class TestRegistry:
 # ── один tool и схема ────────────────────────────────────────────────────
 
 class TestToolSchema:
-    def test_one_extensible_tool_is_last_and_unconditional(self):
-        assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+    def test_one_extensible_tool_is_unconditional(self):
+        # SELF-DIAG-01 D3: `inspect_runtime` — 17-я запись канона;
+        # D5/D6 добавил 18-ю `prompt_readback` (не второй
+        # диагностический tool, а защищённый readback промпта).
+        assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
             tool_schemas.TOOL_INSPECT_RUNTIME
         assert tool_schemas.TOOL_CALLING_TOOLS[16] is \
             tool_schemas.TOOL_INSPECT_RUNTIME
         names = [item["function"]["name"]
                  for item in tool_schemas.active_tools()]
         assert "inspect_runtime" in names
+        assert names[-1] == "prompt_readback"
         # Ни одного отдельного LLM-tool под Linux-команды.
         assert not any(name in names for name in
                        ("journalctl", "df", "ps", "systemctl", "sql_query"))

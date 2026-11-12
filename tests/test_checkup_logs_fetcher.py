@@ -483,7 +483,7 @@ class TestNoBetterStackInCheckupRuntime:
         fetcher = _fetcher(runner=runner)
         llm = MagicMock()
         llm.generate = AsyncMock(return_value="отчёт о здоровье")
-        checkup_mod.setup_checkup(CheckupService(llm), fetcher)
+        checkup_mod.setup_checkup(CheckupService(llm), fetcher, diagnostics=False)
         message = MagicMock()
         message.text = "чекап"
         message.caption = None

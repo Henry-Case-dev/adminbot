@@ -906,6 +906,163 @@
                     <span class="text-xs text-gray-500">Открыть →</span>
                   </button>
                 </div>
+
+                <!-- SELF-DIAG-01 D6 (`SD1-AMX-01`, `SD1-AMX-06`,
+                     `SD1-D2-32`): подраздел «Самодиагностика» в СУЩЕСТВУЮЩЕМ
+                     разделе «Доступы». Матрица категорий уже выложена
+                     (`/api/access/diagnostic_policy*`); здесь — компактный
+                     рендер: переключатели роль×действие, источник
+                     разрешения, объяснение allow/deny и аудит без
+                     содержимого защищённых данных. Параллельного ACL нет. -->
+                <div v-if="isGlobalAdmin" class="card p-4 mt-2"
+                     data-self-diag-access>
+                  <button type="button" class="w-full flex items-center gap-2 text-left"
+                          data-self-diag-access-toggle
+                          @click="openDiagPanel()">
+                    <span class="msr" aria-hidden="true">{{ iconGlyph('monitor_heart') }}</span>
+                    <span class="flex-1">
+                      <span class="block font-semibold">Самодиагностика</span>
+                      <span class="block text-xs text-gray-500">
+                        Категории: состояние бота и сервера, метрики, логи,
+                        код и GitHub, история коммитов, конфигурация без
+                        секретов, память, промпты, глубокая диагностика
+                      </span>
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      {{ diagPanelOpen ? 'Свернуть ▲' : 'Открыть →' }}
+                    </span>
+                  </button>
+
+                  <div v-if="diagPanelOpen" class="mt-2 text-xs"
+                       data-self-diag-access-body>
+                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                      <label class="text-gray-500">Область:</label>
+                      <select class="field" v-model="diagMatrixScope"
+                              data-self-diag-scope>
+                        <option value="global">Глобально</option>
+                        <option value="chat" :disabled="activeChatId == null">
+                          Этот чат
+                        </option>
+                      </select>
+                      <button class="btn-ghost text-xs" :disabled="diagMatrixBusy"
+                              data-self-diag-reload
+                              @click="loadDiagMatrix()">
+                        {{ diagMatrixBusy ? 'Загрузка…' : 'Перезагрузить' }}
+                      </button>
+                      <button class="btn-ghost text-xs" :disabled="diagAuditBusy"
+                              data-self-diag-audit
+                              @click="loadDiagAudit()">
+                        Аудит решений
+                      </button>
+                    </div>
+                    <div v-if="diagMatrixError" class="text-amber-300 mb-2"
+                         data-self-diag-matrix-error>{{ diagMatrixError }}</div>
+                    <div v-if="!diagMatrix && !diagMatrixError"
+                         class="text-gray-500">Матрица не загружена.</div>
+                    <template v-if="diagMatrix">
+                      <div v-for="(item, cap) in diagMatrix.items" :key="'dq-' + cap"
+                           class="rounded-lg bg-white/5 px-2 py-2 mb-2"
+                           :data-self-diag-cap="cap">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <b>{{ item.title }}</b>
+                          <span class="badge badge-muted">
+                            {{ item.data_class_title || item.data_class }}
+                          </span>
+                          <span class="text-gray-500">
+                            источник: {{ diagSourceTitle(item.source) }}
+                          </span>
+                          <span v-if="!item.configurable"
+                                class="badge badge-warn">не настраивается</span>
+                          <span class="text-gray-600 ml-auto font-mono">{{ cap }}</span>
+                        </div>
+                        <div class="text-gray-500 mb-1">{{ item.description }}</div>
+                        <div v-for="action in item.actions" :key="'da-' + cap + action"
+                             class="flex flex-wrap items-center gap-3 mb-1"
+                             :data-self-diag-action="action">
+                          <span class="w-20 text-gray-400">{{ diagActionTitle(action) }}</span>
+                          <label v-for="role in (diagMatrix.roles || [])"
+                                 :key="'dr-' + cap + action + role.id"
+                                 class="flex items-center gap-1"
+                                 :title="role.note">
+                            <input type="checkbox"
+                                   :disabled="!item.configurable || diagRoleImplicit(role.id, action)"
+                                   :checked="diagRoleImplicit(role.id, action) || diagRoleHas(cap, action, role.id)"
+                                   @change="diagToggleRole(cap, action, role.id)">
+                            <span>{{ role.title }}</span>
+                            <span v-if="role.implicit" class="text-gray-600">(неявно)</span>
+                          </label>
+                          <span class="flex-1"></span>
+                          <button class="btn-accent text-xs"
+                                  :disabled="!item.configurable || diagSaving[cap]"
+                                  :data-self-diag-save="cap"
+                                  @click="saveDiagCapability(cap)">
+                            {{ diagSaving[cap] ? 'Сохранение…' : 'Сохранить' }}
+                          </button>
+                          <button class="btn-ghost text-xs"
+                                  :disabled="diagSaving[cap]"
+                                  :data-self-diag-reset="cap"
+                                  @click="resetDiagCapability(cap)">Сбросить</button>
+                        </div>
+                        <div v-if="item.hard_rules && item.hard_rules.length"
+                             class="text-gray-600">
+                          Жёсткие правила: {{ item.hard_rules.join('; ') }}
+                        </div>
+                        <div v-if="item.tool_names && item.tool_names.length"
+                             class="text-gray-600 font-mono">
+                          tools: {{ item.tool_names.join(', ') }}
+                        </div>
+                      </div>
+                      <div class="text-gray-500 mb-2">
+                        Наследование: дефолт класса → глобальная настройка →
+                        настройка чата; значения секретов не выдаются никому
+                        (см. secret policy). Изменения применяются к реальным
+                        tool calls и переживают рестарт (PG).
+                      </div>
+                    </template>
+                    <div class="rounded-lg bg-white/5 px-2 py-2 mb-2">
+                      <div class="font-semibold mb-1">Почему разрешено/отказано</div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <input class="field" v-model="diagExplainId"
+                               inputmode="numeric" placeholder="telegram_id"
+                               data-self-diag-explain-id>
+                        <button class="btn-ghost text-xs"
+                                :disabled="diagExplainBusy"
+                                data-self-diag-explain
+                                @click="explainDiagAccess()">
+                          {{ diagExplainBusy ? 'Проверка…' : 'Объяснить' }}
+                        </button>
+                      </div>
+                      <div v-if="diagExplain" class="mt-1 text-gray-400"
+                           data-self-diag-explain-result>
+                        <div>
+                          пользователь {{ diagExplain.telegram_id }} · роль:
+                          <b>{{ diagExplain.role_title || diagExplain.role }}</b>
+                          · Telegram: {{ diagExplain.verification }}
+                        </div>
+                        <div v-for="row in (diagExplain.decisions || [])"
+                             :key="'dex-' + row.capability">
+                          <span class="font-mono">{{ row.capability }}</span>:
+                          <span v-for="a in (row.actions || [])"
+                                :key="'dea-' + row.capability + a.action"
+                                class="ml-1">
+                            {{ a.action }} → {{ a.effect }}{{ a.reason_code ? ' (' + a.reason_code + ')' : '' }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-if="diagAudit" class="rounded-lg bg-white/5 px-2 py-2"
+                         data-self-diag-audit-list>
+                      <div class="font-semibold mb-1">Последние решения (без содержимого)</div>
+                      <div v-for="(rec, i) in diagAudit" :key="'dau-' + i"
+                           class="font-mono text-gray-400">
+                        {{ diagAuditLine(rec) }}
+                      </div>
+                      <div v-if="!diagAudit.length" class="text-gray-500">
+                        Записей аудита нет.
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </template>
             <template v-else>
@@ -14931,6 +15088,139 @@
                 </div>
               </div>
             </health-glass-surface>
+
+            <!-- SELF-DIAG-01 D6 (`SD1-D6-12/16/17-20`): «Самодиагностика» —
+                 отдельный визуально связанный блок на СУЩЕСТВУЮЩЕЙ странице
+                 «Статус». Источники: GET /api/status/self-diagnosis (снимок
+                 процесса/хоста + аналитика события `inspect_runtime_called`)
+                 и существующие `/api/status`. Новых страниц/поллеров нет:
+                 обновление — по кнопке, значения без источника — «—». -->
+            <section v-if="isGlobalAdmin" class="card p-4 sg-4"
+                     data-self-diagnosis>
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <div class="text-sm font-bold">Самодиагностика</div>
+                <span class="badge badge-muted" data-self-diagnosis-source>
+                  {{ selfDiag && selfDiag.available ? 'снимок процесса' : 'нет снимка' }}
+                </span>
+                <button class="btn-ghost text-xs ml-auto"
+                        :disabled="selfDiagBusy"
+                        data-self-diagnosis-refresh
+                        @click="loadSelfDiagnosis()">
+                  {{ selfDiagBusy ? 'Сбор…' : 'Обновить' }}
+                </button>
+              </div>
+              <div v-if="selfDiagError" class="text-xs text-amber-300"
+                   data-self-diagnosis-error>{{ selfDiagError }}</div>
+              <div v-else-if="!selfDiag" class="text-xs text-gray-500">
+                Снимок ещё не собран — нажмите «Обновить». Значения не
+                подставляются: без измерения поле остаётся «—».
+              </div>
+              <template v-else>
+                <div class="text-xs text-gray-400 grid gap-1"
+                     data-self-diagnosis-runtime>
+                  <div>
+                    Версия: <b>{{ selfDiag.runtime.app_version || '—' }}</b>
+                    · PID: <b>{{ selfDiagNumber(selfDiag.runtime.pid) }}</b>
+                    · uptime:
+                    <b>{{ selfDiagNumber(selfDiag.runtime.uptime_seconds, ' c') }}</b>
+                    · runtime: {{ selfDiag.runtime.runtime_type || '—' }}
+                  </div>
+                  <div>
+                    deployed_sha:
+                    <b class="font-mono">{{ selfDiag.runtime.deployed_sha || '—' }}</b>
+                    · checkout:
+                    <b class="font-mono">{{ selfDiag.runtime.checkout_sha || '—' }}</b>
+                    · branch: {{ selfDiag.runtime.branch || '—' }}
+                  </div>
+                  <div>
+                    лог-бэкенд: {{ (selfDiag.code_check && selfDiag.code_check.provider) || '—' }}
+                    · source read:
+                    {{ selfDiag.code_check && selfDiag.code_check.source_read_enabled ? 'включён' : 'выключен' }}
+                    · repo: {{ selfDiag.runtime.repo_origin || '—' }}
+                  </div>
+                  <div>
+                    CPU: {{ selfDiagNumber(selfDiag.resources.cpu_percent, '%') }}
+                    · RAM: {{ selfDiagNumber(selfDiag.resources.memory && selfDiag.resources.memory.percent, '%') }}
+                    · диск: {{ selfDiagNumber(selfDiag.resources.disk && selfDiag.resources.disk.percent, '%') }}
+                    · очередь: {{ selfDiagNumber(selfDiag.jobs && selfDiag.jobs.tasks && selfDiag.jobs.tasks.queue_depth) }}
+                  </div>
+                  <div>
+                    Непроверенных источников:
+                    <b>{{ selfDiagNumber(selfDiag.missing_evidence && selfDiag.missing_evidence.count) }}</b>
+                    из {{ selfDiag.sources.length }}
+                    · последний успешный анализ:
+                    <b>{{ selfDiagTs(selfDiag.analytics.inspect_runtime.last_success_ts) }}</b>
+                  </div>
+                </div>
+
+                <div class="text-xs font-semibold mt-3 mb-1">
+                  Источники и отказы
+                </div>
+                <div class="text-xs" data-self-diagnosis-sources>
+                  <button v-for="row in selfDiagSourceRows()" :key="'sd-' + row.id"
+                          type="button" class="w-full text-left rounded-lg bg-white/5 px-2 py-1 mb-1"
+                          data-self-diagnosis-row
+                          @click="selfDiagToggle(row.id)">
+                    <span class="badge" :class="selfDiagBadge(row.status)">
+                      {{ selfDiagStatusLabel(row.status) }}
+                    </span>
+                    <span class="font-mono ml-1">{{ row.id }}</span>
+                    <span class="text-gray-500 ml-1">
+                      · {{ row.fact_kind === 'observed' ? 'наблюдение' : 'декларация' }}
+                      · {{ selfDiagTs(row.last_observed) }}
+                      · {{ selfDiagNumber(row.duration_ms, ' мс') }}
+                    </span>
+                    <span v-if="selfDiagOpen[row.id]" class="block text-gray-400 mt-1">
+                      lineage: {{ row.lineage }} · обусловленность:
+                      {{ row.area || '—' }} · configured:
+                      {{ row.configured ? 'да' : 'нет' }}
+                    </span>
+                  </button>
+                  <div v-if="!selfDiagSourceRows().length" class="text-gray-500">
+                    Каталог probes пуст — источники не зарегистрированы.
+                  </div>
+                </div>
+
+                <div class="text-xs font-semibold mt-3 mb-1">
+                  Аналитика (24 ч, существующие события)
+                </div>
+                <div class="text-xs text-gray-400 grid gap-1"
+                     data-self-diagnosis-analytics>
+                  <div>
+                    inspect_runtime: вызовов
+                    <b>{{ selfDiagNumber(selfDiag.analytics.inspect_runtime.calls) }}</b>
+                    · partial:
+                    <b>{{ selfDiagNumber(selfDiag.analytics.inspect_runtime.partial_share) }}</b>
+                    · p50/p95:
+                    <b>{{ selfDiagNumber(selfDiag.analytics.inspect_runtime.p50_ms, ' мс') }}</b>
+                    / <b>{{ selfDiagNumber(selfDiag.analytics.inspect_runtime.p95_ms, ' мс') }}</b>
+                  </div>
+                  <div>
+                    чекап: вызовов
+                    <b>{{ selfDiagNumber(selfDiag.analytics.checkup.calls) }}</b>
+                    · p50/p95:
+                    <b>{{ selfDiagNumber(selfDiag.analytics.checkup.p50_ms, ' мс') }}</b>
+                    / <b>{{ selfDiagNumber(selfDiag.analytics.checkup.p95_ms, ' мс') }}</b>
+                  </div>
+                  <div v-for="row in selfDiagSecretRows()" :key="'ev-' + row.name">
+                    <span class="font-mono">{{ row.name }}</span>:
+                    <b>{{ row.value === undefined ? '—' : row.value }}</b>
+                  </div>
+                  <div>
+                    раскрытий секретов:
+                    <b>{{ selfDiag.analytics.secret_value_disclosures.value === null
+                          ? '— (не измерено)' : selfDiag.analytics.secret_value_disclosures.value }}</b>
+                    · golden eval:
+                    {{ selfDiag.analytics.golden_eval.available ? 'есть' : 'ещё нет (D7)' }}
+                    · retry/cache/stale: не инструментированы
+                  </div>
+                  <div>
+                    ресурсы по времени: {{ (selfDiag.resources.samples || []).length }}
+                    срез(ов) с временем и PID (история — нет стора)
+                  </div>
+                </div>
+              </template>
+            </section>
 
             <!-- F6 (ADR-1025-19 D5/§21): компактное превью последнего вызова.
                  Источник — /usage/latest через adapter (НЕ одна строка с

@@ -1379,11 +1379,16 @@ class TestToolResultMapping:
 
 class TestToolCanon:
     def test_canon_is_16_and_new_tool_is_last(self):
-        assert len(tool_schemas.TOOL_CALLING_TOOLS) == 17
-        assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
+        # SELF-DIAG-01 D3: канон 16 → 17 (+inspect_runtime в хвост);
+        # D5/D6: → 18 (+prompt_readback в хвост). read_source_code остаётся
+        # 16-й записью (индекс 15), существующие схемы байт-в-байт.
+        assert len(tool_schemas.TOOL_CALLING_TOOLS) == 18
+        assert tool_schemas.TOOL_CALLING_TOOLS[15] is \
             tool_schemas.TOOL_READ_SOURCE_CODE
-        assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+        assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
             tool_schemas.TOOL_INSPECT_RUNTIME
+        assert tool_schemas.TOOL_CALLING_TOOLS[-1]["function"]["name"] == \
+            "prompt_readback"
         assert tool_schemas.TOOL_READ_SOURCE_CODE["function"]["name"] == \
             "read_source_code"
 
