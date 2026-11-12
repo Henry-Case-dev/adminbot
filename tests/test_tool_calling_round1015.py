@@ -107,7 +107,7 @@ class TestToolSet:
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
             "recognize_image", "fact_check", "edit_image",
-            "read_source_code"]
+            "read_source_code", "inspect_runtime"]
 
     def test_existing_schemas_unchanged(self):
         """Существующие 3 схемы — те же объекты и та же форма (не менялись)."""
@@ -456,7 +456,11 @@ class TestGetBotHealth:
         out = await router.dispatch("get_bot_health", {}, _ctx())
         assert out == "бота зелёный"
         fetcher.fetch.assert_awaited_once()
-        service.checkup.assert_awaited_once_with("logs", False)
+        service.checkup.assert_awaited_once()
+        payload, fallback = service.checkup.await_args.args
+        assert fallback is False
+        assert payload.endswith("\nlogs")
+        assert payload.startswith("DIAGNOSTIC_EVIDENCE")
 
     @pytest.mark.asyncio
     async def test_failure_structured(self):
@@ -668,7 +672,7 @@ class TestDirectChatContext:
         # get_user_context default ON; MCA-19 (ADR-1028-19 §8.6):
         # recognize_image default ON; W6: read_source_code default ON
         # → 16 инструментов.
-        assert len(captured["tools"]) == 16
+        assert len(captured["tools"]) == 17
 
     @pytest.mark.asyncio
     async def test_targetless_media_word_request_normal_tool_path(

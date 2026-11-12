@@ -127,7 +127,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     assert len(mca_gates.KILL_SWITCHES) == 84         # Δ KS = −1 (FC-06C)
     # EVOL-SRC-READER (W6): +1 инструмент (read_source_code) — единственный
     # санкционированный Δ канона этого слайса (Δ тулов = +1).
-    assert len(TOOL_CALLING_TOOLS) == 16
+    assert len(TOOL_CALLING_TOOLS) == 17
     # REGISTRY 523 (F8 --check отдельно; здесь — канон-число каталога)
     # ASAP 7 F2 (§1.6): +9 PG-only ключей L1 Planner (538→547).
     # Параллельный лейн F4 (§3.2, in-flight на момент снимка): +13

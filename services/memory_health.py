@@ -41,6 +41,127 @@ async def _count(db, sql: str, params: tuple = ()) -> int:
     return row[0] if row else 0
 
 
+async def _safe_count(db, sql: str, params: tuple = ()) -> int | None:
+    """Счётчик для диагностического snapshot: ошибка → None (не ноль)."""
+    try:
+        return int(await _count(db, sql, params))
+    except Exception:
+        return None
+
+
+async def collect_snapshot(db, memory) -> dict:
+    """SELF-DIAG-01 D3: те же измеренные значения, что у collect_metrics,
+    но структурой (числа/None) для evidence bundle.
+
+    ``collect_metrics`` (текстовый блок чекапа) НЕ меняется: его байтовый
+    формат — существующая приёмка D1/D6. Расхождений нет: оба читают одни
+    таблицы; в snapshot каждая метрика независима, ошибка → ``None``, а не
+    выдуманный ноль. Не бросает.
+    """
+    now = int(time.time())
+    result: dict = {
+        "available": False,
+        "observed_at": now,
+        "reason": "",
+        "graph_facts_total": None,
+        "graph_facts_by_origin": None,
+        "graph_facts_expired": None,
+        "graph_facts_unconfirmed": None,
+        "smart_archive_facts": None,
+        "smart_messages": None,
+        "nodes": None,
+        "edges": None,
+        "embedding_cache_rows": None,
+        "throttle_state_rows": None,
+        "smart_cache_rows": None,
+        "vec_available": None,
+        "vec_dim": None,
+        "vec_rows": None,
+        "facts_last_24h": None,
+        "compressions": None,
+        "db_bytes": None,
+        "wal_bytes": None,
+        "disk_free_bytes": None,
+        "disk_total_bytes": None,
+        "rss_bytes": None,
+    }
+    if db is None:
+        result["reason"] = "no_db"
+        return result
+    try:
+        probe = await db.db.execute("SELECT 1")
+        await probe.fetchone()
+        result["available"] = True
+    except Exception:
+        result["reason"] = "db_unavailable"
+        return result
+    result["graph_facts_total"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM graph_facts")
+    try:
+        cursor = await db.db.execute(
+            "SELECT origin, COUNT(*) AS c FROM graph_facts GROUP BY origin "
+            "ORDER BY origin")
+        result["graph_facts_by_origin"] = {
+            str(row["origin"]): int(row["c"]) for row in await cursor.fetchall()
+        }
+    except Exception:
+        result["graph_facts_by_origin"] = None
+    result["graph_facts_expired"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM graph_facts "
+            "WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+    result["graph_facts_unconfirmed"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM graph_facts WHERE status = 'unconfirmed'")
+    result["smart_archive_facts"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM smart_archive_facts")
+    result["smart_messages"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM smart_messages")
+    result["nodes"] = await _safe_count(db, "SELECT COUNT(*) FROM nodes")
+    result["edges"] = await _safe_count(db, "SELECT COUNT(*) FROM edges")
+    result["embedding_cache_rows"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM embedding_cache")
+    result["throttle_state_rows"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM throttle_state")
+    result["smart_cache_rows"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM smart_cache")
+    result["facts_last_24h"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM graph_facts WHERE created_at > ?",
+        (now - 86400,))
+    result["compressions"] = await _safe_count(
+        db, "SELECT COUNT(*) FROM graph_fact_compressions")
+    if memory is not None and getattr(memory, "vec_available", False):
+        result["vec_available"] = True
+        result["vec_dim"] = getattr(memory, "_vec_dim", None)
+        vec_rows = {}
+        for table, label in (("smart_archive", "archive"),
+                             ("graph_facts_vec", "graph")):
+            vec_rows[label] = await _safe_count(
+                db, f"SELECT COUNT(*) FROM {table}")
+        result["vec_rows"] = vec_rows
+    else:
+        result["vec_available"] = False
+    try:
+        usage = shutil.disk_usage("/")
+        result["disk_free_bytes"] = int(usage.free)
+        result["disk_total_bytes"] = int(usage.total)
+    except Exception:
+        result["disk_free_bytes"] = None
+        result["disk_total_bytes"] = None
+    try:
+        db_path = getattr(db, "db_path", None)
+        if db_path is not None and str(db_path) != ":memory:" \
+                and os.path.isfile(db_path):
+            result["db_bytes"] = os.path.getsize(db_path)
+            wal_path = str(db_path) + "-wal"
+            result["wal_bytes"] = (os.path.getsize(wal_path)
+                                   if os.path.isfile(wal_path) else 0)
+    except Exception:
+        result["db_bytes"] = None
+        result["wal_bytes"] = None
+    result["rss_bytes"] = _rss_bytes()
+    return result
+
+
+
 async def collect_metrics(db, memory) -> str:
     """Готовый текстовый блок фикс-формата (64.5) или "" при ошибке."""
     try:

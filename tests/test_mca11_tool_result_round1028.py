@@ -109,9 +109,10 @@ class TestContract:
         # прецедент: read_source_code — неизвестный тул → external_read
         # (метка характера вызова — METERED_TOOLS).
         names = {t["function"]["name"] for t in TOOL_CALLING_TOOLS}
-        assert len(names) == 16
+        assert len(names) == 17
         assert set(tool_result.TOOL_CATEGORIES) == names - {
-            "recognize_image", "fact_check", "edit_image", "read_source_code"}
+            "recognize_image", "fact_check", "edit_image",
+            "read_source_code", "inspect_runtime"}
         assert tool_result.category_for("recognize_image") == "external_read"
         assert tool_result.category_for("fact_check") == "external_read"
         assert tool_result.category_for("edit_image") == "external_read"
@@ -120,7 +121,7 @@ class TestContract:
         for name in names:
             counts[tool_result.category_for(name)] = \
                 counts.get(tool_result.category_for(name), 0) + 1
-        assert counts == {"memory_read": 4, "external_read": 9,
+        assert counts == {"memory_read": 4, "external_read": 10,
                           "paid_media": 2, "admin": 1}
 
     def test_unknown_tool_conservative_never_admin(self):

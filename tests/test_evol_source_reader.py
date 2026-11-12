@@ -1379,9 +1379,11 @@ class TestToolResultMapping:
 
 class TestToolCanon:
     def test_canon_is_16_and_new_tool_is_last(self):
-        assert len(tool_schemas.TOOL_CALLING_TOOLS) == 16
-        assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+        assert len(tool_schemas.TOOL_CALLING_TOOLS) == 17
+        assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
             tool_schemas.TOOL_READ_SOURCE_CODE
+        assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+            tool_schemas.TOOL_INSPECT_RUNTIME
         assert tool_schemas.TOOL_READ_SOURCE_CODE["function"]["name"] == \
             "read_source_code"
 

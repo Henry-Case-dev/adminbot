@@ -1557,9 +1557,9 @@ class TestImageGenDirectAdmin:
         schemas_on = tool_schemas.active_tools(True, True)
         names_on = [t["function"]["name"] for t in schemas_on]
         assert "generate_image" in names_on and "edit_image" in names_on
-        assert names_on[-2] == "edit_image"           # канон 16, хвост
-        assert names_on[-1] == "read_source_code"     # W6 (EVOL-SRC-READER)
-        assert len(names_on) == 16
+        assert names_on[-3] == "edit_image"           # канон 16, хвост
+        assert names_on[-2] == "read_source_code"     # W6 (EVOL-SRC-READER)
+        assert len(names_on) == 17
 
     @pytest.mark.asyncio
     async def test_c14_no_false_promises_after_failure(self, db):
