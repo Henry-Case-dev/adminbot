@@ -45,6 +45,7 @@ from services import mca_incidents
 from services import mca_watchdog
 from services import memory_diagnostics
 from services import memory_health
+from services import settings_view
 from services.system_logs_fetcher import (
     CheckupLogsFetcher,
     CheckupLogsUnavailableException,
@@ -1774,6 +1775,44 @@ def _probe_config_effective(ctx: ProbeContext) -> ProbeObservation:
         not_checked=("secret_values", "non_diagnostic_keys"))
 
 
+async def _probe_config_secret_status(
+        ctx: ProbeContext) -> ProbeObservation:
+    """Состояние секретных полей без значения (typed settings adapter).
+
+    SELF-DIAG-01 D2-24 (`SD1-D2-24`): для каждого секретного ключа каталога
+    и типизированного secret store возвращаются `configured`, `effective`
+    (статус-токен, не value), `last_success`/`last_error_code` из уже
+    наблюдаемых исходов провайдеров и безопасный `key_fingerprint` (last4).
+    Значение не покидает backend ни в bundle, ни в tool result.
+    """
+    cache = None
+    try:
+        cache = hot.get_config_cache()
+    except Exception:      # pragma: no cover - защитная ветка
+        cache = None
+    not_checked = ["secret_values", "live_provider_probe"]
+    outcomes: dict[str, dict] = {}
+    view = ctx.deps.capability_view or capability_registry.capability_view
+    try:
+        states = await view(ctx.chat_id)
+        outcomes = settings_view.capability_outcomes(states)
+    except Exception:
+        # Исходы провайдеров — необязательный источник: без них поля
+        # остаются None с outcome_observed=False, а не выдумываются.
+        not_checked.append("provider_outcomes")
+    items = settings_view.secret_settings_view(cache=cache, outcomes=outcomes)
+    classified = all(item.get("classified") for item in items)
+    summary = settings_view.secret_status_summary(views=items)
+    return _observation(
+        "config",
+        status=(bundle.STATUS_OK if classified else bundle.STATUS_DEGRADED),
+        facts=summary,
+        source_id="config:secret_status",
+        health_criterion="none",
+        reason_code=(None if classified else "unclassified_secret_keys"),
+        not_checked=tuple(not_checked))
+
+
 # ── deploy ────────────────────────────────────────────────────────────────
 
 def _default_repo_root(deps: ProbeDeps) -> str | None:
@@ -2167,6 +2206,13 @@ _BUILTIN_PROBES: tuple[ProbeSpec, ...] = (
         "source, updated_at/applied_at; секреты не читаются.",
         READ_SCOPE_INSTANCE, handler=_probe_config_effective,
         source_owner="runtime"),
+    ProbeSpec(
+        "config.secret_status", "config", "Состояние секретных полей",
+        "Typed settings adapter по каталогу/secret store: имя, sensitivity, "
+        "configured, effective-статус, last_success/last_error_code и "
+        "безопасный key_fingerprint. Значения секретов не возвращаются.",
+        READ_SCOPE_INSTANCE, handler=_probe_config_secret_status,
+        source_owner="config"),
     ProbeSpec(
         "deploy.identity", "deploy", "Деплой и ревизия",
         "Существующий deploy_identity: repo_origin/deployed_sha/checkout_sha/"

@@ -193,7 +193,10 @@ def _settings_value(spec) -> object | None:
 
 def _is_secret(spec, category: str) -> bool:
     if spec is not None:
-        return bool(spec.secret)
+        # Канонический тип каталога, а не легаси-флаг: иначе секрет нового
+        # провайдера (`SECRET_VALUE` + `secret=False`) попал бы в debug-дамп
+        # открытым текстом.
+        return spec.is_secret_value
     return category == "keys"
 
 

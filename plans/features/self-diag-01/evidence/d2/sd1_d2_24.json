@@ -1,0 +1,81 @@
+{
+ "row": "SD1-D2-24",
+ "candidate_commit": "aa1d41277acc30d1ba05b537de2d0361f7b166e0",
+ "base_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+ "source_line": 270,
+ "contract": "Секретный blob никогда не сериализуется в DiagnosticEvidenceBundle или обычный ToolResult; возвращаются configured/effective/last_success/last_error_code/key_fingerprint.",
+ "measured": {
+  "adapter": "services.settings_view.setting_view",
+  "view_fields": [
+   "key",
+   "classified",
+   "sensitivity",
+   "sensitivity_source",
+   "configured",
+   "effective",
+   "effective_kind",
+   "effective_source",
+   "value_exposed",
+   "last_success",
+   "last_error_code",
+   "last_checked_at",
+   "outcome_observed",
+   "key_fingerprint",
+   "fingerprint_kind",
+   "reason_code"
+  ],
+  "secret_view": {
+   "key": "keys.image_api_key",
+   "classified": true,
+   "sensitivity": "SECRET_VALUE",
+   "sensitivity_source": "legacy_derivation",
+   "configured": true,
+   "effective": "configured",
+   "effective_kind": "status",
+   "effective_source": "pg",
+   "value_exposed": false,
+   "last_success": null,
+   "last_error_code": null,
+   "last_checked_at": null,
+   "outcome_observed": false,
+   "key_fingerprint": "…3456",
+   "fingerprint_kind": "last4",
+   "reason_code": null
+  },
+  "secret_value_in_view": false,
+  "config_view_effective": 1200,
+  "config_view_value_exposed": true,
+  "summary_total": 44,
+  "summary_configured": 9,
+  "summary_value_exposed": false,
+  "bundle_probe": "config.secret_status",
+  "bundle_source_id": "config:secret_status"
+ },
+ "tests": [
+  {
+   "command": "python -m pytest tests/test_diagnostic_settings_adapter.py -q",
+   "exit_code": 0,
+   "summary": "12 passed in 3.14s"
+  },
+  {
+   "command": "python -m pytest tests/test_evidence_bundle.py -q",
+   "exit_code": 0,
+   "summary": "22 passed in 3.06s"
+  },
+  {
+   "command": "python -m pytest tests/test_diagnostic_probes.py -q",
+   "exit_code": 0,
+   "summary": "58 passed in 7.99s"
+  }
+ ],
+ "red": {
+  "base_run": "tests/test_diagnostic_settings_adapter.py on 16fa04e7: collection error ImportError: cannot import name 'settings_view' from 'services'",
+  "green_run": "tests/test_diagnostic_settings_adapter.py: 12 passed"
+ },
+ "honest_limits": [
+  "last_success/last_error_code заполняются только там, где capability_registry уже наблюдал исход (image/web_search/dependencies); остальные ключи — None + outcome_observed=false, not_checked содержит live_provider_probe.",
+  "key_fingerprint — last4 (уже принятая проектом форма); списки, промпты и значения короче 8 символов фингерпринта не получают.",
+  "Список подробностей ограничен MAX_DETAILED_SECRETS=20, остальные имена видны в truncated_keys; значение секрета не выдаётся ни в одном поле.",
+  "Реальный прод-рантайм и реальные коды ошибок провайдеров не проверялись: деплоя в этой задаче нет."
+ ]
+}

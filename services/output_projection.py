@@ -3,9 +3,11 @@
 Модуль исполняет абсолютный запрет выдачи credential values через чат
 (owner amendment 2026-11-09 §4, ТЗ §9). Запрет НЕ основан на списке слов
 «пароль/токен»: источник истины — типизированный каталог параметров
-(`services.param_catalog`), где у поля есть флаг `secret`, плюс фактические
-runtime-значения секретов (settings/секрет-стор/BYOK). Сравнение идёт по
-ЗНАЧЕНИЯМ, поэтому перефразирование запроса ничего не меняет.
+(`services.param_catalog`), где у записи есть канонический тип чувствительности
+(`sensitivity`; `SECRET_VALUE` — секрет), плюс фактические runtime-значения
+секретов (settings/секрет-стор/BYOK). Легаси-флаг `secret` не решает, надо ли
+защищать значение: сбор известных секретов идёт по `is_secret_value`.
+Сравнение идёт по ЗНАЧЕНИЯМ, поэтому перефразирование запроса ничего не меняет.
 
 Правила:
   * значение секрета никогда не сериализуется в результат инструмента или
@@ -28,6 +30,10 @@ import time
 logger = logging.getLogger(__name__)
 
 #: Типы чувствительности (ТЗ §9.1): обязательны при регистрации провайдера.
+#: Значения зеркалят канонический закрытый набор `services.param_catalog`
+#: (SELF-DIAG-01 `SD1-D2-23`); паритет проверяется тестом
+#: `test_output_projection_constants_match_catalog`, правило вывода типа
+#: здесь больше НЕ дублируется — `sensitivity_of_pg_key` читает каталог.
 SENSITIVITY_PUBLIC = "PUBLIC_DIAGNOSTIC"
 SENSITIVITY_CONFIG = "NON_SECRET_CONFIG"
 SENSITIVITY_PROMPT_CONTENT = "PROMPT_CONTENT"
@@ -192,9 +198,10 @@ class DeliveryResult:
 def sensitivity_of_pg_key(pg_key: str) -> str:
     """Тип чувствительности ключа каталога (ТЗ §9.1).
 
-    Секретные ключи (`keys.*`, spec.secret) → `SECRET_VALUE`; ключи
-    категории prompts → `PROMPT_CONTENT`; прочие ключи каталога →
-    `NON_SECRET_CONFIG`; неизвестный ключ → `PUBLIC_DIAGNOSTIC`.
+    Единственный источник истины — запись каталога (`ParamSpec.sensitivity`,
+    SELF-DIAG-01 `SD1-D2-23`): тип объявлен при регистрации либо зафиксирован
+    для легаси-строки. Проекция больше не дублирует правило вывода — она
+    только читает его. Неизвестный ключ → `PUBLIC_DIAGNOSTIC`.
     """
     try:
         from services import param_catalog as catalog
@@ -203,11 +210,7 @@ def sensitivity_of_pg_key(pg_key: str) -> str:
         return SENSITIVITY_PUBLIC
     if spec is None:
         return SENSITIVITY_PUBLIC
-    if spec.secret or spec.category == catalog.CATEGORY_KEYS:
-        return SENSITIVITY_SECRET
-    if spec.category == catalog.CATEGORY_PROMPTS:
-        return SENSITIVITY_PROMPT_CONTENT
-    return SENSITIVITY_CONFIG
+    return spec.resolved_sensitivity
 
 
 def is_secret_pg_key(pg_key: str) -> bool:
@@ -215,10 +218,16 @@ def is_secret_pg_key(pg_key: str) -> bool:
 
 
 def _catalog_secret_keys() -> tuple[str, ...]:
-    """PG-ключи каталога, помеченные как секрет (включая cache-only)."""
+    """PG-ключи каталога с каноническим типом `SECRET_VALUE` (вкл. cache-only).
+
+    Класс берётся из `ParamSpec.is_secret_value`, а не из легаси-флага
+    `secret`: единственный источник истины — `sensitivity` каталога
+    (`SD1-D2-23`). Иначе новый провайдер с `SECRET_VALUE` + `secret=False`
+    не попадал бы в набор известных секретов.
+    """
     from services import param_catalog as catalog
     return tuple(sorted(spec.pg_key for spec in catalog.REGISTRY.values()
-                        if spec.secret))
+                        if spec.is_secret_value))
 
 
 def _config_cache_secret_sources() -> dict[str, bool]:
@@ -247,8 +256,10 @@ def known_secret_values(cache=None, *, use_cache: bool = True,
     Источники:
       1) типизированный реестр credential-полей `CREDENTIAL_FIELDS`
          (settings/секрет-стор);
-      2) секретные поля каталога параметров с `settings_field` (страховка,
-         если каталог расширили без правки реестра);
+      2) поля каталога параметров с каноническим типом `SECRET_VALUE`
+         и `settings_field` (страховка, если каталог расширили без правки
+         реестра; тип читается из `ParamSpec.is_secret_value`, а не из
+         легаси-флага `secret`);
       3) токен бота (`settings.API_TOKEN`);
       4) значения секретов, объявленных в каталоге с env-именем, — ВСЕГДА
          из `os.environ` (`POSTGRES_DSN`, `SENTRY_DSN`,
@@ -374,7 +385,11 @@ async def known_secret_values_async(cache=None, pg=None,
 
 
 def _settings_secret_values() -> dict[str, str]:
-    """Значения credential-полей из реестра + секреты каталога параметров."""
+    """Значения credential-полей из реестра + секреты каталога параметров.
+
+    Секретность записи каталога определяется каноническим типом
+    (`is_secret_value`), а не легаси-флагом `secret`: источник истины один.
+    """
     from config.settings import settings
     from services import param_catalog as catalog
 
@@ -387,7 +402,7 @@ def _settings_secret_values() -> dict[str, str]:
         else:
             _remember(values, raw, field.pg_key)
     for spec in catalog.REGISTRY.values():
-        if not spec.secret or not spec.settings_field:
+        if not spec.is_secret_value or not spec.settings_field:
             continue
         _remember(values, getattr(settings, spec.settings_field, None),
                   spec.pg_key)
@@ -413,7 +428,9 @@ def _env_secret_values() -> dict[str, str]:
 
     values: dict[str, str] = {}
     for spec in catalog.REGISTRY.values():
-        if not spec.secret or not spec.env_name:
+        # Канонический тип, а не легаси `secret`: иначе env-секрет нового
+        # провайдера (`SECRET_VALUE` + `secret=False`) не попадал бы в набор.
+        if not spec.is_secret_value or not spec.env_name:
             continue
         _remember(values, os.environ.get(spec.env_name), spec.env_name)
     return values

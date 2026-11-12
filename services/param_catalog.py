@@ -52,6 +52,50 @@ CATEGORIES: tuple[str, ...] = (
     CATEGORY_TEMPORAL,
 )
 
+# ── SELF-DIAG-01 (`SD1-D2-23`): типизированная чувствительность ──────
+# ТЗ §9.1: источник истины о секретных полях — ЭТОТ каталог/secret store с
+# типами и флагом sensitivity (закрытый набор из 4 значений). Для нового
+# параметра/провайдера sensitivity обязательна при регистрации: тихого
+# `secret=False` у нового провайдера быть не может (см. `register_param`).
+SENSITIVITY_SECRET = "SECRET_VALUE"
+SENSITIVITY_PROMPT_CONTENT = "PROMPT_CONTENT"
+SENSITIVITY_CONFIG = "NON_SECRET_CONFIG"
+SENSITIVITY_PUBLIC = "PUBLIC_DIAGNOSTIC"
+
+SENSITIVITY_VALUES: tuple[str, ...] = (
+    SENSITIVITY_SECRET, SENSITIVITY_PROMPT_CONTENT, SENSITIVITY_CONFIG,
+    SENSITIVITY_PUBLIC,
+)
+
+#: Откуда взялся тип у записи: явно объявлен или выведен для легаси-строки.
+SENSITIVITY_SOURCE_DECLARED = "declared"
+SENSITIVITY_SOURCE_DERIVED = "legacy_derivation"
+
+
+class ParamSensitivityError(ValueError):
+    """Противоречивые/недопустимые метаданные sensitivity записи каталога."""
+
+
+class ParamSensitivityRequired(ParamSensitivityError):
+    """Новый параметр/провайдер зарегистрирован без обязательной sensitivity."""
+
+
+def derived_sensitivity(category: str | None, secret: bool) -> str:
+    """Консервативный тип для записи без явного объявления (легаси-правило).
+
+    Совпадает с прежним правилом output projection: `keys.*` целиком
+    считается секретным классом (даже несекретные по смыслу ключи категории
+    остаются защищёнными — сужение было бы послаблением), `prompts.*` —
+    содержимое промптов, остальное — несекретная конфигурация. Легаси-строки
+    получают этот тип С ЯВНОЙ пометкой источника (`legacy_derivation`), а не
+    пустое значение; новые записи обязаны объявить тип сами.
+    """
+    if secret or category == CATEGORY_KEYS:
+        return SENSITIVITY_SECRET
+    if category == CATEGORY_PROMPTS:
+        return SENSITIVITY_PROMPT_CONTENT
+    return SENSITIVITY_CONFIG
+
 # ── RLR-05-ADMIN (REMOVE-LEGACY-REPHRASING v2.0 §4/§6.2, 05.11.2026) ──────
 # Классы миграции параметров снятого rephrasing-пути. Ровно один класс на
 # запись; удаление не делается по совпадению слова `guard` (протокольные
@@ -138,6 +182,55 @@ class ParamSpec:
     # Категория flags исторически per-chat; этот флаг запрещает чатовый
     # override (POST chat-scope → 422), не меняя категорию/группу/вкладку.
     global_only: bool = False
+    # SELF-DIAG-01 (`SD1-D2-23`, ТЗ §9.1): явный тип чувствительности —
+    # одно из SENSITIVITY_VALUES. Пустое значение допустимо только для
+    # легаси-строк: `_build_registry` фиксирует для них выведенный тип и
+    # помечает источник (`sensitivity_source == legacy_derivation`). Новые
+    # параметры/провайдеры регистрируются через `register_param`, который
+    # требует явный тип (иначе `ParamSensitivityRequired`).
+    sensitivity: str = ""
+    sensitivity_source: str = ""
+
+    def __post_init__(self) -> None:
+        declared = str(self.sensitivity or "")
+        if declared and declared not in SENSITIVITY_VALUES:
+            raise ParamSensitivityError(
+                f"unknown sensitivity {declared!r} for {self.pg_key}")
+        expected = derived_sensitivity(self.category, self.secret)
+        if declared and declared != expected:
+            # Противоречивые метаданные — не «одно из двух», а ошибка:
+            # иначе новый провайдер мог бы объявить несекретный тип и тихо
+            # обойти защиту.
+            raise ParamSensitivityError(
+                f"sensitivity {declared!r} contradicts catalog class "
+                f"{expected!r} for {self.pg_key}")
+        if self.sensitivity_source and not declared:
+            raise ParamSensitivityError(
+                f"sensitivity source without sensitivity for {self.pg_key}")
+
+    @property
+    def resolved_sensitivity(self) -> str:
+        """Действующий тип записи (объявленный либо легаси-выведенный)."""
+        return str(self.sensitivity or "") or derived_sensitivity(
+            self.category, self.secret)
+
+    @property
+    def is_secret_value(self) -> bool:
+        """Значение записи — секрет по КАНОНИЧЕСКОМУ типу.
+
+        Единственный предикат для сбора известных runtime-секретов:
+        легаси-флаг `secret` остаётся подсказкой каталога (per-chat/UI), но
+        не решает, надо ли защищать значение. Иначе новый провайдер с
+        `sensitivity=SECRET_VALUE` и `secret=False` не попадал бы в набор
+        известных секретов, и `sanitize` пропускал бы его токен.
+        """
+        return self.resolved_sensitivity == SENSITIVITY_SECRET
+
+    @property
+    def is_protected(self) -> bool:
+        """Значение записи не выдаётся диагностикой (секрет/промпт)."""
+        return self.resolved_sensitivity in (SENSITIVITY_SECRET,
+                                             SENSITIVITY_PROMPT_CONTENT)
 
     @property
     def pg_key(self) -> str:
@@ -3788,6 +3881,13 @@ def _build_registry() -> dict[str, ParamSpec]:
         name = spec.settings_field or spec.env_name or spec.pg_key
         if name in registry:
             raise ValueError(f"duplicate catalog entry: {name}")
+        if not str(spec.sensitivity or ""):
+            # Легаси-строка без явного объявления: тип фиксируется в самой
+            # записи (источник истины — каталог), с пометкой происхождения.
+            spec = dataclasses.replace(
+                spec,
+                sensitivity=derived_sensitivity(spec.category, spec.secret),
+                sensitivity_source=SENSITIVITY_SOURCE_DERIVED)
         registry[name] = spec
 
     for row in _INFRA:
@@ -4197,6 +4297,98 @@ def get(settings_field: str) -> ParamSpec | None:
 def get_by_pg_key(pg_key: str) -> ParamSpec | None:
     """Запись по ключу bot_settings (dotted {category}.{snake})."""
     return _BY_PG_KEY.get(pg_key)
+
+
+# ── SELF-DIAG-01 (`SD1-D2-23`): регистрация и аудит sensitivity ──────
+
+def register_param(spec: ParamSpec,
+                   *, registry: dict[str, ParamSpec] | None = None,
+                   replace: bool = False) -> ParamSpec:
+    """Регистрация НОВОГО параметра/провайдера в каталоге.
+
+    ТЗ §9.1: для нового провайдера метаданные sensitivity обязательны при
+    регистрации. Поэтому:
+      * без явного `sensitivity` запись не регистрируется —
+        `ParamSensitivityRequired`;
+      * объявленный тип обязан совпадать с классом записи (ключи/промпты не
+        могут быть объявлены несекретными) — иначе `ParamSensitivityError`;
+      * тихого `secret=False` у нового провайдера не существует: не указал
+        тип — ошибка, а не «по умолчанию несекретно».
+
+    Существующие записи каталога строятся легаси-путём `_build_registry`
+    (тип выводится и фиксируется в самой записи с пометкой источника),
+    значения сохранённых настроек не затрагиваются.
+
+    Регистрация в живой `REGISTRY` обновляет и индекс `get_by_pg_key`; правила
+    вкладок/групп (`GROUPS`, `TAB_RULES`) для новой записи не выводятся —
+    это отдельная работа UI-волны, а не часть контракта чувствительности.
+    """
+    if not isinstance(spec, ParamSpec):
+        raise TypeError("spec must be ParamSpec")
+    declared = str(spec.sensitivity or "").strip()
+    if not declared:
+        raise ParamSensitivityRequired(
+            "sensitivity is required at registration: "
+            f"{spec.pg_key} (ожидается одно из {SENSITIVITY_VALUES})")
+    if declared not in SENSITIVITY_VALUES:
+        raise ParamSensitivityError(
+            f"unknown sensitivity {declared!r} for {spec.pg_key}")
+    expected = derived_sensitivity(spec.category, spec.secret)
+    if declared != expected:
+        raise ParamSensitivityError(
+            f"sensitivity {declared!r} contradicts catalog class "
+            f"{expected!r} for {spec.pg_key}")
+    if not spec.sensitivity_source:
+        spec = dataclasses.replace(
+            spec, sensitivity_source=SENSITIVITY_SOURCE_DECLARED)
+    target = REGISTRY if registry is None else registry
+    name = spec.settings_field or spec.env_name or spec.pg_key
+    if name in target and not replace:
+        raise ValueError(f"duplicate catalog entry: {name}")
+    target[name] = spec
+    if target is REGISTRY:
+        _BY_PG_KEY[spec.pg_key] = spec
+    return spec
+
+
+def audit_sensitivity(registry: dict[str, ParamSpec] | None = None) -> list[str]:
+    """Проблемы метаданных sensitivity; пустой список — каталог согласован."""
+    problems: list[str] = []
+    for name, spec in (registry if registry is not None else REGISTRY).items():
+        resolved = spec.resolved_sensitivity
+        if resolved not in SENSITIVITY_VALUES:
+            problems.append(f"{name}: unknown sensitivity {resolved!r}")
+        expected = derived_sensitivity(spec.category, spec.secret)
+        if resolved != expected:
+            problems.append(
+                f"{name}: {resolved!r} contradicts catalog class {expected!r}")
+        if spec.secret and resolved != SENSITIVITY_SECRET:
+            problems.append(f"{name}: secret flag without SECRET_VALUE")
+        if not str(spec.sensitivity or ""):
+            problems.append(f"{name}: sensitivity not recorded")
+    return problems
+
+
+def secret_setting_specs() -> tuple[ParamSpec, ...]:
+    """Записи, чьи значения защищены как секрет (без повторов ключей)."""
+    seen: set[str] = set()
+    specs: list[ParamSpec] = []
+    for spec in REGISTRY.values():
+        if spec.resolved_sensitivity != SENSITIVITY_SECRET:
+            continue
+        if spec.pg_key in seen:
+            continue
+        seen.add(spec.pg_key)
+        specs.append(spec)
+    return tuple(sorted(specs, key=lambda item: item.pg_key))
+
+
+_SENSITIVITY_PROBLEMS: list[str] = audit_sensitivity()
+if _SENSITIVITY_PROBLEMS:
+    # Fail-fast: противоречивые метаданные каталога — ошибка сборки, а не
+    # «надеемся, что новый провайдер случайно не окажется несекретным».
+    raise ParamSensitivityError(
+        "catalog sensitivity audit failed: " + "; ".join(_SENSITIVITY_PROBLEMS))
 
 
 _GROUPS_BY_ID: dict[str, GroupSpec] = {g.id: g for g in GROUPS}
