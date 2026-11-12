@@ -197,3 +197,62 @@ durable (historical/evicted rows are honestly not_recorded); the closure-train U
 rows are covered by API/view-model/template evidence plus the Playwright e2e, not by a
 browser render with these fixtures; live rows OV-SAMPLE, PB-FILTERS, AC-SETTINGS and
 AC-DONE remain for DevOps on the deployed artifact.
+
+---
+
+# Focused re-review: live OV-LIST defect fix (UI only). Verdict: Approved (unchanged).
+
+Tip: code 895764e27f6597421ac4f496853474392c95b48a, docs b5841bac8abfc98eb3c71acd44e60e9eb422c7b0;
+previously approved code 21a3aef7 / docs 12974a26.
+
+Scope proof: git diff 12974a26..895764e2 touches only web/app.js (+18/-4 in this change),
+tests/js/initiative_ui_rework_test.js (+23/-3) and the evidence binding. Backend is
+byte-identical to the approved candidate: git diff 21a3aef7..895764e2 -- services
+handlers web/api is empty (0 lines); the only changed web file is web/app.js.
+
+Defect confirmed in code: the pipeline writes attempt_mode "automatic"
+(services/meme_initiative.py MODE_AUTOMATIC, terminal detail line 2055-2057) and the
+server read-model normalises it (attempt_mode_of -> "auto"), but the overview reads
+the RAW row detail, so comparing it only with "auto"/"manual" left both chats with
+"способ не записан".
+
+Fix read: iniNormalizeAttemptMode(raw) = String(raw || '').trim().toLowerCase();
+manual -> manual; auto|automatic -> auto; anything else -> ''. Null/undefined/number/
+object collapse to '' and never throw. Call sites: initiativeRecentEvents (reads ONLY
+facts.attempt_mode of the row, never the joke-stage "mode" length budget; empty result
+keeps "способ не записан", nothing is inferred) and iniAttemptAxis (uses the raw value
+only for the honest fallback label "код: <raw>" when the value is unknown). No change
+to the pipeline or API normalisation.
+
+Test read and independent mutation: the fixture now uses the live shape
+{"attempt_mode":"automatic"} plus AUTOMATIC, manual, weird, absent and a joke-stage
+{"mode":"fixed"} row. Reverting only the two normalisation lines to the old raw
+comparison turned the suite red with exactly
+AssertionError: живое значение "automatic" не нормализовано в auto ('' !== 'auto');
+bytes restored (web/app.js SHA256 29817D9B927CB510F9896F4EA61D4A698F3CDE18BA6CC9655608FE5251D759D8)
+and the same suite went green. The "способ не записан" branch is not a tautology: the
+unknown and absent fixtures assert an empty mode plus that exact label, and the manual
+fixture asserts "вручную (/meme)".
+
+Checks on 895764e2:
+- node tests/js/initiative_ui_rework_test.js: INITIATIVE-UI-OK; p0im_ov_honesty_test.js: P0IM-OV-HONESTY-OK.
+- pytest tests/test_webapp_js_unit.py: 45 passed.
+- 7-file closure set: 204 passed.
+- 22-file meme/initiative/publication/diagnostic series: 519 passed / 4 failed - the same
+  four pre-existing coordination failures reproduced on base c134f93d (510/4), no new failure.
+- e2e: ui_initiative_rework_e2e the same two pre-existing failures (1536/390 export source);
+  ui_meme_ui_fields_e2e failures=0.
+- Repo version still 2.58.195 (config/settings.py); the release bump is DevOps work.
+
+Release: proceed as 2.58.197 from code 895764e2 / docs b5841bac. Version 2.58.196 was
+rolled back and must not be reused. Approved rows stand unchanged: P0IM-PB-ACCESS,
+P0IM-PB-LLM, P0IM-PB-MANUAL, P0IM-OV-LIST (now with the live "automatic" value),
+P0IM-S6-EFFECTIVE, P0IM-AC-MATRIX-FAIL, P0IM-AC-NODUP, P0IM-AC-MATRIX-CONFIG,
+P0IM-AC-MATRIX-RBAC; rows ID-FINISH, ID-CONC, PB-VOCAB, PB-COUNT, PB-STEP,
+BAN-CONFLATE continue to apply.
+
+Residual limitations unchanged, plus one for this fix: if the terminal row of an attempt
+leaves the 20-row analytics window the label stays honestly "способ не записан"; the row
+label was verified through the real app.js view-model and the e2e page, not through a
+browser render fed with live-shaped attempt data. Live rows OV-SAMPLE, PB-FILTERS,
+AC-SETTINGS and AC-DONE remain for DevOps on the deployed artifact.
