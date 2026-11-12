@@ -57,7 +57,204 @@
    "py -u fixture_c2.py      # insert 1 synthetic 2023 fact into a copy",
    "py -u scan_17.py         # FTS top-64 old-candidate scan, 17 questions",
    "py -u pool_probe.py      # real _rag_unified_rows, per-question pool"
-  ]
+  ],
+  "entrypoint": {
+   "script": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/positive_probe.py",
+   "query_file": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/positive_probe-queries.json",
+   "run_output": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/positive_probe-run-23477658.json",
+   "command_template": "py -u positive_probe.py --code-root <candidate-worktree> --db <prod-copy> --env-file <project>/.env --work-dir <run-dir> --out <run-dir>/out.json",
+   "command_used": "py -u positive_probe.py --code-root C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\self-diag-01-0ccfa8fbf52b-3a18d4fe --db C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-d86a98460c\\prod-copy.db --env-file C:\\Code\\Python\\adminbot\\.env --work-dir C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d\\probe-27cd27c05b --out <run-dir>\\positive_probe-out2.json",
+   "mode": "empty",
+   "seam": "llm",
+   "candidate_head": "234776589c934024ed0e8dceba189fb9d70d3215",
+   "source_db_sha256": "5310e91e282813f6342c950eb3ee182dc93e9ad6fdf54fdd91d3287e394082b2",
+   "derivative_removed": true,
+   "fresh_derivative": "sqlite3.backup of the read-only source copy",
+   "expect_pass": 2,
+   "expect_fail": 0,
+   "exit_code": 0,
+   "observed": [
+    {
+     "item_key": "NEXT03-POSITIVE",
+     "policy": "historical",
+     "block_empty": false,
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "block_ids": [
+      "2242"
+     ],
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "protected": true
+      }
+     ],
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "typed_empty_log": [
+      "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 8 facts -> 0 (не все кандидаты) | mode=json"
+     ],
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "period_fill": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "period_fill": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       }
+      }
+     ],
+     "expect": {
+      "pass": true,
+      "reasons": []
+     },
+     "error": null
+    },
+    {
+     "item_key": "NEXT03-POSITIVE",
+     "policy": "auto",
+     "block_empty": false,
+     "block_rows": 1,
+     "block_years": {
+      "2023": 1
+     },
+     "block_ids": [
+      "2242"
+     ],
+     "block": "<RAG_Memory>\n[история] [03.2023 | fact:2242]: (не подтверждено) S∆VΣL¥ выражает желание переехать в Японию с женой-японкой и работать там, если бы не провалил жизнь сейчас жизнь/работа в Японии (Внимание: возможно устарело)\n</RAG_Memory>",
+     "period_rows": [
+      {
+       "id": 2242,
+       "year": 2023,
+       "proxy": "stems",
+       "stems_shared": 2,
+       "stems_shared_reason": "lexical_threshold_applied",
+       "protected": true
+      }
+     ],
+     "period_protected_in_block": [
+      "2242"
+     ],
+     "rag_counts": {
+      "facts": "1",
+      "period_kept": "1",
+      "period_rejected_subject": "15",
+      "period_kept_despite_empty": "1",
+      "vector_pool_miss": "1",
+      "period_vector_knn": "0",
+      "period_vector_leg": "ok",
+      "subject_proxy": "stems=1",
+      "chat": "-1002661910336"
+     },
+     "rag_log": "services.direct_chat_service::direct: rag block | facts=1 | period_kept=1 | period_rejected_subject=15 | period_kept_despite_empty=1 | vector_pool_miss=1 | period_vector_knn=0 | period_vector_leg=ok | subject_proxy=stems=1 | chat=-1002661910336",
+     "typed_empty_log": [
+      "services.summary_memory::graphrag RAG: chat rerank(typed) valid EMPTY | 8 facts -> 0 (не все кандидаты) | mode=json"
+     ],
+     "retrieval_calls": [
+      {
+       "channels": [
+        "vector"
+       ],
+       "period_fill": false,
+       "exclude_years": [],
+       "pool_rows": 10,
+       "pool_years": {
+        "2026": 5,
+        "2025": 3,
+        "2024": 2
+       },
+       "period_meta": null
+      },
+      {
+       "channels": [
+        "lexical",
+        "vector"
+       ],
+       "period_fill": true,
+       "exclude_years": [
+        2024,
+        2025,
+        2026
+       ],
+       "pool_rows": 16,
+       "pool_years": {
+        "2023": 15,
+        "2022": 1
+       },
+       "period_meta": {
+        "vector_leg": "ok",
+        "vector_rows": 0,
+        "vector_pool_miss": 1,
+        "subject_proxy": {
+         "lexical": 16
+        }
+       }
+      }
+     ],
+     "expect": {
+      "pass": true,
+      "reasons": []
+     },
+     "error": null
+    }
+   ],
+   "hashes": {
+    "positive_probe.py": "f2c9d72dc957527a1400c9d4690f3bf364fbc6b22accbb3ad3f9a04643a9e62c",
+    "positive_probe-queries.json": "a975fec2d18ad7ff0c8881b98f9348243759e58c73d6bc357ba638ee6c93e3af",
+    "positive_probe-run-23477658.json": "9e5d221dce74ce43671a4d4748a31e107787bb64867c2c86cfc07d65f7016e87"
+   }
+  }
  },
  "next_03": {
   "archive_17_questions": {

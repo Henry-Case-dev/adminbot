@@ -196,29 +196,66 @@ knn 4000/4864 (2024) проходят с `stems_shared=2`, реальный ре
 | `next-a-positive-23477658-harness.py` | harness (спаи вызывают оригиналы; `MODE=empty`; `RERANK_SEAM=llm|method`) |
 | `next-a-positive-23477658-scan17.py` | скан FTS top-64 по 17 вопросам |
 | `next-a-positive-23477658-fixture.py` | вставка синтетического факта 22487 в производную копию |
+| `positive_probe.py` | **готовый entrypoint** для независимого перезапуска положительного случая (bounded CLI, свежая производная копия, без инъекций в `_rag_unified_rows`) |
+| `positive_probe-queries.json` | запрос положительного случая («Что сейчас с работой?») и ожидания (id 2242 / 2023 / `stems_shared=2` / одна строка блока) |
+| `positive_probe-run-23477658.json` | вывод entrypoint-прогона 13.11.2026: обе политики, блок из одной строки `[03.2023 | fact:2242]` |
 
 sha256 (размеры):
 
 ```
-next-a-positive-23477658.json        156001  19f936eff0bf8dc7d3f8e0a4aef2282fbc4d51213fcb30a816b20f0e67328132
+next-a-positive-23477658.json        162895  4ca49b5b20062d6c01a75cbd411dfc261e7a259c385608290de81c9ed4c6a73a
 next-a-positive-23477658-raw.txt      17238  9d0898023465562a4bddbb33fc68a516b6ca95707b10d16098ce05bcbb529052
 next-a-positive-23477658-harness.py   15108  aa33870a9373be3a1ba3ce27a82afa2f52946562f620a9ba490539ccc5906195
 next-a-positive-23477658-scan17.py     2804  5b22db28f5e7feb7377b3484ed3b3686658e6ca390800c8ae9a6f40a4d130df3
 next-a-positive-23477658-fixture.py    1833  94487318030b10a68432dc5ec7f8cdf6dd45f24ce1cc7d49cf84a97ca58c56c0
+positive_probe.py                     24257  f2c9d72dc957527a1400c9d4690f3bf364fbc6b22accbb3ad3f9a04643a9e62c
+positive_probe-queries.json             829  a975fec2d18ad7ff0c8881b98f9348243759e58c73d6bc357ba638ee6c93e3af
+positive_probe-run-23477658.json      23014  9e5d221dce74ce43671a4d4748a31e107787bb64867c2c86cfc07d65f7016e87
 ```
 
-Команды (окружение — `CODE_ROOT`=worktree `23477658`, `SRC_DB`=копия
-`5310e91e…`, `ENV_FILE`=`.env` проекта, `OUT`/`DERIV` — каталог прогона):
+### 6.1. Готовый entrypoint (независимый перезапуск)
+
+`positive_probe.py` — bounded CLI поверх того же реального пути;
+`_rag_unified_rows` не подменяется, строки не инъектируются. Источник
+открывается только `mode=ro`, из него делается свежая производная
+(`sqlite3.backup`), она удаляется на выходе; `--block-timeout` /
+`--batch-timeout` ограничивают прогон; `--expect-sha` сверяет копию БД.
+Результат — JSON с id/годом/`stems_shared`/`period_kept`/
+`period_kept_despite_empty` и строками блока; блок `expect` печатает PASS/FAIL
+(код выхода 2 при несоответствии). Запросы — `positive_probe-queries.json`
+(«Что сейчас с работой?», ожидание: id 2242 / 2023 / `stems_shared=2` / одна
+строка блока).
 
 ```
-py -u positive_probe.py            # MODE=real|empty, RERANK_SEAM=llm|method
-py -u fixture_c2.py                # синтетический факт 22487 в копию
-py -u scan_17.py                   # FTS top-64, 17 вопросов
+py -u positive_probe.py \
+  --code-root <worktree 23477658> \
+  --db <prod-copy 5310e91e…> \
+  --env-file <project>/.env \
+  --work-dir <run-dir> --out <run-dir>/out.json
+# defaults: --mode empty --seam llm, запросы из positive_probe-queries.json
 ```
+
+Прогон 13.11.2026 на свежей производной (обе политики): `block_rows=1`,
+`block_years={'2023':1}`, `period_kept=1`, `period_kept_despite_empty=1`,
+`expect=true` в обеих, `EXPECT pass=2 fail=0`, код выхода 0. Блок —
+`[история] [03.2023 | fact:2242]: ...`; пул 16 лексических строк
+(`stems_shared`: 0×3, 1×12, 2×1), `exclude_years=[2024,2025,2026]`,
+`vector_rows=0`/`vector_pool_miss=1`; строка 2242 — единственная принятая.
+Вывод сохранён как `positive_probe-run-23477658.json`; производная удалена.
+
+Значения лимитов и флагов закреплены harness'ом (`dcs.hot`: `graph_rag` on,
+`rerank` on, limit 10, cap 2000), потому что в SQLite-копии нет
+`bot_settings`/`chat_profiles`; фактический набор печатается в
+`meta.harness_hot`. Резолвер `_cp_g` записан и вернул `True`/2000.
+
+Вспомогательные скрипты прежних прогонов (для истории): `fixture_c2.py`,
+`scan_17.py`, `pool_probe.py`; окружение — `CODE_ROOT`=worktree `23477658`,
+`SRC_DB`=копия `5310e91e…`, `ENV_FILE`=`.env` проекта.
 
 ## 7. Уборка
 
-Производные копии БД (7 × 1,59 ГБ) удалены сразу после снятия чисел; каталог
-прогона закрыт `run-close` после промоушена файлов выше. Исходная копия
+Производные копии БД (7 в первом замере + 1 в прогоне entrypoint, по 1,59 ГБ)
+удалены сразу после снятия чисел/вывода; каталоги прогонов закрыты `run-close`
+после промоушена файлов выше. Исходная копия
 `probe-d86a98460c/prod-copy.db` не изменялась (открывалась только `mode=ro`).
 Фоновых процессов, браузеров и серверов не осталось.
