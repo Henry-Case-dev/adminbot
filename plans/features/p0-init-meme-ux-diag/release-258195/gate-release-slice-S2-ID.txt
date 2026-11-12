@@ -1,0 +1,27 @@
+﻿FAIL: P0IM-A0-CONTRACT: required dependency A0-ARCH is not evidenced VERIFIED
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: P0IM-ID-FINISH: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-FINISH: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-MODE: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-MODE: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-CHILD: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-CHILD: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-RUN: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-RUN: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-RUN: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-RUN: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-FIELDS: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-FIELDS: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-CHILD: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-CHILD: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-NOTEXT: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-NOTEXT: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-FINISH: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-FINISH: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-HIST: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-HIST: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-CONC: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-CONC: no candidate-bound evidence points to an existing repo artifact
+FAIL: deployed commit missing or differs from reviewed candidate
+FAIL: map deployed_commit does not match actual deployment
+stage=release inventory=42 manual=90 scoped=11 errors=26

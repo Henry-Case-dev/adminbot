@@ -1,0 +1,16 @@
+POSTDEPLOY READ 2.58.195 (single main connection, window 2026-11-12T05:24:29Z .. 05:24:38Z)
+
+server HEAD          c134f93d5c4a68f0ea906498cb9e0b78fc795f1e (release/2.58.195)
+reviewed candidate   4c2d7ef66390c891c2a007c239f6da2bdc4d12c3 (code 2d41f2b3)
+tracked dirty        0   (untracked: .cache/ only)
+APP_VERSION          APP_VERSION = "2.58.195"
+GET /healthz         {"status":"ok","version":"2.58.195"}  (localhost : public)
+systemd              active, NRestarts=0, ActiveEnterTimestamp=Thu 2026-11-12 05:24:31 UTC
+restart              2026-11-12T05:24:29Z, healthz 2.58.195 on attempt 2 (~6 s)
+web/app.js served    200, 2284920 bytes, sha256 f81d1e0763e090ac0460e7bfeecce8ddf0baf6b062b66524ad07b6fdad11cdb0
+web/app.js on disk   sha256 identical (f81d1e07...11cdb0), git blob 33f07dd1, 2284920 bytes
+live DB user_version 47  (no DDL; snapshot also 47)
+journal 10 min       671 lines, TRACEBACK=0, CRITICAL=0, ERROR=0, WARNING=1, "attempt LOST"=0
+predeploy snapshot   /tmp/predeploy-258195.db 2502684672 bytes, uv=47, quick_check=ok, 325 schema objects, 36 s
+predeploy tree        HEAD 6c11fc08 (release/2.58.194), tracked dirty 0, only ?? .cache/
+rollback             git checkout -B release/2.58.194 6c11fc08ddade1edf0c4fb274e7f1bf93f852a26 && systemctl restart admin_bot

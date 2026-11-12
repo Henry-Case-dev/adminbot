@@ -1,0 +1,96 @@
+{
+ "schema_version": 1,
+ "available": true,
+ "notes": [],
+ "attempt": {
+  "attempt_id": "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+  "kind": "meme",
+  "job_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+  "mode": "auto",
+  "incomplete_historical": false,
+  "ts": 1794461058,
+  "stage": "skipped",
+  "outcome": "skipped",
+  "reason_code": "cooldown_active",
+  "reason_label": "пауза между мемами ещё не прошла",
+  "delivered": false,
+  "generated": false,
+  "message_id": null,
+  "chain_len": 2,
+  "stages": [
+   {
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": "",
+    "at": 1794461058
+   },
+   {
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active",
+    "at": 1794461058
+   }
+  ],
+  "reason_codes": [
+   "cooldown_active"
+  ],
+  "events_len": 0,
+  "window_messages": 500,
+  "limit_source": "",
+  "limit_value": null
+ },
+ "chain": [
+  {
+   "stage": "considered",
+   "ts": 1794461058,
+   "outcome": "passed",
+   "reason_code": "",
+   "reason_label": "",
+   "facts": {},
+   "limit_source": "",
+   "limit_value": null,
+   "window_messages": 500,
+   "duration_ms": null,
+   "duration_reason": "step_timing_not_recorded",
+   "request_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+   "request_id_source": "journal_job_id",
+   "llm": {
+    "provider": null,
+    "model": null,
+    "slot": null,
+    "recorded_keys": [],
+    "reason": "not_recorded_in_stage_record"
+   }
+  },
+  {
+   "stage": "skipped",
+   "ts": 1794461058,
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "reason_label": "пауза между мемами ещё не прошла",
+   "facts": {
+    "attempt_mode": "automatic",
+    "mode": "automatic"
+   },
+   "limit_source": "",
+   "limit_value": null,
+   "window_messages": 500,
+   "duration_ms": null,
+   "duration_reason": "step_timing_not_recorded",
+   "request_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+   "request_id_source": "journal_job_id",
+   "llm": {
+    "provider": null,
+    "model": null,
+    "slot": null,
+    "recorded_keys": [],
+    "reason": "not_recorded_in_stage_record"
+   }
+  }
+ ],
+ "events": [],
+ "delivery": {
+  "delivered": false,
+  "message_id": null
+ }
+}

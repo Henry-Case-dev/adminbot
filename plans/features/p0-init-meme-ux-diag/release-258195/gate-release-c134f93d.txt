@@ -1,0 +1,52 @@
+﻿FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: P0IM-AC-NODUP: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0IM-OV-CARDS: no evidence bound to reviewed candidate
+FAIL: P0IM-OV-CARDS: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-OV-CARDS: live requirement lacks evidence for stage release
+FAIL: P0IM-BAN-ENABLED: no evidence bound to reviewed candidate
+FAIL: P0IM-BAN-ENABLED: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-BAN-ENABLED: live requirement lacks evidence for stage release
+FAIL: P0IM-AC-SETTINGS: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0IM-R0-PERCHAT: no evidence bound to reviewed candidate
+FAIL: P0IM-R0-PERCHAT: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-R0-PERCHAT: live requirement lacks evidence for stage release
+FAIL: P0IM-AX-CONFIG: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-CONFIG: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-AX-READY: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-READY: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-AX-ATTEMPT: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-ATTEMPT: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-AX-DELIVERY: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-DELIVERY: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-BAN-NOETA: no evidence bound to reviewed candidate
+FAIL: P0IM-BAN-NOETA: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-BAN-NOETA: live requirement lacks evidence for stage release
+FAIL: P0IM-OV-FALSEOFF: no evidence bound to reviewed candidate
+FAIL: P0IM-OV-FALSEOFF: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-OV-FALSEOFF: live requirement lacks evidence for stage release
+FAIL: P0IM-ID-FINISH: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-FINISH: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-MODE: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-MODE: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-ID-CHILD: no evidence bound to reviewed candidate
+FAIL: P0IM-ID-CHILD: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-MM-MARKER: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: P0IM-OV-PERCHAT-CAUSE: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: P0IM-R0-PERCHAT: no evidence bound to reviewed candidate
+FAIL: P0IM-R0-PERCHAT: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-R0-PERCHAT: live requirement lacks evidence for stage release
+FAIL: P0IM-PB-LLM: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0IM-PB-TRACE: no evidence bound to reviewed candidate
+FAIL: P0IM-PB-TRACE: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-PB-TRACE: live requirement lacks evidence for stage release
+FAIL: P0IM-AX-HEALTH: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-HEALTH: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-PB-ROW: no evidence bound to reviewed candidate
+FAIL: P0IM-PB-ROW: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-PB-ROW: live requirement lacks evidence for stage release
+FAIL: P0IM-AX-CONFIG: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-CONFIG: no candidate-bound evidence points to an existing repo artifact
+FAIL: P0IM-AX-HEALTH: no evidence bound to reviewed candidate
+FAIL: P0IM-AX-HEALTH: no candidate-bound evidence points to an existing repo artifact
+... and 167 more
+stage=release inventory=42 manual=90 scoped=114 errors=217

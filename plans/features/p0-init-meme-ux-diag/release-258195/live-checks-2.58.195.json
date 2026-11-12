@@ -1,0 +1,785 @@
+{
+ "checked_at_utc": "2026-11-12T05:27:19Z",
+ "version_expected": "2.58.195",
+ "overview": {
+  "chatA": {
+   "http": 200,
+   "schema_version": 1,
+   "generated_at": 1794461257,
+   "time": {
+    "basis": "server_snapshot",
+    "timezone": {
+     "name": "UTC",
+     "source": "utc_fallback",
+     "offset_seconds": 0,
+     "default_name": "UTC",
+     "reason": ""
+    }
+   },
+   "degraded": [],
+   "meme": {
+    "available": true,
+    "data_state": "ok",
+    "no_data_reasons": [],
+    "stale": false,
+    "stale_reason": "window_not_recorded",
+    "stale_age_seconds": 199,
+    "stale_window_seconds": null,
+    "stale_window_basis": "",
+    "ready": false,
+    "ready_reason": "cooldown_active",
+    "conditions": {
+     "initiative_enabled": true,
+     "meme_enabled": true,
+     "image_ready": true,
+     "schema_present": true,
+     "cooldown_ready": false
+    },
+    "stages": {
+     "considered": 1,
+     "eligible": 0,
+     "summary": 0,
+     "joke": 0,
+     "image": 0,
+     "publish": 0
+    },
+    "skip": {
+     "code": "cooldown_active",
+     "label": "пауза между мемами ещё не прошла",
+     "origin": "cooldown"
+    },
+    "cooldown": {
+     "scope": "mechanism_own",
+     "own_seconds": 21600,
+     "remaining_seconds": 4002,
+     "basis": "last_provider_call",
+     "basis_ts": 1794443659
+    },
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 3,
+     "used": 1,
+     "remaining": 2,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": true,
+     "next_reset": "2026-11-13T00:00:00+00:00",
+     "delivered": 1,
+     "not_delivered": 0,
+     "not_delivered_reasons": {}
+    },
+    "last_attempt": {
+     "at": 1794461058,
+     "mode": "auto",
+     "run_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+     "outcome": "skipped",
+     "stop_stage": "skipped",
+     "incomplete_historical": false
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794443659,
+     "destination": -1004482340693,
+     "message_id": 11107,
+     "run_id": "meme:-1004482340693:2026-11-12:5dbad95f9091",
+     "reason_code": ""
+    }
+   },
+   "text": {
+    "available": true,
+    "data_state": "ok",
+    "no_data_reasons": [],
+    "stale": false,
+    "stale_reason": "",
+    "ready": false,
+    "ready_reason": "not_enough_messages",
+    "last_attempt": {
+     "at": 1794461058,
+     "mode": "auto",
+     "run_id": "init:-1004482340693:20261112:667f1d1b31",
+     "outcome": "skipped",
+     "stop_stage": "eval_not_due",
+     "incomplete_historical": false
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794395417,
+     "destination": -1004482340693,
+     "message_id": 10435,
+     "run_id": "",
+     "reason_code": ""
+    },
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 6,
+     "used": 0,
+     "remaining": 6,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": null,
+     "next_reset": null,
+     "delivered": null,
+     "not_delivered": null,
+     "not_delivered_reasons": {}
+    }
+   },
+   "ov_sample": {
+    "enabled_flag_present": true,
+    "pause_state": {
+     "ready": false,
+     "reason": "cooldown_active",
+     "cooldown_remaining_seconds": 4002
+    },
+    "last_run": {
+     "at": 1794461058,
+     "mode": "auto",
+     "run_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+     "outcome": "skipped",
+     "stop_stage": "skipped",
+     "incomplete_historical": false
+    },
+    "last_confirmed_delivery": {
+     "status": "confirmed",
+     "at": 1794443659,
+     "destination": -1004482340693,
+     "message_id": 11107,
+     "run_id": "meme:-1004482340693:2026-11-12:5dbad95f9091",
+     "reason_code": ""
+    },
+    "attempt_detail_available": true
+   }
+  },
+  "chatB": {
+   "http": 200,
+   "schema_version": 1,
+   "generated_at": 1794461257,
+   "time": {
+    "basis": "server_snapshot",
+    "timezone": {
+     "name": "UTC",
+     "source": "utc_fallback",
+     "offset_seconds": 0,
+     "default_name": "UTC",
+     "reason": ""
+    }
+   },
+   "degraded": [],
+   "meme": {
+    "available": true,
+    "data_state": "ok",
+    "no_data_reasons": [],
+    "stale": false,
+    "stale_reason": "window_not_recorded",
+    "stale_age_seconds": 199,
+    "stale_window_seconds": null,
+    "stale_window_basis": "",
+    "ready": false,
+    "ready_reason": "cooldown_active",
+    "conditions": {
+     "initiative_enabled": true,
+     "meme_enabled": true,
+     "image_ready": true,
+     "schema_present": true,
+     "cooldown_ready": false
+    },
+    "stages": {
+     "considered": 1,
+     "eligible": 0,
+     "summary": 0,
+     "joke": 0,
+     "image": 0,
+     "publish": 0
+    },
+    "skip": {
+     "code": "cooldown_active",
+     "label": "пауза между мемами ещё не прошла",
+     "origin": "cooldown"
+    },
+    "cooldown": {
+     "scope": "mechanism_own",
+     "own_seconds": 21600,
+     "remaining_seconds": 10001,
+     "basis": "last_provider_call",
+     "basis_ts": 1794449658
+    },
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 3,
+     "used": 1,
+     "remaining": 2,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": true,
+     "next_reset": "2026-11-13T00:00:00+00:00",
+     "delivered": 1,
+     "not_delivered": 0,
+     "not_delivered_reasons": {}
+    },
+    "last_attempt": {
+     "at": 1794461058,
+     "mode": "auto",
+     "run_id": "meme:-1002661910336:2026-11-12:5d1f83ba5343",
+     "outcome": "skipped",
+     "stop_stage": "skipped",
+     "incomplete_historical": false
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794449658,
+     "destination": -1002661910336,
+     "message_id": 1210875,
+     "run_id": "meme:-1002661910336:2026-11-12:87ec980ca917",
+     "reason_code": ""
+    }
+   },
+   "text": {
+    "available": true,
+    "data_state": "ok",
+    "no_data_reasons": [],
+    "stale": false,
+    "stale_reason": "",
+    "ready": false,
+    "ready_reason": "not_enough_messages",
+    "last_attempt": {
+     "at": 1794461058,
+     "mode": "auto",
+     "run_id": "init:-1002661910336:20261112:044f791419",
+     "outcome": "skipped",
+     "stop_stage": "not_enough_messages",
+     "incomplete_historical": false
+    },
+    "last_delivery": {
+     "status": "confirmed",
+     "at": 1794408591,
+     "destination": -1002661910336,
+     "message_id": 1210123,
+     "run_id": "",
+     "reason_code": ""
+    },
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 6,
+     "used": 0,
+     "remaining": 6,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": null,
+     "next_reset": null,
+     "delivered": null,
+     "not_delivered": null,
+     "not_delivered_reasons": {}
+    }
+   },
+   "ov_sample": {
+    "enabled_flag_present": true,
+    "pause_state": {
+     "ready": false,
+     "reason": "cooldown_active",
+     "cooldown_remaining_seconds": 10001
+    },
+    "last_run": {
+     "at": 1794461058,
+     "mode": "auto",
+     "run_id": "meme:-1002661910336:2026-11-12:5d1f83ba5343",
+     "outcome": "skipped",
+     "stop_stage": "skipped",
+     "incomplete_historical": false
+    },
+    "last_confirmed_delivery": {
+     "status": "confirmed",
+     "at": 1794449658,
+     "destination": -1002661910336,
+     "message_id": 1210875,
+     "run_id": "meme:-1002661910336:2026-11-12:87ec980ca917",
+     "reason_code": ""
+    },
+    "attempt_detail_available": true
+   }
+  }
+ },
+ "filters": {
+  "kind_meme": {
+   "params": {
+    "kind": "meme"
+   },
+   "http": 200,
+   "counts": {
+    "total": 298,
+    "checked": 298,
+    "decided": 298,
+    "generated": 1,
+    "text": 0,
+    "meme": 298,
+    "published": 1,
+    "delivered": 1,
+    "pending": 0,
+    "delivery_unknown": 0,
+    "not_delivered": 297,
+    "deferred": 0,
+    "unknown": 0,
+    "llm_calls": 2,
+    "images": 1
+   },
+   "rows": 40,
+   "total": 298,
+   "all_match": true,
+   "violations": []
+  },
+  "kind_text": {
+   "params": {
+    "kind": "text"
+   },
+   "http": 200,
+   "counts": {
+    "total": 0,
+    "checked": 0,
+    "decided": 0,
+    "generated": 0,
+    "text": 0,
+    "meme": 0,
+    "published": 0,
+    "delivered": 0,
+    "pending": 0,
+    "delivery_unknown": 0,
+    "not_delivered": 0,
+    "deferred": 0,
+    "unknown": 0,
+    "llm_calls": 0,
+    "images": 0
+   },
+   "rows": 0,
+   "total": 0,
+   "all_match": null,
+   "note": "unknown token: server does not validate enum values, returns empty set (UI sends text_initiative, app.js:4924)"
+  },
+  "mode_manual": {
+   "params": {
+    "mode": "manual"
+   },
+   "http": 200,
+   "counts": {
+    "total": 0,
+    "checked": 0,
+    "decided": 0,
+    "generated": 0,
+    "text": 0,
+    "meme": 0,
+    "published": 0,
+    "delivered": 0,
+    "pending": 0,
+    "delivery_unknown": 0,
+    "not_delivered": 0,
+    "deferred": 0,
+    "unknown": 0,
+    "llm_calls": 0,
+    "images": 0
+   },
+   "rows": 0,
+   "total": 0,
+   "all_match": null
+  },
+  "mode_auto": {
+   "params": {
+    "mode": "auto"
+   },
+   "http": 200,
+   "counts": {
+    "total": 324,
+    "checked": 324,
+    "decided": 324,
+    "generated": 1,
+    "text": 26,
+    "meme": 298,
+    "published": 13,
+    "delivered": 13,
+    "pending": 5,
+    "delivery_unknown": 0,
+    "not_delivered": 306,
+    "deferred": 5,
+    "unknown": 0,
+    "llm_calls": 2,
+    "images": 1
+   },
+   "rows": 40,
+   "total": 324,
+   "all_match": true,
+   "violations": []
+  },
+  "outcome_failed": {
+   "params": {
+    "outcome": "failed"
+   },
+   "http": 200,
+   "counts": {
+    "total": 0,
+    "checked": 0,
+    "decided": 0,
+    "generated": 0,
+    "text": 0,
+    "meme": 0,
+    "published": 0,
+    "delivered": 0,
+    "pending": 0,
+    "delivery_unknown": 0,
+    "not_delivered": 0,
+    "deferred": 0,
+    "unknown": 0,
+    "llm_calls": 0,
+    "images": 0
+   },
+   "rows": 0,
+   "total": 0,
+   "all_match": null
+  },
+  "outcome_published": {
+   "params": {
+    "outcome": "published"
+   },
+   "http": 200,
+   "counts": {
+    "total": 13,
+    "checked": 13,
+    "decided": 13,
+    "generated": 1,
+    "text": 12,
+    "meme": 1,
+    "published": 13,
+    "delivered": 13,
+    "pending": 0,
+    "delivery_unknown": 0,
+    "not_delivered": 0,
+    "deferred": 0,
+    "unknown": 0,
+    "llm_calls": 2,
+    "images": 1
+   },
+   "rows": 13,
+   "total": 13,
+   "all_match": true,
+   "violations": []
+  },
+  "outcome_deferred": {
+   "params": {
+    "outcome": "deferred"
+   },
+   "http": 200,
+   "counts": {
+    "total": 5,
+    "checked": 5,
+    "decided": 5,
+    "generated": 0,
+    "text": 5,
+    "meme": 0,
+    "published": 0,
+    "delivered": 0,
+    "pending": 5,
+    "delivery_unknown": 0,
+    "not_delivered": 0,
+    "deferred": 5,
+    "unknown": 0,
+    "llm_calls": 0,
+    "images": 0
+   },
+   "rows": 5,
+   "total": 5,
+   "all_match": true,
+   "violations": []
+  },
+  "reason_cooldown": {
+   "params": {
+    "reason": "cooldown_active"
+   },
+   "http": 200,
+   "counts": {
+    "total": 92,
+    "checked": 92,
+    "decided": 92,
+    "generated": 0,
+    "text": 0,
+    "meme": 92,
+    "published": 0,
+    "delivered": 0,
+    "pending": 0,
+    "delivery_unknown": 0,
+    "not_delivered": 92,
+    "deferred": 0,
+    "unknown": 0,
+    "llm_calls": 0,
+    "images": 0
+   },
+   "rows": 40,
+   "total": 92,
+   "all_match": true,
+   "violations": []
+  },
+  "days7": {
+   "params": {
+    "days": 7
+   },
+   "http": 200,
+   "counts": {
+    "total": 324,
+    "checked": 324,
+    "decided": 324,
+    "generated": 1,
+    "text": 26,
+    "meme": 298,
+    "published": 13,
+    "delivered": 13,
+    "pending": 5,
+    "delivery_unknown": 0,
+    "not_delivered": 306,
+    "deferred": 5,
+    "unknown": 0,
+    "llm_calls": 2,
+    "images": 1
+   },
+   "rows": 40,
+   "total": 324,
+   "all_match": null
+  },
+  "days0": {
+   "params": {
+    "days": 0
+   },
+   "http": 200,
+   "counts": {
+    "total": 440,
+    "checked": 440,
+    "decided": 440,
+    "generated": 1,
+    "text": 142,
+    "meme": 298,
+    "published": 91,
+    "delivered": 91,
+    "pending": 5,
+    "delivery_unknown": 0,
+    "not_delivered": 344,
+    "deferred": 5,
+    "unknown": 0,
+    "llm_calls": 2,
+    "images": 1
+   },
+   "rows": 40,
+   "total": 440,
+   "all_match": null
+  },
+  "days90": {
+   "params": {
+    "days": 90
+   },
+   "http": 200,
+   "counts": {
+    "total": 440,
+    "checked": 440,
+    "decided": 440,
+    "generated": 1,
+    "text": 142,
+    "meme": 298,
+    "published": 91,
+    "delivered": 91,
+    "pending": 5,
+    "delivery_unknown": 0,
+    "not_delivered": 344,
+    "deferred": 5,
+    "unknown": 0,
+    "llm_calls": 2,
+    "images": 1
+   },
+   "rows": 40,
+   "total": 440,
+   "all_match": null
+  },
+  "kind_text_initiative": {
+   "params": {
+    "kind": "text_initiative"
+   },
+   "http": 200,
+   "counts": {
+    "total": 26,
+    "checked": 26,
+    "decided": 26,
+    "generated": 0,
+    "text": 26,
+    "meme": 0,
+    "published": 12,
+    "delivered": 12,
+    "pending": 5,
+    "delivery_unknown": 0,
+    "not_delivered": 9,
+    "deferred": 5,
+    "unknown": 0,
+    "llm_calls": 0,
+    "images": 0
+   },
+   "rows": 26,
+   "total": 26,
+   "all_match": true,
+   "violations": []
+  }
+ },
+ "paging": {
+  "http": [
+   200,
+   200,
+   200
+  ],
+  "offset0": {
+   "id": "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+   "next": 1
+  },
+  "offset1": {
+   "id": "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+   "next": 2
+  },
+  "offset5": {
+   "id": "meme:meme:-1004482340693:2026-11-12:f1965fc83c5d",
+   "next": 6
+  },
+  "distinct_ids": true,
+  "next_offset_advances": true,
+  "total_stable": true
+ },
+ "retention": {
+  "days90_total": 440,
+  "http": [
+   200,
+   200
+  ],
+  "oldest": {
+   "offset": 439,
+   "ts": 1792338312,
+   "attempt_id": "text:e0272dbdfb854cb4",
+   "age_days": 24.57
+  },
+  "within_90d": true
+ },
+ "detail": {
+  "http": 200,
+  "attempt_id": "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+  "available": true,
+  "chain_len": 2,
+  "fields_present": {
+   "duration_ms_or_reason": true,
+   "request_id_present_key": true,
+   "llm_block_present": true
+  },
+  "zero_duration_fabrication": [],
+  "steps": [
+   {
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": "",
+    "duration_ms": null,
+    "duration_reason": "step_timing_not_recorded",
+    "request_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "request_id_source": "journal_job_id",
+    "llm": {
+     "provider": null,
+     "model": null,
+     "slot": null,
+     "recorded_keys": [],
+     "reason": "not_recorded_in_stage_record"
+    }
+   },
+   {
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active",
+    "duration_ms": null,
+    "duration_reason": "step_timing_not_recorded",
+    "request_id": "meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "request_id_source": "journal_job_id",
+    "llm": {
+     "provider": null,
+     "model": null,
+     "slot": null,
+     "recorded_keys": [],
+     "reason": "not_recorded_in_stage_record"
+    }
+   }
+  ],
+  "delivery": {
+   "delivered": false,
+   "message_id": null
+  }
+ },
+ "invalid": {
+  "days91": {
+   "params": {
+    "days": 91
+   },
+   "http": 422,
+   "detail": [
+    {
+     "loc": [
+      "query",
+      "days"
+     ],
+     "msg": "Input should be less than or equal to 90",
+     "type": "less_than_equal"
+    }
+   ]
+  },
+  "limit0": {
+   "params": {
+    "limit": 0
+   },
+   "http": 422,
+   "detail": [
+    {
+     "loc": [
+      "query",
+      "limit"
+     ],
+     "msg": "Input should be greater than or equal to 1",
+     "type": "greater_than_equal"
+    }
+   ]
+  },
+  "limit500": {
+   "params": {
+    "limit": 500
+   },
+   "http": 422,
+   "detail": [
+    {
+     "loc": [
+      "query",
+      "limit"
+     ],
+     "msg": "Input should be less than or equal to 100",
+     "type": "less_than_equal"
+    }
+   ]
+  },
+  "offset_neg": {
+   "params": {
+    "offset": -1
+   },
+   "http": 422,
+   "detail": [
+    {
+     "loc": [
+      "query",
+      "offset"
+     ],
+     "msg": "Input should be greater than or equal to 0",
+     "type": "greater_than_equal"
+    }
+   ]
+  }
+ },
+ "secret_scan": {
+  "hits": [],
+  "count": 0
+ },
+ "filter_vocabulary": {
+  "kind_tokens_supported": [
+   "all",
+   "meme",
+   "text_initiative"
+  ],
+  "ui_source": "web/app.js:4924"
+ }
+}

@@ -1,0 +1,385 @@
+{
+ "schema_version": 1,
+ "generated_at": 1794461257,
+ "chat_id": -1002661910336,
+ "time": {
+  "generated_at": 1794461257,
+  "basis": "server_snapshot",
+  "timezone": {
+   "name": "UTC",
+   "source": "utc_fallback",
+   "offset_seconds": 0,
+   "default_name": "UTC",
+   "reason": ""
+  }
+ },
+ "text_initiative": {
+  "mechanism": "text_initiative",
+  "output_kind": "initiative_reply",
+  "source": "initiative_observer.chat_block_state",
+  "available": true,
+  "data_state": "ok",
+  "no_data_reasons": [],
+  "stale": false,
+  "stale_reason": "",
+  "stale_age_seconds": 199,
+  "stale_window_seconds": 2700,
+  "stale_window_basis": "eval_interval",
+  "ready": false,
+  "ready_reason": "not_enough_messages",
+  "last_check_ts": 1794461058,
+  "next_check_ts": 1794462858,
+  "next_check_basis": "eval_interval",
+  "random": {
+   "performed": false,
+   "outcome": "no_draw",
+   "value": null,
+   "hit": null,
+   "probability": 1.0,
+   "purpose": "initiative_trigger",
+   "draw_id": null,
+   "source": null,
+   "source_impl": null,
+   "provider": null,
+   "selected_source": null,
+   "fallback": false,
+   "fallback_reason": null,
+   "policy_version": null,
+   "attempts": 0,
+   "reason": "probability_one",
+   "reason_label": "probability_one",
+   "no_draw_reason": "probability_one",
+   "ts": 1794269167
+  },
+  "conditions": {
+   "evaluated": true,
+   "opportunity": false
+  },
+  "stages": null,
+  "skip": {
+   "code": "not_enough_messages",
+   "label": "Накоплено сообщений: 4 из 8",
+   "origin": "gate"
+  },
+  "skip_recorded": {
+   "code": "not_enough_messages",
+   "label": "в чате пока мало новых сообщений",
+   "origin": "payload_state"
+  },
+  "cooldown": {
+   "scope": "mechanism_own",
+   "own_seconds": 7200,
+   "remaining_seconds": 0,
+   "basis": "last_initiative_publication",
+   "basis_ts": 1794408591
+  },
+  "quota": {
+   "scope": "mechanism_own",
+   "limit": 6,
+   "used": 0,
+   "remaining": 6,
+   "unlimited": false,
+   "limit_reached": false,
+   "available": null,
+   "next_reset": null,
+   "delivered": null,
+   "not_delivered": null,
+   "not_delivered_reasons": {}
+  },
+  "publication": {
+   "available": true,
+   "coordination": "ok",
+   "degraded": false,
+   "degraded_reason": "",
+   "conflict": false,
+   "conflict_state": "clear",
+   "ok": true,
+   "reason": "",
+   "reason_label": "",
+   "detail": "",
+   "state": "released",
+   "holder_kind": "initiative_reply",
+   "claimed_by": "meme_initiative",
+   "other_kind": "meme_initiative",
+   "other_age_seconds": 11599,
+   "interval_seconds": 1800,
+   "manual_priority_until": 1794403499,
+   "manual_priority_active": false,
+   "manual_priority_expired": true,
+   "claim_expires_at": null,
+   "checked_at": 1794461257
+  },
+  "blocking": {
+   "blocked": [
+    {
+     "gate": "pending",
+     "status": "block",
+     "reason_code": "not_enough_messages",
+     "label": "Накоплено сообщений: 4 из 8"
+    },
+    {
+     "gate": "eval_interval",
+     "status": "block",
+     "reason_code": "eval_not_due",
+     "label": "С прошлой проверки: 1099 с (интервал 2700 с)"
+    }
+   ],
+   "warned": []
+  },
+  "configuration": {
+   "enabled": true,
+   "source": "product",
+   "scope": "global",
+   "reason": "",
+   "layers": [
+    {
+     "gate": "module_gate",
+     "layer": "global",
+     "enabled": true,
+     "source": "product",
+     "reason": ""
+    },
+    {
+     "gate": "observer",
+     "layer": "global",
+     "enabled": true,
+     "source": "product",
+     "reason": ""
+    },
+    {
+     "gate": "chat_toggle",
+     "layer": "global",
+     "enabled": true,
+     "source": "global",
+     "reason": ""
+    }
+   ]
+  },
+  "health": {
+   "state": "ok",
+   "dependencies": [
+    {
+     "name": "event_log",
+     "state": "ok",
+     "source": "initiative_observer.chat_block_state"
+    },
+    {
+     "name": "publication_precheck",
+     "state": "ok",
+     "source": "PublicationCoordinator.precheck"
+    }
+   ]
+  },
+  "readiness": {
+   "state": "waiting",
+   "reason": "not_enough_messages",
+   "reason_class": "not_enough_messages",
+   "next_eligible_at": 1794462858,
+   "next_basis": "eval_interval"
+  },
+  "last_attempt": {
+   "at": 1794461058,
+   "mode": "auto",
+   "run_id": "init:-1002661910336:20261112:044f791419",
+   "outcome": "skipped",
+   "stop_stage": "not_enough_messages",
+   "incomplete_historical": false
+  },
+  "last_delivery": {
+   "status": "confirmed",
+   "at": 1794408591,
+   "destination": -1002661910336,
+   "message_id": 1210123,
+   "run_id": "",
+   "reason_code": ""
+  }
+ },
+ "meme": {
+  "mechanism": "meme",
+  "output_kind": "meme_initiative",
+  "source": "meme_initiative attempt journal + meme.chats + claim",
+  "available": true,
+  "data_state": "ok",
+  "no_data_reasons": [],
+  "stale": false,
+  "stale_reason": "window_not_recorded",
+  "stale_age_seconds": 199,
+  "stale_window_seconds": null,
+  "stale_window_basis": "",
+  "ready": false,
+  "ready_reason": "cooldown_active",
+  "last_check_ts": 1794461058,
+  "next_check_ts": 1794471258,
+  "next_check_basis": "cooldown",
+  "random": {
+   "performed": true,
+   "outcome": "draw",
+   "value": 0.0426483154296875,
+   "hit": true,
+   "probability": 0.05,
+   "purpose": "meme_trigger",
+   "draw_id": "0864f82cfc764ee6926ef40632f76c09",
+   "source": "quantum",
+   "source_impl": "anu-quantum",
+   "provider": "ANU Quantum Numbers",
+   "selected_source": "quantum",
+   "fallback": false,
+   "fallback_reason": null,
+   "policy_version": "mca10a-v1",
+   "attempts": 1,
+   "reason": "ok",
+   "reason_label": "ok",
+   "no_draw_reason": "",
+   "ts": 1794449659
+  },
+  "conditions": {
+   "initiative_enabled": true,
+   "meme_enabled": true,
+   "image_ready": true,
+   "schema_present": true,
+   "cooldown_ready": false
+  },
+  "stages": {
+   "considered": 1,
+   "eligible": 0,
+   "summary": 0,
+   "joke": 0,
+   "image": 0,
+   "publish": 0
+  },
+  "skip": {
+   "code": "cooldown_active",
+   "label": "пауза между мемами ещё не прошла",
+   "origin": "cooldown"
+  },
+  "skip_recorded": {
+   "code": "cooldown_active",
+   "label": "пауза между мемами ещё не прошла",
+   "origin": "payload_state"
+  },
+  "cooldown": {
+   "scope": "mechanism_own",
+   "own_seconds": 21600,
+   "remaining_seconds": 10001,
+   "basis": "last_provider_call",
+   "basis_ts": 1794449658
+  },
+  "quota": {
+   "scope": "mechanism_own",
+   "limit": 3,
+   "used": 1,
+   "remaining": 2,
+   "unlimited": false,
+   "limit_reached": false,
+   "available": true,
+   "next_reset": "2026-11-13T00:00:00+00:00",
+   "delivered": 1,
+   "not_delivered": 0,
+   "not_delivered_reasons": {}
+  },
+  "publication": {
+   "available": true,
+   "coordination": "ok",
+   "degraded": false,
+   "degraded_reason": "",
+   "conflict": false,
+   "conflict_state": "clear",
+   "ok": true,
+   "reason": "",
+   "reason_label": "",
+   "detail": "",
+   "state": "released",
+   "holder_kind": "meme_initiative",
+   "claimed_by": "meme_initiative",
+   "other_kind": "initiative_reply",
+   "other_age_seconds": 52666,
+   "interval_seconds": 1800,
+   "manual_priority_until": 1794403499,
+   "manual_priority_active": false,
+   "manual_priority_expired": true,
+   "claim_expires_at": null,
+   "checked_at": 1794461257
+  },
+  "blocking": null,
+  "configuration": {
+   "enabled": true,
+   "source": "meme_settings",
+   "scope": "mixed",
+   "reason": "",
+   "layers": [
+    {
+     "gate": "module_gate",
+     "layer": "global",
+     "enabled": true,
+     "source": "product",
+     "reason": ""
+    },
+    {
+     "gate": "observer",
+     "layer": "global",
+     "enabled": true,
+     "source": "product",
+     "reason": ""
+    },
+    {
+     "gate": "chat_toggle",
+     "layer": "global",
+     "enabled": true,
+     "source": "global",
+     "reason": ""
+    },
+    {
+     "gate": "meme_settings",
+     "layer": "chat",
+     "enabled": true,
+     "source": "meme_settings",
+     "reason": ""
+    }
+   ]
+  },
+  "health": {
+   "state": "ok",
+   "dependencies": [
+    {
+     "name": "attempt_journal",
+     "state": "ok",
+     "source": "meme_initiative.attempt_journal"
+    },
+    {
+     "name": "publication_precheck",
+     "state": "ok",
+     "source": "PublicationCoordinator.precheck"
+    },
+    {
+     "name": "image",
+     "state": "ok",
+     "source": "meme_initiative.image_dependency"
+    }
+   ]
+  },
+  "readiness": {
+   "state": "waiting",
+   "reason": "cooldown_active",
+   "reason_class": "cooldown",
+   "next_eligible_at": 1794471258,
+   "next_basis": "cooldown"
+  },
+  "last_attempt": {
+   "at": 1794461058,
+   "mode": "auto",
+   "run_id": "meme:-1002661910336:2026-11-12:5d1f83ba5343",
+   "outcome": "skipped",
+   "stop_stage": "skipped",
+   "incomplete_historical": false
+  },
+  "last_delivery": {
+   "status": "confirmed",
+   "at": 1794449658,
+   "destination": -1002661910336,
+   "message_id": 1210875,
+   "run_id": "meme:-1002661910336:2026-11-12:87ec980ca917",
+   "reason_code": ""
+  }
+ },
+ "degraded": []
+}

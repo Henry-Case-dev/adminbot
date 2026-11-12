@@ -1,0 +1,104 @@
+{
+ "release": "2.58.195",
+ "checked_at_utc": "2026-11-12T05:25:00Z",
+ "saved_surfaces": {
+  "config_chat_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "fef0e21c4f106efdee78bddbc33e43de0d2ec60ea9c42cf01bcc3141dbb3220c",
+   "sha256_after": "fef0e21c4f106efdee78bddbc33e43de0d2ec60ea9c42cf01bcc3141dbb3220c",
+   "match": true
+  },
+  "config_chat_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "305b38d847b439103b3855d6cc5eb7e9977d8de5a469d23e444d556712183692",
+   "sha256_after": "305b38d847b439103b3855d6cc5eb7e9977d8de5a469d23e444d556712183692",
+   "match": true
+  },
+  "config_global": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "36ac4f34bca6a01999c5c89d86f571c9ba158e89a6ef51d086e2a497228d88d5",
+   "sha256_after": "36ac4f34bca6a01999c5c89d86f571c9ba158e89a6ef51d086e2a497228d88d5",
+   "match": true
+  },
+  "config_overrides_map": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "cb29eb7989376c27c2cad5bcc6e6841d4cbeaaa77b607dc663a7efa7eafb2056",
+   "sha256_after": "cb29eb7989376c27c2cad5bcc6e6841d4cbeaaa77b607dc663a7efa7eafb2056",
+   "match": true
+  },
+  "prompt_versions": {
+   "http_before": null,
+   "http_after": null,
+   "sha256_before": "eeafa543038669fa506f0163a743c591512306ee8f15e6d99ffa46381726ad18",
+   "sha256_after": "eeafa543038669fa506f0163a743c591512306ee8f15e6d99ffa46381726ad18",
+   "match": true
+  },
+  "prompts_catalog": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "55d4bf80077935df57429def63c902980bda888292c0aa12cc75b1d57e3e6567",
+   "sha256_after": "55d4bf80077935df57429def63c902980bda888292c0aa12cc75b1d57e3e6567",
+   "match": true
+  },
+  "meme_settings_saved_-1004482340693": {
+   "match": true,
+   "blocks": {
+    "chat_id": true,
+    "day": true,
+    "defaults": true,
+    "delivery": true,
+    "image_prefix": true,
+    "length_limit": true,
+    "master_key": true,
+    "own_key": true,
+    "prompts": true,
+    "quota": true,
+    "schema_present": true,
+    "settings": true,
+    "template": true
+   }
+  },
+  "meme_settings_saved_-1002661910336": {
+   "match": true,
+   "blocks": {
+    "chat_id": true,
+    "day": true,
+    "defaults": true,
+    "delivery": true,
+    "image_prefix": true,
+    "length_limit": true,
+    "master_key": true,
+    "own_key": true,
+    "prompts": true,
+    "quota": true,
+    "schema_present": true,
+    "settings": true,
+    "template": true
+   }
+  }
+ },
+ "live_only_blocks_changed": {
+  "-1004482340693": {
+   "blocks": {
+    "analytics": false,
+    "availability": false,
+    "generated_at": false
+   },
+   "saved_match": true
+  },
+  "-1002661910336": {
+   "blocks": {
+    "analytics": false,
+    "availability": false,
+    "generated_at": false
+   },
+   "saved_match": true
+  }
+ },
+ "volatile_note": "generated_at/observed_at + live countdowns (cooldown_remaining_seconds, other_age_seconds) are not saved settings",
+ "parity": "OK"
+}
