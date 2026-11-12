@@ -3704,18 +3704,24 @@ def _self_diag_row_state(row: dict) -> str:
 
 
 def _self_diag_stats(rows: list, event_name: str) -> dict:
-    """p50/p95/partial по существующим полям события (без домыслов)."""
+    """p50/p95/partial по существующим полям события (без домыслов).
+
+    B2-residual: skipped-статусы (`cooldown/denied/busy/no_gate/...`) — не
+    измерение: они не входят ни в `calls`, ни в длительности, ни в `by_stage`.
+    Общее число триггеров остаётся в `triggered`.
+    """
     from web.api.analytics import _p50, _p95
     subset = [r for r in rows if r.get("event_name") == event_name]
-    durations = [r.get("duration_ms") for r in subset
-                 if isinstance(r.get("duration_ms"), (int, float))]
     states = [(row, _self_diag_row_state(row)) for row in subset]
-    skipped = sum(1 for _row, state in states if state == "skipped")
-    complete = sum(1 for _row, state in states if state == "complete")
-    partial = len(subset) - skipped - complete
-    measured_calls = len(subset) - skipped
+    measured = [(row, state) for row, state in states
+                if state != "skipped"]
+    skipped = len(states) - len(measured)
+    durations = [row.get("duration_ms") for row, _state in measured
+                 if isinstance(row.get("duration_ms"), (int, float))]
+    complete = sum(1 for _row, state in measured if state == "complete")
+    partial = len(measured) - complete
     by_stage: dict = {}
-    for row, state in states:
+    for row, state in measured:
         stage = str(row.get("stage") or "")
         bucket = by_stage.setdefault(stage, {"calls": 0, "failed": 0,
                                              "durations": []})
@@ -3740,17 +3746,18 @@ def _self_diag_stats(rows: list, event_name: str) -> dict:
             last_ok = int(row.get("ts") or 0)
             break
     return {
-        "calls": len(subset),
+        "triggered": len(subset),
+        "calls": len(measured),
         "partial": partial,
         "complete": complete,
         "skipped": skipped,
-        "partial_share": (round(partial / measured_calls, 4)
-                          if measured_calls else None),
+        "partial_share": (round(partial / len(measured), 4)
+                          if measured else None),
         "p50_ms": _p50(durations),
         "p95_ms": _p95(durations),
         "by_stage": stages,
         "last_success_ts": last_ok,
-        "measured": bool(measured_calls),
+        "measured": bool(measured),
     }
 
 
@@ -3781,7 +3788,11 @@ def _self_diag_validation_coverage(rows: list) -> dict:
             validated_by_tool[stage] = validated_by_tool.get(stage, 0) + 1
     checkup_delivered = _self_diag_count_status(
         rows, "checkup_triggered", {"report_sent"})
-    checkup_validated = _self_diag_count(rows, "checkup_output_validated")
+    # B3-residual: только РАЗРЕШЁННАЯ публикация (clean/partially_redacted)
+    # доказывает enforcement для доставленного отчёта; blocked/denied —
+    # не доставка и не закрывает gap.
+    checkup_validated = _self_diag_count_status(
+        rows, "checkup_output_validated", {"clean", "partially_redacted"})
     tool_deliveries = {
         "inspect_runtime": _self_diag_count(rows, "inspect_runtime_called"),
         "get_bot_health": _self_diag_count(rows, "get_bot_health_called"),

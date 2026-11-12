@@ -845,3 +845,94 @@ class TestB2B3PayloadEndToEnd:
         assert secret["measured"] is False
         assert secret["value"] is None
         assert secret["gaps"]["checkup"] == 1
+
+
+class TestB2ResidualSkippedCalls:
+    """B2-residual: skipped не попадает в calls/p50/p95/by_stage."""
+
+    def _row(self, name, status, *, outcome, duration, stage="final", ts=1):
+        return {"event_name": name, "status": status, "outcome": outcome,
+                "duration_ms": duration, "stage": stage, "ts": ts}
+
+    def test_cooldown_is_not_a_call_or_latency_sample(self):
+        from web.api import routes as web_routes
+        rows = [self._row("checkup_triggered", "report_sent",
+                          outcome="success", duration=900, ts=20),
+                self._row("checkup_triggered", "cooldown",
+                          outcome="skipped", duration=0, ts=10)]
+        stats = web_routes._self_diag_stats(rows, "checkup_triggered")
+        assert stats["triggered"] == 2
+        assert stats["calls"] == 1
+        assert stats["complete"] == 1
+        assert stats["partial"] == 0
+        assert stats["skipped"] == 1
+        assert stats["p50_ms"] == 900
+        assert stats["p95_ms"] == 900
+        assert stats["partial_share"] == 0.0
+        assert [s["calls"] for s in stats["by_stage"]] == [1]
+
+    def test_degraded_inspect_runtime_stays_partial(self):
+        from web.api import routes as web_routes
+        rows = [self._row("inspect_runtime_called", "degraded",
+                          outcome="success", duration=200,
+                          stage="logs.errors")]
+        stats = web_routes._self_diag_stats(rows, "inspect_runtime_called")
+        assert stats["calls"] == 1
+        assert stats["complete"] == 0
+        assert stats["partial"] == 1
+        assert stats["by_stage"][0]["failed"] == 1
+
+
+class TestB3ResidualBlockedValidation:
+    """B3-residual: blocked-валидация не закрывает gap доставки."""
+
+    def _row(self, name, status, *, stage="", outcome="success"):
+        return {"event_name": name, "status": status, "stage": stage,
+                "outcome": outcome, "duration_ms": None, "ts": 1}
+
+    def test_blocked_checkup_cannot_close_success_gap(self):
+        from web.api import routes as web_routes
+        rows = [
+            self._row("checkup_triggered", "report_sent"),
+            self._row("checkup_triggered", "publication_blocked",
+                      outcome="failed"),
+            self._row("checkup_output_validated", "blocked"),
+        ]
+        result = web_routes._self_diag_validation_coverage(rows)
+        assert result["measured"] is False
+        assert result["value"] is None
+        assert result["reason"] == "validation_not_correlated"
+        assert result["deliveries"]["checkup"] == 1
+        assert result["validated"]["checkup"] == 0
+        assert result["gaps"]["checkup"] == 1
+
+    def test_paired_allowed_validation_is_measured(self):
+        from web.api import routes as web_routes
+        rows = [
+            self._row("checkup_triggered", "report_sent"),
+            self._row("checkup_output_validated", "partially_redacted"),
+        ]
+        result = web_routes._self_diag_validation_coverage(rows)
+        assert result["measured"] is True
+        assert result["value"] == 0
+        assert result["gaps"] == {}
+
+    def test_handler_emits_status_from_publication_and_skips_blocked(
+            self, monkeypatch):
+        events = []
+
+        def _emit(name, **kw):
+            events.append((name, kw.get("status")))
+        monkeypatch.setattr("services.mca_events.emit_mca_event", _emit)
+
+        class _Publication:
+            def __init__(self, allowed, status):
+                self.allowed = allowed
+                self.status = status
+
+        checkup_mod.emit_checkup_validation_event(
+            chat_id=CHAT_ID, publication=_Publication(True,
+                                                      "partially_redacted"))
+        checkup_mod.emit_checkup_validation_event(
+            chat_id=CHAT_ID, publication=_Publication(False, "blocked"))
+        assert events == [("checkup_output_validated", "partially_redacted")]

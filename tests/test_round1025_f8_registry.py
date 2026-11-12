@@ -245,7 +245,11 @@ ROUTES_SHA256_F11 = (
     # GET /api/status/self-diagnosis: success-маппинг report_sent/called,
     # корреляция validated-событий с доставками, ProbeDeps для configured.
     # Набор путей/фикстура f8_baseline не менялись (Δ routes=0).
-    "d7b3cc2a5bc0c96e16507370ad5c3403dc36b3d46ba369e387d9d7a7b1f8b021")
+        # SELF-DIAG-01 D6 B2/B3 residuals (13.11.2026): conscious re-pin
+    # (L-F11S-1) внутри того же GET /api/status/self-diagnosis: skipped-
+    # статусы исключены из calls/p50/p95/by_stage; checkup_output_validated
+    # учитывается только для реально разрешённой публикации. Δ routes=0.
+    "9829f29cc5379f9401446963d01b102e887cd4c2fce0b5b5104bf81aef2cfe19")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

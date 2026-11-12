@@ -225,11 +225,17 @@ def emit_checkup_validation_event(*, chat_id: int | None, publication) -> None:
     идёт через `ToolRouter._diagnostic_output`: без него аналитика не может
     доказать, что enforcement реально применялся к доставленному отчёту.
     Пишутся только статус redaction и факт прохождения — без текста.
+
+    B3-residual: `Publication.status` — свойство (`clean`/`partially_redacted`/
+    `blocked`/`denied`), а не `.report`. Событие эмитится ТОЛЬКО для реально
+    разрешённой к доставке публикации: заблокированная проверка не должна
+    закрывать gap успешной доставки.
     """
     try:
+        if not bool(getattr(publication, "allowed", False)):
+            return
         from services import mca_events as _mca_events
-        report = getattr(publication, "report", None)
-        status = str(getattr(report, "status", "") or "unknown")[:40]
+        status = str(getattr(publication, "status", "") or "unknown")[:40]
         _mca_events.emit_mca_event(
             "checkup_output_validated", outcome="success",
             component="checkup", stage="final", status=status,
@@ -439,10 +445,6 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                              message.chat.id)
             _finish("failed", "publication_guard_failed")
             return
-        # SELF-DIAG-01 D6 B3: проверка вывода ДЛЯ ЭТОГО отчёта (наличие
-        # события = enforcement измерен; статус clean/partially_redacted/blocked).
-        emit_checkup_validation_event(chat_id=message.chat.id,
-                                      publication=publication)
         if not publication.allowed:
             logger.info("[checkup] publication blocked | chat=%s | "
                         "reason=%s", message.chat.id,
@@ -453,6 +455,12 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                          message.message_id)
             _finish("failed", "publication_blocked")
             return
+        # SELF-DIAG-01 D6 B3: проверка вывода ДЛЯ ЭТОГО доставляемого отчёта
+        # (наличие события = enforcement измерен; статус clean/partially_
+        # redacted). Заблокированная публикация события не даёт и gap не
+        # закрывает.
+        emit_checkup_validation_event(chat_id=message.chat.id,
+                                      publication=publication)
         report = publication.text
         await send_chunked_reply(bot, message.chat.id, report, message.message_id)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
