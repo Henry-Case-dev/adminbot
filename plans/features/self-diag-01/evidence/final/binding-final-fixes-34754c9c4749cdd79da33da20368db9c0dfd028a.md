@@ -102,20 +102,24 @@ test_self_diag_matrix_uses_design_system_checkbox` — берёт блок
 Скриншоты компонентного стенда: `f3visual/f3-matrix-checkbox-closeup.png`
 (до/после) в run-каталоге прогона (см. §9).
 
-**Визуальное доказательство на реальной странице (кандидат `34754c9c`):**
-отдельным прогоном по существующему e2e-паттерну (`tools/ui_round1025_matrix.py`:
-статический сервер + TMA-стаб + подмена `**/api/**`) отрендерена настоящая
-`web/index.html` + `web/app.js` + `web/static/app.css` кандидата; матрица
-приходит из **реального** `services.diagnostic_policy.matrix_snapshot()`.
-Viewport 390×844 и 1536×960: все 48 контролов `18×18`, accent
-`rgb(139,111,232)`, нативных чекбоксов `0`, `label.min-height: auto`,
-`hScroll=0`, обрезанного текста `0`, console-ошибок `0`; сняты состояния
-unchecked / checked (клик «до/после») / disabled. Артефакты:
-`evidence/final/visual/` (`f3-visual-evidence-34754c9c.md` + PNG + JSON).
+**Визуальное доказательство на реальной странице (кандидат `dae6ffea`,
+follow-up к `34754c9c`):** отдельным прогоном по существующему e2e-паттерну
+(`tools/ui_round1025_matrix.py`: статический сервер + TMA-стаб + подмена
+`**/api/**`) отрендерена настоящая `web/index.html` + `web/app.js` +
+`web/static/app.css`; матрица приходит из **реального**
+`services.diagnostic_policy.matrix_snapshot()`. Viewport 390×844 и 1536×960:
+все 48 контролов `18×18`, accent `rgb(139,111,232)`, нативных чекбоксов `0`,
+`label.min-height: auto`, `hScroll=0`, обрезанного текста `0`, `[object Object]`
+нет, console-ошибок `0`; сняты unchecked / checked (клик «до/после») / disabled,
+плюс исправленная строка «Жёсткие правила». Артефакты:
+`evidence/final/visual/f3-visual-evidence-dae6ffea.md` + PNG + JSON.
 
-**Честная граница:** реальный Telegram WebView/Bot API, живые `getChatMember` и
-сохранение матрицы (`PUT …/{cap}`) не выполнялись; payload — дефолты каталога
-без persisted-override'ов БД. Пиксельный вердикт — за Reviewer/D7.
+**Follow-up `dae6ffea` (F3 visual):** строка «Жёсткие правила» печатала
+`[object Object]` (`join('; ')` по `{rule, message}`). В кандидате `dae6ffea`
+— helper `diagHardRulesText()` (message → fallback rule, устойчив к
+строке/пустому/`null`), шаблон без сырого join, JS-тест
+`tests/js/self_diag_hard_rules_text_test.js` (мутации: старый join → RED,
+нет helper'а → RED). F1–F3 и F8-пин не менялись.
 
 ## 5. Web-wide набор: `tests/test_web*.py` (68 файлов)
 

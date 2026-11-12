@@ -1,7 +1,7 @@
 {
-  "candidate_sha": "34754c9c4749cdd79da33da20368db9c0dfd028a",
-  "base_candidate_sha": "c8784adf1230adea1ffe00f22eccfce64b8cefe3",
-  "generated_at": "2026-11-13T07:54:56+1200",
+  "candidate_sha": "dae6ffeae07cbf2b8d533bb99eaeaf267de335a2",
+  "base_candidate_sha": "34754c9c4749cdd79da33da20368db9c0dfd028a",
+  "generated_at": "2026-11-13T08:04:19+1200",
   "harness": {
     "pattern": "tools/ui_round1025_matrix.py (static server + TMA stub + API stubs)",
     "matrix_payload_source": "services.diagnostic_policy.matrix_snapshot(pg=None, chat_id=None) + effective_state() (candidate service)",
@@ -10,8 +10,8 @@
     "truncation_check": "text-bearing leaf nodes with overflow:hidden and scrollWidth>clientWidth+1"
   },
   "assets_sha256": {
-    "web/index.html": "a948b1d17487b73b64482a34a9ed6daaf904648d22ec49bf7c0a278d6fa4e555",
-    "web/app.js": "712065364abfdddae4f423e09f0bddca8de5526ffdb8f0abfeca3ffefd16ec4a",
+    "web/index.html": "e769924aee618524cca3fec9b05d3d4bed9481b2eb997beaacf60849f20eb01c",
+    "web/app.js": "3cf2c9168c350f49977127a1e6bb19363734e27923efeeeae4bce9fa9895f594",
     "web/static/app.css": "f468bd01b9228455c81cb9b4465a70b67804be00efde0370dccafb3e23c92fed"
   },
   "matrix_payload": {
@@ -37,7 +37,7 @@
         "x": 8,
         "y": 132,
         "w": 374,
-        "h": 3741
+        "h": 3773
       },
       "caps": 9,
       "checkboxes": 48,
@@ -241,6 +241,45 @@
           "native": false
         }
       },
+      "hardRulesRows": [
+        {
+          "cap": "bot_server_state",
+          "text": null
+        },
+        {
+          "cap": "detailed_metrics",
+          "text": null
+        },
+        {
+          "cap": "logs_traceback",
+          "text": null
+        },
+        {
+          "cap": "source_code",
+          "text": null
+        },
+        {
+          "cap": "commit_history",
+          "text": null
+        },
+        {
+          "cap": "non_secret_config",
+          "text": null
+        },
+        {
+          "cap": "memory_analytics",
+          "text": null
+        },
+        {
+          "cap": "prompts",
+          "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+        },
+        {
+          "cap": "deep_diagnostics",
+          "text": null
+        }
+      ],
+      "hardRulesObjectLeak": false,
       "accentUnique": [
         "rgb(139, 111, 232)"
       ],
@@ -261,9 +300,9 @@
       },
       "card": {
         "x": 8,
-        "y": -2170,
+        "y": -2186,
         "w": 374,
-        "h": 3395
+        "h": 3427
       },
       "caps": 9,
       "checkboxes": 48,
@@ -467,6 +506,45 @@
           "native": false
         }
       },
+      "hardRulesRows": [
+        {
+          "cap": "bot_server_state",
+          "text": null
+        },
+        {
+          "cap": "detailed_metrics",
+          "text": null
+        },
+        {
+          "cap": "logs_traceback",
+          "text": null
+        },
+        {
+          "cap": "source_code",
+          "text": null
+        },
+        {
+          "cap": "commit_history",
+          "text": null
+        },
+        {
+          "cap": "non_secret_config",
+          "text": null
+        },
+        {
+          "cap": "memory_analytics",
+          "text": null
+        },
+        {
+          "cap": "prompts",
+          "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+        },
+        {
+          "cap": "deep_diagnostics",
+          "text": null
+        }
+      ],
+      "hardRulesObjectLeak": false,
       "accentUnique": [
         "rgb(139, 111, 232)"
       ],
@@ -698,6 +776,45 @@
           "native": false
         }
       },
+      "hardRulesRows": [
+        {
+          "cap": "bot_server_state",
+          "text": null
+        },
+        {
+          "cap": "detailed_metrics",
+          "text": null
+        },
+        {
+          "cap": "logs_traceback",
+          "text": null
+        },
+        {
+          "cap": "source_code",
+          "text": null
+        },
+        {
+          "cap": "commit_history",
+          "text": null
+        },
+        {
+          "cap": "non_secret_config",
+          "text": null
+        },
+        {
+          "cap": "memory_analytics",
+          "text": null
+        },
+        {
+          "cap": "prompts",
+          "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+        },
+        {
+          "cap": "deep_diagnostics",
+          "text": null
+        }
+      ],
+      "hardRulesObjectLeak": false,
       "accentUnique": [
         "rgb(139, 111, 232)"
       ],
@@ -924,6 +1041,45 @@
           "native": false
         }
       },
+      "hardRulesRows": [
+        {
+          "cap": "bot_server_state",
+          "text": null
+        },
+        {
+          "cap": "detailed_metrics",
+          "text": null
+        },
+        {
+          "cap": "logs_traceback",
+          "text": null
+        },
+        {
+          "cap": "source_code",
+          "text": null
+        },
+        {
+          "cap": "commit_history",
+          "text": null
+        },
+        {
+          "cap": "non_secret_config",
+          "text": null
+        },
+        {
+          "cap": "memory_analytics",
+          "text": null
+        },
+        {
+          "cap": "prompts",
+          "text": "Жёсткие правила: Текст промптов доступен только администратору этого чата по явному запросу; участникам он не выдаётся."
+        },
+        {
+          "cap": "deep_diagnostics",
+          "text": null
+        }
+      ],
+      "hardRulesObjectLeak": false,
       "accentUnique": [
         "rgb(139, 111, 232)"
       ],
@@ -946,53 +1102,53 @@
   "images": [
     {
       "name": "390x844 default viewport",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-default-34754c9c.png",
-      "bytes": 270049
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-default-dae6ffea.png",
+      "bytes": 269574
     },
     {
       "name": "390x844 default matrix card",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-default-block-34754c9c.png",
-      "bytes": 251913
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-default-block-dae6ffea.png",
+      "bytes": 252417
     },
     {
       "name": "390x844 toggle target before click",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-toggle-before-34754c9c.png",
-      "bytes": 104574
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-toggle-before-dae6ffea.png",
+      "bytes": 117669
     },
     {
       "name": "390x844 toggle target after click",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-toggle-after-34754c9c.png",
-      "bytes": 104700
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-toggle-after-dae6ffea.png",
+      "bytes": 117760
     },
     {
       "name": "390x844 matrix card after toggle",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-checked-block-34754c9c.png",
-      "bytes": 306130
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-checked-block-dae6ffea.png",
+      "bytes": 315891
     },
     {
       "name": "1536x960 default viewport",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-default-34754c9c.png",
-      "bytes": 699878
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-default-dae6ffea.png",
+      "bytes": 700417
     },
     {
       "name": "1536x960 default matrix card",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-default-block-34754c9c.png",
-      "bytes": 902104
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-default-block-dae6ffea.png",
+      "bytes": 911949
     },
     {
       "name": "1536x960 toggle target before click",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-toggle-before-34754c9c.png",
-      "bytes": 107655
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-toggle-before-dae6ffea.png",
+      "bytes": 115887
     },
     {
       "name": "1536x960 toggle target after click",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-toggle-after-34754c9c.png",
-      "bytes": 109423
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-toggle-after-dae6ffea.png",
+      "bytes": 118182
     },
     {
       "name": "1536x960 matrix card after toggle",
-      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-checked-block-34754c9c.png",
-      "bytes": 937606
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-checked-block-dae6ffea.png",
+      "bytes": 944150
     }
   ],
   "console_errors": [],
