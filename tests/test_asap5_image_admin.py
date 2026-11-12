@@ -509,12 +509,14 @@ async def test_create_intent_cannot_override_plan_edit(monkeypatch):
 
 def test_tool_canon_15_edit_image_at_tail():
     """Канон R9 = 16 (W6: +read_source_code в хвост); первые 15 имён
-    не меняются, edit_image остаётся 15-м."""
+    не меняются, edit_image остаётся 15-м. SELF-DIAG-01 D3/D5-D6 добавляют
+    inspect_runtime/prompt_readback после него (канон 18)."""
     names = [t["function"]["name"] for t in tool_schemas.TOOL_CALLING_TOOLS]
-    assert len(names) == 17
-    assert names[-3] == "edit_image"
-    assert names[-2] == "read_source_code"
-    assert names[-1] == "inspect_runtime"
+    assert len(names) == 18
+    assert names[-4] == "edit_image"
+    assert names[-3] == "read_source_code"
+    assert names[-2] == "inspect_runtime"
+    assert names[-1] == "prompt_readback"
     assert names[:14] == ["query_chat_memory", "dig_into_lore",
                           "execute_web_search", "summarize_video",
                           "download_media", "get_bot_health",

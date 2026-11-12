@@ -490,7 +490,7 @@ class TestSchemasContract:
                                        "get_user_context",
                                        "recognize_image", "fact_check",
                                        "edit_image", "read_source_code",
-                                       "inspect_runtime"]
+                                       "inspect_runtime", "prompt_readback"]
         assert TOOL_TRANSCRIBE_VIDEO in TOOL_CALLING_TOOLS
         assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
         assert TOOL_TRANSCRIBE_VIDEO["function"]["name"] == "transcribe_video"

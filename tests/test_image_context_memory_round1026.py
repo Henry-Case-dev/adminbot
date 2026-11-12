@@ -1168,14 +1168,16 @@ class TestFlagsAndCanon:
     def test_canon_stays_twelve(self):
         from services.tool_schemas import TOOL_CALLING_TOOLS
         # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост);
-        # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост).
-        assert len(TOOL_CALLING_TOOLS) == 17
+        # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост);
+        # SELF-DIAG-01 D3/D5-D6: → 18 (+inspect_runtime, +prompt_readback).
+        assert len(TOOL_CALLING_TOOLS) == 18
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names[-6] == "get_user_context"
-        assert names[-5] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
-        assert names[-4] == "fact_check"   # MCA-20 (ADR-1028-20 §7.5)
-        assert names[-3] == "edit_image"   # ASAP5 §20 (edit-route)
-        assert names[-2] == "read_source_code"   # EVOL-SRC-READER (W6)
-        assert names[-1] == "inspect_runtime"   # SELF-DIAG-01 D3
+        assert names[-7] == "get_user_context"
+        assert names[-6] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
+        assert names[-5] == "fact_check"   # MCA-20 (ADR-1028-20 §7.5)
+        assert names[-4] == "edit_image"   # ASAP5 §20 (edit-route)
+        assert names[-3] == "read_source_code"   # EVOL-SRC-READER (W6)
+        assert names[-2] == "inspect_runtime"   # SELF-DIAG-01 D3
+        assert names[-1] == "prompt_readback"   # SELF-DIAG-01 D5/D6
         assert "request_reference" not in names
         assert "portrait" not in names

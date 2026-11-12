@@ -174,25 +174,28 @@ class TestContract:
         assert not any("\u0400" <= ch <= "\u04FF" for ch in desc)
 
     def test_canon_twelve_tail_only(self):
-        assert len(TOOL_CALLING_TOOLS) == 17
-        assert TOOL_CALLING_TOOLS[-6] is TOOL_GET_USER_CONTEXT
-        assert TOOL_CALLING_TOOLS[-5]["function"]["name"] == (
+        # SELF-DIAG-01 D3/D5-D6: канон → 18 (+inspect_runtime, +prompt_readback).
+        assert len(TOOL_CALLING_TOOLS) == 18
+        assert TOOL_CALLING_TOOLS[-7] is TOOL_GET_USER_CONTEXT
+        assert TOOL_CALLING_TOOLS[-6]["function"]["name"] == (
             "recognize_image")   # MCA-19 (ADR-1028-19 §8.6)
-        assert TOOL_CALLING_TOOLS[-4]["function"]["name"] == (
+        assert TOOL_CALLING_TOOLS[-5]["function"]["name"] == (
             "fact_check")        # MCA-20 (ADR-1028-20 §7.5)
-        assert TOOL_CALLING_TOOLS[-3]["function"]["name"] == (
+        assert TOOL_CALLING_TOOLS[-4]["function"]["name"] == (
             "edit_image")        # ASAP5 §20 (edit-route)
-        assert TOOL_CALLING_TOOLS[-2]["function"]["name"] == (
+        assert TOOL_CALLING_TOOLS[-3]["function"]["name"] == (
             "read_source_code")  # EVOL-SRC-READER (W6)
-        assert TOOL_CALLING_TOOLS[-1]["function"]["name"] == (
+        assert TOOL_CALLING_TOOLS[-2]["function"]["name"] == (
             "inspect_runtime")   # SELF-DIAG-01 D3
+        assert TOOL_CALLING_TOOLS[-1]["function"]["name"] == (
+            "prompt_readback")   # SELF-DIAG-01 D5/D6
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
             "recognize_image", "fact_check", "edit_image",
-            "read_source_code", "inspect_runtime"]
+            "read_source_code", "inspect_runtime", "prompt_readback"]
 
     def test_first_eleven_byte_identical(self):
         from services.tool_schemas import (
@@ -220,7 +223,8 @@ class TestContract:
     def test_active_tools_default_eleven(self):
         names = [t["function"]["name"] for t in active_tools()]
         # +fact_check (mca-20) +read_source_code (W6) +inspect_runtime (D3)
-        assert len(names) == 15
+        # +prompt_readback (SELF-DIAG-01 D5/D6)
+        assert len(names) == 16
         assert MEMORY_LOOKUP_TOOL_NAME in names
         assert "generate_image" not in names          # image OFF (дефолт)
 
@@ -234,8 +238,8 @@ class TestContract:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "transcribe_video",
             "fetch_article", "recognize_image", "fact_check",
-            "read_source_code", "inspect_runtime"]
-        assert len(TOOL_CALLING_TOOLS) == 17          # схема/канон безусловны
+            "read_source_code", "inspect_runtime", "prompt_readback"]
+        assert len(TOOL_CALLING_TOOLS) == 18          # схема/канон безусловны
 
     def test_factcheck_tools_unchanged_three(self):
         names = [t["function"]["name"] for t in factcheck_tools()]

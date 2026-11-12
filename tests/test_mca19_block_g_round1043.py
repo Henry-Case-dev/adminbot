@@ -183,17 +183,20 @@ def _ctx(chat_id=CHAT_A) -> ToolContext:
 def test_tool_canon_13_recognize_image_tail():
     # MCA-20 (10.44, ADR-1028-20 §7.5): канон 13 → 14; recognize_image
     # больше не хвост — fact_check после него (первые 13 байт-в-байт).
-    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 17
-    assert tool_schemas.TOOL_CALLING_TOOLS[-4] is \
-        tool_schemas.TOOL_FACT_CHECK
+    # SELF-DIAG-01 D3/D5-D6: → 18 (+inspect_runtime, +prompt_readback).
+    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 18
     assert tool_schemas.TOOL_CALLING_TOOLS[-5] is \
+        tool_schemas.TOOL_FACT_CHECK
+    assert tool_schemas.TOOL_CALLING_TOOLS[-6] is \
         tool_schemas.TOOL_RECOGNIZE_IMAGE
-    assert tool_schemas.TOOL_CALLING_TOOLS[-3] is \
+    assert tool_schemas.TOOL_CALLING_TOOLS[-4] is \
         tool_schemas.TOOL_EDIT_IMAGE
-    assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
+    assert tool_schemas.TOOL_CALLING_TOOLS[-3] is \
         tool_schemas.TOOL_READ_SOURCE_CODE
-    assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+    assert tool_schemas.TOOL_CALLING_TOOLS[-2] is \
         tool_schemas.TOOL_INSPECT_RUNTIME
+    assert tool_schemas.TOOL_CALLING_TOOLS[-1] is \
+        tool_schemas.TOOL_PROMPT_READBACK
     names = [t["function"]["name"] for t in tool_schemas.TOOL_CALLING_TOOLS]
     # Первые 12 — прежний порядок байт-в-байт.
     assert names[:12] == [
@@ -221,7 +224,7 @@ def test_active_tools_hide_when_k4_off(monkeypatch):
     names = [t["function"]["name"] for t in tool_schemas.active_tools()]
     assert "recognize_image" not in names
     # Канон (схема/снапшот) безусловен.
-    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 17
+    assert len(tool_schemas.TOOL_CALLING_TOOLS) == 18
 
 
 # ── Диспетчер: server-side OFF, ACL, ready/pending/ambiguous (A82) ──────────

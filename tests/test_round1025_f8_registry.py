@@ -393,8 +393,15 @@ PG_DB_SHA256_B07 = (
 # SELF-DIAG-01 D4-B (13.11.2026, L-F11S-1 re-pin): +1 PG-only ключ
 # flags.self_diag_repo_origin (repo identity, global_only) → REGISTRY 644,
 # delta 243; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений.
+# SELF-DIAG-01 D2 (13.11.2026, L-F11S-1 re-pin, финальная интеграция): каталог
+# получил обязательный тип sensitivity в самой записи (`ParamSpec.sensitivity`/
+# `sensitivity_source`, `derived_sensitivity`, типизированный
+# `register_param`, import-time `audit_sensitivity`, `secret_setting_specs`,
+# единый предикат `is_secret_value`) — SD1-D2-23/24. Состав каталога не менялся:
+# REGISTRY 644 / GROUPS 121 / _TAB_BY_GROUP 119 / TAB_RULES 22, Δ 243;
+# fixtures/TSV переписывать не требуется, переутверждён только SHA256.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "f5bb7ae8937cbf42a5653d62de8e343bc0aed31504d83f0247bcd587b1a01871")
+    "bcdf8f02998fc0f7e564c1e0dae1affeacc1b62544cd6877fdd0cc4c5e598534")
 
 
 def _sha256(path: Path) -> str:

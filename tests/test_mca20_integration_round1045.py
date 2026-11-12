@@ -682,11 +682,13 @@ class TestSanctions:
                  tool_schemas.TOOL_CALLING_TOOLS]
         # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост);
         # EVOL-SRC-READER (W6): канон → 16 (+read_source_code в хвост).
-        assert len(names) == len(set(names)) == 17
-        assert names[-2] == "read_source_code"
-        assert names[-1] == "inspect_runtime"
-        assert names[-3] == "edit_image"
-        assert names[-4] == "fact_check"
+        # SELF-DIAG-01 D3/D5-D6: → 18 (+inspect_runtime, +prompt_readback).
+        assert len(names) == len(set(names)) == 18
+        assert names[-3] == "read_source_code"
+        assert names[-2] == "inspect_runtime"
+        assert names[-1] == "prompt_readback"
+        assert names[-4] == "edit_image"
+        assert names[-5] == "fact_check"
         # ASAP5 §20: +edit_image; W6: +read_source_code (сетевой инструмент).
         assert len(tool_loop.METERED_TOOLS) == 11
         assert "fact_check" in tool_loop.METERED_TOOLS
