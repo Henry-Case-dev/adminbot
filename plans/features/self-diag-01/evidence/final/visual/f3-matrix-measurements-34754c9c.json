@@ -1,0 +1,1000 @@
+{
+  "candidate_sha": "34754c9c4749cdd79da33da20368db9c0dfd028a",
+  "base_candidate_sha": "c8784adf1230adea1ffe00f22eccfce64b8cefe3",
+  "generated_at": "2026-11-13T07:54:56+1200",
+  "harness": {
+    "pattern": "tools/ui_round1025_matrix.py (static server + TMA stub + API stubs)",
+    "matrix_payload_source": "services.diagnostic_policy.matrix_snapshot(pg=None, chat_id=None) + effective_state() (candidate service)",
+    "url": "http://127.0.0.1:8899/web/index.html#/access",
+    "viewport_device_scale_factor": 2,
+    "truncation_check": "text-bearing leaf nodes with overflow:hidden and scrollWidth>clientWidth+1"
+  },
+  "assets_sha256": {
+    "web/index.html": "a948b1d17487b73b64482a34a9ed6daaf904648d22ec49bf7c0a278d6fa4e555",
+    "web/app.js": "712065364abfdddae4f423e09f0bddca8de5526ffdb8f0abfeca3ffefd16ec4a",
+    "web/static/app.css": "f468bd01b9228455c81cb9b4465a70b67804be00efde0370dccafb3e23c92fed"
+  },
+  "matrix_payload": {
+    "capabilities": 9,
+    "roles": [
+      "user",
+      "local_admin",
+      "global_admin"
+    ],
+    "actions": [
+      "view",
+      "run",
+      "edit"
+    ]
+  },
+  "screens": {
+    "390x844_default": {
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "card": {
+        "x": 8,
+        "y": 132,
+        "w": 374,
+        "h": 3741
+      },
+      "caps": 9,
+      "checkboxes": 48,
+      "nativeCheckboxes": 0,
+      "controls": [
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      ],
+      "sample": {
+        "unchecked": {
+          "cap": "prompts",
+          "action": "view",
+          "role": "Участник",
+          "checked": false,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "checked": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "disabled": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      },
+      "accentUnique": [
+        "rgb(139, 111, 232)"
+      ],
+      "sizeUnique": [
+        "18x18"
+      ],
+      "labelMinHeightUnique": [
+        "auto"
+      ],
+      "hScroll": 0,
+      "bodyHScroll": 0,
+      "clippedText": 0
+    },
+    "390x844_after_toggle": {
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "card": {
+        "x": 8,
+        "y": -2170,
+        "w": 374,
+        "h": 3395
+      },
+      "caps": 9,
+      "checkboxes": 48,
+      "nativeCheckboxes": 0,
+      "controls": [
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      ],
+      "sample": {
+        "unchecked": {
+          "cap": "prompts",
+          "action": "edit",
+          "role": "Участник",
+          "checked": false,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "checked": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "disabled": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      },
+      "accentUnique": [
+        "rgb(139, 111, 232)"
+      ],
+      "sizeUnique": [
+        "18x18"
+      ],
+      "labelMinHeightUnique": [
+        "auto"
+      ],
+      "hScroll": 0,
+      "bodyHScroll": 0,
+      "clippedText": 0,
+      "clicked": {
+        "cap": "prompts",
+        "action": "view",
+        "role": "Участник"
+      }
+    },
+    "1536x960_default": {
+      "viewport": {
+        "w": 1536,
+        "h": 960
+      },
+      "card": {
+        "x": 232,
+        "y": 80,
+        "w": 1288,
+        "h": 1611
+      },
+      "caps": 9,
+      "checkboxes": 48,
+      "nativeCheckboxes": 0,
+      "controls": [
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      ],
+      "sample": {
+        "unchecked": {
+          "cap": "prompts",
+          "action": "view",
+          "role": "Участник",
+          "checked": false,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "checked": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "disabled": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      },
+      "accentUnique": [
+        "rgb(139, 111, 232)"
+      ],
+      "sizeUnique": [
+        "18x18"
+      ],
+      "labelMinHeightUnique": [
+        "auto"
+      ],
+      "hScroll": 0,
+      "bodyHScroll": 0,
+      "clippedText": 0
+    },
+    "1536x960_after_toggle": {
+      "viewport": {
+        "w": 1536,
+        "h": 960
+      },
+      "card": {
+        "x": 232,
+        "y": -667,
+        "w": 1288,
+        "h": 1611
+      },
+      "caps": 9,
+      "checkboxes": 48,
+      "nativeCheckboxes": 0,
+      "controls": [
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "bot_server_state",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Админ этого чата",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        {
+          "cap": "detailed_metrics",
+          "action": "run",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      ],
+      "sample": {
+        "unchecked": {
+          "cap": "prompts",
+          "action": "edit",
+          "role": "Участник",
+          "checked": false,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "checked": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Участник",
+          "checked": true,
+          "disabled": false,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "pointer",
+          "labelMinHeight": "auto",
+          "native": false
+        },
+        "disabled": {
+          "cap": "bot_server_state",
+          "action": "view",
+          "role": "Владелец бота(неявно)",
+          "checked": true,
+          "disabled": true,
+          "width": 18,
+          "height": 18,
+          "accent": "rgb(139, 111, 232)",
+          "cursor": "not-allowed",
+          "labelMinHeight": "auto",
+          "native": false
+        }
+      },
+      "accentUnique": [
+        "rgb(139, 111, 232)"
+      ],
+      "sizeUnique": [
+        "18x18"
+      ],
+      "labelMinHeightUnique": [
+        "auto"
+      ],
+      "hScroll": 0,
+      "bodyHScroll": 0,
+      "clippedText": 0,
+      "clicked": {
+        "cap": "prompts",
+        "action": "view",
+        "role": "Участник"
+      }
+    }
+  },
+  "images": [
+    {
+      "name": "390x844 default viewport",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-default-34754c9c.png",
+      "bytes": 270049
+    },
+    {
+      "name": "390x844 default matrix card",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-default-block-34754c9c.png",
+      "bytes": 251913
+    },
+    {
+      "name": "390x844 toggle target before click",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-toggle-before-34754c9c.png",
+      "bytes": 104574
+    },
+    {
+      "name": "390x844 toggle target after click",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-toggle-after-34754c9c.png",
+      "bytes": 104700
+    },
+    {
+      "name": "390x844 matrix card after toggle",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-390x844-checked-block-34754c9c.png",
+      "bytes": 306130
+    },
+    {
+      "name": "1536x960 default viewport",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-default-34754c9c.png",
+      "bytes": 699878
+    },
+    {
+      "name": "1536x960 default matrix card",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-default-block-34754c9c.png",
+      "bytes": 902104
+    },
+    {
+      "name": "1536x960 toggle target before click",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-toggle-before-34754c9c.png",
+      "bytes": 107655
+    },
+    {
+      "name": "1536x960 toggle target after click",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-toggle-after-34754c9c.png",
+      "bytes": 109423
+    },
+    {
+      "name": "1536x960 matrix card after toggle",
+      "path": "plans/features/self-diag-01/evidence/final/visual/f3-matrix-1536x960-checked-block-34754c9c.png",
+      "bytes": 937606
+    }
+  ],
+  "console_errors": [],
+  "failures": []
+}

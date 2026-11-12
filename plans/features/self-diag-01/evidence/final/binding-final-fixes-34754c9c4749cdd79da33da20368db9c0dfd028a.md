@@ -99,13 +99,23 @@ test_self_diag_matrix_uses_design_system_checkbox` — берёт блок
 | disabled | — | `not-allowed` (`.ctl-check__box:disabled`) |
 | `label.min-height` | `auto` | `auto` (плотность строки матрицы не выросла: `.ctl-check` не добавлялся) |
 
-Скриншоты: `f3visual/f3-matrix-checkbox-closeup.png` (до/после) в run-каталоге
-прогона (см. §9).
+Скриншоты компонентного стенда: `f3visual/f3-matrix-checkbox-closeup.png`
+(до/после) в run-каталоге прогона (см. §9).
 
-**Честная граница:** пиксельная проверка в **авторизованном** Mini App
-(`/api/*`, Telegram-контекст) здесь не выполнялась — компонентный стенд
-проверяет контрол и CSS-токены, но не реальную страницу. Это остаётся
-визуальной проверкой Reviewer/D7 на стенде.
+**Визуальное доказательство на реальной странице (кандидат `34754c9c`):**
+отдельным прогоном по существующему e2e-паттерну (`tools/ui_round1025_matrix.py`:
+статический сервер + TMA-стаб + подмена `**/api/**`) отрендерена настоящая
+`web/index.html` + `web/app.js` + `web/static/app.css` кандидата; матрица
+приходит из **реального** `services.diagnostic_policy.matrix_snapshot()`.
+Viewport 390×844 и 1536×960: все 48 контролов `18×18`, accent
+`rgb(139,111,232)`, нативных чекбоксов `0`, `label.min-height: auto`,
+`hScroll=0`, обрезанного текста `0`, console-ошибок `0`; сняты состояния
+unchecked / checked (клик «до/после») / disabled. Артефакты:
+`evidence/final/visual/` (`f3-visual-evidence-34754c9c.md` + PNG + JSON).
+
+**Честная граница:** реальный Telegram WebView/Bot API, живые `getChatMember` и
+сохранение матрицы (`PUT …/{cap}`) не выполнялись; payload — дефолты каталога
+без persisted-override'ов БД. Пиксельный вердикт — за Reviewer/D7.
 
 ## 5. Web-wide набор: `tests/test_web*.py` (68 файлов)
 
