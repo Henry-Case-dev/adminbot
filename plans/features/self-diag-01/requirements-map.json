@@ -1027,9 +1027,9 @@
     },
     {
       "source_id": "MAN-AC-03",
-      "source_line": 432,
-      "source_text_sha256": "f8604d57616e1b674ac66038da2a3d9d1f05f01601d75fca90f0e104b2e23a29",
-      "source_excerpt": "**AC-02.** Результат «чекап» действительно получает и передаёт в свой LLM-вызов реальные локальные логи, серверные метрики, память, effective runtime SHA и попытку git metadata; трасса позволяет это проверить.",
+      "source_line": 434,
+      "source_text_sha256": "5bb8d77de7fa7c4957d8b84ee5711d2422c440508358d96dd2e6d1ae74a31294",
+      "source_excerpt": "**AC-03.** При релевантной проблеме source_reader реально читает проверенный файл/строки, не ограничивается сообщением о commit. Неуспех обозначен как `not_checked`.",
       "disposition": "required",
       "reason": "",
       "req_id": "SD1-AC-03",
@@ -1045,7 +1045,13 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_ac_03.json",
           "description": "инцидентный прогон: прочитанные файл/строки против deployed SHA"
         }
-      ]
+      ],
+      "source_pointer_fix": {
+        "date": "2026-11-12",
+        "old_source_line": 432,
+        "new_source_line": 434,
+        "why": "Указатель стоял на чужой строке (текст другого AC или пустая строка); acceptance строки всегда соответствовал этому нормативу. Требование, статус и evidence не менялись."
+      }
     },
     {
       "source_id": "MAN-AC-04",
@@ -1093,9 +1099,9 @@
     },
     {
       "source_id": "MAN-AC-06",
-      "source_line": 435,
-      "source_text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "source_excerpt": "",
+      "source_line": 440,
+      "source_text_sha256": "d55ead0ee1dcd3e17dbe428106da6c114872940becd743173c6bcf38dd21e901",
+      "source_excerpt": "**AC-06.** `https://github.com/Henry-Case-dev/adminbot` и repo identity присутствуют в реальной конфигурации, используются для собственного source lookup и видимы в админке как non-secret. Источник ответа совпадает с фактической работающей ревизией либо явно отмечен как неподтверждённый.",
       "disposition": "required",
       "reason": "",
       "req_id": "SD1-AC-06",
@@ -1111,7 +1117,13 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_ac_06.json",
           "description": "наблюдаемый артефакт проверки SD1-AC-06"
         }
-      ]
+      ],
+      "source_pointer_fix": {
+        "date": "2026-11-12",
+        "old_source_line": 435,
+        "new_source_line": 440,
+        "why": "Указатель стоял на чужой строке (текст другого AC или пустая строка); acceptance строки всегда соответствовал этому нормативу. Требование, статус и evidence не менялись."
+      }
     },
     {
       "source_id": "MAN-AC-07",
@@ -1521,9 +1533,9 @@
     },
     {
       "source_id": "MAN-AC-17",
-      "source_line": 446,
-      "source_text_sha256": "4067e821a1f882e28b764e2301a66d69d9eae4b910450309131e32fc741fe8c8",
-      "source_excerpt": "**AC-09.** `prompts.checkup_system_prompt`: effective bytes/hash до и после релиза одинаковы; активная ревизия, ручная версия и история сохранены. Язвительный стиль с матом по действующей настройке подтверждён живыми ответами.",
+      "source_line": 462,
+      "source_text_sha256": "8012059903eb625c0635cfd3a60ecedb33043a2688e891bf986cccbbf515962b",
+      "source_excerpt": "**AC-17.** Реальный GitHub source reader продолжает работать с сторонними репозиториями, discovery/locate/read не регрессировали.",
       "disposition": "required",
       "reason": "",
       "req_id": "SD1-AC-17",
@@ -1539,7 +1551,13 @@
           "artifact_path": "plans/features/self-diag-01/evidence/d4/sd1_ac_17.json",
           "description": "чтение стороннего репозитория через read_source_code"
         }
-      ]
+      ],
+      "source_pointer_fix": {
+        "date": "2026-11-12",
+        "old_source_line": 446,
+        "new_source_line": 462,
+        "why": "Указатель стоял на чужой строке (текст другого AC или пустая строка); acceptance строки всегда соответствовал этому нормативу. Требование, статус и evidence не менялись."
+      }
     },
     {
       "source_id": "MAN-AC-18",
