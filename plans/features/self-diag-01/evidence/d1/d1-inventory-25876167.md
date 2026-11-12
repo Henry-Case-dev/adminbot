@@ -9,16 +9,26 @@ production-коммите `2587616759de31283585ffc105c91e7193c2e89e`; production
 читалась и не менялась, SSH не использовался. Значения секретов не
 печатались и не копировались.
 
+**Правки evidence-гигиены 2026-11-12 (Reviewer, review §11.3).** Исправлены
+четыре формулировки без изменения чисел и выводов: (a) в §0 назван настоящий
+worktree/ветка (`self-diag/d1-closure @ 2aa81bc1`), а скан привязан к коммиту
+`25876167`; (b) «+34» помечено как инкремент отдельного прохода, итог — 1385;
+(c) счёт «16 файлов» в cleanup-отчёте заменён авторитетным 37 файлов с
+`checkup_betterstack_sql` и 231 файл Better Stack (см. `cleanup-2026-11-12.md`
+§1); (d) в JSON `persisted_db_rows` отражает реальное состояние после
+cleanup — 0 строк на проде, удалены, с ссылкой на бэкап. Исходные утверждения
+не удалены молча: ниже видно, что именно и почему исправлено.
+
 ## 0. Привязка и метод
 
 | Поле | Значение |
 |---|---|
 | production | `2.58.197`, `2587616759de31283585ffc105c91e7193c2e89e` |
-| worktree | `...\WorkspaceData\worktrees\c742e4de9e92c489\self-diag-01-0ccfa8fbf52b-01b13f1c` (detached на 25876167) |
+| worktree | `...\WorkspaceData\worktrees\c742e4de9e92c489\self-diag-01-0ccfa8fbf52b-01b13f1c`, ветка `self-diag/d1-closure` @ `2aa81bc1` (docs-only: 3 новых файла в `plans/features/self-diag-01/evidence/d1/`, их в 25876167 нет) |
 | ветка артефактов | `self-diag/d1-closure` (docs-only; код не менялся) |
-| метод | `git grep -n -I -i -E` по индексированному дереву HEAD |
+| метод | `git grep -n -I -i -E` по git-дереву коммита `25876167` (production); worktree `01b13f1c` — место запуска, docs-коммит `2aa81bc1` даёт тот же результат по коду; строки, которых на 25876167 нет (docs-only, §1), учтены отдельным списком |
 | шаблоны | `betterstack`, `checkup_betterstack`, `CHECKUP_JOURNALCTL_CMD`, `models_checkup`, `keys_betterstack`, `logtail`, `BETTERSTACK_HOST`, `checkup_betterstack_sql`, `models.checkup` |
-| варианты с пробелом | `better stack`, `better-stack`, `беттерстак`, `беттер стек` (учтены отдельно; +34 строк) |
+| варианты с пробелом | `better stack`, `better-stack`, `беттерстак`, `беттер стек` — отдельный проход; даёт +34 совпадения, это **дополнительный** проход к основному grep, итог по дереву остаётся 1385 (а не 1385+34) |
 | исключено | `.git`, `node_modules`, `vendor` (проверено: в `web/static/vendor` и `tools/vendor` совпадений 0), build-артефакты |
 | JSON | `d1-inventory-25876167.json` — каждая строка отдельно (path:line, шаблоны, сниппет, sha256 строки для не-docs) |
 

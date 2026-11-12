@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
   "source_sha256": "ba12833aebc259039c7c198f596346880639618d9eafdb2e76d8ede17d0eb400",
-  "candidate_commit": "c087253d",
+  "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
   "candidate_binding": {
     "deployed_commit": "c087253d",
     "accepted_candidate_commit": "02e9d301358872a108f8094b0d3742dc0de2e741",
@@ -27,9 +27,20 @@
       "candidate": "c087253d",
       "deployed_commit": "c087253d",
       "why": "requirements_gate.py сравнивает --candidate и --deployed-commit с полями карты как строки, а не как Git-объекты, поэтому поля привязки хранятся в той же форме, в какой вызывается гейт. Полный SHA — deployment_2_58_188.deployed_commit и candidate_binding.deployed_commit_full."
+    },
+    "head_move_2026_11_12": {
+      "why": "Карта имеет один map-level candidate_commit, а гейт сравнивает его с --candidate строкой. D1 закрывается на production 2.58.197 @ 25876167, поэтому map-level указатель переведён на него; D2-строки и запись deployment_2_58_188 сохраняют собственную привязку c087253d/2.58.188.",
+      "d2_evidence_intact": "Ни одна D2-строка не переписана: evidence[].candidate_commit и accepted_candidate_commit остаются c087253d/02e9d301. Дополнительно проверено, что все 9 файлов среза D2 в 25876167 побайтово равны c087253d (blob-id совпадают), поэтому D2-поведение на новом head не изменилось.",
+      "d2_gate_note": "Release-гейт среза D2, пройденный на c087253d (errors=7 ровно по открытым строкам), остаётся историческим результатом. Повторный прогон D2 после переноса head потребует либо --candidate c087253d с осознанной рекнижкой map-level, либо перепривязки evidence D2 на 25876167 по blob-proof (9/9) — это отдельная книжная работа, в D1-скоуп не входит.",
+      "d1_gate": "Review-гейт D1: --stage review --slice D1 --candidate 25876167 (strict_evidence=true)."
+    },
+    "gate_invocation_2026_11_12": {
+      "candidate": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed_version": "2.58.197",
+      "why": "candidate_commit и deployed_commit карты хранятся в полной форме, совпадающей со строкой --candidate/--deployed-commit гейта."
     }
   },
-  "deployed_commit": "c087253d",
+  "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
   "deployed_commit_note_2026_11_11": "deployed_commit = c087253d (2.58.188) — выложенный релиз среза D2, а не принятый кандидат: candidate_commit остаётся 02e9d301 (принятый и отревьюенный кандидат, база 77a63bc5), перенесённый на прод-линию rebase'ом на 952b9ebd без конфликтов (пять коммитов, blob-id изменённых файлов побайтово совпадают с кандидатом). Поэтому release-гейт среза D2 на c087253d законно даёт `candidate mismatch` и каскад «no evidence bound to reviewed candidate»: это книжная привязка, а не дефект выкладки (см. deployment_2_58_188.gate_state). → УСТАРЕЛО 2026-11-11 после книжной перепривязки: candidate_commit карты переведён на c087253d, обе привязки описаны в candidate_binding (см. release_gate_effect).",
   "deployment_2_58_188": {
     "slice": "SELF-DIAG-01 D2 (доступ к диагностике)",
@@ -100,15 +111,37 @@
       "acceptance": "Inventory по живому HEAD перечисляет каждое вхождение Better Stack (fetcher, settings, hot config, API read/write, UI, tests, fixtures, docs, DI, старые креды) с владельцем checkup-only либо used-elsewhere до любого удаления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-inventory-25876167.json totals и files; d1-inventory-25876167.md §1",
+          "observation": "Инвентарь на 25876167: 1385 вхождений / 231 файл (keep 390 / mark-historical 992 / remove 3), by_owner и by_affects_d1 сходятся к 1385; known_missing_entries_check 11/11 найдено; 9 zero-core файлов дают 0; в runtime-коде только 3 мёртвых id web/app.js:92,192,193; остальное — тесты-гарды, исторические docs и глобальный logging (keep).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-inventory-25876167.json",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "533753ddbc82c2ede18f3cf1244cf2b096ff82dbb9031f47cc9194108ad0cb7a",
+          "review_ref": "review §11.3"
+        },
+        {
+          "ref": "d1-inventory-25876167.md §1-§2 и §5-§6",
+          "observation": "Таблицы владельцев по областям D1-07 (fetcher, settings, hot config, API, UI, tests, fixtures, docs, DI, старые креды) и точечные overrides; один active-doc-stale (ARCHITECTURE line 119) помечен как D1-DOC-1.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-inventory-25876167.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "ac2073d3272d3c0f4fb30e6cc9d29d1770858265f171e4e16686797c90fba09b",
+          "review_ref": "review §11.3"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_07.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-07"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "MAN-D1-13",
@@ -122,15 +155,28 @@
       "acceptance": "CHECKUP_JOURNALCTL_CMD со значением journalctl -u admin_bot и create_subprocess_shell заменены источником, построенным по фактической среде (process identity/cgroup, container metadata, release manifest); переименованный unit не порождает ложное «ошибок нет».",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §A/B и §C; review §4 SD1-D1-13",
+          "observation": "CHECKUP_JOURNALCTL_CMD и create_subprocess_shell — 0 вхождений в дереве; источник строится из фактической среды (cgroup/invocation), stale override не подменяет invocation; тесты подтверждают отказ от чужого/старого unit.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §4"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_13.json",
           "description": "прогон на новом VPS: переименованный unit отвергнут, реальный источник найден или честно unavailable"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "MAN-D2-06",
@@ -1079,15 +1125,28 @@
       "acceptance": "После переезда на другой VPS/другой unit/контейнер без systemd fetcher работает через действительный backend или возвращает честное unavailable, не читая чужие логи.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §C (unit из cgroup, invocation match); review §4 SD1-AC-07 и §11.4",
+          "observation": "Production systemd после переезда VPS читает журнал своего экземпляра; container и второй VPS/юнит живьём не запускались — техническое ограничение, поэтому строка принята в production-scope, а честный unavailable подтверждён кодом и тестами.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §11.4"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_ac_07.json",
           "description": "прогон на новом VPS: unit/контейнер/standalone и честный unavailable"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "MAN-AC-08",
@@ -1101,15 +1160,27 @@
       "acceptance": "Better Stack отсутствует в checkup runtime, UI и catalog/checkup config; внешние интеграции не повреждены; проверено сетью, а не только grep.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cleanup-2026-11-12/cleanup-2026-11-12.md §1 и §4; d1-probe-c134f93d.txt §C",
+          "observation": "0 сетевых попыток в реальном fetch(); 0 каталожных ключей Better Stack; index.html чист; глобальные интеграции целы; после cleanup /api/config 618 items, matched 0, 6 других checkup-настроек на месте. Граница: авторизованное чтение /api/config взято из воспроизводимого отчёта cleanup, публичный /api/config отдаёт 401.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "9e33373323b9a7cb2413ef86c664d1ce69c70b2bd13177edb43616a4e3c3e180",
+          "review_ref": "review §11.2"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_ac_08.json",
           "description": "сетевой trace чекапа + список сохранённых внешних интеграций"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "MAN-AC-09",
@@ -1705,15 +1776,26 @@
       "acceptance": "Better Stack полностью отсутствует в checkup runtime и настройках: не первый источник, не теневой fallback, не «подключено, но не используется», не мёртвый credentials-path; внешние интеграции другого назначения не затронуты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cleanup-2026-11-12/cleanup-2026-11-12.md §3-§4",
+          "observation": "5 persisted-строк, включая keys.checkup_betterstack_sql_password, удалены из bot_settings (DB count 0, key ILIKE '%betterstack%' → 0); секрет больше не лежит at rest, бэкап только вне repo с правами 0600; other checkup-настройки (6) целы.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "9e33373323b9a7cb2413ef86c664d1ce69c70b2bd13177edb43616a4e3c3e180"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_14.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-14"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00031",
@@ -2616,15 +2698,26 @@
       "acceptance": "Better Stack полностью отсутствует в checkup runtime и настройках: не первый источник, не теневой fallback, не «подключено, но не используется», не мёртвый credentials-path; внешние интеграции другого назначения не затронуты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cleanup-2026-11-12/cleanup-2026-11-12.md §3-§4",
+          "observation": "5 persisted-строк, включая keys.checkup_betterstack_sql_password, удалены из bot_settings (DB count 0, key ILIKE '%betterstack%' → 0); секрет больше не лежит at rest, бэкап только вне repo с правами 0600; other checkup-настройки (6) целы.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "9e33373323b9a7cb2413ef86c664d1ce69c70b2bd13177edb43616a4e3c3e180"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_14.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-14"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00170",
@@ -2638,15 +2731,28 @@
       "acceptance": "Чекап определяет собственный процесс и способ запуска, выбирает доступный локальный log backend, подтверждает принадлежность журнала этому экземпляру и читает ограниченное окно событий с привязкой к event ledger; «journalctl всегда» не предполагается.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §C (SERVICE_*), review §4 и §11.4",
+          "observation": "Живой production: unit взят из собственного cgroup (admin_bot.service), invocation_match=true, argv с _SYSTEMD_INVOCATION_ID, реальное чтение 300 строк state=info_only matched=0, ложного «здоров» нет; container/standalone — только код и тесты (живого контейнера нет).",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §11.4"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_01.json",
           "description": "реальный прогон на проде: identity процесса + выбранный backend + подтверждённое окно событий"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00171",
@@ -2660,15 +2766,28 @@
       "acceptance": "На systemd читается актуальный unit/invocation фиксированным argv через create_subprocess_exec или безопасный API без shell; unit не берётся из текста LLM; override отображается и проверяется фактическим значением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §C SERVICE_JOURNAL_ARGV/SHELL_CALL_IN_MODULE, tests/test_checkup_logs_fetcher.py",
+          "observation": "argv — фиксированный список для create_subprocess_exec, shell отсутствует (SHELL_CALL_IN_MODULE=false); живой argv совпал с ожидаемым; override проверяется по cgroup тестами.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §2 и §11.6"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_02.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-02"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00172",
@@ -2682,15 +2801,26 @@
       "acceptance": "В контейнере используется собственный stdout/stderr либо адаптер container log backend; отсутствие journalctl в контейнере не даёт ложного пустого журнала.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "review-d1-2026-11-12.md §4 SD1-D1-03, §11.4",
+          "observation": "Контейнерное плечо: journalctl не вызывается, читаются stdout/ledger, пустой ledger отличим от «здоров» — покрыто тестами; реального контейнера на VPS нет, живого прогона не было (техническое ограничение, live_required=false).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/review-d1-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "5e7722d37ba96523bfd2ff6c23080f4973cd3c3dabca53ab0e49eee133bd86b0"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_03.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-03"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00173",
@@ -2704,15 +2834,26 @@
       "acceptance": "Standalone-режим читает файл/stream собственного процесса либо существующий ring buffer/event ledger; при отсутствии прав возвращается честный отказ и частичная диагностика на иных источниках.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "review-d1-2026-11-12.md §3 (независимый контрпример) и §4 SD1-D1-04",
+          "observation": "Standalone: реальный non-systemd прогон (Windows, без /proc и journalctl) дал backend=ledger, read=0, state=empty, used_fallback=false — ложного «здоров» нет; отдельно проверен реальный отказ journalctl при systemd-identity.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/review-d1-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "5e7722d37ba96523bfd2ff6c23080f4973cd3c3dabca53ab0e49eee133bd86b0"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_04.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-04"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00174",
@@ -2726,15 +2867,28 @@
       "acceptance": "Различаются log rotation, рестарты, смена hostname, разные версии unit, несколько копий бота, старые инстансы, пустой журнал и INFO-only журнал; корректно прочитанный пустой журнал не выдаётся за «сервис здоров».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §C REAL_SYSTEMD_JOURNAL/STANDALONE_FETCH, review §4 SD1-D1-05",
+          "observation": "Состояния ok/empty/info_only/unreadable и фильтр по invocation различаются в коде и тестах; живьём наблюдался info_only (read=300, matched=0) с has_healthy_claim=false; rotation/hostname-суждения — рассуждение по fd/cgroup, не live.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §4"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_05.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-05"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00175",
@@ -2748,15 +2902,28 @@
       "acceptance": "Произвольные shell-команды не выполняются даже по запросу администратора; глубокие probes выполняются зарегистрированными OS-операциями с лимитами и исчерпывающим журналом вызова.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §A/B (0 вхождений create_subprocess_shell/CHECKUP_JOURNALCTL_CMD), review §4 SD1-D1-06",
+          "observation": "Произвольного shell нет (grep 0), argv фиксирован, таймаут 15 с, окно и длина ответа ограничены; верхний cap window_lines отсутствует — это BACKLOG B-2, не дефект приёмки.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §4 и §6 B-2"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_06.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-06"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00177",
@@ -2785,15 +2952,27 @@
       "acceptance": "Чекапный HTTP SQL-клиент, retry/error paths, конфигурационные поля, credential reader, UI-формы, описания, мёртвые каталожные ключи и недостижимые тестовые ветки удалены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cleanup-2026-11-12/cleanup-2026-11-12.md §1; d1-probe-c134f93d.txt §B",
+          "observation": "HTTP SQL-клиента, retry-путей и кред-ридера в чекапе нет; каталожных ключей Better Stack нет (get_by_pg_key=None); эндпоинтов /api/checkup 0; осиротевшие persisted-строки закрыты cleanup (D1-10/D1-14), а не этой строкой.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "9e33373323b9a7cb2413ef86c664d1ce69c70b2bd13177edb43616a4e3c3e180",
+          "review_ref": "review §4 SD1-D1-08 и §11.2"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_08.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-08"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00182",
@@ -2807,15 +2986,27 @@
       "acceptance": "Устаревший fallback заменён portable local collector; существующие интерфейсы сохранены с совместимостью, тесты/pins обновлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "review-d1-2026-11-12.md §2 и §11.6; tests/test_checkup_logs_fetcher.py, tests/test_checkup_handlers.py",
+          "observation": "Интерфейс fetch()/close() сохранён, handler вызывает _fetcher.fetch(); 33 + 37 тестов passed на 25876167, assertions прочитаны (argv без shell, stale override, empty/info_only/ok, permission/spawn/timeout, интеграционный bare-чекап, неизменность prompts.checkup_system_prompt).",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/review-d1-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "5e7722d37ba96523bfd2ff6c23080f4973cd3c3dabca53ab0e49eee133bd86b0",
+          "review_ref": "review §2"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_09.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-09"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00183",
@@ -2829,15 +3020,26 @@
       "acceptance": "Сохранённые Better Stack secret values удаляются только после доказанного отсутствия других потребителей и безопасного бэкапа/точной миграции; таблица секретов не очищается целиком, исторические релизные записи не переписываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "cleanup-2026-11-12/cleanup-2026-11-12.md §2-§4 и cleanup-report.txt",
+          "observation": "Потребителей нет (git grep rc=1, param_catalog 0); точечный бэкап 5 строк 1327 б sha256 706b61f3… вне repo; DELETE ровно 5 ключей одной транзакцией RETURNING 5 (без TRUNCATE/wildcard); POST_COUNT=0, /api/config 623→618 matched 0; один рестарт, healthz 2.58.197, новых ошибок нет.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "9e33373323b9a7cb2413ef86c664d1ce69c70b2bd13177edb43616a4e3c3e180"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_10.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-10"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00184",
@@ -2851,15 +3053,26 @@
       "acceptance": "httpx, глобальное observability, отправка уведомлений и другие источники не удаляются только по совпадению слова Better Stack.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "review-d1-2026-11-12.md §4 SD1-D1-11 и §11.1",
+          "observation": "services/betterstack_handler.py и services/external_log.py на месте, их sha256 на сервере совпали с c134f93d; глобальный ingest (BETTERSTACK_HOST/LOGTAIL_SOURCE_TOKEN) не тронут.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/review-d1-2026-11-12.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "5e7722d37ba96523bfd2ff6c23080f4973cd3c3dabca53ab0e49eee133bd86b0"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_11.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-11"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00185",
@@ -2873,15 +3086,28 @@
       "acceptance": "Отчёт содержит список удалённых checkup-вызовов/полей, сохранённых сторонних интеграций, 0 сетевых запросов к Better Stack в реальном checkup runtime и результаты прямого чтения после переезда VPS.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-probe-c134f93d.txt §C OUTBOUND_ATTEMPTS_DURING_FETCH=0; review §4 SD1-D1-12",
+          "observation": "Реальный fetch() на проде: 0 сетевых попыток (гард на socket.connect/create_connection/asyncio.open_connection); прямое чтение журнала после переезда VPS работает (300 строк), сторонние интеграции перечислены и не изменены.",
+          "type": "live",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+          "anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+          "review_ref": "review §4"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_12.json",
           "description": "сетевой trace реального чекапа (0 обращений к Better Stack) + прямое чтение логов на новом VPS"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00187",
@@ -5309,15 +5535,27 @@
       "acceptance": "В админке удалены checkup-only поля, креды, карточки, индикация соединения и ссылки помощи Better Stack; остальные реальные интеграции проекта сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "d1-inventory-25876167.md §2 (web/app.js); review §4 SD1-D1-17",
+          "observation": "web/index.html — 0 упоминаний; серверного каталога keys_betterstack и /api/checkup нет; UI не рендерит осиротевшие items. В web/app.js остались 3 мёртвых id (92, 192, 193) — BACKLOG B-1, невидимый cleanup, не дефект приёмки.",
+          "type": "test",
+          "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-inventory-25876167.md",
+          "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+          "deployed_version": "2.58.197",
+          "artifact_sha256": "ac2073d3272d3c0f4fb30e6cc9d29d1770858265f171e4e16686797c90fba09b",
+          "review_ref": "review §4 и §6 B-1"
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
           "artifact_path": "plans/features/self-diag-01/evidence/d1/sd1_d1_17.json",
           "description": "наблюдаемый артефакт проверки SD1-D1-17"
         }
-      ]
+      ],
+      "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e"
     },
     {
       "source_id": "L00367",
@@ -6487,6 +6725,29 @@
         "живая приёмка SD1-AC-14 возможна только после выката; сейчас READY_FOR_LIVE",
         "отдельные артефакты проходов 2 и 3 ревью не сохранены — доказуемы только коммиты исправлений и запись очереди ревью"
       ]
+    },
+    {
+      "id": "REV-D1-2026-11-12-01",
+      "slice": "D1",
+      "verdict": "APPROVED",
+      "candidate_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+      "deployed_version": "2.58.197",
+      "reviewed_at": "2026-11-12",
+      "reviewer": "independent review (отдельный Reviewer, не Builder и не автор evidence)",
+      "artifact_path": "plans/features/self-diag-01/evidence/d1/review-d1-2026-11-12.md",
+      "artifact_sha256": "5e7722d37ba96523bfd2ff6c23080f4973cd3c3dabca53ab0e49eee133bd86b0",
+      "verdict_detail": "Поведение D1 Approved, 17/17 строк VERIFIED; MAP_SYNC_REQUIRED — книжная перепривязка карты/JSON/гейта на 25876167 с примечанием 5/8. Первичный вердикт Needs Fixes (review §4/§10) относится к состоянию до cleanup/inventory и сохранён как история.",
+      "corrections_applied": [
+        "(a) inventory §0: worktree фактически self-diag/d1-closure @ 2aa81bc1, скан привязан к 25876167",
+        "(b) inventory §0: «+34» — инкремент отдельного прохода, итог 1385",
+        "(c) cleanup MD §1: авторитетно 37 файлов checkup_betterstack_sql / 231 файл Better Stack; 16 в сыром отчёте — регистрозависимый grep",
+        "(d) inventory JSON persisted_db_rows: 0 строк, deleted, backup sha256 706b61f3…"
+      ],
+      "honest_limits": [
+        "authorized /api/config 618/0 — из cleanup-отчёта; публичный 401",
+        "реальный container/second VPS не запускался (AC-07 production scope)",
+        "авторизованный click-through админки не выполнялся"
+      ]
     }
   ],
   "fix_chain": [
@@ -6516,5 +6777,83 @@
       "what": "env-секреты в наборе всегда + снимок без кэша не отравляет TTL (принят)"
     }
   ],
-  "artefact_rebinding_note": "2026-11-11 (первая привязка): D2 привязан к принятому кандидату 02e9d301, артефакт evidence/d2/d2-evidence-02e9d301.md. 2026-11-11 (выкат): 2.58.188 @ c087253d выложен из 02e9d301 без переписывания кода (9/9 файлов среза побайтово равны), поэтому карта и все evidence-записи строк D2 перепривязаны на c087253d: artifact_path → plans/features/self-diag-01/reports/deploy-2.58.188.md (sha256 0733ae0e…), для живых строк добавлен plans/features/self-diag-01/evidence/d2/sd1_d2_03.json (sha256 7cb71fca…). Предыдущие артефакты (98bc424e, f58c458a, 02e9d301) сохранены как superseded history в evidence_supersession.chain и полях superseded_evidence — ничего не удалено и не переписано."
+  "artefact_rebinding_note": "2026-11-11 (первая привязка): D2 привязан к принятому кандидату 02e9d301, артефакт evidence/d2/d2-evidence-02e9d301.md. 2026-11-11 (выкат): 2.58.188 @ c087253d выложен из 02e9d301 без переписывания кода (9/9 файлов среза побайтово равны), поэтому карта и все evidence-записи строк D2 перепривязаны на c087253d: artifact_path → plans/features/self-diag-01/reports/deploy-2.58.188.md (sha256 0733ae0e…), для живых строк добавлен plans/features/self-diag-01/evidence/d2/sd1_d2_03.json (sha256 7cb71fca…). Предыдущие артефакты (98bc424e, f58c458a, 02e9d301) сохранены как superseded history в evidence_supersession.chain и полях superseded_evidence — ничего не удалено и не переписано.",
+  "deployment_2_58_197": {
+    "slice": "SELF-DIAG-01 D1 (closure: портативный backend логов уже в проде, закрыты данные и доказательства)",
+    "version": "2.58.197",
+    "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
+    "release_branch": "release/2.58.197",
+    "prior_prod_line": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e (2.58.195); 2.58.196 откачен по релизным заметкам, 2.58.197 — следующая рабочая линия",
+    "schema": "user_version=47, DDL/migrations=0",
+    "what_changed_for_d1": "Продуктовый код D1 не менялся: это закрытие данных (удаление 5 осиротевших строк) и доказательств (инвентарь, ревью, перепривязка карты). Cleanup удалил только 5 строк bot_settings и сделал один рестарт.",
+    "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+    "evidence_anchor_note": "anchor c134f93d принят с примечанием 5/8: 5 файлов D1 побайтово идентичны, config/settings.py отличается только строкой APP_VERSION, web/app.js и web/index.html — правки initiative-эпика (0 вхождений betterstack/checkup в UI-diff); поведение D1 перепроверено на 25876167",
+    "d1_artifacts": {
+      "review": {
+        "path": "plans/features/self-diag-01/evidence/d1/review-d1-2026-11-12.md",
+        "sha256": "5e7722d37ba96523bfd2ff6c23080f4973cd3c3dabca53ab0e49eee133bd86b0",
+        "verdict": "Approved (MAP_SYNC_REQUIRED), 17/17 строк D1 verified"
+      },
+      "inventory_md": {
+        "path": "plans/features/self-diag-01/evidence/d1/d1-inventory-25876167.md",
+        "sha256": "ac2073d3272d3c0f4fb30e6cc9d29d1770858265f171e4e16686797c90fba09b"
+      },
+      "inventory_json": {
+        "path": "plans/features/self-diag-01/evidence/d1/d1-inventory-25876167.json",
+        "sha256": "533753ddbc82c2ede18f3cf1244cf2b096ff82dbb9031f47cc9194108ad0cb7a"
+      },
+      "cleanup_report": {
+        "path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-2026-11-12.md",
+        "sha256": "9e33373323b9a7cb2413ef86c664d1ce69c70b2bd13177edb43616a4e3c3e180"
+      },
+      "cleanup_raw_log": {
+        "path": "plans/features/self-diag-01/evidence/d1/cleanup-2026-11-12/cleanup-report.txt",
+        "sha256": "8a46e08e96b6c82a233522b680e79b8ff44a3a1850dd4b8e5d6ecad77467fb77"
+      },
+      "probe": {
+        "path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+        "sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21"
+      },
+      "per_row_json": "plans/features/self-diag-01/evidence/d1/sd1_d1_*.json, plans/features/self-diag-01/evidence/d1/sd1_ac_07.json, plans/features/self-diag-01/evidence/d1/sd1_ac_08.json — черновики Builder (claimed_verified=false, candidate c134f93d); оставлены как история, приёмкой не являются"
+    },
+    "d1_counts": {
+      "records": 18,
+      "unique_req_ids": 17,
+      "by_status": {
+        "VERIFIED": 17
+      },
+      "note": "18 записей = 17 уникальных req_id; SD1-D1-14 имеет два source_line (30 и 169) с общей приёмкой."
+    },
+    "d1_limits": [
+      "Точное чтение PostgreSQL на 2.58.197 повторно не выполнялось: состояние 0 строк и /api/config 618/0 взяты из воспроизводимого cleanup-отчёта; публичный /api/config — 401.",
+      "Реальный контейнер без systemd и второй VPS/юнит не запускались: AC-07 принят в production-scope, container/standalone покрыты кодом, тестами и независимым non-systemd прогоном.",
+      "Авторизованный click-through админки не выполнялся (нет сессии); D1 UI не менял, выводы по UI — статика/каталог/API.",
+      "D1-DOC-1: ARCHITECTURE.md line 119 содержит устаревшее current-state утверждение; правится в следующем doc-касании."
+    ],
+    "backlog": [
+      "B-1: web/app.js:92,192,193 — мёртвые id groups models_checkup/keys_betterstack, не рендерятся; убрать при следующем касании D1.",
+      "B-2: window_lines без верхнего cap (--lines=1000000000 возможен); production 300.",
+      "B-3: _default_stdout_tail (реальный файл) не покрыт durable-тестом.",
+      "B-4: tests/js/routing_test.js использует keys.checkup_betterstack_sql_password как generic fixture."
+    ],
+    "no_owner_qa": "Все пункты проверены агентами; владельцу ничего не назначено."
+  },
+  "d1_accounting": {
+    "slice": "D1",
+    "convention": "records = записи items + additional_requirements с slice=D1; unique_req_ids = свёртка по req_id",
+    "records_total": 18,
+    "records_by_status": {
+      "VERIFIED": 18
+    },
+    "unique_req_ids": 17,
+    "unique_req_ids_by_status": {
+      "VERIFIED": 17
+    },
+    "ddl_or_migration": "none",
+    "feature_flag": "none",
+    "verified_at_candidate": "2587616759de31283585ffc105c91e7193c2e89e",
+    "evidence_anchor_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+    "review_evidence_id": "REV-D1-2026-11-12-01"
+  },
+  "artefact_rebinding_note_2026_11_12": "2026-11-12 (D1 closure): map-level candidate_commit/deployed_commit переведены на 25876167/2.58.197; D1-строки получили row-level evidence на inventory/cleanup/probe/review и переведены в VERIFIED (18 записей / 17 req_id). D2-записи, deployment_2_58_188 и candidate_binding.candidate c087253d сохранены без перезаписи; проверено, что 9/9 файлов среза D2 в 25876167 побайтово равны c087253d."
 }

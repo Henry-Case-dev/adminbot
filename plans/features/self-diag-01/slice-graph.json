@@ -105,9 +105,11 @@
       ],
       "acceptance": "Чекап читает логи собственного процесса через актуальный local backend (systemd-argv без shell, container stdout, standalone stream) либо честный unavailable; ноль сетевых обращений к Better Stack в checkup runtime; bare чекап сохраняет reply/cooldown/реакцию/busy; переименованный unit не даёт ложного «ошибок нет».",
       "risk": "R1",
-      "next_role": "Builder",
+      "next_role": "none — D1 closed 2026-11-12 (Approved, 17/17 VERIFIED); см. requirements-map deployment_2_58_197",
       "mode": "writer",
       "coherence": "Один наблюдаемый исход: чекап после переезда VPS получает логи именно этого экземпляра и не зависит от Better Stack; остальные подсистемы не затронуты.",
+      "status": "VERIFIED",
+      "status_note": "2026-11-12: поведение Approved на production 2.58.197 @ 25876167; остаток — только backlog B-1..B-4 и D1-DOC-1, новых требований нет.",
       "note": "Независимый P0 corrective: может запускаться раньше очереди эпика, если ни один Builder не держит services/system_logs_fetcher.py, config/settings.py, bot.py, web/app.js.",
       "requirements": [
         "SD1-AC-07",

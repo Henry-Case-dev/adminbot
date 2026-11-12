@@ -69,8 +69,20 @@
   }
  },
  "persisted_db_rows": {
-  "note": "Не файлы: 5 persisted-строк bot_settings на production 2.58.197; источник — review-d1-2026-11-12.md и d1-probe-c134f93d.txt. В этом скане значения не читались.",
-  "affects_d1_acceptance": true,
+  "note": "Правка 2026-11-12 (Reviewer, review §11.3d): прежняя формулировка «5 persisted-строк на production» была снимком ДО cleanup. Сейчас на проде 0 строк: DELETE ровно 5 ключей одной транзакцией (RETURNING 5), POST_COUNT=0, /api/config 623->618 matched 0. Источник состояния — cleanup-2026-11-12/cleanup-2026-11-12.md и cleanup-report.txt, а не этот статический скан: значения в скане не читались.",
+  "status": "deleted",
+  "rows_on_production": 0,
+  "deleted_at": "2026-11-12T10:28:42Z",
+  "backup": {
+   "server_path": "/root/adminbot_backup_self-diag-01/bot_settings_betterstack_2026-11-12.json",
+   "local_path_outside_repo": ".../WorkspaceData/backups/self-diag-01/bot_settings_betterstack_2026-11-12.json",
+   "sha256": "706b61f3282002ee8e801c89035583fd33350457daf1f8b6840d0b8e158dd969",
+   "bytes": 1327,
+   "restore_script_sha256": "157225a0a857f54a234cafda4edc67b68ed3d23bb44c5aef82342383a5bef8f2",
+   "note": "бэкап вне repo; значения не печатались и не копировались в evidence"
+  },
+  "affects_d1_acceptance": false,
+  "was_affects_d1_acceptance_before_cleanup": true,
   "keys": [
    {
     "key": "keys.checkup_betterstack_sql_password",

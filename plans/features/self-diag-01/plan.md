@@ -182,4 +182,37 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
 
 Гейты (дословно, `evidence/d2/d2-evidence-02e9d301.md` §0.9): план-гейт — `stage=plan inventory=183 manual=53 scoped=0 errors=0`; ревью-гейт D2 — `errors=3` ровно на трёх открытых `PENDING` (`SD1-D2-23`, `SD1-D2-24`, `SD1-AMX-09`), что не является дефектом привязки: у каждой строки свой внешний исполнитель и своё условие.
 
+## 10. D1 closure (2026-11-12): Approved, 17/17 VERIFIED
+
+Срез D1 закрыт книжно на production **2.58.197 @ `25876167`**. Продуктовый код D1 не
+менялся: закрыты данные (5 осиротевших строк `bot_settings`) и доказательства
+(инвентарь на живом HEAD, cleanup-отчёт, перепривязка карты).
+
+- **Ревью:** независимый Reviewer — `Approved` для поведения D1, 17/17 строк
+  VERIFIED, `MAP_SYNC_REQUIRED`; артефакт `evidence/d1/review-d1-2026-11-12.md`
+  (§11 — актуальный вердикт, §4/§10 — первичная история `Needs Fixes`).
+- **Cleanup:** DELETE ровно 5 ключей одной транзакцией (`RETURNING 5`), бэкап вне
+  repo (`sha256 706b61f3…`), `/api/config` 623→618, matched 0, health 2.58.197,
+  новых ошибок нет. Доказательства — `evidence/d1/cleanup-2026-11-12/`.
+- **Инвентарь:** 1385 вхождений / 231 файл; keep 390 / mark-historical 992 /
+  remove 3; 3 runtime-строки — мёртвые id `web/app.js:92,192,193` (BACKLOG B-1);
+  known entries 11/11. Доказательства — `evidence/d1/d1-inventory-25876167.*`.
+- **Привязка:** map-level `candidate_commit`/`deployed_commit` = `25876167`;
+  anchor `c134f93d` принят с примечанием **5/8** (settings.py — только
+  APP_VERSION; app.js/index.html — initiative-UI). Строки D1 несут row-level
+  evidence на inventory/cleanup/probe/review. D2-строки не переписаны:
+  `deployment_2_58_188` и `c087253d` сохранены, а 9/9 файлов среза D2 в
+  `25876167` побайтово равны `c087253d`.
+- **Гейты:** план — `stage=plan inventory=183 manual=53 scoped=0 errors=0`;
+  ревью D1 — `stage=review inventory=183 manual=53 scoped=18 errors=0`.
+- **Честные границы:** повторное чтение БД на 2.58.197 не выполнялось
+  (состояние 0/`618` — из воспроизводимого cleanup-отчёта; публичный
+  `/api/config` — 401); реальный контейнер и второй VPS не запускались (AC-07 —
+  production scope); авторизованный click-through админки не выполнялся. Всё
+  это не назначено владельцу: проверки агентские, границы названы честно.
+- **Остаток D1 — только backlog:** B-1 (мёртвые id), B-2 (`window_lines` без
+  верхнего cap), B-3 (`_default_stdout_tail` без durable-теста), B-4 (JS-фикстура),
+  D1-DOC-1 (ARCHITECTURE.md line 119). Ни один не блокирует D1 и не является
+  новым требованием.
+
 
