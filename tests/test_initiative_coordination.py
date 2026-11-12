@@ -963,8 +963,11 @@ def test_command_marks_priority_before_generation(monkeypatch):
         order.append(("priority", chat_id))
         return marker
 
-    async def _clear(chat_id, mark):
-        order.append(("clear", chat_id, mark))
+    async def _clear(chat_id, mark, **kwargs):
+        # P0IM-PB-MANUAL: обработчик передаёт job_id попытки, чтобы факт
+        # снятия попал в ТУ ЖЕ терминальную строку. Стаб обязан принять
+        # новый keyword и зафиксировать его непустым.
+        order.append(("clear", chat_id, mark, kwargs.get("job_id")))
         return True
 
     async def _pipeline(chat_id, bot, *, request_ref="", permission_check=None,
@@ -974,6 +977,9 @@ def test_command_marks_priority_before_generation(monkeypatch):
         assert callable(permission_check)  # B2: реальная перепроверка прав
         assert manual_priority == marker   # факт записи маркера -> в журнал
         assert trace is not None           # P0IM-D7: трасса запуска
+        # Реальный пайплайн минтит job_id до первого гейта; стаб повторяет
+        # этот контракт, иначе job_id снятия был бы пустым по вине стаба.
+        trace.job_id = "meme-job-coord-1"
         return SimpleNamespace(published=True, reason="sent")
 
     async def _admin(_uid, _cid):
@@ -1003,7 +1009,9 @@ def test_command_marks_priority_before_generation(monkeypatch):
     asyncio.run(meme_command.cmd_meme(_Message()))
 
     assert order == [("delete",), ("priority", CHAT), ("pipeline", "5"),
-                     ("clear", CHAT, until)], order
+                     ("clear", CHAT, until, "meme-job-coord-1")], order
+    # Ровно одно снятие: повторной записи маркера/второго clear нет.
+    assert sum(1 for row in order if row[0] == "clear") == 1, order
 
 
 # ═══ 8. разные чаты независимы (R6) ═════════════════════════════════════════
