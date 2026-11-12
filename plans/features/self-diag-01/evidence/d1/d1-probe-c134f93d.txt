@@ -1,0 +1,172 @@
+﻿SELF-DIAG-01 D1 read-only production probe outputs (deployed c134f93d / 2.58.195)
+Generated: 2026-11-12 (server UTC window ~05:5x-06:0xZ)
+No deploy, no restart, no writes to app/config/settings/DB; secret values never printed.
+
+===== probe 1 (system python; app import failed -> recorded honestly) =====
+
+
+=== A pre-state ===
+$ cd /var/www/admin_bot && git rev-parse HEAD && git rev-parse --abbrev-ref HEAD && git status --porcelain --untracked-files=no | head -5
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+release/2.58.195
+$ cd /var/www/admin_bot && python3 - <<'PY'
+APP_VERSION_ON_DISK=2.58.195
+$ systemctl is-active admin_bot; systemctl show admin_bot -p NRestarts --value; systemctl show admin_bot -p InvocationID --value; systemctl show admin_bot -p Main
+active
+0
+cc6bc988c4cd4536abea12dcb59732be
+121346
+Thu 2026-11-12 05:24:31 UTC
+$ curl -s --max-time 15 https://admin-bot.duckdns.org/healthz; echo; df -h / | tail -1; ls -la /var/www/admin_bot/local_database.db | awk '{print "db_bytes="$5}'
+{"status":"ok","version":"2.58.195"}
+/dev/vda1        99G   52G   42G  56% /
+db_bytes=2547322880
+
+=== B deployed file evidence ===
+$ cd /var/www/admin_bot && sha256sum services/system_logs_fetcher.py handlers/checkup.py services/checkup_service.py config/settings.py services/betterstack_handl
+2eb39df8c344647343f2809e34f0b8e01b3ec0542857559c63e05b1383c2e0f5  services/system_logs_fetcher.py
+7f1c1501bd6a6fd387e5437a60ca050a445dfe48bf8c947aba0bff3ccc962cc9  handlers/checkup.py
+0d20794e88c984f6089a573cdee1084adb4ceb7e0f75f67a77813d176108129d  services/checkup_service.py
+1b53d4e34f367c083bb58e58b103c4b5970783acf1be90498d17d749b02d942b  config/settings.py
+5ab4e1743b86069ea6eeb7dbc58be984e84e437eec7ea64b57136921267ec87e  services/betterstack_handler.py
+ebc680a9dc2114beb26ad31aa4b18c757b1e80e2e18238281936f699eed1edc4  services/external_log.py
+f81d1e0763e090ac0460e7bfeecce8ddf0baf6b062b66524ad07b6fdad11cdb0  web/app.js
+d5debe859d531116e5bc959b5b9de79ff296c30e6ce46242eb8ea8835fb6ea10  web/index.html
+$ cd /var/www/admin_bot && wc -l services/system_logs_fetcher.py handlers/checkup.py services/checkup_service.py
+  492 services/system_logs_fetcher.py
+  246 handlers/checkup.py
+  141 services/checkup_service.py
+  879 total
+$ cd /var/www/admin_bot && grep -n 'CHECKUP_LOG_\|CHECKUP_JOURNALCTL_CMD' config/settings.py
+2248:    CHECKUP_LOG_WINDOW_LINES: int = _env_int_min("CHECKUP_LOG_WINDOW_LINES", 300, 10)
+2252:    CHECKUP_LOG_UNIT: str = _env_str("CHECKUP_LOG_UNIT", "")
+$ cd /var/www/admin_bot && grep -rn 'create_subprocess_shell\|CHECKUP_JOURNALCTL_CMD' services handlers config web | wc -l
+0
+$ cd /var/www/admin_bot && grep -rn 'import httpx\|import requests\|import aiohttp\|import urllib\|import socket\|betterstack\|logtail' services/system_logs_fetch
+0
+$ cd /var/www/admin_bot && grep -rn 'keys_betterstack' services web/api config | wc -l; grep -rn 'api/checkup' web services handlers | wc -l; grep -c -i 'betterst
+0
+0
+0
+$ cd /var/www/admin_bot && grep -n 'checkup' services/param_catalog.py | head -20
+416:    GroupSpec("prompts_checkup", "prompts", "Р§РµРє-Р°Рї",
+529:    GroupSpec("limits_checkup", "limits", "Р§РµРє-Р°Рї: Р»РёРјРёС‚С‹",
+647:    # flags_modules(9) в†’ 7 РіСЂСѓРїРї + checkup-С„Р»Р°Рі РІ flags_service;
+883:    ("prompts.checkup_system_prompt", "РЎРёСЃС‚РµРјРЅС‹Р№ РїСЂРѕРјРїС‚ С‡РµРєР°РїР°",
+884:     "services.checkup_prompts.CHECKUP_SYSTEM_PROMPT", "prompts_checkup",
+2009:    ("CHECKUP_COOLDOWN_SECONDS", "РљСѓР»РґР°СѓРЅ С‡РµРєР°РїР°, СЃРµРє", "float", "limits_checkup",
+2011:    ("CHECKUP_MAX_SYMBOLS", "Р”Р»РёРЅР° РѕС‚РІРµС‚Р° С‡РµРєР°РїР°, СЃРёРјРІРѕР»РѕРІ", "int", "limits_checkup",
+2013:    ("CHECKUP_MAX_INPUT_SYMBOLS", "РџРѕС‚РѕР»РѕРє РІС…РѕРґР° С‡РµРєР°РїР°, СЃРёРјРІРѕР»РѕРІ", "int", "limits_checkup",
+4225:TAB_MOD_CHECKUP = "mod_checkup"
+4404:            "limits_checkup", "limits_service"})),
+4451:    # A8: keys_youtube в†’ Рњ6. SELF-DIAG-01 D1: checkup-only Better Stack
+$ cd /var/www/admin_bot && grep -rn 'external_log\|betterstack' handlers/checkup.py services/checkup_service.py | wc -l
+0
+
+=== C D1 runtime probe ===
+$ cd /var/www/admin_bot && PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+
+[stderr]
+Traceback (most recent call last):
+  File "<stdin>", line 19, in <module>
+  File "/var/www/admin_bot/services/system_logs_fetcher.py", line 39, in <module>
+    from config.settings import settings
+  File "/var/www/admin_bot/config/settings.py", line 5, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 228, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 114, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/admin_bot/-'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<stdin>", line 19, in <module>
+  File "/var/www/admin_bot/services/system_logs_fetcher.py", line 39, in <module>
+    from config.settings import settings
+  File "/var/www/admin_bot/config/settings.py", line 5, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+
+=== D persisted settings / DB (keys only, no values) ===
+$ cd /var/www/admin_bot && PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+USER_VERSION=47
+
+[stderr]
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+sqlite3.OperationalError: no such table: bot_settings
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 228, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 114, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/admin_bot/-'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+sqlite3.OperationalError: no such table: bot_settings
+$ cd /var/www/admin_bot && for k in LOGTAIL_SOURCE_TOKEN BETTERSTACK_HOST; do n=$(grep -c "^${k}=" .env 2>/dev/null || true); echo "ENV_KEY_${k}_present=$n"; done
+ENV_KEY_LOGTAIL_SOURCE_TOKEN_present=1
+ENV_KEY_BETTERSTACK_HOST_present=1
+
+=== E service journal / health window ===
+$ journalctl -u admin_bot --since '-30 min' --no-pager -o cat 2>/dev/null | awk 'BEGIN{tb=0;er=0;cr=0;wr=0;lost=0} /Traceback/{tb++} /ERROR/{er++} /CRITICAL/{cr++
+TB=0 ERR=0 CRIT=0 WARN=12 LOST=0
+$ journalctl -u admin_bot --since '-30 min' --no-pager -o cat 2>/dev/null | wc -l || true
+1605
+
+=== F post-state (unchanged) ===
+$ cd /var/www/admin_bot && git rev-parse HEAD && git status --porcelain --untracked-files=no | wc -l
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+0
+$ curl -s --max-time 15 https://admin-bot.duckdns.org/healthz
+{"status":"ok","version":"2.58.195"}
+
+===== probe 2 (project venv; runtime + PostgreSQL keys) =====
+
+=== A pre/post state ===
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+0
+{"status":"ok","version":"2.58.195"}
+
+=== B interpreter ===
+lrwxrwxrwx 1 adminbot adminbot 7 Oct 28 23:48 /var/www/admin_bot/venv/bin/python -> python3
+
+=== C D1 runtime probe ===
+PY_EXECUTABLE=/var/www/admin_bot/venv/bin/python
+CHECKUP_NETWORK_MODULES=[]
+PROBE_RUNTIME_KIND=systemd unit=session-148.scope invocation=None marker=None
+SERVICE_CGROUP_UNIT='admin_bot.service'
+SERVICE_INVOCATION_PRESENT=True len=32
+SERVICE_DETECTED_KIND=systemd unit=admin_bot.service invocation_match=True
+SERVICE_JOURNAL_ARGV=["journalctl", "--no-pager", "--quiet", "--output=short-iso", "--lines=300", "_SYSTEMD_INVOCATION_ID=cc6bc988c4cd4536abea12dcb59732be"]
+SERVICE_DESCRIBE_SOURCE='systemd invocation=cc6bc988c4cd4536abea12dcb59732be unit=admin_bot.service pid=157147'
+SHELL_CALL_IN_MODULE=False
+REAL_SYSTEMD_JOURNAL={"state": "info_only", "backend": "systemd", "read": 300, "matched": 0, "unit": "admin_bot.service", "invocation_matches": true, "detail": null}
+STANDALONE_FETCH={"ok": true, "chars": 201, "used_fallback": false, "provenance": "[log-source] backend=systemd unit=session-148.scope window=300 read=1 matched=0 state=info_only", "has_healthy_claim": false}
+OUTBOUND_ATTEMPTS_DURING_FETCH=0
+SETTINGS_CHECKUP_LOG_UNIT=''
+SETTINGS_CHECKUP_LOG_WINDOW_LINES=300
+SETTINGS_HAS_JOURNALCTL_CMD=False
+
+=== D persisted settings (PostgreSQL, keys+lengths only) ===
+PG_DSN_PRESENT=True
+BOT_SETTINGS_pctbetterstackpct=[["keys.checkup_betterstack_sql_password", 66], ["keys.checkup_betterstack_sql_user", 35], ["models.checkup_betterstack_sql_host", 40], ["models.checkup_betterstack_sql_query", 2], ["models.checkup_betterstack_sql_table", 20]]
+BOT_SETTINGS_pctlogtailpct=[]
+BOT_SETTINGS_pctcheckuppct=[["flags.checkup_enabled", 4], ["flags.checkup_memory_metrics_enabled", 4], ["keys.checkup_betterstack_sql_password", 66], ["keys.checkup_betterstack_sql_user", 35], ["limits.checkup_cooldown_seconds", 5], ["limits.checkup_max_input_symbols", 5], ["limits.checkup_max_symbols", 4], ["models.checkup_betterstack_sql_host", 40], ["models.checkup_betterstack_sql_query", 2], ["models.checkup_betterstack_sql_table", 20], ["prompts.checkup_system_prompt", 3068]]
+CHAT_PARAMS_QUERY=UndefinedTableError
+
+=== E post-state ===
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+0
+{"status":"ok","version":"2.58.195"}

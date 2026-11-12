@@ -1,0 +1,23 @@
+{
+  "requirement": "SD1-D1-08",
+  "slice": "D1",
+  "epic": "SELF-DIAG-01",
+  "kind": "live+code",
+  "candidate_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_version": "2.58.195",
+  "ref": "AST импортов 3 checkup-модулей; services/param_catalog.py:1065-1066; web/api: grep api/checkup -> 0; get_by_pg_key",
+  "observation": "HTTP SQL-клиента, retry/error-путей, кред-ридера и UI-форм чекапа в коде нет; сетевых импортов 0; эндпоинтов /api/checkup 0; в каталоге только CHECKUP_LOG_WINDOW_LINES/CHECKUP_LOG_UNIT, все 5 legacy-ключей каталогу неизвестны",
+  "status_suggestion": "PENDING",
+  "claimed_verified": false,
+  "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+  "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+  "evidence_report": "plans/features/self-diag-01/evidence/d1/d1-evidence-c134f93d.md",
+  "environment": {
+    "host_role": "production",
+    "app_dir": "/var/www/admin_bot",
+    "probe_mode": "read_only",
+    "sent_messages": 0,
+    "deploy_or_restart": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "requirement": "SD1-D1-02",
+  "slice": "D1",
+  "epic": "SELF-DIAG-01",
+  "kind": "live+code",
+  "candidate_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_version": "2.58.195",
+  "ref": "services/system_logs_fetcher.py:278 _journal_argv, :294-298 _run_journal (asyncio.create_subprocess_exec), :318 _try_journal",
+  "observation": "Фиксированный argv без shell: journalctl --no-pager --quiet --output=short-iso --lines=300 _SYSTEMD_INVOCATION_ID=<реальный invocation>. Реальное чтение вернуло state=info_only, read=300, matched=0, invocation совпал. create_subprocess_shell в модуле и репозитории — 0",
+  "status_suggestion": "PENDING",
+  "claimed_verified": false,
+  "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+  "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+  "evidence_report": "plans/features/self-diag-01/evidence/d1/d1-evidence-c134f93d.md",
+  "environment": {
+    "host_role": "production",
+    "app_dir": "/var/www/admin_bot",
+    "probe_mode": "read_only",
+    "sent_messages": 0,
+    "deploy_or_restart": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "requirement": "SD1-D1-10",
+  "slice": "D1",
+  "epic": "SELF-DIAG-01",
+  "kind": "live",
+  "candidate_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_version": "2.58.195",
+  "ref": "PostgreSQL bot_settings: 5 legacy-строк (ключи и длины, значения не читались); git grep потребителей -> rc=1",
+  "observation": "НЕ ВЫПОЛНЕНО: в bot_settings остались keys.checkup_betterstack_sql_password (66, секрет; API маскирует) / _user (35) и models.checkup_betterstack_sql_host (40) / _table (20) / _query (2). Потребителей в коде нет. Удаление требует доказанного отсутствия потребителей и бэкапа — решение PM/Builder",
+  "status_suggestion": "PENDING",
+  "claimed_verified": false,
+  "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+  "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+  "evidence_report": "plans/features/self-diag-01/evidence/d1/d1-evidence-c134f93d.md",
+  "environment": {
+    "host_role": "production",
+    "app_dir": "/var/www/admin_bot",
+    "probe_mode": "read_only",
+    "sent_messages": 0,
+    "deploy_or_restart": false
+  }
+}

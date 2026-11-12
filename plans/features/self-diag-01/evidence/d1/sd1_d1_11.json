@@ -1,0 +1,23 @@
+{
+  "requirement": "SD1-D1-11",
+  "slice": "D1",
+  "epic": "SELF-DIAG-01",
+  "kind": "live+code",
+  "candidate_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_version": "2.58.195",
+  "ref": "services/betterstack_handler.py sha256 5ab4e174...; services/external_log.py sha256 ebc680a9...; .env: LOGTAIL_SOURCE_TOKEN/BETTERSTACK_HOST present (counts only)",
+  "observation": "Глобальные observability/ingest-модули на месте и побайтово совпадают с c134f93d; удаления по совпадению слова не было",
+  "status_suggestion": "PENDING",
+  "claimed_verified": false,
+  "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+  "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+  "evidence_report": "plans/features/self-diag-01/evidence/d1/d1-evidence-c134f93d.md",
+  "environment": {
+    "host_role": "production",
+    "app_dir": "/var/www/admin_bot",
+    "probe_mode": "read_only",
+    "sent_messages": 0,
+    "deploy_or_restart": false
+  }
+}

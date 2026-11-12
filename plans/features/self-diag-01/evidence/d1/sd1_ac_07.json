@@ -1,0 +1,23 @@
+{
+  "requirement": "SD1-AC-07",
+  "slice": "D1",
+  "epic": "SELF-DIAG-01",
+  "kind": "live+code",
+  "candidate_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_commit": "c134f93d5c4a68f0ea906498cb9e0b78fc795f1e",
+  "deployed_version": "2.58.195",
+  "ref": "probe C: PROBE_RUNTIME_KIND=systemd/session-148.scope, honest info_only; code detect_runtime/_own_stream/_try_journal",
+  "observation": "Реального переезда на другой VPS/юнит/контейнер не было. На этой среде бэкенд выбран по фактической среде и вернул честный info_only без заявления «здоров»; контейнер/standalone — код+тесты",
+  "status_suggestion": "PENDING",
+  "claimed_verified": false,
+  "artifact_path": "plans/features/self-diag-01/evidence/d1/d1-probe-c134f93d.txt",
+  "artifact_sha256": "a24f603f28c430255bdb7198d354b1fced224e99c51191ef602548e556ee8e21",
+  "evidence_report": "plans/features/self-diag-01/evidence/d1/d1-evidence-c134f93d.md",
+  "environment": {
+    "host_role": "production",
+    "app_dir": "/var/www/admin_bot",
+    "probe_mode": "read_only",
+    "sent_messages": 0,
+    "deploy_or_restart": false
+  }
+}
