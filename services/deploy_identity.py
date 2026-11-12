@@ -40,9 +40,10 @@ CODES = (
 DEFAULT_REPO_ORIGIN = "Henry-Case-dev/adminbot"
 MANIFEST_REL_PATH = ".deploy/release.json"
 
-# Закрытый набор причин контракта (§2.3) плюс три честных причины для
-# состояний, которые контракт называет, но отдельного кода не даёт:
-# нет process_start, недоступна runtime-версия, непредвиденная ошибка.
+# Закрытый набор причин contract v1.1 (§2.3 + Amendment 1 / B2):
+# dirty_tracked — наблюдаемое dirty=true; no_process_start/version_unknown —
+# штатные local_unverified; internal_error — только непредвиденное исключение
+# верхнего уровня.
 REASONS = (
     "no_manifest",
     "manifest_invalid_json",
@@ -52,6 +53,7 @@ REASONS = (
     "gitdir_unavailable",
     "head_unresolved",
     "dirty_unknown",
+    "dirty_tracked",
     "git_unavailable",
     "git_timeout",
     "sha_conflict",
@@ -98,11 +100,14 @@ _DENIED_DIRS = {
     "chrome-profile",
     "bot-chrome-profile",
 }
-_ROOT_DENIED_FILES = {
+_DENIED_SUBSTRINGS = ("credential", "secret", "cookie")
+_DENIED_FILES = {
     "deploy_commands.txt",
     "deploy_result.json",
     "check_remote_bot.py",
 }
+# Единственное точное исключение для self-read кода модуля (§B1).
+_SELF_READ_PATH = "services/deploy_identity.py"
 _REF_FORBIDDEN = set(" ~^:?*[\\\x7f")
 
 
@@ -221,7 +226,7 @@ def _rel_parts(rel_path) -> list[str]:
     if not isinstance(rel_path, str):
         raise ValueError("not_a_string")
     text = rel_path.strip()
-    if not text:
+    if not text or "\x00" in text:
         raise ValueError("empty")
     text = text.replace("\\", "/")
     if text.startswith("/") or text.startswith("//") or re.match(
@@ -229,9 +234,10 @@ def _rel_parts(rel_path) -> list[str]:
         raise ValueError("absolute")
     parts = []
     for part in text.split("/"):
-        if part in ("", "."):
+        normalized = part.strip()
+        if normalized in ("", "."):
             continue
-        if part == "..":
+        if normalized == "..":
             raise ValueError("parent")
         parts.append(part)
     if not parts:
@@ -240,21 +246,39 @@ def _rel_parts(rel_path) -> list[str]:
 
 
 def path_is_denied(rel_path: str) -> bool:
-    """Единый предикат запрещённых путей контракта §3.3.
+    """Единый предикат запрещённых путей contract v1.1 / §B1.
 
-    Отказ не зависит от scope/прав. Абсолютные пути, ``..``, пустые и
-    нестроковые значения тоже запрещены. ``False`` означает «путь не
-    относится к секретам/бэкапам/логам», а не «файл существует».
+    Лексическая проверка: ``\\``→``/``, компоненты ``c = part.strip().lower()``,
+    для точных имён ``ct = c.rstrip(". ")``. Отказ не зависит от scope/прав.
+    Симлинк/выход за корень проверяются отдельно через ``realpath``.
+
+    Deny: любой компонент ``== .git``; любой компонент содержит
+    ``credential``/``secret``/``cookie`` на любой глубине; любой компонент из
+    ``backups/logs/migrate_history/chrome-profile/bot-chrome-profile``;
+    basename из закрытого набора; ``deploy_*.py`` на любой глубине, кроме
+    точного ``services/deploy_identity.py`` (self-read). ``False`` означает
+    «путь не относится к запрещённой лексике», а не «файл существует».
     """
     try:
         parts = _rel_parts(rel_path)
     except (TypeError, ValueError):
         return True
-    lower = [part.lower() for part in parts]
-    name = lower[-1]
-
-    if ".git" in lower:
+    lower = [part.strip().lower() for part in parts]
+    exact = [part.rstrip(". ") for part in lower]
+    if any(not part for part in lower):
         return True
+    # Компонент из одних точек/пробелов — Windows-алиас ``.``/``..``.
+    if any(not part for part in exact):
+        return True
+    if any(part == ".git" for part in exact):
+        return True
+    if any(any(needle in part for needle in _DENIED_SUBSTRINGS)
+           for part in lower):
+        return True
+    if any(part in _DENIED_DIRS for part in exact):
+        return True
+
+    name = exact[-1]
     if name == ".env":
         return True
     if name.startswith(".env.") and name != ".env.example":
@@ -262,8 +286,6 @@ def path_is_denied(rel_path: str) -> bool:
     if name.endswith((".pem", ".key", ".p12")):
         return True
     if name.startswith(("id_rsa", "id_ed25519")):
-        return True
-    if "credentials" in name or "secret" in name:
         return True
     if name.endswith((".db", ".db-wal", ".db-shm")):
         return True
@@ -273,16 +295,12 @@ def path_is_denied(rel_path: str) -> bool:
         return True
     if name.endswith(".log"):
         return True
-    if "cookie" in name:
+    if name in _DENIED_FILES:
         return True
-    if any(part in _DENIED_DIRS for part in lower):
-        return True
-    if name in _ROOT_DENIED_FILES:
-        return True
-    # Корневые deploy-скрипты запрещены, но services/deploy_identity.py
-    # (код этого модуля) обязан оставаться читаемым (тест 7 контракта).
-    if len(parts) == 1 and name.startswith("deploy_") and name.endswith(".py"):
-        return True
+    if name.startswith("deploy_") and name.endswith(".py"):
+        # Единственное исключение — точный полный путь self-read кода.
+        if "/".join(parts) != _SELF_READ_PATH:
+            return True
     return False
 
 
@@ -327,7 +345,9 @@ def _read_manifest(root: Path) -> tuple[str, dict | None]:
     if any(key not in _MANIFEST_ALLOWED for key in data):
         # Контракт §1.2: закрытый набор ключей schema 1.
         return "manifest_incomplete", None
-    if data.get("schema") != _SCHEMA:
+    schema = data.get("schema", _SCHEMA)
+    if (not isinstance(schema, int) or isinstance(schema, bool)
+            or schema != _SCHEMA):
         return "manifest_incomplete", None
     for key in _MANIFEST_REQUIRED:
         if key not in data:
@@ -338,7 +358,7 @@ def _read_manifest(root: Path) -> tuple[str, dict | None]:
         return "manifest_incomplete", None
     if not _safe_label(data.get("version"), max_len=64):
         return "manifest_incomplete", None
-    if not _safe_label(data.get("effect"), max_len=64):
+    if data.get("effect") not in ("deploy", "rollback"):
         return "manifest_incomplete", None
     if "release_branch" in data and data["release_branch"] is not None:
         if not _valid_branch_name(data["release_branch"]):
@@ -786,7 +806,6 @@ def _empty_record(code: str, reason: str,
             "dirty": None,
             "checkout_mtime": None,
             "branch": None,
-            "upstream_ref": None,
         },
         "effect": None,
         "previous_sha": None,
@@ -843,7 +862,6 @@ def collect_identity(repo_root=None, *,
                     "dirty": None,
                     "checkout_mtime": None,
                     "branch": None,
-                    "upstream_ref": None,
                 },
                 "effect": None,
                 "previous_sha": None,
@@ -947,7 +965,6 @@ def _collect_identity(repo_root, process_started_at) -> dict:
             "dirty": dirty,
             "checkout_mtime": checkout_mtime,
             "branch": branch,
-            "upstream_ref": upstream["ref"],
         },
         "effect": effect,
         "previous_sha": previous_sha,
@@ -996,12 +1013,12 @@ def _collect_identity(repo_root, process_started_at) -> dict:
             code, reason = "mismatch", "version_conflict"
             conflict = ["release_manifest", "runtime_app_version"]
         elif dirty is True:
-            code, reason = "local_unverified", "dirty_unknown"
+            code, reason = "local_unverified", "dirty_tracked"
         elif dirty is None:
             code, reason = "local_unverified", (
                 dirty_reason or "dirty_unknown")
         elif manifest.get("dirty_tracked") is True:
-            code, reason = "local_unverified", "dirty_unknown"
+            code, reason = "local_unverified", "dirty_tracked"
         elif process_dt is None:
             code, reason = "local_unverified", "no_process_start"
         elif process_dt < manifest_deployed_at:
@@ -1047,7 +1064,7 @@ def _collect_identity(repo_root, process_started_at) -> dict:
         "conflict": conflict,
         "local_source_verification": local_source_verification,
     })
-    if conflict_values is not None:
+    if conflict_values is not None and code == "mismatch":
         record["conflict_values"] = conflict_values
     return record
 

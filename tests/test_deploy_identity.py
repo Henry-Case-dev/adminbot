@@ -130,10 +130,11 @@ def test_no_manifest_is_local_unverified_never_verified(tmp_path):
     assert record["local_source_verification"] == "local_unverified"
     assert record["upstream_head"]["sha"] == SHA_B
     assert record["upstream_head"]["ref"] == f"refs/remotes/origin/{BRANCH}"
+    assert record["upstream_head"]["reason"] == ""
     assert record["upstream_head"]["observed_at"]
+    assert "conflict_values" not in record
     assert record["local_identity"]["branch"] == BRANCH
-    assert record["local_identity"]["upstream_ref"] == (
-        f"refs/remotes/origin/{BRANCH}")
+    assert "upstream_ref" not in record["local_identity"]
     assert record["local_identity"]["checkout_mtime"]
     assert record["version_provenance"]["runtime"] == APP_VERSION
     assert record["version_provenance"]["manifest"] is None
@@ -177,7 +178,7 @@ def test_dirty_tracked_tree_is_never_verified(tmp_path):
 
     assert record["dirty"] is True
     assert record["code"] == "local_unverified"
-    assert record["reason"] == "dirty_unknown"
+    assert record["reason"] == "dirty_tracked"
     assert record["local_source_verification"] == "local_unverified"
     # GIT_OPTIONAL_LOCKS=0: git status не переписывает index.
     assert (index.stat().st_mtime_ns, index.read_bytes()) == index_before
@@ -269,12 +270,16 @@ def test_path_is_denied_contract_set():
     denied = [
         ".env",
         ".env.local",
+        ".env.",
         "backups/db.sqlite",
+        "backups./db.sqlite",
+        "config/logs/notes.txt",
         "data/x.db",
         "cert.pem",
         "deploy_commands.txt",
         "cookies.txt",
         ".git/config",
+        ".git./config",
         "logs/app.log",
         "id_rsa",
         "deploy_result.json",
@@ -291,13 +296,126 @@ def test_path_is_denied_contract_set():
 
     allowed = [
         ".env.example",
-        "services/deploy_identity.py",
         "tests/test_deploy_identity.py",
         "README.md",
         "media/common/goodmorning.jpg",
+        "services/tokenizer.py",
     ]
     for path in allowed:
         assert di.path_is_denied(path) is False, path
+
+
+def test_path_is_denied_components_and_deploy_any_depth():
+    """B1: компоненты credentials/secrets/cookies и deploy_*.py на глубине."""
+    denied = [
+        "config/credentials/notes.txt",
+        "config/secrets/notes.txt",
+        "media/cookies/notes.txt",
+        "services/deploy_evil.py",
+        "tools/sub/deploy_release.py",
+        "Services/deploy_identity.py",
+        "services/sub/deploy_identity.py",
+        "services/deploy_identity.py.",
+        "docs/secret-management.md",
+        "...",
+    ]
+    for path in denied:
+        assert di.path_is_denied(path) is True, path
+
+    # Единственное точное исключение — self-read кода модуля.
+    assert di.path_is_denied("services/deploy_identity.py") is False
+    assert di.path_is_denied("./services/deploy_identity.py") is False
+    assert di.path_is_denied("services//deploy_identity.py") is False
+    assert di.path_is_denied("services\\deploy_identity.py") is False
+    assert di.path_is_denied("services/tokenizer.py") is False
+    assert di.path_is_denied("tokenizer.py") is False
+
+
+# --------------------------------------------------------------------------
+# B2: закрытые наборы кодов, причин и ключей записи (contract v1.1)
+# --------------------------------------------------------------------------
+
+
+def test_closed_sets_and_record_keys_match_contract_v1_1():
+    assert set(di.CODES) == {
+        "verified_deployed",
+        "local_unverified",
+        "mismatch",
+        "unknown",
+        "unavailable",
+    }
+    assert set(di.REASONS) == {
+        "no_manifest",
+        "manifest_invalid_json",
+        "manifest_incomplete",
+        "manifest_sha_invalid",
+        "no_git",
+        "gitdir_unavailable",
+        "head_unresolved",
+        "dirty_unknown",
+        "dirty_tracked",
+        "git_unavailable",
+        "git_timeout",
+        "sha_conflict",
+        "version_conflict",
+        "process_predates_deploy",
+        "no_remote_ref",
+        "root_missing",
+        "root_not_dir",
+        "permission_denied",
+        "path_denied",
+        "no_process_start",
+        "version_unknown",
+        "internal_error",
+        "",
+    }
+
+    record = di.collect_identity(None)
+    assert set(record) == {
+        "schema",
+        "code",
+        "reason",
+        "repo_origin",
+        "deployed_sha",
+        "checkout_sha",
+        "dirty",
+        "upstream_head",
+        "version_provenance",
+        "local_source_verification",
+        "artifact",
+        "deployed_at",
+        "observed_at",
+        "sources",
+        "conflict",
+        "local_identity",
+        "effect",
+        "previous_sha",
+        "previous_version",
+    }
+    assert set(record["local_identity"]) == {
+        "checkout_sha",
+        "dirty",
+        "checkout_mtime",
+        "branch",
+    }
+    assert set(record["upstream_head"]) == {
+        "sha",
+        "ref",
+        "observed_at",
+        "reason",
+    }
+    assert set(record["version_provenance"]) == {
+        "runtime",
+        "manifest",
+        "consistent",
+    }
+    assert set(record["artifact"]) == {
+        "kind",
+        "release_branch",
+        "schema_version",
+    }
+    assert record["upstream_head"]["reason"] == "no_remote_ref"
+    assert "conflict_values" not in record
 
 
 # --------------------------------------------------------------------------
@@ -367,6 +485,9 @@ def test_verified_deployed_requires_manifest_head_clean_version_start(tmp_path):
     assert record["deployed_at"] == _iso(deployed_at)
     assert record["artifact"]["kind"] == "git_checkout"
     assert record["artifact"]["release_branch"] == BRANCH
+    assert record["effect"] == "deploy"
+    assert record["previous_sha"] == SHA_B
+    assert record["previous_version"] == "2.58.188"
     assert "release_manifest" in record["sources"]
     assert "git_head" in record["sources"]
     assert "git_cli" in record["sources"]
@@ -575,6 +696,58 @@ def test_manifest_unknown_key_is_rejected(tmp_path):
     assert record["reason"] == "manifest_incomplete"
 
 
+@requires_git
+def test_manifest_without_schema_is_schema_1_and_verifies(tmp_path):
+    """B3-a: ровно четыре обязательных поля, schema отсутствует."""
+    root, sha = _real_repo(tmp_path)
+    deployed_at = _now() - timedelta(minutes=10)
+    _write_manifest(root, {
+        "deployed_sha": sha,
+        "deployed_at": _iso(deployed_at),
+        "version": APP_VERSION,
+        "effect": "deploy",
+    })
+
+    record = di.collect_identity(
+        root, process_started_at=_iso(_now()))
+
+    assert record["code"] == "verified_deployed"
+    assert record["reason"] == ""
+    assert "release_manifest" in record["sources"]
+    assert record["artifact"]["release_branch"] == "main"
+    assert record["effect"] == "deploy"
+    assert record["previous_sha"] is None
+    assert record["previous_version"] is None
+
+
+@requires_git
+def test_manifest_schema_2_is_unknown(tmp_path):
+    """B3-b: явная будущая схема не угадывается."""
+    root, sha = _real_repo(tmp_path)
+    _write_manifest(root, {
+        "schema": 2,
+        "deployed_sha": sha,
+        "deployed_at": _iso(_now() - timedelta(minutes=10)),
+        "version": APP_VERSION,
+        "effect": "deploy",
+    })
+
+    record = di.collect_identity(root, process_started_at=_now())
+
+    assert record["code"] == "unknown"
+    assert record["reason"] == "manifest_incomplete"
+
+
+def test_manifest_effect_must_be_deploy_or_rollback(tmp_path):
+    root = _fake_repo(tmp_path)
+    _write_manifest(root, _manifest_data(SHA_A, effect="promote"))
+
+    record = di.collect_identity(root)
+
+    assert record["code"] == "unknown"
+    assert record["reason"] == "manifest_incomplete"
+
+
 def test_manifest_env_conflict_keeps_both_values(tmp_path, monkeypatch):
     monkeypatch.setenv("ADMINBOT_DEPLOYED_SHA", SHA_B)
     root = _fake_repo(tmp_path, sha=SHA_A)
@@ -602,7 +775,7 @@ def test_manifest_dirty_tracked_blocks_verified(tmp_path):
     record = di.collect_identity(root, process_started_at=_now())
 
     assert record["code"] == "local_unverified"
-    assert record["reason"] == "dirty_unknown"
+    assert record["reason"] == "dirty_tracked"
 
 
 @requires_git
@@ -615,6 +788,33 @@ def test_missing_process_start_is_local_unverified(tmp_path):
     assert record["code"] == "local_unverified"
     assert record["reason"] == "no_process_start"
     assert record["local_source_verification"] == "local_unverified"
+
+
+def test_unavailable_runtime_version_is_local_unverified(tmp_path,
+                                                         monkeypatch):
+    root = _fake_repo(tmp_path)
+    _write_manifest(root, _manifest_data(SHA_A))
+    monkeypatch.setattr(di, "_runtime_app_version", lambda: None)
+
+    record = di.collect_identity(root, process_started_at=_now())
+
+    assert record["code"] == "local_unverified"
+    assert record["reason"] == "version_unknown"
+    assert record["version_provenance"]["runtime"] is None
+    assert record["version_provenance"]["manifest"] == APP_VERSION
+    assert record["version_provenance"]["consistent"] is None
+
+
+def test_unexpected_top_level_exception_is_internal_error(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(di, "_collect_identity", boom)
+
+    record = di.collect_identity("/does/not/matter")
+
+    assert record["code"] == "unavailable"
+    assert record["reason"] == "internal_error"
 
 
 # --------------------------------------------------------------------------
