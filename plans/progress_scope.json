@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T11:03:39+12:00",
+  "updated": "2026-11-13T11:12:15+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -833,8 +833,8 @@
         "plans/features/vmq-onto-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 47 required rows (37 epic acceptance rows, 9 provider-management rows, 1 mapping row), 12 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=46 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V voice is the first executable slice when its files are free; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T11:03:39+12:00",
+      "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); next executable slice is VMQ-MEM-NEXT; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
+      "updated": "2026-11-13T11:12:15+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: NEXT-03 controlled positive confirmed (fact 2242); NEXT-04 PENDING (archive C2 empty); NEXT-05 timings pass; NEXT-02 FAILED 58.1, corrected Builder (FTS tokenization + bounded augmentation) running; PM map binding. No fake.",
+      "queue_note": "2026-11-13 (PM bookkeeping after evidence): production 2.58.198 @ 23477658 (schema 47, DDL 0). VMQ map commit dc655e51: 70 mandatory rows - 1 VERIFIED (VMQ-GROUNDS-01), 2 REVIEW (NEXT-03 controlled-only, NEXT-05 timings), 1 FAILED (NEXT-02 2026 share 61.63/61.84 vs <=58.1, corrected contract in progress), 66 PENDING (incl. NEXT-01, NEXT-04, V-01..V-04). No new VERIFIED.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -915,7 +915,12 @@
       "queue_after": [
         "self-diag-01"
       ],
-      "queue_after_note": "Владелец 2026-11-12: сразу после самодиагностики. Уточнение владельца: «квантовые рандомы» — это именно VMQ-ONTO-01, не goodmorning-quantum-media."
+      "queue_after_note": "Владелец 2026-11-12: сразу после самодиагностики. Уточнение владельца: «квантовые рандомы» — это именно VMQ-ONTO-01, не goodmorning-quantum-media.",
+      "progress": {
+        "verified_rows": 1,
+        "total_rows": 70,
+        "deployed_commit": "234776589c934024ed0e8dceba189fb9d70d3215"
+      }
     },
     {
       "id": "self-diag-01",
