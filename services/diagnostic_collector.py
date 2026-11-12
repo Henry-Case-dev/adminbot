@@ -606,6 +606,16 @@ class DiagnosticCollector:
             "unavailable": False,
             "permission_denied": False,
         }.get(code)
+        code_lookup = False
+        for item in observations:
+            facts = getattr(item.get("observation"), "facts", None) or {}
+            correlation = (facts.get("correlation")
+                           if isinstance(facts, dict) else None)
+            answering = (correlation.get("answering")
+                         if isinstance(correlation, dict) else None)
+            if isinstance(answering, dict) and answering.get("file"):
+                code_lookup = True
+                break
         access = self._access(request, spec.read_scope, spec)
         observed_at = bundle.utc_now_iso(ctx.now)
         result_bundle = bundle.build_bundle(
@@ -637,7 +647,7 @@ class DiagnosticCollector:
             source_verified=verification,
             commits_since_deploy=None,
             git_metadata_attempted=bool(record),
-            code_lookup_attempted=False,
+            code_lookup_attempted=bool(code_lookup),
             request={"probe": spec.probe_id, "area": spec.area,
                      "arguments": ctx.arguments,
                      "time_window": list(ctx.time_window)
@@ -770,11 +780,11 @@ class DiagnosticCollector:
         request_id = request_id or uuid.uuid4().hex
         await self._warm_identity(now)
         checks = (
-            "deploy.identity", "process.self", "resources.cpu",
-            "resources.memory", "disks.usage", "scheduler.jobs",
-            "memory.health", "dependencies.providers", "incidents.active",
-            "config.effective", "logs.errors", "telegram.delivery",
-            "media.stt",
+            "deploy.identity", "deploy.traceback", "process.self",
+            "resources.cpu", "resources.memory", "disks.usage",
+            "scheduler.jobs", "memory.health", "dependencies.providers",
+            "incidents.active", "config.effective", "logs.errors",
+            "telegram.delivery", "media.stt",
         )
         specs = [probes.get_probe(name) for name in checks]
         active = [spec for spec in specs if spec is not None]
