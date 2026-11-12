@@ -1,0 +1,53 @@
+{
+ "checked_at_utc": "2026-11-11T23:29:35Z",
+ "chats": {
+  "-1002661910336": {
+   "peek_chat_id": -1004482340693,
+   "peek_has_time": true,
+   "peek_tz_name": "UTC",
+   "peek_tz_source": "utc_fallback",
+   "peek_keys": [
+    "chat_id",
+    "degraded",
+    "generated_at",
+    "meme",
+    "schema_version",
+    "text_initiative",
+    "time"
+   ],
+   "other_view_tz": {
+    "name": "UTC",
+    "source": "utc_fallback",
+    "label": "пояс чата не задан — UTC (заводское значение, не часы сервера)"
+   },
+   "card_note": "Время: пояс чата не задан — UTC (заводское значение, не часы сервера)",
+   "card_source": "utc_fallback",
+   "peek_busy": false,
+   "peek_error": ""
+  },
+  "-1004482340693": {
+   "peek_chat_id": -1002661910336,
+   "peek_has_time": true,
+   "peek_tz_name": "UTC",
+   "peek_tz_source": "utc_fallback",
+   "peek_keys": [
+    "chat_id",
+    "degraded",
+    "generated_at",
+    "meme",
+    "schema_version",
+    "text_initiative",
+    "time"
+   ],
+   "other_view_tz": {
+    "name": "UTC",
+    "source": "utc_fallback",
+    "label": "пояс чата не задан — UTC (заводское значение, не часы сервера)"
+   },
+   "card_note": "Время: пояс чата не задан — UTC (заводское значение, не часы сервера)",
+   "card_source": "utc_fallback",
+   "peek_busy": false,
+   "peek_error": ""
+  }
+ }
+}

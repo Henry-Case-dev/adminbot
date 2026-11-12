@@ -6,8 +6,8 @@
   "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
   "source_sha256": "6d0d5c52cf5b6a50ce7f4098eeb8136a49ae1d024b83c5fb802bf016587cd91a",
   "source_note": "Immutable excerpt of user-owned plans/current_task.md lines 11423-11552. owner_inputs id OI-2026-11-11-P0-INIT-MEME-UX-DIAG (registration is Orchestrator's single-writer job).",
-  "candidate_commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
-  "deployed_commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
+  "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+  "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
   "production_baseline": {
     "release": "2.58.193",
     "commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
@@ -463,8 +463,25 @@
       "acceptance": "Просроченный маркер ручного приоритета или просроченная бронь не обозначают актуальное ожидание ни в UI, ни в read-model.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Оба чата, checked_at 1794439663/1794439672: publication.state=released, manual_priority_until 1794403499 (13:24:59Z) и 1794403592 (13:26:32Z) — истекли, manual_priority_active=false, manual_priority_expired=true, claim_expires_at=null; прошедший дедлайн не даёт «занято».",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "ui",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-modes-2.58.194.json, checked_at 23:28:29Z)",
+          "observation": "В обоих режимах на обоих чатах coordination_band=null и band_mentions_manual_priority=false: полосы координации нет, «отложено: приоритет ручного /meme» не показано.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+          "artifact_sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af"
+        }
+      ],
       "covered_by": [],
       "delta": "Новое: подтверждённое наблюдение про прошедший until в интерфейсе."
     },
@@ -586,8 +603,33 @@
       "acceptance": "При переключении чата не показываются данные предыдущего: клиент фиксирует {epoch, chatId} до await и применяет ответ только при совпадении scopeEpoch и payload.chat_id, смена шапки сразу очищает карточки и журнал, а молчаливый выход loadMemeDiagnostics при busy с оставлением старого снимка устранён — один in-flight и один хвост на последний epoch; сравнение чатов — два независимых payload без безымянного агрегата.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "ui",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-modes-2.58.194.json, checked_at 23:28:29Z)",
+          "observation": "payload_chat_id равен запрошенному чату в обоих ответах (api_status 200, console_errors []); при смене шапки карточка очищается: в снимке 23:28 карточка чужого чата показывала «не прочитан» вместо чисел прежнего чата, и только следующим снимком подставился ответ нужного чата; штамп свежести — time.generated_at того же ответа («снимок … (сервер)»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+          "artifact_sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-peek-2.58.194.json, checked_at 23:29:35Z)",
+          "observation": "Peek-ответ несёт собственные ключи чужого чата (chat_id, time, meme, text_initiative, generated_at) — два независимых payload без безымянного агрегата.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-peek-2.58.194.json",
+          "artifact_sha256": "ab4961303a48a06e27891185e3dd26828006fce758126e4865cb0d80a02ce218"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "test",
+          "ref": "Привязка S6 к 6c11fc08: что доказано живыми данными и что осталось (перепроверка watch points по выложенному дереву)",
+          "observation": "Недобор: guard от позднего ответа другого чата (scopeEpoch + payload.chat_id, один in-flight и один хвост) вживую не воспроизводился — нужен управляемый race, искусственно тормозить прод-запросы нельзя. Он доказан только тестами кандидата (test_stale_response_for_another_chat_is_not_applicable, s6FreshSuite, e2e run_overview) и остаётся предметом проверки Reviewer.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+          "artifact_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9"
+        }
+      ],
       "covered_by": [
         "CMV-ERR-07",
         "HMF-ACC-02"
@@ -2163,8 +2205,25 @@
       "acceptance": "Backend и UI сверяют effective-конфигурацию: глобальные флаги, per-chat настройки, доступность image-модуля, heartbeat, провайдеры, сохранённые overrides; сохранённые значения не меняются, и статус трактуется одной эффективной интерпретацией.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Слои каждого гейта пришли из сервера (чат −1004482340693): текст — 3 слоя «модуль инициативы — общий слой; наблюдатель — общий слой; тумблер этого чата — общий слой», мемы — 4 слоя (+ «настройки мемов — слой чата»). Заводское/общее значение больше не выдаётся за «настройку этого чата».",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "test",
+          "ref": "Привязка S6 к 6c11fc08: что доказано живыми данными и что осталось (перепроверка watch points по выложенному дереву)",
+          "observation": "Недобор назван: гейт image_module в живом payload не появился (4 слоя из 5), heartbeat и провайдеры в ответе не отражены, у второго чата карточки слоёв не отрендерены; отдельного до/после-среза сохранённых настроек нет. Поэтому REVIEW, а не VERIFIED.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+          "artifact_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9"
+        }
+      ],
       "covered_by": [
         "MAC-S2-113",
         "UI-MEME-RUNTIME-EFFECTIVE",
@@ -2184,8 +2243,33 @@
       "acceptance": "При переключении чата не показываются данные предыдущего: клиент фиксирует {epoch, chatId} до await и применяет ответ только при совпадении scopeEpoch и payload.chat_id, смена шапки сразу очищает карточки и журнал, а молчаливый выход loadMemeDiagnostics при busy с оставлением старого снимка устранён — один in-flight и один хвост на последний epoch; сравнение чатов — два независимых payload без безымянного агрегата.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "ui",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-modes-2.58.194.json, checked_at 23:28:29Z)",
+          "observation": "payload_chat_id равен запрошенному чату в обоих ответах (api_status 200, console_errors []); при смене шапки карточка очищается: в снимке 23:28 карточка чужого чата показывала «не прочитан» вместо чисел прежнего чата, и только следующим снимком подставился ответ нужного чата; штамп свежести — time.generated_at того же ответа («снимок … (сервер)»).",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+          "artifact_sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-peek-2.58.194.json, checked_at 23:29:35Z)",
+          "observation": "Peek-ответ несёт собственные ключи чужого чата (chat_id, time, meme, text_initiative, generated_at) — два независимых payload без безымянного агрегата.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-peek-2.58.194.json",
+          "artifact_sha256": "ab4961303a48a06e27891185e3dd26828006fce758126e4865cb0d80a02ce218"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "test",
+          "ref": "Привязка S6 к 6c11fc08: что доказано живыми данными и что осталось (перепроверка watch points по выложенному дереву)",
+          "observation": "Недобор: guard от позднего ответа другого чата (scopeEpoch + payload.chat_id, один in-flight и один хвост) вживую не воспроизводился — нужен управляемый race, искусственно тормозить прод-запросы нельзя. Он доказан только тестами кандидата (test_stale_response_for_another_chat_is_not_applicable, s6FreshSuite, e2e run_overview) и остаётся предметом проверки Reviewer.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+          "artifact_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L128-A",
@@ -2199,8 +2283,33 @@
       "acceptance": "Времена показываются в локальном часовом поясе выбранного чата, с правильной датой и смещением, источник — backend, а не догадка UI.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Оба чата: time = {generated_at 1794439672, basis \"server_snapshot\", timezone {name UTC, source utc_fallback, offset_seconds 0, default_name UTC, reason \"\"}}; шапка «пояс чата не задан — UTC (заводское значение, не часы сервера)», data-ini-tz-source=utc_fallback, tz_known=true, snapshot_basis «штамп снимка — сервер». Дата сверена с осью: last_attempt.at=1794439462 = 11.11 23:24:22Z печатается как «11.11 23:24».",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-peek-2.58.194.json, checked_at 23:29:35Z)",
+          "observation": "Карточка чужого чата берёт пояс из ЕГО ответа (peek_keys содержит time, peek_busy=false): card_tz_source=utc_fallback, label «пояс чата не задан — UTC (заводское значение, не часы сервера)»; в промежуточном снимке 23:28 при ещё не применённом payload карточка честно показала «пояс чата не прочитан — время в UTC» — чужой пояс не подставлен ни в одном снимке.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-peek-2.58.194.json",
+          "artifact_sha256": "ab4961303a48a06e27891185e3dd26828006fce758126e4865cb0d80a02ce218"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "test",
+          "ref": "Привязка S6 к 6c11fc08: что доказано живыми данными и что осталось (перепроверка watch points по выложенному дереву)",
+          "observation": "Положительная ветка (у чата задан IANA-пояс, смещение лето/зима) вживую недостижима без изменения сохранённых настроек владельца и доказана тестами кандидата на выложенном дереве (test_time_block_names_chat_timezone_and_its_layer, test_timezone_offset_follows_the_instant, s6FreshSuite, e2e run_s6_scope); iniChatTimezone — 0 вхождений в дереве 6c11fc08.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+          "artifact_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9"
+        }
+      ],
       "covered_by": [
         "UR-RES-08"
       ],
@@ -2218,8 +2327,25 @@
       "acceptance": "Просроченный маркер ручного приоритета или просроченная бронь не обозначают актуальное ожидание ни в UI, ни в read-model.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Оба чата, checked_at 1794439663/1794439672: publication.state=released, manual_priority_until 1794403499 (13:24:59Z) и 1794403592 (13:26:32Z) — истекли, manual_priority_active=false, manual_priority_expired=true, claim_expires_at=null; прошедший дедлайн не даёт «занято».",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "ui",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-modes-2.58.194.json, checked_at 23:28:29Z)",
+          "observation": "В обоих режимах на обоих чатах coordination_band=null и band_mentions_manual_priority=false: полосы координации нет, «отложено: приоритет ручного /meme» не показано.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+          "artifact_sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af"
+        }
+      ]
     },
     {
       "source_id": "MANUAL-L128-C",
@@ -2574,10 +2700,26 @@
           "observation": "Носитель: отложенная доставка через существующие defer_generated_meme + deliver_deferred_all на том же тике инициативы. Подтверждены строка queued, равенство байтов и sha256, journal preserved=true и delivery=not_sent, ветка preserved=false с причиной, восстановление после перезапуска (ровно одна отправка теми же байтами) и истечение срока (cancelled, файл удалён, ноль отправок). Живого случая на проде не было.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
           "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Оплаченный слот, потраченный без отправки, теперь виден с причиной: квота мема обоих чатов limit 3 / used 3 / remaining 0, delivered 2, not_delivered 1, not_delivered_reasons {publisher_not_bound: 1}; экран печатает «израсходовано без отправки: 1 (отправитель не привязан в этом процессе)». Самого откладывания байтов на живом тике не было: квота исчерпана, новых попыток нет — поэтому строка остаётся READY_FOR_LIVE.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Привязка S5b к 6c11fc08: живая половина по-прежнему не наблюдалась, граница названа",
+          "observation": "Граница живой половины: что наблюдалось на 2.58.194 и почему статус не повышен; триггер записан один раз в waiting_observations.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
+          "artifact_sha256": "ce52558a323f1bafd1e6ae14f78c15394cf594746c5fe7df3c2c62f00fae9854"
         }
       ],
       "delta": "Новое: под-срез S5b введён по результату R0-INV; в исходном источнике строка 120 (запрет отмены готовых изображений) ранее не имела владельца этого класса отказов.",
-      "pending_reason": "Инженерная половина доказана на e92cdcd5 (фейковый отправитель, одноразовый worktree): строка памяти очереди queued, байты файла побайтово равны оплаченным, sha256 payload совпадает, publication.artifact.preserved=true, delivery=not_sent; ветка без durable-пути даёт preserved=false с причиной и строки не создаёт; перезапуск оставляет queued и доставляет ровно один раз; истечение срока даёт cancelled без отправок. Живая половина не наблюдалась: реального publisher_not_bound → deferred → delivered в проде не было, и причина (событийный тик без привязанного бота) не устранена.",
+      "pending_reason": "Инженерная половина доказана на e92cdcd5 (фейковый отправитель, одноразовый worktree): строка памяти очереди queued, байты файла побайтово равны оплаченным, sha256 payload совпадает, publication.artifact.preserved=true, delivery=not_sent; ветка без durable-пути даёт preserved=false с причиной и строки не создаёт; перезапуск оставляет queued и доставляет ровно один раз; истечение срока даёт cancelled без отправок. Живая половина не наблюдалась: реального publisher_not_bound → deferred → delivered в проде не было, и причина (событийный тик без привязанного бота) не устранена. После 2.58.194 (6c11fc08) живой случай publisher_not_bound → отложено → доставлено НЕ наблюдался (квота 3/3 в обоих чатах); счётчики отказа считаются по строкам, записанным прежним кодом. Триггер — WO-258194-S5B-DEFERRED.",
       "live_obligation": "Один реальный автоматический мем на проде: терминальная строка журнала попытки с publisher_not_bound и publication.artifact.preserved=true плюс непустой deferred_job_id, строка task_jobs (owner=deferred) в queued с живым result_ref на файл, чьи байты совпадают с оплаченными, и затем ровно одна доставка того же чата (completed, outcome=published, delivery=sent, непустой message_id). Наблюдается агентами по журналу попыток и task_jobs.",
       "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась.",
       "deploy_258193": "НЕ входит в 2.58.193: e92cdcd5 не выложен (в релизной цепочке его нет). Статус не меняется: инженерная половина доказана на кандидате, живая половина ждёт собственной выкладки под-среза и реального случая publisher_not_bound → deferred → delivered."
@@ -2603,10 +2745,26 @@
           "observation": "Факт доставки отделён от факта попытки: not_delivered несёт точный код причины, набор полей совпадает с LAST_DELIVERY_FIELDS, подтверждённая отправка приоритетнее позднего отказа. Проверено на кандидате, не на живом носителе.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
           "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Факт доставки отделён от факта попытки на реальных данных: счётчик not_delivered=1 несёт точную причину publisher_not_bound, а meme_last_delivery обоих чатов отдаёт status=confirmed, непустой message_id (1210056 и 10472), reason_code=\"\" и run_id вида meme:<chat>:2026-11-11:<hash>; у текстовой инициативы фактов доставки нет — delivered/not_delivered = null, причины {} («нет данных», не 0). Обратный порядок (отказ позже подтверждённой отправки) на живых данных не наблюдался: отказ старше.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Привязка S5b к 6c11fc08: живая половина по-прежнему не наблюдалась, граница названа",
+          "observation": "Граница живой половины: что наблюдалось на 2.58.194 и почему статус не повышен; триггер записан один раз в waiting_observations.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
+          "artifact_sha256": "ce52558a323f1bafd1e6ae14f78c15394cf594746c5fe7df3c2c62f00fae9854"
         }
       ],
       "delta": "Новое: отделяет ось доставки от оси попытки для отказов publisher_not_bound.",
-      "pending_reason": "Инженерная половина доказана на e92cdcd5: для закрытой без отправки попытки пишется not_delivered с reason_code=publisher_not_bound, временем, destination, message_id=null и ровно набором LAST_DELIVERY_FIELDS, а подтверждённая отправка (4242) не перезаписывается более поздним «не доставлено». Живая половина не наблюдалась: ни одной реальной попытки мема с publisher_not_bound после изменения не было.",
+      "pending_reason": "Инженерная половина доказана на e92cdcd5: для закрытой без отправки попытки пишется not_delivered с reason_code=publisher_not_bound, временем, destination, message_id=null и ровно набором LAST_DELIVERY_FIELDS, а подтверждённая отправка (4242) не перезаписывается более поздним «не доставлено». Живая половина не наблюдалась: ни одной реальной попытки мема с publisher_not_bound после изменения не было. После 2.58.194 живого случая «закрыто без отправки, затем доставлено позже» не было (квота 3/3); порядок «более поздний отказ не перезаписывает подтверждённую отправку» остаётся доказанным только на кандидате.",
       "live_obligation": "На реальной попытке мема с publisher_not_bound read-model отдаёт last_delivery.status=not_delivered с reason_code=publisher_not_bound, временем и destination, message_id=null; после реальной поздней доставки того же чата последняя подтверждённая отправка показывает непустой message_id и более поздним отказом не стирается. Проверяется по журналу попыток и полям task_jobs, без ручного участия владельца.",
       "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась.",
       "deploy_258193": "НЕ входит в 2.58.193: e92cdcd5 не выложен (в релизной цепочке его нет). Статус не меняется: инженерная половина доказана на кандидате, живая половина ждёт собственной выкладки под-среза и реального случая publisher_not_bound → deferred → delivered."
@@ -2632,10 +2790,26 @@
           "observation": "Квота разведена с фактом доставки: «израсходован без отправки» виден с причиной, а не выглядит как реальная публикация; списание не возвращается, потому что провайдер уже оплачен. Проверено на кандидате, живые счётчики не снимались.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-e92cdcd5.md",
           "artifact_sha256": "c331601bc943c5ad3cc95a1570d0957d52a74b6c09801b122b1ad330f9833eeb"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-overview-2.58.194.json, checked_at 2026-11-11T23:27Z)",
+          "observation": "Квота и факт доставки согласованы в живом read-model: spent 3/3, delivered 2, not_delivered 1, not_delivered_reasons {publisher_not_bound: 1}, next_reset 2026-11-12T00:00:00+00:00; слот не возвращается, но показан как израсходованный без отправки с причиной, а не как публикация. Те же числа в представлении карточки. Живого случая «отказ → поздняя доставка» не было.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+          "artifact_sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "production",
+          "ref": "Привязка S5b к 6c11fc08: живая половина по-прежнему не наблюдалась, граница названа",
+          "observation": "Граница живой половины: что наблюдалось на 2.58.194 и почему статус не повышен; триггер записан один раз в waiting_observations.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
+          "artifact_sha256": "ce52558a323f1bafd1e6ae14f78c15394cf594746c5fe7df3c2c62f00fae9854"
         }
       ],
       "delta": "Новое: связывает квоту с фактом доставки; не дублирует P0IM-OV-L3 (показ) и P0IM-PB-COUNT (счётчики в трассе).",
-      "pending_reason": "Инженерная половина доказана на e92cdcd5: spent=1, remaining=2, delivered=0, not_delivered=1, not_delivered_reasons={publisher_not_bound:1} в данных и в представлении; после поздней доставки delivered=1, not_delivered=0, spent без изменений. Слот сознательно не возвращается: вызов провайдера уже оплачен. Контр-попытка Reviewer («успешная отправка не должна попасть в списано-без-отправки») дала spent=1, delivered=1, not_delivered=0. Живая половина не наблюдалась: реальных счётчиков после такого случая на проде нет.",
+      "pending_reason": "Инженерная половина доказана на e92cdcd5: spent=1, remaining=2, delivered=0, not_delivered=1, not_delivered_reasons={publisher_not_bound:1} в данных и в представлении; после поздней доставки delivered=1, not_delivered=0, spent без изменений. Слот сознательно не возвращается: вызов провайдера уже оплачен. Контр-попытка Reviewer («успешная отправка не должна попасть в списано-без-отправки») дала spent=1, delivered=1, not_delivered=0. Живая половина не наблюдалась: реальных счётчиков после такого случая на проде нет. После 2.58.194 живой последовательности publisher_not_bound → deferred → delivered не было: проверить «delivered вырос, spent не уменьшился, причины сохранились» на реальном событии пока нельзя.",
       "live_obligation": "На проде после одного реального случая publisher_not_bound → deferred → delivered: spent не уменьшился, delivered вырос, not_delivered и not_delivered_reasons сохранили publisher_not_bound, и те же числа читаются в представлении и в API для этого чата. Наблюдается агентами по read-model и журналу, не владельцем.",
       "binding_e92cdcd5": "Одобрено Reviewer 2026-11-12; не выложено. READY_FOR_LIVE: инженерная половина доказана на кандидате, живая половина (postdeploy) не наблюдалась.",
       "deploy_258193": "НЕ входит в 2.58.193: e92cdcd5 не выложен (в релизной цепочке его нет). Статус не меняется: инженерная половина доказана на кандидате, живая половина ждёт собственной выкладки под-среза и реального случая publisher_not_bound → deferred → delivered."
@@ -2669,6 +2843,22 @@
           "observation": "Реальный Chromium, стенд tests/ui_initiative_rework_e2e.py, один и тот же стаб-ответ /api/**: до (bcc090a3) [data-module-last-action] = «Последних действий в журнале нет», после = «Последнее действие: 15.01 08:03 UTC · Текстовая инициатива — бот решил ответить». RED на базовом дереве и мутация A («неизвестное состояние не названо честно») дают exit 1; после отката дерево green.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/ov-honesty-258193.md",
           "artifact_sha256": "5c290209d9d09a243589969224d0dd34c728af2ef3ffecfa651697a40544a528"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-modes-2.58.194.json, checked_at 23:28:29Z)",
+          "observation": "На выложенной сборке 2.58.194 обе карточки печатают реальный факт: «Последнее действие: 11.11 23:24 · Текстовая инициатива — пропущено», что совпадает с last_attempt.at=1794439462 (23:24:22Z) в том же ответе; false_empty_string_present=false и no_data_line_present=false на обоих чатах. Ложной строки «Последних действий в журнале нет» в отданном index.html — 0 вхождений, строка без v-else.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+          "artifact_sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "test",
+          "ref": "Привязка S6 к 6c11fc08: что доказано живыми данными и что осталось (перепроверка watch points по выложенному дереву)",
+          "observation": "Перепроверка watch points на выложенном дереве: безусловный span честной строки, 0 вхождений старой фразы, 0 вхождений iniChatTimezone, string-пояс в initiativeLastActionFact, тесты честности — те же блобы, что на 7a7cd0ce.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+          "artifact_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9"
         }
       ],
       "covered_by": [],
@@ -2703,6 +2893,22 @@
           "observation": "На проде после выкладки оба механизма отдавали available=true (release-258193/live-diagnostics-2.58.193.json), поэтому ветка available:false на живых данных не встречалась; живая строка при этом построена из оси last_attempt двух механизмов и называет реальное действие (deploy.md §5(а)). Граница честно записана в recorded_limits.",
           "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258193/live-diagnostics-2.58.193.json",
           "artifact_sha256": "a308c4ca45341359b0a37d5dbc23628bd4b67f28a943e7a1790f70335c7456b8"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "live",
+          "ref": "Живая выкладка 2.58.194 (release-258194/live-modes-2.58.194.json, checked_at 23:28:29Z)",
+          "observation": "На выложенной сборке 2.58.194 оба механизма отдавали available=true, поэтому ветка available:false и здесь на живых данных не встречалась; живая строка построена из осей двух механизмов и называет реальное действие. Граница та же, что и на 2.58.193: ветка доказана UI-проходом на стенде, не производством.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+          "artifact_sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af"
+        },
+        {
+          "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+          "type": "test",
+          "ref": "Привязка S6 к 6c11fc08: что доказано живыми данными и что осталось (перепроверка watch points по выложенному дереву)",
+          "observation": "Перепроверка watch points на выложенном дереве: безусловный span честной строки, 0 вхождений старой фразы, 0 вхождений iniChatTimezone, string-пояс в initiativeLastActionFact, тесты честности — те же блобы, что на 7a7cd0ce.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+          "artifact_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9"
         }
       ],
       "covered_by": [],
@@ -3873,7 +4079,7 @@
       "API отдаёт выбранный чат (X-Chat-Id эхом как chat_id); без заголовка 422 и master-only фолбэк — утечки нет"
     ]
   },
-  "candidate_note": "candidate_commit — выложенный релизный коммит 2.58.193 (7a7cd0ce): база bcc090a3 (2.58.192) + полная цепочка честности обзора (код f8846e49 → cd7c1ff2, a5d89cac → 5dbe35d2; evidence-only 1957c0e9 → 48e8d5ed, 32939c7a → e4567ddb) + цепочка S5-MEME (8a329875 → 2a33a2ef, 1dcbebca → d84f32cc) + 30 файлов пинов версии. Идентичность одобренному коду доказана побайтово: мультимножества +/- строк каждого одобренного патча совпадают с релизными (расхождений 0 файлов, deploy.md §1), отданный web/app.js байт-в-байт равен блобу релиза (sha256 556fce58…c3b4, deploy.md §4). Состав релиза: 17 файлов одобренного содержимого + 30 файлов пинов, дельта 47 файлов +1612/−70; DDL=0, схема v47, новых флагов/настроек/getenv нет. ВАЖНО о составе: из шести коммитов релиза два — только доказательства (1957c0e9, 32939c7a), продуктового кода в них нет; код честности — f8846e49 и a5d89cac. Не описывать 2.58.193 как 'шесть коммитов кода' и не приписывать evidence-коммитам поведение. Старые candidate-bound записи (4c59a483, 726736ee, a6884ad7, bcc090a3, e92cdcd5) сохранены как история и НЕ переписаны: их якоря остаются преддеплойными, и release-гейт честно показывает этот разрыв.",
+  "candidate_note": "candidate_commit = deployed_commit = 6c11fc08 (2.58.194, ветка release/2.58.194). База 7a7cd0ce (2.58.193); перенос S5b и S6 сделан ТОЛЬКО черри-пиками (e92cdcd5→8337d323, 065015f8, 70899d60, 15241925→872fcb98, 288a4311→66be926f, f6905098→ea533e81, dc699c72→540b32f9), ветки init/meme-s5b и init/meme-s6 не сливались: их общий предок с базой — c087253d (2.58.188), слияние притащило бы чужую историю. Дельта 7a7cd0ce..6c11fc08 = 53 файла, +5397/−120, только M (38) и A (15), удалений нет: 23 файла содержимого + 30 файлов пинов версии. Байт-в-байт с 2.58.193: services/permissions.py, web/api/avatars.py, web/api/deps.py, web/api/routes.py (дайджест F11 не переутверждался), services/direct_chat_service.py, services/database.py, tests/fixtures/round1025/f8_baseline.json. DDL=0, схема БД 47, новых флагов/настроек/промптов/моделей нет. Принятый S5b-тест tests/test_publication_binding_delivery.py в выложенном дереве — блоб 660d63cb, тот же, что на одобренном e92cdcd5, и он же зелёный на релизном дереве (8 passed): слепого переноса тестов нет. Отданный web/app.js (sha256 3da63eb5…29ed4) совпал с содержимым кандидата и на диске сервера, и по HTTPS.",
   "residual_windows": [
     {
       "id": "RW-D4-BOTH-WRITE-FAIL",
@@ -4034,7 +4240,19 @@
       "weakest_binding": "P0IM-PB-VOCAB и P0IM-PB-COUNT: в продукте нет состояния «данные устарели» и нет отдельных счётчиков LLM-вызовов/изображений — это не вопрос доказательств, а недоделанные пункты acceptance.",
       "accounting_note": "S4 не переписывает строки S1/S3; P0IM-BAN-CONFLATE по-прежнему ждёт S4 (PB-COUNT). Строки PB-* двух исходных указателей (L00045/L00047/L00041 и MANUAL-L100/L102/L104/L106/L108) обновлены синхронно."
     },
-    "S5b": "Одобрено на e92cdcd5 (ветка init/meme-s5b, база 1dcbebca), НЕ выложено и НЕ VERIFIED: три строки READY_FOR_LIVE. Инженерно доказано на фейковом отправителе: оплаченные байты не выбрасываются (queued/preserved=true/not_sent, ветка preserved=false, восстановление после перезапуска, истечение срока), факт not_delivered с reason_code пишется и не перезаписывает подтверждённую отправку, квота показывает «израсходован без отправки» и слот не возвращает. Живая половина — один реальный publisher_not_bound → deferred → delivered, наблюдаемый по журналу и task_jobs. Причина sender=None в событийном тике не устранена (BL-S5B-EVENT-TICK-SENDER).",
+    "S5b": {
+      "state": "DEPLOYED IN 2.58.194 (6c11fc08), NOT VERIFIED: 3 строки READY_FOR_LIVE",
+      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "candidate_commit": "e92cdcd5caedb93dee865e9a819ac8b386787b52",
+      "owns_req_ids": [
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-DELIVERY-FACT",
+        "P0IM-S5B-QUOTA"
+      ],
+      "evidence_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
+      "live_half": "Не наблюдалась: квота мемов исчерпана в обоих чатах (3/3, сброс 2026-11-12T00:00:00Z). Живые счётчики отказа (not_delivered=1, publisher_not_bound=1) и подтверждённые отправки с непустым message_id читаются новым кодом верно, но решение «не выбрасывать оплаченное» на живом тике не срабатывало.",
+      "trigger": "WO-258194-S5B-DEFERRED (карта, waiting_observations)."
+    },
     "S5-MEME": {
       "state": "ВЫЛОЖЕНО в 2.58.193 (7a7cd0ce): 6 строк (5 уникальных) в REVIEW — кандидат одобрен и выложен, живая половина не наблюдалась",
       "candidate_commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
@@ -4114,6 +4332,20 @@
       "live_evidence": "Живой кадр 2.58.193: «Последнее действие: 11.11 20:56 UTC · Текстовая инициатива — пропущено»; hasFalseEmptyString=false; «нет данных» не показано; регион последних событий отрисовал 5 реальных строк (release-258193/live-overview-258193.png).",
       "limits": "Ветка available:false на проде не встречалась (оба механизма available=true) — доказана на выложенной сборке в Chromium (три состояния DOM + мутация C). Расхождение 16:42 артефактом БД не подтверждено.",
       "accounting_note": "Срез добавлен в этой привязке: два атомарных обязательства одной владельческой строки 26 (отображение последнего запуска). Не дублирует P0IM-OV-LIST/L3 — те строки остаются в S3-OV и в REVIEW."
+    },
+    "S6-FRESH": {
+      "state": "DEPLOYED IN 2.58.194 (6c11fc08): 3 строки VERIFIED (TZ, EXPIRED), 3 строки REVIEW (EFFECTIVE ×1, SCOPE ×2)",
+      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "candidate_commit": "f6905098 (ветка init/meme-s6, база 83eb0b9b); перенесён черри-пиками",
+      "owns_req_ids": [
+        "P0IM-S6-EFFECTIVE",
+        "P0IM-S6-SCOPE",
+        "P0IM-S6-TZ",
+        "P0IM-S6-EXPIRED"
+      ],
+      "evidence_artifact": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+      "accepted_observations": "Пояс из backend с источником и серверным штампом, заводской слой назван честно; истёкший маркер читается как истёкший, полосы координации нет; слои гейтов пришли с сервера; карточка чужого чата берёт пояс из его же ответа.",
+      "remaining": "image_module/heartbeat/провайдеры в живом payload не наблюдались (EFFECTIVE); гоночный guard от позднего ответа другого чата вживую не воспроизводился (SCOPE). См. recorded_limits."
     }
   },
   "binding_log": [
@@ -4395,6 +4627,34 @@
       "candidate_commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
       "statement": "Объяснение расхождения «16:42 в кадре против 16:28:16 в payload» требует дампа БД, которого в репозитории нет (проверено поиском по plans/**).",
       "consequence": "Подпись поля доказана и закреплена тестом; само расхождение фактом не заявляется и остаётся открытой оговоркой, а не основанием для PENDING по P0IM-OV-L3."
+    },
+    {
+      "id": "S6-IMG-MODULE-LAYER-NOT-LIVE",
+      "slice": "S6-FRESH",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Живой payload 2.58.194 нёс 4 слоя гейтов из 5: image_module (доступность модуля картинок) не появился, heartbeat и провайдеры в ответе не отражены.",
+      "consequence": "P0IM-S6-EFFECTIVE остаётся REVIEW: отрицательная ветка «модуль картинок выключен → общий слой» и сверка heartbeat/провайдеров живьём не наблюдались."
+    },
+    {
+      "id": "S6-SCOPE-RACE-NOT-LIVE",
+      "slice": "S6-FRESH",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Guard от позднего ответа другого чата (scopeEpoch + payload.chat_id, один in-flight и один хвост) вживую не воспроизводился: нужен управляемый race, тормозить прод-запросы нельзя.",
+      "consequence": "P0IM-S6-SCOPE остаётся REVIEW; живая часть (свой payload у каждого чата, очистка карточки при смене шапки, серверный штамп) подтверждена, гоночная — только тестами кандидата."
+    },
+    {
+      "id": "S6-TZ-POSITIVE-BRANCH-NOT-LIVE",
+      "slice": "S6-FRESH",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Ни у одного реального чата не задан часовой пояс, поэтому живое наблюдение покрывает заводской слой utc_fallback и честный отказ «не прочитан»; ветка «задан IANA-пояс» и смещение лето/зима вживую не наблюдались.",
+      "consequence": "Положительная ветка P0IM-S6-TZ доказана тестами кандидата, а не производством; менять сохранённые настройки владельца ради демонстрации запрещено."
+    },
+    {
+      "id": "S5B-DEFERRED-EVENT-NOT-OBSERVED",
+      "slice": "S5b",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "statement": "Живого случая «publisher_not_bound → отложено → доставлено» после выкладки не было (квота мемов 3/3 в обоих чатах, сброс 2026-11-12T00:00:00Z).",
+      "consequence": "Три строки S5b остаются READY_FOR_LIVE; их живая половина ждёт реального события (WO-258194-S5B-DEFERRED), а не действия агента."
     }
   ],
   "next_release_note": {
@@ -4488,42 +4748,62 @@
       "state": "выложен 2026-11-11T20:51:22Z, healthz 2.58.193, NRestarts=0, схема v47, откат bcc090a3"
     }
   ],
-  "deployed_version": "2.58.193",
-  "deployed_branch": "release/2.58.193",
-  "deployed_at_utc": "2026-11-11T20:51:22Z",
+  "deployed_version": "2.58.194",
+  "deployed_branch": "release/2.58.194",
+  "deployed_at_utc": "2026-11-11T23:19:13Z",
   "deployed_evidence": [
     {
-      "path": "plans/features/p0-init-meme-ux-diag/release-258193/deploy.md",
-      "sha256": "def2841ac9d174b09c9468b30b688a22cc59feb2b69a5a3906c2d33b2e3b1b31",
-      "what": "отчёт выкладки 2.58.193: привязка кандидата, побайтовая аддитивность, преддеплойные прогоны, постдеплой, живые подтверждения (а)/(б), откат"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/deploy.md",
+      "sha256": "6aefbce44ac0726b5fc6a7079746ad4056b61c37998ad086ec81b443c4f6be9b",
+      "what": "отчёт выкладки 2.58.194: привязка кандидата (черри-пики, 53 файла), байт-в-байт список с 2.58.193, преддеплойные прогоны с базовыми линиями, постдеплой, живые подтверждения (а)–(г), откат"
     },
     {
-      "path": "plans/features/p0-init-meme-ux-diag/release-258193/live-diagnostics-2.58.193.json",
-      "sha256": "a308c4ca45341359b0a37d5dbc23628bd4b67f28a943e7a1790f70335c7456b8",
-      "what": "сырой ответ mechanism-diagnostics двух чатов после выкладки: оси, last_attempt, readiness, 40 строк журнала"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/postdeploy-read.txt",
+      "sha256": "01e7844541e1c145740e194edfbf8814bbcdd32f25423314e0e188e742e757b9",
+      "what": "постдеплойное чтение: HEAD/branch/dirt=0, systemd NRestarts=0, healthz 2.58.194, sha256 отданного app.js, журнал TRACEBACK 0 / CRITICAL 0 / ERROR 2 / WARNING 4, user_version 47, снимок 2 441 658 368 б"
     },
     {
-      "path": "plans/features/p0-init-meme-ux-diag/release-258193/live-overview-258193.png",
-      "sha256": "897967eece2cb28c4f299b2c42e33f4d175fb87e1fa5f7d8c82a18ec3bfb9df7",
-      "what": "кадр «Обзора» инициативы на живой сборке: честная строка последнего действия, обе карточки, регион «Последние значимые события» с реальными строками"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/deploy-run.log",
+      "sha256": "19cc7f2860844b723fad97f41c829a88017b3d5be28d3f4732696b4346ad2af5",
+      "what": "ход деплоя с контрольными точками P0–P4 (сверка origin, снимок, checkout, рестарт, пост-чтение) и RESULT: OK"
     },
     {
-      "path": "plans/features/p0-init-meme-ux-diag/evidence/ov-honesty-258193.md",
-      "sha256": "5c290209d9d09a243589969224d0dd34c728af2ef3ffecfa651697a40544a528",
-      "what": "доказательства P0IM-OV-HONEST: DOM до/после, три состояния, мутации A/B/C, граница по 16:42"
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-2.58.194.json",
+      "sha256": "d286eafc2c01d00c9374becf650e4ea837a9a1a1711b8ef744204a97fbc28171",
+      "what": "живой ответ/снимок обзора обоих чатов: честная строка последнего действия, time.timezone с источником и серверным штампом, квота мема (delivered 2 / not_delivered 1 / publisher_not_bound 1), publication с истёкшим маркером, слои гейтов"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/live-modes-2.58.194.json",
+      "sha256": "0c4b23e18d6550d65febdee17cd19b737e4126c033fadc66477151db15ed26af",
+      "what": "режимы «свой чат» и «другой чат» на обоих чатах: пояс и его источник в шапке и в карточке чужого чата, отсутствие полосы координации, очистка карточки при смене шапки"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/live-peek-2.58.194.json",
+      "sha256": "ab4961303a48a06e27891185e3dd26828006fce758126e4865cb0d80a02ce218",
+      "what": "ответ «другого чата»: собственные ключи чужого чата (chat_id, time, meme, text_initiative), peek_busy=false, peek_error пуст, пояс карточки из этого ответа"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/live-overview-chatA-2.58.194.png",
+      "sha256": "1d39fd28a9c32a850690ca06a03be1edda3934ee6426f797b2b0fbaec2bedaf5",
+      "what": "кадр обзора на живой сборке 2.58.194 (чат A): пояс, штамп (сервер), слои, квота мема"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258194/live-other-chat-2.58.194.png",
+      "sha256": "b624da3758831d9d733af68fda7453c8b14b383811597247c94330b882ede6bb",
+      "what": "кадр режима «другой чат» на живой сборке 2.58.194: пояс чужого чата с его источником"
     }
   ],
   "production_baseline_previous": {
-    "release": "2.58.192",
-    "commit": "bcc090a358d81d510f473b0bba1647a1979113a2",
-    "branch": "release/2.58.192",
-    "deployed_at_utc": "2026-11-11T19:05:11Z",
+    "release": "2.58.193",
+    "commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
+    "branch": "release/2.58.193",
+    "deployed_at_utc": "2026-11-11T20:51:22Z",
     "schema_version": 47,
     "ddl": "none",
     "new_settings": "none",
     "new_flags": "none",
-    "predeploy_snapshot": "/tmp/predeploy-258192.db",
-    "rollback_commit": "a6884ad7fa7b74841dd7a908be3b3bed405dc844"
+    "predeploy_snapshot": "/tmp/predeploy-258193.db",
+    "rollback_commit": "bcc090a358d81d510f473b0bba1647a1979113a2"
   },
   "live_findings": [
     {
@@ -4605,143 +4885,147 @@
   "epic_totals": {
     "as_of": "2026-11-12",
     "deployed": {
-      "version": "2.58.193",
-      "commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a"
+      "version": "2.58.194",
+      "commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26"
     },
     "required_rows": 114,
     "unique_req_ids": 77,
     "by_status": {
-      "PENDING": 38,
-      "VERIFIED": 56,
-      "REVIEW": 17,
+      "PENDING": 32,
+      "VERIFIED": 59,
+      "REVIEW": 20,
       "READY_FOR_LIVE": 3
     },
     "by_status_unique": {
-      "PENDING": 27,
-      "VERIFIED": 35,
-      "REVIEW": 12,
+      "PENDING": 23,
+      "VERIFIED": 37,
+      "REVIEW": 14,
       "READY_FOR_LIVE": 3
     },
     "by_slice": {
-      "S7-ACCEPT": {
-        "rows": 17,
-        "unique": 12,
-        "PENDING": 17
-      },
-      "S3-OV": {
-        "rows": 21,
-        "unique": 14,
-        "VERIFIED": 10,
-        "REVIEW": 11
-      },
-      "S1-AXES": {
-        "rows": 24,
-        "unique": 10,
-        "VERIFIED": 21,
-        "PENDING": 3
-      },
-      "R0-INV": {
-        "rows": 9,
-        "unique": 7,
-        "VERIFIED": 9
-      },
-      "S2-ID": {
-        "rows": 11,
-        "unique": 8,
-        "PENDING": 3,
-        "VERIFIED": 8
-      },
-      "S5-MEME": {
-        "rows": 6,
-        "unique": 5,
-        "REVIEW": 6
-      },
-      "S4-TRACE": {
-        "rows": 14,
-        "unique": 11,
-        "PENDING": 8,
-        "VERIFIED": 6
-      },
-      "S6-FRESH": {
-        "rows": 6,
-        "unique": 4,
-        "PENDING": 6
-      },
       "A0-ARCH": {
+        "PENDING": 1,
         "rows": 1,
-        "unique": 1,
-        "PENDING": 1
-      },
-      "S5b": {
-        "rows": 3,
-        "unique": 3,
-        "READY_FOR_LIVE": 3
+        "unique": 1
       },
       "P0IM-OV-HONEST": {
+        "VERIFIED": 2,
         "rows": 2,
-        "unique": 2,
-        "VERIFIED": 2
+        "unique": 2
+      },
+      "R0-INV": {
+        "VERIFIED": 9,
+        "rows": 9,
+        "unique": 7
+      },
+      "S1-AXES": {
+        "PENDING": 3,
+        "VERIFIED": 21,
+        "rows": 24,
+        "unique": 10
+      },
+      "S2-ID": {
+        "PENDING": 3,
+        "VERIFIED": 8,
+        "rows": 11,
+        "unique": 8
+      },
+      "S3-OV": {
+        "REVIEW": 11,
+        "VERIFIED": 10,
+        "rows": 21,
+        "unique": 14
+      },
+      "S4-TRACE": {
+        "PENDING": 8,
+        "VERIFIED": 6,
+        "rows": 14,
+        "unique": 11
+      },
+      "S5-MEME": {
+        "REVIEW": 6,
+        "rows": 6,
+        "unique": 5
+      },
+      "S5b": {
+        "READY_FOR_LIVE": 3,
+        "rows": 3,
+        "unique": 3
+      },
+      "S6-FRESH": {
+        "REVIEW": 3,
+        "VERIFIED": 3,
+        "rows": 6,
+        "unique": 4
+      },
+      "S7-ACCEPT": {
+        "PENDING": 17,
+        "rows": 17,
+        "unique": 12
       }
     },
     "fully_open_slices": [
-      "S7-ACCEPT",
-      "S5-MEME",
-      "S6-FRESH",
       "A0-ARCH",
-      "S5b"
+      "S5-MEME",
+      "S5b",
+      "S7-ACCEPT"
     ],
     "partially_open_slices": [
-      "S3-OV",
       "S1-AXES",
       "S2-ID",
-      "S4-TRACE"
+      "S3-OV",
+      "S4-TRACE",
+      "S6-FRESH"
     ],
     "closed_slices": [
-      "R0-INV",
-      "P0IM-OV-HONEST"
+      "P0IM-OV-HONEST",
+      "R0-INV"
     ],
     "verified_anchor_breakdown": {
-      "pre_deploy_only": 54,
-      "with_7a7cd0ce": 2
+      "basis": "unique_req_id (77)",
+      "with_6c11fc08": 4,
+      "pre_deploy_only": 33,
+      "rows_basis": {
+        "verified_rows": 59,
+        "rows_with_6c11fc08_evidence": 5,
+        "rows_anchored_earlier": 54
+      },
+      "note": "Якоря прошлых кандидатов — бухгалтерия карты, а не отсутствие продукта: строки доказаны на 4c59a483/726736ee/a6884ad7/bcc090a3/7a7cd0ce, и в дельту 2.58.194 они не входят."
     },
     "bound_in_this_pass": {
-      "release": "2.58.193",
-      "deployed_commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
-      "rows_added": 2,
-      "added_req_ids": [
+      "release": "2.58.194",
+      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "rows_rebound": [
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-DELIVERY-FACT",
+        "P0IM-S5B-QUOTA",
+        "P0IM-S6-TZ",
+        "P0IM-S6-EXPIRED",
+        "P0IM-S6-EFFECTIVE",
+        "P0IM-S6-SCOPE",
         "P0IM-OV-HONEST-LINE",
         "P0IM-OV-HONEST-UNAVAIL"
       ],
       "new_verified": [
-        "P0IM-OV-HONEST-LINE",
-        "P0IM-OV-HONEST-UNAVAIL"
+        "P0IM-S6-TZ",
+        "P0IM-S6-EXPIRED"
       ],
       "moved_to_review": [
-        "P0IM-MM-MARKER",
-        "P0IM-MM-TRACE",
-        "P0IM-MM-PRIO",
-        "P0IM-MM-DEFER",
-        "P0IM-MM-SECRET"
+        "P0IM-S6-EFFECTIVE",
+        "P0IM-S6-SCOPE"
       ],
-      "unchanged_status_rows_rebound": [
-        "P0IM-OV-LIST",
-        "P0IM-OV-L3"
+      "kept_ready_for_live": [
+        "P0IM-S5B-NODISCARD",
+        "P0IM-S5B-DELIVERY-FACT",
+        "P0IM-S5B-QUOTA"
       ],
-      "artifact": "plans/features/p0-init-meme-ux-diag/release-258193/deploy.md",
-      "artifact_sha256": "def2841ac9d174b09c9468b30b688a22cc59feb2b69a5a3906c2d33b2e3b1b31"
-    },
-    "epic_done": false,
-    "epic_done_blockers": [
-      "открытые срезы: A0-ARCH, S5-MEME, S5b, S6-FRESH, S7-ACCEPT",
-      "S5-MEME: 5 уникальных строк в REVIEW — живой ручной /meme после выкладки не выполнялся, живая половина названа построчно",
-      "S5b: 3 строки READY_FOR_LIVE — под-срез e92cdcd5 не выложен, живая половина ждёт собственной выкладки",
-      "S4-TRACE: 7 уникальных строк открыты (PB-LLM/STEP/FILTERS/MANUAL/ACCESS/COUNT/VOCAB)",
-      "S1-AXES: P0IM-BAN-CONFLATE (3 строки)",
-      "S2-ID: P0IM-ID-FINISH (остаточное окно RW-D4-BOTH-WRITE-FAIL) и P0IM-ID-CONC",
-      "S3-OV: 11 строк REVIEW, из них два живых недобора 2.58.192 закрыты в 2.58.193 (LIST/L3 остаются открытыми по acceptance)",
-      "release-гейт не зелёный: VERIFIED-строки держат якоря преддеплойных кандидатов (роме 2 новых) — это бухгалтерская привязка, а не продуктовый дефект"
-    ],
-    "note": "Это снимок карты, а не глобальный progress_scope.json: общий прогресс проекта считает Orchestrator. Эпик НЕ завершён."
+      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s5b/binding-258194.md",
+      "artifact_sha256": "ce52558a323f1bafd1e6ae14f78c15394cf594746c5fe7df3c2c62f00fae9854",
+      "artifact_2": "plans/features/p0-init-meme-ux-diag/evidence/s6/binding-258194.md",
+      "artifact_2_sha256": "9694090c030b85f96afcdbfafaeecdb989790c623ed3271ab7ad616a4302d3a9",
+      "waiting_observation": "WO-258194-S5B-DEFERRED",
+      "note": "Живые данные 2.58.194 привязаны к 6c11fc08; строки, доказанные на прошлых кандидатах, не перепривязаны — release-гейт считает их якорями прошлых кандидатов (бухгалтерия, не продукт)."
+    }
   },
   "write_scope_amendments": [
     {
@@ -4791,9 +5075,41 @@
       "next_action": "Отдельная задача следующего шага: либо привязать бота к событийному тику, либо не расходовать слот до появления отправителя; после этого живая половина S5b закроется естественным случаем.",
       "backlog_ref": "plans/backlog.md, раздел «Добавлено 2026-11-12 (S5b: привязка e92cdcd5)»",
       "task_created": false
+    },
+    {
+      "id": "BL-WEB-GOLDEN-DATE-STAMP",
+      "slice": "outside",
+      "candidate_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "location": "tests/test_web*.py (68 файлов; в т.ч. tests/test_webapp_evol_w13_touch_portal.py, tests/test_webapp_evol_w15_composition.py — Playwright-захваты пишут в plans/features/evol/audit/evidence/)",
+      "statement": "Прогон набора tests/test_web*.py перезаписывает 48 файлов golden-графики под plans/features/evol/audit/evidence/ текущей датой; воспроизведено на обоих чекаутах — базовом 7a7cd0ce и релизном 6c11fc08 — поэтому не является следствием 2.58.194.",
+      "impact": "low: только шум в рабочем дереве/диффе; продукт, тесты и приёмка не затронуты.",
+      "relation_to_active_task": "Предсуществующее поведение тестового портфеля, вне дельты 2.58.194 и вне приёмки этого эпика.",
+      "next_action": "При следующем касании тестового портфеля: изолировать захваты от отслеживаемого каталога evidence или нормализовать дату в имени/метаданных снимков. Отдельная задача не заводится.",
+      "backlog_ref": "plans/backlog.md, раздел «Добавлено 2026-11-12 (golden-graphics: прогон tests/test_web*.py перезаписывает 48 файлов)»",
+      "task_created": false
     }
   ],
   "deployed_evidence_previous": [
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258193/deploy.md",
+      "sha256": "def2841ac9d174b09c9468b30b688a22cc59feb2b69a5a3906c2d33b2e3b1b31",
+      "what": "отчёт выкладки 2.58.193: привязка кандидата, побайтовая аддитивность, преддеплойные прогоны, постдеплой, живые подтверждения (а)/(б), откат"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258193/live-diagnostics-2.58.193.json",
+      "sha256": "a308c4ca45341359b0a37d5dbc23628bd4b67f28a943e7a1790f70335c7456b8",
+      "what": "сырой ответ mechanism-diagnostics двух чатов после выкладки: оси, last_attempt, readiness, 40 строк журнала"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/release-258193/live-overview-258193.png",
+      "sha256": "897967eece2cb28c4f299b2c42e33f4d175fb87e1fa5f7d8c82a18ec3bfb9df7",
+      "what": "кадр «Обзора» инициативы на живой сборке: честная строка последнего действия, обе карточки, регион «Последние значимые события» с реальными строками"
+    },
+    {
+      "path": "plans/features/p0-init-meme-ux-diag/evidence/ov-honesty-258193.md",
+      "sha256": "5c290209d9d09a243589969224d0dd34c728af2ef3ffecfa651697a40544a528",
+      "what": "доказательства P0IM-OV-HONEST: DOM до/после, три состояния, мутации A/B/C, граница по 16:42"
+    },
     {
       "path": "plans/features/p0-init-meme-ux-diag/release-258192/deploy.md",
       "sha256": "7142fe8fd2d76433e78177f022a1e6a791a523908e58a0c831e143ee381d44fb",
@@ -4881,6 +5197,36 @@
       "artifact_path": "plans/features/p0-init-meme-ux-diag/release-258193/deploy.md",
       "artifact_sha256": "def2841ac9d174b09c9468b30b688a22cc59feb2b69a5a3906c2d33b2e3b1b31",
       "recorded_at": "2026-11-12"
+    },
+    {
+      "id": "WO-258194-S5B-DEFERRED",
+      "status": "WAITING_REAL_EVENT",
+      "owner": "agents",
+      "owner_action_required": false,
+      "release": "2.58.194",
+      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "slice": "S5b",
+      "operator_note": "Не дефект и не пробел работы: живого случая «publisher_not_bound → отложено → доставлено» после выкладки не было. Суточная квота мемов исчерпана в обоих чатах (limit 3, used 3, remaining 0, next_reset 2026-11-12T00:00:00Z), поэтому новых мем-попыток нет; observed delivered=2 / not_delivered=1 / publisher_not_bound=1 посчитаны по строкам, записанным прежним кодом.",
+      "why_it_matters": "Только реальный проход без привязанного бота показывает, что оплаченные байты действительно откладываются существующим durable-механизмом и доставляются тем же тиком инициативы; фейковый отправитель доказывает поведение кода, но не живой путь.",
+      "trigger": "Первая автономная публикация мема после сброса суточной квоты 2026-11-12T00:00:00Z — именно та попытка, где сработал publisher_not_bound, после чего она доставлена. Собственный /meme владельца не обязателен и не запрашивается.",
+      "trigger_kind": "real_production_event",
+      "read_fields": [
+        "журнал попыток мема того же чата (GET /api/initiative/publications с X-Chat-Id): терминальная строка первой попытки — publication.artifact.preserved, publication.artifact.deferred_job_id, delivery=not_sent, причина publisher_not_bound",
+        "task_jobs: строка deferred этого чата (queued → completed), result_ref на существующий файл; байты файла и sha256 payload равны оплаченным",
+        "следующая доставка того же чата: ровно одна отправка, outcome=published, delivery=sent, message_id непустой",
+        "read-model мема после события: spent не уменьшился, delivered вырос, not_delivered и not_delivered_reasons сохранили publisher_not_bound",
+        "карточка квоты мемов: «израсходовано без отправки: N (отправитель не привязан в этом процессе)» согласовано с read-model"
+      ],
+      "blocks_release": false,
+      "check_owner": "agent",
+      "next_check": "После 2026-11-12T00:00:00Z при первой реальной автономной публикации: проверяют агенты по БД, API, журналу и экрану; владелец для этого не привлекается."
     }
-  ]
+  ],
+  "deployed_rollback": {
+    "commit": "7a7cd0ce959a320cef1c70a76a4483ffe5817d9a",
+    "branch": "release/2.58.193",
+    "command": "git checkout -B release/2.58.193 7a7cd0ce959a320cef1c70a76a4483ffe5817d9a && systemctl restart admin_bot",
+    "data_rollback": "не требуется: DDL=0, миграций нет, user_version 47 до и после; правки не меняют формат строк, старый код читает те же данные",
+    "predeploy_snapshot": "/tmp/predeploy-258194.db (2 441 658 368 б, user_version 47, quick_check ok, 325 объектов схемы)"
+  }
 }

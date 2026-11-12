@@ -1,0 +1,318 @@
+{
+ "checked_at_utc": "2026-11-11T23:27:07Z",
+ "url": "https://admin-bot.duckdns.org/web/",
+ "expected_version": "2.58.194",
+ "chats": {
+  "-1002661910336": {
+   "last_action_lines": [
+    "Последнее действие: нет данных"
+   ],
+   "false_empty_string_present": false,
+   "no_data_line_present": true,
+   "tz": {
+    "tz_text": "пояс чата не прочитан — время в UTC",
+    "tz_source": "unknown",
+    "tz_name": "UTC",
+    "tz_known": "false",
+    "snapshot_text": "снимок ещё не прочитан",
+    "snapshot_basis": "штамп снимка — сервер"
+   },
+   "coordination_band": null,
+   "band_mentions_manual_priority": false,
+   "axis_text_now": {
+    "text": "Сейчаснет данных",
+    "readiness": "",
+    "layers": null
+   },
+   "axis_meme_delivery": {
+    "text": "Последняя отправканет данных",
+    "readiness": null,
+    "layers": null
+   },
+   "axis_meme_quota": {
+    "text": "Дневная квотаГенерации сегодня: 3 / 3 · Осталось: 0 · сброс: 2026-11-12T00:00:00+00:00 · израсходовано без отправки: 1 (отправитель не привязан в этом процессе)",
+    "readiness": null,
+    "layers": null
+   },
+   "axis_text_quota": {
+    "text": "Дневная квотанеизвестна",
+    "readiness": null,
+    "layers": null
+   },
+   "layers_text": null,
+   "layers_meme": null,
+   "card_tz_note": null,
+   "api_status": 200,
+   "payload_chat_id": -1002661910336,
+   "generated_at": 1794439663,
+   "time_block": {
+    "generated_at": 1794439663,
+    "basis": "server_snapshot",
+    "timezone": {
+     "name": "UTC",
+     "source": "utc_fallback",
+     "offset_seconds": 0,
+     "default_name": "UTC",
+     "reason": ""
+    }
+   },
+   "degraded": [],
+   "text_initiative_last_attempt_at": 1794439462,
+   "text_initiative_quota": {
+    "scope": "mechanism_own",
+    "limit": 6,
+    "used": 0,
+    "remaining": 6,
+    "unlimited": false,
+    "limit_reached": false,
+    "available": null,
+    "next_reset": null,
+    "delivered": null,
+    "not_delivered": null,
+    "not_delivered_reasons": {}
+   },
+   "text_initiative_last_delivery": {
+    "status": "confirmed",
+    "at": 1794408591,
+    "destination": -1002661910336,
+    "message_id": 1210123,
+    "run_id": "",
+    "reason_code": ""
+   },
+   "text_initiative_publication": {
+    "available": true,
+    "coordination": "ok",
+    "degraded": false,
+    "degraded_reason": "",
+    "conflict": false,
+    "conflict_state": "clear",
+    "ok": true,
+    "reason": "",
+    "reason_label": "",
+    "detail": "",
+    "state": "released",
+    "holder_kind": "initiative_reply",
+    "claimed_by": "meme_initiative",
+    "other_kind": "meme_initiative",
+    "other_age_seconds": 36764,
+    "interval_seconds": 1800,
+    "manual_priority_until": 1794403499,
+    "manual_priority_active": false,
+    "manual_priority_expired": true,
+    "claim_expires_at": null,
+    "checked_at": 1794439663
+   },
+   "meme_last_attempt_at": 1794439462,
+   "meme_quota": {
+    "scope": "mechanism_own",
+    "limit": 3,
+    "used": 3,
+    "remaining": 0,
+    "unlimited": false,
+    "limit_reached": true,
+    "available": true,
+    "next_reset": "2026-11-12T00:00:00+00:00",
+    "delivered": 2,
+    "not_delivered": 1,
+    "not_delivered_reasons": {
+     "publisher_not_bound": 1
+    }
+   },
+   "meme_last_delivery": {
+    "status": "confirmed",
+    "at": 1794402899,
+    "destination": -1002661910336,
+    "message_id": 1210056,
+    "run_id": "meme:-1002661910336:2026-11-11:20b04503ea26",
+    "reason_code": ""
+   },
+   "meme_publication": {
+    "available": true,
+    "coordination": "ok",
+    "degraded": false,
+    "degraded_reason": "",
+    "conflict": false,
+    "conflict_state": "clear",
+    "ok": true,
+    "reason": "",
+    "reason_label": "",
+    "detail": "",
+    "state": "released",
+    "holder_kind": "meme_initiative",
+    "claimed_by": "meme_initiative",
+    "other_kind": "initiative_reply",
+    "other_age_seconds": 31072,
+    "interval_seconds": 1800,
+    "manual_priority_until": 1794403499,
+    "manual_priority_active": false,
+    "manual_priority_expired": true,
+    "claim_expires_at": null,
+    "checked_at": 1794439663
+   }
+  },
+  "-1004482340693": {
+   "last_action_lines": [
+    "Последнее действие: 11.11 23:24 · Текстовая инициатива — пропущено"
+   ],
+   "false_empty_string_present": false,
+   "no_data_line_present": false,
+   "tz": {
+    "tz_text": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+    "tz_source": "utc_fallback",
+    "tz_name": "UTC",
+    "tz_known": "true",
+    "snapshot_text": "снимок: 11.11 23:27 (сервер)",
+    "snapshot_basis": "штамп снимка — сервер"
+   },
+   "coordination_band": null,
+   "band_mentions_manual_priority": false,
+   "axis_text_now": {
+    "text": "Сейчасждёт: мало сообщений в окне (код: not_enough_messages)",
+    "readiness": "waiting",
+    "layers": null
+   },
+   "axis_meme_delivery": {
+    "text": "Последняя отправкаподтверждено · 11.11 14:15 · чат -1004482340693 · сообщение 10472",
+    "readiness": null,
+    "layers": null
+   },
+   "axis_meme_quota": {
+    "text": "Дневная квотаГенерации сегодня: 3 / 3 · Осталось: 0 · сброс: 2026-11-12T00:00:00+00:00 · израсходовано без отправки: 1 (отправитель не привязан в этом процессе)",
+    "readiness": null,
+    "layers": null
+   },
+   "axis_text_quota": {
+    "text": "Дневная квотанеизвестна (квота не прочитана)",
+    "readiness": null,
+    "layers": null
+   },
+   "layers_text": {
+    "text": "модуль инициативы — общий слой; наблюдатель — общий слой; тумблер этого чата — общий слой",
+    "count": "3"
+   },
+   "layers_meme": {
+    "text": "модуль инициативы — общий слой; наблюдатель — общий слой; тумблер этого чата — общий слой; настройки мемов — слой чата",
+    "count": "4"
+   },
+   "card_tz_note": null,
+   "api_status": 200,
+   "payload_chat_id": -1004482340693,
+   "generated_at": 1794439672,
+   "time_block": {
+    "generated_at": 1794439672,
+    "basis": "server_snapshot",
+    "timezone": {
+     "name": "UTC",
+     "source": "utc_fallback",
+     "offset_seconds": 0,
+     "default_name": "UTC",
+     "reason": ""
+    }
+   },
+   "degraded": [],
+   "text_initiative_last_attempt_at": 1794439462,
+   "text_initiative_quota": {
+    "scope": "mechanism_own",
+    "limit": 6,
+    "used": 0,
+    "remaining": 6,
+    "unlimited": false,
+    "limit_reached": false,
+    "available": null,
+    "next_reset": null,
+    "delivered": null,
+    "not_delivered": null,
+    "not_delivered_reasons": {}
+   },
+   "text_initiative_last_delivery": {
+    "status": "confirmed",
+    "at": 1794395417,
+    "destination": -1004482340693,
+    "message_id": 10435,
+    "run_id": "",
+    "reason_code": ""
+   },
+   "text_initiative_publication": {
+    "available": true,
+    "coordination": "ok",
+    "degraded": false,
+    "degraded_reason": "",
+    "conflict": false,
+    "conflict_state": "clear",
+    "ok": true,
+    "reason": "",
+    "reason_label": "",
+    "detail": "",
+    "state": "released",
+    "holder_kind": "initiative_reply",
+    "claimed_by": "meme_initiative",
+    "other_kind": "meme_initiative",
+    "other_age_seconds": 33125,
+    "interval_seconds": 1800,
+    "manual_priority_until": 1794403592,
+    "manual_priority_active": false,
+    "manual_priority_expired": true,
+    "claim_expires_at": null,
+    "checked_at": 1794439672
+   },
+   "meme_last_attempt_at": 1794439462,
+   "meme_quota": {
+    "scope": "mechanism_own",
+    "limit": 3,
+    "used": 3,
+    "remaining": 0,
+    "unlimited": false,
+    "limit_reached": true,
+    "available": true,
+    "next_reset": "2026-11-12T00:00:00+00:00",
+    "delivered": 2,
+    "not_delivered": 1,
+    "not_delivered_reasons": {
+     "publisher_not_bound": 1
+    }
+   },
+   "meme_last_delivery": {
+    "status": "confirmed",
+    "at": 1794406547,
+    "destination": -1004482340693,
+    "message_id": 10472,
+    "run_id": "meme:-1004482340693:2026-11-11:d0f8d95ea289",
+    "reason_code": ""
+   },
+   "meme_publication": {
+    "available": true,
+    "coordination": "ok",
+    "degraded": false,
+    "degraded_reason": "",
+    "conflict": false,
+    "conflict_state": "clear",
+    "ok": true,
+    "reason": "",
+    "reason_label": "",
+    "detail": "",
+    "state": "released",
+    "holder_kind": "meme_initiative",
+    "claimed_by": "meme_initiative",
+    "other_kind": "",
+    "other_age_seconds": null,
+    "interval_seconds": 1800,
+    "manual_priority_until": 1794403592,
+    "manual_priority_active": false,
+    "manual_priority_expired": true,
+    "claim_expires_at": null,
+    "checked_at": 1794439672
+   }
+  }
+ },
+ "console_errors": [],
+ "screenshots": [
+  "live-overview-258194-1002661910336.png",
+  "live-overview-258194-1004482340693.png"
+ ],
+ "vm_present": true,
+ "served_version_in_html": true,
+ "app_js_version_marker": [
+  "https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js",
+  "https://admin-bot.duckdns.org/web/app.js?v=2.58.194"
+ ]
+}

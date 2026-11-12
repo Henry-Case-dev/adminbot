@@ -1,0 +1,83 @@
+{
+ "checked_at_utc": "2026-11-11T23:28:29Z",
+ "chats": {
+  "-1002661910336": {
+   "self_mode": {
+    "last_actions": [
+     "Последнее действие: 11.11 23:24 · Текстовая инициатива — пропущено"
+    ],
+    "peek_label": null,
+    "card_tz_note": null,
+    "card_tz_source": null,
+    "coordination_band": null,
+    "tz_text": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+    "tz_source": "utc_fallback",
+    "tz_name": "UTC",
+    "tz_known": "true",
+    "snapshot_text": "снимок: 11.11 23:28 (сервер)",
+    "snapshot_basis": "штамп снимка — сервер",
+    "body_has_false_empty": false,
+    "journal_time_cells": []
+   },
+   "self_shot": "live-258194-self-1002661910336.png",
+   "other_mode": {
+    "last_actions": [
+     "Последнее действие: 11.11 23:24 · Текстовая инициатива — пропущено"
+    ],
+    "peek_label": "Показан другой чат: Неистово супер крутые криэйторы гиперковейера гиперговна — его собственные оси, только чтение. Время — в поясе этого чата, пояс назван в карточке.",
+    "card_tz_note": "Время: пояс чата не прочитан — время в UTC",
+    "card_tz_source": "unknown",
+    "coordination_band": null,
+    "tz_text": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+    "tz_source": "utc_fallback",
+    "tz_name": "UTC",
+    "tz_known": "true",
+    "snapshot_text": "снимок: 11.11 23:28 (сервер)",
+    "snapshot_basis": "штамп снимка — сервер",
+    "body_has_false_empty": false,
+    "journal_time_cells": []
+   },
+   "other_shot": "live-258194-other-1002661910336.png"
+  },
+  "-1004482340693": {
+   "self_mode": {
+    "last_actions": [
+     "Последнее действие: 11.11 23:24 · Текстовая инициатива — пропущено"
+    ],
+    "peek_label": null,
+    "card_tz_note": null,
+    "card_tz_source": null,
+    "coordination_band": null,
+    "tz_text": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+    "tz_source": "utc_fallback",
+    "tz_name": "UTC",
+    "tz_known": "true",
+    "snapshot_text": "снимок: 11.11 23:29 (сервер)",
+    "snapshot_basis": "штамп снимка — сервер",
+    "body_has_false_empty": false,
+    "journal_time_cells": []
+   },
+   "self_shot": "live-258194-self-1004482340693.png",
+   "other_mode": {
+    "last_actions": [
+     "Последнее действие: 11.11 23:24 · Текстовая инициатива — пропущено"
+    ],
+    "peek_label": "Показан другой чат: PERMsoc: кукярик — его собственные оси, только чтение. Время — в поясе этого чата, пояс назван в карточке.",
+    "card_tz_note": "Время: пояс чата не задан — UTC (заводское значение, не часы сервера)",
+    "card_tz_source": "utc_fallback",
+    "coordination_band": null,
+    "tz_text": "пояс чата не задан — UTC (заводское значение, не часы сервера)",
+    "tz_source": "utc_fallback",
+    "tz_name": "UTC",
+    "tz_known": "true",
+    "snapshot_text": "снимок: 11.11 23:29 (сервер)",
+    "snapshot_basis": "штамп снимка — сервер",
+    "body_has_false_empty": false,
+    "journal_time_cells": []
+   },
+   "other_shot": "live-258194-other-1004482340693.png"
+  }
+ },
+ "console_errors": [],
+ "served_version_in_html": true
+}
