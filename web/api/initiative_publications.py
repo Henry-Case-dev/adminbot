@@ -124,13 +124,21 @@ OUTCOME_OTHER = "other"
 
 #: S4-TRACE (§P0IM-PB-COUNT / §P0IM-BAN-CONFLATE): этапы журнала мема, по
 #: которым считаются РАЗНЫЕ величины воронки. Выжимка и прикол — ровно два
-#: LLM-вызова одной попытки; `image_generation` — запрос к Image API;
-#: `publish` — попытка, у которой картинка реально получилась (журнал дошёл до
-#: публикации). Значения сверяются с `meme_initiative.STAGE_*` тестом, чтобы
-#: словарь не разъехался; импорт на уровне модуля дал бы цикл.
+#: LLM-вызова одной попытки; `image_generation` — запрос к Image API.
+#: Значения сверяются с `meme_initiative.STAGE_*` тестом, чтобы словарь не
+#: разъехался; импорт на уровне модуля дал бы цикл.
 LLM_STAGE_NAMES = ("summary", "joke")
 IMAGE_STAGE_NAME = "image_generation"
 PUBLISH_STAGE_NAME = "publish"
+#: Исход ПРОЙДЕННОГО этапа: `_finish` пишет `passed` всем не-терминальным
+#: строкам. Нужен, чтобы «сгенерировано» опиралось на пройденную генерацию
+#: изображения, а не на сам факт наличия строки этапа.
+STAGE_OUTCOME_PASSED = "passed"
+#: Причина терминального отказа ГЕНЕРАЦИИ изображения
+#: (`meme_initiative.SKIP_IMAGE_FAILED`). Такой отказ тоже оставляет строку
+#: этапа `image_generation`, но картинки не создал: «дошёл до провайдера» ≠
+#: «получил изображение».
+IMAGE_FAILED_REASON = "image_generation_failed"
 
 #: Почему у шага нет длительности: журнал мема пишет ОДНУ метку времени
 #: попытки (время старта) во все строки этапов, поэтому измеренной
@@ -515,6 +523,23 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
                      or reason_code in ("in_flight", "publication_in_flight"))):
             outcome = OUTCOME_DEFERRED
         historical = job_id.startswith("row:")
+        # §P0IM-BAN-CONFLATE (корректива Reviewer): «сгенерировано» — только
+        # ДОКАЗАННАЯ картинка, а не факт достижения этапа `publish`.
+        # Историческая строка `publish`/`skipped` без картинки (пустой родитель)
+        # раньше считалась сгенерированной. Признак берётся из цепочки ЭТОЙ
+        # попытки: пройденный этап `image_generation` (его пишет только
+        # генерация, дошедшая до провайдера) И терминальный исход НЕ является
+        # отказом генерации (`failed` + `image_generation_failed` — такой отказ
+        # тоже оставляет строку этапа, но картинку не создал). Отложенная
+        # реальным конфликтом публикация при готовой картинке остаётся
+        # сгенерированной.
+        image_ready = bool(
+            any(step["stage"] == IMAGE_STAGE_NAME
+                and step["outcome"] == STAGE_OUTCOME_PASSED
+                for step in chain)
+            and not (outcome == "failed"
+                     and reason_code == IMAGE_FAILED_REASON)
+        )
         # §3: режим — только из терминальной строки; поздний publication-факт
         # остаётся фолбэком для строк, записанных до появления `attempt_mode`.
         mode = _attempt_mode(items) or ("manual" if manual else "auto")
@@ -536,6 +561,9 @@ def _meme_attempts_grouped(rows: list[dict]) -> list[dict]:
                           else (None if outcome in (OUTCOME_DEFERRED,
                                                     OUTCOME_UNKNOWN)
                                 else False)),
+            # §P0IM-BAN-CONFLATE: доказана ли картинка у ЭТОЙ попытки. Именно
+            # это число (а не наличие этапа `publish`) суммирует `_rows`.
+            "generated": image_ready,
             "message_id": message_id,
             "chain_len": len(chain),
             # S4-TRACE (§P0IM-PB-ROW): компактная последовательность этапов
@@ -819,11 +847,11 @@ async def list_publications(
     next_offset = offset + len(page) if offset + len(page) < total else None
     # Счётчики — РАЗНЫЕ факты воронки, а не одно число: «проверено» (все
     # попытки в окне) ≠ «решено» (есть записанный исход) ≠ «сгенерировано»
-    # (картинка реально получилась: журнал дошёл до этапа публикации) ≠
-    # «опубликовано» ≠ «доставлено» (есть message_id) ≠ «ожидает» (исход
-    # deferred). Окно называется явно, чтобы число нельзя было прочитать как
-    # «за всё время». `llm_calls`/`images` — вызовы, записанные этапами ТОГО ЖЕ
-    # окна (выжимка+прикол и Image API, §P0IM-PB-COUNT).
+    # (у попытки ДОКАЗАНА картинка — этап `image_generation`, а не достижение
+    # `publish`) ≠ «опубликовано» ≠ «доставлено» (есть message_id) ≠ «ожидает»
+    # (исход deferred). Окно называется явно, чтобы число нельзя было прочитать
+    # как «за всё время». `llm_calls`/`images` — вызовы, записанные этапами
+    # ТОГО ЖЕ окна (выжимка+прикол и Image API, §P0IM-PB-COUNT).
     stage_names = _count_stage_names()
     decided = sum(1 for r in rows if _str(r.get("outcome")))
     delivered = sum(1 for r in rows if r.get("delivered") is True)
@@ -839,9 +867,10 @@ async def list_publications(
                  if isinstance(s, dict)]
         llm_calls += sum(1 for name in names if name in stage_names["llm"])
         images += sum(1 for name in names if name == stage_names["image"])
-        if stage_names["publish"] in names:
-            # Этап публикации достижим только после РЕАЛЬНО полученной картинки:
-            # отказ генерации пишется этапом `failed`, а не `publish`.
+        # §P0IM-BAN-CONFLATE: считаем ТОЛЬКО доказанную картинку, которую
+        # вычислил группировщик по цепочке этапов. Наличие `publish` —
+        # недостаточное условие (историческая строка `publish`/`skipped`).
+        if row.get("generated") is True:
             generated += 1
     return {
         "schema_version": 1,

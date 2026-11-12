@@ -901,6 +901,11 @@ def test_counts_carry_llm_calls_and_images_separately(api_gaps):
         meme_mod.STAGE_SUMMARY, meme_mod.STAGE_JOKE), api_mod.LLM_STAGE_NAMES
     assert api_mod.IMAGE_STAGE_NAME == meme_mod.STAGE_IMAGE
     assert api_mod.PUBLISH_STAGE_NAME == meme_mod.STAGE_PUBLISH
+    # «Сгенерировано» опирается на пройденный этап и на код отказа генерации —
+    # оба словаря обязаны совпадать с механизмом, иначе счётчик «тихо» соврёт.
+    assert api_mod.STAGE_OUTCOME_PASSED == "passed"
+    assert api_mod.IMAGE_FAILED_REASON == meme_mod.SKIP_IMAGE_FAILED, \
+        (api_mod.IMAGE_FAILED_REASON, meme_mod.SKIP_IMAGE_FAILED)
     for key in ("llm_calls", "images", "generated"):
         assert key in counts, (key, counts)
     rows = body["rows"]
@@ -925,7 +930,7 @@ def test_generated_is_not_considered_and_not_published(api_gaps):
     body = _rows(api_gaps, limit=100)
     counts = body["counts"]
     # Четыре попытки рассмотрены (три мема и одно событие текста), картинка
-    # получилась у одной, опубликованных нет.
+    # доказана у одной, опубликованных нет.
     assert counts["checked"] == 4, counts
     assert counts["decided"] == 4, counts
     assert counts["meme"] == 3, counts
@@ -935,11 +940,53 @@ def test_generated_is_not_considered_and_not_published(api_gaps):
     # considered НЕ считается генерацией, генерация НЕ считается публикацией.
     assert counts["generated"] < counts["checked"], counts
     assert counts["generated"] != counts["published"], counts
+    # Картинка + отложенная конфликтом публикация — остаётся генерацией.
+    with_image = _row(body, "meme:G2")
+    assert with_image is not None, [r["attempt_id"] for r in body["rows"]]
+    assert with_image["generated"] is True, with_image
+    assert "image_generation" in [s["stage"] for s in with_image["stages"]]
     # Упавшая генерация: вызов был, изображения нет, публикации не было.
     row = _row(body, "meme:G3")
     assert row is not None, [r["attempt_id"] for r in body["rows"]]
     names = [s["stage"] for s in row["stages"]]
     assert "image_generation" in names and "publish" not in names, names
+    assert row["generated"] is False, row
+
+
+def test_bare_historical_publish_row_is_not_generated(api_legacy):
+    """§P0IM-BAN-CONFLATE (находка Reviewer): `publish` без картинки ≠ «сгенерировано».
+
+    Историческая строка `old-1` из `LEGACY_ATTEMPTS` (пустой `job_id`,
+    `publish`/`skipped`/`cooldown_active`, без этапа `image_generation`) картинки
+    не имеет. Прежнее правило «есть этап `publish` → generated» считало её
+    сгенерированной и завышало число на экране.
+
+    Mutation: вернуть правило по этапу `publish` — тест красный на `old-1`
+    (generated=true и счётчик 4 вместо 1).
+    """
+    body = _rows(api_legacy, limit=100)
+    rows = {r["attempt_id"]: r for r in body["rows"]}
+    bare = rows.get("meme:row:old-1")
+    assert bare is not None, sorted(rows)
+    assert bare["incomplete_historical"] is True, bare
+    assert bare["job_id"] == "", bare
+    assert [s["stage"] for s in bare["stages"]] == ["publish"], bare["stages"]
+    assert bare["generated"] is False, bare
+    assert bare["outcome"] != "published", bare
+    assert bare["delivered"] is False, bare
+    assert bare["message_id"] is None, bare
+
+    counts = body["counts"]
+    # В этом стенде доказанная картинка есть только у J1 (этап image_generation);
+    # `old-1` (и прочие голые `publish`) счётчик не увеличивают.
+    assert counts["generated"] == 1, counts
+    assert counts["generated"] < counts["checked"], counts
+    # published/delivered не тронуты правкой: они считаются по своим фактам.
+    published = [r["attempt_id"] for r in body["rows"]
+                 if r["outcome"] == "published"]
+    assert counts["published"] == len(published), (counts, published)
+    assert counts["delivered"] == sum(1 for r in body["rows"]
+                                     if r["delivered"] is True), counts
 
 
 def test_step_carries_duration_or_reason_and_recorded_request_id(api):
