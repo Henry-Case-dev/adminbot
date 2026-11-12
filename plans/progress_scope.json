@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-12T09:43:13+12:00",
+  "updated": "2026-11-12T15:33:56+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -4286,6 +4286,19 @@
       "reconciled": true,
       "recorded_in": "plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md",
       "note": "Владелец задал порядок: сразу после текущего эпика — самодиагностика (self-diag-01), затем квантовые рандомы = VMQ-ONTO-01 (уточнение владельца; первая трактовка через goodmorning-quantum-media была ошибочной и отменена). Относительный порядок остальных задач сохранён, цепочка fc-trust после vmq-onto-01 и self-diag-01 не нарушена, web-search остаётся после fc-trust, vision-context-unify-01 остаётся последним."
+    },
+    {
+      "id": "OI-2026-11-12-EXIT-CORRECTIVE-CYCLE",
+      "source_path": "plans/owner_inputs/2026-11-12-exit-corrective-cycle-initiative.md",
+      "source_sha256": "7CA96E42CFC1628049887629D2DDDAB75072D3E799CDFA5FAF3F5750E69678EE",
+      "kind": "amendment",
+      "target_task_ids": [
+        "p0-init-meme-ux-diag",
+        "self-diag-01",
+        "vmq-onto-01"
+      ],
+      "reconciled": false,
+      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01."
     }
   ],
   "source_inventory": {
