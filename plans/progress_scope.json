@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T02:27:45+12:00",
+  "updated": "2026-11-13T04:45:28+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -927,7 +927,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T02:27:45+12:00",
+      "updated": "2026-11-13T04:45:28+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -935,7 +935,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: D3 bound 34 REVIEW / 2 PENDING (EVD-01 D6, SEM-08 live); D5 15 REVIEW / 6 PENDING; D4 13 REVIEW / 6 PENDING; D6 final integration (checkup wiring, prompt_readback registration, inspect_runtime analytics/UI) is building. After D6 review: one self-diag release, production verification, D7, DONE, then vmq-onto-01. Natural/stat/voluntary waits not blocking.",
+      "queue_note": "2026-11-13: D6 final approved (16fa04e7); full-train map 55 VERIFIED / 81 REVIEW / 41 READY_FOR_LIVE / 12 PENDING. Remaining 12 real PENDING: D0-01..05 (review), D2-23/24 (sensitivity/typed settings), D4-10/14 (traceback), D5-11/12 (security tests), AC-23 (golden set). D0 Reviewer + D2/D4 Builders running; D5/golden next. Then full deploy gate -> one release 2.58.198 -> D7/live -> DONE -> vmq-onto-01.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -949,26 +949,22 @@
       ],
       "queue_after_note": "Владелец 2026-11-12: следующая задача после текущего эпика — самодиагностика.",
       "slice_status": {
-        "D0": "historical artifact needs refresh",
+        "D0": "5 PENDING (review)",
         "D1": "VERIFIED 2.58.197 @ 25876167",
-        "D2": "37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING (c087253d/2.58.188)",
-        "D3": "34 REVIEW / 2 PENDING (approved 278c19e0)",
-        "D4A": "REVIEW (approved 8c035908)",
-        "D4B": "REVIEW (approved 722ccfc5)",
-        "D5": "15 REVIEW / 6 PENDING (approved c7b90b26)",
-        "D6": "BUILDING (final integration)",
-        "D7": "PENDING"
+        "D2": "37 VERIFIED / 4 READY_FOR_LIVE / 2 PENDING (D2-23/24)",
+        "D3": "35 REVIEW / 2 READY_FOR_LIVE",
+        "D4": "14 REVIEW / 3 READY_FOR_LIVE / 2 PENDING (D4-10/14)",
+        "D5": "16 REVIEW / 3 READY_FOR_LIVE / 2 PENDING (D5-11/12)",
+        "D6": "15 REVIEW / 17 READY_FOR_LIVE",
+        "D7": "12 READY_FOR_LIVE / 1 PENDING (AC-23)"
       },
       "progress": {
-        "verified_unique": 52,
-        "unique": 184,
-        "d1_verified": 17,
-        "d4_review": 12,
-        "d4_pending": 6,
-        "d5_review": 15,
-        "d5_pending": 6,
-        "d3_review": 34,
-        "d3_pending": 2
+        "verified_records": 55,
+        "review_records": 81,
+        "ready_for_live": 41,
+        "pending": 12,
+        "total_records": 189,
+        "unique": 183
       }
     },
     {
