@@ -2202,6 +2202,10 @@
                           @click="openWorkspaceTab('publications')">
                     <span class="ini-event__time">{{ e.timeText }}</span>
                     <span class="badge badge-muted shrink-0">{{ e.kindLabel }}</span>
+                    <!-- §P0IM-OV-LIST: способ попытки (manual/auto) — из
+                         attempt_mode терминальной строки; в строке он назван. -->
+                    <span v-if="e.modeLabel" class="text-[10px] text-gray-600 shrink-0"
+                          :data-ini-event-mode="e.kind">{{ e.modeLabel }}</span>
                     <span class="ini-event__text">{{ e.text }}</span>
                     <span class="msr shrink-0" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
                   </button>
@@ -3285,6 +3289,22 @@
                                      модели не хранит — так и сказано. -->
                                 <span v-if="step.modelText" class="ini-trace-step__meta"
                                       :data-ini-step-llm="step.key">{{ step.modelText }}</span>
+                                <!-- §P0IM-PB-LLM: источник/редакция/sha12 промпта
+                                     и ответ Image API — без текста промпта. -->
+                                <span v-if="step.promptText" class="ini-trace-step__meta"
+                                      :data-ini-step-prompt="step.key">{{ step.promptText }}</span>
+                                <span v-if="step.imageApiText" class="ini-trace-step__meta"
+                                      :data-ini-step-image-api="step.key">{{ step.imageApiText }}</span>
+                                <!-- §P0IM-PB-ACCESS: полный текст — только в
+                                     существующем Inspector; нет записи — not_recorded. -->
+                                <button v-if="step.fullText && step.fullText.recorded && isGlobalAdmin"
+                                        type="button" class="btn-ghost text-xs"
+                                        :data-ini-step-full-text="step.key"
+                                        @click="iniOpenInspector(step.fullText.correlation_id)">
+                                  Полный текст в Inspector →</button>
+                                <span v-else-if="step.fullTextNote"
+                                      class="ini-trace-step__meta"
+                                      :data-ini-step-full-text-missing="step.key">{{ step.fullTextNote }}</span>
                               </li>
                             </ol>
                           </div>
@@ -3481,6 +3501,28 @@
                               :data-ini-step-code="step.key">{{ step.codeLabel }}
                           <span class="text-gray-600">{{ step.code }}</span></span>
                         <span v-if="step.note" class="ini-trace-step__note">{{ step.note }}</span>
+                        <!-- §P0IM-PB-STEP / PB-LLM / PB-ACCESS: те же факты
+                             шага, что в раскрытой трассе «Публикаций». -->
+                        <span class="ini-trace-step__meta"
+                              :data-ini-step-duration="step.key">
+                          длительность: {{ step.durationText }}</span>
+                        <span v-if="step.requestId" class="ini-trace-step__meta"
+                              :data-ini-step-request-id="step.key">
+                          запрос: {{ step.requestId }}</span>
+                        <span v-if="step.modelText" class="ini-trace-step__meta"
+                              :data-ini-step-llm="step.key">{{ step.modelText }}</span>
+                        <span v-if="step.promptText" class="ini-trace-step__meta"
+                              :data-ini-step-prompt="step.key">{{ step.promptText }}</span>
+                        <span v-if="step.imageApiText" class="ini-trace-step__meta"
+                              :data-ini-step-image-api="step.key">{{ step.imageApiText }}</span>
+                        <button v-if="step.fullText && step.fullText.recorded && isGlobalAdmin"
+                                type="button" class="btn-ghost text-xs"
+                                :data-ini-step-full-text="step.key"
+                                @click="iniOpenInspector(step.fullText.correlation_id)">
+                          Полный текст в Inspector →</button>
+                        <span v-else-if="step.fullTextNote"
+                              class="ini-trace-step__meta"
+                              :data-ini-step-full-text-missing="step.key">{{ step.fullTextNote }}</span>
                       </li>
                     </ol>
                   </div>
@@ -3546,6 +3588,13 @@
                            data-meme-diag-degraded>
                         координация недоступна ({{ memeDiagView.degraded.join(', ') }}) —
                         конфликт публикаций неизвестен, это не «конфликта нет»
+                      </div>
+                      <!-- §P0IM-S6-EFFECTIVE: heartbeat уже посчитан сервером
+                           (`heartbeat_ok`) и проецируется в обзор как есть. -->
+                      <div class="meme-diag-row" data-meme-diag-heartbeat
+                           :data-meme-diag-heartbeat-known="memeDiagView.heartbeat.known ? 'true' : 'false'">
+                        <span class="meme-diag-key">Сердцебиение</span>
+                        <span>{{ memeDiagView.heartbeat.label }}</span>
                       </div>
                       <div class="meme-grid">
                         <div v-for="item in memeDiagBlocks" :key="'mdg-' + item.key"
@@ -3667,6 +3716,17 @@
                                 · израсходовано: {{ item.block.quota.usedText }}
                                 · осталось: {{ item.block.quota.remainingText }}</template>
                               <span v-if="item.block.quota.limitReached" class="text-amber-300"> · предел достигнут</span>
+                            </span>
+                          </div>
+                          <!-- §P0IM-S6-EFFECTIVE: доступность провайдера картинок
+                               — существующая image-зависимость, без новой проверки. -->
+                          <div v-if="item.block.imageProvider" class="meme-diag-row"
+                               data-meme-diag-image-provider
+                               :data-meme-diag-image-provider-state="String(item.block.imageProvider.available)">
+                            <span class="meme-diag-key">Провайдер картинок</span>
+                            <span class="text-gray-400">
+                              {{ item.block.imageProvider.label }}
+                              <span v-if="item.block.imageProvider.model" class="text-gray-600">· {{ item.block.imageProvider.model }}</span>
                             </span>
                           </div>
                           <div class="meme-diag-row">
@@ -13286,7 +13346,8 @@
                          снимок из журнала; «Предпросмотр» — локальная сборка
                          без вызова модели, всегда с меткой «не отправлено».
                          Смешивать их в одном потоке текста запрещено. -->
-                    <div class="inspector-mode-bar" data-inspector-modes>
+                    <div class="inspector-mode-bar" data-inspector-modes
+                         v-if="!speechInspector.requested_correlation_id">
                       <span class="ctl-seg" role="group"
                             aria-label="Режим инспектора">
                         <button type="button" class="ctl-seg__btn"
@@ -13326,7 +13387,18 @@
                           {{ speechInspector.last_run_note }}
                         </template>
                       </div>
-                      <button type="button" class="btn-ghost text-xs mt-2"
+                      <!-- §P0IM-PB-ACCESS: точный запрос из трассы не найден —
+                           honest not_recorded, а не превью текущих настроек. -->
+                      <div v-if="speechInspector.requested_correlation_id"
+                           class="text-xs text-amber-300 mt-1"
+                           data-inspector-correlation-miss
+                           :data-inspector-correlation="speechInspector.requested_correlation_id">
+                        correlation_id:
+                        <span class="font-mono">{{ speechInspector.requested_correlation_id }}</span>
+                        · запись не найдена (not_recorded)
+                      </div>
+                      <button v-if="!speechInspector.requested_correlation_id"
+                              type="button" class="btn-ghost text-xs mt-2"
                               data-inspector-goto-preview
                               @click="setSpeechInspectorMode('preview')">
                         Посмотреть предпросмотр (не отправлено) →

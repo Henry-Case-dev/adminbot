@@ -1993,4 +1993,192 @@ def test_id_conc_aggregator_keeps_chats_and_competitors_apart(tmp_path):
         ["holder-lose", "holder-win"]
 
 
+# ── P0IM-AC-MATRIX-FAIL: обрыв после LLM A/B и пустой ответ image API ───────
+# Два узких негативных случая матрицы отказов (§P0IM-AC-MATRIX-FAIL):
+#   (a) провайдер картинки падает ПОСЛЕ обеих LLM-стадий — одна попытка,
+#       терминальный этап failed, публикации/доставки нет;
+#   (b) провайдер вернул ok=True, но content=None — публиковать нечего,
+#       честный отказ `empty_content`, одна попытка, доставки нет.
+
+class _RaisingProvider:
+    """Провайдер картинки, падающий на вызове (сбой внешнего API)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def __call__(self, prompt, chat_id, job_id):
+        self.calls += 1
+        raise RuntimeError("provider down")
+
+
+class _EmptyContentProvider:
+    """ok=True, но изображения нет: публиковать нечего."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def __call__(self, prompt, chat_id, job_id):
+        self.calls += 1
+        return SimpleNamespace(ok=True, called=True, reason="",
+                               content=None, filename="image.png")
+
+
+def _single_failed_attempt(led):
+    from web.api.initiative_publications import _meme_attempts_grouped
+
+    rows = led.attempts(-100, limit=50)
+    groups = _meme_attempts_grouped(rows)
+    assert len(groups) == 1, groups
+    attempt = groups[0]
+    assert attempt["kind"] == "meme", attempt
+    assert attempt["outcome"] not in ("published", "deferred"), attempt
+    assert attempt["delivered"] is False, attempt
+    assert attempt["message_id"] is None, attempt
+    assert "publish" not in [s["stage"] for s in attempt["stages"]], attempt
+    return rows, attempt
+
+
+def test_provider_failure_after_llm_stages_is_one_failed_attempt(tmp_path):
+    """(a) Сбой картинки после A/B: один failed-исход, без публикации/доставки.
+
+    Обе LLM-стадии уже состоялись (summary+joke), затем провайдер падает —
+    повторной попытки/второй строки-попытки и доставки быть не должно.
+    """
+    provider = _RaisingProvider()
+    deliveries: list = []
+
+    async def sender(chat_id, content, prompt=""):
+        deliveries.append((chat_id, content))
+        return SimpleNamespace(message_id=999)
+
+    async def scenario():
+        return await _consider(tmp_path, provider=provider, sender=sender)
+
+    result, _, led = _run(scenario())
+    assert provider.calls == 1, provider.calls
+    assert result.outcome == "failed", result.as_dict()
+    assert result.reason == meme.SKIP_IMAGE_FAILED, result.as_dict()
+    assert deliveries == [], "сбой не должен доходить до отправки"
+
+    rows, attempt = _single_failed_attempt(led)
+    stages = [row["stage"] for row in rows]
+    assert meme.STAGE_SUMMARY in stages and meme.STAGE_JOKE in stages, stages
+    assert attempt["stage"] == meme.STAGE_FAILED, attempt
+    assert attempt["reason_code"] == meme.SKIP_IMAGE_FAILED, attempt
+
+
+def test_empty_image_content_is_an_honest_failure_not_publication(tmp_path):
+    """(b) ok=True + content=None: не публикуем, одна попытка, `empty_content`."""
+    provider = _EmptyContentProvider()
+    deliveries: list = []
+
+    async def sender(chat_id, content, prompt=""):
+        deliveries.append((chat_id, content))
+        return SimpleNamespace(message_id=999)
+
+    async def scenario():
+        return await _consider(tmp_path, provider=provider, sender=sender)
+
+    result, _, led = _run(scenario())
+    assert provider.calls == 1, provider.calls
+    assert result.outcome == "failed", result.as_dict()
+    assert result.reason == meme.SKIP_IMAGE_FAILED, result.as_dict()
+    assert result.detail == "empty_content", result.as_dict()
+    assert deliveries == [], "пустая картинка не публикуется"
+
+    rows, attempt = _single_failed_attempt(led)
+    assert attempt["stage"] == meme.STAGE_FAILED, attempt
+    assert attempt["reason_code"] == meme.SKIP_IMAGE_FAILED, attempt
+    terminal = [row for row in rows if row["stage"] == meme.STAGE_FAILED][0]
+    facts = meme.parse_attempt_facts(terminal)
+    assert facts.get("detail") == "empty_content", facts
+    assert attempt["generated"] is False, attempt
+
+
+# ── P0IM-PB-LLM: короткая идентичность шагов, без полного текста ────────────
+# Журнал попытки должен называть ФАКТИЧЕСКИЙ провайдер/модель, отсутствие
+# слота и источник/редакцию/sha12 промпта, а также статус/формат/байты Image
+# API. Полные сообщения, выжимка, прикол и промпты в durable detail не едут —
+# для них есть существующее кольцо композера/Inspector (P0IM-PB-ACCESS).
+
+class _IdentityLLM:
+    """Клиент с реальным швом идентичности (`_chat_model`/`_provider_label`)."""
+
+    _chat_model = "unit/model-x"
+
+    def __init__(self):
+        self.correlations = []
+
+    def _provider_label(self, model):
+        return "provider.example"
+
+    async def generate(self, messages, **kwargs):
+        # Тот же correlation_id, что рантайм передаёт в настоящий LLMClient
+        # (и по которому кольцо/Inspector находят полный текст шага).
+        self.correlations.append(str(kwargs.get("correlation_id") or ""))
+        return "LLM-OUT-SECRET"
+
+
+class _FormatProvider:
+    """Провайдер с именем файла: формат берётся из него, байты — только число."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def __call__(self, prompt, chat_id, job_id):
+        self.calls += 1
+        return SimpleNamespace(ok=True, called=True, reason="",
+                               content=b"png", filename="meme.png")
+
+
+def test_llm_identity_is_short_and_full_text_stays_out_of_journal(tmp_path):
+    """§P0IM-PB-LLM: identity/prompt/Image API — в detail, текстов там нет."""
+    led = _ledger(tmp_path)
+    provider = _FormatProvider()
+    llm = _IdentityLLM()
+
+    async def scenario():
+        # Реальные дефолтные шаги A/B: identity берётся у того же клиента,
+        # который реально делает вызовы (не тестовые хуки).
+        return await meme.consider_chat(
+            None, -100, settings=_settings(), ledger=led, now=NOW,
+            tz_name="UTC", tz_source="utc_fallback",
+            initiative_enabled=lambda: True, image_status=IMAGE_OK,
+            random_source=_Hit(), messages=_rows(-100), llm=llm,
+            image_provider=provider, model_chars=200)
+
+    result = _run(scenario())
+    assert result.outcome == "blocked", result.as_dict()  # нет sender — не доставка
+    # Те же correlation_id, по которым PB-ACCESS ищет полный текст в кольце.
+    assert llm.correlations == [result.job_id + "#meme_summary",
+                                result.job_id + "#meme_joke"], llm.correlations
+    rows = led.attempts(-100, limit=50)
+    by_stage = {row["stage"]: meme.parse_attempt_facts(row) for row in rows}
+
+    summary = by_stage[meme.STAGE_SUMMARY]
+    joke = by_stage[meme.STAGE_JOKE]
+    image = by_stage[meme.STAGE_IMAGE]
+    for facts in (summary, joke):
+        llm = facts.get("llm")
+        assert isinstance(llm, dict), facts
+        assert llm["provider"] == "provider.example", llm
+        assert llm["model"] == "unit/model-x", llm
+        assert llm["slot"] is None and llm["slot_reason"] == "slot_not_used", llm
+        prompt = facts.get("prompt")
+        assert prompt and len(str(prompt.get("sha12") or "")) == 12, prompt
+        assert prompt.get("source"), prompt
+        assert prompt.get("revision") not in (None, ""), prompt
+    api = image.get("api")
+    assert api and api["status"] == "ok" and api["ok"] is True, api
+    assert api["format"] == "png" and api["format_source"] == "filename", api
+    assert api["bytes"] == 3 and api["bytes_present"] is True, api
+    assert len(str(image.get("prompt_sha12") or "")) == 12, image
+
+    # Тексты ответа модели и промптов в durable detail НЕ попадают.
+    dump = json.dumps([dict(row) for row in rows], ensure_ascii=False)
+    assert "LLM-OUT-SECRET" not in dump, "полный ответ модели утёк в журнал"
+    assert "Придумай короткий" not in dump, "текст промпта утёк в журнал"
+    assert "Создай мем" not in dump, "текст image-промпта утёк в журнал"
+
+
 

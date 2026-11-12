@@ -36,9 +36,14 @@ IMAGE_OK = {"available": True, "reason": "ok", "health": "healthy",
 ALLOWED_KEYS = frozenset(
     {"schema_version", "generated_at", "chat_id", "time", "text_initiative",
      "meme", "degraded",
+     # §P0IM-S6-EFFECTIVE: уже посчитанные heartbeat и доступность
+     # провайдера картинок в том же ответе.
+     "heartbeat_ok", "heartbeat", "image_provider",
      # вложенные объекты ворот (`blocking`)
      "blocked", "warned", "gate", "status", "reason_code", "state"}
     | set(diag.MECHANISM_BLOCK_FIELDS)
+    | set(diag.HEARTBEAT_FIELDS)
+    | set(diag.IMAGE_PROVIDER_FIELDS)
     | set(diag.DRAW_FIELDS)
     | set(diag.PUBLICATION_FIELDS)
     | set(diag.COOLDOWN_FIELDS)

@@ -1057,3 +1057,179 @@ def _detail_of(client, attempt_id: str, chat=CHAT_A) -> dict:
     assert resp.status_code == 200, resp.text
     return resp.json()
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# P0IM-PB-LLM / PB-MANUAL / PB-ACCESS: identity шагов в detail, факт снятия
+# маркера в той же строке и адрес полного текста (существующий Inspector).
+# Стенд — реальный роутер + реальный SQLite-журнал; кольцо композера —
+# существующее (`record_provider_call`/`provider_calls`), не новое хранилище.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _build_closure_journals(path: str) -> None:
+    """Журнал одной ручной попытки с identity шагов и снятием маркера."""
+    _build_gap_journals(path)
+    con = sqlite3.connect(path)
+    release_until = NOW + 600
+    attempts = [
+        ("m1", CHAT_A, "K1", NOW - 700, "considered", "passed", "",
+         _facts({"priority_marker": {"ok": True, "until": release_until,
+                                     "detail": ""}}), "auto", 600, 12),
+        ("m2", CHAT_A, "K1", NOW - 690, "summary", "passed", "",
+         _facts({"chars": 41,
+                 "llm": {"provider": "provider.example",
+                         "model": "unit/model-x", "slot": None,
+                         "slot_reason": "slot_not_used"},
+                 "prompt": {"block": "initiative.meme.summary",
+                            "source": "chat", "revision": 3,
+                            "sha12": "0123456789ab"}}), "auto", 600, 12),
+        ("m3", CHAT_A, "K1", NOW - 680, "joke", "passed", "",
+         _facts({"chars": 7, "limit": 171,
+                 "llm": {"provider": "provider.example",
+                         "model": "unit/model-x", "slot": None,
+                         "slot_reason": "slot_not_used"},
+                 "prompt": {"block": "initiative.meme.joke",
+                            "source": "factory", "revision": "act:abc",
+                            "sha12": "ba9876543210"}}), "auto", 600, 12),
+        ("m4", CHAT_A, "K1", NOW - 670, "image_generation", "passed", "",
+         _facts({"chars": 36, "template_source": "factory",
+                 "template_revision": "fac:img", "joke_chars": 7,
+                 "prompt_sha12": "c00adcc6038a",
+                 "api": {"called": True, "ok": True, "status": "ok",
+                         "bytes": 3, "bytes_present": True,
+                         "format": "png", "format_source": "filename",
+                         "filename_present": True}}), "auto", 600, 12),
+        ("m5", CHAT_A, "K1", NOW - 660, "publish", "published", "sent",
+         _facts({"attempt_mode": "manual",
+                 "manual_priority_release": {"released": True,
+                                             "until": release_until},
+                 "publication": {"output": {"tg_message_id": 321}}}),
+         "auto", 600, 12),
+    ]
+    con.executemany("INSERT INTO meme_initiative_attempt VALUES"
+                    " (?,?,?,?,?,?,?,?,?,?,?)", attempts)
+    con.commit()
+    con.close()
+
+
+@pytest.fixture()
+def api_closure(tmp_path):
+    yield from _client_for(tmp_path, _build_closure_journals)
+
+
+def test_detail_carries_llm_identity_without_full_text(api_closure):
+    """§P0IM-PB-LLM: identity/prompt/Image API в фактах; текстов нет."""
+    detail = _detail_of(api_closure, "meme:K1")
+    by_stage = {row["stage"]: row for row in detail["chain"]}
+    for stage in ("summary", "joke"):
+        facts = by_stage[stage]["facts"]
+        llm = facts["llm"]
+        assert llm["provider"] == "provider.example", llm
+        assert llm["model"] == "unit/model-x", llm
+        assert llm["slot"] is None and llm["slot_reason"] == "slot_not_used", llm
+        prompt = facts["prompt"]
+        assert len(str(prompt["sha12"])) == 12, prompt
+        assert prompt["source"] and prompt["revision"] not in (None, ""), prompt
+        # Полных сообщений/текстов промптов/прикола в durable detail нет.
+        for key in ("messages", "text", "system", "summary", "joke"):
+            assert key not in facts, (stage, key, facts)
+    image = by_stage["image_generation"]["facts"]
+    assert image["api"]["status"] == "ok", image
+    assert image["api"]["format"] == "png" and image["api"]["bytes"] == 3, image
+    assert len(image["prompt_sha12"]) == 12, image
+    # Совместимость с прежним коротким блоком `llm`: значения из записи.
+    step = by_stage["summary"]["llm"]
+    assert step["provider"] == "provider.example", step
+    assert step["model"] == "unit/model-x", step
+    assert step["slot"] is None, step
+
+
+def test_detail_full_text_is_existing_inspector_or_honest_not_recorded(
+        api_closure):
+    """§P0IM-PB-ACCESS: полный текст — только кольцо композера, иначе not_recorded."""
+    from services import prompt_composer as composer
+
+    composer.reset_provider_calls()
+    try:
+        detail = _detail_of(api_closure, "meme:K1")
+        block = detail["full_text"]
+        assert block["ring_limit"] == 24, block
+        assert block["ring_scope"] == "process_lifetime", block
+        assert "24" in block["storage"] and "журнал" in block["storage"], block
+        steps = {item["step"]: item for item in block["steps"]}
+        assert set(steps) == {"summary", "joke"}, steps
+        assert steps["summary"]["correlation_id"] == "K1#meme_summary", steps
+        assert steps["joke"]["correlation_id"] == "K1#meme_joke", steps
+        assert all(item["recorded"] is False for item in steps.values()), steps
+        assert all(item["reason"] == "not_recorded" for item in steps.values())
+        assert all(item["reason_detail"] == "provider_ring_miss"
+                   for item in steps.values())
+
+        # Кольцо реально содержит вызов — запись находится, текст НЕ уезжает
+        # в detail (он доступен только через Inspector с его RBAC/маскировкой).
+        composer.record_provider_call(
+            payload={"model": "unit/model-x", "messages": []},
+            messages=[{"role": "system", "content": "system-SECRET-CONTENT"},
+                      {"role": "user", "content": "user-SECRET-CONTENT"}],
+            model="unit/model-x", provider="provider.example",
+            module="initiative", step="meme_summary",
+            correlation_id="K1#meme_summary", chat_id=CHAT_A)
+        found = _detail_of(api_closure, "meme:K1")
+        steps = {item["step"]: item for item in found["full_text"]["steps"]}
+        assert steps["summary"]["recorded"] is True, steps
+        assert steps["joke"]["recorded"] is False, steps
+        assert found["full_text"]["available"] is True, found["full_text"]
+        dumped = json.dumps(found, ensure_ascii=False)
+        assert "SECRET-CONTENT" not in dumped, "полный текст утёк в detail"
+    finally:
+        composer.reset_provider_calls()
+
+
+def test_detail_historical_row_says_full_text_not_recorded(api_legacy):
+    """§P0IM-PB-ACCESS: у исторической строки полный текст не записан."""
+    detail = _detail_of(api_legacy, "meme:row:old-1")
+    block = detail["full_text"]
+    assert block["available"] is False, block
+    for item in block["steps"]:
+        assert item["recorded"] is False, item
+        assert item["reason"] == "full_text_not_recorded", item
+        assert item["reason_detail"] == "historical_row_without_correlation_id"
+
+
+def test_detail_does_not_mix_chats(api_closure):
+    """§P0IM-PB-ACCESS: запрос из другого чата не даёт ни строк, ни текста."""
+    from services import prompt_composer as composer
+
+    composer.reset_provider_calls()
+    try:
+        composer.record_provider_call(
+            payload={"model": "unit/model-x", "messages": []},
+            messages=[{"role": "system", "content": "СЕКРЕТ-ЧАТА-A"}],
+            model="unit/model-x", provider="provider.example",
+            module="initiative", step="meme_summary",
+            correlation_id="K1#meme_summary", chat_id=CHAT_A)
+        foreign = _detail_of(api_closure, "meme:K1", chat=CHAT_B)
+        assert foreign["attempt"] is None, foreign["attempt"]
+        assert foreign["chain"] == [], foreign["chain"]
+        assert foreign["full_text"]["available"] is False, foreign["full_text"]
+        assert all(item["recorded"] is False
+                   for item in foreign["full_text"]["steps"])
+        dumped = json.dumps(foreign, ensure_ascii=False)
+        assert "СЕКРЕТ-ЧАТА-A" not in dumped, "в чужой чат утёк текст"
+    finally:
+        composer.reset_provider_calls()
+
+
+def test_detail_terminal_row_carries_manual_priority_release(api_closure):
+    """§P0IM-PB-MANUAL: снятие маркера — в ТОЙ ЖЕ терминальной строке."""
+    detail = _detail_of(api_closure, "meme:K1")
+    by_stage = {row["stage"]: row for row in detail["chain"]}
+    considered = by_stage["considered"]["facts"]["priority_marker"]
+    assert considered["ok"] is True and considered["until"] > NOW, considered
+    release = by_stage["publish"]["facts"]["manual_priority_release"]
+    assert release == {"released": True, "until": considered["until"]}, release
+    # Одна попытка: новых строк/попыток факт снятия не создаёт.
+    body = _rows(api_closure, limit=100)
+    k1 = [row for row in body["rows"] if row["attempt_id"] == "meme:K1"]
+    assert len(k1) == 1, k1
+    assert k1[0]["chain_len"] == 5, k1[0]
+

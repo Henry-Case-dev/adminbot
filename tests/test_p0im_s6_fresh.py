@@ -519,3 +519,116 @@ def test_expired_marker_and_claim_are_not_actual_waiting(tmp_path,
     # В обоих случаях сырой дедлайн остаётся в payload — его печатает витрина,
     # но состояние «активен/истёк» считает сервер, а не часы браузера.
     assert pub["manual_priority_until"] == NOW_TS - 120
+
+
+# ═══ 5. P0IM-S6-EFFECTIVE: image-модуль всегда, heartbeat и провайдер ══════
+
+def _image_off(monkeypatch):
+    async def _image(_chat_id, health=None):
+        return {"available": False, "reason": meme.SKIP_IMAGE_MODULE_OFF,
+                "module_enabled": False, "configured": False,
+                "health": "unknown"}
+
+    monkeypatch.setattr(meme, "image_dependency", _image)
+
+
+def test_image_module_gate_is_named_even_when_enabled(tmp_path, monkeypatch):
+    """§P0IM-S6-EFFECTIVE: гейт `image_module` есть ВСЕГДА, а не только при OFF."""
+    _global_gates(monkeypatch)
+    _chat_state(monkeypatch, source="global", runtime=True)
+    _settings_loader(monkeypatch, _settings(enabled=True))
+    _sourced_params(monkeypatch, True, "global")
+    _image_ok(monkeypatch)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="s6_image_on.db")
+        try:
+            await _schema(svc)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    payload = asyncio.run(scenario())
+    layers = _layers_of(payload["meme"])
+    assert "image_module" in layers, layers
+    assert layers["image_module"] == diag.LAYER_GLOBAL, layers
+    gate = next(row for row in payload["meme"]["configuration"]["layers"]
+                if row["gate"] == "image_module")
+    assert gate["enabled"] is True, gate
+    assert gate["reason"] == "", gate
+    # Выключенный модуль — тот же гейт, но с причиной конфигурации.
+    _image_off(monkeypatch)
+
+    async def scenario_off():
+        svc = await _db(tmp_path, name="s6_image_off.db")
+        try:
+            await _schema(svc)
+            return await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+        finally:
+            await svc.close()
+
+    off = asyncio.run(scenario_off())
+    off_gate = next(row for row in off["meme"]["configuration"]["layers"]
+                    if row["gate"] == "image_module")
+    assert off_gate["enabled"] is False, off_gate
+    assert off_gate["reason"] == "image_module_off", off_gate
+    assert off["meme"]["configuration"]["enabled"] is False, off
+
+
+def test_overview_projects_heartbeat_and_image_provider_for_both_chats(
+        tmp_path, monkeypatch):
+    """§P0IM-S6-EFFECTIVE: heartbeat_ok и доступность провайдера — в payload."""
+    import time as _time
+
+    from services import memory_maintenance as mm
+
+    _global_gates(monkeypatch)
+    _chat_state(monkeypatch, source="global", runtime=True)
+    _settings_loader(monkeypatch, _settings(enabled=True))
+    _sourced_params(monkeypatch, True, "global")
+    _global_timezone(monkeypatch, None)
+    _override(monkeypatch, None, False)
+
+    async def _image(_chat_id, health=None):
+        return {"available": True, "reason": "ok", "module_enabled": True,
+                "configured": True, "health": "healthy", "model": "img-x"}
+
+    monkeypatch.setattr(meme, "image_dependency", _image)
+    monkeypatch.setattr(
+        mm, "_initiative_observer_last_tick",
+        {"ts": int(_time.time()), "status": "ok"}, raising=False)
+
+    async def scenario():
+        svc = await _db(tmp_path, name="s6_effective.db")
+        try:
+            await _schema(svc)
+            own = await diag.collect_mechanism_diagnostics(
+                svc, CHAT, now=NOW_TS)
+            other = await diag.collect_mechanism_diagnostics(
+                svc, OTHER_CHAT, now=NOW_TS)
+            return own, other
+        finally:
+            await svc.close()
+
+    own, other = asyncio.run(scenario())
+    for payload, expected_chat in ((own, CHAT), (other, OTHER_CHAT)):
+        assert payload["chat_id"] == expected_chat, payload["chat_id"]
+        # heartbeat уже посчитан существующим `_health`, а не клиентом.
+        assert payload["heartbeat_ok"] is True, payload["heartbeat"]
+        assert payload["heartbeat"]["ok"] is True, payload["heartbeat"]
+        provider = payload["meme"]["image_provider"]
+        assert provider["available"] is True, provider
+        assert provider["configured"] is True, provider
+        assert provider["module_enabled"] is True, provider
+        assert provider["health"] == "healthy", provider
+        assert provider["model"] == "img-x", provider
+        assert provider["source"] == "meme_initiative.image_dependency"
+        gate = next(row for row in payload["meme"]["configuration"]["layers"]
+                    if row["gate"] == "image_module")
+        assert gate["enabled"] is True, gate
+    # Глобальные значения не «перетекают» в чужой chat_id: каждый ответ
+    # подписан своим чатом, а heartbeat/provider — общие существующие факты.
+    assert own["chat_id"] != other["chat_id"]
+    assert own["meme"]["image_provider"] == other["meme"]["image_provider"]

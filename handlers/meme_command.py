@@ -197,12 +197,18 @@ async def claim_manual_priority(chat_id: int) -> dict:
     return {"ok": True, "until": int(until), "detail": ""}
 
 
-async def release_manual_priority(chat_id: int, until) -> bool:
+async def release_manual_priority(chat_id: int, until, *,
+                                  job_id: str = "") -> bool:
     """Снять СВОЙ маркер приоритета в терминальном исходе (P0IM-MM-MARKER).
 
     Вызывается из ``finally`` обработчика, поэтому снимает маркер и при успехе,
     и при отказе, и при ошибке, и при отмене запуска. ``MANUAL_PRIORITY_SECONDS``
     остаётся СТРАХОВКОЙ на случай падения процесса, а не механизмом снятия.
+
+    ``job_id`` (P0IM-PB-MANUAL): после фактического снятия факт ``{released,
+    until}`` дописывается в ТЕРМИНАЛЬНУЮ строку этой же попытки (существующее
+    поле ``detail``), чтобы освобождение маркера было видно в трассе. Второй
+    строки/схемы нет; повторное снятие ничего не перезаписывает.
     """
     try:
         mark = int(until or 0)
@@ -222,6 +228,20 @@ async def release_manual_priority(chat_id: int, until) -> bool:
     if not cleared:
         logger.warning("[/meme] manual priority not cleared | chat=%s "
                        "until=%s", chat_id, mark)
+    elif str(job_id or "").strip():
+        # Факт снятия — аддитивно в терминальную строку ТОЙ ЖЕ попытки.
+        # Сбой записи не отменяет снятие и не меняет исход запуска.
+        try:
+            from services import meme_initiative as meme
+            ledger = meme.open_ledger(_db)
+            if ledger is not None:
+                ledger.merge_terminal_facts(
+                    int(chat_id), str(job_id),
+                    {"manual_priority_release": {"released": True,
+                                                 "until": mark}})
+        except Exception:
+            logger.warning("[/meme] manual priority release not recorded | "
+                           "chat=%s", chat_id, exc_info=True)
     return bool(cleared)
 
 
@@ -371,8 +391,10 @@ async def cmd_meme(message: types.Message) -> None:
     finally:
         # P0IM-MM-MARKER: маркер приоритета снимается на КАЖДОМ терминальном
         # исходе (успех/отказ/ошибка/отмена). TTL 600 с — страховка на случай
-        # падения процесса, а не механизм снятия.
-        await release_manual_priority(chat_id, marker_until)
+        # падения процесса, а не механизм снятия. P0IM-PB-MANUAL: факт снятия
+        # дописывается в терминальную строку этой же попытки.
+        await release_manual_priority(chat_id, marker_until,
+                                      job_id=str(getattr(run, "job_id", "") or ""))
 
     if result is not None and bool(getattr(result, "published", False)):
         return  # успех = только изображение, отправленное sender'ом пайплайна

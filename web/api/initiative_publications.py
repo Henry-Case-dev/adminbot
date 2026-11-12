@@ -154,6 +154,73 @@ LLM_NOT_RECORDED_EVENT = "not_recorded_in_event_record"
 #: как есть: появится записанное значение — оно и уедет в ответ.
 LLM_RECORD_KEYS = ("provider", "model", "slot")
 
+#: §P0IM-PB-ACCESS: полный текст запросов НЕ хранится в журнале попытки.
+#: Единственный существующий носитель — bounded-кольцо композера
+#: (`prompt_composer.provider_calls`): последние 24 записи на чат, память
+#: процесса (рестарт/вытеснение теряет текст). Нового хранилища нет.
+FULL_TEXT_NOT_RECORDED = "full_text_not_recorded"
+FULL_TEXT_RING_MISS = "not_recorded"
+FULL_TEXT_RING_LIMIT = 24
+FULL_TEXT_STORAGE = (
+    "Полный текст запроса не хранится в журнале попытки. Он доступен только "
+    "в существующем Inspector из in-memory кольца композера "
+    "(prompt_composer.provider_calls): последние 24 вызова на чат, до "
+    "перезапуска процесса или вытеснения записью.")
+FULL_TEXT_STEPS = (("summary", "meme_summary"), ("joke", "meme_joke"))
+
+
+def _full_text_evidence(chat_id: int, job_id: str, historical: bool) -> dict:
+    """Где искать полный текст шагов попытки — существующий Inspector.
+
+    Ничего не создаёт: проверяет ТО ЖЕ кольцо `provider_calls`, которое
+    отдаёт `GET /speech/inspector` (RBAC/masking — у него). Нет записи —
+    честная причина (`not_recorded`/`full_text_not_recorded`), а не
+    подстановка текущих настроек и не выдуманный correlation_id.
+    """
+    ref = _str(job_id).strip()
+    calls: list[dict] = []
+    if not historical and ref:
+        try:
+            from services import prompt_composer as composer
+            calls = composer.provider_calls(chat_id=int(chat_id),
+                                            limit=FULL_TEXT_RING_LIMIT)
+        except Exception:
+            logger.warning("[ini-pub] provider ring read failed", exc_info=True)
+            calls = []
+    recorded = {_str(c.get("correlation_id")) for c in calls
+                if isinstance(c, dict)}
+    steps: list[dict] = []
+    for step, suffix in FULL_TEXT_STEPS:
+        correlation = (ref + "#" + suffix) if ref and not historical else ""
+        present = bool(correlation and correlation in recorded)
+        reason = ""
+        reason_detail = ""
+        if historical:
+            reason = FULL_TEXT_NOT_RECORDED
+            reason_detail = "historical_row_without_correlation_id"
+        elif not correlation:
+            reason = FULL_TEXT_NOT_RECORDED
+            reason_detail = "correlation_id_not_recorded"
+        elif not present:
+            reason = FULL_TEXT_RING_MISS
+            reason_detail = "provider_ring_miss"
+        steps.append({
+            "step": step,
+            "correlation_id": correlation,
+            "recorded": present,
+            "reason": reason,
+            "reason_detail": reason_detail,
+        })
+    return {
+        "available": any(item["recorded"] for item in steps),
+        "storage": FULL_TEXT_STORAGE,
+        "ring_limit": FULL_TEXT_RING_LIMIT,
+        "ring_scope": "process_lifetime",
+        "inspector": "/api/speech/inspector",
+        "inspector_rbac": "can_edit_inspector",
+        "steps": steps,
+    }
+
 #: Имя события → вид. Незнакомое `publication_*`/`initiative_publication_*`
 #: классифицируется по `outcome` (см. `_publication_kind`), поэтому новые
 #: коды P0 видны без правки списка.
@@ -1031,6 +1098,10 @@ async def publication_detail(
             "attempt": attempt,
             "chain": chain,
             "events": events,
+            # §P0IM-PB-ACCESS: где искать полный текст (существующий Inspector),
+            # политика хранения названа явно; отсутствие — not_recorded.
+            "full_text": _full_text_evidence(
+                int(chat_id), job_id, job_id.startswith("row:")),
             "delivery": {
                 "delivered": (None if attempt is None else attempt["delivered"]),
                 "message_id": (None if attempt is None
@@ -1092,6 +1163,9 @@ async def publication_detail(
             "attempt": attempt,
             "chain": [],
             "events": events,
+            # У текстовой трассы полного текста шага нет: кольцо ключуется
+            # корреляцией мем-этапов, поэтому честный None (не новый store).
+            "full_text": None,
             "delivery": delivery,
         }
     raise HTTPException(status_code=422, detail="неизвестный attempt_id")

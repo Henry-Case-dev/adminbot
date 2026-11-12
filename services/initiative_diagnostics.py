@@ -1230,7 +1230,15 @@ MECHANISM_BLOCK_FIELDS = (
     # «нет данных» (`data_state = "stale"`).
     "stale", "stale_reason", "stale_age_seconds", "stale_window_seconds",
     "stale_window_basis",
+    # §P0IM-S6-EFFECTIVE: доступность провайдера картинок — проекция
+    # существующей `image_dependency` (не новая проверка/панель).
+    "image_provider",
 )
+#: §P0IM-S6-EFFECTIVE: короткий блок доступности провайдера изображений.
+IMAGE_PROVIDER_FIELDS = ("available", "configured", "module_enabled",
+                         "reason", "health", "model", "source")
+#: §P0IM-S6-EFFECTIVE: уже посчитанный heartbeat в том же overview-payload.
+HEARTBEAT_FIELDS = ("ok", "last_tick_ts", "last_tick_status", "note")
 #: Поля вложенных объектов (их нет, если объект ``null``).
 DRAW_FIELDS = (
     "performed", "outcome", "value", "hit", "probability", "purpose",
@@ -2338,7 +2346,6 @@ async def _meme_configuration_parts(chat_id: int, cfg, image_view, *,
     здесь не читается (иначе резолвер описывал бы не тот объект, который
     реально пришёл), значение остаётся тем, что у пайплайна.
     """
-    from services import meme_initiative as meme
     parts = await _gate_parts(chat_id)
     if cfg is None:
         parts.append({"name": "meme_settings", "enabled": None,
@@ -2376,11 +2383,25 @@ async def _meme_configuration_parts(chat_id: int, cfg, image_view, *,
                 "reason": "" if enabled else "disabled_by_setting",
             })
     view = image_view if isinstance(image_view, dict) else {}
-    if str(view.get("reason") or "") == meme.SKIP_IMAGE_MODULE_OFF:
-        parts.append({"name": "image_module", "enabled": False,
-                      "source": SOURCE_IMAGE, "scope": "chat",
+    # §P0IM-S6-EFFECTIVE: гейт image-модуля называется ВСЕГДА, а не только
+    # когда он выключен. `enabled` — существующее поле
+    # `image_dependency.module_enabled`; провайдер/schema его исправность
+    # остаются на оси health, поэтому выключенный модуль и недоступный
+    # провайдер не склеиваются в один ответ.
+    if view:
+        module_enabled = view.get("module_enabled")
+        enabled = None if module_enabled is None else bool(module_enabled)
+        reason = "" if enabled else str(view.get("reason")
+                                       or "image_module_off")
+        parts.append({"name": "image_module", "enabled": enabled,
+                      "source": SOURCE_IMAGE, "scope": "global",
+                      "layer": LAYER_GLOBAL, "reason": reason})
+    else:
+        # Зависимость не прочитана вовсе: «включено» не выдумывается.
+        parts.append({"name": "image_module", "enabled": None,
+                      "source": SOURCE_IMAGE, "scope": "global",
                       "layer": LAYER_GLOBAL,
-                      "reason": "image_module_off"})
+                      "reason": NO_DATA_READ_FAILED})
     return parts
 
 
@@ -2868,6 +2889,9 @@ async def text_mechanism_diagnostics(db, chat_id, *,
         "cooldown": cooldown,
         "quota": quota,
         "publication": publication_block(publication_view, checked_at=now_ts),
+        # §P0IM-S6-EFFECTIVE: у текста нет image-провайдера, но форма блока
+        # одна — ключ есть всегда, значение честное `None`.
+        "image_provider": None,
         "blocking": blocking,
     }, {
         "configuration": configuration,
@@ -2907,6 +2931,7 @@ def _no_chat_block(mechanism: str, output_kind: str) -> dict:
         "cooldown": cooldown_block(None, now=0),
         "quota": quota_block(limit=None, used=None),
         "publication": None,
+        "image_provider": None,
         "blocking": None,
     }, {
         # Чат не выбран — осей нет, но и «выключено» здесь нет: enabled=null.
@@ -3174,6 +3199,21 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
 
     # ── P0 corrective §1: пять осей (мем) ──────────────────────────────────
     image_view = avail.get("image") if isinstance(avail.get("image"), dict) else {}
+    # §P0IM-S6-EFFECTIVE: доступность image-ПРОВАЙДЕРА — проекция уже
+    # посчитанной зависимости (`meme_initiative.image_dependency`), без
+    # повторной проверки и без нового экрана.
+    image_provider = {
+        "available": (None if image_view.get("available") is None
+                      else bool(image_view.get("available"))),
+        "configured": (None if image_view.get("configured") is None
+                       else bool(image_view.get("configured"))),
+        "module_enabled": (None if image_view.get("module_enabled") is None
+                           else bool(image_view.get("module_enabled"))),
+        "reason": str(image_view.get("reason") or ""),
+        "health": str(image_view.get("health") or ""),
+        "model": str(image_view.get("model") or ""),
+        "source": "meme_initiative.image_dependency",
+    }
     configuration = configuration_block(
         await _meme_configuration_parts(cid, cfg, image_view,
                                         own_settings=settings is None))
@@ -3246,6 +3286,9 @@ async def meme_mechanism_diagnostics(db, chat_id, *, now: int | None = None,
         "cooldown": cooldown,
         "quota": quota,
         "publication": pub_block,
+        # §P0IM-S6-EFFECTIVE: доступность провайдера картинок — существующая
+        # зависимость, отданная наружу рядом с остальными фактами механизма.
+        "image_provider": image_provider,
         "blocking": None,
     }, {
         "configuration": configuration,
@@ -3402,6 +3445,16 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
     meme_block = await meme_mechanism_diagnostics(
         db, chat_id, now=now_ts, settings=meme_settings, ledger=ledger,
         image_health=image_health, publication=publication)
+    # §P0IM-S6-EFFECTIVE: heartbeat уже считается существующим `_health`
+    # (тот же источник — штамп тика наблюдателя, что у `initiative-vitality`),
+    # поэтому в обзор он проецируется как есть, без второй проверки.
+    liveness: dict = {}
+    try:
+        from services import memory_maintenance as mm
+        liveness = dict(getattr(mm, "_initiative_observer_last_tick", {}) or {})
+    except Exception:
+        liveness = {}
+    heartbeat = _health(liveness, {})
     degraded = []
     for block in (text_block, meme_block):
         pub = block.get("publication") or {}
@@ -3412,6 +3465,15 @@ async def collect_mechanism_diagnostics(db, chat_id, *,
         "generated_at": now_ts,
         "chat_id": _int_or_none(chat_id),
         "time": time_block(chat_id, now_ts=now_ts),
+        # §P0IM-S6-EFFECTIVE: уже посчитанные heartbeat_ok и провайдер
+        # изображений — в том же payload, без нового экрана/панели.
+        "heartbeat_ok": heartbeat.get("heartbeat_ok"),
+        "heartbeat": {
+            "ok": heartbeat.get("heartbeat_ok"),
+            "last_tick_ts": heartbeat.get("last_tick_ts"),
+            "last_tick_status": heartbeat.get("last_tick_status"),
+            "note": heartbeat.get("note"),
+        },
         "text_initiative": text_block,
         "meme": meme_block,
         "degraded": _unique(degraded),

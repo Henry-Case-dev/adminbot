@@ -2501,7 +2501,361 @@ function productGapsSuite() {
     'записанная модель не показана: ' + jokeStep.modelText);
 }
 
+async function closureTrainSuite() {
+  // ═══ P0IM-PB-MANUAL: маркер приоритета и его снятие — в шаге трассы ═══
+  const manualAttempt = {
+    attempt_id: 'meme:job-m', kind: 'meme', job_id: 'job-m', mode: 'manual',
+    ts: NOW_TS, stage: 'publish', outcome: 'published', reason_code: 'sent',
+    delivered: true, message_id: 4321, incomplete_historical: false,
+    chain_len: 3,
+  };
+  const markerFacts = {
+    priority_marker: { ok: true, until: NOW_TS + 600, detail: '' },
+  };
+  const releaseFacts = {
+    attempt_mode: 'manual',
+    manual_priority_release: { released: true, until: NOW_TS + 600 },
+  };
+  const manualTrace = computed.iniPubDetailTrace.call({
+    iniPubFocus: 'meme:job-m',
+    iniPubDetail: {
+      available: true, attempt: manualAttempt,
+      chain: [
+        { stage: 'considered', ts: NOW_TS - 50, outcome: 'passed',
+          reason_code: '', facts: markerFacts },
+        { stage: 'publish', ts: NOW_TS, outcome: 'published',
+          reason_code: 'sent', facts: releaseFacts },
+      ],
+      events: [], delivery: { delivered: true, message_id: 4321 },
+    },
+  });
+  const priority = traceStep(manualTrace.steps, 'priority');
+  assert.ok(priority, 'шаг приоритета отсутствует в ручной трассе');
+  assert.strictEqual(priority.state, 'done', priority);
+  assert.ok(priority.text.indexOf('маркер приоритета записан') >= 0,
+    'ok/until маркера не показаны: ' + priority.text);
+  assert.ok(priority.note.indexOf('маркер снят') >= 0,
+    'снятие маркера не показано: ' + priority.note);
+
+  // Историческая строка: снятие не записано — честная метка.
+  const historicTrace = computed.iniPubDetailTrace.call({
+    iniPubFocus: 'meme:row:old',
+    iniPubDetail: {
+      available: true,
+      attempt: Object.assign({}, manualAttempt, {
+        attempt_id: 'meme:row:old', job_id: '', incomplete_historical: true,
+      }),
+      chain: [
+        { stage: 'considered', ts: NOW_TS - 50, outcome: 'passed',
+          reason_code: '', facts: markerFacts },
+        { stage: 'publish', ts: NOW_TS, outcome: 'published',
+          reason_code: 'sent', facts: {} },
+      ],
+      events: [], delivery: { delivered: true, message_id: 1 },
+    },
+  });
+  const historicPriority = traceStep(historicTrace.steps, 'priority');
+  assert.ok(historicPriority.note.indexOf('release_not_recorded') >= 0,
+    'историческая строка не назвала release_not_recorded: '
+    + historicPriority.note);
+
+  // ═══ P0IM-PB-LLM: identity/prompt/Image API в шаге; полного текста нет ═
+  const llmFacts = {
+    chars: 41,
+    llm: { provider: 'provider.example', model: 'unit/model-x',
+           slot: null, slot_reason: 'slot_not_used' },
+    prompt: { block: 'initiative.meme.summary', source: 'chat',
+              revision: 3, sha12: '0123456789ab' },
+  };
+  const imageFacts = {
+    chars: 36, joke_chars: 7,
+    api: { called: true, ok: true, status: 'ok', bytes: 3,
+           bytes_present: true, format: 'png', format_source: 'filename' },
+  };
+  const llmTrace = computed.iniPubDetailTrace.call({
+    iniPubFocus: 'meme:job-l',
+    iniPubDetail: {
+      available: true,
+      attempt: Object.assign({}, manualAttempt, {
+        attempt_id: 'meme:job-l', job_id: 'job-l',
+      }),
+      chain: [
+        { stage: 'summary', ts: NOW_TS - 30, outcome: 'passed',
+          reason_code: '', facts: llmFacts, llm: { provider: null,
+          model: null, slot: null, recorded_keys: [], reason: '' } },
+        { stage: 'image_generation', ts: NOW_TS - 10, outcome: 'passed',
+          reason_code: '', facts: imageFacts, llm: { provider: null,
+          model: null, slot: null, recorded_keys: [], reason: '' } },
+        { stage: 'publish', ts: NOW_TS, outcome: 'published',
+          reason_code: 'sent', facts: { attempt_mode: 'manual' } },
+      ],
+      events: [], delivery: { delivered: true, message_id: 4321 },
+    },
+  });
+  const llmStep = traceStep(llmTrace.steps, 'summary');
+  assert.ok(llmStep.modelText.indexOf('unit/model-x') >= 0,
+    'модель из записи не показана: ' + llmStep.modelText);
+  assert.ok(llmStep.modelText.indexOf('слот: не используется') >= 0,
+    'slot_not_used не назван: ' + llmStep.modelText);
+  assert.ok(llmStep.promptText.indexOf('sha12 0123456789ab') >= 0,
+    'sha12 промпта не показан: ' + llmStep.promptText);
+  assert.ok(llmStep.text.indexOf('0123456789ab') < 0,
+    'полный текст промпта подставлен вместо sha12');
+  const imageStep = traceStep(llmTrace.steps, 'image');
+  assert.ok(imageStep.imageApiText.indexOf('API: ok') >= 0,
+    'статус Image API не показан: ' + imageStep.imageApiText);
+  assert.ok(imageStep.imageApiText.indexOf('формат: png') >= 0,
+    'формат изображения не показан: ' + imageStep.imageApiText);
+  assert.ok(imageStep.imageApiText.indexOf('байты: 3') >= 0,
+    'наличие байтов не показано: ' + imageStep.imageApiText);
+
+  // ═══ P0IM-PB-ACCESS: полный текст — только Inspector/not_recorded ═════
+  const fullTextDetail = {
+    available: true,
+    attempt: {
+      attempt_id: 'meme:job-l', kind: 'meme', job_id: 'job-l',
+      mode: 'manual', ts: NOW_TS, stage: 'publish', outcome: 'published',
+      reason_code: 'sent', delivered: true, message_id: 4321,
+      incomplete_historical: false, chain_len: 3,
+    },
+    chain: [
+      { stage: 'summary', ts: NOW_TS - 30, outcome: 'passed', reason_code: '',
+        facts: llmFacts },
+      { stage: 'joke', ts: NOW_TS - 20, outcome: 'passed', reason_code: '',
+        facts: { chars: 7 } },
+      { stage: 'publish', ts: NOW_TS, outcome: 'published',
+        reason_code: 'sent', facts: { attempt_mode: 'manual' } },
+    ],
+    events: [],
+    delivery: { delivered: true, message_id: 4321 },
+    full_text: {
+      available: true, ring_limit: 24, ring_scope: 'process_lifetime',
+      storage: 'Полный текст запроса не хранится в журнале попытки. Кольцо: '
+        + 'последние 24 вызова на чат, до перезапуска процесса.',
+      steps: [
+        { step: 'summary', correlation_id: 'job-l#meme_summary',
+          recorded: true, reason: '', reason_detail: '' },
+        { step: 'joke', correlation_id: 'job-l#meme_joke',
+          recorded: false, reason: 'not_recorded',
+          reason_detail: 'provider_ring_miss' },
+      ],
+    },
+  };
+  const accessTrace = computed.iniPubDetailTrace.call({
+    iniPubFocus: 'meme:job-l', iniPubDetail: fullTextDetail,
+  });
+  const accessSummary = traceStep(accessTrace.steps, 'summary');
+  const accessJoke = traceStep(accessTrace.steps, 'joke');
+  assert.ok(accessSummary.fullText && accessSummary.fullText.recorded,
+    'доступная запись полного текста не показана');
+  assert.ok(accessSummary.fullTextNote.indexOf('Inspector') >= 0
+    && accessSummary.fullTextNote.indexOf('24') >= 0,
+    'политика хранения не названа: ' + accessSummary.fullTextNote);
+  assert.ok(accessJoke.fullTextNote.indexOf('not_recorded') >= 0,
+    'промах кольца не назван: ' + accessJoke.fullTextNote);
+  assert.strictEqual(accessJoke.fullText.recorded, false);
+
+  // Историческая строка: full_text_not_recorded.
+  const histFull = JSON.parse(JSON.stringify(fullTextDetail));
+  histFull.attempt.job_id = '';
+  histFull.attempt.incomplete_historical = true;
+  histFull.full_text.steps = [
+    { step: 'summary', correlation_id: '', recorded: false,
+      reason: 'full_text_not_recorded',
+      reason_detail: 'historical_row_without_correlation_id' },
+  ];
+  const histAccess = computed.iniPubDetailTrace.call({
+    iniPubFocus: 'meme:row:old', iniPubDetail: histFull,
+  });
+  assert.ok(traceStep(histAccess.steps, 'summary').fullTextNote
+    .indexOf('full_text_not_recorded') >= 0,
+    'историческая запись не назвала full_text_not_recorded');
+
+  // Действие трассы открывает существующий Inspector с correlation_id.
+  const nav = [];
+  const inspCtx = {
+    route: '#/ai/speech',
+    speechInspectorCorrelation: '',
+    speechInspectorMode: 'preview',
+    speechLoaded: { inspector: true },
+    speechSection: '',
+    speechSectionTouched: false,
+    loaded: [],
+    navigateTo: function (r) { nav.push(r); },
+    loadSpeechSection: function (id, force) {
+      this.loaded.push([id, force]);
+      return Promise.resolve();
+    },
+    $nextTick: function (fn) { fn(); },
+  };
+  methods.iniOpenInspector.call(inspCtx, 'job-l#meme_summary');
+  assert.strictEqual(inspCtx.speechInspectorCorrelation,
+    'job-l#meme_summary');
+  assert.strictEqual(inspCtx.speechInspectorMode, 'real');
+  assert.strictEqual(inspCtx.speechSection, 'inspector');
+  assert.strictEqual(inspCtx.speechLoaded.inspector, false);
+  assert.deepStrictEqual(inspCtx.loaded, [['inspector', true]]);
+  assert.deepStrictEqual(nav, [], 'внутри #/ai/speech лишний переход');
+  // Обычный вход в раздел сбрасывает точный отбор (последний ход чата).
+  const openCtx = {
+    speechSection: '', speechSectionTouched: false,
+    speechLoaded: { inspector: true },
+    speechInspectorCorrelation: 'stale#id',
+    _speechSectionLoadKey: function (id) { return id; },
+    loadSpeechSection: function () { return Promise.resolve(); },
+    scrollSpeechTop: function () {},
+  };
+  methods.openSpeechSection.call(openCtx, 'inspector');
+  assert.strictEqual(openCtx.speechInspectorCorrelation, '',
+    'точный отбор не сброшен при обычном входе');
+
+  // Загрузчик раздела добавляет correlation_id только когда он задан.
+  const requested = [];
+  const loadCtx = {
+    speechConflict: null,
+    speechInspectorLayer: '',
+    speechInspectorCorrelation: 'job-l#meme_summary',
+    speechLoaded: {},
+    _speechSectionLoadKey: function (id) { return id; },
+    api: function (url) { requested.push(url); return Promise.resolve({}); },
+  };
+  await methods.loadSpeechSection.call(loadCtx, 'inspector', true);
+  assert.strictEqual(requested[0],
+    '/api/speech/inspector?correlation_id=job-l%23meme_summary');
+  const plain = [];
+  loadCtx.speechInspectorCorrelation = '';
+  loadCtx.api = function (url) { plain.push(url); return Promise.resolve({}); };
+  await methods.loadSpeechSection.call(loadCtx, 'inspector', true);
+  assert.strictEqual(plain[0], '/api/speech/inspector',
+    'обычный Inspector получил чужой отбор');
+
+  // Запрошенный correlation_id не даёт переключиться на «предпросмотр»:
+  // текущие настройки не могут прочитаться как текст этого вызова.
+  const modeCtx = {
+    speechInspector: { requested_correlation_id: 'job-l#meme_summary' },
+    speechInspectorMode: 'real',
+  };
+  methods.setSpeechInspectorMode.call(modeCtx, 'preview');
+  assert.strictEqual(modeCtx.speechInspectorMode, 'real',
+    'предпросмотр открылся для запрошенного correlation_id');
+  const normalMode = { speechInspector: {}, speechInspectorMode: 'real' };
+  methods.setSpeechInspectorMode.call(normalMode, 'preview');
+  assert.strictEqual(normalMode.speechInspectorMode, 'preview');
+
+  // ═══ P0IM-OV-LIST: manual/auto в строках обзора (5 последних) ══════════
+  const events = computed.initiativeRecentEvents.call({
+    initiativeVitality: null,
+    memeSettings: { analytics: { attempts: [
+      { ts: NOW_TS - 5, job_id: 'job-manual', stage: 'joke',
+        outcome: 'passed', reason_code: '', detail: '{"mode":"fixed"}' },
+      { ts: NOW_TS - 5, job_id: 'job-manual', stage: 'publish',
+        outcome: 'sent', reason_code: '',
+        detail: '{"attempt_mode":"manual"}' },
+      { ts: NOW_TS - 10, job_id: 'job-auto', stage: 'publish',
+        outcome: 'sent', reason_code: '',
+        detail: '{"attempt_mode":"auto"}' },
+      { ts: NOW_TS - 15, job_id: 'job-old', stage: 'publish',
+        outcome: 'sent', reason_code: '', detail: '' },
+    ] } },
+  });
+  const byJob = {};
+  events.forEach(function (e) { byJob[e.attemptId] = e; });
+  assert.strictEqual(byJob['meme:job-manual'].mode, 'manual',
+    'manual-попытка не распознана по attempt_mode');
+  assert.ok(byJob['meme:job-manual'].text.indexOf('вручную (/meme)') === 0,
+    'manual/auto не в строке обзора: ' + byJob['meme:job-manual'].text);
+  assert.strictEqual(byJob['meme:job-auto'].mode, 'auto');
+  assert.ok(byJob['meme:job-auto'].text.indexOf('автоматически') === 0,
+    'auto не в строке обзора: ' + byJob['meme:job-auto'].text);
+  assert.strictEqual(byJob['meme:job-old'].mode, '',
+    'исторической строке выдуман способ');
+  assert.ok(byJob['meme:job-old'].text.indexOf('способ не записан') === 0);
+
+  // ═══ P0IM-S6-EFFECTIVE: heartbeat и провайдер — из payload сервера ═════
+  const s6Payload = {
+    schema_version: 1, generated_at: NOW_TS, chat_id: CHAT, degraded: [],
+    heartbeat_ok: true,
+    heartbeat: { ok: true, last_tick_ts: NOW_TS, last_tick_status: 'ok' },
+    time: { generated_at: NOW_TS, basis: 'server_snapshot',
+            timezone: { name: 'UTC', source: 'utc_fallback',
+                        offset_seconds: 0, default_name: 'UTC', reason: '' } },
+    text_initiative: { mechanism: 'text_initiative', available: true,
+                       data_state: 'ok', no_data_reasons: [] },
+    meme: {
+      mechanism: 'meme', available: true, data_state: 'ok',
+      no_data_reasons: [],
+      configuration: {
+        enabled: true, source: 'image_module', scope: 'mixed', reason: '',
+        layers: [
+          { gate: 'module_gate', layer: 'global', enabled: true,
+            source: 'product', reason: '' },
+          { gate: 'image_module', layer: 'global', enabled: true,
+            source: 'image_module', reason: '' },
+        ],
+      },
+      image_provider: { available: true, configured: true,
+                        module_enabled: true, reason: 'ok',
+                        health: 'healthy', model: 'img-x',
+                        source: 'meme_initiative.image_dependency' },
+    },
+  };
+  const s6View = computed.memeDiagView.call({
+    activeChatId: CHAT, memeDiag: s6Payload,
+  });
+  assert.ok(s6View.heartbeat.known, 'heartbeat не прочитан из payload');
+  assert.ok(s6View.heartbeat.label.indexOf('живое') === 0,
+    'живой heartbeat не назван: ' + s6View.heartbeat.label);
+  assert.strictEqual(s6View.meme.axes.configLayersCount, 2);
+  assert.ok(s6View.meme.axes.configLayersText.indexOf('общий слой') > 0,
+    'слой image-модуля не показан: ' + s6View.meme.axes.configLayersText);
+  assert.strictEqual(s6View.meme.imageProvider.available, true);
+  assert.ok(s6View.meme.imageProvider.label.indexOf('доступен') === 0,
+    'доступность провайдера не названа: ' + s6View.meme.imageProvider.label);
+
+  const down = JSON.parse(JSON.stringify(s6Payload));
+  down.heartbeat = { ok: false, last_tick_ts: null };
+  down.meme.image_provider = {
+    available: false, configured: false, module_enabled: true,
+    reason: 'image_provider_not_configured', health: 'error', model: '',
+    source: 'meme_initiative.image_dependency',
+  };
+  const downView = computed.memeDiagView.call({
+    activeChatId: CHAT, memeDiag: down,
+  });
+  assert.strictEqual(downView.heartbeat.known, true);
+  assert.ok(downView.heartbeat.label.indexOf('нет свежего тика') === 0,
+    'отсутствие тика не названо: ' + downView.heartbeat.label);
+  assert.strictEqual(downView.meme.imageProvider.available, false);
+  assert.ok(downView.meme.imageProvider.label.indexOf('недоступен') === 0,
+    'недоступный провайдер не назван: '
+    + downView.meme.imageProvider.label);
+  assert.strictEqual(
+    downView.meme.imageProvider.label.indexOf('image_provider_not_configured'),
+    -1, 'голый код причины в подписи провайдера');
+
+  // Нет heartbeat-блока вовсе — «нет данных», а не выдуманное «живое».
+  const noHb = JSON.parse(JSON.stringify(s6Payload));
+  delete noHb.heartbeat;
+  const noHbView = computed.memeDiagView.call({
+    activeChatId: CHAT, memeDiag: noHb,
+  });
+  assert.strictEqual(noHbView.heartbeat.known, false);
+  assert.strictEqual(noHbView.heartbeat.label, 'нет данных');
+
+  // Шаблон реально печатает поля шагов и новые строки обзора (не только
+  // вычисляемые свойства): анкеры обязаны существовать в index.html.
+  const indexHtml = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
+  for (const anchor of ['data-ini-step-prompt', 'data-ini-step-image-api',
+                        'data-ini-step-full-text', 'data-ini-step-full-text-missing',
+                        'data-ini-event-mode', 'data-meme-diag-heartbeat',
+                        'data-meme-diag-image-provider',
+                        'data-inspector-correlation-miss']) {
+    assert.ok(indexHtml.indexOf(anchor) >= 0, 'нет анкера в шаблоне: ' + anchor);
+  }
+}
+
 chatBoundSuite().then(peekStaleSuite).then(s6FreshSuite).then(productGapsSuite)
+  .then(closureTrainSuite)
   .then(function () {
   console.log('INITIATIVE-UI-OK');
 }).catch(function (err) {

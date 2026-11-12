@@ -604,3 +604,39 @@ def test_interrupted_row_job_id_is_unique_per_run(tmp_path):
     assert trace.job_id == ""
     # uuid не используется в трассе: идентичность приходит из пайплайна.
     assert uuid.uuid4().hex != trace.job_id
+
+
+# ═══ 6. P0IM-PB-MANUAL: снятие маркера видно в ТОЙ ЖЕ попытке ═══════════════
+
+@pytest.mark.asyncio
+async def test_release_is_appended_to_the_same_terminal_attempt(
+        monkeypatch, tmp_path):
+    """Снятие маркера — факт терминальной строки, без второй строки/попытки."""
+    db, path = _database(tmp_path)
+    bot = _Bot()
+    _install(monkeypatch, bot, db, _seams())
+
+    await meme_command.cmd_meme(_Message(bot))
+
+    rows = _attempt_rows(path)
+    marker = _priority_marker_fact(rows)
+    terminal = _terminal_row(rows)
+    assert marker is not None and marker["ok"] is True, marker
+    assert terminal is not None, rows
+    facts = meme.parse_attempt_facts(terminal)
+    release = facts.get("manual_priority_release")
+    assert release == {"released": True, "until": marker["until"]}, facts
+
+    # Идемпотентность: повторное снятие с тем же until не создаёт второй
+    # строки/попытки и не переписывает уже записанный успешный факт.
+    ids_before = sorted(row["attempt_id"] for row in rows)
+    again = await meme_command.release_manual_priority(
+        CHAT, marker["until"], job_id=terminal["job_id"])
+    assert again is False, "маркер уже снят — повторное снятие не подтверждено"
+    rows_after = _attempt_rows(path)
+    assert sorted(row["attempt_id"] for row in rows_after) == ids_before
+    terminal_after = _terminal_row(rows_after)
+    assert meme.parse_attempt_facts(terminal_after).get(
+        "manual_priority_release") == release
+    attempts = pubapi._meme_attempts_grouped(rows_after)
+    assert len(attempts) == 1, attempts

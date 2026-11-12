@@ -3138,6 +3138,48 @@
       attempts: (r.attempts == null ? null : r.attempts),
     };
   }
+  //: §P0IM-S6-EFFECTIVE: heartbeat уже посчитан сервером (`heartbeat_ok`),
+  //: клиент только переводит его в человеческую строку. `false` — «нет
+  //: свежего тика», а не выдуманное время.
+  function iniHeartbeatViewOf(raw) {
+    var h = (raw && typeof raw === 'object') ? raw : null;
+    if (!h || h.ok == null) {
+      return { known: false, label: 'нет данных' };
+    }
+    if (h.ok === true) {
+      return { known: true,
+               label: 'живое' + (h.last_tick_ts
+                 ? (' · тик ' + _tsStatusLabel(h.last_tick_ts, '')) : '') };
+    }
+    return { known: true,
+             label: (h.last_tick_ts
+               ? ('нет свежего тика · последний '
+                 + _tsStatusLabel(h.last_tick_ts, ''))
+               : 'нет свежего тика · тиков не было') };
+  }
+
+  //: §P0IM-S6-EFFECTIVE: доступность image-ПРОВАЙДЕРА — проекция
+  //: существующего `image_dependency`, без новой проверки.
+  function iniImageProviderViewOf(raw) {
+    var v = (raw && typeof raw === 'object') ? raw : null;
+    if (!v) return null;
+    var available = (v.available === true ? true
+      : (v.available === false ? false : null));
+    var label;
+    if (available === true) label = 'доступен';
+    else if (available === false) {
+      label = 'недоступен'
+        + (v.reason ? (' · ' + memeReasonLabelOf(v.reason)) : '');
+    } else label = 'неизвестно';
+    return {
+      available: available,
+      label: label,
+      model: String(v.model || ''),
+      health: String(v.health || ''),
+      source: String(v.source || ''),
+    };
+  }
+
   // ДВА блока диагностики строятся этой функцией независимо друг от друга:
   // поля одного механизма физически не могут попасть в другой.
   function memeMechanismViewOf(raw, tz) {
@@ -3247,6 +3289,9 @@
                  value: (v === true ? 'да'
                    : (v === false ? 'нет' : String(v))) };
       }) : null),
+      // §P0IM-S6-EFFECTIVE: доступность провайдера картинок — из того же
+      // payload (проекция существующей image-зависимости).
+      imageProvider: iniImageProviderViewOf(b.image_provider),
       skip: (skip ? { code: skip.code, label: memeReasonLabelOf(skip.code),
                       originLabel: (MEME_ORIGIN_LABELS[String(skip.origin || '')]
                                     || String(skip.origin || '')) } : null),
@@ -3460,6 +3505,13 @@
       requestIdSource: String(p.requestIdSource || ''),
       requestIdText: (requestId || 'не записан'),
       modelText: modelText,
+      // §P0IM-PB-LLM / §P0IM-PB-ACCESS: промпт шага, ответ Image API и
+      // политика хранения полного текста — только из записи.
+      promptText: String(p.promptText || ''),
+      imageApiText: String(p.imageApiText || ''),
+      fullText: (p.fullText && typeof p.fullText === 'object')
+        ? p.fullText : null,
+      fullTextNote: String(p.fullTextNote || ''),
     };
   }
 
@@ -3470,6 +3522,45 @@
     if (value < 1000) return Math.round(value) + ' мс';
     if (value < 60000) return (Math.round(value / 100) / 10) + ' с';
     return Math.round(value / 60000) + ' мин';
+  }
+
+  //: §P0IM-PB-LLM: источник/редакция/sha12 промпта шага — БЕЗ его текста.
+  function iniPromptIdentityText(prompt) {
+    if (!prompt || typeof prompt !== 'object') return '';
+    var bits = [];
+    if (prompt.source) bits.push('источник: ' + String(prompt.source));
+    if (prompt.revision != null) bits.push('ред. ' + String(prompt.revision));
+    if (prompt.sha12) bits.push('sha12 ' + String(prompt.sha12));
+    return bits.length ? ('промпт: ' + bits.join(' · ')) : '';
+  }
+
+  //: §P0IM-PB-LLM: статус Image API, формат (из имени файла) и наличие байтов.
+  function iniImageApiText(api) {
+    if (!api || typeof api !== 'object') return '';
+    var bits = [];
+    if (api.status) bits.push('API: ' + String(api.status));
+    if (api.format) bits.push('формат: ' + String(api.format));
+    bits.push(api.bytes_present ? ('байты: ' + String(api.bytes))
+      : 'байтов нет');
+    return bits.join(' · ');
+  }
+
+  //: §P0IM-PB-ACCESS: политика хранения полного текста называется честно.
+  //: Кольцо композера — последние 24 записи на чат, память процесса.
+  function iniFullTextNote(item) {
+    if (!item) return '';
+    if (item.recorded) {
+      return 'полный текст — в Inspector по correlation_id '
+        + String(item.correlation_id || '')
+        + ' (кольцо: последние 24 вызова на чат, память процесса)';
+    }
+    if (item.reason === 'full_text_not_recorded') {
+      return 'полный текст не записан (full_text_not_recorded): '
+        + 'историческая запись без correlation_id';
+    }
+    return 'полный текст не записан (not_recorded: '
+      + String(item.reason_detail || 'ring_miss')
+      + '); кольцо хранит последние 24 вызова на чат в памяти процесса';
   }
 
   //: Факты одного этапа из его строки журнала (detail JSON строки — плоский).
@@ -3543,6 +3634,7 @@
     });
     // Факты этапа читаются ИЗ СВОЕЙ СТРОКИ (detail JSON строки — плоский).
     var stageFacts = {
+      considered: iniStageFacts(byStage.considered),
       summary: iniStageFacts(byStage.summary),
       joke: iniStageFacts(byStage.joke),
       image: iniStageFacts(byStage.image_generation),
@@ -3574,7 +3666,7 @@
       if (isMeme) {
         iniTraceMemeMarks({
           mode: mode, pub: publication, stage: stageFacts, facts: facts,
-          byStage: byStage, byEvent: byEvent, terminal: terminal,
+          byStage: byStage, byEvent: byEvent, terminal: terminal, chain: chain,
           reason: reason, outcome: outcome, messageId: messageId,
           delivered: delivered, set: set, stageAt: stageAt,
           eventAt: eventAt, dictKey: dictKey,
@@ -3623,12 +3715,49 @@
       }
       if (src.llm && typeof src.llm === 'object') {
         step.llm = src.llm;
+        var factLlm = (src.facts && typeof src.facts === 'object'
+                       && src.facts.llm && typeof src.facts.llm === 'object')
+          ? src.facts.llm : null;
+        var llmProvider = src.llm.provider
+          || (factLlm && factLlm.provider) || '';
+        var llmModel = src.llm.model || (factLlm && factLlm.model) || '';
+        var llmSlot = src.llm.slot || (factLlm && factLlm.slot) || '';
         var parts = [];
-        if (src.llm.provider) parts.push('провайдер: ' + String(src.llm.provider));
-        if (src.llm.model) parts.push('модель: ' + String(src.llm.model));
-        if (src.llm.slot) parts.push('слот: ' + String(src.llm.slot));
+        if (llmProvider) parts.push('провайдер: ' + String(llmProvider));
+        if (llmModel) parts.push('модель: ' + String(llmModel));
+        if (llmSlot) parts.push('слот: ' + String(llmSlot));
+        // §P0IM-PB-LLM: слота у мем-пайплайна нет — это сказано, а не пусто.
+        if (factLlm && factLlm.slot_reason === 'slot_not_used') {
+          parts.push('слот: не используется');
+        }
         step.modelText = parts.length ? parts.join(' · ')
           : 'провайдер/модель/слот не записаны';
+        // Источник/редакция/sha12 промпта шага (без текста).
+        if (src.facts && typeof src.facts === 'object') {
+          step.promptText = iniPromptIdentityText(src.facts.prompt);
+        }
+      }
+      // §P0IM-PB-LLM: ответ Image API — из фактов этапа, без промпта.
+      if (src.facts && typeof src.facts === 'object'
+          && src.facts.api && typeof src.facts.api === 'object') {
+        step.imageApiText = iniImageApiText(src.facts.api);
+      }
+      return step;
+    });
+    // §P0IM-PB-ACCESS: где искать полный текст шага. Нет записи в кольце —
+    // честная пометка not_recorded вместо подстановки текущих настроек.
+    var fullTextBlock = (d.full_text && typeof d.full_text === 'object')
+      ? d.full_text : null;
+    var fullTextByStep = {};
+    ((fullTextBlock && fullTextBlock.steps) || []).forEach(function (item) {
+      if (item && item.step) fullTextByStep[String(item.step)] = item;
+    });
+    steps = steps.map(function (step) {
+      if (step.key !== 'summary' && step.key !== 'joke') return step;
+      var item = fullTextByStep[step.key] || null;
+      if (item) {
+        step.fullText = item;
+        step.fullTextNote = iniFullTextNote(item);
       }
       return step;
     });
@@ -3676,6 +3805,8 @@
       outcomeLabel: iniOutcomeLabel(outcome, ''),
       reason: reason,
       reasonLabel: reason ? iniCodeLabel(reason) : '',
+      // §P0IM-PB-ACCESS: политика хранения полного текста — из ответа сервера.
+      fullTextStorage: fullTextBlock ? String(fullTextBlock.storage || '') : '',
       statusLine: iniTraceStatusLine({
         noRows: noRows, isMeme: isMeme, mode: mode, stopLabel:
           (stopStep ? stopStep.label : ''), outcome: outcome,
@@ -3769,11 +3900,51 @@
         state: 'unknown',
         text: 'удаление команды в журнал попытки не записывается',
       });
-      ctx.set('priority', {
-        state: 'unknown',
-        text: 'маркер приоритета /meme хранится в брони публикации',
-        note: 'текущий маркер виден в обзоре, в оси брони',
+      // §P0IM-PB-MANUAL: запись маркера (`ok/until`) уже лежит в фактах этапа
+      // `considered`; факт снятия (`released/until`) — в терминальной строке
+      // той же попытки. Нет записи — честная пометка release_not_recorded.
+      var marker = (stages.considered && typeof stages.considered === 'object'
+                    && stages.considered.priority_marker
+                    && typeof stages.considered.priority_marker === 'object')
+        ? stages.considered.priority_marker : null;
+      var release = null;
+      (ctx.chain || []).forEach(function (row) {
+        var f = (row && row.facts && typeof row.facts === 'object')
+          ? row.facts : {};
+        if (f.manual_priority_release
+            && typeof f.manual_priority_release === 'object') {
+          release = f.manual_priority_release;
+        }
       });
+      var releaseNote;
+      if (release && release.released === true) {
+        releaseNote = 'маркер снят в терминальном исходе'
+          + (release.until ? (' (until ' + _tsStatusLabel(release.until, '') + ')')
+            : '');
+      } else if (release) {
+        releaseNote = 'снятие маркера не подтверждено записью';
+      } else {
+        releaseNote = 'снятие маркера не записано (release_not_recorded)';
+      }
+      if (marker) {
+        var markerOk = marker.ok === true;
+        var markerUntil = marker.until ? _tsStatusLabel(marker.until, '') : '';
+        ctx.set('priority', {
+          state: markerOk ? 'done' : 'failed',
+          text: markerOk
+            ? ('маркер приоритета записан'
+              + (markerUntil ? (' до ' + markerUntil) : ''))
+            : ('маркер приоритета не записан: '
+              + String(marker.detail || 'причина не записана')),
+          note: releaseNote,
+        });
+      } else {
+        ctx.set('priority', {
+          state: 'unknown',
+          text: 'записи о маркере приоритета в попытке нет',
+          note: releaseNote,
+        });
+      }
     } else {
       var trigger = ctx.byStage.considered || ctx.byStage.eligible;
       if (trigger) {
@@ -6810,6 +6981,9 @@
         speechCapabilities: null,
         speechInspector: null,
         speechInspectorLayer: '',     // INS-HIERARCHY: раскрытый блок
+        // §P0IM-PB-ACCESS: точный correlation_id из трассы мема; пусто —
+        // обычный «последний реальный вызов» этого чата.
+        speechInspectorCorrelation: '',
         speechLoaded: {},             // section id → true
         speechDrafts: { core: { full: '', compact: '' } },
         // P0A-UX §5.3/§4-C6: dirty — ПО РЕДАКЦИИ Core (coreFull/coreCompact):
@@ -10292,6 +10466,9 @@
           generatedAt: d.generated_at || null,
           schemaVersion: d.schema_version || null,
           degraded: d.degraded || [],
+          // §P0IM-S6-EFFECTIVE: heartbeat уже посчитан сервером; клиент не
+          // пересчитывает свежесть по своим часам.
+          heartbeat: iniHeartbeatViewOf(d.heartbeat),
           text: memeMechanismViewOf(d.text_initiative, tz),
           meme: memeMechanismViewOf(d.meme, tz),
         };
@@ -10565,6 +10742,27 @@
         });
         var attempts = (this.memeSettings && this.memeSettings.analytics
                         && this.memeSettings.analytics.attempts) || [];
+        // §P0IM-OV-LIST: способ попытки (manual/auto) уже записан в detail
+        // ТЕРМИНАЛЬНОЙ строки (`attempt_mode`). Читается из тех же строк,
+        // что уже пришли в обзор: нового API/запроса нет. У этапа «прикол»
+        // ключ `mode` — бюджет длины, поэтому берётся ТОЛЬКО `attempt_mode`.
+        var modesByJob = {};
+        attempts.forEach(function (row) {
+          var job = String(row.job_id || '');
+          if (!job || modesByJob[job]) return;
+          var facts = {};
+          try {
+            facts = JSON.parse(String(row.detail || ''));
+          } catch (e) {
+            facts = {};
+          }
+          var attemptMode = (facts && typeof facts === 'object'
+                             && !Array.isArray(facts))
+            ? String(facts.attempt_mode || '') : '';
+          if (attemptMode === 'manual' || attemptMode === 'auto') {
+            modesByJob[job] = attemptMode;
+          }
+        });
         var seen = {};
         attempts.forEach(function (row) {
           var job = String(row.job_id || '');
@@ -10573,11 +10771,18 @@
           var code = String(row.reason_code || '');
           var codeLabel = code ? iniCodeLabel(code) : '';
           var outcomeLabel = iniOutcomeLabel(row.outcome);
+          var attemptMode = modesByJob[job] || '';
+          var modeText = (attemptMode === 'manual' ? 'вручную (/meme)'
+            : (attemptMode === 'auto' ? 'автоматически'
+              : 'способ не записан'));
           out.push({
             ts: row.ts,
             kind: 'meme',
             kindLabel: 'Мемы',
-            text: memeStageLabelOf(row.stage) + ' · ' + outcomeLabel
+            mode: attemptMode,
+            modeLabel: modeText,
+            text: modeText + ' · ' + memeStageLabelOf(row.stage) + ' · '
+              + outcomeLabel
               + (codeLabel && codeLabel !== outcomeLabel
                 ? (' · ' + codeLabel) : ''),
             code: code,
@@ -16168,6 +16373,29 @@
         if (!ref) return;
         this.initiativeOpenTrace(ref);
       },
+      // §P0IM-PB-ACCESS: полный текст шага открывается в СУЩЕСТВУЮЩЕМ
+      // Inspector «Речи и характера» с точным correlation_id этой попытки.
+      // Отдельного хранилища/эндпоинта нет: RBAC и маскировка — Inspector'а.
+      // Inspector сам скажет not_recorded, если запись уже вытеснена.
+      iniOpenInspector: function (correlationId) {
+        var corr = String(correlationId || '');
+        if (!corr) return;
+        this.speechInspectorCorrelation = corr;
+        this.speechInspectorMode = 'real';
+        this.speechLoaded.inspector = false;
+        this.speechSection = 'inspector';
+        this.speechSectionTouched = true;
+        var self = this;
+        var load = function () { self.loadSpeechSection('inspector', true); };
+        var later = (typeof this.$nextTick === 'function')
+          ? function (fn) { self.$nextTick(fn); } : function (fn) { fn(); };
+        if (this.route === '#/ai/speech') {
+          later(load);
+        } else {
+          this.navigateTo('#/ai/speech');
+          later(load);
+        }
+      },
       // ═══ P0IM-OV-HEADER: переключатель «этот / другой / сравнить» ═════════
       // Никакой новой секции: переключатель живёт в шапке обзора, «другой
       // чат» — тот же эндпоинт со своим `X-Chat-Id`, «сравнить» — две колонки
@@ -19453,8 +19681,13 @@
       },
       // Режимы инспектора: реальный снимок ≠ предпросмотр. Переключение —
       // только витрина, данные не пересобираются и ничего не отправляется.
+      // §P0IM-PB-ACCESS: для запрошенного correlation_id предпросмотр
+      // недоступен — иначе текущие настройки могли бы прочитаться как его текст.
       setSpeechInspectorMode: function (mode) {
-        this.speechInspectorMode = (mode === 'preview') ? 'preview' : 'real';
+        var requested = !!(this.speechInspector
+                           && this.speechInspector.requested_correlation_id);
+        this.speechInspectorMode = (mode === 'preview' && !requested)
+          ? 'preview' : 'real';
       },
       // F1 (T-2400): инъекция id-анкеров в h1..h3 санитайзенного HTML +
       // сбор оглавления. Без DOMParser (тесты/старый браузер) — no-op.
@@ -31168,6 +31401,9 @@
       },
       openSpeechSection: function (id) {
         if (!id) return null;
+        // §P0IM-PB-ACCESS: обычный вход в Inspector показывает последний ход
+        // чата; точный correlation_id приходит только действием из трассы.
+        if (id === 'inspector') this.speechInspectorCorrelation = '';
         this.speechSection = id;
         this.speechSectionTouched = true;
         var key = this._speechSectionLoadKey(id);
@@ -31343,7 +31579,12 @@
             this.speechCapabilities = await this.api('/api/speech/capabilities');
           } else if (id === 'inspector') {
             this.speechInspectorLayer = '';
-            this.speechInspector = await this.api('/api/speech/inspector');
+            var inspUrl = '/api/speech/inspector';
+            if (this.speechInspectorCorrelation) {
+              inspUrl += '?correlation_id='
+                + encodeURIComponent(this.speechInspectorCorrelation);
+            }
+            this.speechInspector = await this.api(inspUrl);
           } else if (id === 'persona' || id === 'rules') {
             // §4.2: «Личность» и «Правила и источники» питаются уже
             // существующими endpoint'ами (`/api/persona` +
@@ -31379,6 +31620,7 @@
         this.speechCapabilities = null;
         this.speechInspector = null;
         this.speechInspectorLayer = '';
+        this.speechInspectorCorrelation = '';
         this.speechError = '';
         this.speechDrafts = { core: { full: '', compact: '' } };
         this.speechDirty = { coreFull: false, coreCompact: false,
@@ -33023,6 +33265,7 @@
       // ── INS-EXACT / INS-TRACE: фактический запрос vs превью сборки ────────
       speechExactLabel: function (exact) {
         if (!exact) return 'нет данных';
+        if (exact.status === 'not_recorded') return 'не записано';
         return exact.is_actual ? 'фактический запрос провайдера'
           : 'превью сборки';
       },

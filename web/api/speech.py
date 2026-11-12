@@ -1985,6 +1985,11 @@ def _inspector_conflicts(layers, conflicts, global_doc, chat_doc) -> dict:
     }
 
 
+#: §P0IM-PB-ACCESS: размер существующего кольца вызовов композера
+#: (`prompt_composer.PROVIDER_CALL_MAX`): политика хранения называется явно.
+FULL_RING_LIMIT = 24
+
+
 def _inspector_exact(provider_call, preview: dict) -> dict:
     """INS-EXACT: «полный итоговый промпт» = реальный запрос провайдера."""
     from services import prompt_composer as composer
@@ -2044,7 +2049,28 @@ def _inspector_exact(provider_call, preview: dict) -> dict:
     }
 
 
-async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
+def _inspector_missing_exact(correlation_id: str) -> dict:
+    """§P0IM-PB-ACCESS: запрошенный вызов не найден в кольце — not_recorded.
+
+    Это НЕ превью текущих настроек: пустой «фактический запрос» с причиной,
+    чтобы отсутствие текста нельзя было прочитать как отправленный payload.
+    """
+    return {
+        "label": "not_recorded",
+        "is_actual": False,
+        "status": "not_recorded",
+        "correlation_id": str(correlation_id or ""),
+        "reason": "provider_ring_miss",
+        "checksum": "", "checksum_algo": "sha256", "messages_checksum": "",
+        "model": "", "provider": "", "module": "", "step": "",
+        "channel": "", "error": "", "recorded_at": "",
+        "roles": [], "chars_total": 0, "system": "", "messages": [],
+        "chat_id_redacted": "",
+    }
+
+
+async def _inspector_payload(cache, user, ctx, chat_id: int | None,
+                             *, correlation_id: str = "") -> dict:
     """Предпросмотр vs фактически отправленный payload + провенанс слоёв.
 
     «Предпросмотр» — детерминированная сборка текущей конфигурации тем же
@@ -2055,15 +2081,19 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
     """
     from services import prompt_composer as composer
     chat_key = int(chat_id or 0)
+    requested = str(correlation_id or "").strip()
     # Снимок «фактически отправлено» — ТОЛЬКО манифест реального хода
     # (writer'ы Direct/System2/Initiative), а не предпросмотр UI: собранный
     # шаблон нельзя выдавать за доказательство реального вызова (SOUL-AMD.6.4).
     # Рантайм пишет манифест с run_id=uuid хода → ищем самый свежий манифест
     # реального writer'а по чату, а не по ключу без run_id (review-w6 F1).
-    manifest = _latest_real_turn_manifest(chat_key)
+    # §P0IM-PB-ACCESS: при запросе конкретного correlation_id последний ход
+    # чата НЕ подставляется — показывается только найденный вызов или
+    # not_recorded.
+    manifest = None if requested else _latest_real_turn_manifest(chat_key)
     sent_writer = str(getattr(manifest, "writer", "") or "") \
         if manifest is not None else ""
-    preview_only = manifest is None and composer.get_manifest(
+    preview_only = (not requested) and manifest is None and composer.get_manifest(
         chat_key, writer=PREVIEW_WRITER) is not None
     preview: dict = {}
     try:
@@ -2148,22 +2178,35 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
             for row in sent["layers"] if not row["rendered"]]
         sent["conflicts_detail"] = _inspector_conflicts(
             sent["layers"], sent["conflicts"], style_global, style_chat)
-    # Реальный вызов провайдера (INS-TRACE/INS-EXACT): ищем сначала по
+    # Реальный вызов провайдера (INS-TRACE/INS-EXACT): по умолчанию ищем
     # correlation_id снимка хода, затем — самый свежий вызов этого чата.
+    # §P0IM-PB-ACCESS: при явном correlation_id — ТОЛЬКО точная запись кольца;
+    # «самый свежий» и превью за неё не выдаются.
     provider_call = None
+    ring_hits = 0
     try:
-        calls = composer.provider_calls(chat_id=chat_key, limit=24)
-        if manifest is not None and manifest.run_id:
+        calls = composer.provider_calls(chat_id=chat_key,
+                                        limit=FULL_RING_LIMIT)
+        ring_hits = len(calls)
+        if requested:
             provider_call = next(
                 (c for c in calls
-                 if str(c.get("correlation_id") or "") ==
-                 str(manifest.run_id)), None)
-        if provider_call is None:
-            provider_call = calls[0] if calls else None
+                 if str(c.get("correlation_id") or "") == requested), None)
+        else:
+            if manifest is not None and manifest.run_id:
+                provider_call = next(
+                    (c for c in calls
+                     if str(c.get("correlation_id") or "") ==
+                     str(manifest.run_id)), None)
+            if provider_call is None:
+                provider_call = calls[0] if calls else None
     except Exception:
         logger.warning("[speech] inspector provider trace failed",
                        exc_info=True)
-    exact = _inspector_exact(provider_call, preview)
+    if requested and provider_call is None:
+        exact = _inspector_missing_exact(requested)
+    else:
+        exact = _inspector_exact(provider_call, preview)
     preview_layers = _inspector_layer_rows(preview.get("layers") or [])
     preview = dict(preview)
     preview["style"] = _mask_style_view(preview.get("style"))
@@ -2177,17 +2220,38 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
         {"layers": preview.get("layer_texts") or preview_layers})
     preview["conflicts_detail"] = _inspector_conflicts(
         preview_layers, preview.get("conflicts") or [], style_global, style_chat)
+    last_run_present = (provider_call is not None) if requested \
+        else (manifest is not None)
+    if requested and provider_call is not None:
+        last_run_note = (
+            "Показан фактический запрос с correlation_id «%s» из "
+            "in-memory кольца композера (последние %d вызовов на чат, память "
+            "процесса)." % (requested, FULL_RING_LIMIT))
+    elif requested:
+        last_run_note = (
+            "Запрос с correlation_id «%s» в кольце композера не найден "
+            "(not_recorded): кольцо хранит последние %d вызовов на чат в "
+            "памяти процесса — после перезапуска/вытеснения полного текста "
+            "нет. Предпросмотр текущих настроек за фактический запрос не "
+            "выдаётся." % (requested, FULL_RING_LIMIT))
+    else:
+        last_run_note = ("" if manifest is not None else
+                         ("В памяти процесса есть только предпросмотр сборки "
+                          "(его манифест не является доказательством реального "
+                          "вызова). Снимок хода появится после настоящего "
+                          "ответа бота." if preview_only else
+                          "Снимка фактического хода в памяти нет: показан "
+                          "только предпросмотр сборки (не доказательство "
+                          "реального вызова)."))
     return {
         "chat_id": chat_id,
-        "last_run_present": manifest is not None,
-        "last_run_note": ("" if manifest is not None else
-                          ("В памяти процесса есть только предпросмотр сборки "
-                           "(его манифест не является доказательством реального "
-                           "вызова). Снимок хода появится после настоящего "
-                           "ответа бота." if preview_only else
-                           "Снимка фактического хода в памяти нет: показан "
-                           "только предпросмотр сборки (не доказательство "
-                           "реального вызова).")),
+        "last_run_present": last_run_present,
+        "last_run_note": last_run_note,
+        # §P0IM-PB-ACCESS: какой именно вызов спросили и найден ли он.
+        "requested_correlation_id": requested,
+        "requested_correlation_recorded": bool(requested and provider_call),
+        "ring_limit": FULL_RING_LIMIT,
+        "ring_hits": ring_hits,
         "sent": sent,
         "sent_note": (("снимок последнего хода для writer=%s из памяти "
                        "процесса композера: это собранный payload хода, а не "
@@ -2211,9 +2275,11 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
         # INS-TRACE (review F3): какие каналы реально трассируются и почему
         # что-то не покрыто — без молчаливых пробелов.
         "trace_coverage": composer.trace_coverage(),
-        "retention": ("манифест и снимок вызова живут в in-memory bounded "
-                      "кэше композера (процесс/ход); тексты маскируются "
-                      "(секреты, длинные ID)"),
+        "retention": ("снимки вызовов — существующее in-memory кольцо "
+                      "композера (prompt_composer.provider_calls): последние "
+                      "%d записей на чат, живут до перезапуска процесса или "
+                      "вытеснения; тексты маскируются (секреты, длинные ID)"
+                      % FULL_RING_LIMIT),
         "gates": _gate_state(),
     }
 
@@ -4189,12 +4255,19 @@ async def get_inspector(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
     x_chat_id: Annotated[str | None, Header()] = None,
+    correlation_id: Annotated[str, Query(max_length=200)] = "",
 ):
-    """Effective Prompt Inspector (только уполномоченные администраторы)."""
+    """Effective Prompt Inspector (только уполномоченные администраторы).
+
+    ``correlation_id`` — §P0IM-PB-ACCESS: аддитивный отбор ТОЧНОЙ записи
+    существующего кольца вызовов (например `{job}#meme_summary` из трассы
+    мема). Без параметра поведение прежнее; RBAC и маскировка — те же.
+    """
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_edit_inspector(ctx):
         raise HTTPException(status_code=403, detail="нет доступа к Inspector")
-    return await _inspector_payload(cache, user, ctx, chat_id)
+    return await _inspector_payload(cache, user, ctx, chat_id,
+                                    correlation_id=correlation_id)
 
 
 @speech_router.get("/speech/learning")

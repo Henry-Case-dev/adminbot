@@ -1462,6 +1462,52 @@ class SqliteQuotaLedger:
                     # Пустой список не держим: путь не должен копиться в реестре.
                     _UNPERSISTED_BY_PATH.pop(key, None)
 
+    def merge_terminal_facts(self, chat_id: int, job_id: str,
+                             facts: dict) -> bool:
+        """Дописать короткие факты в ТЕРМИНАЛЬНУЮ строку существующей попытки.
+
+        P0IM-PB-MANUAL: терминальная строка уже записана пайплайном, поэтому
+        снятие маркера ручного приоритета — это аддитивное слияние в её
+        ``detail`` JSON, а не вторая строка/колонка/таблица. Терминальная
+        строка выбирается тем же порядком ``STAGES``, что у read-model.
+        Повторное слияние тех же значений идемпотентно: схема и число строк не
+        меняются. Никогда не бросает (диагностика не ломает исход).
+        """
+        key = str(job_id or "").strip()
+        if not key or not isinstance(facts, dict) or not facts:
+            return False
+        conn = _connect(self.path)
+        try:
+            rows = conn.execute(
+                f"SELECT attempt_id, stage, detail FROM {ATTEMPT_TABLE} "
+                "WHERE chat_id=? AND job_id=?",
+                (int(chat_id), key)).fetchall()
+            if not rows:
+                return False
+            order = {name: idx for idx, name in enumerate(STAGES)}
+            terminal = max(rows, key=lambda row: order.get(
+                str(row["stage"]), len(order)))
+            merged = parse_attempt_facts(terminal["detail"])
+            updated = dict(merged)
+            updated.update(facts)
+            if updated == merged:
+                return True
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                f"UPDATE {ATTEMPT_TABLE} SET detail=? WHERE attempt_id=?",
+                (compact_facts(updated), terminal["attempt_id"]))
+            conn.execute("COMMIT")
+            return True
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            logger.warning("[meme] terminal facts merge failed", exc_info=True)
+            return False
+        finally:
+            conn.close()
+
     def _insert_attempt(self, row: dict) -> None:
         conn = _connect(self.path)
         try:
@@ -3314,8 +3360,14 @@ async def _consider_once(
         return skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail="empty_summary",
                        limit=budget, jid=jid)
     counters[STAGE_SUMMARY] = 1
-    facts[STAGE_SUMMARY] = {"chars": len(summary),
-                            "source": summary_prompt.get("source")}
+    facts[STAGE_SUMMARY] = {
+        "chars": len(summary),
+        "source": summary_prompt.get("source"),
+        # §P0IM-PB-LLM: идентичность шага (провайдер/модель/слот) и
+        # источник/редакция/sha12 промпта — без текста сообщений и ответа.
+        "llm": _llm_identity(llm, hook=summarizer is not None),
+        "prompt": _prompt_identity(summary_prompt, summary_system),
+    }
     emit(EVENT_DIGEST_READY, source=str(summary_prompt.get("source") or ""),
          detail=f"chars:{len(summary)}")
 
@@ -3359,6 +3411,9 @@ async def _consider_once(
         "trimmed": bool(trimmed),
         "source": str(joke_prompt.get("source") or ""),
         "placeholder": budget.placeholder,
+        # §P0IM-PB-LLM: короткая идентичность вызова и промпта шага.
+        "llm": _llm_identity(llm, hook=joke_generator is not None),
+        "prompt": _prompt_identity(joke_prompt, instruction),
     }
     if joke_speech:
         # MEME-JOKE-SPEECH: фактические ревизии Core/Expression/юмора и
@@ -3376,6 +3431,8 @@ async def _consider_once(
         "template_revision": str(image_prompt.get("factory_revision") or ""),
         "template_source": str(image_prompt.get("source") or ""),
         "joke_chars": len(joke),
+        # §P0IM-PB-LLM: sha12 готового промпта без его текста.
+        "prompt_sha12": _text_sha12(prompt),
     }
     if not image_prompt_fits(prompt, budget):
         # Инвариант T + len(прикол) <= L нарушен: провайдеру испорченный
@@ -3411,6 +3468,7 @@ async def _consider_once(
             return skipped(reserved.reason, limit=budget, jid=jid)
 
     called = False
+    provider_result = None
     if run_trace is not None:
         run_trace.stage = STAGE_IMAGE
     try:
@@ -3433,6 +3491,24 @@ async def _consider_once(
         ok = False
         reason = "exception"
         content = None
+    try:
+        image_bytes = len(content) if content is not None else 0
+    except Exception:
+        image_bytes = 0
+    image_filename = str(getattr(provider_result, "filename", "") or "")
+    image_format = _image_format(image_filename)
+    # §P0IM-PB-LLM: статус Image API, формат (из имени файла, если записано) и
+    # наличие байтов — короткие факты шага, без промпта/байтов изображения.
+    facts[STAGE_IMAGE]["api"] = {
+        "called": bool(called),
+        "ok": bool(ok),
+        "status": ("ok" if ok else (reason or "failed")),
+        "bytes": int(image_bytes),
+        "bytes_present": bool(image_bytes),
+        "format": image_format,
+        "format_source": ("filename" if image_format else ""),
+        "filename_present": bool(image_filename),
+    }
     if not called:
         if not manual:
             ledger.mark(jid, "released", reason or "not_called")
@@ -3454,10 +3530,6 @@ async def _consider_once(
     counters[STAGE_IMAGE] = 1
     if run_trace is not None:
         run_trace.stage = STAGE_PUBLISH
-    try:
-        image_bytes = len(content) if content is not None else 0
-    except Exception:
-        image_bytes = 0
     emit(EVENT_IMAGE_READY, source=str(origin),
          detail=f"prompt:{len(prompt)}|bytes:{image_bytes}")
 
@@ -3851,6 +3923,62 @@ def _text_sha12(text: str) -> str:
     return hashlib.sha256(str(text or "").encode("utf-8")).hexdigest()[:12]
 
 
+def _llm_identity(llm, *, hook: bool = False) -> dict:
+    """Короткая идентичность ФАКТИЧЕСКОГО LLM-вызова для ``detail`` этапа.
+
+    P0IM-PB-LLM: в журнал попадают только provider/model и честная причина
+    отсутствия слота — без текста сообщений, выжимки, прикола и промптов
+    (R17 и размер durable-записи). Значения берутся у того же клиента, что
+    реально делал вызов (``llm._chat_model``/``llm._provider_label`` — уже
+    существующий шов, которым пользуется этап A), а не из текущих настроек.
+    Слота у мем-пайплайна нет: ``slot=None`` + ``slot_reason="slot_not_used"``.
+    ``hook=True`` — шаг исполнял вызывающий шов (тест/диагностика), а не этот
+    клиент: модель не приписывается, причина названа честно.
+    """
+    if hook:
+        return {"provider": None, "model": None, "slot": None,
+                "slot_reason": "slot_not_used",
+                "reason": "custom_step_hook"}
+    model = ""
+    provider = ""
+    try:
+        model = str(getattr(llm, "_chat_model", "") or "")
+    except Exception:
+        model = ""
+    try:
+        label = getattr(llm, "_provider_label", None)
+        if callable(label):
+            provider = str(label(model) or "")
+    except Exception:
+        provider = ""
+    return {"provider": provider or None, "model": model or None,
+            "slot": None, "slot_reason": "slot_not_used"}
+
+
+def _prompt_identity(prompt: dict, text: str) -> dict:
+    """Источник/редакция/sha12 промпта шага — без самого текста.
+
+    ``sha12`` считается по тому тексту, который реально передан шагу
+    (system выжимки / инструкция прикола); полный собранный system этапа B
+    остаётся в существующем ``facts.joke.speech.system_sha12``.
+    """
+    data = prompt if isinstance(prompt, dict) else {}
+    revision = data.get("revision")
+    return {"block": str(data.get("block_id") or ""),
+            "source": str(data.get("source") or ""),
+            "revision": (None if revision in (None, "") else revision),
+            "sha12": _text_sha12(text)}
+
+
+def _image_format(filename) -> str:
+    """Формат изображения из имени файла провайдера (если оно записано)."""
+    text = str(filename or "").strip().lower()
+    _base, dot, ext = text.rpartition(".")
+    if not dot or not ext or len(ext) > 5 or not ext.isalnum():
+        return ""
+    return ext
+
+
 def _speech_base_source(layer: str) -> str:
     """Провенанс задания для композера (закрытый набор ``SOURCES``).
 
@@ -4045,6 +4173,9 @@ async def _default_image(prompt: str, chat_id: int, job_id: str):
         "ok": bool(getattr(result, "ok", False)),
         "reason": str(getattr(result, "reason", "") or ""),
         "content": getattr(result, "content", None),
+        # §P0IM-PB-LLM: имя файла (формат) — существующее поле результата
+        # провайдера; байты изображения в журнал не попадают.
+        "filename": str(getattr(result, "filename", "") or ""),
     })()
 
 

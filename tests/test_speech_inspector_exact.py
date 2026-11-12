@@ -23,6 +23,7 @@ import json
 import json as json_lib
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -608,3 +609,104 @@ def test_inspector_ui_surfaces_exact_and_skip_reason():
     assert "speechInspectorSkipText" in app_js
     # Имя не перекрывает существующий словарь причин прохода формы (TJ-7/16).
     assert app_js.count("speechSkipReasonText: function") == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# P0IM-PB-ACCESS: существующий Inspector как ЕДИНСТВЕННАЯ точка полного
+# текста. Отбор аддитивный (`correlation_id`), RBAC/маскировка — прежние;
+# промах кольца — honest not_recorded, а НЕ превью текущих настроек.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _record_meme_call(api_env, *, correlation_id: str, chat_id: int,
+                      text: str = "Текст проверки") -> None:
+    composer.record_provider_call(
+        payload={"model": "unit/model-x", "messages": []},
+        messages=[{"role": "system",
+                   "content": "Системная инструкция; key sk-live-ABC123456789"},
+                  {"role": "user", "content": text}],
+        model="unit/model-x", provider="provider.example",
+        module="initiative", step="meme_joke",
+        correlation_id=correlation_id, chat_id=chat_id)
+
+
+def test_inspector_correlation_filter_returns_the_exact_meme_call(api_env):
+    """Точный correlation_id находит СВОЙ вызов; секреты маскируются."""
+    composer.reset_state()
+    try:
+        _record_meme_call(api_env, correlation_id="JOB#meme_joke",
+                          chat_id=api_env.chat_id)
+        # Чужой чат и чужая корреляция: не должны подставиться.
+        _record_meme_call(api_env, correlation_id="OTHER#meme_joke",
+                          chat_id=-100999, text="ЧУЖОЙ-ЧАТ-ТЕКСТ")
+        payload = _run(S._inspector_payload(
+            api_env.cache, api_env.user, api_env.ctx, api_env.chat_id,
+            correlation_id="JOB#meme_joke"))
+        assert payload["requested_correlation_id"] == "JOB#meme_joke"
+        assert payload["requested_correlation_recorded"] is True, payload
+        assert payload["last_run_present"] is True, payload
+        assert payload["ring_limit"] == 24, payload
+        exact = payload["exact"]
+        assert exact["is_actual"] is True, exact
+        assert exact["correlation_id"] == "JOB#meme_joke", exact
+        assert exact["module"] == "initiative" and exact["step"] == "meme_joke"
+        text = json.dumps(exact, ensure_ascii=False)
+        assert "sk-live-ABC123456789" not in text, "секрет не маскирован"
+        assert "ЧУЖОЙ-ЧАТ-ТЕКСТ" not in text, "чужой чат не изолирован"
+        assert "Текст проверки" in text, "текст своего вызова не показан"
+    finally:
+        composer.reset_state()
+
+
+def test_inspector_correlation_miss_is_not_a_preview(api_env):
+    """Промах кольца: not_recorded, а не превью текущих настроек."""
+    composer.reset_state()
+    try:
+        payload = _run(S._inspector_payload(
+            api_env.cache, api_env.user, api_env.ctx, api_env.chat_id,
+            correlation_id="JOB#meme_summary"))
+        assert payload["requested_correlation_id"] == "JOB#meme_summary"
+        assert payload["requested_correlation_recorded"] is False, payload
+        assert payload["last_run_present"] is False, payload
+        assert "not_recorded" in payload["last_run_note"], payload["last_run_note"]
+        exact = payload["exact"]
+        assert exact["is_actual"] is False, exact
+        assert exact["status"] == "not_recorded", exact
+        assert exact["messages"] == [] and exact["system"] == "", exact
+        assert exact["correlation_id"] == "JOB#meme_summary", exact
+    finally:
+        composer.reset_state()
+
+
+def test_inspector_correlation_path_keeps_rbac(monkeypatch):
+    """Аддитивный отбор не обходит `_can_edit_inspector` (403)."""
+    denied = SimpleNamespace(is_global_admin=False,
+                             effective_permissions=None)
+    user = SimpleNamespace(id=1)
+
+    async def access(request, _user, x_chat_id):
+        return None, -100500, denied
+
+    monkeypatch.setattr(S, "_access", access)
+    with pytest.raises(Exception) as exc:
+        _run(S.get_inspector(None, user, None, "JOB#meme_summary"))
+    assert getattr(exc.value, "status_code", None) == 403
+
+
+def test_inspector_endpoint_passes_the_correlation_query(api_env):
+    """`GET /speech/inspector?correlation_id=` доводит отбор до payload."""
+    composer.reset_state()
+    try:
+        _record_meme_call(api_env, correlation_id="JOB#meme_summary",
+                          chat_id=api_env.chat_id)
+        payload = _run(S.get_inspector(
+            None, api_env.user, str(api_env.chat_id), "JOB#meme_summary"))
+        assert payload["requested_correlation_id"] == "JOB#meme_summary"
+        assert payload["requested_correlation_recorded"] is True, payload
+        assert payload["exact"]["correlation_id"] == "JOB#meme_summary"
+        # Без параметра — прежнее поведение (последний ход чата), не пусто.
+        legacy = _run(S.get_inspector(None, api_env.user,
+                                      str(api_env.chat_id), ""))
+        assert legacy["requested_correlation_id"] == ""
+        assert legacy["requested_correlation_recorded"] is False
+    finally:
+        composer.reset_state()
