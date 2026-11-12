@@ -1,0 +1,37 @@
+# 2.58.197 postdeploy read-only (deploy-run.log + independent checks)
+
+pre_state_head=c134f93d5c4a68f0ea906498cb9e0b78fc795f1e (release/2.58.195), tracked_dirty=0
+pre_state_app_version=2.58.195
+snapshot=backups/predeploy-258197-20261112T094016Z.db
+snapshot_bytes=2557874176
+snapshot_sha256=5b59134f4a6223ff69a0ede5bf843ab68093f579a268237b1884896da93561ea
+snapshot_readback=integrity:ok user_version:47 tables:130 (73.4 s)
+
+origin_release_2.58.197=2587616759de31283585ffc105c91e7193c2e89e
+fast_forward_check=FF_OK
+deployed_head=2587616759de31283585ffc105c91e7193c2e89e
+deployed_branch=release/2.58.197
+deployed_app_version=2.58.197
+deployed_app_js_git_blob=db33e5894e1f13d93285b51bc591304e11dd7fcc size=2298542
+restart_pre_utc=2026-11-12T09:41:37Z
+unit_after_restart=active NRestarts=0 ActiveEnterTimestamp=2026-11-12 09:41:39 UTC
+healthz_attempt_1={"status":"ok","version":"2.58.197"}
+post_head=2587616759de31283585ffc105c91e7193c2e89e tracked_dirty=0
+live_user_version=47
+journal_15min: Traceback=1 ERROR=0 CRITICAL=0 WARNING=14 attempt_LOST=0 lines=847
+# Traceback/ERROR в окне: services.anticliche_worker pipeline fetch (sources_unavailable / wikipedia)
+# 09:46:42Z — фоновый воркер, релизом не менялся; см. recon-258197.txt
+
+served_web_app_js_sha256=29817d9b927cb510f9896f4ea61d4a698f3cde18ba6cc9655608fe5251d759d8
+served_web_app_js_bytes=2298542
+disk_web_app_js_sha256=29817d9b927cb510f9896f4ea61d4a698f3cde18ba6cc9655608fe5251d759d8
+served_equals_reviewed_commit=yes
+
+# OV-LIST (живая проверка дефекта 2.58.196):
+ov_list_chatA=5 строк «автоматически», 0 «способ не записан»; analytics jobs=10, все с attempt_mode=automatic
+ov_list_chatB=5 строк «автоматически», 0 «способ не записан»; analytics jobs=10, все с attempt_mode=automatic
+manual_rows_live=0 (ручных попыток в окне нет)
+unknown_mode_rows_live=0 (все jobs имеют записанный режим)
+
+final_state_utc=2026-11-12T09:46:56Z
+final_healthz={"status":"ok","version":"2.58.197"}

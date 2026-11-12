@@ -1,0 +1,3235 @@
+{
+ "release": "2.58.197",
+ "mode": "checks",
+ "checked_at_utc": "2026-11-12T09:42:35Z",
+ "diagnostics": {
+  "-1004482340693": {
+   "http": 200,
+   "body": {
+    "schema_version": 1,
+    "generated_at": 1794476573,
+    "chat_id": -1004482340693,
+    "time": {
+     "generated_at": 1794476573,
+     "basis": "server_snapshot",
+     "timezone": {
+      "name": "UTC",
+      "source": "utc_fallback",
+      "offset_seconds": 0,
+      "default_name": "UTC",
+      "reason": ""
+     }
+    },
+    "heartbeat_ok": false,
+    "heartbeat": {
+     "ok": false,
+     "last_tick_ts": null,
+     "last_tick_status": "",
+     "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+    },
+    "text_initiative": {
+     "mechanism": "text_initiative",
+     "output_kind": "initiative_reply",
+     "source": "initiative_observer.chat_block_state",
+     "available": true,
+     "data_state": "ok",
+     "no_data_reasons": [],
+     "stale": false,
+     "stale_reason": "",
+     "stale_age_seconds": 36,
+     "stale_window_seconds": 2700,
+     "stale_window_basis": "eval_interval",
+     "ready": false,
+     "ready_reason": "not_enough_messages",
+     "last_check_ts": 1794476537,
+     "next_check_ts": 1794477046,
+     "next_check_basis": "eval_interval",
+     "random": {
+      "performed": false,
+      "outcome": "no_draw",
+      "value": null,
+      "hit": null,
+      "probability": 1.0,
+      "purpose": "initiative_trigger",
+      "draw_id": null,
+      "source": null,
+      "source_impl": null,
+      "provider": null,
+      "selected_source": null,
+      "fallback": false,
+      "fallback_reason": null,
+      "policy_version": null,
+      "attempts": 0,
+      "reason": "probability_one",
+      "reason_label": "probability_one",
+      "no_draw_reason": "probability_one",
+      "ts": 1794243811
+     },
+     "conditions": {
+      "anti_flood": true,
+      "min_gap": true,
+      "day_cap": null,
+      "eval_budget": null,
+      "publication": true
+     },
+     "stages": null,
+     "skip": {
+      "code": "not_enough_messages",
+      "label": "Накоплено сообщений: 4 из 8",
+      "origin": "gate"
+     },
+     "skip_recorded": {
+      "code": "lease_held",
+      "label": "lease_held",
+      "origin": "payload_state"
+     },
+     "cooldown": {
+      "scope": "mechanism_own",
+      "own_seconds": 7200,
+      "remaining_seconds": 0,
+      "basis": "last_initiative_publication",
+      "basis_ts": 1794395417
+     },
+     "quota": {
+      "scope": "mechanism_own",
+      "limit": 6,
+      "used": 0,
+      "remaining": 6,
+      "unlimited": false,
+      "limit_reached": false,
+      "available": null,
+      "next_reset": null,
+      "delivered": null,
+      "not_delivered": null,
+      "not_delivered_reasons": {}
+     },
+     "publication": {
+      "available": true,
+      "coordination": "ok",
+      "degraded": false,
+      "degraded_reason": "",
+      "conflict": false,
+      "conflict_state": "clear",
+      "ok": true,
+      "reason": "",
+      "reason_label": "",
+      "detail": "",
+      "state": "released",
+      "holder_kind": "initiative_reply",
+      "claimed_by": "meme_initiative",
+      "other_kind": "meme_initiative",
+      "other_age_seconds": 10397,
+      "interval_seconds": 1800,
+      "manual_priority_until": 1794403592,
+      "manual_priority_active": false,
+      "manual_priority_expired": true,
+      "claim_expires_at": null,
+      "checked_at": 1794476573
+     },
+     "image_provider": null,
+     "blocking": {
+      "blocked": [
+       {
+        "gate": "pending",
+        "status": "block",
+        "reason_code": "not_enough_messages",
+        "label": "Накоплено сообщений: 4 из 8"
+       },
+       {
+        "gate": "eval_interval",
+        "status": "block",
+        "reason_code": "eval_not_due",
+        "label": "С прошлой проверки: 2227 с (интервал 2700 с)"
+       }
+      ],
+      "warned": []
+     },
+     "configuration": {
+      "enabled": true,
+      "source": "product",
+      "scope": "global",
+      "reason": "",
+      "layers": [
+       {
+        "gate": "module_gate",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "observer",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "chat_toggle",
+        "layer": "global",
+        "enabled": true,
+        "source": "global",
+        "reason": ""
+       }
+      ]
+     },
+     "health": {
+      "state": "ok",
+      "dependencies": [
+       {
+        "name": "event_log",
+        "state": "ok",
+        "source": "initiative_observer.chat_block_state"
+       },
+       {
+        "name": "publication_precheck",
+        "state": "ok",
+        "source": "PublicationCoordinator.precheck"
+       }
+      ]
+     },
+     "readiness": {
+      "state": "waiting",
+      "reason": "not_enough_messages",
+      "reason_class": "not_enough_messages",
+      "next_eligible_at": 1794477046,
+      "next_basis": "eval_interval"
+     },
+     "last_attempt": {
+      "at": 1794476537,
+      "mode": "auto",
+      "run_id": "init:-1004482340693:20261112:d2b099a32b",
+      "outcome": "skipped",
+      "stop_stage": "lease_held",
+      "incomplete_historical": false
+     },
+     "last_delivery": {
+      "status": "confirmed",
+      "at": 1794395417,
+      "destination": -1004482340693,
+      "message_id": 10435,
+      "run_id": "",
+      "reason_code": ""
+     }
+    },
+    "meme": {
+     "mechanism": "meme",
+     "output_kind": "meme_initiative",
+     "source": "meme_initiative attempt journal + meme.chats + claim",
+     "available": true,
+     "data_state": "ok",
+     "no_data_reasons": [
+      "no_random_trace"
+     ],
+     "stale": false,
+     "stale_reason": "window_not_recorded",
+     "stale_age_seconds": 36,
+     "stale_window_seconds": null,
+     "stale_window_basis": "",
+     "ready": false,
+     "ready_reason": "cooldown_active",
+     "last_check_ts": 1794476537,
+     "next_check_ts": 1794487603,
+     "next_check_basis": "cooldown",
+     "random": null,
+     "conditions": {
+      "initiative_enabled": true,
+      "meme_enabled": true,
+      "image_ready": true,
+      "schema_present": true,
+      "cooldown_ready": false
+     },
+     "stages": {
+      "considered": 1,
+      "eligible": 0,
+      "summary": 0,
+      "joke": 0,
+      "image": 0,
+      "publish": 0
+     },
+     "skip": {
+      "code": "cooldown_active",
+      "label": "пауза между мемами ещё не прошла",
+      "origin": "cooldown"
+     },
+     "skip_recorded": {
+      "code": "cooldown_active",
+      "label": "пауза между мемами ещё не прошла",
+      "origin": "payload_state"
+     },
+     "cooldown": {
+      "scope": "mechanism_own",
+      "own_seconds": 21600,
+      "remaining_seconds": 11030,
+      "basis": "last_provider_call",
+      "basis_ts": 1794466003
+     },
+     "quota": {
+      "scope": "mechanism_own",
+      "limit": 3,
+      "used": 2,
+      "remaining": 1,
+      "unlimited": false,
+      "limit_reached": false,
+      "available": true,
+      "next_reset": "2026-11-13T00:00:00+00:00",
+      "delivered": 2,
+      "not_delivered": 0,
+      "not_delivered_reasons": {}
+     },
+     "publication": {
+      "available": true,
+      "coordination": "ok",
+      "degraded": false,
+      "degraded_reason": "",
+      "conflict": false,
+      "conflict_state": "clear",
+      "ok": true,
+      "reason": "",
+      "reason_label": "",
+      "detail": "",
+      "state": "released",
+      "holder_kind": "meme_initiative",
+      "claimed_by": "meme_initiative",
+      "other_kind": "",
+      "other_age_seconds": null,
+      "interval_seconds": 1800,
+      "manual_priority_until": 1794403592,
+      "manual_priority_active": false,
+      "manual_priority_expired": true,
+      "claim_expires_at": null,
+      "checked_at": 1794476573
+     },
+     "image_provider": {
+      "available": true,
+      "configured": true,
+      "module_enabled": true,
+      "reason": "ok",
+      "health": "unknown",
+      "model": "qwen-image-3-pro",
+      "source": "meme_initiative.image_dependency"
+     },
+     "blocking": null,
+     "configuration": {
+      "enabled": true,
+      "source": "meme_settings",
+      "scope": "mixed",
+      "reason": "",
+      "layers": [
+       {
+        "gate": "module_gate",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "observer",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "chat_toggle",
+        "layer": "global",
+        "enabled": true,
+        "source": "global",
+        "reason": ""
+       },
+       {
+        "gate": "meme_settings",
+        "layer": "chat",
+        "enabled": true,
+        "source": "meme_settings",
+        "reason": ""
+       },
+       {
+        "gate": "image_module",
+        "layer": "global",
+        "enabled": true,
+        "source": "image_module",
+        "reason": ""
+       }
+      ]
+     },
+     "health": {
+      "state": "ok",
+      "dependencies": [
+       {
+        "name": "attempt_journal",
+        "state": "ok",
+        "source": "meme_initiative.attempt_journal"
+       },
+       {
+        "name": "publication_precheck",
+        "state": "ok",
+        "source": "PublicationCoordinator.precheck"
+       },
+       {
+        "name": "image",
+        "state": "ok",
+        "source": "meme_initiative.image_dependency"
+       }
+      ]
+     },
+     "readiness": {
+      "state": "waiting",
+      "reason": "cooldown_active",
+      "reason_class": "cooldown",
+      "next_eligible_at": 1794487603,
+      "next_basis": "cooldown"
+     },
+     "last_attempt": {
+      "at": 1794476537,
+      "mode": "auto",
+      "run_id": "meme:-1004482340693:2026-11-12:e526b274a77d",
+      "outcome": "skipped",
+      "stop_stage": "skipped",
+      "incomplete_historical": false
+     },
+     "last_delivery": {
+      "status": "confirmed",
+      "at": 1794466176,
+      "destination": -1004482340693,
+      "message_id": 11112,
+      "run_id": "meme:-1004482340693:2026-11-12:4b16ea36c50f",
+      "reason_code": ""
+     }
+    },
+    "degraded": []
+   }
+  },
+  "-1002661910336": {
+   "http": 200,
+   "body": {
+    "schema_version": 1,
+    "generated_at": 1794476576,
+    "chat_id": -1002661910336,
+    "time": {
+     "generated_at": 1794476576,
+     "basis": "server_snapshot",
+     "timezone": {
+      "name": "UTC",
+      "source": "utc_fallback",
+      "offset_seconds": 0,
+      "default_name": "UTC",
+      "reason": ""
+     }
+    },
+    "heartbeat_ok": false,
+    "heartbeat": {
+     "ok": false,
+     "last_tick_ts": null,
+     "last_tick_status": "",
+     "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+    },
+    "text_initiative": {
+     "mechanism": "text_initiative",
+     "output_kind": "initiative_reply",
+     "source": "initiative_observer.chat_block_state",
+     "available": true,
+     "data_state": "ok",
+     "no_data_reasons": [],
+     "stale": false,
+     "stale_reason": "",
+     "stale_age_seconds": 261,
+     "stale_window_seconds": 2700,
+     "stale_window_basis": "eval_interval",
+     "ready": false,
+     "ready_reason": "eval_not_due",
+     "last_check_ts": 1794476315,
+     "next_check_ts": 1794476746,
+     "next_check_basis": "eval_interval",
+     "random": {
+      "performed": false,
+      "outcome": "no_draw",
+      "value": null,
+      "hit": null,
+      "probability": 1.0,
+      "purpose": "initiative_trigger",
+      "draw_id": null,
+      "source": null,
+      "source_impl": null,
+      "provider": null,
+      "selected_source": null,
+      "fallback": false,
+      "fallback_reason": null,
+      "policy_version": null,
+      "attempts": 0,
+      "reason": "probability_one",
+      "reason_label": "probability_one",
+      "no_draw_reason": "probability_one",
+      "ts": 1794269167
+     },
+     "conditions": {
+      "anti_flood": true,
+      "min_gap": true,
+      "day_cap": null,
+      "eval_budget": null,
+      "publication": true
+     },
+     "stages": null,
+     "skip": {
+      "code": "eval_not_due",
+      "label": "С прошлой проверки: 2530 с (интервал 2700 с)",
+      "origin": "gate"
+     },
+     "skip_recorded": {
+      "code": "eval_not_due",
+      "label": "интервал между проверками ещё не прошёл",
+      "origin": "payload_state"
+     },
+     "cooldown": {
+      "scope": "mechanism_own",
+      "own_seconds": 7200,
+      "remaining_seconds": 0,
+      "basis": "last_initiative_publication",
+      "basis_ts": 1794462108
+     },
+     "quota": {
+      "scope": "mechanism_own",
+      "limit": 6,
+      "used": 0,
+      "remaining": 6,
+      "unlimited": false,
+      "limit_reached": false,
+      "available": null,
+      "next_reset": null,
+      "delivered": null,
+      "not_delivered": null,
+      "not_delivered_reasons": {}
+     },
+     "publication": {
+      "available": true,
+      "coordination": "ok",
+      "degraded": false,
+      "degraded_reason": "",
+      "conflict": false,
+      "conflict_state": "clear",
+      "ok": true,
+      "reason": "",
+      "reason_label": "",
+      "detail": "",
+      "state": "released",
+      "holder_kind": "initiative_reply",
+      "claimed_by": "meme_initiative",
+      "other_kind": "meme_initiative",
+      "other_age_seconds": 2515,
+      "interval_seconds": 1800,
+      "manual_priority_until": 1794403499,
+      "manual_priority_active": false,
+      "manual_priority_expired": true,
+      "claim_expires_at": null,
+      "checked_at": 1794476576
+     },
+     "image_provider": null,
+     "blocking": {
+      "blocked": [
+       {
+        "gate": "eval_interval",
+        "status": "block",
+        "reason_code": "eval_not_due",
+        "label": "С прошлой проверки: 2530 с (интервал 2700 с)"
+       }
+      ],
+      "warned": []
+     },
+     "configuration": {
+      "enabled": true,
+      "source": "product",
+      "scope": "global",
+      "reason": "",
+      "layers": [
+       {
+        "gate": "module_gate",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "observer",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "chat_toggle",
+        "layer": "global",
+        "enabled": true,
+        "source": "global",
+        "reason": ""
+       }
+      ]
+     },
+     "health": {
+      "state": "ok",
+      "dependencies": [
+       {
+        "name": "event_log",
+        "state": "ok",
+        "source": "initiative_observer.chat_block_state"
+       },
+       {
+        "name": "publication_precheck",
+        "state": "ok",
+        "source": "PublicationCoordinator.precheck"
+       }
+      ]
+     },
+     "readiness": {
+      "state": "waiting",
+      "reason": "eval_not_due",
+      "reason_class": "schedule",
+      "next_eligible_at": 1794476746,
+      "next_basis": "eval_interval"
+     },
+     "last_attempt": {
+      "at": 1794476315,
+      "mode": "auto",
+      "run_id": "init:-1002661910336:20261112:406f63efe1",
+      "outcome": "skipped",
+      "stop_stage": "eval_not_due",
+      "incomplete_historical": false
+     },
+     "last_delivery": {
+      "status": "confirmed",
+      "at": 1794462108,
+      "destination": -1002661910336,
+      "message_id": 1210951,
+      "run_id": "",
+      "reason_code": ""
+     }
+    },
+    "meme": {
+     "mechanism": "meme",
+     "output_kind": "meme_initiative",
+     "source": "meme_initiative attempt journal + meme.chats + claim",
+     "available": true,
+     "data_state": "ok",
+     "no_data_reasons": [],
+     "stale": false,
+     "stale_reason": "window_not_recorded",
+     "stale_age_seconds": 39,
+     "stale_window_seconds": null,
+     "stale_window_basis": "",
+     "ready": false,
+     "ready_reason": "cooldown_active",
+     "last_check_ts": 1794476537,
+     "next_check_ts": 1794495219,
+     "next_check_basis": "cooldown",
+     "random": {
+      "performed": true,
+      "outcome": "draw",
+      "value": 0.01348876953125,
+      "hit": true,
+      "probability": 0.05,
+      "purpose": "meme_trigger",
+      "draw_id": "a33cf47953c648159d20f499e5393533",
+      "source": "quantum",
+      "source_impl": "anu-quantum",
+      "provider": "ANU Quantum Numbers",
+      "selected_source": "quantum",
+      "fallback": false,
+      "fallback_reason": null,
+      "policy_version": "mca10a-v1",
+      "attempts": 1,
+      "reason": "ok",
+      "reason_label": "ok",
+      "no_draw_reason": "",
+      "ts": 1794473619
+     },
+     "conditions": {
+      "initiative_enabled": true,
+      "meme_enabled": true,
+      "image_ready": true,
+      "schema_present": true,
+      "cooldown_ready": false
+     },
+     "stages": {
+      "considered": 1,
+      "eligible": 0,
+      "summary": 0,
+      "joke": 0,
+      "image": 0,
+      "publish": 0
+     },
+     "skip": {
+      "code": "cooldown_active",
+      "label": "пауза между мемами ещё не прошла",
+      "origin": "cooldown"
+     },
+     "skip_recorded": {
+      "code": "cooldown_active",
+      "label": "пауза между мемами ещё не прошла",
+      "origin": "payload_state"
+     },
+     "cooldown": {
+      "scope": "mechanism_own",
+      "own_seconds": 21600,
+      "remaining_seconds": 18643,
+      "basis": "last_provider_call",
+      "basis_ts": 1794473619
+     },
+     "quota": {
+      "scope": "mechanism_own",
+      "limit": 3,
+      "used": 2,
+      "remaining": 1,
+      "unlimited": false,
+      "limit_reached": false,
+      "available": true,
+      "next_reset": "2026-11-13T00:00:00+00:00",
+      "delivered": 2,
+      "not_delivered": 0,
+      "not_delivered_reasons": {}
+     },
+     "publication": {
+      "available": true,
+      "coordination": "ok",
+      "degraded": false,
+      "degraded_reason": "",
+      "conflict": false,
+      "conflict_state": "clear",
+      "ok": true,
+      "reason": "",
+      "reason_label": "",
+      "detail": "",
+      "state": "released",
+      "holder_kind": "meme_initiative",
+      "claimed_by": "meme_initiative",
+      "other_kind": "initiative_reply",
+      "other_age_seconds": 14468,
+      "interval_seconds": 1800,
+      "manual_priority_until": 1794403499,
+      "manual_priority_active": false,
+      "manual_priority_expired": true,
+      "claim_expires_at": null,
+      "checked_at": 1794476576
+     },
+     "image_provider": {
+      "available": true,
+      "configured": true,
+      "module_enabled": true,
+      "reason": "ok",
+      "health": "unknown",
+      "model": "qwen-image-3-pro",
+      "source": "meme_initiative.image_dependency"
+     },
+     "blocking": null,
+     "configuration": {
+      "enabled": true,
+      "source": "meme_settings",
+      "scope": "mixed",
+      "reason": "",
+      "layers": [
+       {
+        "gate": "module_gate",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "observer",
+        "layer": "global",
+        "enabled": true,
+        "source": "product",
+        "reason": ""
+       },
+       {
+        "gate": "chat_toggle",
+        "layer": "global",
+        "enabled": true,
+        "source": "global",
+        "reason": ""
+       },
+       {
+        "gate": "meme_settings",
+        "layer": "chat",
+        "enabled": true,
+        "source": "meme_settings",
+        "reason": ""
+       },
+       {
+        "gate": "image_module",
+        "layer": "global",
+        "enabled": true,
+        "source": "image_module",
+        "reason": ""
+       }
+      ]
+     },
+     "health": {
+      "state": "ok",
+      "dependencies": [
+       {
+        "name": "attempt_journal",
+        "state": "ok",
+        "source": "meme_initiative.attempt_journal"
+       },
+       {
+        "name": "publication_precheck",
+        "state": "ok",
+        "source": "PublicationCoordinator.precheck"
+       },
+       {
+        "name": "image",
+        "state": "ok",
+        "source": "meme_initiative.image_dependency"
+       }
+      ]
+     },
+     "readiness": {
+      "state": "waiting",
+      "reason": "cooldown_active",
+      "reason_class": "cooldown",
+      "next_eligible_at": 1794495219,
+      "next_basis": "cooldown"
+     },
+     "last_attempt": {
+      "at": 1794476537,
+      "mode": "auto",
+      "run_id": "meme:-1002661910336:2026-11-12:2e81da43924c",
+      "outcome": "skipped",
+      "stop_stage": "skipped",
+      "incomplete_historical": false
+     },
+     "last_delivery": {
+      "status": "confirmed",
+      "at": 1794474061,
+      "destination": -1002661910336,
+      "message_id": 1211393,
+      "run_id": "meme:-1002661910336:2026-11-12:1da028d251ea",
+      "reason_code": ""
+     }
+    },
+    "degraded": []
+   }
+  }
+ },
+ "meme_settings": {
+  "-1004482340693": {
+   "http": 200,
+   "saved": {
+    "chat_id": -1004482340693,
+    "day": {
+     "bucket": "2026-11-12",
+     "timezone_name": "UTC",
+     "timezone_source": "utc_fallback",
+     "next_reset": "2026-11-13T00:00:00+00:00"
+    },
+    "defaults": {
+     "enabled": false,
+     "window_messages": 500,
+     "daily_limit": 3,
+     "cooldown_seconds": 21600,
+     "min_messages": 8,
+     "trigger_probability": 0.05
+    },
+    "delivery": {
+     "output_kind": "meme_initiative",
+     "blocks_text_initiative": false,
+     "publish_blocked_count": 0,
+     "skip_reasons": {
+      "cooldown_active": 10
+     },
+     "stages": [
+      "considered",
+      "eligible",
+      "summary",
+      "joke",
+      "image_generation",
+      "publish",
+      "failed",
+      "skipped"
+     ],
+     "events": [],
+     "event_names": [
+      "source_snapshot",
+      "digest_ready",
+      "joke_ready",
+      "image_ready",
+      "publication_requested",
+      "publication_deferred_conflict",
+      "publication_sent",
+      "publication_cancelled",
+      "publication_failed",
+      "delivery_unknown"
+     ]
+    },
+    "image_prefix": "Создай мем с шрифтом импакт:",
+    "length_limit": {
+     "ceiling": 800,
+     "source": "admin_setting",
+     "mode": "fixed",
+     "template_chars": 660,
+     "joke_budget": 140,
+     "known": true,
+     "placeholder": "append",
+     "candidates": [
+      {
+       "source": "admin_setting",
+       "value": 800
+      }
+     ]
+    },
+    "master_key": "flags.initiative_enabled",
+    "own_key": "flags.meme_initiative_enabled",
+    "prompts": {
+     "image": {
+      "block_id": "initiative.meme.image",
+      "text": "Создай постироничный интернет-мем: странный кадр из старого черно-белого мультфильма с Микки Маусом (Пароходик Вилли), искажения старого телевизора, случайная композиция, без ИИ-глянца, ебанутые персонажи. Кадр должен косвенно, но узнаваемо обыгрывать прикол через предмет, ситуацию или ассоциацию. Не иллюстрируй надпись буквально по умолчанию: допускай неожиданный контраст, нелепые детали и абсурдные интерпретации, но не превращай картинку в случайный фон. Связь может быть косвенной, однако зритель должен суметь её уловить. Контраст допустим, случайный фон - нет. Наложи только текст прикола: крупный белый Impact с чёрной обводкой. Без других надписей:",
+      "source": "chat",
+      "factory_revision": "fac:f81fe7e4b505(meme-image-evol014)",
+      "revision": "act:5d33399f09ea",
+      "differs_from_factory": true,
+      "setting_key": "prompts.meme_image"
+     },
+     "joke": {
+      "block_id": "initiative.meme.joke",
+      "text": "Выбери из выжимки одну странную или тупую деталь и преврати её в постироничную мемную надпись. Юмор - в нелепом сопоставлении, неожиданной конкретике, тупом выводе или абсурде, произнесённом с абсолютно серьёзным видом. Не старайся выглядеть остроумным. От одного слова до короткой фразы (до 6 слов!). Не пересказывай диалог, не объясняй прикол, не делай стандартных каламбуров и сравнений \"X, а Y\". Верни исключительно надпись.\nИзбегай узнаваемых ИИ-паттернов и конвейерного юмора: конструкций \"не X, а Y\" и их вариаций, симметричных противопоставлений, псевдофилософских выводов, искусственных метафор, рекламных слоганов, пафосных формулировок и шаблонных панчлайнов. Не подгоняй шутку под красивую речевую конструкцию. Юмор должен возникать из конкретной нелепой детали, неожиданной бытовой логики или абсурда, произнесённого всерьёз. Допускай корявость, сухость, тупость и незавершённость мысли. Если надпись можно применить к совершенно другой ситуации, просто заменив существительные, придумай другую. Строй прикол вокруг конкретного события, реплики, участника или нелепой детали из выжимки чата. Не пересказывай обсуждение и не выдумывай факты о его участниках. Допускай абсурд, преувеличение и неожиданные ассоциации, но сохраняй узнаваемую связь с исходным контекстом. Избегай универсальных шуток, которые одинаково подходят к любому разговору.",
+      "source": "chat",
+      "factory_revision": "fac:2f30ca1f9a6b(meme-joke-evol014)",
+      "revision": "act:f0bdb2950c67",
+      "differs_from_factory": true,
+      "setting_key": "prompts.meme_joke"
+     },
+     "summary": {
+      "block_id": "initiative.meme.summary",
+      "text": "Собери короткую выжимку именно под мем из сообщений одного чата. Нужен мемный хук: конфликт, шутка, повтор, абсурд или локальный инсайд, а не пересказ разговора вообще. Не добавляй фактов, которых нет в окне, и сохрани конкретику (кто, что, над чем шутка). Верни только текст выжимки, без кавычек, заголовков и пояснений.",
+      "source": "factory",
+      "factory_revision": "fac:175781ddfd7e(meme-summary-nolimit-01)",
+      "revision": "act:175781ddfd7e",
+      "differs_from_factory": false,
+      "setting_key": ""
+     }
+    },
+    "quota": {
+     "available": true,
+     "reason": "ok",
+     "limit": 3,
+     "spent": 2,
+     "remaining": 1,
+     "day_bucket": "2026-11-12",
+     "timezone_name": "UTC",
+     "timezone_source": "utc_fallback",
+     "next_reset": "2026-11-13T00:00:00+00:00",
+     "provider_called": 2,
+     "provider_failed": 0,
+     "reserved": 0,
+     "denied": 0,
+     "delivered": 2,
+     "not_delivered": 0,
+     "not_delivered_reasons": {}
+    },
+    "schema_present": true,
+    "settings": {
+     "enabled": true,
+     "window_messages": 500,
+     "daily_limit": 3,
+     "cooldown_seconds": 21600,
+     "min_messages": 8,
+     "trigger_probability": 0.05,
+     "length_admin": 800,
+     "length_override": null,
+     "summarizer_model": "",
+     "quiet_hours": ""
+    },
+    "template": {
+     "text": "Создай постироничный интернет-мем: странный кадр из старого черно-белого мультфильма с Микки Маусом (Пароходик Вилли), искажения старого телевизора, случайная композиция, без ИИ-глянца, ебанутые персонажи. Кадр должен косвенно, но узнаваемо обыгрывать прикол через предмет, ситуацию или ассоциацию. Не иллюстрируй надпись буквально по умолчанию: допускай неожиданный контраст, нелепые детали и абсурдные интерпретации, но не превращай картинку в случайный фон. Связь может быть косвенной, однако зритель должен суметь её уловить. Контраст допустим, случайный фон - нет. Наложи только текст прикола: крупный белый Impact с чёрной обводкой. Без других надписей:",
+     "source": "chat",
+     "placeholders": 0,
+     "valid": true,
+     "error": ""
+    }
+   },
+   "availability": {
+    "available": true,
+    "reason": "ok",
+    "meme_enabled": true,
+    "initiative_enabled": true,
+    "image": {
+     "available": true,
+     "reason": "ok",
+     "module_enabled": true,
+     "configured": true,
+     "health": "unknown",
+     "model": "qwen-image-3-pro"
+    },
+    "schema_present": true,
+    "settings": {
+     "enabled": true,
+     "window_messages": 500,
+     "daily_limit": 3,
+     "cooldown_seconds": 21600,
+     "min_messages": 8,
+     "trigger_probability": 0.05,
+     "length_admin": 800,
+     "length_override": null,
+     "summarizer_model": "",
+     "quiet_hours": ""
+    },
+    "blocks_text_initiative": false,
+    "diagnostics": {
+     "last_check_ts": 1794466003,
+     "next_check_ts": 1794487603,
+     "random": {},
+     "conditions": {
+      "initiative_enabled": true,
+      "meme_enabled": true,
+      "image_ready": true,
+      "schema_present": true,
+      "cooldown_ready": false
+     },
+     "skip_reason": "cooldown_active",
+     "cooldown_seconds": 21600,
+     "cooldown_remaining_seconds": 11029,
+     "publication": {
+      "available": true,
+      "state": "released",
+      "holder_kind": "meme_initiative",
+      "last_publish_kind": "meme_initiative",
+      "other_age_seconds": 10398,
+      "interval_seconds": 1800,
+      "manual_priority_until": 1794403592,
+      "conflict": false
+     }
+    }
+   },
+   "analytics_keys": [
+    "attempts",
+    "counters",
+    "coverage",
+    "enabled_default",
+    "events",
+    "joke",
+    "last_joke",
+    "output_kind",
+    "quota",
+    "separate_from_initiative",
+    "skip_reasons"
+   ],
+   "generated_at": 1794476574
+  },
+  "-1002661910336": {
+   "http": 200,
+   "saved": {
+    "chat_id": -1002661910336,
+    "day": {
+     "bucket": "2026-11-12",
+     "timezone_name": "UTC",
+     "timezone_source": "utc_fallback",
+     "next_reset": "2026-11-13T00:00:00+00:00"
+    },
+    "defaults": {
+     "enabled": false,
+     "window_messages": 500,
+     "daily_limit": 3,
+     "cooldown_seconds": 21600,
+     "min_messages": 8,
+     "trigger_probability": 0.05
+    },
+    "delivery": {
+     "output_kind": "meme_initiative",
+     "blocks_text_initiative": false,
+     "publish_blocked_count": 0,
+     "skip_reasons": {
+      "cooldown_active": 10
+     },
+     "stages": [
+      "considered",
+      "eligible",
+      "summary",
+      "joke",
+      "image_generation",
+      "publish",
+      "failed",
+      "skipped"
+     ],
+     "events": [],
+     "event_names": [
+      "source_snapshot",
+      "digest_ready",
+      "joke_ready",
+      "image_ready",
+      "publication_requested",
+      "publication_deferred_conflict",
+      "publication_sent",
+      "publication_cancelled",
+      "publication_failed",
+      "delivery_unknown"
+     ]
+    },
+    "image_prefix": "Создай мем с шрифтом импакт:",
+    "length_limit": {
+     "ceiling": 800,
+     "source": "admin_setting",
+     "mode": "fixed",
+     "template_chars": 660,
+     "joke_budget": 140,
+     "known": true,
+     "placeholder": "append",
+     "candidates": [
+      {
+       "source": "admin_setting",
+       "value": 800
+      }
+     ]
+    },
+    "master_key": "flags.initiative_enabled",
+    "own_key": "flags.meme_initiative_enabled",
+    "prompts": {
+     "image": {
+      "block_id": "initiative.meme.image",
+      "text": "Создай постироничный интернет-мем: странный кадр из старого черно-белого мультфильма с Микки Маусом (Пароходик Вилли), искажения старого телевизора, случайная композиция, без ИИ-глянца, ебанутые персонажи. Кадр должен косвенно, но узнаваемо обыгрывать прикол через предмет, ситуацию или ассоциацию. Не иллюстрируй надпись буквально по умолчанию: допускай неожиданный контраст, нелепые детали и абсурдные интерпретации, но не превращай картинку в случайный фон. Связь может быть косвенной, однако зритель должен суметь её уловить. Контраст допустим, случайный фон - нет. Наложи только текст прикола: крупный белый Impact с чёрной обводкой. Без других надписей:",
+      "source": "chat",
+      "factory_revision": "fac:f81fe7e4b505(meme-image-evol014)",
+      "revision": "act:5d33399f09ea",
+      "differs_from_factory": true,
+      "setting_key": "prompts.meme_image"
+     },
+     "joke": {
+      "block_id": "initiative.meme.joke",
+      "text": "Выбери из выжимки одну странную или тупую деталь и преврати её в постироничную мемную надпись. Юмор - в нелепом сопоставлении, неожиданной конкретике, тупом выводе или абсурде, произнесённом с абсолютно серьёзным видом. Не старайся выглядеть остроумным. От одного слова до короткой фразы (до 6 слов!). Не пересказывай диалог, не объясняй прикол, не делай стандартных каламбуров и сравнений \"X, а Y\". Верни исключительно надпись.\nИзбегай узнаваемых ИИ-паттернов и конвейерного юмора: конструкций \"не X, а Y\" и их вариаций, симметричных противопоставлений, псевдофилософских выводов, искусственных метафор, рекламных слоганов, пафосных формулировок и шаблонных панчлайнов. Не подгоняй шутку под красивую речевую конструкцию. Юмор должен возникать из конкретной нелепой детали, неожиданной бытовой логики или абсурда, произнесённого всерьёз. Допускай корявость, сухость, тупость и незавершённость мысли. Если надпись можно применить к совершенно другой ситуации, просто заменив существительные, придумай другую. Строй прикол вокруг конкретного события, реплики, участника или нелепой детали из выжимки чата. Не пересказывай обсуждение и не выдумывай факты о его участниках. Допускай абсурд, преувеличение и неожиданные ассоциации, но сохраняй узнаваемую связь с исходным контекстом. Избегай универсальных шуток, которые одинаково подходят к любому разговору.",
+      "source": "chat",
+      "factory_revision": "fac:2f30ca1f9a6b(meme-joke-evol014)",
+      "revision": "act:f0bdb2950c67",
+      "differs_from_factory": true,
+      "setting_key": "prompts.meme_joke"
+     },
+     "summary": {
+      "block_id": "initiative.meme.summary",
+      "text": "Собери короткую выжимку именно под мем из сообщений одного чата. Нужен мемный хук: конфликт, шутка, повтор, абсурд или локальный инсайд, а не пересказ разговора вообще. Не добавляй фактов, которых нет в окне, и сохрани конкретику (кто, что, над чем шутка). Верни только текст выжимки, без кавычек, заголовков и пояснений.",
+      "source": "factory",
+      "factory_revision": "fac:175781ddfd7e(meme-summary-nolimit-01)",
+      "revision": "act:175781ddfd7e",
+      "differs_from_factory": false,
+      "setting_key": ""
+     }
+    },
+    "quota": {
+     "available": true,
+     "reason": "ok",
+     "limit": 3,
+     "spent": 2,
+     "remaining": 1,
+     "day_bucket": "2026-11-12",
+     "timezone_name": "UTC",
+     "timezone_source": "utc_fallback",
+     "next_reset": "2026-11-13T00:00:00+00:00",
+     "provider_called": 2,
+     "provider_failed": 0,
+     "reserved": 0,
+     "denied": 0,
+     "delivered": 2,
+     "not_delivered": 0,
+     "not_delivered_reasons": {}
+    },
+    "schema_present": true,
+    "settings": {
+     "enabled": true,
+     "window_messages": 500,
+     "daily_limit": 3,
+     "cooldown_seconds": 21600,
+     "min_messages": 8,
+     "trigger_probability": 0.05,
+     "length_admin": 800,
+     "length_override": null,
+     "summarizer_model": "",
+     "quiet_hours": ""
+    },
+    "template": {
+     "text": "Создай постироничный интернет-мем: странный кадр из старого черно-белого мультфильма с Микки Маусом (Пароходик Вилли), искажения старого телевизора, случайная композиция, без ИИ-глянца, ебанутые персонажи. Кадр должен косвенно, но узнаваемо обыгрывать прикол через предмет, ситуацию или ассоциацию. Не иллюстрируй надпись буквально по умолчанию: допускай неожиданный контраст, нелепые детали и абсурдные интерпретации, но не превращай картинку в случайный фон. Связь может быть косвенной, однако зритель должен суметь её уловить. Контраст допустим, случайный фон - нет. Наложи только текст прикола: крупный белый Impact с чёрной обводкой. Без других надписей:",
+     "source": "chat",
+     "placeholders": 0,
+     "valid": true,
+     "error": ""
+    }
+   },
+   "availability": {
+    "available": true,
+    "reason": "ok",
+    "meme_enabled": true,
+    "initiative_enabled": true,
+    "image": {
+     "available": true,
+     "reason": "ok",
+     "module_enabled": true,
+     "configured": true,
+     "health": "unknown",
+     "model": "qwen-image-3-pro"
+    },
+    "schema_present": true,
+    "settings": {
+     "enabled": true,
+     "window_messages": 500,
+     "daily_limit": 3,
+     "cooldown_seconds": 21600,
+     "min_messages": 8,
+     "trigger_probability": 0.05,
+     "length_admin": 800,
+     "length_override": null,
+     "summarizer_model": "",
+     "quiet_hours": ""
+    },
+    "blocks_text_initiative": false,
+    "diagnostics": {
+     "last_check_ts": 1794473619,
+     "next_check_ts": 1794495219,
+     "random": {},
+     "conditions": {
+      "initiative_enabled": true,
+      "meme_enabled": true,
+      "image_ready": true,
+      "schema_present": true,
+      "cooldown_ready": false
+     },
+     "skip_reason": "cooldown_active",
+     "cooldown_seconds": 21600,
+     "cooldown_remaining_seconds": 18640,
+     "publication": {
+      "available": true,
+      "state": "released",
+      "holder_kind": "meme_initiative",
+      "last_publish_kind": "meme_initiative",
+      "other_age_seconds": 2518,
+      "interval_seconds": 1800,
+      "manual_priority_until": 1794403499,
+      "conflict": false
+     }
+    }
+   },
+   "analytics_keys": [
+    "attempts",
+    "counters",
+    "coverage",
+    "enabled_default",
+    "events",
+    "joke",
+    "last_joke",
+    "output_kind",
+    "quota",
+    "separate_from_initiative",
+    "skip_reasons"
+   ],
+   "generated_at": 1794476579
+  }
+ },
+ "publications_preview": {
+  "-1004482340693": {
+   "http": 200,
+   "body": {
+    "schema_version": 1,
+    "generated_at": 1794476575,
+    "chat_id": -1004482340693,
+    "available": true,
+    "notes": [],
+    "window": {
+     "days": 7,
+     "since": 1793871775,
+     "until": 1794476575
+    },
+    "filters": {
+     "days": 7,
+     "kind": "all",
+     "mode": "all",
+     "outcome": "all",
+     "reason": ""
+    },
+    "counts": {
+     "total": 323,
+     "checked": 323,
+     "decided": 323,
+     "generated": 1,
+     "text": 26,
+     "meme": 297,
+     "published": 12,
+     "delivered": 13,
+     "pending": 5,
+     "delivery_unknown": 0,
+     "not_delivered": 305,
+     "deferred": 5,
+     "unknown": 0,
+     "llm_calls": 2,
+     "images": 1
+    },
+    "rows": [
+     {
+      "attempt_id": "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+      "kind": "meme",
+      "job_id": "meme:-1004482340693:2026-11-12:e526b274a77d",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476537,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476537
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476537
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1004482340693:2026-11-12:a07853637102",
+      "kind": "meme",
+      "job_id": "meme:-1004482340693:2026-11-12:a07853637102",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476315,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476315
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476315
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1004482340693:2026-11-12:df357fa2a905",
+      "kind": "meme",
+      "job_id": "meme:-1004482340693:2026-11-12:df357fa2a905",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476236,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476236
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476236
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1004482340693:2026-11-12:859630f4c489",
+      "kind": "meme",
+      "job_id": "meme:-1004482340693:2026-11-12:859630f4c489",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476050,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476050
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476050
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1004482340693:2026-11-12:1142719d8bff",
+      "kind": "meme",
+      "job_id": "meme:-1004482340693:2026-11-12:1142719d8bff",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794475715,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794475715
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794475715
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     }
+    ],
+    "next_offset": 5
+   }
+  },
+  "-1002661910336": {
+   "http": 200,
+   "body": {
+    "schema_version": 1,
+    "generated_at": 1794476580,
+    "chat_id": -1002661910336,
+    "available": true,
+    "notes": [],
+    "window": {
+     "days": 7,
+     "since": 1793871780,
+     "until": 1794476580
+    },
+    "filters": {
+     "days": 7,
+     "kind": "all",
+     "mode": "all",
+     "outcome": "all",
+     "reason": ""
+    },
+    "counts": {
+     "total": 354,
+     "checked": 354,
+     "decided": 354,
+     "generated": 1,
+     "text": 57,
+     "meme": 297,
+     "published": 25,
+     "delivered": 26,
+     "pending": 13,
+     "delivery_unknown": 0,
+     "not_delivered": 315,
+     "deferred": 13,
+     "unknown": 0,
+     "llm_calls": 2,
+     "images": 1
+    },
+    "rows": [
+     {
+      "attempt_id": "meme:meme:-1002661910336:2026-11-12:2e81da43924c",
+      "kind": "meme",
+      "job_id": "meme:-1002661910336:2026-11-12:2e81da43924c",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476537,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476537
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476537
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1002661910336:2026-11-12:46058f877c25",
+      "kind": "meme",
+      "job_id": "meme:-1002661910336:2026-11-12:46058f877c25",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476315,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476315
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476315
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1002661910336:2026-11-12:569df5769d4b",
+      "kind": "meme",
+      "job_id": "meme:-1002661910336:2026-11-12:569df5769d4b",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476236,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476236
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476236
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1002661910336:2026-11-12:525d22637d5a",
+      "kind": "meme",
+      "job_id": "meme:-1002661910336:2026-11-12:525d22637d5a",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476015,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476015
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476015
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     {
+      "attempt_id": "meme:meme:-1002661910336:2026-11-12:8759cb8cafd0",
+      "kind": "meme",
+      "job_id": "meme:-1002661910336:2026-11-12:8759cb8cafd0",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794475715,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794475715
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794475715
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     }
+    ],
+    "next_offset": 5
+   }
+  }
+ },
+ "publication_filters": {
+  "-1004482340693": {
+   "kind_meme": {
+    "http": 200,
+    "total": 297,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "meme:meme:-1004482340693:2026-11-12:a07853637102",
+     "meme:meme:-1004482340693:2026-11-12:df357fa2a905"
+    ]
+   },
+   "kind_text": {
+    "http": 200,
+    "total": 26,
+    "next_offset": null,
+    "rows": 26,
+    "kinds": [
+     "text_initiative"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "deferred",
+     "published",
+     "silent",
+     "success"
+    ],
+    "reason_codes": [
+     "default",
+     "l1_unavailable"
+    ],
+    "attempt_ids": [
+     "text:264482",
+     "text:5ccb0131a0c142ad",
+     "text:ef53db77bf654a98"
+    ]
+   },
+   "mode_auto": {
+    "http": 200,
+    "total": 323,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "meme:meme:-1004482340693:2026-11-12:a07853637102",
+     "meme:meme:-1004482340693:2026-11-12:df357fa2a905"
+    ]
+   },
+   "mode_manual": {
+    "http": 200,
+    "total": 0,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": []
+   },
+   "outcome_published": {
+    "http": 200,
+    "total": 12,
+    "next_offset": null,
+    "rows": 12,
+    "kinds": [
+     "text_initiative"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "published"
+    ],
+    "reason_codes": [
+     "default"
+    ],
+    "attempt_ids": [
+     "text:5ccb0131a0c142ad",
+     "text:ef53db77bf654a98",
+     "text:ef1eb62810cb4ae8"
+    ]
+   },
+   "outcome_deferred": {
+    "http": 200,
+    "total": 5,
+    "next_offset": null,
+    "rows": 5,
+    "kinds": [
+     "text_initiative"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "deferred"
+    ],
+    "reason_codes": [],
+    "attempt_ids": [
+     "text:214041",
+     "text:200467",
+     "text:200456"
+    ]
+   },
+   "outcome_failed": {
+    "http": 200,
+    "total": 0,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": []
+   },
+   "reason_cooldown": {
+    "http": 200,
+    "total": 277,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "meme:meme:-1004482340693:2026-11-12:a07853637102",
+     "meme:meme:-1004482340693:2026-11-12:df357fa2a905"
+    ]
+   },
+   "days_7": {
+    "http": 200,
+    "total": 323,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "meme:meme:-1004482340693:2026-11-12:a07853637102",
+     "meme:meme:-1004482340693:2026-11-12:df357fa2a905"
+    ]
+   },
+   "days_0": {
+    "http": 200,
+    "total": 439,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:31abe3b5b4be",
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "meme:meme:-1004482340693:2026-11-12:a07853637102"
+    ]
+   },
+   "days_90": {
+    "http": 200,
+    "total": 439,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:31abe3b5b4be",
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "meme:meme:-1004482340693:2026-11-12:a07853637102"
+    ]
+   },
+   "page_0": {
+    "http": 200,
+    "total": 323,
+    "next_offset": 1,
+    "rows": 1,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:31abe3b5b4be"
+    ]
+   },
+   "page_1": {
+    "http": 200,
+    "total": 323,
+    "next_offset": 2,
+    "rows": 1,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:e526b274a77d"
+    ]
+   },
+   "page_5": {
+    "http": 200,
+    "total": 323,
+    "next_offset": 6,
+    "rows": 1,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1004482340693:2026-11-12:1142719d8bff"
+    ]
+   },
+   "bad_days": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "days"
+      ],
+      "msg": "Input should be less than or equal to 90",
+      "type": "less_than_equal"
+     }
+    ]
+   },
+   "bad_limit0": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "limit"
+      ],
+      "msg": "Input should be greater than or equal to 1",
+      "type": "greater_than_equal"
+     }
+    ]
+   },
+   "bad_limit500": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "limit"
+      ],
+      "msg": "Input should be less than or equal to 100",
+      "type": "less_than_equal"
+     }
+    ]
+   },
+   "bad_offset": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "offset"
+      ],
+      "msg": "Input should be greater than or equal to 0",
+      "type": "greater_than_equal"
+     }
+    ]
+   }
+  },
+  "-1002661910336": {
+   "kind_meme": {
+    "http": 200,
+    "total": 297,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active",
+     "no_random_hit",
+     "publication_deferred_conflict",
+     "publication_requested",
+     "publication_sent",
+     "publish_blocked",
+     "sent"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "meme:meme:-1002661910336:2026-11-12:2e81da43924c",
+     "meme:meme:-1002661910336:2026-11-12:46058f877c25"
+    ]
+   },
+   "kind_text": {
+    "http": 200,
+    "total": 57,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "text_initiative"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "cancelled",
+     "deferred",
+     "published",
+     "silent",
+     "success"
+    ],
+    "reason_codes": [
+     "default",
+     "initiative_sent",
+     "l1_silent",
+     "recheck_deferred",
+     "unmapped:910e0b17"
+    ],
+    "attempt_ids": [
+     "text:280612",
+     "text:268179",
+     "text:267359"
+    ]
+   },
+   "mode_auto": {
+    "http": 200,
+    "total": 354,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active",
+     "no_random_hit",
+     "publication_deferred_conflict",
+     "publication_requested",
+     "publication_sent",
+     "publish_blocked",
+     "sent"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "meme:meme:-1002661910336:2026-11-12:2e81da43924c"
+    ]
+   },
+   "mode_manual": {
+    "http": 200,
+    "total": 0,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": []
+   },
+   "outcome_published": {
+    "http": 200,
+    "total": 25,
+    "next_offset": null,
+    "rows": 25,
+    "kinds": [
+     "text_initiative"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "published"
+    ],
+    "reason_codes": [
+     "default",
+     "initiative_sent"
+    ],
+    "attempt_ids": [
+     "text:263611",
+     "text:dd9d0f26d28b4087",
+     "text:244756"
+    ]
+   },
+   "outcome_deferred": {
+    "http": 200,
+    "total": 13,
+    "next_offset": null,
+    "rows": 13,
+    "kinds": [
+     "text_initiative"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "deferred"
+    ],
+    "reason_codes": [
+     "unmapped:910e0b17"
+    ],
+    "attempt_ids": [
+     "text:267359",
+     "text:267273",
+     "text:259892"
+    ]
+   },
+   "outcome_failed": {
+    "http": 200,
+    "total": 0,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": []
+   },
+   "reason_cooldown": {
+    "http": 200,
+    "total": 280,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "meme:meme:-1002661910336:2026-11-12:2e81da43924c"
+    ]
+   },
+   "days_7": {
+    "http": 200,
+    "total": 354,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active",
+     "no_random_hit",
+     "publication_deferred_conflict",
+     "publication_requested",
+     "publication_sent",
+     "publish_blocked",
+     "sent"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "meme:meme:-1002661910336:2026-11-12:2e81da43924c"
+    ]
+   },
+   "days_0": {
+    "http": 200,
+    "total": 530,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active",
+     "no_random_hit",
+     "publication_deferred_conflict",
+     "publication_requested",
+     "publication_sent",
+     "publish_blocked",
+     "sent"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "meme:meme:-1002661910336:2026-11-12:2e81da43924c"
+    ]
+   },
+   "days_90": {
+    "http": 200,
+    "total": 530,
+    "next_offset": 40,
+    "rows": 40,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active",
+     "no_random_hit",
+     "publication_deferred_conflict",
+     "publication_requested",
+     "publication_sent",
+     "publish_blocked",
+     "sent"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "meme:meme:-1002661910336:2026-11-12:2e81da43924c"
+    ]
+   },
+   "page_0": {
+    "http": 200,
+    "total": 354,
+    "next_offset": 1,
+    "rows": 1,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:16804c348dd7"
+    ]
+   },
+   "page_1": {
+    "http": 200,
+    "total": 354,
+    "next_offset": 2,
+    "rows": 1,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794"
+    ]
+   },
+   "page_5": {
+    "http": 200,
+    "total": 354,
+    "next_offset": 6,
+    "rows": 1,
+    "kinds": [
+     "meme"
+    ],
+    "modes": [
+     "auto"
+    ],
+    "outcomes": [
+     "skipped"
+    ],
+    "reason_codes": [
+     "cooldown_active"
+    ],
+    "attempt_ids": [
+     "meme:meme:-1002661910336:2026-11-12:525d22637d5a"
+    ]
+   },
+   "bad_days": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "days"
+      ],
+      "msg": "Input should be less than or equal to 90",
+      "type": "less_than_equal"
+     }
+    ]
+   },
+   "bad_limit0": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "limit"
+      ],
+      "msg": "Input should be greater than or equal to 1",
+      "type": "greater_than_equal"
+     }
+    ]
+   },
+   "bad_limit500": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "limit"
+      ],
+      "msg": "Input should be less than or equal to 100",
+      "type": "less_than_equal"
+     }
+    ]
+   },
+   "bad_offset": {
+    "http": 422,
+    "total": null,
+    "next_offset": null,
+    "rows": 0,
+    "kinds": [],
+    "modes": [],
+    "outcomes": [],
+    "reason_codes": [],
+    "attempt_ids": [],
+    "detail": [
+     {
+      "loc": [
+       "query",
+       "offset"
+      ],
+      "msg": "Input should be greater than or equal to 0",
+      "type": "greater_than_equal"
+     }
+    ]
+   }
+  }
+ },
+ "traces": {
+  "-1004482340693": {
+   "meme": {
+    "attempt_id": "meme:meme:-1004482340693:2026-11-12:92116862a5c9",
+    "http": 200,
+    "detail": {
+     "schema_version": 1,
+     "available": true,
+     "notes": [],
+     "attempt": {
+      "attempt_id": "meme:meme:-1004482340693:2026-11-12:92116862a5c9",
+      "kind": "meme",
+      "job_id": "meme:-1004482340693:2026-11-12:92116862a5c9",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476599,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476599
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476599
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     "chain": [
+      {
+       "stage": "considered",
+       "ts": 1794476599,
+       "outcome": "passed",
+       "reason_code": "",
+       "reason_label": "",
+       "facts": {},
+       "limit_source": "",
+       "limit_value": null,
+       "window_messages": 500,
+       "duration_ms": null,
+       "duration_reason": "step_timing_not_recorded",
+       "request_id": "meme:-1004482340693:2026-11-12:92116862a5c9",
+       "request_id_source": "journal_job_id",
+       "llm": {
+        "provider": null,
+        "model": null,
+        "slot": null,
+        "recorded_keys": [],
+        "reason": "not_recorded_in_stage_record"
+       }
+      },
+      {
+       "stage": "skipped",
+       "ts": 1794476599,
+       "outcome": "skipped",
+       "reason_code": "cooldown_active",
+       "reason_label": "пауза между мемами ещё не прошла",
+       "facts": {
+        "attempt_mode": "automatic",
+        "mode": "automatic"
+       },
+       "limit_source": "",
+       "limit_value": null,
+       "window_messages": 500,
+       "duration_ms": null,
+       "duration_reason": "step_timing_not_recorded",
+       "request_id": "meme:-1004482340693:2026-11-12:92116862a5c9",
+       "request_id_source": "journal_job_id",
+       "llm": {
+        "provider": null,
+        "model": null,
+        "slot": null,
+        "recorded_keys": [],
+        "reason": "not_recorded_in_stage_record"
+       }
+      }
+     ],
+     "events": [],
+     "full_text": {
+      "available": false,
+      "storage": "Полный текст запроса не хранится в журнале попытки. Он доступен только в существующем Inspector из in-memory кольца композера (prompt_composer.provider_calls): последние 24 записи ПРОЦЕССА, общие для всех чатов, до перезапуска процесса или вытеснения записью — в том числе вызовом другого чата.",
+      "ring_limit": 24,
+      "ring_scope": "process_lifetime",
+      "inspector": "/api/speech/inspector",
+      "inspector_rbac": "can_edit_inspector",
+      "steps": [
+       {
+        "step": "summary",
+        "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+        "recorded": false,
+        "reason": "not_recorded",
+        "reason_detail": "provider_ring_miss"
+       },
+       {
+        "step": "joke",
+        "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_joke",
+        "recorded": false,
+        "reason": "not_recorded",
+        "reason_detail": "provider_ring_miss"
+       }
+      ]
+     },
+     "delivery": {
+      "delivered": false,
+      "message_id": null
+     }
+    }
+   },
+   "text": null
+  },
+  "-1002661910336": {
+   "meme": {
+    "attempt_id": "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+    "http": 200,
+    "detail": {
+     "schema_version": 1,
+     "available": true,
+     "notes": [],
+     "attempt": {
+      "attempt_id": "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+      "kind": "meme",
+      "job_id": "meme:-1002661910336:2026-11-12:16804c348dd7",
+      "mode": "auto",
+      "incomplete_historical": false,
+      "ts": 1794476599,
+      "stage": "skipped",
+      "outcome": "skipped",
+      "reason_code": "cooldown_active",
+      "reason_label": "пауза между мемами ещё не прошла",
+      "delivered": false,
+      "generated": false,
+      "message_id": null,
+      "chain_len": 2,
+      "stages": [
+       {
+        "stage": "considered",
+        "outcome": "passed",
+        "reason_code": "",
+        "at": 1794476599
+       },
+       {
+        "stage": "skipped",
+        "outcome": "skipped",
+        "reason_code": "cooldown_active",
+        "at": 1794476599
+       }
+      ],
+      "reason_codes": [
+       "cooldown_active"
+      ],
+      "events_len": 0,
+      "window_messages": 500,
+      "limit_source": "",
+      "limit_value": null
+     },
+     "chain": [
+      {
+       "stage": "considered",
+       "ts": 1794476599,
+       "outcome": "passed",
+       "reason_code": "",
+       "reason_label": "",
+       "facts": {},
+       "limit_source": "",
+       "limit_value": null,
+       "window_messages": 500,
+       "duration_ms": null,
+       "duration_reason": "step_timing_not_recorded",
+       "request_id": "meme:-1002661910336:2026-11-12:16804c348dd7",
+       "request_id_source": "journal_job_id",
+       "llm": {
+        "provider": null,
+        "model": null,
+        "slot": null,
+        "recorded_keys": [],
+        "reason": "not_recorded_in_stage_record"
+       }
+      },
+      {
+       "stage": "skipped",
+       "ts": 1794476599,
+       "outcome": "skipped",
+       "reason_code": "cooldown_active",
+       "reason_label": "пауза между мемами ещё не прошла",
+       "facts": {
+        "attempt_mode": "automatic",
+        "mode": "automatic"
+       },
+       "limit_source": "",
+       "limit_value": null,
+       "window_messages": 500,
+       "duration_ms": null,
+       "duration_reason": "step_timing_not_recorded",
+       "request_id": "meme:-1002661910336:2026-11-12:16804c348dd7",
+       "request_id_source": "journal_job_id",
+       "llm": {
+        "provider": null,
+        "model": null,
+        "slot": null,
+        "recorded_keys": [],
+        "reason": "not_recorded_in_stage_record"
+       }
+      }
+     ],
+     "events": [],
+     "full_text": {
+      "available": false,
+      "storage": "Полный текст запроса не хранится в журнале попытки. Он доступен только в существующем Inspector из in-memory кольца композера (prompt_composer.provider_calls): последние 24 записи ПРОЦЕССА, общие для всех чатов, до перезапуска процесса или вытеснения записью — в том числе вызовом другого чата.",
+      "ring_limit": 24,
+      "ring_scope": "process_lifetime",
+      "inspector": "/api/speech/inspector",
+      "inspector_rbac": "can_edit_inspector",
+      "steps": [
+       {
+        "step": "summary",
+        "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+        "recorded": false,
+        "reason": "not_recorded",
+        "reason_detail": "provider_ring_miss"
+       },
+       {
+        "step": "joke",
+        "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_joke",
+        "recorded": false,
+        "reason": "not_recorded",
+        "reason_detail": "provider_ring_miss"
+       }
+      ]
+     },
+     "delivery": {
+      "delivered": false,
+      "message_id": null
+     }
+    }
+   },
+   "text": null
+  }
+ },
+ "inspector": {
+  "-1004482340693": {
+   "correlation_used": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+   "cases": {
+    "own_correlation": {
+     "http": 200,
+     "body": {
+      "chat_id": -1004482340693,
+      "last_run_present": false,
+      "last_run_note": "Запрос с correlation_id «meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary» в общем кольце композера не найден (not_recorded): кольцо хранит последние 24 записей процесса — после перезапуска/вытеснения полного текста нет. Текущая сборка настроек за фактический запрос не выдаётся.",
+      "requested_correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+      "requested_correlation_recorded": false,
+      "ring_limit": 24,
+      "ring_hits": 0,
+      "exact": {
+       "label": "not_recorded",
+       "is_actual": false,
+       "status": "not_recorded",
+       "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+       "reason": "provider_ring_miss",
+       "checksum": "",
+       "checksum_algo": "sha256",
+       "messages_checksum": "",
+       "model": "",
+       "provider": "",
+       "module": "",
+       "step": "",
+       "channel": "",
+       "error": "",
+       "recorded_at": "",
+       "roles": [],
+       "chars_total": 0,
+       "system": "",
+       "messages": [],
+       "chat_id_redacted": ""
+      },
+      "last_call": {},
+      "masked": true,
+      "retention": "снимки вызовов — существующее in-memory кольцо композера (prompt_composer.provider_calls): последние 24 записей процесса, общее для всех чатов (фильтр по чату — при чтении); живут до перезапуска процесса или вытеснения; тексты маскируются (секреты, длинные ID)"
+     }
+    },
+    "miss": {
+     "http": 200,
+     "body": {
+      "chat_id": -1004482340693,
+      "last_run_present": false,
+      "last_run_note": "Запрос с correlation_id «no-such-job#meme_summary» в общем кольце композера не найден (not_recorded): кольцо хранит последние 24 записей процесса — после перезапуска/вытеснения полного текста нет. Текущая сборка настроек за фактический запрос не выдаётся.",
+      "requested_correlation_id": "no-such-job#meme_summary",
+      "requested_correlation_recorded": false,
+      "ring_limit": 24,
+      "ring_hits": 0,
+      "exact": {
+       "label": "not_recorded",
+       "is_actual": false,
+       "status": "not_recorded",
+       "correlation_id": "no-such-job#meme_summary",
+       "reason": "provider_ring_miss",
+       "checksum": "",
+       "checksum_algo": "sha256",
+       "messages_checksum": "",
+       "model": "",
+       "provider": "",
+       "module": "",
+       "step": "",
+       "channel": "",
+       "error": "",
+       "recorded_at": "",
+       "roles": [],
+       "chars_total": 0,
+       "system": "",
+       "messages": [],
+       "chat_id_redacted": ""
+      },
+      "last_call": {},
+      "masked": true,
+      "retention": "снимки вызовов — существующее in-memory кольцо композера (prompt_composer.provider_calls): последние 24 записей процесса, общее для всех чатов (фильтр по чату — при чтении); живут до перезапуска процесса или вытеснения; тексты маскируются (секреты, длинные ID)"
+     }
+    },
+    "foreign_chat": {
+     "http": 200,
+     "body": {
+      "chat_id": -1002661910336,
+      "last_run_present": false,
+      "last_run_note": "Запрос с correlation_id «meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary» в общем кольце композера не найден (not_recorded): кольцо хранит последние 24 записей процесса — после перезапуска/вытеснения полного текста нет. Текущая сборка настроек за фактический запрос не выдаётся.",
+      "requested_correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+      "requested_correlation_recorded": false,
+      "ring_limit": 24,
+      "ring_hits": 0,
+      "exact": {
+       "label": "not_recorded",
+       "is_actual": false,
+       "status": "not_recorded",
+       "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+       "reason": "provider_ring_miss",
+       "checksum": "",
+       "checksum_algo": "sha256",
+       "messages_checksum": "",
+       "model": "",
+       "provider": "",
+       "module": "",
+       "step": "",
+       "channel": "",
+       "error": "",
+       "recorded_at": "",
+       "roles": [],
+       "chars_total": 0,
+       "system": "",
+       "messages": [],
+       "chat_id_redacted": ""
+      },
+      "last_call": {},
+      "masked": true,
+      "retention": "снимки вызовов — существующее in-memory кольцо композера (prompt_composer.provider_calls): последние 24 записей процесса, общее для всех чатов (фильтр по чату — при чтении); живут до перезапуска процесса или вытеснения; тексты маскируются (секреты, длинные ID)"
+     }
+    }
+   },
+   "full_text_block": {
+    "available": false,
+    "storage": "Полный текст запроса не хранится в журнале попытки. Он доступен только в существующем Inspector из in-memory кольца композера (prompt_composer.provider_calls): последние 24 записи ПРОЦЕССА, общие для всех чатов, до перезапуска процесса или вытеснения записью — в том числе вызовом другого чата.",
+    "ring_limit": 24,
+    "ring_scope": "process_lifetime",
+    "inspector": "/api/speech/inspector",
+    "inspector_rbac": "can_edit_inspector",
+    "steps": [
+     {
+      "step": "summary",
+      "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+      "recorded": false,
+      "reason": "not_recorded",
+      "reason_detail": "provider_ring_miss"
+     },
+     {
+      "step": "joke",
+      "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_joke",
+      "recorded": false,
+      "reason": "not_recorded",
+      "reason_detail": "provider_ring_miss"
+     }
+    ]
+   }
+  },
+  "-1002661910336": {
+   "correlation_used": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+   "cases": {
+    "own_correlation": {
+     "http": 200,
+     "body": {
+      "chat_id": -1002661910336,
+      "last_run_present": false,
+      "last_run_note": "Запрос с correlation_id «meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary» в общем кольце композера не найден (not_recorded): кольцо хранит последние 24 записей процесса — после перезапуска/вытеснения полного текста нет. Текущая сборка настроек за фактический запрос не выдаётся.",
+      "requested_correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+      "requested_correlation_recorded": false,
+      "ring_limit": 24,
+      "ring_hits": 0,
+      "exact": {
+       "label": "not_recorded",
+       "is_actual": false,
+       "status": "not_recorded",
+       "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+       "reason": "provider_ring_miss",
+       "checksum": "",
+       "checksum_algo": "sha256",
+       "messages_checksum": "",
+       "model": "",
+       "provider": "",
+       "module": "",
+       "step": "",
+       "channel": "",
+       "error": "",
+       "recorded_at": "",
+       "roles": [],
+       "chars_total": 0,
+       "system": "",
+       "messages": [],
+       "chat_id_redacted": ""
+      },
+      "last_call": {},
+      "masked": true,
+      "retention": "снимки вызовов — существующее in-memory кольцо композера (prompt_composer.provider_calls): последние 24 записей процесса, общее для всех чатов (фильтр по чату — при чтении); живут до перезапуска процесса или вытеснения; тексты маскируются (секреты, длинные ID)"
+     }
+    },
+    "miss": {
+     "http": 200,
+     "body": {
+      "chat_id": -1002661910336,
+      "last_run_present": false,
+      "last_run_note": "Запрос с correlation_id «no-such-job#meme_summary» в общем кольце композера не найден (not_recorded): кольцо хранит последние 24 записей процесса — после перезапуска/вытеснения полного текста нет. Текущая сборка настроек за фактический запрос не выдаётся.",
+      "requested_correlation_id": "no-such-job#meme_summary",
+      "requested_correlation_recorded": false,
+      "ring_limit": 24,
+      "ring_hits": 0,
+      "exact": {
+       "label": "not_recorded",
+       "is_actual": false,
+       "status": "not_recorded",
+       "correlation_id": "no-such-job#meme_summary",
+       "reason": "provider_ring_miss",
+       "checksum": "",
+       "checksum_algo": "sha256",
+       "messages_checksum": "",
+       "model": "",
+       "provider": "",
+       "module": "",
+       "step": "",
+       "channel": "",
+       "error": "",
+       "recorded_at": "",
+       "roles": [],
+       "chars_total": 0,
+       "system": "",
+       "messages": [],
+       "chat_id_redacted": ""
+      },
+      "last_call": {},
+      "masked": true,
+      "retention": "снимки вызовов — существующее in-memory кольцо композера (prompt_composer.provider_calls): последние 24 записей процесса, общее для всех чатов (фильтр по чату — при чтении); живут до перезапуска процесса или вытеснения; тексты маскируются (секреты, длинные ID)"
+     }
+    },
+    "foreign_chat": {
+     "http": 200,
+     "body": {
+      "chat_id": -1004482340693,
+      "last_run_present": false,
+      "last_run_note": "Запрос с correlation_id «meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary» в общем кольце композера не найден (not_recorded): кольцо хранит последние 24 записей процесса — после перезапуска/вытеснения полного текста нет. Текущая сборка настроек за фактический запрос не выдаётся.",
+      "requested_correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+      "requested_correlation_recorded": false,
+      "ring_limit": 24,
+      "ring_hits": 0,
+      "exact": {
+       "label": "not_recorded",
+       "is_actual": false,
+       "status": "not_recorded",
+       "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+       "reason": "provider_ring_miss",
+       "checksum": "",
+       "checksum_algo": "sha256",
+       "messages_checksum": "",
+       "model": "",
+       "provider": "",
+       "module": "",
+       "step": "",
+       "channel": "",
+       "error": "",
+       "recorded_at": "",
+       "roles": [],
+       "chars_total": 0,
+       "system": "",
+       "messages": [],
+       "chat_id_redacted": ""
+      },
+      "last_call": {},
+      "masked": true,
+      "retention": "снимки вызовов — существующее in-memory кольцо композера (prompt_composer.provider_calls): последние 24 записей процесса, общее для всех чатов (фильтр по чату — при чтении); живут до перезапуска процесса или вытеснения; тексты маскируются (секреты, длинные ID)"
+     }
+    }
+   },
+   "full_text_block": {
+    "available": false,
+    "storage": "Полный текст запроса не хранится в журнале попытки. Он доступен только в существующем Inspector из in-memory кольца композера (prompt_composer.provider_calls): последние 24 записи ПРОЦЕССА, общие для всех чатов, до перезапуска процесса или вытеснения записью — в том числе вызовом другого чата.",
+    "ring_limit": 24,
+    "ring_scope": "process_lifetime",
+    "inspector": "/api/speech/inspector",
+    "inspector_rbac": "can_edit_inspector",
+    "steps": [
+     {
+      "step": "summary",
+      "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+      "recorded": false,
+      "reason": "not_recorded",
+      "reason_detail": "provider_ring_miss"
+     },
+     {
+      "step": "joke",
+      "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_joke",
+      "recorded": false,
+      "reason": "not_recorded",
+      "reason_detail": "provider_ring_miss"
+     }
+    ]
+   }
+  }
+ },
+ "ov_sample": {
+  "-1004482340693": {
+   "generated_at": 1794476573,
+   "heartbeat_ok": false,
+   "heartbeat": {
+    "ok": false,
+    "last_tick_ts": null,
+    "last_tick_status": "",
+    "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+   },
+   "meme": {
+    "enabled": true,
+    "ready": false,
+    "image_module": [],
+    "image_provider": {
+     "available": true,
+     "configured": true,
+     "module_enabled": true,
+     "reason": "ok",
+     "health": "unknown",
+     "model": "qwen-image-3-pro",
+     "source": "meme_initiative.image_dependency"
+    },
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 3,
+     "used": 2,
+     "remaining": 1,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": true,
+     "next_reset": "2026-11-13T00:00:00+00:00",
+     "delivered": 2,
+     "not_delivered": 0,
+     "not_delivered_reasons": {}
+    },
+    "publication": {
+     "available": true,
+     "coordination": "ok",
+     "degraded": false,
+     "degraded_reason": "",
+     "conflict": false,
+     "conflict_state": "clear",
+     "ok": true,
+     "reason": "",
+     "reason_label": "",
+     "detail": "",
+     "state": "released",
+     "holder_kind": "meme_initiative",
+     "claimed_by": "meme_initiative",
+     "other_kind": "",
+     "other_age_seconds": null,
+     "interval_seconds": 1800,
+     "manual_priority_until": 1794403592,
+     "manual_priority_active": false,
+     "manual_priority_expired": true,
+     "claim_expires_at": null,
+     "checked_at": 1794476573
+    },
+    "attempts": [],
+    "attempt_mode": null,
+    "last_action": {}
+   },
+   "text": {
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 6,
+     "used": 0,
+     "remaining": 6,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": null,
+     "next_reset": null,
+     "delivered": null,
+     "not_delivered": null,
+     "not_delivered_reasons": {}
+    },
+    "publication": {
+     "available": true,
+     "coordination": "ok",
+     "degraded": false,
+     "degraded_reason": "",
+     "conflict": false,
+     "conflict_state": "clear",
+     "ok": true,
+     "reason": "",
+     "reason_label": "",
+     "detail": "",
+     "state": "released",
+     "holder_kind": "initiative_reply",
+     "claimed_by": "meme_initiative",
+     "other_kind": "meme_initiative",
+     "other_age_seconds": 10397,
+     "interval_seconds": 1800,
+     "manual_priority_until": 1794403592,
+     "manual_priority_active": false,
+     "manual_priority_expired": true,
+     "claim_expires_at": null,
+     "checked_at": 1794476573
+    },
+    "image_provider": null,
+    "last_action": {}
+   },
+   "degraded": []
+  },
+  "-1002661910336": {
+   "generated_at": 1794476576,
+   "heartbeat_ok": false,
+   "heartbeat": {
+    "ok": false,
+    "last_tick_ts": null,
+    "last_tick_status": "",
+    "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+   },
+   "meme": {
+    "enabled": true,
+    "ready": false,
+    "image_module": [],
+    "image_provider": {
+     "available": true,
+     "configured": true,
+     "module_enabled": true,
+     "reason": "ok",
+     "health": "unknown",
+     "model": "qwen-image-3-pro",
+     "source": "meme_initiative.image_dependency"
+    },
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 3,
+     "used": 2,
+     "remaining": 1,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": true,
+     "next_reset": "2026-11-13T00:00:00+00:00",
+     "delivered": 2,
+     "not_delivered": 0,
+     "not_delivered_reasons": {}
+    },
+    "publication": {
+     "available": true,
+     "coordination": "ok",
+     "degraded": false,
+     "degraded_reason": "",
+     "conflict": false,
+     "conflict_state": "clear",
+     "ok": true,
+     "reason": "",
+     "reason_label": "",
+     "detail": "",
+     "state": "released",
+     "holder_kind": "meme_initiative",
+     "claimed_by": "meme_initiative",
+     "other_kind": "initiative_reply",
+     "other_age_seconds": 14468,
+     "interval_seconds": 1800,
+     "manual_priority_until": 1794403499,
+     "manual_priority_active": false,
+     "manual_priority_expired": true,
+     "claim_expires_at": null,
+     "checked_at": 1794476576
+    },
+    "attempts": [],
+    "attempt_mode": null,
+    "last_action": {}
+   },
+   "text": {
+    "quota": {
+     "scope": "mechanism_own",
+     "limit": 6,
+     "used": 0,
+     "remaining": 6,
+     "unlimited": false,
+     "limit_reached": false,
+     "available": null,
+     "next_reset": null,
+     "delivered": null,
+     "not_delivered": null,
+     "not_delivered_reasons": {}
+    },
+    "publication": {
+     "available": true,
+     "coordination": "ok",
+     "degraded": false,
+     "degraded_reason": "",
+     "conflict": false,
+     "conflict_state": "clear",
+     "ok": true,
+     "reason": "",
+     "reason_label": "",
+     "detail": "",
+     "state": "released",
+     "holder_kind": "initiative_reply",
+     "claimed_by": "meme_initiative",
+     "other_kind": "meme_initiative",
+     "other_age_seconds": 2515,
+     "interval_seconds": 1800,
+     "manual_priority_until": 1794403499,
+     "manual_priority_active": false,
+     "manual_priority_expired": true,
+     "claim_expires_at": null,
+     "checked_at": 1794476576
+    },
+    "image_provider": null,
+    "last_action": {}
+   },
+   "degraded": []
+  }
+ },
+ "secret_scan": {
+  "authorization_header": 0,
+  "api_key_field": 0,
+  "password_field": 0,
+  "secret_field": 0,
+  "cookie_field": 0,
+  "bot_token_shape": 0,
+  "bearer": 0,
+  "sk_live": 0
+ },
+ "doc_len": 68414
+}

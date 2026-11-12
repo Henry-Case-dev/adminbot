@@ -1,0 +1,14 @@
+=== state ===
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+0
+active
+0
+Thu 2026-11-12 09:41:39 UTC
+{"status":"ok","version":"2.58.197"}
+=== Traceback/ERROR lines (masked, bounded) ===
+843:2026-11-12 09:46:42,617 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+846:2026-11-12 09:46:42,621 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time
+=== attempt LOST count ===
+0
+2026-11-12T09:46:56Z

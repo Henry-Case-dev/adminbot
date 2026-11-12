@@ -1,0 +1,26 @@
+{
+ "-1004482340693": {
+  "http": [
+   200,
+   200
+  ],
+  "diff_two_calls": [
+   "/modules/3/gate/observed_at:value"
+  ],
+  "response_updated_at": "2026-11-11T13:14:05.843018+00:00",
+  "latest_item_stamp": "2026-11-11T13:14:05.843018+00:00",
+  "items": 623
+ },
+ "-1002661910336": {
+  "http": [
+   200,
+   200
+  ],
+  "diff_two_calls": [
+   "/modules/3/gate/observed_at:value"
+  ],
+  "response_updated_at": "2026-11-11T13:13:48.622317+00:00",
+  "latest_item_stamp": "2026-11-11T13:13:48.622317+00:00",
+  "items": 623
+ }
+}

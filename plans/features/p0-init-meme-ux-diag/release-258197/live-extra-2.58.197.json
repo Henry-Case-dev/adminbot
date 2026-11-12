@@ -1,0 +1,300 @@
+{
+ "nonadmin_id_present": true,
+ "chats": {
+  "-1004482340693": {
+   "post_restart_attempts": 3,
+   "attempts_with_llm": [],
+   "attempts_with_api": [],
+   "details": [
+    {
+     "attempt_id": "meme:meme:-1004482340693:2026-11-12:92116862a5c9",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1004482340693:2026-11-12:92116862a5c9#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    },
+    {
+     "attempt_id": "meme:meme:-1004482340693:2026-11-12:31abe3b5b4be",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1004482340693:2026-11-12:31abe3b5b4be#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1004482340693:2026-11-12:31abe3b5b4be#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    },
+    {
+     "attempt_id": "meme:meme:-1004482340693:2026-11-12:e526b274a77d",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1004482340693:2026-11-12:e526b274a77d#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1004482340693:2026-11-12:e526b274a77d#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    }
+   ],
+   "manual_priority": {
+    "manual_priority_until": 1794403592,
+    "manual_priority_active": false,
+    "manual_priority_expired": true,
+    "state": "released",
+    "holder_kind": "meme_initiative"
+   },
+   "image_module_layer": [
+    {
+     "gate": "image_module",
+     "layer": "global",
+     "enabled": true,
+     "source": "image_module",
+     "reason": ""
+    }
+   ],
+   "image_provider": {
+    "available": true,
+    "configured": true,
+    "module_enabled": true,
+    "reason": "ok",
+    "health": "unknown",
+    "model": "qwen-image-3-pro",
+    "source": "meme_initiative.image_dependency"
+   },
+   "heartbeat": {
+    "ok": false,
+    "last_tick_ts": null,
+    "last_tick_status": "",
+    "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+   },
+   "heartbeat_ok": false,
+   "ordinary_inspector": {
+    "http": 200,
+    "has_preview": true,
+    "has_hierarchy": true
+   },
+   "nonadmin_inspector_http": 403,
+   "nonadmin_detail": "{'detail': 'нет доступа к Inspector'}"
+  },
+  "-1002661910336": {
+   "post_restart_attempts": 4,
+   "attempts_with_llm": [],
+   "attempts_with_api": [],
+   "details": [
+    {
+     "attempt_id": "meme:meme:-1002661910336:2026-11-12:1bb6a24f5e28",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1002661910336:2026-11-12:1bb6a24f5e28#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1002661910336:2026-11-12:1bb6a24f5e28#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    },
+    {
+     "attempt_id": "meme:meme:-1002661910336:2026-11-12:16804c348dd7",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1002661910336:2026-11-12:16804c348dd7#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    },
+    {
+     "attempt_id": "meme:meme:-1002661910336:2026-11-12:6fd85a0eb794",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1002661910336:2026-11-12:6fd85a0eb794#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1002661910336:2026-11-12:6fd85a0eb794#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    },
+    {
+     "attempt_id": "meme:meme:-1002661910336:2026-11-12:2e81da43924c",
+     "stage": "skipped",
+     "outcome": "skipped",
+     "stages": [
+      "considered",
+      "skipped"
+     ],
+     "llm_stages": [],
+     "prompt_stages": [],
+     "api_stages": [],
+     "full_text_available": false,
+     "correlation_steps": [
+      {
+       "step": "summary",
+       "correlation_id": "meme:-1002661910336:2026-11-12:2e81da43924c#meme_summary",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      },
+      {
+       "step": "joke",
+       "correlation_id": "meme:-1002661910336:2026-11-12:2e81da43924c#meme_joke",
+       "recorded": false,
+       "reason": "not_recorded",
+       "reason_detail": "provider_ring_miss"
+      }
+     ]
+    }
+   ],
+   "manual_priority": {
+    "manual_priority_until": 1794403499,
+    "manual_priority_active": false,
+    "manual_priority_expired": true,
+    "state": "released",
+    "holder_kind": "meme_initiative"
+   },
+   "image_module_layer": [
+    {
+     "gate": "image_module",
+     "layer": "global",
+     "enabled": true,
+     "source": "image_module",
+     "reason": ""
+    }
+   ],
+   "image_provider": {
+    "available": true,
+    "configured": true,
+    "module_enabled": true,
+    "reason": "ok",
+    "health": "unknown",
+    "model": "qwen-image-3-pro",
+    "source": "meme_initiative.image_dependency"
+   },
+   "heartbeat": {
+    "ok": false,
+    "last_tick_ts": null,
+    "last_tick_status": "",
+    "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+   },
+   "heartbeat_ok": false,
+   "ordinary_inspector": {
+    "http": 200,
+    "has_preview": true,
+    "has_hierarchy": true
+   },
+   "nonadmin_inspector_http": 403,
+   "nonadmin_detail": "{'detail': 'нет доступа к Inspector'}"
+  }
+ }
+}

@@ -1,0 +1,124 @@
+{
+ "release": "2.58.197",
+ "all_match": false,
+ "surfaces": {
+  "config_chat_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "e2f01eb3336da6f331dd0b115f17c923875b84245efba4437aa1593583647ebd",
+   "sha256_after": "99f10a8d3953cf13a572eeb40a32fd2dd00e823552f989d9a101d6003eb6d039",
+   "match": false
+  },
+  "config_chat_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "56abcaef07aaa184565d4a3dc176398a766ef13fc74a40c420a4abf99cc4bd75",
+   "sha256_after": "4fc1ebc807ac46f34cde33ce774d3f1be821bc432c1f043217d8457d883cceba",
+   "match": false
+  },
+  "config_global": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "e6119b0fbb5eabfb71e076a7374c7fc1e6696ba4b9adcb65372fa2ccf82338a2",
+   "sha256_after": "e6119b0fbb5eabfb71e076a7374c7fc1e6696ba4b9adcb65372fa2ccf82338a2",
+   "match": true
+  },
+  "config_overrides_map": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36",
+   "sha256_after": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36",
+   "match": true
+  },
+  "meme_settings_saved_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "4f66dfa4bc2c90250569a98434dc71bd7a7a808bbe52e97ad77b388ee6d36d86",
+   "sha256_after": "4f66dfa4bc2c90250569a98434dc71bd7a7a808bbe52e97ad77b388ee6d36d86",
+   "match": true
+  },
+  "meme_settings_saved_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "01c7c8f2572c236fcb6ac48160be71f588fb6ba19c25814183f12cf27b558663",
+   "sha256_after": "01c7c8f2572c236fcb6ac48160be71f588fb6ba19c25814183f12cf27b558663",
+   "match": true
+  },
+  "prompt_versions": {
+   "http_before": null,
+   "http_after": null,
+   "sha256_before": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+   "sha256_after": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+   "match": true,
+   "items": {
+    "prompts.meme_image": {
+     "sha256_before": "d3109ea548d9d3f14f5c5822428742999a784d706ee672219b6a96eff1e79842",
+     "sha256_after": "d3109ea548d9d3f14f5c5822428742999a784d706ee672219b6a96eff1e79842",
+     "match": true
+    },
+    "prompts.meme_joke": {
+     "sha256_before": "272445d8b41b60a33dfa66bf768c383cd6d8f78ea458c93ff7e8ce15d9d50d48",
+     "sha256_after": "272445d8b41b60a33dfa66bf768c383cd6d8f78ea458c93ff7e8ce15d9d50d48",
+     "match": true
+    },
+    "initiative.meme.summary": {
+     "sha256_before": "4c792b4b9c560af00e08ff3fc5f7e1b2ba428924dfe2554d3c229b5ad5346503",
+     "sha256_after": "4c792b4b9c560af00e08ff3fc5f7e1b2ba428924dfe2554d3c229b5ad5346503",
+     "match": true
+    },
+    "internal.initiative_observer": {
+     "sha256_before": "20846d44a2f4f9691974fcf71523565d0d86a948ae89ec0c11b48a7ae7f23725",
+     "sha256_after": "20846d44a2f4f9691974fcf71523565d0d86a948ae89ec0c11b48a7ae7f23725",
+     "match": true
+    }
+   }
+  },
+  "prompts_catalog": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408",
+   "sha256_after": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408",
+   "match": true
+  }
+ },
+ "classification": {
+  "exact_raw_match": [
+   "config_global",
+   "config_overrides_map",
+   "prompts_catalog",
+   "prompt_versions",
+   "meme_settings_saved_-1004482340693",
+   "meme_settings_saved_-1002661910336"
+  ],
+  "chat_config_raw_diff_explained": {
+   "per_chat": {
+    "-1004482340693": {
+     "http": [
+      200,
+      200
+     ],
+     "diff_two_calls": [
+      "/modules/3/gate/observed_at:value"
+     ],
+     "response_updated_at": "2026-11-11T13:14:05.843018+00:00",
+     "latest_item_stamp": "2026-11-11T13:14:05.843018+00:00",
+     "items": 623
+    },
+    "-1002661910336": {
+     "http": [
+      200,
+      200
+     ],
+     "diff_two_calls": [
+      "/modules/3/gate/observed_at:value"
+     ],
+     "response_updated_at": "2026-11-11T13:13:48.622317+00:00",
+     "latest_item_stamp": "2026-11-11T13:13:48.622317+00:00",
+     "items": 623
+    }
+   },
+   "cause": "волатильный /modules/3/gate/observed_at меняется между любыми двумя вызовами; latest_item_stamp у всех items — 2026-11-11 (до релиза)"
+  },
+  "verdict": "ни один сохранённый промпт/модель/настройка не изменились"
+ }
+}

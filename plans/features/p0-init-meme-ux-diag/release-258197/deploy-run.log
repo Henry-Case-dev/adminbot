@@ -1,0 +1,97 @@
+
+=== A pre-state ===
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+release/2.58.195
+tracked_dirty=0
+APP_VERSION_ON_DISK=2.58.195
+APP_VERSION_ON_DISK=2.58.195
+active
+0
+Thu 2026-11-12 09:08:31 UTC
+168098
+active
+0
+Thu 2026-11-12 09:08:31 UTC
+168098
+{"status":"ok","version":"2.58.195"}
+/dev/vda1        99G   54G   40G  58% /
+db_bytes=2557816832
+{"status":"ok","version":"2.58.195"}
+/dev/vda1        99G   54G   40G  58% /
+db_bytes=2557816832
+
+=== B predeploy snapshot ===
+BACKUP=backups/predeploy-258197-20261112T094016Z.db
+BACKUP_BYTES=2557874176
+BACKUP_SHA256=5b59134f4a6223ff69a0ede5bf843ab68093f579a268237b1884896da93561ea
+READBACK_INTEGRITY=ok
+READBACK_USER_VERSION=47
+READBACK_TABLES=130
+BACKUP=backups/predeploy-258197-20261112T094016Z.db
+BACKUP_BYTES=2557874176
+BACKUP_SHA256=5b59134f4a6223ff69a0ede5bf843ab68093f579a268237b1884896da93561ea
+READBACK_INTEGRITY=ok
+READBACK_USER_VERSION=47
+READBACK_TABLES=130
+snapshot_sec=73.4
+
+=== C fetch + fast-forward checkout ===
+From https://github.com/Henry-Case-dev/adminbot
+ * [new branch]        release/2.58.197 -> origin/release/2.58.197
+From https://github.com/Henry-Case-dev/adminbot
+ * [new branch]        release/2.58.197 -> origin/release/2.58.197
+2587616759de31283585ffc105c91e7193c2e89e
+origin_release_2.58.197=2587616759de31283585ffc105c91e7193c2e89e
+TARGET_PRESENT
+TARGET_PRESENT
+FF_OK
+FF_OK
+Switched to a new branch 'release/2.58.197'
+Switched to a new branch 'release/2.58.197'
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+APP_VERSION_ON_DISK=2.58.197
+APP_VERSION_ON_DISK=2.58.197
+db33e5894e1f13d93285b51bc591304e11dd7fcc
+2298542
+app_js_git=db33e5894e1f13d93285b51bc591304e11dd7fcc
+2298542
+
+=== D restart ===
+2026-11-12T09:41:37Z
+restart_pre_utc=2026-11-12T09:41:37Z
+
+active
+0
+Thu 2026-11-12 09:41:39 UTC
+active
+0
+Thu 2026-11-12 09:41:39 UTC
+
+=== E healthz (bounded retries) ===
+{"status":"ok","version":"2.58.197"}
+attempt 1: {"status":"ok","version":"2.58.197"}
+
+=== F post-state ===
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+0
+2587616759de31283585ffc105c91e7193c2e89e
+release/2.58.197
+0
+LIVE_USER_VERSION=47
+LIVE_USER_VERSION=47
+37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+served_app_js=37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+29817d9b927cb510f9896f4ea61d4a698f3cde18ba6cc9655608fe5251d759d8  web/app.js
+2298542
+disk_app_js=29817d9b927cb510f9896f4ea61d4a698f3cde18ba6cc9655608fe5251d759d8  web/app.js
+2298542
+TB=1 ERR=0 CRIT=0 WARN=14 LOST=0
+TB=1 ERR=0 CRIT=0 WARN=14 LOST=0
+847
+journal_lines=847
+2026-11-12T09:41:54Z
+now_utc=2026-11-12T09:41:54Z
