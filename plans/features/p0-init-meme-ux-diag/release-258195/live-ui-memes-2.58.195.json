@@ -1,0 +1,42 @@
+{
+ "checked_at_utc": "2026-11-12T05:34:05Z",
+ "url": "https://admin-bot.duckdns.org/web/",
+ "chats": {
+  "chatA": {
+   "chat_id": "-1004482340693",
+   "tab_clicked": true,
+   "texts": {
+    "meme_col": "Триггер и расписание\nОкно сообщений для выжимки, сообщений\nМинимум сообщений для триггера, сообщений\nСвой кулдаун между мемами, секунд\nКвота мемов в сутки, штук (0 = выключено)\nТихие часы (HH:MM-HH:MM)\nМодель выжимки (пусто — общая)\nГенерации сегодня: 1 / 3\nОсталось: 2\n· сброс: 2026-11-13T00:00:00+00:00\n· часовой пояс: UTC (utc_fallback)\nСчитаются только реальные попытки генерации (бронь до вызова провайдера); день считается в часовом поясе чата.\nТекущие условия (из API):\ncooldown_ready=нет · image_ready=да · initiative_enabled=да · meme_enabled=да · schema_present=да",
+    "meme_conditions": "Текущие условия (из API):\ncooldown_ready=нет · image_ready=да · initiative_enabled=да · meme_enabled=да · schema_present=да",
+    "last_attempt": "Последняя попытка\n12.11.2026, 17:29:36\nПодробная трасса →\nВыжимка\nнет данных\nГенерация прикола\nнет данных\nГенерация картинки\nнет данных\nПубликация\nнет данных\nПричина:кулдаун · cooldown_active · публикации не было",
+    "delivery": null,
+    "axis": null,
+    "effect": null,
+    "meme_pipeline": "1\nВыжимка\nнет данных\n2\nГенерация прикола\nнет данных\n3\nГенерация картинки\nнет данных\n4\nПубликация\nнет данных"
+   },
+   "console_errors": [],
+   "meme_card_text": null,
+   "png": "live-memes-chatA-2.58.195.png",
+   "no_data_occurrences": 8,
+   "has_generated_word": false
+  },
+  "chatB": {
+   "chat_id": "-1002661910336",
+   "tab_clicked": true,
+   "texts": {
+    "meme_col": "Триггер и расписание\nОкно сообщений для выжимки, сообщений\nМинимум сообщений для триггера, сообщений\nСвой кулдаун между мемами, секунд\nКвота мемов в сутки, штук (0 = выключено)\nТихие часы (HH:MM-HH:MM)\nМодель выжимки (пусто — общая)\nГенерации сегодня: 1 / 3\nОсталось: 2\n· сброс: 2026-11-13T00:00:00+00:00\n· часовой пояс: UTC (utc_fallback)\nСчитаются только реальные попытки генерации (бронь до вызова провайдера); день считается в часовом поясе чата.\nТекущие условия (из API):\ncooldown_ready=нет · image_ready=да · initiative_enabled=да · meme_enabled=да · schema_present=да",
+    "meme_conditions": "Текущие условия (из API):\ncooldown_ready=нет · image_ready=да · initiative_enabled=да · meme_enabled=да · schema_present=да",
+    "last_attempt": "Последняя попытка\n12.11.2026, 17:34:36\nПодробная трасса →\nВыжимка\nнет данных\nГенерация прикола\nнет данных\nГенерация картинки\nнет данных\nПубликация\nнет данных\nПричина:кулдаун · cooldown_active · публикации не было",
+    "delivery": null,
+    "axis": null,
+    "effect": null,
+    "meme_pipeline": "1\nВыжимка\nнет данных\n2\nГенерация прикола\nнет данных\n3\nГенерация картинки\nнет данных\n4\nПубликация\nнет данных"
+   },
+   "console_errors": [],
+   "meme_card_text": null,
+   "png": "live-memes-chatB-2.58.195.png",
+   "no_data_occurrences": 8,
+   "has_generated_word": false
+  }
+ }
+}

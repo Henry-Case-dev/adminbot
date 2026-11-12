@@ -1,0 +1,33 @@
+{
+ "checked_at_utc": "2026-11-12T05:36:20Z",
+ "chats": {
+  "chatA": {
+   "http": 200,
+   "deferred_total": 5,
+   "rows": 5,
+   "deferred_with_image_stage": null,
+   "row_outcome": null,
+   "row_delivered": null,
+   "row_generated": null,
+   "row_stages": [],
+   "detail": null
+  },
+  "chatB": {
+   "http": 200,
+   "deferred_total": 13,
+   "rows": 13,
+   "deferred_with_image_stage": null,
+   "row_outcome": null,
+   "row_delivered": null,
+   "row_generated": null,
+   "row_stages": [],
+   "detail": null
+  }
+ },
+ "sample_elements": {
+  "1_enabled_and_pause": "meme axis 'Разрешено: ВКЛ' + ready=false/cooldown_active with remaining seconds (live UI + diagnostics)",
+  "2_last_run_image_created_deferred": "deferred attempt with image_generation passed and delivered=false (see chats.*.detail)",
+  "3_last_confirmed_delivery_with_message_id": "last_delivery.status=confirmed with message_id (live UI + diagnostics)",
+  "4_show_attempt_action": "'Показать попытку →' button present on both chats; detail endpoint returns a real chain"
+ }
+}

@@ -1,0 +1,491 @@
+{
+ "checked_at_utc": "2026-11-12T05:25:50Z",
+ "version_expected": "2.58.195",
+ "chats": {
+  "chatA": {
+   "chat_id": "-1004482340693",
+   "http": 200,
+   "top_keys": [
+    "chat_id",
+    "degraded",
+    "generated_at",
+    "meme",
+    "schema_version",
+    "text_initiative",
+    "time"
+   ],
+   "schema_version": 1,
+   "generated_at": 1794461168,
+   "data_state": null,
+   "degraded": [],
+   "mechanisms_keys": []
+  },
+  "chatB": {
+   "chat_id": "-1002661910336",
+   "http": 200,
+   "top_keys": [
+    "chat_id",
+    "degraded",
+    "generated_at",
+    "meme",
+    "schema_version",
+    "text_initiative",
+    "time"
+   ],
+   "schema_version": 1,
+   "generated_at": 1794461169,
+   "data_state": null,
+   "degraded": [],
+   "mechanisms_keys": []
+  }
+ },
+ "publications_90d": {
+  "http": 422,
+  "rows": 0,
+  "total": null,
+  "oldest_age_days": null,
+  "newest_age_days": null
+ },
+ "publications_filters": {
+  "default": {
+   "params": {},
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "days7": {
+   "params": {
+    "days": 7
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "days0": {
+   "params": {
+    "days": 0
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "days90": {
+   "params": {
+    "days": 90
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "days91": {
+   "params": {
+    "days": 91
+   },
+   "http": 422,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": [
+    {
+     "loc": [
+      "query",
+      "days"
+     ],
+     "msg": "Input should be less than or equal to 90",
+     "type": "less_than_equal"
+    }
+   ]
+  },
+  "kind_all": {
+   "params": {
+    "kind": "all"
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "kind_meme": {
+   "params": {
+    "kind": "meme"
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "kind_text": {
+   "params": {
+    "kind": "text"
+   },
+   "http": 200,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": null
+  },
+  "mode_all": {
+   "params": {
+    "mode": "all"
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "mode_manual": {
+   "params": {
+    "mode": "manual"
+   },
+   "http": 200,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": null
+  },
+  "mode_auto": {
+   "params": {
+    "mode": "auto"
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "outcome_all": {
+   "params": {
+    "outcome": "all"
+   },
+   "http": 200,
+   "total": null,
+   "count": 40,
+   "next_offset": 40,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a",
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196",
+    "meme:meme:-1004482340693:2026-11-12:3f5019eb56a6",
+    "meme:meme:-1004482340693:2026-11-12:0d177c634484",
+    "meme:meme:-1004482340693:2026-11-12:327a4e73627a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "outcome_published": {
+   "params": {
+    "outcome": "published"
+   },
+   "http": 200,
+   "total": null,
+   "count": 13,
+   "next_offset": null,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:5dbad95f9091",
+    "text:5ccb0131a0c142ad",
+    "text:ef53db77bf654a98",
+    "text:ef1eb62810cb4ae8",
+    "text:046a68d1cdf5448f"
+   ],
+   "first_outcome": "published",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "sent",
+   "error": null
+  },
+  "outcome_deferred": {
+   "params": {
+    "outcome": "deferred"
+   },
+   "http": 200,
+   "total": null,
+   "count": 5,
+   "next_offset": null,
+   "ids": [
+    "text:214041",
+    "text:200467",
+    "text:200456",
+    "text:200444",
+    "text:200387"
+   ],
+   "first_outcome": "deferred",
+   "first_kind": "text_initiative",
+   "first_mode": "auto",
+   "first_reason": "",
+   "error": null
+  },
+  "outcome_failed": {
+   "params": {
+    "outcome": "failed"
+   },
+   "http": 200,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": null
+  },
+  "reason_image_object": {
+   "params": {
+    "reason": "image_generation_failed"
+   },
+   "http": 200,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": null
+  },
+  "limit1": {
+   "params": {
+    "limit": 1
+   },
+   "http": 200,
+   "total": null,
+   "count": 1,
+   "next_offset": 1,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:6cf8a746c10a"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "limit1_offset1": {
+   "params": {
+    "limit": 1,
+    "offset": 1
+   },
+   "http": 200,
+   "total": null,
+   "count": 1,
+   "next_offset": 2,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:97a9d103b196"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "limit1_offset5": {
+   "params": {
+    "limit": 1,
+    "offset": 5
+   },
+   "http": 200,
+   "total": null,
+   "count": 1,
+   "next_offset": 6,
+   "ids": [
+    "meme:meme:-1004482340693:2026-11-12:f1965fc83c5d"
+   ],
+   "first_outcome": "skipped",
+   "first_kind": "meme",
+   "first_mode": "auto",
+   "first_reason": "cooldown_active",
+   "error": null
+  },
+  "limit0_invalid": {
+   "params": {
+    "limit": 0
+   },
+   "http": 422,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": [
+    {
+     "loc": [
+      "query",
+      "limit"
+     ],
+     "msg": "Input should be greater than or equal to 1",
+     "type": "greater_than_equal"
+    }
+   ]
+  },
+  "limit500_invalid": {
+   "params": {
+    "limit": 500
+   },
+   "http": 422,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": [
+    {
+     "loc": [
+      "query",
+      "limit"
+     ],
+     "msg": "Input should be less than or equal to 100",
+     "type": "less_than_equal"
+    }
+   ]
+  },
+  "offset_neg_invalid": {
+   "params": {
+    "offset": -1
+   },
+   "http": 422,
+   "total": null,
+   "count": 0,
+   "next_offset": null,
+   "ids": [],
+   "first_outcome": null,
+   "first_kind": null,
+   "first_mode": null,
+   "first_reason": null,
+   "error": [
+    {
+     "loc": [
+      "query",
+      "offset"
+     ],
+     "msg": "Input should be greater than or equal to 0",
+     "type": "greater_than_equal"
+    }
+   ]
+  }
+ },
+ "secret_scan_hits": [],
+ "secret_scan_count": 0
+}
