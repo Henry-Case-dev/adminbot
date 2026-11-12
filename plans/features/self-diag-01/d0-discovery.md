@@ -83,3 +83,73 @@ SELF-DIAG READY FOR PM LEDGER
 8. Онлайн-проверки Telegram `getChatMember` в коде не обнаружено; это обязательный пробел D2/D5.
 9. D1 можно запускать независимо, а D2–D7 должны идти по зависимостям и сериализации файлов.
 10. Следующее действие PM: занести артефакт и назначить D1 как отдельную корректирующую работу.
+
+## D0 closure addendum (2026-11-13)
+
+Назначение: закрыть reviewer-замечания к `SD1-D0-01`, `SD1-D0-04`, `SD1-D0-05` без изменения исходного текста discovery и без нового аудита. Это дополнение к существующему D0-артефакту; D0 approval не заявляется, повторная проверка — за Reviewer.
+
+### A. `SD1-D0-01` — HEAD, production mapping и D6-кандидат
+
+**Что было верно на момент исходного D0 (2026-11-09).** Discovery писался по тогдашнему дереву; коммит, впервые зафиксировавший этот артефакт, — `5e0fbc280929b96ddbc730f1f9e1382998531cc5` (2026-11-09). Ориентиром production в owner-входе §20 был `release/2.58.168`, а не сегодняшний релиз. На тот момент в коде не было `getChatMember`, а checkup-транспорт был Better Stack SQL-first (см. §2/§4 выше).
+
+**Текущее состояние на момент этой записи.**
+
+- `git rev-parse HEAD` = `1e22fa17adedd35943d04c603a53e49680cbf82e` — это docs/PM-линия (коммиты привязки карты и state). Она **не содержит** production-коммит `25876167` (проверено `git merge-base --is-ancestor 25876167 HEAD` → not ancestor). Поэтому HEAD не используется как источник кода/прода: факты кода берутся с production- и train-коммитов.
+- **Production mapping:** `2587616759de31283585ffc105c91e7193c2e89e` = **2.58.197** (D1 evidence и `deployment_2_58_197` карты).
+- **D6 release candidate:** `16fa04e77c56db44c23cb5c8a9386f6cfd756628`, база `722ccfc5`, ветка `self-diag/d6`; `25876167` является его предком (проверено `git merge-base --is-ancestor`). То есть D6-трейн содержит production-код 2.58.197, а не заменяет его другой базой.
+
+**Карта зависимостей (актуальная, с различением D0-time и current):**
+
+| Компонент | Факт на D0 (2026-11-09, `5e0fbc28`) | Текущий факт (production `25876167` / D6 `16fa04e7`) | Где подтверждено |
+|---|---|---|---|
+| MEMORY-08 / `memory-cognitive-02` | Отдельный feature-пакет; общий `memory_health`/read-model; D0/D1 не переписывают его файлы | `epic-memory-cognitive-02` — `PENDING`, queue 20, P2 (`progress_scope`); D6-трейн добавляет `services/memory_health.py` (+121) как diagnostic probe | `plans/features/memory-cognitive-02/*`, `plans/progress_scope.json`, `git diff 722ccfc5..16fa04e7 -- services/memory_health.py` |
+| VMQ-ONTO-01 | Отдельный queue/ontology-пакет; прямой зависимости в diagnostic-файлах не найдено | `vmq-onto-01` — `PENDING`, queue 4, P0; `fc-trust-01` заблокирован `["vmq-onto-01","self-diag-01"]` | `plans/progress_scope.json`, §7 выше |
+| Observability | Существующий `mca_events`; чек-ап уже писал trigger/fallback/busy/LLM | Тот же `mca_events`; D6-аналитика читает его, второго стора нет | `services/mca_events*`, D6 binding §1.4 |
+| Capability registry | `services/capability_registry.py`, статусы/причины | Не менялся в D6-трейне (diff пуст); используется D4/D6 как единственный реестр | `git diff 722ccfc5..16fa04e7 -- services/capability_registry.py` |
+| Prompt versioning | `prompt_registry` + `prompt_factory` (label/seal, история) | Не менялся в D6-трейне (diff пуст); D5 readback/D6 читают тот же registry | `git diff 722ccfc5..16fa04e7 -- services/prompt_registry.py` |
+
+**Явное различие:** на D0 production-ориентиром был `release/2.58.168` (owner §20), `getChatMember` отсутствовал, Better Stack был SQL-first, factory prompt имел другой hash (см. B). Сейчас production — 2.58.197 (`25876167`), `getChatMember` реализован, Better Stack удалён из checkup-транспорта, factory prompt зафиксирован на `b0c70f97…`, а D6-кандидат `16fa04e7` содержит production-код и является релизным трейном.
+
+### B. `SD1-D0-04` — immutable checkup prompt baseline и инвентарь
+
+**Метод.** Текст `CHECKUP_SYSTEM_PROMPT` собран точным импортом `services/checkup_prompts.py` соответствующего коммита вместе с `services/prompt_style_blocks.py` того же коммита; hash — sha256 по UTF-8 байтам. Формула текста: `_CHECKUP_P0_TARGET_BASE + STYLE_BLOCKS_SUFFIX` (`services/checkup_prompts.py`).
+
+| Baseline | Commit | Blob `checkup_prompts.py` | Длина (символы / UTF-8 байты) | sha256 текста | Factory label / seal |
+|---|---|---|---|---|---|
+| D0 discovery (2026-11-09) | `5e0fbc280929b96ddbc730f1f9e1382998531cc5` | `cf74dd036cc3` | 3210 / 5736 | `0f5fb7b8d25c941993a22551475e776a08f5b3594fd63f32741ab4d4367ad5df` | label `checkup-p0-24-10`; словаря seals в этом коммите ещё не было |
+| Production 2.58.197 | `2587616759de31283585ffc105c91e7193c2e89e` | `bb3c2c79545b` | 3030 / 5406 | `b0c70f974e0e7a78da3cb3f9c907a85673431de169d0e25c607d954858b4dfdf` | label `checkup-p0-24-10`; seal `b0c70f974e0e` = sha12(factory text) |
+| D6 train | `16fa04e77c56db44c23cb5c8a9386f6cfd756628` | `bb3c2c79545b` | 3030 / 5406 | `b0c70f974e0e7a78da3cb3f9c907a85673431de169d0e25c607d954858b4dfdf` | label `checkup-p0-24-10`; seal `b0c70f974e0e`; `git diff 25876167..16fa04e7` по prompt-файлам пуст |
+
+**Revision/history source.** Активная ревизия — `act:<sha12>` в `prompt_registry` (PG); история/откат ведутся `prompt_factory` и журналом провенанса `character.prompt_history` (`PROVENANCE_DOC_KEY`). Фабричная ревизия выводится из метки `checkup-p0-24-10` (`sealed_factory_revision` → `fac:<sha12(label)>`). Точная активная ревизия и возможные chat/global overrides в production по репозиторию не восстанавливаются — prod DB в этом обновлении не читалась (честная граница, не «проверено»).
+
+**Что менялось между D0 и production.** Файлы `checkup_prompts.py`/`prompt_style_blocks.py` менялись в диапазоне `5e0fbc28..25876167` (в т.ч. `f71dfb56` — D1, честная fallback-приписка; и изменения style blocks). Поэтому D0-time hash `0f5fb7b8…` отличается от production `b0c70f97…`. При этом **production и D6-трейн байт-идентичны** (`b0c70f97…`), то есть сам релизный поезд промпт не менял. По-байтовая атрибуция каждого изменения по коммитам не восстанавливалась.
+
+**Инвентарь Better Stack / Bot API / ACL (explicit):**
+
+| Область | D0 time (2026-11-09) | Current (production `25876167` / train `16fa04e7`) | Где |
+|---|---|---|---|
+| Better Stack — checkup transport | SQL-first `services/system_logs_fetcher.py`; настройки/UI checkup | Better Stack в `services/system_logs_fetcher.py` и `config/settings.py` отсутствует (grep 0); локальный journald backend | `git grep -i betterstack 25876167 -- services/system_logs_fetcher.py config/settings.py`; D1 evidence |
+| Better Stack — global logging | `services/betterstack_handler.py`, `bot.py` — used elsewhere | Остаётся used elsewhere; не checkup | `git grep -l -i betterstack 25876167 -- "*.py"` |
+| Упоминание Better Stack в тексте промпта | `services/checkup_prompts.py` содержит слово «Betterstack» | Остаётся текстом промпта, не транспортом; D1 inventory помечает keep | `d1-inventory-25876167.md` (L51/L72) |
+| Bot API `getChatMember` | В коде отсутствовал | `services/telegram_role_check.py` — единственный источник истины `chat_admin`; используется `diagnostic_policy` | `git grep getChatMember 25876167 -- services/telegram_role_check.py` |
+| ACL | `roles.py`, `access.py`, param matrix, `web/api/access.py` | То же + `diagnostic_policy` data classes/capabilities + D6 admin UI; chat overrides | §4 выше; D2/D6 evidence |
+
+### C. `SD1-D0-05` — §19 applied-rules matrix
+
+| Правило §19 | Applied | Evidence / where | Exception |
+|---|---|---|---|
+| Better Stack полностью удаляется **только из checkup**; работающий direct local backend остаётся | **Applied** | D1 removal; на `25876167`/`16fa04e7` в checkup fetcher/settings Better Stack нет; journald backend | Глобальный logging (`bot.py`, `services/betterstack_handler.py`) остаётся used-elsewhere; слово «Betterstack» в тексте промпта — не транспорт |
+| Публична техническая диагностика; защищены prompt contents, secret values, чужие chat data | **Applied** | `services/diagnostic_policy.py` (PUBLIC_TECH), `/api/status/self-diagnosis` RBAC; D2 2.58.188 | Prompt contents/secret values/other-chat data защищены |
+| Подтверждённый admin/owner по своему запросу может раскрыть prompt **прямо в группе**; креды нельзя нигде | **Applied** | D5 `prompt_readback`, D6 регистрация + `TOOL_ACTIONS prompt_readback=view`, group delivery без DM, только свой chat; `TestPromptReadbackAllowedDispatch` | Credential values не выдаются; живая AC-12/AC-13 — postdeploy |
+| Единственный новый explicit keyword — `«чекап»`; без расширения ручных триггеров | **Applied** | `handlers/checkup.py` / `command_registry`; SEM-01/AC-05; новых синонимов нет | Исторически зарегистрированные алиасы только инвентаризуются (SEM-12), новых не добавляется |
+| Заводские промпты в публичном GitHub уже публичны; не давать ложных гарантий | **Applied** | D2-16 `factory_public` vs `active_value`, D5 классификация prompt readback; factory text в репозитории | Эффективные/chat prompts защищаются; «100% секретности» не заявляется |
+| Админ читает prompt в своём scope; не становится владельцем других чатов/системы | **Applied** | `diagnostic_policy` scope=current_chat; D2/D5 tests | Только свой chat; credential values запрещены |
+| Всегда попытка git metadata и фактическая ревизия; глубокий source/diff — при evidence или явном запросе | **Applied (unit)** | D4-B `recent_commits`/identity; D6 checkup reads identity+commit metadata; D6-08 | Живая попытка на VPS — D4-09 postdeploy |
+| Только typed probes/наблюдаемые данные; без arbitrary shell/SSH/SQL и мутаций | **Applied** | D3 `runtime_probes` (typed probes, fixed argv, `DENIED_ARGUMENT_KEYS`); D3 review | Нет |
+
+### D. Честные границы этого дополнения
+
+1. Production DB/SSH не читались: активная prompt-ревизия, фактические chat/global overrides и история в PG по репозиторию не восстанавливаются; подтверждён только factory baseline.
+2. Точная по-байтовая атрибуция изменений prompt между `5e0fbc28` и `25876167` не восстанавливалась; зафиксировано только, что production и D6-трейн байт-идентичны.
+3. `HEAD` `1e22fa17` — docs/PM-линия, не содержащая `25876167`; все code/prod-факты выше взяты с `25876167`/`16fa04e7`, а не с HEAD.
+4. D0 approval не заявляется; `SD1-D0-01/04/05` остаются на повторную проверку Reviewer.
