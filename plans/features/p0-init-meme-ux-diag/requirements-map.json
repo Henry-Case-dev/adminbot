@@ -1945,9 +1945,26 @@
       "acceptance": "Исправлены _finish и агрегатор initiative_publications: ранний отказ даёт одну логическую попытку, группировка идёт по одному устойчивому родителю, detail возвращает весь существующий след без потери этапов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "pending_reason": "Одно-попыточность, устойчивый родитель и отсутствие протечки режима доказаны, но durable-часть acceptance («без потери этапов», дефект D4 журнала) не выполнена в остаточном окне RW-D4-BOTH-WRITE-FAIL: при одновременном отказе журнала и spool строка теряется (в логе attempt LOST). См. residual_windows и evidence/s1s2/review-4c59a483.md."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+          "type": "test",
+          "ref": "Независимая проверка Reviewer кандидата 16cdb3b8 (три условия Approved): разобраны фактические ветки record_attempt/_hold_unpersisted/_log_held_row/_retry_unpersisted, проверены утверждения тестов и выполнен собственный контрпример — восстановление ОДНОГО носителя (спул ожил при сломанном журнале; журнал ожил при сломанном спуле).",
+          "observation": "Журнал упал, спул жив: строка в спуле, _unpersisted пуст. Оба упали: строка удержана, следующая запись переносит её РОВНО один раз (повтор того же attempt_id — no-op), формат спула побайтово совместим (те же 11 полей в том же порядке). Без повтора ERROR несёт полный JSON строки: attempt_id без усечения, outcome, reason_code, detail с attempt_mode и publication.output.tg_message_id (прежде id резался до 12 символов, этих полей не было). Пока строка удержана, durable-читатель её не видит вовсе и показывает предыдущую попытку; после переноса видит. Потолок 200: 201-я вытесняет самую старую, та записана в лог ЦЕЛИКОМ. Схема, флаги, промпты, модели, читатели, группировка, формат спула, бронь и маркеры не менялись.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s2id/pm-binding-16cdb3b8.md",
+          "artifact_sha256": "86e455da90414ddc4230896929ccd222d5e76a2793e2173c8c416d3e8d0d7da5"
+        },
+        {
+          "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+          "type": "test",
+          "ref": "Прогоны кандидата (binding-16cdb3b8.md §4–§5): 56 passed в файле журнала, серия 15 файлов и три мутации.",
+          "observation": "tests/test_evol014_meme_initiative.py — 56 passed (+6 новых). Серия 15 файлов мемов/инициативы/публикаций/диагностики — 362 passed / 4 failed; все четыре воспроизводятся на базе 6c11fc08 (текстовый путь инициативы, кандидатом не затронут). Мутации M1 (убрать _retry_unpersisted) — 2 красных, M2 (вернуть attempt[:12]) — 2 красных, M3 (молчаливое вытеснение) — 1 красный.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/S5M-MEME-DURABILITY/binding-16cdb3b8.md",
+          "artifact_sha256": "ee01f378857893523270b502689358c8dc18f778081db850e62020b4bffe0370"
+        }
+      ],
+      "binding_16cdb3b8": "VERIFIED на одобренном кандидате 16cdb3b8 (ветка fix/meme-attempt-durability, база production 6c11fc08; кандидат не выложен). Acceptance закрывается пунктами 1–4 architecture-identity.md §1: содержание попытки больше не теряется бесследно. Остаток физического отказа каталога принят и записан в residual_windows[RW-D4-BOTH-WRITE-FAIL] как ACCEPTED_RESIDUAL."
     },
     {
       "source_id": "MANUAL-L114-B",
@@ -1987,14 +2004,23 @@
       "acceptance": "Группировка и дедупликация корректны при параллельных запусках в двух чатах: повторный проход не создаёт второй попытки и не теряет первую.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+          "type": "test",
+          "ref": "test_id_conc_aggregator_keeps_chats_and_competitors_apart на одобренном кандидате 16cdb3b8 + независимая проверка Reviewer (семантика брони не менялась).",
+          "observation": "Две попытки в разных чатах с одинаковым ts и похожим текстом дают две группы; чтение по чату изолировано. Конкурирующие холдеры в одном чате (живой sending + претендент) дают две терминальные строки с разными родителями (sent и publication_in_flight), третьей псевдо-группы meme:row:{id} нет, incomplete_historical=false, обе строки на месте. Претендент-автомат получает publication_conflict + detail=claim_held. Предусловие ID5 (один процесс-писатель на файл журнала) названо явно; гонка двух процессов вне контракта и не моделировалась.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s2id/pm-binding-16cdb3b8.md",
+          "artifact_sha256": "86e455da90414ddc4230896929ccd222d5e76a2793e2173c8c416d3e8d0d7da5"
+        }
+      ],
       "covered_by": [
         "MEME-IIC-INDEP-TRIGGERS",
         "MEME-IIC-PROHIB-GLOBAL-LOCK"
       ],
       "delta": "Независимость чатов и запрет глобальной блокировки уже доказаны; добавляется идемпотентность учёта попыток.",
-      "pending_reason": "Нет наблюдения о параллельных запусках в двух чатах и нет проверки конкурентной группировки/дедупликации в approved-серии; закрывается S7-ACCEPT (P0IM-AC-MATRIX-FAIL, конкурирующие чаты/холдеры) или отдельным targeted probe."
+      "binding_16cdb3b8": "VERIFIED на одобренном кандидате 16cdb3b8 (не выложен). Наблюдение уровня агрегатора получено и предусловие ID5 названо; живой половины строка не требует (live_required=false)."
     },
     {
       "source_id": "MANUAL-L118-A",
@@ -3534,13 +3560,30 @@
       "acceptance": "Исправлены _finish и агрегатор initiative_publications: ранний отказ даёт одну логическую попытку, группировка идёт по одному устойчивому родителю, detail возвращает весь существующий след без потери этапов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+          "type": "test",
+          "ref": "Независимая проверка Reviewer кандидата 16cdb3b8 (три условия Approved): разобраны фактические ветки record_attempt/_hold_unpersisted/_log_held_row/_retry_unpersisted, проверены утверждения тестов и выполнен собственный контрпример — восстановление ОДНОГО носителя (спул ожил при сломанном журнале; журнал ожил при сломанном спуле).",
+          "observation": "Журнал упал, спул жив: строка в спуле, _unpersisted пуст. Оба упали: строка удержана, следующая запись переносит её РОВНО один раз (повтор того же attempt_id — no-op), формат спула побайтово совместим (те же 11 полей в том же порядке). Без повтора ERROR несёт полный JSON строки: attempt_id без усечения, outcome, reason_code, detail с attempt_mode и publication.output.tg_message_id (прежде id резался до 12 символов, этих полей не было). Пока строка удержана, durable-читатель её не видит вовсе и показывает предыдущую попытку; после переноса видит. Потолок 200: 201-я вытесняет самую старую, та записана в лог ЦЕЛИКОМ. Схема, флаги, промпты, модели, читатели, группировка, формат спула, бронь и маркеры не менялись.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/s2id/pm-binding-16cdb3b8.md",
+          "artifact_sha256": "86e455da90414ddc4230896929ccd222d5e76a2793e2173c8c416d3e8d0d7da5"
+        },
+        {
+          "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+          "type": "test",
+          "ref": "Прогоны кандидата (binding-16cdb3b8.md §4–§5): 56 passed в файле журнала, серия 15 файлов и три мутации.",
+          "observation": "tests/test_evol014_meme_initiative.py — 56 passed (+6 новых). Серия 15 файлов мемов/инициативы/публикаций/диагностики — 362 passed / 4 failed; все четыре воспроизводятся на базе 6c11fc08 (текстовый путь инициативы, кандидатом не затронут). Мутации M1 (убрать _retry_unpersisted) — 2 красных, M2 (вернуть attempt[:12]) — 2 красных, M3 (молчаливое вытеснение) — 1 красный.",
+          "artifact_path": "plans/features/p0-init-meme-ux-diag/evidence/S5M-MEME-DURABILITY/binding-16cdb3b8.md",
+          "artifact_sha256": "ee01f378857893523270b502689358c8dc18f778081db850e62020b4bffe0370"
+        }
+      ],
       "covered_by": [
         "HMF-UI-06"
       ],
       "delta": "HMF-UI-06 уже требовал показать точную цепочку, включая «генерация успешна, отправка отменена»; добавляется требование к самой группировке и к раннему отказу.",
-      "pending_reason": "Одно-попыточность, устойчивый родитель и отсутствие протечки режима доказаны, но durable-часть acceptance («без потери этапов», дефект D4 журнала) не выполнена в остаточном окне RW-D4-BOTH-WRITE-FAIL: при одновременном отказе журнала и spool строка теряется (в логе attempt LOST). См. residual_windows и evidence/s1s2/review-4c59a483.md."
+      "binding_16cdb3b8": "VERIFIED на одобренном кандидате 16cdb3b8 (ветка fix/meme-attempt-durability, база production 6c11fc08; кандидат не выложен). Acceptance закрывается пунктами 1–4 architecture-identity.md §1: содержание попытки больше не теряется бесследно. Остаток физического отказа каталога принят и записан в residual_windows[RW-D4-BOTH-WRITE-FAIL] как ACCEPTED_RESIDUAL."
     },
     {
       "source_id": "L00036",
@@ -4174,7 +4217,8 @@
         ],
         "req_ids": [
           "P0IM-ID-FINISH"
-        ]
+        ],
+        "resolution": "закрыт кандидатом 16cdb3b8 (удержание строки + полный payload в логе, перенос ровно один раз); остаток физического отказа каталога — RW-D4-BOTH-WRITE-FAIL (ACCEPTED_RESIDUAL)"
       },
       {
         "id": "D5",
@@ -4238,20 +4282,31 @@
       "req_ids": [
         "P0IM-ID-FINISH"
       ],
-      "status": "OPEN",
-      "candidate_seen_at": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
+      "status": "ACCEPTED_RESIDUAL",
+      "status_basis": "Окно физического отказа каталога кодом не закрывается: при недоступности обоих носителей писать некуда. Закрыто то, что было дефектом D4 — бесследная потеря содержания попытки и возможность выдать более старую попытку за «последнюю». Принято по architecture-identity.md §1 (абзац «Остаточный риск»): строка P0IM-ID-FINISH закрывается пунктами 1–4, риск фиксируется здесь, а не замалчивается.",
+      "candidate_seen_at": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+      "candidate_state": "одобрен независимым Reviewer, не выложен; база production 6c11fc08 (2.58.194)",
+      "previously_seen_at": "4c59a48338b92251b03c00e80e75d7f285ebf96b",
       "condition": "Запись строки попытки в журнал (sqlite) не удалась И запись в файловый spool тоже не удалась (диск/права/ошибка os.replace).",
       "trigger": "Нужны одновременно обе ошибки: при отказе только журнала строка durable-спулится и доезжает до таблицы (проверено на 501 строке, батч 200, прерванный os.replace, повтор без дублей).",
-      "observable": "Строка не попадает ни в meme_initiative_attempt, ни в spool-файл; пишется WARNING `[meme] attempt LOST (journal and spool unavailable) | attempt=<jid>`. Независимый прогон Reviewer: таблица=0, файла spool нет, лог attempt LOST — то есть уже не молчаливо.",
-      "not_closed_why": "Acceptance P0IM-ID-FINISH требует «без потери этапов»; в этом окне этап теряется. Поэтому строка оставлена PENDING, а не повышена.",
+      "observable": "record_attempt удерживает строку в процессе (self._unpersisted, потолок ATTEMPT_UNPERSISTED_MAX=200) и пишет ERROR с ПОЛНЫМ json.dumps(_spool_payload(row)): attempt_id без усечения, outcome, reason_code, detail с attempt_mode и publication.output.tg_message_id. Следующая запись в том же экземпляре переносит её в первый освободившийся носитель РОВНО один раз (повтор того же attempt_id — no-op), формат спула побайтово совместим (те же 11 полей в том же порядке). Пока строка удержана, durable-читатель не видит её вовсе и показывает предыдущую попытку — ни половинчатой строки, ни подделки. За потолком 200 самая старая строка вытесняется и пишется в лог ЦЕЛИКОМ, не молча.",
+      "previously_observed": "До 16cdb3b8: WARNING `[meme] attempt LOST (journal and spool unavailable) | attempt=<jid, 12 символов> | chat | stage | error`; outcome, reason_code и detail (с attempt_mode и фактами публикации) отсутствовали, то есть содержание попытки терялось.",
+      "per_instance_limitation": "_unpersisted живёт на ЭКЗЕМПЛЯРЕ журнала, а продакшен создаёт новый экземпляр на прогон (initiative_observer, initiative_publications, initiative_diagnostics). Перенос в первый освободившийся носитель работает только внутри времени жизни одного экземпляра; МЕЖДУ прогонами durable-след остаётся один — полная ERROR-строка в логе. Это не durable-восстановление между рестартами и не должно так описываться.",
+      "remaining_risk": [
+        "Смерть процесса, пока строка удержана: единственный след — полная ERROR-строка; восстановление только ручное, по логу.",
+        "Реальный файловый отказ (диск/права/IO) физически не воспроизводился: оба носителя подменялись на отказ, поведение на настоящем отказе диска не наблюдалось.",
+        "Между прогонами/рестартами воспроизведения нет по конструкции (см. per_instance_limitation).",
+        "Гонка двух процессов-писателей (ID5) не моделировалась: это предусловие контракта, а не свойство кода."
+      ],
+      "acceptance_effect": "«Не молчаливо» теперь верно и для содержания попытки, а не только для факта падения; поэтому блокирующего остатка для P0IM-ID-FINISH нет. Остаток ниже — принятый риск среды, а не открытый дефект кода.",
       "verification_owner": "agent",
       "owner_action_required": false,
-      "next_check": "Следующий кандидат эпика и S7-ACCEPT (P0IM-AC-MATRIX-FAIL: обрыв после LLM A/B и после image API, старые неполные записи): окно должно быть либо закрыто durable-путём, либо зафиксировано как принятый риск с явной записью в карте. Владельцу как проверка не передаётся."
+      "next_check": "При выкладке кандидата в следующем релизе: подтвердить по логам и журналу, что записи «attempt LOST» в проде не прибавилось и что при живых носителях путь удержания не срабатывает; отдельно — что ни одна строка журнала не потеряла поля. Проверяют агенты; владельцу как проверка не передаётся."
     }
   ],
   "slice_progress": {
     "S1-AXES": "На 2.58.192 (bcc090a3) P0IM-BAN-NOETA переведена в VERIFIED: в отданном коде next_check_ts не подставляет now и появляется только как доказанная нижняя граница «последний вызов провайдера + кулдаун»; readiness считает закрытый список фактов, а сброс суточной квоты идёт отдельным основанием «по сбросу суточного лимита»; строки «Следующая проверка» в разметке больше нет. P0IM-BAN-CONFLATE остаётся PENDING: considered больше не слит с публикацией, но величины «сгенерировано» в счётчиках нет. P0IM-BAN-ENABLED, P0IM-AX-SERVER и P0IM-AX-* сохранены с прежними якорями (4c59a483/726736ee/a6884ad7) и в этом релизе не перепривязывались.",
-    "S2-ID": "принят на 4c59a483 по идентичности, режиму, historical и child-call; P0IM-ID-FINISH держится открытым остаточным окном RW-D4-BOTH-WRITE-FAIL, P0IM-ID-CONC ждёт S7-ACCEPT/targeted probe",
+    "S2-ID": "ПРИНЯТ и закрыт: на 4c59a483 доказаны идентичность (run_id/child/job_id), режим, historical и child-call; на одобренном 16cdb3b8 закрыты P0IM-ID-FINISH (durable-запись: удержание строки, перенос ровно один раз, полный payload в логе вместо attempt[:12]) и P0IM-ID-CONC (наблюдение уровня агрегатора: два чата с одинаковым ts, конкурирующие холдеры, предусловие ID5 названо). Остаток RW-D4-BOTH-WRITE-FAIL принят как ACCEPTED_RESIDUAL: при физическом отказе каталога писать некуда, а удержание живёт только внутри одного экземпляра журнала — между прогонами след только в логе. Кандидат 16cdb3b8 не выложен; продакшен остаётся на 6c11fc08.",
     "S3-OV": {
       "state": "DEPLOYED IN 2.58.191 (a6884ad7): 10 строк VERIFIED по живым осям и кадру прода; 11 строк REVIEW с названным недобором",
       "candidate_commit": "726736ee38955dfe605dfcbfb3ec1e1213cdcede",
@@ -4802,6 +4857,34 @@
         "WO-258193-MEME-DELIVERED-ID"
       ],
       "note": "Строки приёмки не повышены до VERIFIED: у каждой остаётся названный недобор (not_covered). Живой message_id закрыл ровно обязательство S5b-DELIVERY-FACT и наблюдение WO-258193-MEME-DELIVERED-ID; NODISCARD/QUOTA ждут отложенной цепочки, MM-* — живого ручного /meme, MATRIX-MANUAL и AC-DONE открыты."
+    },
+    {
+      "date": "2026-11-12",
+      "slice_ids": [
+        "S2-ID"
+      ],
+      "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+      "branch": "fix/meme-attempt-durability",
+      "base_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
+      "approved_req_ids": [
+        "P0IM-ID-FINISH",
+        "P0IM-ID-CONC"
+      ],
+      "verified_req_ids": [
+        "P0IM-ID-FINISH",
+        "P0IM-ID-CONC"
+      ],
+      "rows_touched": 3,
+      "residual_updated": "RW-D4-BOTH-WRITE-FAIL: OPEN → ACCEPTED_RESIDUAL",
+      "artifacts": [
+        "plans/features/p0-init-meme-ux-diag/evidence/s2id/pm-binding-16cdb3b8.md",
+        "plans/features/p0-init-meme-ux-diag/evidence/S5M-MEME-DURABILITY/binding-16cdb3b8.md"
+      ],
+      "artifact_sha256": {
+        "PMBIND": "86e455da90414ddc4230896929ccd222d5e76a2793e2173c8c416d3e8d0d7da5",
+        "BUILDERBIND": "ee01f378857893523270b502689358c8dc18f778081db850e62020b4bffe0370"
+      },
+      "note": "Ни одна строка не повышена «за зелёную серию»: обе закрыты наблюдаемым поведением на одобренном кандидате, включая независимые сценарии Reviewer (восстановление одного носителя). Кандидат не выложен — VERIFIED означает привязку к одобренному кандидату, а не к работающему продакшену; живой половины эти строки не требуют (live_required=false). Предел удержания — жизнь одного экземпляра журнала; между прогонами след только в логе (записано в residual_windows)."
     }
   ],
   "recorded_limits": [
@@ -4948,6 +5031,11 @@
         "commit": null,
         "scope": "S6-FRESH и S7-ACCEPT",
         "state": "S6 зависит от P0IM-OV-HONEST по web/app.js; S7 — после S6"
+      },
+      {
+        "commit": "16cdb3b8",
+        "scope": "S2-ID — durable-запись терминальной строки попытки (RW-D4: удержание + полный лог вместо попытки, усечённой до 12 символов)",
+        "state": "одобрен, не выложен; база 6c11fc08. Выкладка — вместе со следующим релизом; после выкладки проверить по логам, что записей «attempt LOST» не прибавилось."
       }
     ],
     "note": "Отдельная релизная задача не создаётся: заметка для DevOps и оркестратора. Из шести коммитов 2.58.193 два (1957c0e9, 32939c7a) — только доказательства: описывая состав релиза, не считать их кодом.",
@@ -5013,6 +5101,11 @@
       "commit": "992f45ab320be099232fa29e4e96817fed285405",
       "role": "S7-ACCEPT: приёмочная матрица 29 проверок на реальных журналах/эндпоинте и отданной сборке (тесты + документы), продуктового кода нет",
       "state": "одобрено независимым Reviewer против выложенной 2.58.194 (6c11fc08); 28 passed / 1 not_yet / 0 failed; 5 строк карты в REVIEW, S5b-DELIVERY-FACT закрыт живьём"
+    },
+    {
+      "commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+      "role": "S2-ID: durable-запись терминальной строки попытки (удержание при отказе обоих носителей, полный payload в логе, перенос ровно один раз) + тест уровня агрегатора для P0IM-ID-CONC",
+      "state": "одобрен независимым Reviewer, НЕ выложен; база production 6c11fc08 (2.58.194). Доказательства — отдельный коммит c33e24b7 (только документ)."
     }
   ],
   "deployed_version": "2.58.194",
@@ -5167,29 +5260,32 @@
     "required_rows": 114,
     "unique_req_ids": 77,
     "by_status": {
-      "VERIFIED": 60,
+      "VERIFIED": 63,
       "REVIEW": 25,
       "READY_FOR_LIVE": 2,
-      "PENDING": 27
+      "PENDING": 24
     },
     "by_status_unique": {
-      "VERIFIED": 38,
+      "VERIFIED": 40,
       "REVIEW": 19,
       "READY_FOR_LIVE": 2,
-      "PENDING": 18
+      "PENDING": 16
     },
     "by_slice": {
-      "S7-ACCEPT": {
-        "REVIEW": 5,
-        "PENDING": 12,
-        "rows": 17,
-        "unique": 12
+      "A0-ARCH": {
+        "PENDING": 1,
+        "rows": 1,
+        "unique": 1
       },
-      "S3-OV": {
-        "VERIFIED": 10,
-        "REVIEW": 11,
-        "rows": 21,
-        "unique": 14
+      "P0IM-OV-HONEST": {
+        "VERIFIED": 2,
+        "rows": 2,
+        "unique": 2
+      },
+      "R0-INV": {
+        "VERIFIED": 9,
+        "rows": 9,
+        "unique": 7
       },
       "S1-AXES": {
         "VERIFIED": 21,
@@ -5197,27 +5293,33 @@
         "rows": 24,
         "unique": 10
       },
-      "R0-INV": {
-        "VERIFIED": 9,
-        "rows": 9,
-        "unique": 7
-      },
       "S2-ID": {
-        "VERIFIED": 8,
-        "PENDING": 3,
+        "VERIFIED": 11,
         "rows": 11,
         "unique": 8
+      },
+      "S3-OV": {
+        "VERIFIED": 10,
+        "REVIEW": 11,
+        "rows": 21,
+        "unique": 14
+      },
+      "S4-TRACE": {
+        "PENDING": 8,
+        "VERIFIED": 6,
+        "rows": 14,
+        "unique": 11
       },
       "S5-MEME": {
         "REVIEW": 6,
         "rows": 6,
         "unique": 5
       },
-      "S4-TRACE": {
-        "VERIFIED": 6,
-        "PENDING": 8,
-        "rows": 14,
-        "unique": 11
+      "S5b": {
+        "READY_FOR_LIVE": 2,
+        "VERIFIED": 1,
+        "rows": 3,
+        "unique": 3
       },
       "S6-FRESH": {
         "VERIFIED": 3,
@@ -5225,21 +5327,11 @@
         "rows": 6,
         "unique": 4
       },
-      "A0-ARCH": {
-        "PENDING": 1,
-        "rows": 1,
-        "unique": 1
-      },
-      "S5b": {
-        "VERIFIED": 1,
-        "READY_FOR_LIVE": 2,
-        "rows": 3,
-        "unique": 3
-      },
-      "P0IM-OV-HONEST": {
-        "VERIFIED": 2,
-        "rows": 2,
-        "unique": 2
+      "S7-ACCEPT": {
+        "PENDING": 12,
+        "REVIEW": 5,
+        "rows": 17,
+        "unique": 12
       }
     },
     "fully_open_slices": [
@@ -5248,56 +5340,55 @@
       "S7-ACCEPT"
     ],
     "partially_open_slices": [
-      "S3-OV",
       "S1-AXES",
-      "S2-ID",
+      "S3-OV",
       "S4-TRACE",
-      "S6-FRESH",
-      "S5b"
+      "S5b",
+      "S6-FRESH"
     ],
     "closed_slices": [
+      "P0IM-OV-HONEST",
       "R0-INV",
-      "P0IM-OV-HONEST"
+      "S2-ID"
     ],
     "verified_anchor_breakdown": {
       "basis": "unique_req_id (77)",
       "with_6c11fc08": 5,
+      "with_16cdb3b8": 2,
       "pre_deploy_only": 33,
       "rows_basis": {
-        "verified_rows": 60,
+        "verified_rows": 63,
         "rows_with_6c11fc08_evidence": 6,
+        "rows_with_16cdb3b8_evidence": 3,
         "rows_anchored_earlier": 54
       },
-      "note": "Якоря прошлых кандидатов — бухгалтерия карты, а не отсутствие продукта: строки доказаны на 4c59a483/726736ee/a6884ad7/bcc090a3/7a7cd0ce, и в дельту 2.58.194 они не входят. Release-гейт считает такие строки «no evidence bound to reviewed candidate» — это ожидаемое следствие привязки к выложенному коммиту, а не регресс."
+      "note": "Якоря прошлых кандидатов — бухгалтерия карты, а не отсутствие продукта. Новое: 16cdb3b8 — одобренный, но НЕ выложенный кандидат S2-ID; живой половины эти строки не требуют по контракту (live_required=false), поэтому VERIFIED здесь = привязка к одобренному кандидату, а не к работающему продакшену. Release-гейт считает такие строки «no evidence bound to reviewed candidate» — это ожидаемое следствие привязки к выложенному коммиту, а не регресс."
     },
     "bound_in_this_pass": {
-      "acceptance_candidate": "992f45ab320be099232fa29e4e96817fed285405",
-      "deployed_commit": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
-      "release": "2.58.194",
+      "slice": "S2-ID",
+      "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+      "branch": "fix/meme-attempt-durability",
+      "base": "6c11fc08ddade1edf0c4fb274e7f1bf93f852a26",
       "rows_bound": [
-        "P0IM-AC-MATRIX-CONFIG",
-        "P0IM-AC-MATRIX-FAIL",
-        "P0IM-AC-MATRIX-RBAC",
-        "P0IM-AC-MATRIX-UI",
-        "P0IM-AC-POSTREL"
+        "P0IM-ID-FINISH",
+        "P0IM-ID-CONC"
       ],
-      "rows_bound_status": "REVIEW — заявка строки есть, acceptance строки закрыт не полностью (остаток в not_covered)",
-      "new_verified": [
-        "P0IM-S5B-DELIVERY-FACT"
+      "rows_count": 3,
+      "rows_bound_status": "VERIFIED — на одобренном кандидате, не на выложенном коде: acceptance обеих строк инженерный (live_required=false, live_when=preprod), живой половины они не требуют",
+      "residual_updated": "RW-D4-BOTH-WRITE-FAIL: OPEN → ACCEPTED_RESIDUAL — удержание строки, перенос ровно один раз, полный payload в логе; предел — время жизни одного экземпляра журнала, между прогонами след только в логе",
+      "slice_closed": "S2-ID полностью VERIFIED (11 строк, 8 уникальных id): durable-часть P0IM-ID-FINISH больше не является блокирующим остатком",
+      "backlog_added": [
+        "BL-RW-D4-REPEATED-HOLD-LOG"
       ],
-      "kept_ready_for_live": [
-        "P0IM-S5B-NODISCARD",
-        "P0IM-S5B-QUOTA"
+      "artifacts": [
+        "plans/features/p0-init-meme-ux-diag/evidence/s2id/pm-binding-16cdb3b8.md",
+        "plans/features/p0-init-meme-ux-diag/evidence/S5M-MEME-DURABILITY/binding-16cdb3b8.md"
       ],
-      "kept_open": [
-        "P0IM-AC-MATRIX-MANUAL",
-        "P0IM-AC-DONE"
-      ],
-      "waiting_observation_closed": "WO-258193-MEME-DELIVERED-ID",
-      "only_live_not_yet": "AC-LIVE-DEFERRED-CHAIN (WO-258194-S5B-DEFERRED)",
-      "artifact": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/binding-992f45ab.md",
-      "artifact_sha256": "b34562f29d67ddbe5875d6eecf0c3b5c09709c1aa3e5dc96b01d2321ec51a4f4",
-      "note": "Матрица не заявляет P0IM-AC-MATRIX-MANUAL и P0IM-AC-DONE. Живой message_id закрыл обязательство S5b и наблюдение WO-258193-MEME-DELIVERED-ID; S5B-NODISCARD/QUOTA ждут именно отложенной цепочки, а MM-* — живого ручного /meme."
+      "artifact_sha256": {
+        "PMBIND": "86e455da90414ddc4230896929ccd222d5e76a2793e2173c8c416d3e8d0d7da5",
+        "BUILDERBIND": "ee01f378857893523270b502689358c8dc18f778081db850e62020b4bffe0370"
+      },
+      "note": "Предыдущая привязка (992f45ab / 2.58.194) сохранена в binding_log и в verified_anchor_breakdown. Кандидат 16cdb3b8 в релиз пока не входит: deployed_commit карты остаётся 6c11fc08."
     }
   },
   "write_scope_amendments": [
@@ -5359,6 +5450,18 @@
       "relation_to_active_task": "Предсуществующее поведение тестового портфеля, вне дельты 2.58.194 и вне приёмки этого эпика.",
       "next_action": "При следующем касании тестового портфеля: изолировать захваты от отслеживаемого каталога evidence или нормализовать дату в имени/метаданных снимков. Отдельная задача не заводится.",
       "backlog_ref": "plans/backlog.md, раздел «Добавлено 2026-11-12 (golden-graphics: прогон tests/test_web*.py перезаписывает 48 файлов)»",
+      "task_created": false
+    },
+    {
+      "id": "BL-RW-D4-REPEATED-HOLD-LOG",
+      "slice": "S2-ID",
+      "candidate_commit": "16cdb3b82424bfebb7594bfe8cc71a49a09bb879",
+      "location": "services/meme_initiative.py::SqliteQuotaLedger._hold_unpersisted / _log_held_row (ветка удержания при отказе обоих носителей)",
+      "statement": "Повторное удержание того же attempt_id не добавляет вторую строку в _unpersisted (дедупликация по attempt_id есть), но ERROR-запись «held» пишется каждый раз, поэтому в логе на один attempt_id может оказаться две и более записей «held», тогда как в журнале строка одна (INSERT OR IGNORE).",
+      "impact": "low: только шум в логе и риск пересчитать факты попытки при разборе по логам; потери данных, дублей в журнале и повторных отправок нет.",
+      "relation_to_active_task": "Найдено Reviewer при проверке кандидата 16cdb3b8; acceptance P0IM-ID-FINISH не нарушает: содержание попытки не теряется, перенос выполняется ровно один раз.",
+      "next_action": "При следующем касании record_attempt: писать «held (repeat)» без полного payload либо логировать полную строку только при фактическом добавлении в _unpersisted.",
+      "backlog_ref": "plans/backlog.md, раздел «Добавлено 2026-11-12 (S2-ID: привязка 16cdb3b8 — durable-запись строки попытки)»",
       "task_created": false
     }
   ],
