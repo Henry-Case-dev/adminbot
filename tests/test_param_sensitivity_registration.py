@@ -158,3 +158,117 @@ def test_existing_secret_and_prompt_classes_are_unchanged():
     assert pc.get_by_pg_key("keys.llm_api_key").secret is True
     assert pc.REGISTRY["CHECKUP_ENABLED"].per_chat is True
     assert pc.get_by_pg_key("keys.llm_api_key").per_chat is False
+
+
+# ── (Reviewer-блокер) единый предикат защиты: SECRET_VALUE + secret=False ──
+#
+# Воспроизведение из ревью: каталог принимает запись с каноническим типом
+# `SECRET_VALUE` и легаси `secret=False`; защита значения обязана идти по
+# каноническому типу, иначе raw token проходит в обычный ToolResult.
+
+NEW_KEY_FIELD = "NEW_PROVIDER_API_KEY"
+NEW_KEY_PG = "keys.new_provider_api_key"
+ENV_TOKEN = "env-new-provider-token-97531"
+SETTINGS_TOKEN = "settings-new-provider-token-86420"
+CACHE_TOKEN = "cache-new-provider-token-75319"
+
+
+@pytest.fixture
+def new_secret_provider(monkeypatch):
+    """Временный провайдер: SECRET_VALUE при `secret=False` (как в ревью)."""
+    import config.settings as settings_module
+
+    class _SettingsProxy:
+        """Прокси Settings с добавленным полем нового провайдера.
+
+        `Settings` — frozen dataclass, поэтому новый ключ (как после реального
+        добавления поля) эмулируется прокси, а не мутацией объекта.
+        """
+
+        def __init__(self, base):
+            object.__setattr__(self, "_base", base)
+
+        def __getattr__(self, name):
+            if name == NEW_KEY_FIELD:
+                return SETTINGS_TOKEN
+            return getattr(object.__getattribute__(self, "_base"), name)
+
+    spec = pc.ParamSpec(NEW_KEY_FIELD, NEW_KEY_FIELD, pc.CATEGORY_KEYS,
+                        "Ключ нового провайдера", "str",
+                        secret=False, sensitivity=pc.SENSITIVITY_SECRET)
+    pc.register_param(spec, replace=True)
+    assert pc.get_by_pg_key(NEW_KEY_PG).resolved_sensitivity \
+        == pc.SENSITIVITY_SECRET
+    assert pc.get_by_pg_key(NEW_KEY_PG).secret is False
+    monkeypatch.setenv(NEW_KEY_FIELD, ENV_TOKEN)
+    monkeypatch.setattr(settings_module, "settings",
+                        _SettingsProxy(settings_module.settings))
+    projection.reset_secret_cache()
+    try:
+        yield spec
+    finally:
+        pc.REGISTRY.pop(NEW_KEY_FIELD, None)
+        pc._BY_PG_KEY.pop(NEW_KEY_PG, None)
+        projection.reset_secret_cache()
+
+
+class _CacheWithValue:
+    def __init__(self, values):
+        self._values = dict(values)
+
+    def get(self, key, default=None):
+        return self._values.get(str(key), default)
+
+
+def test_new_secret_provider_value_is_collected_and_redacted(
+        new_secret_provider):
+    """Snapshot знает все источники нового секрета, sanitize его удаляет."""
+    cache = _CacheWithValue({NEW_KEY_PG: CACHE_TOKEN})
+    snapshot = projection.known_secret_values(cache=cache, use_cache=False)
+    assert snapshot.complete is True
+    for token, source in ((ENV_TOKEN, NEW_KEY_FIELD),
+                          (SETTINGS_TOKEN, NEW_KEY_PG),
+                          (CACHE_TOKEN, NEW_KEY_PG)):
+        assert snapshot.values.get(token) == source, token
+    assert NEW_KEY_PG in projection._catalog_secret_keys()
+
+    raw = f"tool result: env={ENV_TOKEN} cfg={SETTINGS_TOKEN} pg={CACHE_TOKEN}"
+    result = projection.sanitize(raw, kind="tool_result", secrets=snapshot)
+    assert result.allowed is True
+    assert result.report.status == projection.STATUS_PARTIALLY_REDACTED
+    for token in (ENV_TOKEN, SETTINGS_TOKEN, CACHE_TOKEN):
+        assert token not in result.text
+
+
+def test_new_secret_provider_value_is_removed_from_logs(
+        new_secret_provider, monkeypatch):
+    """Тот же предикат защищает строки журнала (R17), а не только tool result."""
+    from services import log_ring
+
+    monkeypatch.setattr(log_ring, "_SECRETS", None)
+    line = f"ERROR provider auth failed: {SETTINGS_TOKEN}"
+    cleaned = log_ring.sanitize(line)
+    assert SETTINGS_TOKEN not in cleaned
+    assert "***" in cleaned
+
+
+def test_new_secret_provider_value_is_masked_in_debug_dump(new_secret_provider):
+    """Debug-дамп обязан маскировать запись по каноническому типу."""
+    from services import debug_config
+
+    class _Cache(_CacheWithValue):
+        is_initialized = True
+        pg_available = True
+        loaded_at = "2026-11-13T00:00:00+00:00"
+
+        def get_all(self):
+            return dict(self._values)
+
+        def get_updated_at(self, key):
+            return None
+
+    dump = debug_config.build_dump(_Cache({NEW_KEY_PG: SETTINGS_TOKEN}),
+                                   key=NEW_KEY_PG)
+    item = dump["item"]
+    assert item["secret"] is True
+    assert SETTINGS_TOKEN not in str(item["value"])

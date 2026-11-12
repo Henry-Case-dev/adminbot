@@ -38,13 +38,20 @@ _URI_CREDS_RE = re.compile(r"(://)([^/\s:@]+):([^/\s@]+)@")
 
 def _collect_secrets() -> tuple[str, ...]:
     """Литеральные секретные значения из каталога (R17): все записи с
-    secret:true, у которых в settings/env есть непустое значение."""
+    каноническим типом `SECRET_VALUE`, у которых в settings есть непустое
+    значение.
+
+    Класс берётся из `ParamSpec.is_secret_value` (единственный источник
+    истины — sensitivity каталога), а не из легаси-флага `secret`: иначе
+    секрет нового провайдера с `SECRET_VALUE` + `secret=False` не вычищался
+    бы из строк журнала.
+    """
     values: list[str] = []
     try:
         from config.settings import settings
         from services.param_catalog import REGISTRY
         for spec in REGISTRY.values():
-            if not spec.secret or spec.settings_field is None:
+            if not spec.is_secret_value or spec.settings_field is None:
                 continue
             raw = getattr(settings, spec.settings_field, None)
             if isinstance(raw, str) and raw.strip():

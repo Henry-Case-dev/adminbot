@@ -215,6 +215,18 @@ class ParamSpec:
             self.category, self.secret)
 
     @property
+    def is_secret_value(self) -> bool:
+        """Значение записи — секрет по КАНОНИЧЕСКОМУ типу.
+
+        Единственный предикат для сбора известных runtime-секретов:
+        легаси-флаг `secret` остаётся подсказкой каталога (per-chat/UI), но
+        не решает, надо ли защищать значение. Иначе новый провайдер с
+        `sensitivity=SECRET_VALUE` и `secret=False` не попадал бы в набор
+        известных секретов, и `sanitize` пропускал бы его токен.
+        """
+        return self.resolved_sensitivity == SENSITIVITY_SECRET
+
+    @property
     def is_protected(self) -> bool:
         """Значение записи не выдаётся диагностикой (секрет/промпт)."""
         return self.resolved_sensitivity in (SENSITIVITY_SECRET,
