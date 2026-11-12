@@ -28,6 +28,10 @@ import time
 logger = logging.getLogger(__name__)
 
 #: Типы чувствительности (ТЗ §9.1): обязательны при регистрации провайдера.
+#: Значения зеркалят канонический закрытый набор `services.param_catalog`
+#: (SELF-DIAG-01 `SD1-D2-23`); паритет проверяется тестом
+#: `test_output_projection_constants_match_catalog`, правило вывода типа
+#: здесь больше НЕ дублируется — `sensitivity_of_pg_key` читает каталог.
 SENSITIVITY_PUBLIC = "PUBLIC_DIAGNOSTIC"
 SENSITIVITY_CONFIG = "NON_SECRET_CONFIG"
 SENSITIVITY_PROMPT_CONTENT = "PROMPT_CONTENT"
@@ -192,9 +196,10 @@ class DeliveryResult:
 def sensitivity_of_pg_key(pg_key: str) -> str:
     """Тип чувствительности ключа каталога (ТЗ §9.1).
 
-    Секретные ключи (`keys.*`, spec.secret) → `SECRET_VALUE`; ключи
-    категории prompts → `PROMPT_CONTENT`; прочие ключи каталога →
-    `NON_SECRET_CONFIG`; неизвестный ключ → `PUBLIC_DIAGNOSTIC`.
+    Единственный источник истины — запись каталога (`ParamSpec.sensitivity`,
+    SELF-DIAG-01 `SD1-D2-23`): тип объявлен при регистрации либо зафиксирован
+    для легаси-строки. Проекция больше не дублирует правило вывода — она
+    только читает его. Неизвестный ключ → `PUBLIC_DIAGNOSTIC`.
     """
     try:
         from services import param_catalog as catalog
@@ -203,11 +208,7 @@ def sensitivity_of_pg_key(pg_key: str) -> str:
         return SENSITIVITY_PUBLIC
     if spec is None:
         return SENSITIVITY_PUBLIC
-    if spec.secret or spec.category == catalog.CATEGORY_KEYS:
-        return SENSITIVITY_SECRET
-    if spec.category == catalog.CATEGORY_PROMPTS:
-        return SENSITIVITY_PROMPT_CONTENT
-    return SENSITIVITY_CONFIG
+    return spec.resolved_sensitivity
 
 
 def is_secret_pg_key(pg_key: str) -> bool:
