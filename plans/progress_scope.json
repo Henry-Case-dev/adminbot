@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T01:47:37+12:00",
+  "updated": "2026-11-13T02:27:45+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -927,7 +927,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T01:47:37+12:00",
+      "updated": "2026-11-13T02:27:45+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -935,7 +935,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: D4-A/B 13 REVIEW / 6 PENDING (D6/live); D5 15 REVIEW / 6 PENDING (D6 registration, model-context, D7/live); candidate mismatch resolved via slice-level bindings; D3 building; D6 follows D3/D4/D5, then one self-diag release and D7. Natural/stat/voluntary waits not blocking; production VERIFIED only after deployment.",
+      "queue_note": "2026-11-13: D3 bound 34 REVIEW / 2 PENDING (EVD-01 D6, SEM-08 live); D5 15 REVIEW / 6 PENDING; D4 13 REVIEW / 6 PENDING; D6 final integration (checkup wiring, prompt_readback registration, inspect_runtime analytics/UI) is building. After D6 review: one self-diag release, production verification, D7, DONE, then vmq-onto-01. Natural/stat/voluntary waits not blocking.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -952,22 +952,23 @@
         "D0": "historical artifact needs refresh",
         "D1": "VERIFIED 2.58.197 @ 25876167",
         "D2": "37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING (c087253d/2.58.188)",
-        "D3": "BUILDING",
+        "D3": "34 REVIEW / 2 PENDING (approved 278c19e0)",
         "D4A": "REVIEW (approved 8c035908)",
         "D4B": "REVIEW (approved 722ccfc5)",
         "D5": "15 REVIEW / 6 PENDING (approved c7b90b26)",
-        "D6": "PENDING (waits D1+D3+D4+D5)",
+        "D6": "BUILDING (final integration)",
         "D7": "PENDING"
       },
       "progress": {
         "verified_unique": 52,
         "unique": 184,
         "d1_verified": 17,
-        "d1_total": 17,
         "d4_review": 12,
         "d4_pending": 6,
         "d5_review": 15,
-        "d5_pending": 6
+        "d5_pending": 6,
+        "d3_review": 34,
+        "d3_pending": 2
       }
     },
     {
