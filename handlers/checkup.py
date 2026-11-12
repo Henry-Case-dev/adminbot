@@ -112,6 +112,28 @@ def reset_checkup_diagnostics_for_tests() -> None:
     _diagnostics = None
 
 
+def checkup_probe_deps():
+    """SELF-DIAG-01 D6 B4: `ProbeDeps` из уже собранных сервисов бота.
+
+    Используется админским снимком (`/api/status/self-diagnosis`) ТОЛЬКО для
+    расчёта `configured` в каталоге probes — probes не исполняются. Набор
+    зависимостей тот же, что у чекапа/`inspect_runtime` (db/memory/fetcher/
+    status), поэтому «configured» отражает реальную среду, а не пустой stub.
+    """
+    from services.runtime_probes import ProbeDeps
+
+    status = None
+    try:
+        from services.status_service import status as _status
+        status = _status
+    except Exception:      # pragma: no cover - защитная ветка
+        status = None
+    return ProbeDeps(
+        db=getattr(_service, "db", None),
+        memory=getattr(_service, "memory", None),
+        logs_fetcher=_fetcher, status=status)
+
+
 def _diagnostics_collector():
     """Один collector для explicit-чекапа (ТЗ §2.1 п.1).
 
@@ -125,20 +147,10 @@ def _diagnostics_collector():
     if _diagnostics is not None:
         return _diagnostics
     from services.diagnostic_collector import DiagnosticCollector
-    from services.runtime_probes import ProbeDeps, ProbeLimits
+    from services.runtime_probes import ProbeLimits
 
-    status = None
-    try:
-        from services.status_service import status as _status
-        status = _status
-    except Exception:      # pragma: no cover - защитная ветка
-        status = None
     collector = DiagnosticCollector(
-        deps=ProbeDeps(
-            db=getattr(_service, "db", None),
-            memory=getattr(_service, "memory", None),
-            logs_fetcher=_fetcher, status=status),
-        limits=ProbeLimits.from_env())
+        deps=checkup_probe_deps(), limits=ProbeLimits.from_env())
     _diagnostics = collector
     return collector
 
@@ -204,6 +216,26 @@ def _identity_log_line(bundle: dict) -> str:
             ok, len(sources),
             str(bundle.get("status") or ""),
         ))
+
+
+def emit_checkup_validation_event(*, chat_id: int | None, publication) -> None:
+    """SELF-DIAG-01 D6 B3 (`SD1-D6-17`): чекап прошёл output validation.
+
+    Отдельное событие (не `diagnostic_output_validated`), потому что чекап не
+    идёт через `ToolRouter._diagnostic_output`: без него аналитика не может
+    доказать, что enforcement реально применялся к доставленному отчёту.
+    Пишутся только статус redaction и факт прохождения — без текста.
+    """
+    try:
+        from services import mca_events as _mca_events
+        report = getattr(publication, "report", None)
+        status = str(getattr(report, "status", "") or "unknown")[:40]
+        _mca_events.emit_mca_event(
+            "checkup_output_validated", outcome="success",
+            component="checkup", stage="final", status=status,
+            chat_id=chat_id)
+    except Exception:      # pragma: no cover - телеметрия fail-open
+        return
 
 
 def emit_checkup_event(*, outcome: str, chat_id: int | None, status: str = "",
@@ -301,6 +333,9 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     started = time.monotonic()
     bundle: dict = {}
     facts_error = ""
+    # SELF-DIAG-01 D6 B1: per-run телеметрия чекапа — свой словарь на вызов,
+    # поэтому одновременные чекапы разных чатов не смешиваются.
+    run_telemetry: dict = {}
     emit_state: dict = {"outcome": "skipped", "status": ""}
 
     def _finish(outcome: str, status: str = "") -> None:
@@ -390,7 +425,8 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
             # UNIFIED-CORE (P0, 20.10.2026): chat_id → Core + Expression
             # владельца в канон чек-апа (пользовательский речевой маршрут).
             report = await _service.checkup(payload, used_fallback,
-                                            chat_id=message.chat.id)
+                                            chat_id=message.chat.id,
+                                            telemetry=run_telemetry)
         # SELF-DIAG-01 D2: перепроверка прав ПЕРЕД публикацией (отзыв
         # действует на уже запущенную проверку) + удаление секретов.
         try:
@@ -403,6 +439,10 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                              message.chat.id)
             _finish("failed", "publication_guard_failed")
             return
+        # SELF-DIAG-01 D6 B3: проверка вывода ДЛЯ ЭТОГО отчёта (наличие
+        # события = enforcement измерен; статус clean/partially_redacted/blocked).
+        emit_checkup_validation_event(chat_id=message.chat.id,
+                                      publication=publication)
         if not publication.allowed:
             logger.info("[checkup] publication blocked | chat=%s | "
                         "reason=%s", message.chat.id,
@@ -436,10 +476,7 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
                      message.message_id)
         _finish("failed", "unexpected_error")
     finally:
-        try:
-            telemetry = dict(getattr(_service, "last_run", None) or {})
-        except Exception:
-            telemetry = {}
+        telemetry = dict(run_telemetry)
         if facts_error:
             telemetry["facts_error"] = facts_error[:64]
         emit_checkup_event(

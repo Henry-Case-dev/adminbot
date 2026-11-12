@@ -240,7 +240,12 @@ ROUTES_SHA256_F11 = (
     # события `inspect_runtime_called`. RBAC — существующие категории
     # diagnostic_policy; credential values не выдаются; Δ каталога/DDL = 0.
     # Набор путей f8_baseline переиздан +1 (осознанно).
-    "cadff16abc01f50846783d05c4134b6e87cdd620d12229f32a6d324d362b9cdb")
+        # SELF-DIAG-01 D6 B2/B3/B4 (13.11.2026, focused rework): сознательное
+    # переутверждение (L-F11S-1) внутри ТОГО ЖЕ endpoint
+    # GET /api/status/self-diagnosis: success-маппинг report_sent/called,
+    # корреляция validated-событий с доставками, ProbeDeps для configured.
+    # Набор путей/фикстура f8_baseline не менялись (Δ routes=0).
+    "d7b3cc2a5bc0c96e16507370ad5c3403dc36b3d46ba369e387d9d7a7b1f8b021")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

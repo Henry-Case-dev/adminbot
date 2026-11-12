@@ -4,10 +4,11 @@ Epic 61 (64.5 хотфикс, D250/T-501): секция метрик собир�
 резервом длины (логи режутся до MAX_INPUT − len(секции) — метрики всегда
 живы); escape РОВНО ОДИН раз на финальной обёртке <system_logs>.
 
-SELF-DIAG-01 D6 (`SD1-D6-05`): сервис не меняет промпт и не пишет его
-содержимое — наружу отдаётся только машинная телеметрия эффективного
-промпта (source/version/hash) в ``last_run``; хендлер кладёт её в
-существующий mca-событийный контур.
+SELF-DIAG-01 D6 (`SD1-D6-05`, B1): сервис не меняет промпт и не пишет его
+содержимое — наружу отдаётся только машинная телеметрия ФИНАЛЬНОГО system
+(source/version/hash) в per-run словарь ``telemetry`` вызывающего; хендлер
+кладёт её в существующий mca-событийный контур. Общего mutable-атрибута
+телеметрии нет: конкурентные чекапы разных чатов не смешиваются.
 """
 import hashlib
 import logging
@@ -20,7 +21,8 @@ from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PRO
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.memory_health import collect_metrics
 from services.prompt_composer import speech_owner_block
-from services.prompt_style_blocks import resolve_prompt
+from services.prompt_style_blocks import resolve_prompt, \
+    resolve_prompt_with_source
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_xml import escape_xml_text
 
@@ -49,27 +51,33 @@ class CheckupService:
         self.db = db
         self.memory = memory
         self.metrics_enabled = metrics_enabled
-        #: SELF-DIAG-01 D6 (`SD1-D6-05`): машинная телеметрия последнего
-        #: прогона — БЕЗ текста промпта и без текста отчёта.
-        self.last_run: dict = {}
 
     async def checkup(self, logs_text: str, used_fallback: bool,
-                      chat_id: int | None = None) -> str:
+                      chat_id: int | None = None, *,
+                      telemetry: dict | None = None) -> str:
         """logs_text = результат fetcher.fetch(); used_fallback → скрытая
         приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4).
 
         UNIFIED-CORE (P0, 20.10.2026): ``chat_id`` (пользовательская команда
         в чате) → после канона идут Core + Expression владельца; без ``chat_id``
         (внутренний tool-loop ``get_bot_health`` — отчёт вербализует Direct
-        Writer) блок не передаётся: внутренние данные остаются нейтральными."""
+        Writer) блок не передаётся: внутренние данные остаются нейтральными.
+
+        SELF-DIAG-01 D6 B1 (`SD1-D6-05`): ``telemetry`` — per-run словарь
+        вызывающего. Сервис заполняет ЕГО, а не общий mutable-атрибут:
+        одновременные чекапы разных чатов не видят чужую телеметрию. Hash
+        считается по ФИНАЛЬНОМУ system (ровно те байты, что уходят в LLM)."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
         # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
         system_prompt = resolve_prompt("prompts.checkup_system_prompt",
                                        CHECKUP_SYSTEM_PROMPT)
-        # SELF-DIAG-01 D6 (`SD1-D6-05`): телеметрия эффективного промпта —
-        # только source/version/hash/длины. Содержимое не выходит из сервиса;
-        # сам промпт по-прежнему уходит в LLM байт-в-байт.
-        self.last_run = self._prompt_telemetry(system_prompt)
+        # SELF-DIAG-01 D6 B1: source — существующий резолвер с провенансом
+        # (`global` только при реальном PG-значении; кодовый канон — `default`).
+        try:
+            _effective, prompt_source = resolve_prompt_with_source(
+                "prompts.checkup_system_prompt", CHECKUP_SYSTEM_PROMPT)
+        except Exception:      # pragma: no cover - резолвер не бросает
+            prompt_source = "default"
         max_symbols = hot.get("limits.checkup_max_symbols",
                               settings.CHECKUP_MAX_SYMBOLS)
         max_input = hot.get("limits.checkup_max_input_symbols",
@@ -114,6 +122,11 @@ class CheckupService:
             input_truncated = True
         body = user_content + metrics_section
         user = f"<system_logs>{escape_xml_text(body)}</system_logs>"
+        # SELF-DIAG-01 D6 B1: телеметрия ФИНАЛЬНОГО system — сразу перед
+        # вызовом LLM (после {max_symbols}/owner-block/fallback-notice).
+        prompt_telemetry = self._prompt_telemetry(system, prompt_source)
+        if telemetry is not None:
+            telemetry.update(prompt_telemetry)
         started = time.monotonic()
         raw = await self.llm.generate(
             [
@@ -125,14 +138,15 @@ class CheckupService:
             "checkup LLM OK | out_chars=%d | latency_ms=%.0f | used_fallback=%s",
             len(raw), (time.monotonic() - started) * 1000.0, used_fallback,
         )
-        self.last_run.update({
-            "latency_ms": int((time.monotonic() - started) * 1000.0),
-            "report_chars": len(raw),
-            "metrics_included": bool(metrics),
-            "input_truncated": bool(input_truncated),
-            "used_fallback": bool(used_fallback),
-            "chat_scoped": chat_id is not None,
-        })
+        if telemetry is not None:
+            telemetry.update({
+                "latency_ms": int((time.monotonic() - started) * 1000.0),
+                "report_chars": len(raw),
+                "metrics_included": bool(metrics),
+                "input_truncated": bool(input_truncated),
+                "used_fallback": bool(used_fallback),
+                "chat_scoped": chat_id is not None,
+            })
         raw = cleanup_llm_text(raw)
         if not raw.strip():
             # Epic 60 (65.1, T-469): пустой ответ → молчание + 🗿 (хендлер
@@ -149,20 +163,14 @@ class CheckupService:
         return raw
 
     @staticmethod
-    def _prompt_telemetry(system_prompt: str) -> dict:
-        """SELF-DIAG-01 D6 (`SD1-D6-05`): source/version/hash эффективного
-        промпта — БЕЗ текста. Hash считается по ровно тем байтам, что ушли
-        в system-сообщение (до подстановки ``{max_symbols}``), поэтому
-        compare «до/после релиза» опирается на факт, а не на намерение."""
-        text = str(system_prompt or "")
-        try:
-            value = hot.get("prompts.checkup_system_prompt",
-                            CHECKUP_SYSTEM_PROMPT)
-            source = ("global" if isinstance(value, str) and value.strip()
-                      else "default")
-        except Exception:      # pragma: no cover - кэш не поднят
-            source = "default"
+    def _prompt_telemetry(system: str, source: str) -> dict:
+        """SELF-DIAG-01 D6 B1 (`SD1-D6-05`): source/version/hash ФИНАЛЬНОГО
+        system-сообщения — БЕЗ текста. Hash считается по ровно тем байтам,
+        которые уходят в LLM (включая `{max_symbols}`, owner-block и
+        fallback-notice), поэтому сверка «до/после релиза» опирается на факт."""
+        text = str(system or "")
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        source = str(source or "default")
         return {
             "prompt_source": source,
             "prompt_hash": digest[:16],

@@ -1582,7 +1582,8 @@ class ToolRouter:
         # redaction виден аналитике (значения не пишутся).
         self._emit_diag_tool_event(
             "diagnostic_output_validated", ctx,
-            status=str(sanitized.report.status or "clean")[:40])
+            status=str(sanitized.report.status or "clean")[:40],
+            stage=name)
         return sanitized.text
 
     # ── SELF-DIAG-01 D6: prompt_readback + машинная телеметрия ─────────
@@ -1644,7 +1645,10 @@ class ToolRouter:
         if status in ("denied", "unverified", "blocked"):
             self._emit_diag_tool_event("prompt_readback_denied", ctx,
                                        status=reason or status)
-        elif status:
+        elif status == "delivered":
+            # SELF-DIAG-01 D6 B1: `allowed` — ТОЛЬКО фактически доставленный
+            # промпт. partial/invalid_request/not_found/revision_unavailable/
+            # unavailable/ambiguous не считаются разрешённой выдачей.
             self._emit_diag_tool_event("prompt_readback_allowed", ctx,
                                        status=status)
 
@@ -1678,12 +1682,14 @@ class ToolRouter:
 
     @staticmethod
     def _emit_diag_tool_event(event_name: str, ctx, *, status: str = "",
-                              duration_ms: int = 0) -> None:
+                              duration_ms: int = 0,
+                              stage: str = "tool") -> None:
         """Существующий контракт `mca_events` (код/числа, без payloads)."""
         try:
             _mca_events.emit_mca_event(
                 event_name, outcome="success", component="self_diag",
-                stage="tool", status=str(status or "")[:40] or None,
+                stage=str(stage or "tool")[:120],
+                status=str(status or "")[:40] or None,
                 duration_ms=int(duration_ms or 0),
                 chat_id=getattr(ctx, "chat_id", None))
         except Exception:      # pragma: no cover - телеметрия fail-open

@@ -3662,21 +3662,65 @@ async def _self_diag_event_rows(db, since: int, *, limit: int = 2000):
         return []
 
 
+#: SELF-DIAG-01 D6 B2: закрытый маппинг статусов существующих событий.
+#: `report_sent` (чекап) и `called` (get_bot_health) — это УСПЕХ, а не partial;
+#: `clean`/`delivered` — тоже закрытый успех. Всё остальное решается по
+#: outcome/статусу ниже, без «успех = только status in ("", "ok")».
+_SELF_DIAG_SUCCESS_STATUSES = frozenset({
+    "", "ok", "success", "report_sent", "called", "clean", "delivered",
+})
+#: События, которые вообще не являются попыткой измерения (не идут в calls).
+_SELF_DIAG_SKIP_STATUSES = frozenset({
+    "skipped", "denied", "busy", "cooldown", "no_gate", "disabled",
+})
+#: Закрытые исходы провала/деградации (partial, не complete).
+_SELF_DIAG_FAIL_STATUSES = frozenset({
+    "degraded", "partial", "blocked", "unavailable", "permission_denied",
+    "not_configured", "stale", "not_checked", "unknown", "unsupported",
+    "llm_error", "logs_unavailable", "publication_blocked",
+    "publication_guard_failed", "unexpected_error", "silent", "empty_answer",
+})
+
+
+def _self_diag_row_state(row: dict) -> str:
+    """`complete` | `partial` | `skipped` для строки события.
+
+    Закрытые статусы старше outcome; outcome — только фолбэк для событий без
+    статуса. Никакого «неизвестное = ok».
+    """
+    status = str(row.get("status") or "")
+    outcome = str(row.get("outcome") or "")
+    if status in _SELF_DIAG_SKIP_STATUSES:
+        return "skipped"
+    if status in _SELF_DIAG_SUCCESS_STATUSES:
+        return "complete"
+    if status in _SELF_DIAG_FAIL_STATUSES:
+        return "partial"
+    if outcome == "success":
+        return "partial"
+    if outcome in ("failed", "silent", "interrupted", "cancelled"):
+        return "partial"
+    return "partial"
+
+
 def _self_diag_stats(rows: list, event_name: str) -> dict:
     """p50/p95/partial по существующим полям события (без домыслов)."""
     from web.api.analytics import _p50, _p95
     subset = [r for r in rows if r.get("event_name") == event_name]
     durations = [r.get("duration_ms") for r in subset
                  if isinstance(r.get("duration_ms"), (int, float))]
-    partial = [r for r in subset
-               if str(r.get("status") or "") not in ("", "ok")]
+    states = [(row, _self_diag_row_state(row)) for row in subset]
+    skipped = sum(1 for _row, state in states if state == "skipped")
+    complete = sum(1 for _row, state in states if state == "complete")
+    partial = len(subset) - skipped - complete
+    measured_calls = len(subset) - skipped
     by_stage: dict = {}
-    for row in subset:
+    for row, state in states:
         stage = str(row.get("stage") or "")
         bucket = by_stage.setdefault(stage, {"calls": 0, "failed": 0,
                                              "durations": []})
         bucket["calls"] += 1
-        if str(row.get("status") or "") not in ("", "ok"):
+        if state == "partial":
             bucket["failed"] += 1
         if isinstance(row.get("duration_ms"), (int, float)):
             bucket["durations"].append(row["duration_ms"])
@@ -3691,26 +3735,83 @@ def _self_diag_stats(rows: list, event_name: str) -> dict:
             "p95_ms": _p95(bucket["durations"]),
         })
     last_ok = None
-    for row in subset:
-        if str(row.get("status") or "") in ("", "ok"):
+    for row, state in states:
+        if state == "complete":
             last_ok = int(row.get("ts") or 0)
             break
     return {
         "calls": len(subset),
-        "partial": len(partial),
-        "complete": len(subset) - len(partial),
-        "partial_share": (round(len(partial) / len(subset), 4)
-                          if subset else None),
+        "partial": partial,
+        "complete": complete,
+        "skipped": skipped,
+        "partial_share": (round(partial / measured_calls, 4)
+                          if measured_calls else None),
         "p50_ms": _p50(durations),
         "p95_ms": _p95(durations),
         "by_stage": stages,
         "last_success_ts": last_ok,
-        "measured": bool(subset),
+        "measured": bool(measured_calls),
     }
 
 
 def _self_diag_count(rows: list, event_name: str) -> int:
     return sum(1 for r in rows if r.get("event_name") == event_name)
+
+
+def _self_diag_count_status(rows: list, event_name: str, statuses) -> int:
+    wanted = set(statuses)
+    return sum(1 for r in rows
+               if r.get("event_name") == event_name
+               and str(r.get("status") or "") in wanted)
+
+
+def _self_diag_validation_coverage(rows: list) -> dict:
+    """SELF-DIAG-01 D6 B3: измерен ли output-enforcement У КАЖДОЙ доставки.
+
+    `diagnostic_output_validated` несёт `stage=<tool>`; для чекапа есть
+    отдельное `checkup_output_validated` (чекап не идёт через tool-слой).
+    Счётчики коррелируются по типу доставки, а не «общий validated >= всего».
+    """
+    validated_by_tool: dict = {}
+    for row in rows:
+        if row.get("event_name") != "diagnostic_output_validated":
+            continue
+        stage = str(row.get("stage") or "")
+        if stage:
+            validated_by_tool[stage] = validated_by_tool.get(stage, 0) + 1
+    checkup_delivered = _self_diag_count_status(
+        rows, "checkup_triggered", {"report_sent"})
+    checkup_validated = _self_diag_count(rows, "checkup_output_validated")
+    tool_deliveries = {
+        "inspect_runtime": _self_diag_count(rows, "inspect_runtime_called"),
+        "get_bot_health": _self_diag_count(rows, "get_bot_health_called"),
+        "prompt_readback": _self_diag_count(rows, "prompt_readback_allowed"),
+        "read_source_code": _self_diag_count(rows, "read_source_attempted"),
+    }
+    gaps = {}
+    if checkup_validated < checkup_delivered:
+        gaps["checkup"] = checkup_delivered - checkup_validated
+    for tool, delivered in tool_deliveries.items():
+        validated = validated_by_tool.get(tool, 0)
+        if validated < delivered:
+            gaps[tool] = delivered - validated
+    total_deliveries = checkup_delivered + sum(tool_deliveries.values())
+    measured = total_deliveries > 0 and not gaps
+    if measured:
+        reason = "enforcement_measured"
+    elif total_deliveries <= 0:
+        reason = "no_deliveries_in_window"
+    else:
+        reason = "validation_not_correlated"
+    return {
+        "value": 0 if measured else None,
+        "measured": measured,
+        "reason": reason,
+        "deliveries": {"checkup": checkup_delivered, **tool_deliveries},
+        "validated": {"checkup": checkup_validated,
+                      "tools": validated_by_tool},
+        "gaps": gaps,
+    }
 
 
 async def _self_diag_payload(chat_id: int | None) -> dict:
@@ -3725,6 +3826,20 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
     since, until = _self_diag_window(24)
     db = lore_runtime.get_lore_db()
     rows = await _self_diag_event_rows(db, since)
+    # SELF-DIAG-01 D6 B4: `configured` каталога должен отражать реальную
+    # среду. Берём тот же набор зависимостей, что у чекапа/inspect_runtime
+    # (db/memory/fetcher/status), — каталог только читает метаданные probes
+    # и НЕ исполняет их.
+    probe_deps = None
+    try:
+        from handlers import checkup as _checkup_handler
+        probe_deps = _checkup_handler.checkup_probe_deps()
+    except Exception:
+        probe_deps = None
+    if probe_deps is None:
+        probe_deps = probes.ProbeDeps(db=db)
+    elif getattr(probe_deps, "db", None) is None:
+        probe_deps.db = db
 
     server = _status._server_metrics()
     started_at = getattr(_status, "started_at", None)
@@ -3781,7 +3896,7 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
         if stage and stage not in last_by_stage:
             last_by_stage[stage] = row
     try:
-        catalog = probes.probe_catalog(area="")
+        catalog = probes.probe_catalog(area="", deps=probe_deps)
         items = catalog.get("probes") or []
     except Exception:
         items = []
@@ -3807,17 +3922,14 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
     inspect = _self_diag_stats(rows, "inspect_runtime_called")
     checkup = _self_diag_stats(rows, "checkup_triggered")
     health = _self_diag_stats(rows, "get_bot_health_called")
-    validated = _self_diag_count(rows, "diagnostic_output_validated")
-    prompt_allowed = _self_diag_count(rows, "prompt_readback_allowed")
-    deliveries = (inspect["complete"] + checkup["calls"] + prompt_allowed
-                  + health["calls"])
-    secret_measured = bool(deliveries) and validated >= deliveries
+    validation = _self_diag_validation_coverage(rows)
     event_names = (
         "checkup_triggered", "get_bot_health_called",
         "inspect_runtime_called", "read_source_attempted",
         "read_source_verified", "code_unavailable",
         "prompt_readback_requested", "prompt_readback_allowed",
         "prompt_readback_denied", "diagnostic_output_validated",
+        "checkup_output_validated",
     )
     analytics = {
         "window_hours": 24,
@@ -3828,14 +3940,10 @@ async def _self_diag_payload(chat_id: int | None) -> dict:
         "get_bot_health": health,
         "event_counts": {name: _self_diag_count(rows, name)
                          for name in event_names},
-        # `0` выдаётся ТОЛЬКО когда enforcement реально измерен на всех
-        # доставках окна; иначе — null (не «зелёный placeholder»).
-        "secret_value_disclosures": {
-            "value": 0 if secret_measured else None,
-            "measured": secret_measured,
-            "reason": ("enforcement_measured" if secret_measured
-                       else "no_measured_deliveries"),
-        },
+        # SELF-DIAG-01 D6 B3: `0` выдаётся ТОЛЬКО когда enforcement измерен
+        # у КАЖДОЙ доставки окна (чекап — своим событием, tool — stage'ом
+        # инструмента). Иначе — null + причина, а не ложный «зелёный».
+        "secret_value_disclosures": validation,
         "retries": {"value": None, "measured": False},
         "cache_hits": {"value": None, "measured": False},
         "stale_reads": {"value": None, "measured": False},

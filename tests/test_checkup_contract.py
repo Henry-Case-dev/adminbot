@@ -100,6 +100,44 @@ def cleanup():
     checkup_mod._cooldown._last.clear()
 
 
+class _FillService:
+    """Заглушка `CheckupService` с per-run телеметрией (как реальный сервис).
+
+    Хендлер передаёт СВОЙ словарь `telemetry`; сервис заполняет именно его
+    (`SD1-D6-05` B1). Никакого общего `last_run` у заглушки нет.
+    """
+
+    def __init__(self, report="отчёт", *, prompt_source="default",
+                 prompt_hash="abc123def456"):
+        self.report = report
+        self.prompt_source = prompt_source
+        self.prompt_hash = prompt_hash
+        self.calls: list[dict] = []
+        self.telemetry_seen: list[dict] = []
+
+    async def checkup(self, logs_text, used_fallback, chat_id=None, *,
+                      telemetry=None):
+        self.calls.append({"logs": logs_text,
+                           "used_fallback": bool(used_fallback),
+                           "chat_id": chat_id})
+        payload = {
+            "prompt_source": self.prompt_source,
+            "prompt_hash": self.prompt_hash,
+            "prompt_version_used": f"{self.prompt_source}:{self.prompt_hash}",
+            "prompt_chars": 42,
+            "latency_ms": 7,
+            "report_chars": len(self.report),
+            "metrics_included": False,
+            "input_truncated": False,
+            "used_fallback": bool(used_fallback),
+            "chat_scoped": chat_id is not None,
+        }
+        if telemetry is not None:
+            telemetry.update(payload)
+            self.telemetry_seen.append(dict(telemetry))
+        return self.report
+
+
 def _wire(service, fetcher, collector=None):
     checkup_mod.setup_checkup(service, fetcher, diagnostics=collector)
 
@@ -107,10 +145,8 @@ def _wire(service, fetcher, collector=None):
 class TestExplicitCheckupWiring:
     @pytest.mark.asyncio
     async def test_uses_shared_collector_and_keeps_report(self, cleanup):
-        service = MagicMock()
-        service.checkup = AsyncMock(return_value="отчёт")
-        service.last_run = {"prompt_version_used": "default:abc123def456",
-                            "prompt_hash": "abc123def456"}
+        service = _FillService(report="отчёт", prompt_source="default",
+                               prompt_hash="abc123def456")
         fetcher = MagicMock()
         fetcher.fetch = AsyncMock(return_value=("логи", False))
         collector = _StubCollector(facts="DIAGNOSTIC_EVIDENCE status=ok")
@@ -126,14 +162,16 @@ class TestExplicitCheckupWiring:
         # Решение политики передаётся машинными полями, без секретов.
         assert call["permission"]["data_class"] == "PUBLIC_TECH"
         # Факты идут ДАННЫМИ перед логами; промпт не меняется.
-        service.checkup.assert_awaited_once_with(
-            "DIAGNOSTIC_EVIDENCE status=ok\nлоги", False, chat_id=CHAT_ID)
+        assert service.calls == [{
+            "logs": "DIAGNOSTIC_EVIDENCE status=ok\nлоги",
+            "used_fallback": False, "chat_id": CHAT_ID}]
+        # Телеметрия — именно per-run словарь хендлера (B1).
+        assert service.telemetry_seen and \
+            service.telemetry_seen[0]["prompt_hash"] == "abc123def456"
 
     @pytest.mark.asyncio
     async def test_collector_failure_does_not_disable_checkup(self, cleanup):
-        service = MagicMock()
-        service.checkup = AsyncMock(return_value="отчёт по логам")
-        service.last_run = {}
+        service = _FillService(report="отчёт по логам")
         fetcher = MagicMock()
         fetcher.fetch = AsyncMock(return_value=("логи", False))
         collector = _StubCollector(error=RuntimeError("probe boom"))
@@ -141,7 +179,8 @@ class TestExplicitCheckupWiring:
 
         await checkup_mod.checkup_handler(_make_msg(), bot=AsyncMock())
 
-        service.checkup.assert_awaited_once_with("логи", False, chat_id=CHAT_ID)
+        assert service.calls == [{"logs": "логи", "used_fallback": False,
+                                  "chat_id": CHAT_ID}]
 
     @pytest.mark.asyncio
     async def test_partial_evidence_is_reported_in_event(self, cleanup,
@@ -150,10 +189,8 @@ class TestExplicitCheckupWiring:
         monkeypatch.setattr(
             "services.mca_events.emit_mca_event",
             lambda name, **kw: captured.append((name, kw)))
-        service = MagicMock()
-        service.checkup = AsyncMock(return_value="отчёт")
-        service.last_run = {"prompt_version_used": "global:deadbeef1234",
-                            "prompt_hash": "deadbeef1234"}
+        service = _FillService(report="отчёт", prompt_source="default",
+                               prompt_hash="deadbeef1234")
         fetcher = MagicMock()
         fetcher.fetch = AsyncMock(return_value=("логи", True))
         bundle = _StubBundle(status="degraded", truncated=True, git_meta=False)
@@ -168,16 +205,42 @@ class TestExplicitCheckupWiring:
         assert payload["bundle_delivered"] is True
         assert payload["bundle_truncated"] is True
         assert payload["bundle_status"] == "degraded"
-        assert payload["prompt_version_used"] == "global:deadbeef1234"
+        assert payload["prompt_version_used"] == "default:deadbeef1234"
         assert payload["prompt_hash"] == "deadbeef1234"
         # Содержимое промпта/отчёта в телеметрию не попадает.
         assert "отчёт" not in str(raw)
 
     @pytest.mark.asyncio
+    async def test_per_run_telemetry_is_not_shared_between_chats(
+            self, cleanup, monkeypatch):
+        """B1: два чекапа подряд не видят телеметрию друг друга."""
+        captured = []
+        monkeypatch.setattr(
+            "services.mca_events.emit_mca_event",
+            lambda name, **kw: captured.append((name, kw)))
+        fetcher = MagicMock()
+        fetcher.fetch = AsyncMock(return_value=("логи", False))
+        service = _FillService(report="отчёт", prompt_hash="aaaa1111")
+        _wire(service, fetcher, _StubCollector())
+        await checkup_mod.checkup_handler(
+            _make_msg(chat_id=-100, user_id=1), bot=AsyncMock())
+        service.prompt_hash = "bbbb2222"
+        await checkup_mod.checkup_handler(
+            _make_msg(chat_id=-200, user_id=2), bot=AsyncMock())
+
+        payloads = []
+        for name, fields in captured:
+            if name != "checkup_triggered":
+                continue
+            raw = fields["source_ref_json"]
+            payloads.append(json.loads(raw) if isinstance(raw, str)
+                            else dict(raw))
+        assert [p["prompt_hash"] for p in payloads] == ["aaaa1111",
+                                                        "bbbb2222"]
+
+    @pytest.mark.asyncio
     async def test_identity_log_is_machine_only(self, cleanup, caplog):
-        service = MagicMock()
-        service.checkup = AsyncMock(return_value="отчёт")
-        service.last_run = {}
+        service = _FillService(report="отчёт")
         fetcher = MagicMock()
         fetcher.fetch = AsyncMock(return_value=("логи", False))
         bundle = _StubBundle(
@@ -199,9 +262,7 @@ class TestExplicitCheckupWiring:
     async def test_group_checkup_not_blocked_for_unverifiable_admin(
             self, cleanup):
         """`SD1-D6-10`: неверифицируемый админ группы не блокирует чекап."""
-        service = MagicMock()
-        service.checkup = AsyncMock(return_value="отчёт")
-        service.last_run = {}
+        service = _FillService(report="отчёт")
         fetcher = MagicMock()
         fetcher.fetch = AsyncMock(return_value=("логи", False))
         _wire(service, fetcher, _StubCollector())
@@ -216,8 +277,7 @@ class TestExplicitCheckupWiring:
         """`SD1-GRAL-02`/`SD1-EVD-02`: один промпт и один Writer."""
         assert hashlib.sha256(CHECKUP_SYSTEM_PROMPT.encode("utf-8")) \
             .hexdigest() == CHECKUP_SYSTEM_PROMPT_SHA256
-        service = MagicMock()
-        service.checkup = AsyncMock()
+        service = _FillService()
         _wire(service, MagicMock(), None)
         # Чек-ап использует ОДИН llm-клиент сервиса; второго Writer нет.
         assert checkup_mod._service is service
@@ -447,3 +507,341 @@ class TestSelfDiagnosisSurface:
     def test_no_new_page_or_agent_controllers(self):
         app = self._read("web/app.js")
         assert "selfdiag/run" not in app and "diagnostic-agent" not in app
+
+# ── B1–B4 (independent review): регрессии, которые падали на 61e50806 ──────
+
+
+class _FakeLLM:
+    """Захватывает system-сообщения, реально ушедшие в LLM."""
+
+    def __init__(self, report="готово"):
+        self.report = report
+        self.systems: list[str] = []
+
+    async def generate(self, messages):
+        self.systems.append(messages[0]["content"])
+        return self.report
+
+
+def _service(monkeypatch, *, owner=None, report="готово"):
+    from services.checkup_service import CheckupService
+
+    llm = _FakeLLM(report=report)
+    svc = CheckupService(llm, db=None, memory=None, metrics_enabled=False)
+
+    async def _passthrough(text, chat_id):
+        return text
+    monkeypatch.setattr(CheckupService, "_apply_outbound_style",
+                        staticmethod(_passthrough))
+    if owner is not None:
+        async def _owner(chat_id):
+            return owner(chat_id)
+        monkeypatch.setattr("services.checkup_service.speech_owner_block",
+                            _owner)
+    else:
+        async def _none(chat_id):
+            return ""
+        monkeypatch.setattr("services.checkup_service.speech_owner_block",
+                            _none)
+    return svc, llm
+
+
+class TestB1PromptTelemetry:
+    """B1: hash/source описывают ФИНАЛЬНЫЙ system, телеметрия per-run."""
+
+    @pytest.mark.asyncio
+    async def test_hash_matches_final_system_and_default_source(
+            self, monkeypatch):
+        svc, llm = _service(monkeypatch)
+        telemetry: dict = {}
+        await svc.checkup("логи", True, chat_id=None, telemetry=telemetry)
+
+        system = llm.systems[0]
+        # Hash — по фактическому system, а не по шаблону с {max_symbols}.
+        assert telemetry["prompt_hash"] == hashlib.sha256(
+            system.encode("utf-8")).hexdigest()[:16]
+        assert telemetry["prompt_chars"] == len(system)
+        # В тестовой среде PG-значения нет → кодовый канон = default.
+        assert telemetry["prompt_source"] == "default"
+        assert telemetry["prompt_version_used"].startswith("default:")
+        # Старый дефект: hash шаблона ДО подстановки/приписки.
+        assert telemetry["prompt_hash"] != hashlib.sha256(
+            CHECKUP_SYSTEM_PROMPT.encode("utf-8")).hexdigest()[:16]
+        # fallback-notice входит в финальный system.
+        from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE
+        assert system.endswith(CHECKUP_FALLBACK_NOTICE)
+
+    @pytest.mark.asyncio
+    async def test_global_source_follows_resolver(self, monkeypatch):
+        svc, llm = _service(monkeypatch)
+        monkeypatch.setattr(
+            "services.checkup_service.resolve_prompt_with_source",
+            lambda key, default: ("effective", "global"))
+        telemetry: dict = {}
+        await svc.checkup("логи", False, chat_id=None, telemetry=telemetry)
+        assert telemetry["prompt_source"] == "global"
+        assert telemetry["prompt_hash"] == hashlib.sha256(
+            llm.systems[0].encode("utf-8")).hexdigest()[:16]
+
+    @pytest.mark.asyncio
+    async def test_two_concurrent_chats_do_not_share_telemetry(
+            self, monkeypatch):
+        import asyncio
+
+        svc, llm = _service(monkeypatch, owner=lambda chat_id:
+                            f"OWNER-{chat_id}")
+        t1: dict = {}
+        t2: dict = {}
+        await asyncio.gather(
+            svc.checkup("логи-1", False, chat_id=1, telemetry=t1),
+            svc.checkup("логи-2", False, chat_id=2, telemetry=t2))
+
+        systems = llm.systems
+        by_chat = {1: [s for s in systems if "OWNER-1" in s],
+                   2: [s for s in systems if "OWNER-2" in s]}
+        assert by_chat[1] and by_chat[2]
+        assert t1["prompt_hash"] == hashlib.sha256(
+            by_chat[1][0].encode("utf-8")).hexdigest()[:16]
+        assert t2["prompt_hash"] == hashlib.sha256(
+            by_chat[2][0].encode("utf-8")).hexdigest()[:16]
+        assert t1["prompt_hash"] != t2["prompt_hash"]
+        # Сервис больше не держит общий mutable-атрибут телеметрии.
+        assert not hasattr(svc, "last_run")
+
+    def test_prompt_readback_allowed_only_on_delivery(self, monkeypatch):
+        events: list[str] = []
+        monkeypatch.setattr(
+            "services.mca_events.emit_mca_event",
+            lambda name, **kw: events.append(name))
+        router = ToolRouter(ToolDeps(search=MagicMock(), memory=MagicMock()))
+        ctx = ToolContext(CHAT_ID, "покажи промпт")
+
+        for ack in ("PROMPT_READBACK status=partial reason=delivery_failed",
+                    "PROMPT_READBACK status=invalid_request reason=x",
+                    "PROMPT_READBACK status=not_found reason=x",
+                    "PROMPT_READBACK status=revision_unavailable reason=x"):
+            events.clear()
+            router._note_prompt_readback_outcome(ctx, ack)
+            assert "prompt_readback_allowed" not in events, ack
+
+        events.clear()
+        router._note_prompt_readback_outcome(
+            ctx, "PROMPT_READBACK status=delivered destination=reply")
+        assert events.count("prompt_readback_allowed") == 1
+
+
+class TestB2SuccessStatuses:
+    """B2: report_sent/called — успех, а не partial."""
+
+    def _rows(self):
+        now = int(datetime.datetime.now(
+            datetime.timezone.utc).timestamp())
+
+        def row(name, status, *, outcome="success", duration=None):
+            return {"event_name": name, "status": status, "outcome": outcome,
+                    "duration_ms": duration, "stage": "final", "ts": now}
+        return [
+            row("checkup_triggered", "report_sent", duration=900),
+            row("get_bot_health_called", "called", duration=700),
+            row("inspect_runtime_called", "degraded", duration=200),
+        ]
+
+    def test_checkup_and_health_are_complete(self):
+        from web.api import routes as web_routes
+        checkup = web_routes._self_diag_stats(self._rows(), "checkup_triggered")
+        health = web_routes._self_diag_stats(self._rows(),
+                                             "get_bot_health_called")
+        for stats in (checkup, health):
+            assert stats["calls"] == 1
+            assert stats["complete"] == 1
+            assert stats["partial"] == 0
+            assert stats["last_success_ts"] is not None
+        inspect = web_routes._self_diag_stats(self._rows(),
+                                              "inspect_runtime_called")
+        assert inspect["complete"] == 0 and inspect["partial"] == 1
+
+    def test_skipped_is_not_a_partial_measurement(self):
+        from web.api import routes as web_routes
+        rows = [{"event_name": "checkup_triggered", "status": "cooldown",
+                 "outcome": "skipped", "duration_ms": None,
+                 "stage": "final", "ts": 1},
+                {"event_name": "checkup_triggered", "status": "report_sent",
+                 "outcome": "success", "duration_ms": 100,
+                 "stage": "final", "ts": 2}]
+        stats = web_routes._self_diag_stats(rows, "checkup_triggered")
+        assert stats["skipped"] == 1
+        assert stats["complete"] == 1
+        assert stats["partial"] == 0
+        assert stats["partial_share"] == 0.0
+
+
+class TestB3SecretMeasured:
+    """B3: `0` только когда enforcement измерен у каждой доставки."""
+
+    def _row(self, name, status, *, stage="", outcome="success"):
+        return {"event_name": name, "status": status, "stage": stage,
+                "outcome": outcome, "duration_ms": None, "ts": 1}
+
+    def test_unrelated_validation_does_not_make_zero_measured(self):
+        from web.api import routes as web_routes
+        rows = [self._row("checkup_triggered", "report_sent"),
+                self._row("diagnostic_output_validated", "clean",
+                          stage="execute_web_search")]
+        result = web_routes._self_diag_validation_coverage(rows)
+        assert result["measured"] is False
+        assert result["value"] is None
+        assert result["reason"] == "validation_not_correlated"
+        assert result["gaps"]["checkup"] == 1
+
+    def test_delivery_validated_by_dedicated_event_is_measured(self):
+        from web.api import routes as web_routes
+        rows = [self._row("checkup_triggered", "report_sent"),
+                self._row("checkup_output_validated", "clean"),
+                self._row("inspect_runtime_called", "ok",
+                          stage="deploy.identity"),
+                self._row("diagnostic_output_validated", "clean",
+                          stage="inspect_runtime")]
+        result = web_routes._self_diag_validation_coverage(rows)
+        assert result["measured"] is True
+        assert result["value"] == 0
+        assert result["reason"] == "enforcement_measured"
+
+    def test_no_deliveries_is_not_measured(self):
+        from web.api import routes as web_routes
+        result = web_routes._self_diag_validation_coverage(
+            [self._row("diagnostic_output_validated", "clean",
+                       stage="inspect_runtime")])
+        assert result["measured"] is False
+        assert result["value"] is None
+        assert result["reason"] == "no_deliveries_in_window"
+
+
+class TestB4ConfiguredSources:
+    """B4: `configured` каталога считает реальные зависимости среды."""
+
+    @pytest.mark.asyncio
+    async def test_configured_reflects_existing_services(self, monkeypatch):
+        from web.api import routes as web_routes
+
+        service = MagicMock()
+        service.db = object()
+        service.memory = object()
+        checkup_mod.setup_checkup(service, object(), diagnostics=False)
+        deps = checkup_mod.checkup_probe_deps()
+        assert deps.db is service.db
+        assert deps.memory is service.memory
+        assert deps.logs_fetcher is not None
+
+        monkeypatch.setattr("services.lore_runtime.get_lore_db",
+                            lambda: None)
+
+        def _identity(root=None, *, process_started_at=None):
+            return {"deployed_sha": "deadbeef", "repo_origin": "o/r"}
+        monkeypatch.setattr("services.deploy_identity.collect_identity",
+                            _identity)
+        payload = await web_routes._self_diag_payload(None)
+        by_id = {src["id"]: src for src in payload["sources"]}
+        assert by_id["media.stt"]["configured"] is True
+        assert by_id["scheduler.jobs"]["configured"] is True
+        checkup_mod._service = None
+        checkup_mod._fetcher = None
+
+    @pytest.mark.asyncio
+    async def test_catalog_does_not_execute_probes(self, monkeypatch):
+        from web.api import routes as web_routes
+
+        called = {"value": False}
+
+        def _boom(ctx):
+            called["value"] = True
+            raise AssertionError("probe executed")
+        monkeypatch.setattr("services.runtime_probes._probe_service_runtime",
+                            _boom)
+        monkeypatch.setattr("services.lore_runtime.get_lore_db",
+                            lambda: None)
+
+        def _identity(root=None, *, process_started_at=None):
+            return {"deployed_sha": "deadbeef"}
+        monkeypatch.setattr("services.deploy_identity.collect_identity",
+                            _identity)
+        payload = await web_routes._self_diag_payload(None)
+        assert payload["available"] is True
+        assert called["value"] is False
+
+
+class TestB2B3PayloadEndToEnd:
+    """B2/B3 на уровне `/api/status/self-diagnosis`: смешанные события."""
+
+    @pytest.mark.asyncio
+    async def test_payload_counts_success_and_never_fakes_zero(
+            self, monkeypatch):
+        from web.api import routes as web_routes
+
+        mixed = [
+            {"event_name": "checkup_triggered", "status": "report_sent",
+             "outcome": "success", "duration_ms": 900, "stage": "final",
+             "ts": 10},
+            {"event_name": "get_bot_health_called", "status": "called",
+             "outcome": "success", "duration_ms": 700, "stage": "tool",
+             "ts": 11},
+            # Посторонний validated от ДРУГОГО инструмента: не доказывает,
+            # что чекап прошёл output validation.
+            {"event_name": "diagnostic_output_validated", "status": "clean",
+             "outcome": "success", "duration_ms": None,
+             "stage": "execute_web_search", "ts": 12},
+        ]
+
+        async def _rows(db, since, **kwargs):
+            return mixed
+        monkeypatch.setattr(web_routes, "_self_diag_event_rows", _rows)
+        monkeypatch.setattr("services.lore_runtime.get_lore_db",
+                            lambda: None)
+
+        def _identity(root=None, *, process_started_at=None):
+            return {"deployed_sha": "deadbeef"}
+        monkeypatch.setattr("services.deploy_identity.collect_identity",
+                            _identity)
+
+        payload = await web_routes._self_diag_payload(None)
+        analytics = payload["analytics"]
+        assert analytics["checkup"]["complete"] == 1
+        assert analytics["checkup"]["partial"] == 0
+        assert analytics["get_bot_health"]["complete"] == 1
+        assert analytics["checkup"]["last_success_ts"] == 10
+        assert "checkup_output_validated" in analytics["event_counts"]
+        # Ложного «измеренного 0» быть не может.
+        assert analytics["secret_value_disclosures"]["measured"] is False
+        assert analytics["secret_value_disclosures"]["value"] is None
+        assert analytics["secret_value_disclosures"]["gaps"]["checkup"] == 1
+
+    @pytest.mark.asyncio
+    async def test_payload_mixed_validation_is_not_measured(
+            self, monkeypatch):
+        """B3: посторонний validated не делает чекап «измеренным»."""
+        from web.api import routes as web_routes
+
+        mixed = [
+            {"event_name": "checkup_triggered", "status": "report_sent",
+             "outcome": "success", "duration_ms": 900, "stage": "final",
+             "ts": 10},
+            {"event_name": "diagnostic_output_validated", "status": "clean",
+             "outcome": "success", "duration_ms": None,
+             "stage": "execute_web_search", "ts": 12},
+        ]
+
+        async def _rows(db, since, **kwargs):
+            return mixed
+        monkeypatch.setattr(web_routes, "_self_diag_event_rows", _rows)
+        monkeypatch.setattr("services.lore_runtime.get_lore_db",
+                            lambda: None)
+
+        def _identity(root=None, *, process_started_at=None):
+            return {"deployed_sha": "deadbeef"}
+        monkeypatch.setattr("services.deploy_identity.collect_identity",
+                            _identity)
+
+        payload = await web_routes._self_diag_payload(None)
+        secret = payload["analytics"]["secret_value_disclosures"]
+        assert secret["measured"] is False
+        assert secret["value"] is None
+        assert secret["gaps"]["checkup"] == 1

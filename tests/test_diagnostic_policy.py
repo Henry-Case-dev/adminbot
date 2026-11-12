@@ -901,8 +901,10 @@ async def test_checkup_entry_publishes_after_recheck(monkeypatch,
     pg = FakePg()
     service = MagicMock()
 
-    async def revoke_during_check(logs, used_fallback, chat_id=None):
+    async def revoke_during_check(logs, used_fallback, chat_id=None,
+                                  **kwargs):
         # Владелец отозвал доступ, пока проверка уже выполнялась.
+        # **kwargs — per-run `telemetry` (SELF-DIAG-01 D6 B1).
         await access_srv.upsert_diag_matrix(
             pg, "logs_traceback", {"view_roles": [], "run_roles": []})
         diag.notify_policy_change(changed_by=OWNER_ID,
