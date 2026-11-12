@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T00:04:39+12:00",
+  "updated": "2026-11-13T00:59:15+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -927,7 +927,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T00:04:39+12:00",
+      "updated": "2026-11-13T00:59:15+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -935,7 +935,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-12/13: D1 closed 17/17 at 25876167; D4-A approved by Reviewer (8c035908) and recorded REVIEW, not deployed; D4 scoped gate is red only because the map-level candidate is 25876167 and the gate accepts only VERIFIED at review stage - a gate limitation, not a candidate defect. D4-B Builder is building LocalSnapshotProvider/SourceReader routing/repo_origin from the frozen contract v1.1. VERIFIED for D4 waits for the self-diag release. Next: D4-B review -> D6 seam -> release -> bind to deployed SHA -> D3/D5/D7 -> vmq-onto-01.",
+      "queue_note": "2026-11-13: stage-correct protocol applied. D1 17/17 VERIFIED. D4-A/D4-B independently approved and recorded REVIEW (not deployed); slice-level candidate bindings + patched gate. D3/D5 Builders are resuming; D6 follows after D3/D4/D5; then one self-diag release and D7. Natural/stat tests and voluntary live checks do not block; production VERIFIED only after deployment.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -952,10 +952,10 @@
         "D0": "historical artifact needs refresh",
         "D1": "VERIFIED 2.58.197 @ 25876167",
         "D2": "37 VERIFIED / 4 READY_FOR_LIVE / 3 PENDING (c087253d/2.58.188)",
-        "D3": "PENDING",
-        "D4A": "REVIEW (approved 8c035908, not deployed)",
-        "D4B": "BUILDING (local snapshot + repo_origin)",
-        "D5": "PENDING",
+        "D3": "BUILDING",
+        "D4A": "REVIEW (approved 8c035908)",
+        "D4B": "REVIEW (approved 722ccfc5)",
+        "D5": "BUILDING",
         "D6": "PENDING (waits D1+D3+D4+D5)",
         "D7": "PENDING"
       },
@@ -965,7 +965,7 @@
         "d1_verified": 17,
         "d1_total": 17,
         "d4a_review": 3,
-        "d4a_pending_partial": 4
+        "d4b_review": "pending map binding"
       }
     },
     {
@@ -1718,7 +1718,7 @@
       "id": "p0-init-meme-ux-diag",
       "ticket": "P0-INIT-MEME-UX-DIAG-CORRECTIVE",
       "title": "Инициатива/Мемы: достоверное состояние, понятный UX и сквозная диагностика",
-      "status": "WAITING_EXTERNAL",
+      "status": "DONE",
       "source_path": "plans/owner_inputs/2026-11-11-p0-init-meme-ux-diag-corrective-excerpt.md",
       "source_sha256": "6D0D5C52CF5B6A50CE7F4098EEB8136A49AE1D024B83C5FB802BF016587CD91A",
       "maps": [
@@ -1729,9 +1729,9 @@
       "priority": "P0",
       "blocked_by": [],
       "blocker_sources": {},
-      "execution_state": "waiting_external",
+      "execution_state": "completed",
       "position_basis": "owner marked it P0 corrective; current lanes continue in parallel",
-      "queue_note": "2026-11-12: 2.58.197 deployed at 25876167; map 111/114 rows (75/77 unique) VERIFIED; release gate scoped=114 errors=3, scoped S1-AXES/S2-ID/S3-OV = 0. Open: P0IM-PB-LLM (two duplicate rows) needs the first natural meme attempt that reaches LLM A/B (A ~3h, B ~5h from 09:43/09:46Z; quota reset 2026-11-13T00:00:00Z), and P0IM-AC-DONE is the final convolution. No executable engineering work; agents read the existing API on the event. Next queue task: self-diag-01.",
+      "queue_note": "2026-11-13: epic DONE by owner decision. Map 114/114 (77/77) VERIFIED; final release gate scoped=114 errors=0; production 2.58.197 at 25876167. The natural PB-LLM event is recorded as non-blocking owner_live_check WO-258197-PB-LLM-LIVE; not a blocker and not VERIFIED. S5b deferred delivery remains a voluntary observation.",
       "preparation": {
         "pm_map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
         "architecture": "plans/features/p0-init-meme-ux-diag/architecture.md",
@@ -1742,22 +1742,12 @@
         "status": "preparation_complete_implementation_not_started"
       },
       "progress": {
-        "verified_rows": 111,
+        "verified_rows": 114,
         "total_rows": 114,
-        "verified_unique": 75,
+        "verified_unique": 77,
         "unique": 77,
         "deployed_commit": "2587616759de31283585ffc105c91e7193c2e89e",
         "deployed_version": "2.58.197"
-      },
-      "waiting_external": {
-        "requirement_ids": [
-          "P0IM-PB-LLM",
-          "P0IM-AC-DONE"
-        ],
-        "trigger": "first natural meme attempt after the cooldown/quota event that reaches LLM A/B (summary/joke) on 2.58.197",
-        "read": "GET /api/initiative/publications/{id} -> chain[].facts.llm|prompt|api; compare provider/model/slot, prompt source/revision/sha12, recorded image facts",
-        "owner_action_required": false,
-        "resume": "agents read the event; no owner QA"
       }
     },
     {
@@ -4357,6 +4347,40 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-13-PBLLM-CLOSE-DONE",
+      "source_path": "plans/owner_inputs/2026-11-13-pbllm-close-done.md",
+      "source_sha256": "F0CBBF3BB62F2662E407E9168C2354894CE8C0FB5024AE86E10AE3DA49A40526",
+      "kind": "decision",
+      "target_task_ids": [
+        "p0-init-meme-ux-diag"
+      ],
+      "reconciled": true,
+      "note": "Owner final decision: close the initiative epic DONE; PB-LLM natural event is a non-blocking owner_live_check, AC-DONE is a convolution; no fake production evidence.",
+      "recorded_in": "plans/features/p0-init-meme-ux-diag/evidence/s7accept/final-convolution-25876167.md",
+      "coverage_refs": [
+        {
+          "task_id": "p0-init-meme-ux-diag",
+          "map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
+          "req_ids": [
+            "P0IM-PB-LLM",
+            "P0IM-AC-DONE"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OI-2026-11-13-SELFDIAG-STAGE-CORRECT",
+      "source_path": "plans/owner_inputs/2026-11-13-selfdiag-stage-correct-closure.md",
+      "source_sha256": "FB2AA506D644AD932A85475345F3030C57357F071F33BD96CF54896325FD5B9E",
+      "kind": "decision",
+      "target_task_ids": [
+        "self-diag-01"
+      ],
+      "reconciled": true,
+      "note": "Owner decision: apply the new Epic Closure Protocol + Stage-Correct Acceptance to self-diag-01 and all later epics; REVIEW with independent approval passes before deploy; natural/voluntary waits never block; no extra acceptance stages.",
+      "recorded_in": "plans/workflow_state.md"
     }
   ],
   "source_inventory": {
