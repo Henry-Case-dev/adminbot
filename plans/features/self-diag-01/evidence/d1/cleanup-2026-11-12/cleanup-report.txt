@@ -1,0 +1,64 @@
+PHASE=start utc=2026-11-12T10:28:39Z
+HEAD=2587616759de31283585ffc105c91e7193c2e89e
+BRANCH=release/2.58.197
+GIT_DIRTY_TRACKED=0
+UNIT_ACTIVE=active NRestarts=0 InvocationID=e28685c02d2b4916a909f53f3dd8c8cd
+ENV_BETTERSTACK_HOST=1 ENV_LOGTAIL_SOURCE_TOKEN=1
+GIT_GREP_RUNTIME_RC=1 RUNTIME_HITS=0
+GIT_GREP_REPO_FILES_WITH_MENTIONS=16
+HEAD_MATCH betterstack_handler.py=True external_log.py=True
+ADMIN_IDS_RESOLVED=3
+CFG_ADMIN_PROBE=ok keys_section=visible
+TMA_PROBE_AVAILABLE=True
+PRE_COUNT=5
+PRE_ROW keys.checkup_betterstack_sql_password len=66 category=keys
+PRE_ROW keys.checkup_betterstack_sql_user len=35 category=keys
+PRE_ROW models.checkup_betterstack_sql_host len=40 category=models
+PRE_ROW models.checkup_betterstack_sql_query len=2 category=models
+PRE_ROW models.checkup_betterstack_sql_table len=20 category=models
+PRE_EXTRA_BETTERSTACK=0
+CFG_PRE_HTTP=200 ITEMS=623
+CFG_PRE_HTTP=200 ITEMS=623 MATCHED=5
+CFG_PRE_KEY keys.checkup_betterstack_sql_password shape=masked configured=True
+CFG_PRE_KEY keys.checkup_betterstack_sql_user shape=masked configured=True
+CFG_PRE_KEY models.checkup_betterstack_sql_host shape=str
+CFG_PRE_KEY models.checkup_betterstack_sql_query shape=str
+CFG_PRE_KEY models.checkup_betterstack_sql_table shape=str
+CFG_PRE_CHECKUP_KEPT=6
+BACKUP_PATH=/root/adminbot_backup_self-diag-01/bot_settings_betterstack_2026-11-12.json
+BACKUP_ROWS=5
+BACKUP_BYTES=1327
+BACKUP_SHA256=706b61f3282002ee8e801c89035583fd33350457daf1f8b6840d0b8e158dd969
+RESTORE_PATH=/root/adminbot_backup_self-diag-01/restore_bot_settings_betterstack.py
+RESTORE_SHA256=157225a0a857f54a234cafda4edc67b68ed3d23bb44c5aef82342383a5bef8f2
+DELETE_RETURNED=5
+DELETED keys.checkup_betterstack_sql_password
+DELETED keys.checkup_betterstack_sql_user
+DELETED models.checkup_betterstack_sql_host
+DELETED models.checkup_betterstack_sql_query
+DELETED models.checkup_betterstack_sql_table
+POST_COUNT=0
+POST_LEGACY_ROWS=0
+POST_CHECKUP_ROWS=6
+POST_CHECKUP flags.checkup_enabled
+POST_CHECKUP flags.checkup_memory_metrics_enabled
+POST_CHECKUP limits.checkup_cooldown_seconds
+POST_CHECKUP limits.checkup_max_input_symbols
+POST_CHECKUP limits.checkup_max_symbols
+POST_CHECKUP prompts.checkup_system_prompt
+CFG_POST_DELETE_PRE_RESTART_HTTP=200 ITEMS=623 MATCHED=5
+CFG_POST_DELETE_PRE_RESTART_KEY keys.checkup_betterstack_sql_password shape=masked configured=True
+CFG_POST_DELETE_PRE_RESTART_KEY keys.checkup_betterstack_sql_user shape=masked configured=True
+CFG_POST_DELETE_PRE_RESTART_KEY models.checkup_betterstack_sql_host shape=str
+CFG_POST_DELETE_PRE_RESTART_KEY models.checkup_betterstack_sql_query shape=str
+CFG_POST_DELETE_PRE_RESTART_KEY models.checkup_betterstack_sql_table shape=str
+CFG_POST_DELETE_PRE_RESTART_CHECKUP_KEPT=6
+RESTART=scheduled
+POST_RESTART_HEALTH=ok version=2.58.197 waited=6s
+POST_RESTART_HEALTH_OK=True
+POST_RESTART_INVOCATION=e1336979a80a48bc83e54bc66c814644 NRestarts=0
+CFG_POST_RESTART_HTTP=200 ITEMS=618 MATCHED=0
+CFG_POST_RESTART_CHECKUP_KEPT=6
+POST_RESTART_DB_COUNT=0
+JOURNAL_LINES=1021 TRACEBACK=1 ERROR=0 CRITICAL=0
+PHASE=done utc=2026-11-12T10:28:52Z
