@@ -1,0 +1,4 @@
+FAIL: P0IM-PB-LLM: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0IM-PB-LLM: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0IM-AC-DONE: mandatory not ['VERIFIED'] (got PENDING)
+stage=release inventory=42 manual=90 scoped=114 errors=3
