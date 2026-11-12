@@ -1,0 +1,4 @@
+20:2026-11-12 09:00:46,000 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+23:2026-11-12 09:00:46,007 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-11-19 14:14:41.
+49:Traceback (most recent call last):
+707:Traceback (most recent call last):

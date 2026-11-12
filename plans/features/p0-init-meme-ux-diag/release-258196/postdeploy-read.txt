@@ -1,0 +1,35 @@
+﻿# 2.58.196 postdeploy read-only (из deploy-run.log; целевой SHA e8e2619b)
+
+pre_state_app_version=2.58.195
+pre_state_head=c134f93d (release/2.58.195), tracked_dirty=0
+snapshot=backups/predeploy-258196-20261112T085424Z.db
+snapshot_bytes=2557394944
+snapshot_sha256=ba138b61a1dd249d1a19ec39ff43378345177a2230ef38da4c55e260bfb3b6d6
+snapshot_readback=integrity:ok user_version:47 tables:130 (68 s)
+
+deployed_head=e8e2619b251dc6f01367975edf0bdef955d6c4a7
+deployed_branch=release/2.58.196
+deployed_app_version=2.58.196
+deployed_app_js_git_blob=df756602ca830a34407bfe8ab60ffcfea2bbc71e size=2297972
+restart_pre_utc=2026-11-12T08:55:40Z
+unit_after_restart=active NRestarts=0 ActiveEnterTimestamp=2026-11-12 08:55:43 UTC
+healthz_attempt_1={"status":"ok","version":"2.58.196"}
+post_head=e8e2619b tracked_dirty=0
+live_user_version=47
+journal_15min: Traceback=0 ERROR=2 CRITICAL=0 WARNING=2 attempt_LOST=0 lines=1053 (both ERROR = mca_events INCIDENT at 08:55:16Z, до рестарта)
+now_utc=2026-11-12T08:55:57Z
+
+# Проверка отданного файла:
+# в deploy-run.log строка served_app_js=37ec4665… снята с НЕВЕРНОГО URL /app.js (404-заглушка).
+# Независимая проверка правильного /web/app.js (после выкладки):
+served_web_app_js_sha256=949810cc16cde382ed02964d304c85fa05f859420bc2cb9c1b213b382442d170
+served_web_app_js_bytes=2297972
+disk_web_app_js_sha256=949810cc16cde382ed02964d304c85fa05f859420bc2cb9c1b213b382442d170
+served_equals_commit=yes
+
+# После живой проверки OV-LIST (FAILED) выполнен откат:
+rollback_utc=2026-11-12T09:08:28Z
+rollback_head=c134f93d5c4a68f0ea906498cb9e0b78fc795f1e (release/2.58.195)
+rollback_healthz={"status":"ok","version":"2.58.195"}
+rollback_user_version=47
+rollback_details=rollback-258196.log

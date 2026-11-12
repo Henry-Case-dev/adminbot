@@ -1,0 +1,84 @@
+{
+ "release": "2.58.196",
+ "all_match": false,
+ "surfaces": {
+  "config_chat_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "a2713a9f7deadafc351ee6ef507ad904215612e46acbd649e849f388a0b6b14c",
+   "sha256_after": "e6878ae4cfdb43dac9d80d1c33fe8626986d330474884fa3fa0b0de7f205660a",
+   "match": false
+  },
+  "config_chat_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "77511d2badb335e357d5c1dc7bd04674e18d07d0ae9c53feaaf58749083eed87",
+   "sha256_after": "71c36b520690c1b3b257efe6dd08267e098029044ef6da8dd781a313189a1aae",
+   "match": false
+  },
+  "config_global": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "e6119b0fbb5eabfb71e076a7374c7fc1e6696ba4b9adcb65372fa2ccf82338a2",
+   "sha256_after": "e6119b0fbb5eabfb71e076a7374c7fc1e6696ba4b9adcb65372fa2ccf82338a2",
+   "match": true
+  },
+  "config_overrides_map": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36",
+   "sha256_after": "7c14840bd8abb727751700d200fa6d05f4cfd340ba9d43185ac9a89959253b36",
+   "match": true
+  },
+  "meme_settings_saved_-1002661910336": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "708490f0829e7c49af7185eeb0c572e0c2fa56e83a47a11f8f2ef2aa0cc9529b",
+   "sha256_after": "2e7e3f6f9396aee1ec3c8edb6e62b8a83306d91580f98a2bcaa796a37ef0e61e",
+   "match": false
+  },
+  "meme_settings_saved_-1004482340693": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "01c7c8f2572c236fcb6ac48160be71f588fb6ba19c25814183f12cf27b558663",
+   "sha256_after": "01c7c8f2572c236fcb6ac48160be71f588fb6ba19c25814183f12cf27b558663",
+   "match": true
+  },
+  "prompt_versions": {
+   "http_before": null,
+   "http_after": null,
+   "sha256_before": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+   "sha256_after": "57e84967e2538adc41804f0c0f1d2ef11985d30324abee9b4023a1e47c2b5e21",
+   "match": true,
+   "items": {
+    "prompts.meme_image": {
+     "sha256_before": "d3109ea548d9d3f14f5c5822428742999a784d706ee672219b6a96eff1e79842",
+     "sha256_after": "d3109ea548d9d3f14f5c5822428742999a784d706ee672219b6a96eff1e79842",
+     "match": true
+    },
+    "prompts.meme_joke": {
+     "sha256_before": "272445d8b41b60a33dfa66bf768c383cd6d8f78ea458c93ff7e8ce15d9d50d48",
+     "sha256_after": "272445d8b41b60a33dfa66bf768c383cd6d8f78ea458c93ff7e8ce15d9d50d48",
+     "match": true
+    },
+    "initiative.meme.summary": {
+     "sha256_before": "4c792b4b9c560af00e08ff3fc5f7e1b2ba428924dfe2554d3c229b5ad5346503",
+     "sha256_after": "4c792b4b9c560af00e08ff3fc5f7e1b2ba428924dfe2554d3c229b5ad5346503",
+     "match": true
+    },
+    "internal.initiative_observer": {
+     "sha256_before": "20846d44a2f4f9691974fcf71523565d0d86a948ae89ec0c11b48a7ae7f23725",
+     "sha256_after": "20846d44a2f4f9691974fcf71523565d0d86a948ae89ec0c11b48a7ae7f23725",
+     "match": true
+    }
+   }
+  },
+  "prompts_catalog": {
+   "http_before": 200,
+   "http_after": 200,
+   "sha256_before": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408",
+   "sha256_after": "aafd645a0db9936570c1ce80c6262b9784ca09060756dc8d7297187e514d1408",
+   "match": true
+  }
+ }
+}

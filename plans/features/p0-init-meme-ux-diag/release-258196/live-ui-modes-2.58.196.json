@@ -1,0 +1,18 @@
+{
+ "chatA": {
+  "has_vm": false,
+  "meme_settings_present": false,
+  "attempts_len": 0,
+  "first_attempt": null,
+  "rows": [],
+  "events": null
+ },
+ "chatB": {
+  "has_vm": false,
+  "meme_settings_present": false,
+  "attempts_len": 0,
+  "first_attempt": null,
+  "rows": [],
+  "events": null
+ }
+}

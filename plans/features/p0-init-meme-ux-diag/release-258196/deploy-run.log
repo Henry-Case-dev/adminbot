@@ -1,0 +1,99 @@
+
+=== A pre-state ===
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+release/2.58.195
+tracked_dirty=0
+APP_VERSION_ON_DISK=2.58.195
+APP_VERSION_ON_DISK=2.58.195
+active
+0
+Thu 2026-11-12 05:24:31 UTC
+121346
+active
+0
+Thu 2026-11-12 05:24:31 UTC
+121346
+{"status":"ok","version":"2.58.195"}
+/dev/vda1        99G   52G   42G  56% /
+db_bytes=2557374464
+{"status":"ok","version":"2.58.195"}
+/dev/vda1        99G   52G   42G  56% /
+db_bytes=2557374464
+
+=== B predeploy snapshot ===
+BACKUP=backups/predeploy-258196-20261112T085424Z.db
+BACKUP_BYTES=2557394944
+BACKUP_SHA256=ba138b61a1dd249d1a19ec39ff43378345177a2230ef38da4c55e260bfb3b6d6
+READBACK_INTEGRITY=ok
+READBACK_USER_VERSION=47
+READBACK_TABLES=130
+BACKUP=backups/predeploy-258196-20261112T085424Z.db
+BACKUP_BYTES=2557394944
+BACKUP_SHA256=ba138b61a1dd249d1a19ec39ff43378345177a2230ef38da4c55e260bfb3b6d6
+READBACK_INTEGRITY=ok
+READBACK_USER_VERSION=47
+READBACK_TABLES=130
+snapshot_sec=68.0
+
+=== C fetch + fast-forward checkout ===
+From https://github.com/Henry-Case-dev/adminbot
+   c134f93d..044f0aad  release/2.58.195 -> origin/release/2.58.195
+ * [new branch]        release/2.58.196 -> origin/release/2.58.196
+From https://github.com/Henry-Case-dev/adminbot
+   c134f93d..044f0aad  release/2.58.195 -> origin/release/2.58.195
+ * [new branch]        release/2.58.196 -> origin/release/2.58.196
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+origin_release_2.58.196=e8e2619b251dc6f01367975edf0bdef955d6c4a7
+TARGET_PRESENT
+TARGET_PRESENT
+FF_OK
+FF_OK
+Switched to a new branch 'release/2.58.196'
+Switched to a new branch 'release/2.58.196'
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+release/2.58.196
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+release/2.58.196
+APP_VERSION_ON_DISK=2.58.196
+APP_VERSION_ON_DISK=2.58.196
+df756602ca830a34407bfe8ab60ffcfea2bbc71e
+2297972
+app_js_git=df756602ca830a34407bfe8ab60ffcfea2bbc71e
+2297972
+
+=== D restart ===
+2026-11-12T08:55:40Z
+restart_pre_utc=2026-11-12T08:55:40Z
+
+active
+0
+Thu 2026-11-12 08:55:43 UTC
+active
+0
+Thu 2026-11-12 08:55:43 UTC
+
+=== E healthz (bounded retries) ===
+{"status":"ok","version":"2.58.196"}
+attempt 1: {"status":"ok","version":"2.58.196"}
+
+=== F post-state ===
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+release/2.58.196
+0
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+release/2.58.196
+0
+LIVE_USER_VERSION=47
+LIVE_USER_VERSION=47
+37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+served_app_js=37ec4665a8102d115ffd1ac20dae94c98b4dac64b0c1a68228aa2a531caeb35d  -
+949810cc16cde382ed02964d304c85fa05f859420bc2cb9c1b213b382442d170  web/app.js
+2297972
+disk_app_js=949810cc16cde382ed02964d304c85fa05f859420bc2cb9c1b213b382442d170  web/app.js
+2297972
+TB=0 ERR=2 CRIT=0 WARN=2 LOST=0
+TB=0 ERR=2 CRIT=0 WARN=2 LOST=0
+1053
+journal_lines=1053
+2026-11-12T08:55:57Z
+now_utc=2026-11-12T08:55:57Z

@@ -1,0 +1,12 @@
+=== state ===
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+release/2.58.196
+0
+active
+0
+{"status":"ok","version":"2.58.196"}
+=== ERROR lines (masked, max 200 chars) ===
+2026-11-12 08:55:16,088 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1794473716 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=in
+2026-11-12 08:55:16,093 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1794473716 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=in
+=== post-restart line count only ===
+473

@@ -1,0 +1,186 @@
+{
+ "-1004482340693": {
+  "http": 200,
+  "analytics_keys": [
+   "attempts",
+   "counters",
+   "coverage",
+   "enabled_default",
+   "events",
+   "joke",
+   "last_joke",
+   "output_kind",
+   "quota",
+   "separate_from_initiative",
+   "skip_reasons"
+  ],
+  "attempts_len": 20,
+  "sample": [
+   {
+    "job_id": "meme:-1004482340693:2026-11-12:c70ce40c0ca9",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "ts": 1794474063,
+    "detail_type": "str",
+    "detail_head": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1004482340693:2026-11-12:c70ce40c0ca9",
+    "stage": "considered",
+    "outcome": "passed",
+    "ts": 1794474063,
+    "detail_type": "str",
+    "detail_head": "",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1004482340693:2026-11-12:a64d3b078c3f",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "ts": 1794473900,
+    "detail_type": "str",
+    "detail_head": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1004482340693:2026-11-12:a64d3b078c3f",
+    "stage": "considered",
+    "outcome": "passed",
+    "ts": 1794473900,
+    "detail_type": "str",
+    "detail_head": "",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1004482340693:2026-11-12:a93929d2aca2",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "ts": 1794473850,
+    "detail_type": "str",
+    "detail_head": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1004482340693:2026-11-12:a93929d2aca2",
+    "stage": "considered",
+    "outcome": "passed",
+    "ts": 1794473850,
+    "detail_type": "str",
+    "detail_head": "",
+    "mode_field": null,
+    "attempt_mode_field": null
+   }
+  ],
+  "first_keys": [
+   "attempt_id",
+   "chat_id",
+   "detail",
+   "job_id",
+   "limit_source",
+   "limit_value",
+   "outcome",
+   "reason_code",
+   "stage",
+   "ts",
+   "window_messages"
+  ]
+ },
+ "-1002661910336": {
+  "http": 200,
+  "analytics_keys": [
+   "attempts",
+   "counters",
+   "coverage",
+   "enabled_default",
+   "events",
+   "joke",
+   "last_joke",
+   "output_kind",
+   "quota",
+   "separate_from_initiative",
+   "skip_reasons"
+  ],
+  "attempts_len": 20,
+  "sample": [
+   {
+    "job_id": "meme:-1002661910336:2026-11-12:544e545f5131",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "ts": 1794474063,
+    "detail_type": "str",
+    "detail_head": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1002661910336:2026-11-12:544e545f5131",
+    "stage": "considered",
+    "outcome": "passed",
+    "ts": 1794474063,
+    "detail_type": "str",
+    "detail_head": "",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1002661910336:2026-11-12:1da028d251ea",
+    "stage": "publish",
+    "outcome": "published",
+    "ts": 1794474061,
+    "detail_type": "str",
+    "detail_head": "{\"attempt_mode\":\"automatic\",\"claim\":{\"claim_id\":\"3f678c54a0b04a589569184d90530868\",\"coordination\":\"ok\",\"detail\":\"\",\"expires_at\":1794474151,\"granted\":true,\"holder_kind\":\"meme_initiative\",\"holder_ref\":\"meme:-1002661910336:",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1002661910336:2026-11-12:1da028d251ea",
+    "stage": "publish",
+    "outcome": "skipped",
+    "ts": 1794473619,
+    "detail_type": "str",
+    "detail_head": "{\"attempt_mode\":\"automatic\",\"deferred\":{\"detail\":\"publisher_not_bound\",\"expires_at\":1794495219,\"job_id\":\"5e3b94fbbbec433fa049eabb529d964a\",\"path\":\"/var/www/admin_bot/var/meme_pending/5e3b94fbbbec433fa049eabb529d964a.bin\"",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1002661910336:2026-11-12:1da028d251ea",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "ts": 1794473619,
+    "detail_type": "str",
+    "detail_head": "",
+    "mode_field": null,
+    "attempt_mode_field": null
+   },
+   {
+    "job_id": "meme:-1002661910336:2026-11-12:1da028d251ea",
+    "stage": "image_generation",
+    "outcome": "passed",
+    "ts": 1794473619,
+    "detail_type": "str",
+    "detail_head": "{\"ceiling\":800,\"chars\":705,\"joke_chars\":45,\"template_chars\":660,\"template_revision\":\"fac:f81fe7e4b505(meme-image-evol014)\",\"template_source\":\"chat\"}",
+    "mode_field": null,
+    "attempt_mode_field": null
+   }
+  ],
+  "first_keys": [
+   "attempt_id",
+   "chat_id",
+   "detail",
+   "job_id",
+   "limit_source",
+   "limit_value",
+   "outcome",
+   "reason_code",
+   "stage",
+   "ts",
+   "window_messages"
+  ]
+ }
+}

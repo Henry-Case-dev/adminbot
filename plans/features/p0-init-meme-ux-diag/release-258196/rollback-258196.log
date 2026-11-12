@@ -1,0 +1,25 @@
+=== before ===
+e8e2619b251dc6f01367975edf0bdef955d6c4a7
+release/2.58.196
+0
+{"status":"ok","version":"2.58.196"}
+=== checkout rollback target ===
+BASE_PRESENT
+BASE_IS_ANCESTOR
+Switched to and reset branch 'release/2.58.195'
+c134f93d5c4a68f0ea906498cb9e0b78fc795f1e
+release/2.58.195
+0
+=== restart ===
+2026-11-12T09:08:28Z
+
+active
+0
+Thu 2026-11-12 09:08:31 UTC
+{"status":"ok","version":"2.58.195"}
+healthz attempt 1: {"status":"ok","version":"2.58.195"}
+=== post ===
+LIVE_USER_VERSION=47
+TB=2 ERR=2 CRIT=0 LOST=0
+2026-11-12T09:08:42Z
+ROLLBACK_OK=True

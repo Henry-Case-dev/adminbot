@@ -1,0 +1,61 @@
+{
+ "nonadmin_id_present": true,
+ "chats": {
+  "-1004482340693": {
+   "post_restart_attempts": 4,
+   "with_new_fields": [],
+   "positive_correlation_attempt": null,
+   "ordinary_inspector": {
+    "http": 200,
+    "has_preview": true,
+    "keys": [
+     "chat_id",
+     "conflicts_detail",
+     "core",
+     "exact",
+     "gates",
+     "hierarchy",
+     "last_call",
+     "last_run_note",
+     "last_run_present",
+     "masked",
+     "preview",
+     "requested_correlation_id",
+     "requested_correlation_recorded",
+     "retention",
+     "ring_hits"
+    ]
+   },
+   "nonadmin_inspector_http": 403,
+   "nonadmin_detail": "{'detail': 'нет доступа к Inspector'}"
+  },
+  "-1002661910336": {
+   "post_restart_attempts": 2,
+   "with_new_fields": [],
+   "positive_correlation_attempt": null,
+   "ordinary_inspector": {
+    "http": 200,
+    "has_preview": true,
+    "keys": [
+     "chat_id",
+     "conflicts_detail",
+     "core",
+     "exact",
+     "gates",
+     "hierarchy",
+     "last_call",
+     "last_run_note",
+     "last_run_present",
+     "masked",
+     "preview",
+     "requested_correlation_id",
+     "requested_correlation_recorded",
+     "retention",
+     "ring_hits"
+    ]
+   },
+   "nonadmin_inspector_http": 403,
+   "nonadmin_detail": "{'detail': 'нет доступа к Inspector'}"
+  }
+ }
+}
