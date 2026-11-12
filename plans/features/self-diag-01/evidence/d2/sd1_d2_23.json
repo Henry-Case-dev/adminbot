@@ -1,0 +1,54 @@
+{
+ "row": "SD1-D2-23",
+ "candidate_commit": "f2f2583821a1ead995ce164becdf791ce9927d01",
+ "base_commit": "16fa04e77c56db44c23cb5c8a9386f6cfd756628",
+ "branch": "self-diag/d2-closure",
+ "source_line": 269,
+ "contract": "Источник истины о секретных полях — каталог/secret store с типами sensitivity; для нового провайдера sensitivity обязательна при регистрации.",
+ "measured": {
+  "registry_entries": 644,
+  "sensitivity_distribution": {
+   "SECRET_VALUE": 41,
+   "NON_SECRET_CONFIG": 575,
+   "PROMPT_CONTENT": 28
+  },
+  "sensitivity_source_distribution": {
+   "legacy_derivation": 644
+  },
+  "audit_problems": [],
+  "sensitivity_values": [
+   "SECRET_VALUE",
+   "PROMPT_CONTENT",
+   "NON_SECRET_CONFIG",
+   "PUBLIC_DIAGNOSTIC"
+  ],
+  "secret_keys": 41,
+  "projection_matches_catalog": true,
+  "keys_llm_api_key": true,
+  "keys_llm_api_key_sensitivity": "SECRET_VALUE",
+  "flags_checkup_enabled_sensitivity": "NON_SECRET_CONFIG",
+  "prompt_sensitivity": "PROMPT_CONTENT"
+ },
+ "registration_gate": {
+  "api": "services.param_catalog.register_param",
+  "error_without_sensitivity": "ParamSensitivityRequired",
+  "error_on_contradiction": "ParamSensitivityError",
+  "import_time_audit": "ParamSensitivityError on contradictory rows"
+ },
+ "tests": [
+  {
+   "command": "python -m pytest tests/test_param_sensitivity_registration.py -q",
+   "exit_code": 0,
+   "summary": "10 passed in 3.04s"
+  },
+  {
+   "command": "python -m pytest tests/test_param_catalog.py -q",
+   "exit_code": 0,
+   "summary": "40 passed in 3.49s"
+  }
+ ],
+ "red": {
+  "base_run": "tests/test_param_sensitivity_registration.py on 16fa04e7: 10 failed (AttributeError: module 'services.param_catalog' has no attribute 'SENSITIVITY_PROMPT_CONTENT' / no attribute 'register_param')",
+  "green_run": "tests/test_param_sensitivity_registration.py: 10 passed"
+ }
+}
