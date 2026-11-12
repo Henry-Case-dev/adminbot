@@ -1003,9 +1003,9 @@
                                   :data-self-diag-reset="cap"
                                   @click="resetDiagCapability(cap)">Сбросить</button>
                         </div>
-                        <div v-if="item.hard_rules && item.hard_rules.length"
+                        <div v-if="diagHardRulesText(item)"
                              class="text-gray-600">
-                          Жёсткие правила: {{ item.hard_rules.join('; ') }}
+                          Жёсткие правила: {{ diagHardRulesText(item) }}
                         </div>
                         <div v-if="item.tool_names && item.tool_names.length"
                              class="text-gray-600 font-mono">

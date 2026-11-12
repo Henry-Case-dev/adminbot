@@ -472,3 +472,14 @@ def test_js_unit_p0im_ov_honesty():
             ok_marker="P0IM-OV-HONESTY-OK")
 
 
+def test_js_unit_self_diag_hard_rules_text():
+    """SELF-DIAG-01 final-fixes (F3 visual follow-up, SD1-D6-12):
+    «Жёсткие правила» матрицы приходят как [{rule, message}]; шаблон обязан
+    показывать человекочитаемый текст (message, иначе rule), а не
+    `join('; ')` по объектам (`[object Object]`). Тест поведенческий: дергает
+    реальный `methods.diagHardRulesText` из web/app.js и проверяет, что строка
+    «Жёсткие правила» в index.html использует helper, а сырого join нет."""
+    _run_js(os.path.join("tests", "js", "self_diag_hard_rules_text_test.js"),
+            ok_marker="SELF-DIAG-HARD-RULES-TEXT-OK")
+
+

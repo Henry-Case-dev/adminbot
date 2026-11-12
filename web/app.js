@@ -29776,6 +29776,26 @@
           chat_override: 'настройка чата',
         }[source] || (source || '—');
       },
+      // SELF-DIAG-01 final-fixes: `hard_rules` приходят как [{rule, message}].
+      // Владельцу показываем человекочитаемый текст (`message`); код правила —
+      // только fallback, если текста нет. Строки/пустые/`null` — без падений,
+      // `[object Object]` в разметку не попадает.
+      diagHardRulesText: function (item) {
+        var rules = item && item.hard_rules;
+        if (!rules || !rules.length) return '';
+        if (typeof rules === 'string') return rules;
+        if (!Array.isArray(rules)) return '';
+        var parts = [];
+        for (var i = 0; i < rules.length; i++) {
+          var rule = rules[i];
+          if (rule == null) continue;
+          var text = typeof rule === 'string'
+            ? rule
+            : (rule.message || rule.rule || '');
+          if (text) parts.push(String(text));
+        }
+        return parts.join('; ');
+      },
       diagFieldOf: function (action) {
         return action === 'view' ? 'view_roles'
           : (action === 'run' ? 'run_roles' : 'edit_roles');
