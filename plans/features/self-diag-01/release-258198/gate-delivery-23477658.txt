@@ -1,0 +1,4 @@
+engineering_delivery=PASS
+acceptance=PENDING_FUTURE_EVIDENCE
+deferred_req_ids=["SD1-AC-01", "SD1-AC-02", "SD1-AC-03", "SD1-AC-09", "SD1-AC-10", "SD1-AC-11", "SD1-AC-12", "SD1-AC-13", "SD1-AC-14", "SD1-AC-17", "SD1-AC-21", "SD1-AC-22", "SD1-AC-24", "SD1-AMX-01", "SD1-AMX-06", "SD1-AMX-08", "SD1-D2-32", "SD1-D4-09", "SD1-D5-05", "SD1-D6-02", "SD1-D6-03", "SD1-D6-04", "SD1-D6-06", "SD1-D6-07", "SD1-D6-12", "SD1-D6-19", "SD1-D6-20", "SD1-D7-01", "SD1-D7-02", "SD1-D7-03", "SD1-D7-04", "SD1-D7-05", "SD1-D7-06", "SD1-EVD-01", "SD1-GRAL-01", "SD1-GRAL-04", "SD1-GRAL-06", "SD1-SEM-08"]
+stage=delivery inventory=183 manual=53 scoped=189 errors=0
