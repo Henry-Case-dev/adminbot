@@ -179,6 +179,17 @@ TOOL_CAPABILITIES: dict[str, str] = {
     for tool in capability.tool_names
 }
 
+#: SELF-DIAG-01 D6 (`SD1-D5-02`, blocker «real dispatch»): действие инструмента
+#: в матрице возможности. По умолчанию — `run`; `prompt_readback` — это
+#: ЧТЕНИЕ защищённого артефакта, и у возможности `prompts` есть ровно
+#: `view/edit`. Без этой карты tool-гейт спрашивал `prompts.run`, которого не
+#: существует, и разрешённый readback всегда получал
+#: `denied_action_not_supported`. Сам handler всё равно перепроверяет доступ
+#: через `open_gate("prompts", "view")` — второго ACL нет.
+TOOL_ACTIONS: dict[str, str] = {
+    "prompt_readback": "view",
+}
+
 #: Классы, для которых нужна онлайн-проверка админства Telegram.
 PROTECTED_CLASSES: frozenset[str] = frozenset({PROMPT_CONTENT,
                                                OTHER_CHAT_DATA})
@@ -685,13 +696,14 @@ async def check_tool_call(tool_name: str, *, telegram_id: int | None,
     capability_id = TOOL_CAPABILITIES.get(tool_name)
     if capability_id is None:
         return None
-    decision = await decide(capability_id, "run", telegram_id=telegram_id,
+    action = TOOL_ACTIONS.get(tool_name, "run")
+    decision = await decide(capability_id, action, telegram_id=telegram_id,
                             chat_id=chat_id, cache=cache, bot=bot, pg=pg,
                             request_id=request_id, destination=destination,
                             fresh_telegram=fresh_telegram)
     _audit("diag_call", tool=tool_name, request_id=request_id,
            actor_id=telegram_id, chat_id=chat_id,
-           capability=capability_id, action="run", role=decision.role,
+           capability=capability_id, action=action, role=decision.role,
            effect=decision.effect, reason_code=decision.reason_code,
            source=decision.source, destination=destination)
     return decision

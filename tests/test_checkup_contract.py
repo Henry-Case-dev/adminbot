@@ -936,3 +936,116 @@ class TestB3ResidualBlockedValidation:
         checkup_mod.emit_checkup_validation_event(
             chat_id=CHAT_ID, publication=_Publication(False, "blocked"))
         assert events == [("checkup_output_validated", "partially_redacted")]
+
+
+@pytest.fixture
+def prompt_layers():
+    """Изоляция реальных слоёв prompt-readback (D5) без сети/PG."""
+    from services import chat_params
+    from services import prompt_registry as pr
+    from services import telegram_role_check as role_check
+
+    chat_params.set_chat_params_cache(None)
+    pr.reset_cache()
+    role_check.reset_cache()
+    yield
+    chat_params.set_chat_params_cache(None)
+    pr.reset_cache()
+    role_check.reset_cache()
+
+
+class TestPromptReadbackAllowedDispatch:
+    """Blocker: реальный `ToolRouter.dispatch` с РАЗРЕШЁННОЙ идентичностью.
+
+    Проверяется не «deny без identity», а полный путь: политика разрешает
+    `prompts.view` владельцу, handler D5 собирает реальный промпт из
+    существующего реестра, отправляет его в чат, и только ПОСЛЕ фактической
+    отправки эмитится `prompt_readback_allowed`.
+    """
+
+    def _router(self):
+        return ToolRouter(ToolDeps(search=MagicMock(), memory=MagicMock()))
+
+    @pytest.mark.asyncio
+    async def test_allowed_owner_gets_real_prompt_after_policy(
+            self, monkeypatch, prompt_layers):
+        from services import chat_params
+        from services import hot_config as hot
+        from services import prompt_readback as readback_srv
+        from services import prompt_registry as pr
+        from tests.test_prompt_readback import (FakeBot, FakeCache,
+                                                FakeChatStore, GROUP,
+                                                OWNER_ID, TEST_BLOCK,
+                                                _request)
+
+        chat_params.set_chat_params_cache(FakeChatStore())
+        cache = FakeCache({OWNER_ID: "global_admin"})
+        monkeypatch.setattr(hot, "get_config_cache", lambda: cache)
+
+        bot = FakeBot({})
+        events: list[tuple] = []
+
+        def _emit(name, **kwargs):
+            events.append((name, len(bot.sent), kwargs.get("status")))
+        monkeypatch.setattr("services.mca_events.emit_mca_event", _emit)
+
+        ctx = ToolContext(GROUP, query="", bot=bot, user_id=OWNER_ID,
+                          reply_to_message_id=101)
+        out = await self._router().dispatch("prompt_readback", _request(), ctx)
+
+        # 1) Реальный prompt/delivery, а не unknown/denied.
+        assert "неизвестный инструмент" not in out
+        assert "status=delivered" in out
+        assert "prompt_id=" + TEST_BLOCK in out
+        assert "denied" not in out
+        # 2) В чат ушёл ИМЕННО эффективный промпт существующего реестра.
+        assert len(bot.sent) == 1
+        expected = pr.effective_prompt(TEST_BLOCK)
+        assert readback_srv.payload_body(bot.sent[0]["text"]) == expected.text
+        assert "revision=" + expected.revision in out
+        assert "source=factory_default" in out
+        # 3) allowed — только ПОСЛЕ фактической отправки (sent=1), requested —
+        #    до неё (sent=0); ровно одно allowed-событие.
+        requested = [row for row in events
+                     if row[0] == "prompt_readback_requested"]
+        allowed = [row for row in events if row[0] == "prompt_readback_allowed"]
+        assert requested and requested[0][1] == 0
+        assert len(allowed) == 1
+        assert allowed[0][1] == 1
+        assert ctx.tool_result_signal.get("status") != "denied"
+
+    @pytest.mark.asyncio
+    async def test_member_dispatch_is_denied_and_not_counted_allowed(
+            self, monkeypatch, prompt_layers):
+        from services import chat_params
+        from services import hot_config as hot
+        from tests.test_prompt_readback import (FakeBot, FakeCache,
+                                                FakeChatStore, GROUP,
+                                                MEMBER_ID, _request)
+
+        chat_params.set_chat_params_cache(FakeChatStore())
+        cache = FakeCache({})
+        monkeypatch.setattr(hot, "get_config_cache", lambda: cache)
+
+        bot = FakeBot({(GROUP, MEMBER_ID): "member"})
+        events: list[tuple] = []
+
+        def _emit(name, **kwargs):
+            events.append((name, len(bot.sent), kwargs.get("status")))
+        monkeypatch.setattr("services.mca_events.emit_mca_event", _emit)
+
+        ctx = ToolContext(GROUP, query="", bot=bot, user_id=MEMBER_ID,
+                          reply_to_message_id=101)
+        out = await self._router().dispatch("prompt_readback", _request(), ctx)
+
+        assert "неизвестный инструмент" not in out
+        assert "status=delivered" not in out
+        assert "denied_prompt_content_member" in out
+        assert bot.sent == []
+        assert not [row for row in events
+                    if row[0] == "prompt_readback_allowed"]
+        # Отказ происходит ДО исполнения инструмента: сигнала нет вовсе,
+        # запрос даже не дошёл до handler'а (requested не эмитится).
+        assert ctx.tool_result_signal is None
+        assert not [row for row in events
+                    if row[0] == "prompt_readback_requested"]
