@@ -1,8 +1,8 @@
-FFFFFFF.FFF                                                              [100%]
+FFFFFFF.FFFF                                                             [100%]
 ================================== FAILURES ===================================
 ____________ test_evidence_over_8000_reaches_analyst_and_validator ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1102B10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D96822900>
 
     @pytest.mark.asyncio
     async def test_evidence_over_8000_reaches_analyst_and_validator(monkeypatch):
@@ -26,12 +26,12 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1102B10>
         assert len(run.evidence_rows) == 12
 >       assert all(len(r["support"]) == 2000 for r in run.evidence_rows)
 E       assert False
-E        +  where False = all(<generator object test_evidence_over_8000_reaches_analyst_and_validator.<locals>.<genexpr> at 0x0000023CC21EA260>)
+E        +  where False = all(<generator object test_evidence_over_8000_reaches_analyst_and_validator.<locals>.<genexpr> at 0x0000022D97906420>)
 
-tests\test_factcheck_evidence_delivery.py:213: AssertionError
+tests\test_factcheck_evidence_delivery.py:214: AssertionError
 __________________________ test_no_hidden_row_cap_20 __________________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC13CCBF0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D979292B0>
 
     @pytest.mark.asyncio
     async def test_no_hidden_row_cap_20(monkeypatch):
@@ -44,10 +44,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC13CCBF0>
 E       AssertionError: assert (20 == 60)
 E        +  where 20 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
 
-tests\test_factcheck_evidence_delivery.py:225: AssertionError
+tests\test_factcheck_evidence_delivery.py:226: AssertionError
 _______________ test_capacity_resolver_called_with_actual_route _______________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC302B230>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D96B18590>
 
     @pytest.mark.asyncio
     async def test_capacity_resolver_called_with_actual_route(monkeypatch):
@@ -62,10 +62,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC302B230>
 >       assert ("route-model", "https://primary.example/api/v1") in calls
 E       AssertionError: assert ('route-model', 'https://primary.example/api/v1') in []
 
-tests\test_factcheck_evidence_delivery.py:242: AssertionError
+tests\test_factcheck_evidence_delivery.py:243: AssertionError
 ________ test_real_capacity_budget_limits_portion_and_keeps_remainder _________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC302B7D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D97218200>
 
     @pytest.mark.asyncio
     async def test_real_capacity_budget_limits_portion_and_keeps_remainder(
@@ -83,10 +83,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC302B7D0>
 E       AssertionError: assert 10 < 10
 E        +  where 10 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
 
-tests\test_factcheck_evidence_delivery.py:264: AssertionError
+tests\test_factcheck_evidence_delivery.py:265: AssertionError
 ___________________ test_capacity_unknown_degrades_honestly ___________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC3029B50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D972190A0>
 
     @pytest.mark.asyncio
     async def test_capacity_unknown_degrades_honestly(monkeypatch):
@@ -103,12 +103,12 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC3029B50>
         delivered = _evidence_ids(analyst)
         assert len(delivered) == 20          # ╨░╨▓╨░╤А╨╕╨╣╨╜╨░╤П ╨┤╨╡╨│╤А╨░╨┤╨░╤Ж╨╕╤П, ╨╜╨╡ ┬л╨▒╤О╨┤╨╢╨╡╤В 0┬╗
 >       assert "<evidence_delivery>" in analyst
-E       assert '<evidence_delivery>' in '<claim>╨Т ╤Б╤В╤А╨░╨╜╨╡ X ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨▓╨╗╨╕╤П╨╜╨╕╤П</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:18, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:18:03+00:00\n</Chat_Time_Context>'
+E       assert '<evidence_delivery>' in '<claim>╨Т ╤Б╤В╤А╨░╨╜╨╡ X ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨▓╨╗╨╕╤П╨╜╨╕╤П</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:29, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:29:11+00:00\n</Chat_Time_Context>'
 
-tests\test_factcheck_evidence_delivery.py:294: AssertionError
+tests\test_factcheck_evidence_delivery.py:295: AssertionError
 ___________ test_fallback_route_recomposes_payload_to_its_capacity ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1AED520>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D9721B230>
 
     @pytest.mark.asyncio
     async def test_fallback_route_recomposes_payload_to_its_capacity(monkeypatch):
@@ -136,15 +136,16 @@ E       AssertionError: assert ('temporal_verdict' == 'temporal_verdict'
 E
 E           temporal_verdict and False is True)
 
-tests\test_factcheck_evidence_delivery.py:326: AssertionError
+tests\test_factcheck_evidence_delivery.py:327: AssertionError
 ____________ test_budget_stopped_search_forbids_absence_conclusion ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1AEFE00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D98736F60>
 
     @pytest.mark.asyncio
     async def test_budget_stopped_search_forbids_absence_conclusion(monkeypatch):
         """SFC-8-02: ╨╡╤Б╨╗╨╕ ╨┐╨╛╨╕╤Б╨║ ╨╛╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ ╨▒╤О╨┤╨╢╨╡╤В╨╛╨╝, ╨░╨╜╨░╨╗╨╕╤В╨╕╨║ ╨╜╨╡ ╨╝╨╛╨╢╨╡╤В ╤А╨╡╤И╨╕╤В╤М,
-        ╤З╤В╨╛ ╨┤╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М╤Б╤В╨▓ ╨╜╨╡ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В тАФ ╨┤╨░╨╢╨╡ ╨┐╤А╨╕ ╨╜╨╡╨┐╤Г╤Б╤В╨╛╨╝ evidence."""
+        ╤З╤В╨╛ ╨┤╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М╤Б╤В╨▓ ╨╜╨╡ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В тАФ ╨┤╨░╨╢╨╡ ╨┐╤А╨╕ ╨╜╨╡╨┐╤Г╤Б╤В╨╛╨╝ evidence; ╤В╨░ ╨╢╨╡
+        ╨│╤А╨░╨╜╨╕╤Ж╨░ ╨┐╨╛╨╕╤Б╨║╨░ ╨┤╨╛╤Е╨╛╨┤╨╕╤В ╨┤╨╛ validator, ╨║╨╛╤В╨╛╤А╤Л╨╣ ╨┐╤А╨░╨▓╨╕╤В ╨▓╨╡╤А╨┤╨╕╨║╤В."""
         refs = [_ref(1, support=_support(1, 500))]
         _pin_resolver(monkeypatch, 1_000_000)
         llm = RecordingLLM()
@@ -152,13 +153,14 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1AEFE00>
             _env(), retrieval=_outcome(refs, budget_exhausted=True,
                                        skipped_budget=7))
         analyst = llm.user_for("temporal_verdict")
+        validator = llm.user_for("temporal_validator")
 >       assert "╨Я╨╛╨╕╤Б╨║ ╨╛╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨╕╨╡╨╝ ╨▒╤О╨┤╨╢╨╡╤В╨░" in analyst
-E       assert '╨Я╨╛╨╕╤Б╨║ ╨╛╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨╕╨╡╨╝ ╨▒╤О╨┤╨╢╨╡╤В╨░' in '<claim>╨Т ╤Б╤В╤А╨░╨╜╨╡ X ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨▓╨╗╨╕╤П╨╜╨╕╤П</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:18, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:18:03+00:00\n</Chat_Time_Context>'
+E       assert '╨Я╨╛╨╕╤Б╨║ ╨╛╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨╕╨╡╨╝ ╨▒╤О╨┤╨╢╨╡╤В╨░' in '<claim>╨Т ╤Б╤В╤А╨░╨╜╨╡ X ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨▓╨╗╨╕╤П╨╜╨╕╤П</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:29, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:29:11+00:00\n</Chat_Time_Context>'
 
-tests\test_factcheck_evidence_delivery.py:352: AssertionError
+tests\test_factcheck_evidence_delivery.py:355: AssertionError
 ________________ test_provenance_and_social_source_not_blocked ________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1B1C0E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D971E46E0>
 
     @pytest.mark.asyncio
     async def test_provenance_and_social_source_not_blocked(monkeypatch):
@@ -175,15 +177,16 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1B1C0E0>
                 claims=_coverage([facebook, other],
                                  opened={facebook.evidence_id: True})))
         analyst = llm.user_for("temporal_verdict")
+        validator = llm.user_for("temporal_validator")
         assert "[ev-1]" in analyst          # ╤Б╨╛╤Ж╤Б╨╡╤В╤М ╨╜╨╡ ╨╖╨░╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨░╨╜╨░ ╨┤╨╛╨╝╨╡╨╜╨╛╨╝
 >       assert "opened=yes" in analyst      # ╤Ж╨╕╤В╨░╤В╨░ ╨┐╤А╨╛╤З╨╕╤В╨░╨╜╨░
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       assert 'opened=yes' in '<claim>╨Т ╤Б╤В╤А╨░╨╜╨╡ X ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨▓╨╗╨╕╤П╨╜╨╕╤П</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:18, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:18:03+00:00\n</Chat_Time_Context>'
+E       assert 'opened=yes' in '<claim>╨Т ╤Б╤В╤А╨░╨╜╨╡ X ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╨▒╨╡╨╖ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨▓╨╗╨╕╤П╨╜╨╕╤П</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:29, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:29:11+00:00\n</Chat_Time_Context>'
 
-tests\test_factcheck_evidence_delivery.py:387: AssertionError
+tests\test_factcheck_evidence_delivery.py:393: AssertionError
 _________________ test_tiny_share_route_still_marks_remainder _________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1B1CE00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D971E6300>
 
     @pytest.mark.asyncio
     async def test_tiny_share_route_still_marks_remainder(monkeypatch):
@@ -197,7 +200,7 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023CC1B1CE00>
                 "</evidence_delivery>")[0])
 E       IndexError: list index out of range
 
-tests\test_factcheck_evidence_delivery.py:407: IndexError
+tests\test_factcheck_evidence_delivery.py:416: IndexError
 _________________ test_attribution_quote_not_truncated_at_400 _________________
 
     def test_attribution_quote_not_truncated_at_400():
@@ -210,11 +213,29 @@ _________________ test_attribution_quote_not_truncated_at_400 _________________
         ref = attribution_evidence_ref(match)
 >       assert quote.strip() in ref.support
 E       AssertionError: assert '╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░' in '╨Т╨░╤Б╤П: ┬л╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж'
-E        +  where '╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░' = <built-in method strip of str object at 0x0000023CB5387630>()
-E        +    where <built-in method strip of str object at 0x0000023CB5387630> = '╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ '.strip
+E        +  where '╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░' = <built-in method strip of str object at 0x0000022D8AB19D00>()
+E        +    where <built-in method strip of str object at 0x0000022D8AB19D00> = '╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ '.strip
 E        +  and   '╨Т╨░╤Б╤П: ┬л╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В...╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж' = EvidenceRef(evidence_id='chat-1', url=None, support='╨Т╨░╤Б╤П: ┬л╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕...╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж╨╕╤В╨░╤В╨░ ╤Ж', source_kind='chat', published_at=1760000000, claims=(), event_at=None).support
 
-tests\test_factcheck_evidence_delivery.py:424: AssertionError
+tests\test_factcheck_evidence_delivery.py:433: AssertionError
+______________ test_diagnostics_expose_stop_reason_and_delivery _______________
+
+    def test_diagnostics_expose_stop_reason_and_delivery():
+        """SFC-8-01 ┬л╤В╨╛╤З╨║╨░ ╨▓╨╛╨╖╨╜╨╕╨║╨╜╨╛╨▓╨╡╨╜╨╕╤П deadline┬╗: ╨╛╤Б╤В╨░╨╜╨╛╨▓╨║╨░ ╨┐╨╛╨╕╤Б╨║╨░ ╨╕ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨░╤П
+        ╨┤╨╛╤Б╤В╨░╨▓╨║╨░ evidence ╨┐╨╛╨┐╨░╨┤╨░╤О╤В ╨▓ ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╤Г ╨┐╤А╨╛╨│╨╛╨╜╨░, ╨░ ╨╜╨╡ ╤В╨╡╤А╤П╤О╤В╤Б╤П ╨▓ ╨╗╨╛╨│╨░╤Е."""
+        from services.factcheck_service import evidence_diagnostics
+        from services.temporal_factcheck import TemporalVerdict
+        refs = [_ref(1, support=_support(1, 300))]
+        retrieval = _outcome(refs, budget_exhausted=True, skipped_budget=5)
+>       delivery = fcs_module._pack_evidence(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+            [{"evidence_id": "ev-1", "url": "https://s.example/1",
+              "support": _support(1, 300)}], budget_chars=320,
+            route=fcs_module.RouteCapacity(
+                "primary", "m", "https://e/api", 1000, "probe", 320, 10))
+E       AttributeError: module 'services.factcheck_service' has no attribute '_pack_evidence'
+
+tests\test_factcheck_evidence_delivery.py:446: AttributeError
 =========================== short test summary info ===========================
 FAILED tests/test_factcheck_evidence_delivery.py::test_evidence_over_8000_reaches_analyst_and_validator
 FAILED tests/test_factcheck_evidence_delivery.py::test_no_hidden_row_cap_20
@@ -226,4 +247,5 @@ FAILED tests/test_factcheck_evidence_delivery.py::test_budget_stopped_search_for
 FAILED tests/test_factcheck_evidence_delivery.py::test_provenance_and_social_source_not_blocked
 FAILED tests/test_factcheck_evidence_delivery.py::test_tiny_share_route_still_marks_remainder
 FAILED tests/test_factcheck_evidence_delivery.py::test_attribution_quote_not_truncated_at_400
-10 failed, 1 passed in 2.98s
+FAILED tests/test_factcheck_evidence_delivery.py::test_diagnostics_expose_stop_reason_and_delivery
+11 failed, 1 passed in 3.05s

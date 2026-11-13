@@ -1,8 +1,8 @@
-.....F.....                                                              [100%]
+.....F......                                                             [100%]
 ================================== FAILURES ===================================
 ___________ test_fallback_route_recomposes_payload_to_its_capacity ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198543970E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000290CCBBC080>
 
     @pytest.mark.asyncio
     async def test_fallback_route_recomposes_payload_to_its_capacity(monkeypatch):
@@ -30,7 +30,7 @@ E       AssertionError: assert ('temporal_verdict' == 'temporal_verdict'
 E
 E           temporal_verdict and False is True)
 
-tests\test_factcheck_evidence_delivery.py:326: AssertionError
+tests\test_factcheck_evidence_delivery.py:327: AssertionError
 =========================== short test summary info ===========================
 FAILED tests/test_factcheck_evidence_delivery.py::test_fallback_route_recomposes_payload_to_its_capacity
-1 failed, 10 passed in 2.91s
+1 failed, 11 passed in 2.97s

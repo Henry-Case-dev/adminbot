@@ -1,5 +1,5 @@
 diff --git a/services/factcheck_service.py b/services/factcheck_service.py
-index a12e6949..2b96a5f2 100644
+index c26e9232..87388e62 100644
 --- a/services/factcheck_service.py
 +++ b/services/factcheck_service.py
 @@ -537,7 +537,7 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,

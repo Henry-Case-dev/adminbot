@@ -1,8 +1,8 @@
-.F..F......                                                              [100%]
+.F..F.......                                                             [100%]
 ================================== FAILURES ===================================
 __________________________ test_no_hidden_row_cap_20 __________________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000209BADE8C80>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002CCC762BA70>
 
     @pytest.mark.asyncio
     async def test_no_hidden_row_cap_20(monkeypatch):
@@ -15,10 +15,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000209BADE8C80>
 E       AssertionError: assert (20 == 60)
 E        +  where 20 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
 
-tests\test_factcheck_evidence_delivery.py:225: AssertionError
+tests\test_factcheck_evidence_delivery.py:226: AssertionError
 ___________________ test_capacity_unknown_degrades_honestly ___________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000209BCDB5A30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002CCC933F560>
 
     @pytest.mark.asyncio
     async def test_capacity_unknown_degrades_honestly(monkeypatch):
@@ -35,16 +35,16 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000209BCDB5A30>
         delivered = _evidence_ids(analyst)
         assert len(delivered) == 20          # аварийная деградация, не «бюджет 0»
 >       assert "<evidence_delivery>" in analyst
-E       assert '<evidence_delivery>' in '<claim>В стране X традиция существует без внешнего влияния</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:18, Суббота (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:18:24+00:00\n</Chat_Time_Context>'
+E       assert '<evidence_delivery>' in '<claim>В стране X традиция существует без внешнего влияния</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:29, Суббота (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:29:18+00:00\n</Chat_Time_Context>'
 
-tests\test_factcheck_evidence_delivery.py:294: AssertionError
+tests\test_factcheck_evidence_delivery.py:295: AssertionError
 ------------------------------ Captured log call ------------------------------
 WARNING  services.factcheck_service:factcheck_service.py:387 [factcheck] capacity resolve failed — legacy portion
 Traceback (most recent call last):
   File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-5ac97214\services\factcheck_service.py", line 377, in _route_capacity
     window, source = mc.resolve_evidence_window_tokens(model, base)
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-5ac97214\tests\test_factcheck_evidence_delivery.py", line 284, in _boom
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-5ac97214\tests\test_factcheck_evidence_delivery.py", line 285, in _boom
     raise RuntimeError("capacity unavailable")
 RuntimeError: capacity unavailable
 WARNING  services.factcheck_service:factcheck_service.py:387 [factcheck] capacity resolve failed — legacy portion
@@ -52,10 +52,10 @@ Traceback (most recent call last):
   File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-5ac97214\services\factcheck_service.py", line 377, in _route_capacity
     window, source = mc.resolve_evidence_window_tokens(model, base)
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-5ac97214\tests\test_factcheck_evidence_delivery.py", line 284, in _boom
+  File "C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-5ac97214\tests\test_factcheck_evidence_delivery.py", line 285, in _boom
     raise RuntimeError("capacity unavailable")
 RuntimeError: capacity unavailable
 =========================== short test summary info ===========================
 FAILED tests/test_factcheck_evidence_delivery.py::test_no_hidden_row_cap_20
 FAILED tests/test_factcheck_evidence_delivery.py::test_capacity_unknown_degrades_honestly
-2 failed, 9 passed in 2.93s
+2 failed, 10 passed in 2.93s

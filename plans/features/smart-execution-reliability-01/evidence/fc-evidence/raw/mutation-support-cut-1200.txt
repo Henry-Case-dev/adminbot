@@ -1,8 +1,8 @@
-F..........                                                              [100%]
+F...........                                                             [100%]
 ================================== FAILURES ===================================
 ____________ test_evidence_over_8000_reaches_analyst_and_validator ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000028863F24E30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020C1C0992B0>
 
     @pytest.mark.asyncio
     async def test_evidence_over_8000_reaches_analyst_and_validator(monkeypatch):
@@ -26,9 +26,9 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000028863F24E30>
         assert len(run.evidence_rows) == 12
 >       assert all(len(r["support"]) == 2000 for r in run.evidence_rows)
 E       assert False
-E        +  where False = all(<generator object test_evidence_over_8000_reaches_analyst_and_validator.<locals>.<genexpr> at 0x00000288641F7A00>)
+E        +  where False = all(<generator object test_evidence_over_8000_reaches_analyst_and_validator.<locals>.<genexpr> at 0x0000020C1C367AE0>)
 
-tests\test_factcheck_evidence_delivery.py:213: AssertionError
+tests\test_factcheck_evidence_delivery.py:214: AssertionError
 =========================== short test summary info ===========================
 FAILED tests/test_factcheck_evidence_delivery.py::test_evidence_over_8000_reaches_analyst_and_validator
-1 failed, 10 passed in 2.86s
+1 failed, 11 passed in 2.90s

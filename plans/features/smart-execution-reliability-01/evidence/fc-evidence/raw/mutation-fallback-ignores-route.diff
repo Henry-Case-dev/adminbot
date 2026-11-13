@@ -1,8 +1,8 @@
 diff --git a/services/factcheck_service.py b/services/factcheck_service.py
-index a12e6949..1172dd16 100644
+index c26e9232..5b11f1d3 100644
 --- a/services/factcheck_service.py
 +++ b/services/factcheck_service.py
-@@ -3166,7 +3166,7 @@ class FactCheckService:
+@@ -3174,7 +3174,7 @@ class FactCheckService:
              Owner §7.4: при переходе на fallback/другой endpoint используются
              характеристики фактического маршрута; уменьшенная порция не
              теряется молча — остаток остаётся в `<evidence_delivery>`."""

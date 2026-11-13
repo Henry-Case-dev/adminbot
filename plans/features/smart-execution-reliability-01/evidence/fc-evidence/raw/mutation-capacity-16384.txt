@@ -1,8 +1,8 @@
-FFFF.F...F.                                                              [100%]
+FFFF.F...F..                                                             [100%]
 ================================== FAILURES ===================================
 ____________ test_evidence_over_8000_reaches_analyst_and_validator ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240B208EC0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D53D71E1B0>
 
     @pytest.mark.asyncio
     async def test_evidence_over_8000_reaches_analyst_and_validator(monkeypatch):
@@ -22,10 +22,10 @@ E
 E         Right contains 5 more items, first extra item: 'ev-8'
 E         Use -v to get more diff
 
-tests\test_factcheck_evidence_delivery.py:205: AssertionError
+tests\test_factcheck_evidence_delivery.py:206: AssertionError
 __________________________ test_no_hidden_row_cap_20 __________________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1A8410>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D53E83CD40>
 
     @pytest.mark.asyncio
     async def test_no_hidden_row_cap_20(monkeypatch):
@@ -38,10 +38,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1A8410>
 E       AssertionError: assert (14 == 60)
 E        +  where 14 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
 
-tests\test_factcheck_evidence_delivery.py:225: AssertionError
+tests\test_factcheck_evidence_delivery.py:226: AssertionError
 _______________ test_capacity_resolver_called_with_actual_route _______________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1AAC90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D53F6F7650>
 
     @pytest.mark.asyncio
     async def test_capacity_resolver_called_with_actual_route(monkeypatch):
@@ -62,13 +62,13 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1AAC90>
         assert "resolve_evidence_window_tokens" in src
 >       assert not re.search(r"16384\s*(?:\)|,|=)", src)
 E       assert not <re.Match object; span=(16853, 16859), match='16384)'>
-E        +  where <re.Match object; span=(16853, 16859), match='16384)'> = <function search at 0x000002247C75AE80>('16384\\s*(?:\\)|,|=)', '"""Epic 33/46 — FactCheckService: пайплайн фактчека (R33-3, Sections 42.6/55.5).\n\ncheck_claim: SearchAggregator.sea...убликации сам по себе не делает "\n                          "утверждение ложным.")\n        return " ".join(pieces)\n')
-E        +    where <function search at 0x000002247C75AE80> = <module 're' from 'C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\re\\__init__.py'>.search
+E        +  where <re.Match object; span=(16853, 16859), match='16384)'> = <function search at 0x000001D52EBBAE80>('16384\\s*(?:\\)|,|=)', '"""Epic 33/46 — FactCheckService: пайплайн фактчека (R33-3, Sections 42.6/55.5).\n\ncheck_claim: SearchAggregator.sea...убликации сам по себе не делает "\n                          "утверждение ложным.")\n        return " ".join(pieces)\n')
+E        +    where <function search at 0x000001D52EBBAE80> = <module 're' from 'C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\re\\__init__.py'>.search
 
-tests\test_factcheck_evidence_delivery.py:249: AssertionError
+tests\test_factcheck_evidence_delivery.py:250: AssertionError
 ________ test_real_capacity_budget_limits_portion_and_keeps_remainder _________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1B7EC0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D53F6F5580>
 
     @pytest.mark.asyncio
     async def test_real_capacity_budget_limits_portion_and_keeps_remainder(
@@ -86,10 +86,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1B7EC0>
 E       AssertionError: assert 10 < 10
 E        +  where 10 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
 
-tests\test_factcheck_evidence_delivery.py:264: AssertionError
+tests\test_factcheck_evidence_delivery.py:265: AssertionError
 ___________ test_fallback_route_recomposes_payload_to_its_capacity ____________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240BEE38C0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D53E2FFB90>
 
     @pytest.mark.asyncio
     async def test_fallback_route_recomposes_payload_to_its_capacity(monkeypatch):
@@ -118,10 +118,10 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240BEE38C0>
 E       AssertionError: assert 8 < 8
 E        +  where 8 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
 
-tests\test_factcheck_evidence_delivery.py:328: AssertionError
+tests\test_factcheck_evidence_delivery.py:329: AssertionError
 _________________ test_tiny_share_route_still_marks_remainder _________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240BF75BE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D53E346F00>
 
     @pytest.mark.asyncio
     async def test_tiny_share_route_still_marks_remainder(monkeypatch):
@@ -135,7 +135,7 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240BF75BE0>
                 "</evidence_delivery>")[0])
 E       IndexError: list index out of range
 
-tests\test_factcheck_evidence_delivery.py:407: IndexError
+tests\test_factcheck_evidence_delivery.py:416: IndexError
 =========================== short test summary info ===========================
 FAILED tests/test_factcheck_evidence_delivery.py::test_evidence_over_8000_reaches_analyst_and_validator
 FAILED tests/test_factcheck_evidence_delivery.py::test_no_hidden_row_cap_20
@@ -143,4 +143,4 @@ FAILED tests/test_factcheck_evidence_delivery.py::test_capacity_resolver_called_
 FAILED tests/test_factcheck_evidence_delivery.py::test_real_capacity_budget_limits_portion_and_keeps_remainder
 FAILED tests/test_factcheck_evidence_delivery.py::test_fallback_route_recomposes_payload_to_its_capacity
 FAILED tests/test_factcheck_evidence_delivery.py::test_tiny_share_route_still_marks_remainder
-6 failed, 5 passed in 2.88s
+6 failed, 6 passed in 2.94s
