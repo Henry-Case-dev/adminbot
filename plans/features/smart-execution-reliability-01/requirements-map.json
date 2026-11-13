@@ -143,7 +143,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-1-01-42",
@@ -158,7 +175,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-1-01-57",
@@ -173,7 +207,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-1-01-59",
@@ -188,7 +239,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-1-01-61",
@@ -203,7 +271,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-1-02-128",
@@ -218,7 +303,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/identity-and-config.txt — deployed identity (HEAD/версия/сервис/healthz/release manifest)",
+          "observation": "Deployed identity подтверждена чтением: HEAD=d20a7f730715ba9e9cba7673c0557794979be339, branch release/2.58.199 ahead/behind 0/0, APP_VERSION=2.58.199, unit active(running) с 2026-11-13 08:36:18 UTC, /healthz 200 {\"status\":\"ok\",\"version\":\"2.58.199\"}, .deploy/release.json deployed_sha=d20a7f730715ba9e9cba7673c0557794979be339 deployed_at=2026-11-13T08:36:16.759775Z, schema 47. 2.58.199 трактуется как отправная точка, а не как доказательство текущего состояния.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/identity-and-config.txt",
+          "artifact_sha256": "84be9f3d0aeae851f82d2af7f4997c9215470563be9dba85329d096a1c199548"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/settings-layers.txt — effective configuration (global/per-chat/env/factory)",
+          "observation": "Effective configuration зафиксирован по слоям: global flags.budgets_enabled=false (2026-10-25), override false в CHAT_C1 и CHAT_C2, в CHAT_DM override отсутствует → effective false во всех трёх чатах при factory BUDGETS_ENABLED=true; TOOL_CHAIN_LIMITS_ENABLED=true (env отсутствует, factory), tool-chain лимиты действуют независимо от бюджетов; модель z-ai/glm-5.3-flash-uncensored через NanoGPT без chat-override, fallback deepseek-flash/api.deepseek.com; CHAT_UNKNOWN_MODEL_WINDOW=16384 при catalog 1048576 у провайдера. Независимого Reviewer-вердикта по S0 нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/settings-layers.txt",
+          "artifact_sha256": "b8c1120aefcf5954c08300f07ee292473a39d592e4bd80dfa24750e7fb66b057"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-A1-01-138",
@@ -10011,7 +10113,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00047",
@@ -10026,7 +10145,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00048",
@@ -10041,7 +10177,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00049",
@@ -10056,7 +10209,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00050",
@@ -10071,7 +10241,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00051",
@@ -10086,7 +10273,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -10101,7 +10305,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00053",
@@ -10116,7 +10337,24 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md §3 (trace чекапа checkup:3f9bd22a…) — исходный отказ воспроизведён на deployed SHA",
+          "observation": "Только чтение, production recon 2026-11-14 на deployed d20a7f73/2.58.199 зафиксировал все семь фактов исходного отказа: trace checkup:3f9bd22a592e4532a3790051cb87e320; chain_call_limit (unit=calls, value=6, total_calls=6, rounds_used=4); tool_step_limit на очередном inspect_runtime; partial_chars=87 и report_chars=87; реально отправленная заглушка «Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли» (mca_bot_outputs id=1661, delivery_status=delivered, tg_message_id=222); два отказа read_source_code с destination_blocked stage=connect retryable=false; WARN model_capacity unknown model window=16384 в том же trace. Независимого Reviewer-вердикта по срезу S0 нет, строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+          "artifact_sha256": "fb378c9545138275ba84cea91445abe5c57b8c135598eb651d5ef57915496842"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt — сырой журнальный срез чекапа 09:35–09:50 UTC (1018 строк)",
+          "observation": "Сырой срез журнала: TOOL_PLAN_CREATED tools=inspect_runtime,read_source_code; два safe_fetch ERROR destination_blocked stage=connect; chain limit reason=chain_call_limit value=6 total_calls=6 round=4; tool_call с reason_code=tool_step_limit; degraded reason=chain_call_limit rounds_used=4 partial_chars=87; report sent report_chars=87; durable output id=1661 с тем же correlation_id. Срез подтверждает факты, но не является независимым ревью.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+          "artifact_sha256": "56dc927bd4958b6cc551d083d0e05b7c699e4fdaaef0d21a2612c6364153583c"
+        }
+      ]
     },
     {
       "source_id": "L00063",
@@ -23411,7 +23649,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md.",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
