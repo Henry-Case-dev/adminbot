@@ -402,8 +402,27 @@
       "acceptance": "Порядок chat -> global -> factory default сохранён; явная настройка чата не перезаписывается; при global OFF без override чат наследует OFF.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: проверен resolve в services/budget_gate.py — порядок chat → global → factory сохранён, явно сохранённая настройка чата не перезаписывается; прочитаны утверждения test_budgets_off_from_global_layer (global OFF без override → чат наследует OFF) и test_budgets_on_explicit_policy_applies (явная политика чата применяется); независимый прогон 15 passed. Production effective-конфигурация не проверялась.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Тот же кандидат не переписывает источники значений: config/settings.py + services/budget_gate.py сохраняют слои chat/global/factory; новые durable-тесты tests/test_smart_exec_ab_round1114.py (15 passed); focused 21 файл → 638 passed, 2 failed (pre-existing stale-tag, воспроизведены на базе); broad 25 файлов → 1092 passed с теми же 8 pre-existing. Деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-A1-02-159",
@@ -417,8 +436,27 @@
       "acceptance": "Порядок chat -> global -> factory default сохранён; явная настройка чата не перезаписывается; при global OFF без override чат наследует OFF.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: проверен resolve в services/budget_gate.py — порядок chat → global → factory сохранён, явно сохранённая настройка чата не перезаписывается; прочитаны утверждения test_budgets_off_from_global_layer (global OFF без override → чат наследует OFF) и test_budgets_on_explicit_policy_applies (явная политика чата применяется); независимый прогон 15 passed. Production effective-конфигурация не проверялась.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Тот же кандидат не переписывает источники значений: config/settings.py + services/budget_gate.py сохраняют слои chat/global/factory; новые durable-тесты tests/test_smart_exec_ab_round1114.py (15 passed); focused 21 файл → 638 passed, 2 failed (pre-existing stale-tag, воспроизведены на базе); broad 25 файлов → 1092 passed с теми же 8 pre-existing. Деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-A1-03-161",
@@ -432,8 +470,27 @@
       "acceptance": "Ошибка обновления кеша/недоступность хранилища не переводит OFF в ON: используется существующий last-known-valid, отсутствие достоверной конфигурации диагностируется явно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: проверен last-known-valid путь в services/budget_gate.py — ошибка обновления кеша не переводит ранее известное OFF в ON, отсутствие достоверной конфигурации диагностируется явно; прочитаны утверждения test_read_error_keeps_last_known_off и test_read_error_without_known_state_is_explicit; независимый прогон 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Независимая проба ревьюера на ошибке чтения дала known=false/stale=true/source=unknown при невключённом enforcement (на базе поведение было fail-open True), что совпадает с green_on_candidate_8fc8b534; production-хранилище не задействовалось — деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-A1-03-163",
@@ -447,8 +504,27 @@
       "acceptance": "Ошибка обновления кеша/недоступность хранилища не переводит OFF в ON: используется существующий last-known-valid, отсутствие достоверной конфигурации диагностируется явно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: проверен last-known-valid путь в services/budget_gate.py — ошибка обновления кеша не переводит ранее известное OFF в ON, отсутствие достоверной конфигурации диагностируется явно; прочитаны утверждения test_read_error_keeps_last_known_off и test_read_error_without_known_state_is_explicit; независимый прогон 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Независимая проба ревьюера на ошибке чтения дала known=false/stale=true/source=unknown при невключённом enforcement (на базе поведение было fail-open True), что совпадает с green_on_candidate_8fc8b534; production-хранилище не задействовалось — деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-A1-04-165",
@@ -460,10 +536,45 @@
       "req_id": "SXR-A1-04",
       "slice": "S1-BUDGET-MASTER",
       "acceptance": "Effective значения бюджетов проверены на production для чатов из предоставленных логов, а не только по заводским Python settings; значения приложены к evidence.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Reviewer подтвердил, что строка требует production-наблюдения и не закрывается на review-уровне: реализация бюджетов на кандидате 8fc8b534 проверена (budget_gate resolve/last-known, 15 тестов passed), но effective-значения для production-чатов из логов не получены, деплоя не было. Одобрен перенос доказательства на postdeploy — см. approved_postrelease_wait ниже.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Effective-значения бюджетов существуют только у реально задеплоенного кандидата: до релиза production-чат/global resolution получить нельзя, при этом сама реализация уже независимо проверена на кандидате.",
+            "trigger": "После релиза кандидата в production получить effective chat/global resolution бюджетов для chat ID из предоставленных логов на deployed SHA.",
+            "next_check": "После деплоя снять redacted значения chat/global/factory по каждому чату из логов, приложить deployed SHA и evidence-файл к карте, затем перевести SXR-A1-04 в VERIFIED.",
+            "owner": "DevOps",
+            "contract_ref": "plans/current_task.md:165 (MAN-SXR-A1-04-165) — проверка фактических effective-значений на production"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Кандидат 8fc8b534 меняет config/settings.py и services/budget_gate.py; заводские значения проверены тестами (defaults 0/0/0/0.0), но реальная effective-конфигурация production-чатов этим кандидатом не подтверждена, поэтому строка остаётся READY_FOR_LIVE до получения chat/global resolution на deployed SHA.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Effective-значения бюджетов существуют только у реально задеплоенного кандидата: до релиза production-чат/global resolution получить нельзя, при этом сама реализация уже независимо проверена на кандидате.",
+        "trigger": "После релиза кандидата в production получить effective chat/global resolution бюджетов для chat ID из предоставленных логов на deployed SHA.",
+        "next_check": "После деплоя снять redacted значения chat/global/factory по каждому чату из логов, приложить deployed SHA и evidence-файл к карте, затем перевести SXR-A1-04 в VERIFIED.",
+        "owner": "DevOps",
+        "contract_ref": "plans/current_task.md:165 (MAN-SXR-A1-04-165) — проверка фактических effective-значений на production"
+      }
     },
     {
       "source_id": "MAN-SXR-A2-01-169",
@@ -1123,8 +1234,27 @@
       "acceptance": "Исправлена существующая система бюджетов; отдельная многоуровневая система управления бюджетами не создана.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: исправлена существующая система (services/budget_gate.py + существующие ChainLimits в services/tool_loop.py), отдельной многоуровневой системы управления бюджетами не создано; новых модулей бюджетов в кандидате нет, независимый прогон 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Diff база d20a7f73 → кандидат 8fc8b534 трогает существующие файлы (services/budget_gate.py +192/−, config/settings.py, services/tool_loop.py, services/direct_execution.py) и тесты; новых пакетов/слоёв управления бюджетами не добавлено.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-B1-01-269",
@@ -2124,8 +2254,27 @@
       "acceptance": "Второй tool-loop, checkup_tools_budget и исправление только альтернативной ветки отсутствуют; основной путь не остаётся ограниченным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: в services/tool_loop.py единственный chat_with_tools-loop, второй цикл и checkup_tools_budget отсутствуют, основной путь не остался ограниченным; независимая проба 5x3 дала 6 LLM-вызовов / 15 диспатчей / ok; прочитаны утверждения test_l1_multi_round_multi_call_all_dispatched; 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Фактическое поведение на кандидате: 15 из 15 корректных вызовов исполнены (на базе 6 из 15 с chain_call_limit); legacy-константы _TOOL_MAX* и per-round slice удалены; focused 638 passed, broad 1092 passed (те же 8 pre-existing). Деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-B2-02-373",
@@ -2139,8 +2288,27 @@
       "acceptance": "Второй tool-loop, checkup_tools_budget и исправление только альтернативной ветки отсутствуют; основной путь не остаётся ограниченным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: в services/tool_loop.py единственный chat_with_tools-loop, второй цикл и checkup_tools_budget отсутствуют, основной путь не остался ограниченным; независимая проба 5x3 дала 6 LLM-вызовов / 15 диспатчей / ok; прочитаны утверждения test_l1_multi_round_multi_call_all_dispatched; 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Фактическое поведение на кандидате: 15 из 15 корректных вызовов исполнены (на базе 6 из 15 с chain_call_limit); legacy-константы _TOOL_MAX* и per-round slice удалены; focused 638 passed, broad 1092 passed (те же 8 pre-existing). Деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-B2-02-375",
@@ -2154,8 +2322,27 @@
       "acceptance": "Второй tool-loop, checkup_tools_budget и исправление только альтернативной ветки отсутствуют; основной путь не остаётся ограниченным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: в services/tool_loop.py единственный chat_with_tools-loop, второй цикл и checkup_tools_budget отсутствуют, основной путь не остался ограниченным; независимая проба 5x3 дала 6 LLM-вызовов / 15 диспатчей / ok; прочитаны утверждения test_l1_multi_round_multi_call_all_dispatched; 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Фактическое поведение на кандидате: 15 из 15 корректных вызовов исполнены (на базе 6 из 15 с chain_call_limit); legacy-константы _TOOL_MAX* и per-round slice удалены; focused 638 passed, broad 1092 passed (те же 8 pre-existing). Деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-B3-01-381",
@@ -2373,8 +2560,27 @@
       "acceptance": "Отдельная LLM-сессия оценки прогресса и лексическая эвристика прогресса по словам запроса не созданы; используются структурированные tool results, состояние источников, дедупликация и решения текущей модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: отдельной LLM-сессии оценки прогресса и лексической эвристики по словам запроса нет; используются структурированные tool results, дедупликация по идентичности аргументов и решение текущей модели; прочитаны утверждения test_no_progress_stops_identical_repeats и test_retryable_failure_is_retried; 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Независимая проба ревьюера на идентичных повторах дала 1 диспатч и no_progress (на базе 2 диспатча и round_limit) — прогресс оценивается без отдельного LLM-вызова; 15 passed на кандидате, деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-B4-02-404",
@@ -2388,8 +2594,27 @@
       "acceptance": "Отдельная LLM-сессия оценки прогресса и лексическая эвристика прогресса по словам запроса не созданы; используются структурированные tool results, состояние источников, дедупликация и решения текущей модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: отдельной LLM-сессии оценки прогресса и лексической эвристики по словам запроса нет; используются структурированные tool results, дедупликация по идентичности аргументов и решение текущей модели; прочитаны утверждения test_no_progress_stops_identical_repeats и test_retryable_failure_is_retried; 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Независимая проба ревьюера на идентичных повторах дала 1 диспатч и no_progress (на базе 2 диспатча и round_limit) — прогресс оценивается без отдельного LLM-вызова; 15 passed на кандидате, деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-B4-02-406",
@@ -2403,8 +2628,27 @@
       "acceptance": "Отдельная LLM-сессия оценки прогресса и лексическая эвристика прогресса по словам запроса не созданы; используются структурированные tool results, состояние источников, дедупликация и решения текущей модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "review-ab-8fc8b534-extra.md — дополнительный вердикт Reviewer по шести строкам A+B (кандидат 8fc8b534)",
+          "observation": "Независимое ревью кандидата 8fc8b534: отдельной LLM-сессии оценки прогресса и лексической эвристики по словам запроса нет; используются структурированные tool results, дедупликация по идентичности аргументов и решение текущей модели; прочитаны утверждения test_no_progress_stops_identical_repeats и test_retryable_failure_is_retried; 15 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+          "artifact_sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+          "ref": "binding-ab-8fc8b534.md — RED→GREEN база d20a7f73 vs кандидат 8fc8b534",
+          "observation": "Независимая проба ревьюера на идентичных повторах дала 1 диспатч и no_progress (на базе 2 диспатча и round_limit) — прогресс оценивается без отдельного LLM-вызова; 15 passed на кандидате, деплоя не было.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-ab-8fc8b534/binding-ab-8fc8b534.md",
+          "artifact_sha256": "e0c71beaf9d8a62c7c862ff6da7c899efb2fb9abbc744e1de4807ef4ff7bd45c"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C1-01-105",
@@ -17672,7 +17916,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A (SXR-A1-01, A2-01..04, A3-01/02) и B (SXR-B1-01..06, B2-01, B3-01, B4-01) — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab). C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой); остальные строки PENDING. Эпик не задеплоен, VERIFIED по production не заявляется, DONE не заявлен.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался.",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -17818,26 +18062,31 @@
       "stage": "A",
       "covers_req_ids": [
         "SXR-A1-01",
+        "SXR-A1-02",
+        "SXR-A1-03",
+        "SXR-A1-04",
         "SXR-A2-01",
         "SXR-A2-02",
         "SXR-A2-03",
         "SXR-A2-04",
         "SXR-A3-01",
-        "SXR-A3-02"
+        "SXR-A3-02",
+        "SXR-A3-03"
       ],
-      "scope_note": "Кандидат покрывает одобренные Reviewer строки A из covers_req_ids. В том же срезе S1 остаются обязательные строки SXR-A1-02, SXR-A1-03, SXR-A1-04, SXR-A3-03 (ручные строки из прозы владельца): они НЕ входили в перечень одобренных Reviewer 16 строк и остаются PENDING, поэтому scoped review по S1 даёт 6 ошибок dependency-closure. Требуется отдельное узкое подтверждение Reviewer или явное решение по классификации SXR-A1-04 (проверка effective-значений на production).",
+      "scope_note": "Кандидат 8fc8b534 покрывает все обязательные строки A среза: 16 строк утверждены review-ab-8fc8b534, шесть дополнительных строк (A1-02, A1-03, A1-04, A3-03 и B2-02/B4-02 в срезе S2) утверждены review-ab-8fc8b534-extra: A1-02/A1-03/A3-03 → REVIEW с candidate-bound evidence, A1-04 → READY_FOR_LIVE с одобренным postrelease_wait (effective-значения только на deployed SHA).",
       "open_in_slice": [
-        "SXR-A1-02 — порядок chat → global → factory и неприкосновенность явной настройки чата: код и проба это демонстрируют, но строка не входила в одобренный Reviewer набор → PENDING",
-        "SXR-A1-03 — сбой чтения не переводит OFF в ON: закрыто свидетельством A1-01 (known=false/stale=true), но не одобрено отдельно → PENDING",
-        "SXR-A1-04 — effective-значения бюджетов на production: требует production-наблюдения; классификация live_required/live_when этим кандидатом не менялась → PENDING",
-        "SXR-A3-03 — не создавать отдельную многоуровневую систему бюджетов: кандидат её не создаёт, отдельного одобрения нет → PENDING"
+        "SXR-A1-04 — READY_FOR_LIVE: effective chat/global значения бюджетов для production-чатов проверяются после релиза на deployed SHA (postrelease_wait, owner DevOps)."
       ],
       "covered": [
         "единый предикат OFF и last-known-valid; известный OFF не становится ON из-за сбоя чтения (fail-open больше нет, unknown явный)",
         "унаследованные потолки объёма удалены; удаление проверено по константам",
         "раунды/вызовы/план не обрезаются при OFF (проба 15 вызовов, план 9 шагов)",
         "статистика и chain_meta.limits пишутся и при OFF"
-      ]
+      ],
+      "review_extra": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+        "sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+      }
     },
     "S2-TOOL-LOOP": {
       "code": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
@@ -17885,20 +18134,23 @@
         "SXR-B1-05",
         "SXR-B1-06",
         "SXR-B2-01",
+        "SXR-B2-02",
         "SXR-B3-01",
-        "SXR-B4-01"
+        "SXR-B4-01",
+        "SXR-B4-02"
       ],
-      "scope_note": "Кандидат покрывает одобренные Reviewer строки B из covers_req_ids. В том же срезе S2 остаются обязательные строки SXR-B2-02 и SXR-B4-02 (ручные строки из прозы владельца) — запреты на второй tool-loop/checkup_tools_budget и на отдельную LLM-оценку/лексическую эвристику прогресса. Они не входили в перечень одобренных Reviewer 16 строк и остаются PENDING, поэтому scoped review по S2 даёт 6 ошибок dependency-closure.",
-      "open_in_slice": [
-        "SXR-B2-02 — второго tool-loop/checkup_tools_budget нет, основной путь не ограничен: подтверждается свидетельством B2-01, отдельного одобрения нет → PENDING",
-        "SXR-B4-02 — отдельной LLM-сессии оценки прогресса и лексической эвристики не создано: подтверждается свидетельством B4-01, отдельного одобрения нет → PENDING"
-      ],
+      "scope_note": "Кандидат 8fc8b534 покрывает все обязательные строки B среза: 9 строк утверждены review-ab-8fc8b534, запреты B2-02 (нет второго tool-loop/checkup_tools_budget) и B4-02 (нет отдельной LLM-оценки прогресса и лексической эвристики) утверждены review-ab-8fc8b534-extra → REVIEW с candidate-bound evidence.",
+      "open_in_slice": [],
       "covered": [
         "один tool-loop для всех путей (Direct/L1/plan/checkup/inspect/SourceReader/web/factcheck), без второго цикла и LLM-оценщика прогресса",
         "нет фиксированных 4 раундов / slice до 2 / cap 6; каждый корректный вызов исполняется или получает структурированный отказ с tool_call_id",
         "дедуп по идентичности аргументов, retryable-ретраи, отмена и safety-стоп",
         "360 с не универсальный дедлайн; fuse только явный операторский >0"
-      ]
+      ],
+      "review_extra": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
+        "sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
+      }
     }
   },
   "deployment_state": {
