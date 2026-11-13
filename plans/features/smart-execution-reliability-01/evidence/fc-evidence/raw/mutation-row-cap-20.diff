@@ -1,0 +1,13 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index c26e9232..73041ec9 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -510,7 +510,7 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
+         # Нулевая/отрицательная оценка — это отсутствие данных о ёмкости,
+         # а не «evidence запрещён»: честная деградация к порции gates.
+         budget = None
+-    max_rows = len(refs) if refs else _temporal_max_evidence()
++    max_rows = min(len(refs), 20) if refs else _temporal_max_evidence()
+     if not refs and refs_only:
+         # F2 (review r1): веб-прогон unified-контура даёт evidence ТОЛЬКО из
+         # структурных refs; повторный разбор `search_text` не возвращается.

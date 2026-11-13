@@ -1,0 +1,13 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index c26e9232..87388e62 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -537,7 +537,7 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
+         support = full_support.get(eid) or str(row.get("support") or "")
+         enriched.append({
+             **row,
+-            "support": support,
++            "support": support[:1200],
+             "opened": bool(opened.get(eid, False)),
+             "strength": strength.get(eid, ""),
+         })

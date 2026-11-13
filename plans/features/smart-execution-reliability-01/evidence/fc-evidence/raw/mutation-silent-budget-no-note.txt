@@ -1,0 +1,26 @@
+......F.....                                                             [100%]
+================================== FAILURES ===================================
+____________ test_budget_stopped_search_forbids_absence_conclusion ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022501ACFB60>
+
+    @pytest.mark.asyncio
+    async def test_budget_stopped_search_forbids_absence_conclusion(monkeypatch):
+        """SFC-8-02: если поиск остановлен бюджетом, аналитик не может решить,
+        что доказательств не существует — даже при непустом evidence; та же
+        граница поиска доходит до validator, который правит вердикт."""
+        refs = [_ref(1, support=_support(1, 500))]
+        _pin_resolver(monkeypatch, 1_000_000)
+        llm = RecordingLLM()
+        run = await FactCheckService(None, llm).check_claim_envelope(
+            _env(), retrieval=_outcome(refs, budget_exhausted=True,
+                                       skipped_budget=7))
+        analyst = llm.user_for("temporal_verdict")
+        validator = llm.user_for("temporal_validator")
+>       assert "Поиск остановлен ограничением бюджета" in analyst
+E       assert 'Поиск остановлен ограничением бюджета' in '<claim>В стране X традиция существует без внешнего влияния</claim>\n\n<temporal_context>{"date_source": "telegram_ori... 14.11.2026 04:29, Суббота (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T23:29:30+00:00\n</Chat_Time_Context>'
+
+tests\test_factcheck_evidence_delivery.py:355: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_evidence_delivery.py::test_budget_stopped_search_forbids_absence_conclusion
+1 failed, 11 passed in 2.90s
