@@ -1,0 +1,596 @@
+{
+  "candidate_code_sha": "76fcb82962592a8e099239cd11e6c34ff13cf407",
+  "provider": {
+    "id": "nano-gpt.com",
+    "base_url": "https://nano-gpt.com/api/v1",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "temperature": 0.0,
+    "max_output_tokens": 512,
+    "note": "local project provider from .env; not production-equivalent"
+  },
+  "generated_at_utc": "2026-11-13T06:23:07.653730+00:00",
+  "encoding": "utf-8",
+  "fixture_commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+  "system_prompt": "СИСТЕМНАЯ РОЛЬ:\nТы - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь ответ\nпользователю. Ты анализируешь сообщение и контекст разговора и возвращаешь\nплан ответа строго одной JSON-строкой, без пояснений и без markdown.\n\nСХЕМА JSON (все поля обязательны):\n{\"action\": \"reply|react|silent\", \"reaction\": \"<эмодзи или null>\",\n \"delivery\": \"chat|reply|null\", \"target_message_id\": null,\n \"target_user_id\": null,\n \"response_act\": \"answer|agreement|disagreement|banter|tease|hostile_rebuff|emotional_reply|support|clarification|explanation|research|comparison|summarization|creative|historical_recall|other\",\n \"extent\": \"one_word|micro|compact|auto|normal|detailed|longform|exhaustive\",\n \"tone\": \"inherit|neutral|warm|playful|ironic|sarcastic|annoyed|aggressive|serious\",\n \"emotional_mirroring\": \"none|light|medium|strong\",\n \"structure\": \"chat|answer|explanation|story|summary|comparison|report|steps\",\n \"delivery_hint\": \"plain|rich|media\",\n \"tool_policy\": \"none|auto\",\n \"capabilities_needed\": [\"...\"],\n \"needs_clarification\": false, \"clarification_target\": null,\n \"confidence\": 0.0,\n \"future_intent\": null,\n \"external_claims\": [],\n \"recheck\": false,\n \"knowledge_origin\": \"\",\n \"search_intent\": \"\",\n \"preserve_source_facts\": false,\n \"memory_scope\": \"auto\"}\n\nВЫБОР УЧАСТИЯ\nРассмотри контекст и выбери одно действие: написать сообщение, поставить уместную реакцию или промолчать. Никакое действие не предпочтительнее остальных по умолчанию. Односложная реплика может требовать содержательного ответа, а длинная - не требовать ответа вовсе. Учитывай недавние сообщения самого бота, чтобы не повторяться и не лезть в каждую реплику.\n\nСначала определи содержание своей мысли и её адресата: вся беседа, конкретный участник или конкретное сообщение. Форма доставки следует из этого смысла, а не из порядка сообщений в окне. Если по общей теме у тебя есть содержательная мысль для всех, выбери chat и выскажи её; не прячь такую мысль за молчанием из осторожности. Молчание уместно, когда добавить действительно нечего.\n\nЕсли выбрано текстовое сообщение и этот вызов относится к инициативе, отдельно выбери доставку:\n- chat: обычное сообщение в беседу без reply-привязки. Используй, когда мысль обращена ко всей беседе, к нескольким участникам, продолжает обсуждение целиком, вводит новую тему или является общим замечанием. Упоминание участника по имени не требует reply.\n- reply: ответ на конкретное сообщение из предоставленного окна. Используй, только если твоя мысль отвечает именно на это сообщение и ты можешь назвать его автора и то, на что отвечаешь.\n\naction=reply означает решение написать текст, а не Telegram-reply: сама по себе эта форма не включает привязку к сообщению.\n\nReply возможен, но никогда не обязателен и не используется как fallback по умолчанию. Для reply укажи конкретный target_message_id из текущего окна. Если текст обращён к участнику, target_message_id должен быть сообщением этого участника, а target_user_id - его идентификатором из окна; если такого сообщения нет, выбирай chat с упоминанием участника либо другое действие. target_user_id указывай только для реального адресата из окна; при обращении ко всей беседе оставь null. Участника можно упомянуть в обычном сообщении: target_user_id не превращает chat в reply. Если нет подходящего сообщения, выбирай chat либо другое действие, а не произвольную цель. Свежесть сообщения сама по себе не делает его адресатом: цель определяется смыслом твоего текста. Для реакции укажи target_message_id сообщения, на которое ставится реакция; без конкретной цели реакция не исполняется. Для молчания не заполняй поля доставки и адресата.\n\nНе принимай решение по признаку «последнее сообщение», «есть ID - значит reply», «есть username - значит reply». Нет квоты, процента, принудительного чередования или автоматического закрепления формы. Никакой код вне L1 не переопределяет осмысленный выбор доставки, кроме проверки технической возможности выполнить выбранное действие.\n\nОДНО опциональное поле: future_intent. Не null, а\n{\"kind\": \"follow_up|open_dispute\", \"goal\": \"<короткая цель, максимум 200 символов>\"}\n- только когда участник ЯВНО просит вернуться к теме позже, обещает\n  что-то сообщить/сделать потом или оспаривает вопрос, требующий\n  отдельного разбора. Не выдумывай будущие намерения для обычных\n  сообщений: если явного повода нет - оставь null.\n\nЗначения response_act и tone можно уточнять своими короткими понятиями,\nесли списки не покрывают ситуацию.\n\nУТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА\n\nТвоя основная задача — понять намерение человека по его сообщению и доступному контексту разговора и выбрать действие, которое действительно продвигает диалог или выполняет просьбу.\n\nУточнение — редкое исключение. Оно нужно только тогда, когда невозможно установить, что именно человек просит, или неизвестна обязательная для выполнения цель конкретного действия; учитывай не только текущую реплику, но и предшествующий разговор, сообщения самого бота, ветку, reply и доступные сведения.\n\nШирокая тема, неоднозначность желательной глубины ответа, наличие нескольких разумных ракурсов, отсутствие необязательного временного диапазона или нехватка фактов сами по себе не требуют переспроса. Когда намерение понятно, выбирай естественную интерпретацию и полноту по контексту, при необходимости опирайся на доступные инструменты и память или честно указывай границы знания. Не превращай запрос на ответ в предложение выбрать формат ответа.\n\nУстанавливай needs_clarification=true только для действительно неразрешимой из доступного контекста неизвестности, которая мешает исполнить основное намерение. В clarification_target кратко называй именно недостающий предмет, а не общую неопределённость или необязательный вариант. Не используй длину фразы, её стиль или низкую уверенность в отдельных фактах как основание для уточнения.\n\nЕсли пользователь отвечает на ранее заданный тобой уточняющий вопрос, связывай ответ с исходной просьбой, используй полученную информацию и продолжай выполнение. Не дроби понятную задачу на новую цепочку необязательных микровопросов. Новое уточнение допустимо только при действительно самостоятельной, неизбежной неизвестности, которую нельзя восстановить из разговора. Если можно ответить с разумным безопасным допущением, отвечай.\n\nЕстественные вопросы в обычном живом разговоре, юмор и инициативное участие не являются техническим needs_clarification и не запрещаются.\nЕсли твоя предыдущая реплика в этой переписке была уточняющим вопросом, а текущее сообщение человека является ответом на него, считай недостающий предмет названным, даже когда ответ короткий и не повторяет исходную просьбу своими словами. Применяй его к исходной задаче и выполняй её; не задавай тот же вопрос снова и не переспрашивай о том же предмете другими словами. Уточнение по одному и тому же намерению задаётся один раз: повторное уточнение допустимо только при новой, ранее не выясненной неизбежной неизвестности, а не для подтверждения уже полученного ответа.\n\nИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ\n\nПеречитывай актуальное сообщение каждый ход: действующая постановка задачи задаётся текущей формулировкой человека, а не первым толкованием из истории разговора. Прежнее понимание - рабочая гипотеза, которую новые сообщения вправе изменить.\n\nРазличай по смыслу: уточнение условий той же задачи, возражение против твоего предыдущего ответа, новый самостоятельный вопрос и продолжение темы без изменений. Уточнение меняет постановку: условия, которые человек снял, перестают быть обязательными, названные параметры и желаемый результат становятся частью задачи; полезная история сохраняется, а её толкование обновляется - заново пересказывать разговор и переспрашивать уже отвеченное не нужно. Если новое сообщение не противоречит предыдущему ответу - не трактуй его как опровержение; если действительно противоречит - не называй это сменой темы. Возражение - не смена темы: разбери его по существу, на каких данных и логике оно стоит; если возражение опирается на проверяемое и это существенно для ответа - проверь доступными средствами; подтверждённое возражение пересматривает вывод, несостоятельное - отклоняется аргументами, а не настойчивостью собеседника. Новый вопрос - новая задача, даже если тема выглядит смежной.\n\nВ постановку задачи включай только условия, которые человек действительно установил. Нужное для решения допущение назови допущением, а не требованием человека; при нескольких разумных толкованиях допустимо кратко решить для каждого, когда расчёт возможен на явно названных допущениях, вместо бесконечных уточняющих вопросов.\n\nТвой предыдущий ответ - контекст, а не доказательство. Новые проверяемые данные и уточнения человека приоритетнее него: не защищай прежний вывод вопреки им и не объявляй позицию человека неподтверждённой автоматически, если она опирается на проверяемое; когда обе стороны не подтверждены - так и скажи.\n\nСмысловой акт выбирай по актуальному смыслу сообщения: disagreement - только когда сообщение действительно оспаривает прежний вывод; уточнение условий той же задачи - не disagreement и не новый вопрос.\n\nПРАВИЛА:\n1. Решение семантическое: длина сообщения не определяет extent. Короткая\n   реплика вроде «а этот?» может требовать нормального ответа по смыслу\n   ветки, а развёрнутая просьба - развёрнутого ответа.\n2. action=react - когда смысл лучше передаёт эмодзи-реакция, чем текст:\n   поддержка, смех, согласие, одобрение или лёгкая ирония без новых\n   слов; reaction бери из разрешённого набора реакций, если он указан\n   в контексте.\n3. action=silent - полноценное и часто предпочтительное действие, а не\n   отказ и не ошибка. Выбирай его, когда твой ответ был бы\n   бессмысленным повторением, навязчивым продолжением уже\n   завершённого разговора, ненужным пояснением или вмешательством\n   ради вмешательства. Типичный случай: участник лишь отреагировал\n   на твой предыдущий ответ - посмеялся, коротко подтвердил, ничего\n   нового не спросил; тогда уместнее react или silent, а не новый\n   текст ради текста. Но явный вопрос, просьба или поручение\n   участника - это не «лишь реакция»: они требуют содержательного\n   ответа.\n4. capabilities_needed перечисляй только из доступных возможностей,\n   перечисленных в контексте; если хватает разговора - оставь пустым.\n   Запрашивай поиск (web_search), когда достоверность ответа\n   существенно зависит от внешних сведений, которых нет в надёжном\n   контексте: конкретные характеристики современных устройств, новые\n   аппаратные архитектуры, сравнение продуктов, спецификации\n   производителей, незнакомые тебе технические объекты, изменяющиеся\n   стандарты, точные числа, даты или характеристики, противоречие\n   между тем, что ты собираешься утверждать, и проверяемыми сведениями\n   собеседника. Общеизвестные формулы, расчёты с заданными параметрами\n   и обычная болтовня в поиске не нуждаются. Если поиска нет в списке\n   - не выдавай неподтверждённую характеристику за факт: считай на\n   доступных данных с явно названными допущениями или честно назови,\n   какой факт неизвестен.\n5. needs_clarification=true - только по контракту секции «УТОЧНЕНИЯ\n   И ПРОДОЛЖЕНИЕ ДИАЛОГА» выше; тогда укажи clarification_target\n   (например media_target) и не выбирай capabilities.\n6. confidence - твоя уверенность в плане, число от 0 до 1.\n7. Сначала определи, что человек просит сделать по существу, и только\n   потом манеру. response_act - это то, что ты ДЕЛАЕШЬ по существу\n   просьбы; tone - манера ответа. Грубость, оскорбление, спор или\n   провокация в адрес бота меняют ТОЛЬКО tone (например annoyed), но\n   никогда не меняют response_act: они не превращают просьбу в\n   disagreement, hostile_rebuff или banter.\n   Просьба разобрать, проанализировать, просмотреть, сравнить или\n   обобщить сообщения, переписку, историю, чужие слова, отношения или\n   повторяющиеся черты - это разбор материала: response_act=research при\n   любой манере человека. Материал важнее оценки: если в конце добавлен\n   вопрос-оценка, сперва разбор, а оценка - его вывод, не замена.\n   disagreement, hostile_rebuff и banter выбирай, только когда материала\n   для разбора в просьбе нет: это ответ на выпад или спор, а не способ\n   разобрать чужое поведение. Мнение или оценка без просьбы разбирать\n   материал, по ходу разговора и без ссылки на сообщения или историю, -\n   answer по существу (structure=answer), без хроники, биографии и\n   отчёта.\n8. Глубина разбора не задаёт длину ответа. Обычная просьба - compact или\n   normal; явная просьба подробного разбора - detailed; полного отчёта -\n   detailed или longform со structure=report. Если для ответа нужны\n   сведения за пределами видимого окна, запроси доступную возможность\n   истории или памяти из списка выше; если её нет - опирайся на видимое\n   и не выдавай догадку за подтверждённое.\n9. В ответе - ровно одна JSON-строка. Никакого текста вне JSON.\n\nВНЕШНИЕ УТВЕРЖДЕНИЯ (external_claims)\nЕсли в ответе будут конкретные проверяемые внешние утверждения - существование или характеристики модели, устройства, версии, цена, дата события, официальная документация, точная метрика - перечисли их в необязательном поле external_claims: список объектов вида\n{\"entity\": \"<объект>\", \"relation\": \"exists|version|price|spec|event|documentation|metric\", \"version\": \"<если есть>\", \"date\": \"<если есть>\", \"metric\": \"<если есть>\"}.\nПоле необязательное: пустой список допустим, если таких утверждений в ответе нет.\n\nОбязательность read-only проверки исполняет runtime независимо от твоего мнения: уверенность, tool_policy и пустой capabilities_needed её не отменяют. external_claims не является разрешением не проверять - он уточняет, что именно проверяется.\n\nПОВТОРНАЯ ПРОВЕРКА (recheck)\nОтдельное необязательное поле recheck ставь в true только тогда, когда человек просит проверить сказанное заново, освежить сведения, уточняет их актуальность или сомневается, что ранее сказанное ещё верно. Для обычного вопроса о факте, шутки, цитаты и пересказа значение false: просьбы перепроверять там нет.\nrecheck не отменяет обязательную проверку и не заменяет external_claims: он запрещает опираться в этом ходе на ранее прочитанный источник, и ничего больше. Значение по умолчанию false.\n\nСАММАРИ И ПРОВЕРКА - ДВЕ РАЗЛИЧИМЫЕ ФАЗЫ\nПросьба бывает составной: пересказать или свести обсуждение И разобрать, кто в нём прав. Это две фазы одного ответа, а не одна задача, поэтому в плане они различимы, а не сливаются в общий акт:\n- фаза пересказа отмечается response_act=summarization и structure=summary. Она передаёт, о чём говорили и кто что сказал, с атрибуцией, и собственных вердиктов не выносит: ни \"прав\", ни \"не прав\", ни \"опровергнуто\" в самой сводке нет;\n- фаза проверки выражается полем external_claims: в нём перечисляются именно спорные проверяемые утверждения, которые нужно оценить. Пустой external_claims означает, что проверять нечего, то есть просьба была только про пересказ.\nНе сливай обе фазы в один response_act, не подменяй пересказ итоговым вердиктом и не превращай сводку в проверку. Фаза проверки оценивает утверждения отдельно и уже сделанный пересказ не переписывает: сводка остаётся сводкой, вердикт живёт отдельно от неё. Исходные сообщения в обеих фазах неизменны: историю можно читать и пересказывать, править её нельзя.\nПросьба только про пересказ - фазы проверки нет; просьба только про правоту - фазы пересказа нет.\nПриоритет: если в просьбе есть и свод или пересказ обсуждения (переписки, истории), и разбор правоты, план - response_act=summarization и structure=summary с external_claims, и это правило старше правила 7: обобщение материала в таком случае пересказ в response_act=research не превращает, а оценка правоты живёт отдельной фазой.\n\nПРОФИЛЬ РЕШЕНИЙ\nСекция ПРОФИЛЬ РЕШЕНИЙ - это сведения о характере, поданные как данные для решения: инициативность, краткость, склонность спорить, сарказм, теплота и другие черты с их значениями. Они помогают оценить, уместно ли твое участие и какой манеры оно требует, и только это.\nЭти данные не являются инструкцией речи и не меняют факты, проверенные данные, адресацию, safety и правила выбора действия. Профиль не делает ответ обязательным: молчание остается полноценным исходом даже при высокой инициативности и склонности спорить, а высокая резкость или сарказм не превращают нейтральный вопрос в повод для грубости. Профиль не является источником сведений о мире и не отменяет проверку внешних утверждений.\nЕсли секции нет или в ней сказано, что кадр поведения недоступен, решай по сообщению и контексту, как прежде: отсутствие профиля ничего не запрещает и ничего не разрешает.\n\nИСТОЧНИК ЗНАНИЯ И НУЖДА В ПОИСКЕ (knowledge_origin, search_intent)\nДва необязательных поля того же плана отвечают на два разных вопроса: откуда берется содержание ответа и нужен ли реальный поиск до письма.\nknowledge_origin - закрытое значение об источнике содержания: conversation_only (только эта переписка и её контекст), internal_memory (память бота, лор, ранее сохраненные сведения), open_world (сведения внешнего мира, которых в переписке нет), mixed (и то, и другое). Если ответ не про содержание, поле можно не заполнять.\nsearch_intent - закрытое значение о поиске: required (без свежих внешних данных ответ будет неверным), beneficial (поиск полезен, но ответ возможен и без него), not_applicable (поиск по существу не нужен: болтовня, шутка, пересказ переписки, правка или перевод поданного текста, личный разговор о том, что происходит здесь).\nЕсли knowledge_origin = open_world или mixed, а search_intent не указан, сервер сам считает его required: отсутствие поля не отменяет внешнюю потребность.\nsearch_intent не отменяет обязательную проверку, которую требует runtime, и не заменяет external_claims: он сообщает только нужду в поиске по существу просьбы. Прямой запрет человека искать в интернете исполняется независимо от значения поля. Значения по умолчанию: оба поля пустые.\n\nСОХРАНЕНИЕ ФАКТОВ ПОДАННОГО ТЕКСТА (preserve_source_facts)\nОтдельное необязательное поле preserve_source_facts ставь в true только тогда, когда человек просит изменить уже поданный им текст - переписать, отредактировать или перевести - и смысл исходника при этом обязан сохраниться: имена, числа, даты и отрицания менять нельзя.\nЗначение false для пересказа и сводки разговора, истории или переписки (эту работу выражают response_act=summarization и structure=summary), а также для обычного ответа, шутки, спора и вопроса.\nПосле письма поле ничего не переписывает: по нему сервер только сверяет защищённые данные трансформации с исходником. Значение по умолчанию false.\n\nОХВАТ ПАМЯТИ (memory_scope)\nОтдельное необязательное поле memory_scope говорит, из какого времени брать сведения: operative - только то, что действует сейчас; historical - вопрос о прошлом (как было раньше, что происходило, прежние годы и события, биография и прошлое человека); auto - решай по существу запроса.\nВопрос о человеке или о событиях без указания года - это auto: сервер сам сравнит факты по смыслу, поэтому год в вопросе не обязателен.\nЗначение historical сервер не понижает: если вопрос про прошлое, факты прошлых лет участвуют наравне. Поле не заменяет search_intent и ничего не запрещает искать. Значение по умолчанию auto.\n\nДИАГНОСТИЧЕСКОЕ ИССЛЕДОВАНИЕ (optional diagnostic_research)\nЕсли по смыслу запроса и контексту разговора нужно разобраться в работе или сбое, а имеющихся сведений недостаточно, добавь в тот же JSON необязательное поле\n\"diagnostic_research\": {\"needed\": true, \"target\": \"self|external|other|unknown\", \"sources\": [\"runtime\", \"journal\", \"source_code\", \"memory\"]}.\n- needed=true означает, что требуется проверить факты инструментами, а не только ответить по уже известному. Для обычного разговора, шутки, пересказа, цитаты или когда полученных данных достаточно, оставь needed=false или не добавляй поле.\n- target=self - исследование собственной реализации Adminbot и его работы; сервер сам подставит канонический репозиторий и проверенную версию, ссылку на него у человека не запрашивай. target=external - другой проект, репозиторий или страница, идентичность которых названа или установлена контекстом. target=other - предмет не про реализацию, target=unknown - объект не установлен.\n- sources перечисляет, какие источники нужны: runtime (процесс и probes), journal (журнал и логи), source_code (файлы реализации), memory (память и история чата). Пустой список допустим, если конкретика не важна; сервер проверит доступность.\n- Решение принимай по смыслу, а не по отдельным словам. Наличие отчёта или упоминание ошибки само по себе не требует исследования: оцени, относится ли текущая просьба к этому отчёту и нужны ли новые данные. Поле не отменяет права, безопасность и доступность инструментов; инструменты выполняет runtime, ты можешь только запросить их.\n- Если человек только цитирует или пересказывает чужую просьбу и сам не поручает тебе действовать, это не твоё задание: needed=false.\n- Если просят объяснить, пересказать или уточнить уже полученный отчёт или данные, отвечай по ним; новое чтение кода нужно только при просьбе проверить, найти причину в реализации или получить свежие факты.\n- Вопрос о значении термина, фразы или числа из уже полученного отчёта («что значит…», «объясни…») — это разъяснение, needed=false; не читай код только чтобы пересказать отчёт.\n- Если человек отвечает на диагностический отчёт или продолжает его и спрашивает, где причина, что именно сломалось или что в итоге, это продолжение исследования собственной реализации: needed=true, target=self. Одна благодарность или подтверждение без такого вопроса исследованием не является.\n",
+  "system_prompt_sha256": "22a8a8937a483ebcaad266624eb45eb82c61d3ed0293951f91ce77614fac21a3",
+  "series": [
+    {
+      "series_id": 1,
+      "cases": [
+        {
+          "case_id": "pos_short",
+          "kind": "positive",
+          "user_text": "почему бот сегодня молчит после проверки?",
+          "user_text_sha256": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "d32a0462868ff6d1d29957e8206082f96b55fe97a2ea6cc50e209ed9a5992b60",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "runtime",
+              "journal",
+              "source_code",
+              "memory"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\", \"health\", \"statistics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"rec",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "a0f237cd8f3dcb46a7f042ea85d9b98440dc07fd484e6622a772fa51c0cf71ad",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:16.959536+00:00",
+          "per_case_user_sha256": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b"
+        },
+        {
+          "case_id": "pos_conversational",
+          "kind": "positive",
+          "user_text": "слушай, он опять тупит, разберись по-быстрому",
+          "user_text_sha256": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "dab63a91cc1e088b4f9599be11530ab5b981e4fdf62d745d6af4b008652b9d6c",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "source_code",
+              "journal",
+              "runtime"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"research\", \"extent\": \"compact\", \"tone\": \"inherit\", \"emotional_mirroring\": \"light\", \"structure\": \"report\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origi",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "20288cf79bf26e2fc453f7225cdcd71770fe6a7eeda1225fb484e73d8d152d7d",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:20.766255+00:00",
+          "per_case_user_sha256": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733"
+        },
+        {
+          "case_id": "pos_typo",
+          "kind": "positive",
+          "user_text": "почиму он не отвечает на сообщения?",
+          "user_text_sha256": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "2c6c0e3c9ffd0488a558acdf9ef77dcaf317a3905bc28817b1b4f428b97f4640",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "source_code",
+              "journal",
+              "runtime"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.6, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "b3fd240cccbb1ef9f2c97772876697c91ea591ef03f8c92e1dc8694e55b5b55d",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:23.728291+00:00",
+          "per_case_user_sha256": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7"
+        },
+        {
+          "case_id": "pos_reply",
+          "kind": "positive",
+          "user_text": "ну и где там косяк, что в итоге?",
+          "user_text_sha256": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499",
+          "reply_context": true,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "cb38e3758623823cec25d051c5af30b0ac2dae784a5e600a2e4db5f7c1171193",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "source_code",
+              "journal",
+              "runtime"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"inherit\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledg",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "efc29f6ed6e25282681690e165db954bee53319121825d3ae91d18126a36a015",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:26.710489+00:00",
+          "per_case_user_sha256": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499"
+        },
+        {
+          "case_id": "neg_similar_words",
+          "kind": "negative",
+          "user_text": "код с прошлой недели нормально работает, ага",
+          "user_text_sha256": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "1b938d007cb7d7bf78e7125ff87473afbd1b045794731cbb247edf0c6cb89d6e",
+          "structured_decision": {
+            "needed": false,
+            "target": "self",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"banter\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", \"search_intent",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "0012b59fa429fad579e6846bbc20a45261e1f61c71d886b2b9e47819dc03be32",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:28.846721+00:00",
+          "per_case_user_sha256": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e"
+        },
+        {
+          "case_id": "neg_external",
+          "kind": "negative",
+          "user_text": "в моём проекте на гитхабе вчера нашли ошибку в парсере, вот весело",
+          "user_text_sha256": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "122bf61614c32934f5dcabe8778a58936b687fcf6462f76983a5ab9319301018",
+          "structured_decision": {
+            "needed": false,
+            "target": null,
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"banter\", \"extent\": \"compact\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.8, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", \"search_inte",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "b21af4eefcccb00677be5fc84ea781a13bb38ad63bd50a376bdf8afc52d09d62",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:32.251967+00:00",
+          "per_case_user_sha256": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191"
+        },
+        {
+          "case_id": "neg_quoted",
+          "kind": "negative",
+          "user_text": "Костя писал: «разберись, почему падает», я просто передаю",
+          "user_text_sha256": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "2e2e7d6e41fc711950a2f0a3fc4bf7ff276f18b34b83bf83dbb66954c14c2da6",
+          "structured_decision": {
+            "needed": false,
+            "target": "unknown",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"clarification\", \"extent\": \"micro\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"что именно падает и где воспроизводится сбой\", \"confidence\": 0.6, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowled",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "5146a477baa0305e7d340358a68d75c893fecd42ddb6a241c60ffa754e63c2d9",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:34.373887+00:00",
+          "per_case_user_sha256": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af"
+        },
+        {
+          "case_id": "neg_ordinary",
+          "kind": "negative",
+          "user_text": "спасибо, отчёт посмотрел, всё понятно",
+          "user_text_sha256": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed",
+          "reply_context": true,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "ec1035dce651cefcedd855a534930da601e1f5c00915da8878421d30552037c8",
+          "structured_decision": {
+            "needed": false,
+            "target": "self",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"react\", \"reaction\": \"👍\", \"delivery\": null, \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"agreement\", \"extent\": \"one_word\", \"tone\": \"warm\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", \"search_intent",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "e4d49769b2b2c0dfc1ee9e61a3f574ee473bf2a0d7ffcf21478c47b524df0a34",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:36.320473+00:00",
+          "per_case_user_sha256": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed"
+        },
+        {
+          "case_id": "neg_explain_received",
+          "kind": "negative",
+          "user_text": "объясни, что в отчёте значит пустой ответ L1",
+          "user_text_sha256": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3",
+          "reply_context": true,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "07ad9088b234c8600307c10492547338acece613f75d008fec208b2c6c72ca59",
+          "structured_decision": {
+            "needed": false,
+            "target": "self",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.8, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", ",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "eefdf869bbf21dcc9988d2947339653a8c89e9d521c29bcbd695d112c9e3e012",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:40.265349+00:00",
+          "per_case_user_sha256": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3"
+        }
+      ]
+    },
+    {
+      "series_id": 2,
+      "cases": [
+        {
+          "case_id": "pos_short",
+          "kind": "positive",
+          "user_text": "почему бот сегодня молчит после проверки?",
+          "user_text_sha256": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "d32a0462868ff6d1d29957e8206082f96b55fe97a2ea6cc50e209ed9a5992b60",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "runtime",
+              "journal",
+              "source_code",
+              "memory"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\", \"health\", \"statistics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"rec",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "a0f237cd8f3dcb46a7f042ea85d9b98440dc07fd484e6622a772fa51c0cf71ad",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:42.483594+00:00",
+          "per_case_user_sha256": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b"
+        },
+        {
+          "case_id": "pos_conversational",
+          "kind": "positive",
+          "user_text": "слушай, он опять тупит, разберись по-быстрому",
+          "user_text_sha256": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "dab63a91cc1e088b4f9599be11530ab5b981e4fdf62d745d6af4b008652b9d6c",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "source_code",
+              "journal",
+              "runtime"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"research\", \"extent\": \"compact\", \"tone\": \"inherit\", \"emotional_mirroring\": \"light\", \"structure\": \"report\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origi",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "20288cf79bf26e2fc453f7225cdcd71770fe6a7eeda1225fb484e73d8d152d7d",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:44.526709+00:00",
+          "per_case_user_sha256": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733"
+        },
+        {
+          "case_id": "pos_typo",
+          "kind": "positive",
+          "user_text": "почиму он не отвечает на сообщения?",
+          "user_text_sha256": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "2c6c0e3c9ffd0488a558acdf9ef77dcaf317a3905bc28817b1b4f428b97f4640",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "source_code",
+              "journal",
+              "runtime"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledg",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "b6b86927497d33e2d01d278e078b6b95a47a509b109eee7619f2291c75091faa",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:47.981426+00:00",
+          "per_case_user_sha256": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7"
+        },
+        {
+          "case_id": "pos_reply",
+          "kind": "positive",
+          "user_text": "ну и где там косяк, что в итоге?",
+          "user_text_sha256": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499",
+          "reply_context": true,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "cb38e3758623823cec25d051c5af30b0ac2dae784a5e600a2e4db5f7c1171193",
+          "structured_decision": {
+            "needed": true,
+            "target": "self",
+            "sources": [
+              "source_code",
+              "journal",
+              "runtime"
+            ]
+          },
+          "tool": {
+            "called": true,
+            "name": "read_source_code",
+            "status": "ok",
+            "verified": true,
+            "path": "services/checkup_service.py",
+            "line_range": [
+              150,
+              175
+            ],
+            "commit": "ffd92ead5482bf8f9d1e111fd8e7f501e5ccc647",
+            "error": ""
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"source_code\", \"deep_diagnostics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.75, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowled",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "038e0dcda971b58313e748b0d9349fa06bdd28b58a35dcdd5898d23e99f262ea",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:51.036779+00:00",
+          "per_case_user_sha256": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499"
+        },
+        {
+          "case_id": "neg_similar_words",
+          "kind": "negative",
+          "user_text": "код с прошлой недели нормально работает, ага",
+          "user_text_sha256": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "1b938d007cb7d7bf78e7125ff87473afbd1b045794731cbb247edf0c6cb89d6e",
+          "structured_decision": {
+            "needed": false,
+            "target": "self",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"banter\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.7, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", \"search_intent",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "0012b59fa429fad579e6846bbc20a45261e1f61c71d886b2b9e47819dc03be32",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:55.181073+00:00",
+          "per_case_user_sha256": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e"
+        },
+        {
+          "case_id": "neg_external",
+          "kind": "negative",
+          "user_text": "в моём проекте на гитхабе вчера нашли ошибку в парсере, вот весело",
+          "user_text_sha256": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "122bf61614c32934f5dcabe8778a58936b687fcf6462f76983a5ab9319301018",
+          "structured_decision": {
+            "needed": false,
+            "target": "unknown",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"banter\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.8, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", \"search_intent",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "a14a97e5ce71ae1d0d27401a2895054b3558730803a59f2b0dc02f31b74695dd",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:22:58.523679+00:00",
+          "per_case_user_sha256": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191"
+        },
+        {
+          "case_id": "neg_quoted",
+          "kind": "negative",
+          "user_text": "Костя писал: «разберись, почему падает», я просто передаю",
+          "user_text_sha256": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af",
+          "reply_context": false,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "2e2e7d6e41fc711950a2f0a3fc4bf7ff276f18b34b83bf83dbb66954c14c2da6",
+          "structured_decision": {
+            "needed": false,
+            "target": "unknown",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"clarification\", \"extent\": \"micro\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"что именно падает и где (какой сервис/процесс)\", \"confidence\": 0.6, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowl",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "9c5177785c66c0d9e9716e06ba970fd1213f9978e7a80ab9a76b7e222c0bb3c6",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:23:00.691201+00:00",
+          "per_case_user_sha256": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af"
+        },
+        {
+          "case_id": "neg_ordinary",
+          "kind": "negative",
+          "user_text": "спасибо, отчёт посмотрел, всё понятно",
+          "user_text_sha256": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed",
+          "reply_context": true,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "ec1035dce651cefcedd855a534930da601e1f5c00915da8878421d30552037c8",
+          "structured_decision": {
+            "needed": false,
+            "target": "self",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"react\", \"reaction\": \"👍\", \"delivery\": null, \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"agreement\", \"extent\": \"one_word\", \"tone\": \"warm\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", \"search_intent",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "e4d49769b2b2c0dfc1ee9e61a3f574ee473bf2a0d7ffcf21478c47b524df0a34",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:23:03.500281+00:00",
+          "per_case_user_sha256": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed"
+        },
+        {
+          "case_id": "neg_explain_received",
+          "kind": "negative",
+          "user_text": "объясни, что в отчёте значит пустой ответ L1",
+          "user_text_sha256": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3",
+          "reply_context": true,
+          "diagnostic_report_in_context": true,
+          "user_context_sha256": "07ad9088b234c8600307c10492547338acece613f75d008fec208b2c6c72ca59",
+          "structured_decision": {
+            "needed": false,
+            "target": "self",
+            "sources": []
+          },
+          "tool": {
+            "called": false
+          },
+          "final_answer_excerpt": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.8, \"future_intent\": null, \"external_claims\": [], \"recheck\": false, \"knowledge_origin\": \"conversation_only\", ",
+          "final_answer_kind": "model_json_response_or_error",
+          "model_response_sha256": "eefdf869bbf21dcc9988d2947339653a8c89e9d521c29bcbd695d112c9e3e012",
+          "provider_error": "",
+          "timestamp_utc": "2026-11-13T06:23:05.469615+00:00",
+          "per_case_user_sha256": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3"
+        }
+      ]
+    }
+  ],
+  "self_check": {
+    "series_count": 2,
+    "cases_per_series": 9,
+    "positive_cases": 4,
+    "negative_cases": 5,
+    "utf8_valid": true,
+    "per_case_user_sha256": {
+      "pos_short": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b",
+      "pos_conversational": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733",
+      "pos_typo": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7",
+      "pos_reply": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499",
+      "neg_similar_words": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e",
+      "neg_external": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191",
+      "neg_quoted": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af",
+      "neg_ordinary": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed",
+      "neg_explain_received": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3"
+    },
+    "flipped_cases": [
+      {
+        "case_id": "neg_external",
+        "series_1": [
+          false,
+          null,
+          false
+        ],
+        "series_2": [
+          false,
+          "unknown",
+          false
+        ]
+      }
+    ]
+  },
+  "schema": {
+    "case_user_hash_field": "user_text_sha256",
+    "case_user_hash_alias": "per_case_user_sha256",
+    "root_hash_field": "self_check.per_case_user_sha256",
+    "series_count": 2,
+    "cases_per_series": 9
+  }
+}
