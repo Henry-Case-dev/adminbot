@@ -413,6 +413,32 @@ REASON_CODES = frozenset({
     # свои точные литералы там, где реально эмитятся, а не как шаблон.
     "capability_off", "emergency_block", "permission_denied",
     "consent_required", "not_ready",
+    # SMART-EXECUTION-RELIABILITY-01 I4 (2026-11-14): producer-коды, которые
+    # реально уходили в прод с маркером `unmapped:<sha8>` (production recon
+    # §8: 18d14796, 4f8aced7, a999e0fd, 373cf2f7, d07c353d, 69e80269,
+    # 38dc4799, 54c94ee2) + соседние коды тех же emit-путей, доказанные по
+    # коду (тот же `emit_mca_event`). Словарь расширяемый и ОДИН — второго
+    # реестра нет; классификация остаётся на outcome/level эмиттера:
+    #   * informational/skip (НЕ failure): свежий поток и уроки;
+    #   * success: проходы детектора/архива/выборок.
+    # Experience: свежий поток/устаревшие уроки (mca_experience_jobs._emit,
+    # mca_experience._emit).
+    "fresh_stream_lag", "stale_belief", "lesson_contradiction",
+    # Experience: детектор обратной связи (закрытый набор классов —
+    # DETECTOR_CLASS_*; `detector_<class>` эмитится шаблоном).
+    "detector_scan", "detector_preference", "detector_correction",
+    "detector_fact_user",
+    # Experience: архивный проход (выбор направления/покрытие окна).
+    "archive_direction", "archive_coverage",
+    # Humor/примеры: отбор few-shot примеров и остановка обучения владельцем.
+    "samples_selected", "owner_reset_learning",
+    # Cover/Summary стадии (`summary_generator` → `emit_cover_event`).
+    "anomaly_recovered", "cover_context_missing", "limit_unknown",
+    # Cover/publish: реальный failed исхода publish (Meta-test I4 нашёл
+    # этот литерал тем же способом; классификация — failed, как у эмиттера).
+    "prompt_limit_exceeded",
+    # Fact-check tool-маршрут (`tool_router` → `stage_event`).
+    "tool_claim",
 })
 
 # FC-OBSERVABILITY-01: whitelist-miss больше НЕ теряет причину. Неизвестный код

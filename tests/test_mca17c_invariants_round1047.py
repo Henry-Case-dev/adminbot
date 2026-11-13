@@ -50,7 +50,7 @@ def test_reason_280_single_delta():
     # subject_mismatch, invalid_purpose, invalid_limit, limit_not_allowed).
     # QND-NONDET (10.11.2026): +11 кодов расписания/событийного пути/исхода;
     # фактическое значение ДО волны уже было 330 (пин 325 дрейфовал) → 341.
-    assert len(mca_events.REASON_CODES) == 341
+    assert len(mca_events.REASON_CODES) == 357    # +16 SMART I4 producer codes
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
