@@ -9035,8 +9035,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I5-01-1157",
@@ -9050,8 +9093,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I5-01-1159",
@@ -9065,8 +9151,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I5-01-1161",
@@ -9080,8 +9209,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I5-01-1163",
@@ -9095,8 +9267,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I5-01-1165",
@@ -9110,8 +9325,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I6-01-1186",
@@ -9125,8 +9383,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I6-01-1190",
@@ -9140,8 +9449,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I6-01-1208",
@@ -9155,8 +9515,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I6-02-1188",
@@ -9170,8 +9581,43 @@
       "acceptance": "Установлена причина обрезки содержательного correction claim; искусственная обрезка в затронутом runtime-пути устранена; полный исходный текст сохранён или достоверно дочитывается; 800 не заменено другим произвольным символьным cap.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: искусственный cap 800 в correction claim удалён, полный текст утверждения/цитаты доходит до composer, нового символьного потолка нет; mutation «вернуть [:800]» ловится (2 failed). Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §2, §5",
+          "observation": "I6 correction claim: снятие cap 800 подтверждено ревью и мутацией; полный текст доходит до composer.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-correction-cap800.txt — мутация B ([:800])",
+          "observation": "Мутация «вернуть [:800]»: 2 failed (оба long-text теста) → полнота текста покрыта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-correction-cap800.txt",
+          "artifact_sha256": "ec46939412f7380b8c22100078e7c515b5f00d23874ad399ba0877ae9998001e"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-focused.txt — focused набор I6/I7",
+          "observation": "Целевой набор на кандидате: 19 passed in 6.22s.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-focused.txt",
+          "artifact_sha256": "9b186fa8678026687abe13dd7075562b4393e7ccd149417b5dfe7c44d60bf651"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I6-02-1201",
@@ -9185,8 +9631,43 @@
       "acceptance": "Установлена причина обрезки содержательного correction claim; искусственная обрезка в затронутом runtime-пути устранена; полный исходный текст сохранён или достоверно дочитывается; 800 не заменено другим произвольным символьным cap.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: искусственный cap 800 в correction claim удалён, полный текст утверждения/цитаты доходит до composer, нового символьного потолка нет; mutation «вернуть [:800]» ловится (2 failed). Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §2, §5",
+          "observation": "I6 correction claim: снятие cap 800 подтверждено ревью и мутацией; полный текст доходит до composer.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-correction-cap800.txt — мутация B ([:800])",
+          "observation": "Мутация «вернуть [:800]»: 2 failed (оба long-text теста) → полнота текста покрыта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-correction-cap800.txt",
+          "artifact_sha256": "ec46939412f7380b8c22100078e7c515b5f00d23874ad399ba0877ae9998001e"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-focused.txt — focused набор I6/I7",
+          "observation": "Целевой набор на кандидате: 19 passed in 6.22s.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-focused.txt",
+          "artifact_sha256": "9b186fa8678026687abe13dd7075562b4393e7ccd149417b5dfe7c44d60bf651"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I7-01-1214",
@@ -9200,8 +9681,35 @@
       "acceptance": "style_policy outcome=success с удалением конечной точки классифицирован как штатное успешное применение речевой настройки; политика речи, кавычки, мат и пользовательские настройки не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: style_policy success с удалением конечной точки — штатное применение речевой настройки (STATUS_REPAIRED, repaired=1); политика речи, кавычки, мат и пользовательские настройки не менялись. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §3, §5",
+          "observation": "I7 style_policy: success с удалением точки подтверждён как штатное поведение; настройки не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-regression.txt — регрессия",
+          "observation": "Широкий регрессионный набор: 479 passed, 1 warning; I7-поведение не изменено, политика речи вне diff.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-regression.txt",
+          "artifact_sha256": "08cbc682919b33a583301928946f0bf35f3472380dc7837de034c2d8e2bb4ef2"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I7-01-1216",
@@ -9215,8 +9723,35 @@
       "acceptance": "style_policy outcome=success с удалением конечной точки классифицирован как штатное успешное применение речевой настройки; политика речи, кавычки, мат и пользовательские настройки не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: style_policy success с удалением конечной точки — штатное применение речевой настройки (STATUS_REPAIRED, repaired=1); политика речи, кавычки, мат и пользовательские настройки не менялись. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §3, §5",
+          "observation": "I7 style_policy: success с удалением точки подтверждён как штатное поведение; настройки не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-regression.txt — регрессия",
+          "observation": "Широкий регрессионный набор: 479 passed, 1 warning; I7-поведение не изменено, политика речи вне diff.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-regression.txt",
+          "artifact_sha256": "08cbc682919b33a583301928946f0bf35f3472380dc7837de034c2d8e2bb4ef2"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I7-01-1218",
@@ -9230,8 +9765,35 @@
       "acceptance": "style_policy outcome=success с удалением конечной точки классифицирован как штатное успешное применение речевой настройки; политика речи, кавычки, мат и пользовательские настройки не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: style_policy success с удалением конечной точки — штатное применение речевой настройки (STATUS_REPAIRED, repaired=1); политика речи, кавычки, мат и пользовательские настройки не менялись. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §3, §5",
+          "observation": "I7 style_policy: success с удалением точки подтверждён как штатное поведение; настройки не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-regression.txt — регрессия",
+          "observation": "Широкий регрессионный набор: 479 passed, 1 warning; I7-поведение не изменено, политика речи вне diff.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-regression.txt",
+          "artifact_sha256": "08cbc682919b33a583301928946f0bf35f3472380dc7837de034c2d8e2bb4ef2"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I7-01-1220",
@@ -9245,8 +9807,35 @@
       "acceptance": "style_policy outcome=success с удалением конечной точки классифицирован как штатное успешное применение речевой настройки; политика речи, кавычки, мат и пользовательские настройки не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: style_policy success с удалением конечной точки — штатное применение речевой настройки (STATUS_REPAIRED, repaired=1); политика речи, кавычки, мат и пользовательские настройки не менялись. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §3, §5",
+          "observation": "I7 style_policy: success с удалением точки подтверждён как штатное поведение; настройки не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-regression.txt — регрессия",
+          "observation": "Широкий регрессионный набор: 479 passed, 1 warning; I7-поведение не изменено, политика речи вне diff.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-regression.txt",
+          "artifact_sha256": "08cbc682919b33a583301928946f0bf35f3472380dc7837de034c2d8e2bb4ef2"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-J-01-1226",
@@ -21710,8 +22299,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "L01153",
@@ -21725,8 +22357,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "L01154",
@@ -21740,8 +22415,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "L01155",
@@ -21755,8 +22473,51 @@
       "acceptance": "Установлены реальные причины инцидентов asap8b01 и qnd.event и сверены с текущими эпиками; подтверждённые дефекты в границах задачи исправлены, остальные отражены в существующих задачах с конкретным evidence; инциденты не закрыты искусственно, detector не отключён, severity не занижен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: причины инцидентов asap8b01/qnd.event установлены (оба владельца — job’ы инициативы; законный watchdog-takeover после рестарта 2.58.192), severity не занижена, детектор не менялся; подтверждённый смежный дефект heartbeat и duplicate incident_opened вынесены в BACKLOG_ONLY, без расширения среза. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §4, §5",
+          "observation": "I5: причины инцидентов и границы исправления подтверждены независимым ревью; смежные дефекты вынесены в backlog, production не менялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "incidents-asap8b01-qnd-event-2026-11-14.md — полный разбор инцидентов",
+          "observation": "Оба owner’а — job’ы инициативы (initiative.observe=asap8b01, initiative.event=qnd.event); инциденты — законный watchdog-takeover (worker_lost, stage=takeover, ERROR) прерванных рестартом 2.58.192 пайплайнов; detector не ошибся, severity не занижена; смежные дефекты (heartbeat, duplicate incident_opened) — BACKLOG_ONLY.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/incidents-asap8b01-qnd-event-2026-11-14.md",
+          "artifact_sha256": "ca41c1740f72f2513189026369cb58e7a8d7417b667c68a69745559d2a102e4c"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i5.txt — owner-scope тесты I5 на кандидате",
+          "observation": "Прогон на кандидате: 2 passed in 4.16s (инцидентные owner/severity-проверки).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/pytest-i5.txt",
+          "artifact_sha256": "29170d60970f18337e9aa202de4e3bd2b1ffaa3e97d11b0052af7629eab98f7a"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-i5-severity-warn.txt — мутация C (severity→WARN)",
+          "observation": "Мутация «severity принудительно WARN» даёт 1 failed / 1 passed → тесты чувствительны к занижению severity.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/mutation-i5-severity-warn.txt",
+          "artifact_sha256": "d58c6cdccbd5509288ffbf996f5cd7d5d0aafb2aead0e44d428391d6bfda95df"
+        }
+      ]
     },
     {
       "source_id": "L01167",
@@ -21770,8 +22531,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01194",
@@ -21785,8 +22597,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01195",
@@ -21800,8 +22663,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01196",
@@ -21815,8 +22729,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01197",
@@ -21830,8 +22795,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01198",
@@ -21845,8 +22861,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01199",
@@ -21860,8 +22927,59 @@
       "acceptance": "Retrieval изолирован по разрешённому chat scope: кандидаты чужих чатов не вытесняют нужные до потолка KNN; проблема решена не увеличением k_last; существующие эмбеддинги и corpus сохранены, полное переиндексирование не выполнено, искусственные квоты по годам не введены; при наличии структурного исправления в VMQ-эпике задача связана с ним без дублирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: структурная изоляция KNN по chat scope через rowid pre-KNN (rowid = id инвариант), три KNN-пути, cap 512 и множитель не менялись, DDL/переиндексации нет; воспроизведение прод-starvation, float/int8 probes и scope-мутация (5 failed) проверены. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §1, §5",
+          "observation": "I6 KNN scope: структурная изоляция подтверждена ревью, probes и мутацией; существующие эмбеддинги/корпус не тронуты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "red-base-d20a7f73.txt — RED на базе",
+          "observation": "RED на d20a7f73: 7 failed / 1 passed (зелёный — I7-верификация, её не меняли); на кандидате — 8 passed.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/red-base-d20a7f73.txt",
+          "artifact_sha256": "e638969c005c93f6523c43c7b301463e9931d08eb390af11b59c61095dd77039"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe-knn-rowid-2026-11-14.txt — sqlite-vec probes",
+          "observation": "Проверено: rowid IN работает внутри KNN (float и int8), auxiliary +chat_id в WHERE даёт illegal constraint, partition требует DDL; rowid векторной строки == id факта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe-knn-rowid-2026-11-14.txt",
+          "artifact_sha256": "700ec33cba5ca4d15c165caae1a5a41a6e00f63bc213856b9d6307bd124cafa2"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-knn-noscope.txt — мутация scope",
+          "observation": "Мутация «_chat_scope_rowid_clause → AND 1 = 1»: 5 failed (все ChatScope-тесты) → изоляция покрыта ассертами.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-knn-noscope.txt",
+          "artifact_sha256": "91ba4d2750198124fa14376493a10b33b839929facf2e3a31c08e6ed33170091"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "probe_real_knn_bench.py — производительность на prod-like БД",
+          "observation": "Бенчмарк на реальной локальной БД 10.6k×3072: scoped KNN 77–99 ms против ~103.6 ms у глобального overfetch; starvation снят без деградации.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/probe_real_knn_bench.py",
+          "artifact_sha256": "63634973cf50cee48e0c57dd6c67527ec06991f7c5595373d9d79204f57816ae"
+        }
+      ]
     },
     {
       "source_id": "L01203",
@@ -21875,8 +22993,43 @@
       "acceptance": "Установлена причина обрезки содержательного correction claim; искусственная обрезка в затронутом runtime-пути устранена; полный исходный текст сохранён или достоверно дочитывается; 800 не заменено другим произвольным символьным cap.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: искусственный cap 800 в correction claim удалён, полный текст утверждения/цитаты доходит до composer, нового символьного потолка нет; mutation «вернуть [:800]» ловится (2 failed). Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §2, §5",
+          "observation": "I6 correction claim: снятие cap 800 подтверждено ревью и мутацией; полный текст доходит до composer.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-correction-cap800.txt — мутация B ([:800])",
+          "observation": "Мутация «вернуть [:800]»: 2 failed (оба long-text теста) → полнота текста покрыта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-correction-cap800.txt",
+          "artifact_sha256": "ec46939412f7380b8c22100078e7c515b5f00d23874ad399ba0877ae9998001e"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-focused.txt — focused набор I6/I7",
+          "observation": "Целевой набор на кандидате: 19 passed in 6.22s.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-focused.txt",
+          "artifact_sha256": "9b186fa8678026687abe13dd7075562b4393e7ccd149417b5dfe7c44d60bf651"
+        }
+      ]
     },
     {
       "source_id": "L01204",
@@ -21890,8 +23043,43 @@
       "acceptance": "Установлена причина обрезки содержательного correction claim; искусственная обрезка в затронутом runtime-пути устранена; полный исходный текст сохранён или достоверно дочитывается; 800 не заменено другим произвольным символьным cap.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: искусственный cap 800 в correction claim удалён, полный текст утверждения/цитаты доходит до composer, нового символьного потолка нет; mutation «вернуть [:800]» ловится (2 failed). Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §2, §5",
+          "observation": "I6 correction claim: снятие cap 800 подтверждено ревью и мутацией; полный текст доходит до composer.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-correction-cap800.txt — мутация B ([:800])",
+          "observation": "Мутация «вернуть [:800]»: 2 failed (оба long-text теста) → полнота текста покрыта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-correction-cap800.txt",
+          "artifact_sha256": "ec46939412f7380b8c22100078e7c515b5f00d23874ad399ba0877ae9998001e"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-focused.txt — focused набор I6/I7",
+          "observation": "Целевой набор на кандидате: 19 passed in 6.22s.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-focused.txt",
+          "artifact_sha256": "9b186fa8678026687abe13dd7075562b4393e7ccd149417b5dfe7c44d60bf651"
+        }
+      ]
     },
     {
       "source_id": "L01205",
@@ -21905,8 +23093,43 @@
       "acceptance": "Установлена причина обрезки содержательного correction claim; искусственная обрезка в затронутом runtime-пути устранена; полный исходный текст сохранён или достоверно дочитывается; 800 не заменено другим произвольным символьным cap.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: искусственный cap 800 в correction claim удалён, полный текст утверждения/цитаты доходит до composer, нового символьного потолка нет; mutation «вернуть [:800]» ловится (2 failed). Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §2, §5",
+          "observation": "I6 correction claim: снятие cap 800 подтверждено ревью и мутацией; полный текст доходит до composer.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-correction-cap800.txt — мутация B ([:800])",
+          "observation": "Мутация «вернуть [:800]»: 2 failed (оба long-text теста) → полнота текста покрыта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-correction-cap800.txt",
+          "artifact_sha256": "ec46939412f7380b8c22100078e7c515b5f00d23874ad399ba0877ae9998001e"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-focused.txt — focused набор I6/I7",
+          "observation": "Целевой набор на кандидате: 19 passed in 6.22s.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-focused.txt",
+          "artifact_sha256": "9b186fa8678026687abe13dd7075562b4393e7ccd149417b5dfe7c44d60bf651"
+        }
+      ]
     },
     {
       "source_id": "L01206",
@@ -21920,8 +23143,43 @@
       "acceptance": "Установлена причина обрезки содержательного correction claim; искусственная обрезка в затронутом runtime-пути устранена; полный исходный текст сохранён или достоверно дочитывается; 800 не заменено другим произвольным символьным cap.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: искусственный cap 800 в correction claim удалён, полный текст утверждения/цитаты доходит до composer, нового символьного потолка нет; mutation «вернуть [:800]» ловится (2 failed). Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §2, §5",
+          "observation": "I6 correction claim: снятие cap 800 подтверждено ревью и мутацией; полный текст доходит до composer.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "mutation-correction-cap800.txt — мутация B ([:800])",
+          "observation": "Мутация «вернуть [:800]»: 2 failed (оба long-text теста) → полнота текста покрыта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/mutation-correction-cap800.txt",
+          "artifact_sha256": "ec46939412f7380b8c22100078e7c515b5f00d23874ad399ba0877ae9998001e"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-focused.txt — focused набор I6/I7",
+          "observation": "Целевой набор на кандидате: 19 passed in 6.22s.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-focused.txt",
+          "artifact_sha256": "9b186fa8678026687abe13dd7075562b4393e7ccd149417b5dfe7c44d60bf651"
+        }
+      ]
     },
     {
       "source_id": "L01210",
@@ -21935,8 +23193,35 @@
       "acceptance": "style_policy outcome=success с удалением конечной точки классифицирован как штатное успешное применение речевой настройки; политика речи, кавычки, мат и пользовательские настройки не изменены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "review-i56-c84e77d5.md — независимое ревью I5/I6/I7 (Approved, кандидат d43fa1fd)",
+          "observation": "Reviewer подтвердил на d43fa1fd: style_policy success с удалением конечной точки — штатное применение речевой настройки (STATUS_REPAIRED, repaired=1); политика речи, кавычки, мат и пользовательские настройки не менялись. Итог: Approved.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+          "artifact_sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "binding-i56-d43fa1fd.md §3, §5",
+          "observation": "I7 style_policy: success с удалением точки подтверждён как штатное поведение; настройки не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+          "artifact_sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+          "ref": "pytest-i56-regression.txt — регрессия",
+          "observation": "Широкий регрессионный набор: 479 passed, 1 warning; I7-поведение не изменено, политика речи вне diff.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/i-memory/pytest-i56-regression.txt",
+          "artifact_sha256": "08cbc682919b33a583301928946f0bf35f3472380dc7837de034c2d8e2bb4ef2"
+        }
+      ]
     },
     {
       "source_id": "L01232",
@@ -24034,7 +25319,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9).",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9). PM i56 2026-11-14: SXR-I5-01 (10), SXR-I6-01 (10), SXR-I6-02 (6), SXR-I7-01 (5) переведены в REVIEW на кандидате d43fa1fd (tests 58a8f859, evidence c84e77d5, ветка smart/i56-memory-learning) с review-артефактом review-i56-c84e77d5.md и binding-артефактами из ветки (скопированы байт-в-байт). S11 привязан к d43fa1fd; S10 остаётся мульти-кандидатным (I3 d471309a + I5 d43fa1fd, ключ S10-LEARNING-INCIDENTS-I5) — scoped-гейт S10 структурно неприменим.",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -24653,6 +25938,78 @@
         "поведение после будущих изменений (S1–S17) — предмет соответствующих срезов, не S0"
       ],
       "deployed": true
+    },
+    "S11-MEMORY-CORRECTION": {
+      "slice": "S11-MEMORY-CORRECTION",
+      "lane": "I6+I7",
+      "covers_req_ids": [
+        "SXR-I6-01",
+        "SXR-I6-02",
+        "SXR-I7-01"
+      ],
+      "scope_note": "I6/I7 only; no deploy. live_required=false, live_when=preprod on all rows.",
+      "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+      "code": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+      "tests": "58a8f859c39526137f97d4956f327690ba1ea1be",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "smart/i56-memory-learning",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-6fe59a2f",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+        "sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+      },
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+        "sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+      },
+      "covered": [
+        "KNN-изоляция по chat scope через rowid pre-KNN (три пути, float+int8), без DDL и переиндексации",
+        "cap 512 и множитель ×4 не менялись; partial/overfetch телеметрия scope=rowid",
+        "снятие искусственного cap 800 в correction claim, полный текст доходит до composer",
+        "style_policy success с удалением конечной точки — штатное поведение, настройки не менялись",
+        "RED на базе 7 failed/1 passed; 19 focused passed; регрессия 479 passed, 1 warning; мутации A/B ловятся"
+      ],
+      "partial": [
+        "изменён tests/test_asap8_v6_d06_isolation.py (три утверждения о механизме scope), U13-инварианты сохранены"
+      ],
+      "not_covered": [
+        "deploy не выполнялся; production-наблюдение (sqlite-vec version, scope=rowid в логах, retrieval/latency) остаётся postdeploy",
+        "F-I5-1 heartbeat длинных job'ов и duplicate incident_opened — BACKLOG_ONLY вне кандидата"
+      ],
+      "deployed": false
+    },
+    "S10-LEARNING-INCIDENTS-I5": {
+      "slice": "S10-LEARNING-INCIDENTS",
+      "lane": "I5",
+      "covers_req_ids": [
+        "SXR-I5-01"
+      ],
+      "scope_note": "S10 мульти-кандидатен: I3=d471309a (binding S10-LEARNING-INCIDENTS) + I5=d43fa1fd (этот ключ); scoped-гейт одного кандидата структурно неприменим — проверка на map-уровне.",
+      "candidate_commit": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+      "code": "d43fa1fd17aebd03f94654b0476483c2c68f5e8c",
+      "tests": "58a8f859c39526137f97d4956f327690ba1ea1be",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "smart/i56-memory-learning",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-6fe59a2f",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-i56-c84e77d5.md",
+        "sha256": "b87adee03174499334178e5c9547c7de5f3b3d49627d7629244fb3a72577460d"
+      },
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/i-learning/binding-i56-d43fa1fd.md",
+        "sha256": "c45e884857f17725f3cf9f0055e95e9c1a6972d4f67f008c8f9ce0c0bb31616b"
+      },
+      "covered": [
+        "причины asap8b01/qnd.event: job’ы инициативы, watchdog-takeover после рестарта 2.58.192",
+        "severity не занижена; детектор не менялся; инциденты не закрываются искусственно",
+        "mutation C (severity→WARN) ловится: 1 failed / 1 passed"
+      ],
+      "partial": [],
+      "not_covered": [
+        "смежные дефекты heartbeat и duplicate incident_opened — BACKLOG_ONLY вне кандидата",
+        "postdeploy: старые строки asap8b01/qnd.event остаются незакрытыми до resolve с evidence"
+      ],
+      "deployed": false
     }
   },
   "deployment_state": {
