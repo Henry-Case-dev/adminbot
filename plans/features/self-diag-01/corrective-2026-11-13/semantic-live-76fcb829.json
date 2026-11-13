@@ -52,7 +52,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "a0f237cd8f3dcb46a7f042ea85d9b98440dc07fd484e6622a772fa51c0cf71ad",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:16.959536+00:00"
+          "timestamp_utc": "2026-11-13T06:22:16.959536+00:00",
+          "per_case_user_sha256": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b"
         },
         {
           "case_id": "pos_conversational",
@@ -88,7 +89,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "20288cf79bf26e2fc453f7225cdcd71770fe6a7eeda1225fb484e73d8d152d7d",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:20.766255+00:00"
+          "timestamp_utc": "2026-11-13T06:22:20.766255+00:00",
+          "per_case_user_sha256": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733"
         },
         {
           "case_id": "pos_typo",
@@ -124,7 +126,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "b3fd240cccbb1ef9f2c97772876697c91ea591ef03f8c92e1dc8694e55b5b55d",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:23.728291+00:00"
+          "timestamp_utc": "2026-11-13T06:22:23.728291+00:00",
+          "per_case_user_sha256": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7"
         },
         {
           "case_id": "pos_reply",
@@ -160,7 +163,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "efc29f6ed6e25282681690e165db954bee53319121825d3ae91d18126a36a015",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:26.710489+00:00"
+          "timestamp_utc": "2026-11-13T06:22:26.710489+00:00",
+          "per_case_user_sha256": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499"
         },
         {
           "case_id": "neg_similar_words",
@@ -182,7 +186,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "0012b59fa429fad579e6846bbc20a45261e1f61c71d886b2b9e47819dc03be32",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:28.846721+00:00"
+          "timestamp_utc": "2026-11-13T06:22:28.846721+00:00",
+          "per_case_user_sha256": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e"
         },
         {
           "case_id": "neg_external",
@@ -204,7 +209,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "b21af4eefcccb00677be5fc84ea781a13bb38ad63bd50a376bdf8afc52d09d62",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:32.251967+00:00"
+          "timestamp_utc": "2026-11-13T06:22:32.251967+00:00",
+          "per_case_user_sha256": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191"
         },
         {
           "case_id": "neg_quoted",
@@ -226,7 +232,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "5146a477baa0305e7d340358a68d75c893fecd42ddb6a241c60ffa754e63c2d9",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:34.373887+00:00"
+          "timestamp_utc": "2026-11-13T06:22:34.373887+00:00",
+          "per_case_user_sha256": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af"
         },
         {
           "case_id": "neg_ordinary",
@@ -248,7 +255,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "e4d49769b2b2c0dfc1ee9e61a3f574ee473bf2a0d7ffcf21478c47b524df0a34",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:36.320473+00:00"
+          "timestamp_utc": "2026-11-13T06:22:36.320473+00:00",
+          "per_case_user_sha256": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed"
         },
         {
           "case_id": "neg_explain_received",
@@ -270,7 +278,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "eefdf869bbf21dcc9988d2947339653a8c89e9d521c29bcbd695d112c9e3e012",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:40.265349+00:00"
+          "timestamp_utc": "2026-11-13T06:22:40.265349+00:00",
+          "per_case_user_sha256": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3"
         }
       ]
     },
@@ -312,7 +321,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "a0f237cd8f3dcb46a7f042ea85d9b98440dc07fd484e6622a772fa51c0cf71ad",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:42.483594+00:00"
+          "timestamp_utc": "2026-11-13T06:22:42.483594+00:00",
+          "per_case_user_sha256": "e19b10dcb30749880da2a8aa76dd587bfe59979345d231f44085d12d78312b8b"
         },
         {
           "case_id": "pos_conversational",
@@ -348,7 +358,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "20288cf79bf26e2fc453f7225cdcd71770fe6a7eeda1225fb484e73d8d152d7d",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:44.526709+00:00"
+          "timestamp_utc": "2026-11-13T06:22:44.526709+00:00",
+          "per_case_user_sha256": "23dd9399e3ae53830daef9175b027d40533fc08011fd9b75e2a9284765796733"
         },
         {
           "case_id": "pos_typo",
@@ -384,7 +395,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "b6b86927497d33e2d01d278e078b6b95a47a509b109eee7619f2291c75091faa",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:47.981426+00:00"
+          "timestamp_utc": "2026-11-13T06:22:47.981426+00:00",
+          "per_case_user_sha256": "f12986e4100e1a97b953755bf87607516b7d46b19fdc17ad1f0cab64991c62d7"
         },
         {
           "case_id": "pos_reply",
@@ -420,7 +432,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "038e0dcda971b58313e748b0d9349fa06bdd28b58a35dcdd5898d23e99f262ea",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:51.036779+00:00"
+          "timestamp_utc": "2026-11-13T06:22:51.036779+00:00",
+          "per_case_user_sha256": "f0489a74cbfd9f0960db955f6a25fec21d312b2f7c9b7455ff066a43a75bb499"
         },
         {
           "case_id": "neg_similar_words",
@@ -442,7 +455,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "0012b59fa429fad579e6846bbc20a45261e1f61c71d886b2b9e47819dc03be32",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:55.181073+00:00"
+          "timestamp_utc": "2026-11-13T06:22:55.181073+00:00",
+          "per_case_user_sha256": "3269612f2b86d4beb9e7328175cca8c5e3a02bfa34dd5a3443296e913410f43e"
         },
         {
           "case_id": "neg_external",
@@ -464,7 +478,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "a14a97e5ce71ae1d0d27401a2895054b3558730803a59f2b0dc02f31b74695dd",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:22:58.523679+00:00"
+          "timestamp_utc": "2026-11-13T06:22:58.523679+00:00",
+          "per_case_user_sha256": "8e59bde6279d543290f6c9c911debfdd421c33286851227769cc0973761b1191"
         },
         {
           "case_id": "neg_quoted",
@@ -486,7 +501,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "9c5177785c66c0d9e9716e06ba970fd1213f9978e7a80ab9a76b7e222c0bb3c6",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:23:00.691201+00:00"
+          "timestamp_utc": "2026-11-13T06:23:00.691201+00:00",
+          "per_case_user_sha256": "9ac9f6fe50e7c81e09450fc3049f58282eba262e3f8536b124f0888809cba7af"
         },
         {
           "case_id": "neg_ordinary",
@@ -508,7 +524,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "e4d49769b2b2c0dfc1ee9e61a3f574ee473bf2a0d7ffcf21478c47b524df0a34",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:23:03.500281+00:00"
+          "timestamp_utc": "2026-11-13T06:23:03.500281+00:00",
+          "per_case_user_sha256": "557aece691ce97737c2737f65ba2c38d1b99955b55b1a2c84fa9d00833dce2ed"
         },
         {
           "case_id": "neg_explain_received",
@@ -530,7 +547,8 @@
           "final_answer_kind": "model_json_response_or_error",
           "model_response_sha256": "eefdf869bbf21dcc9988d2947339653a8c89e9d521c29bcbd695d112c9e3e012",
           "provider_error": "",
-          "timestamp_utc": "2026-11-13T06:23:05.469615+00:00"
+          "timestamp_utc": "2026-11-13T06:23:05.469615+00:00",
+          "per_case_user_sha256": "edb90ea5ad49be26ced3cef2a990e8b0f92063ca61df37ecb9f2f2f92bcae1c3"
         }
       ]
     }
@@ -567,5 +585,12 @@
         ]
       }
     ]
+  },
+  "schema": {
+    "case_user_hash_field": "user_text_sha256",
+    "case_user_hash_alias": "per_case_user_sha256",
+    "root_hash_field": "self_check.per_case_user_sha256",
+    "series_count": 2,
+    "cases_per_series": 9
   }
 }

@@ -15,8 +15,8 @@ the bytes back, rejecting BOM and `\r`, and decoding strict UTF-8.
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `plans/features/self-diag-01/corrective-2026-11-13/semantic-live-76fcb829.json` | 69616 | `a3b64d1cd3709d1c0862157b325f656ac807469072fd1a08725b733a4c2604bd` |
-| `plans/features/self-diag-01/corrective-2026-11-13/semantic-live-76fcb829.md` | 6278 | `bd1631ad3ec34b5b3a3f7af4939d76cfda344a7f4f646793deabe6172986e499` |
+| `plans/features/self-diag-01/corrective-2026-11-13/semantic-live-76fcb829.json` | 71678 | `4bed0834ea11380d28d410f5814f557f2adf70968b1d200a401f6f4f8fcc41e2` |
+| `plans/features/self-diag-01/corrective-2026-11-13/semantic-live-76fcb829.md` | 7479 | `a80277eb73f797bf8808809bee9aceeb5d6690c29c5dc379aa7d3782e283cb66` |
 
 Provider used: `nano-gpt.com` / `https://nano-gpt.com/api/v1`,
 model `deepseek/deepseek-v4.1-flash`; project `.env` config, no secrets recorded.
@@ -25,11 +25,20 @@ This is the project's local provider, not production-equivalent.
 
 The JSON `self_check` block contains: series count 2, cases per series 9,
 positives 4, negatives 5, `utf8_valid=true`, `per_case_user_sha256` for all nine
-verbatim inputs, and `flipped_cases`. Each case has a stable `case_id`, exact
-`user_text`, `user_text_sha256`, `reply_context`, `user_context_sha256`,
-`structured_decision` (`needed/target/sources`), `tool` (`called/name/status/
-verified/path/line_range/commit/error`), `final_answer_excerpt`,
-`model_response_sha256`, `timestamp_utc`, and provider/model at the top level.
+verbatim inputs, and `flipped_cases`. Every case object has a stable `case_id`,
+exact `user_text`, **`user_text_sha256`** and its alias
+**`per_case_user_sha256`** (both equal to the root dictionary value for that
+`case_id`), `reply_context`, `user_context_sha256`, `structured_decision`
+(`needed/target/sources`), `tool` (`called/name/status/verified/path/
+line_range/commit/error`), `final_answer_excerpt`, `model_response_sha256`,
+`timestamp_utc`, and provider/model at the top level. A top-level `schema` block
+declares the case hash field, alias, root hash field, series count and cases per
+series.
+
+Verification output for this revision: JSON strict UTF-8 decode, no BOM/no CR,
+JSON parse, **18 case objects** across 2 series, every case
+`sha256(user_text) == case.user_text_sha256 == case.per_case_user_sha256 ==
+self_check.per_case_user_sha256[case_id]`, counts 4 positives / 5 negatives.
 
 `final_answer_excerpt` is the provider's actual JSON response excerpt (not
 published Telegram prose); the C Writer answer is separately proven in
