@@ -234,10 +234,11 @@ S1-регрессии после merge: `tests/test_smart_exec_ab_round1114.py` 
 ## 12. Остаточное (postdeploy, не блокирует preprod-review)
 
 1. **Production effective config** (SFC-5-10, SFC-13-03 live): на реальном
-   сервере проверить `flags.budgets_enabled` (default ON), отсутствие
-   сохранённых `limits.factcheck_*` (или их источник), применение 120/600/24/
-   64/100000/20/32 и снятие enforcement при OFF. Код готов; без деплоя это
-   `PENDING`.
+   сервере проверить `flags.budgets_enabled` (default ON), существующий
+   module-флаг `flags.factcheck_pipeline_v2` (не новый; без него штатный
+   planner-путь не вызывается), отсутствие сохранённых `limits.factcheck_*`
+   (или их источник), применение 120/600/24/64/100000/20/32 и снятие
+   enforcement при OFF. Код готов; без деплоя это `PENDING`.
 2. **Реальные провайдеры** (SFC-5-07): сетевые таймауты/rate limits и
    фактическая выдача (меньше 20) — только live; в тестах контролируемые
    заглушки.
