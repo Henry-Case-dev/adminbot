@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T17:09:25+12:00",
+  "updated": "2026-11-13T19:11:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -942,7 +942,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T17:09:25+12:00",
+      "updated": "2026-11-13T19:11:00+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -950,7 +950,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13 corrective (owner, P0): journal restored+verified as service user. Identity/counters candidate ea9e9f2a (manifest producer added; honest unknown/null instead of zeros) under independent review; core checkup research loop + continuation + repo resolution + L1 degradation still building. Then Reviewer E2E A-G + anti-hardcode audit, one release + smoke, corrective DONE. Prior 150 VERIFIED rows kept; epic not DONE until corrective passes.",
+      "queue_note": "2026-11-13 corrective (owner, P0): core 76fcb829 + identity ea9e9f2a Approved; journal env fix verified; PM bound 23 corrective rows (147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING). Scoped deploy red only on dependency closure -> one epic-level release train, then release smoke (journal, Telegram E2E, deployed manifest), then corrective closeout. Epic not DONE.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -971,15 +971,19 @@
         "D4": "16 REVIEW / 3 READY (D4-10/14 018e8d77)",
         "D5": "18 REVIEW / 3 READY (D5-11/12 b3e9fe6e)",
         "D6": "15 REVIEW / 17 READY",
-        "D7": "12 READY / 1 REVIEW (AC-23 b3e9fe6e)"
+        "D7": "12 READY / 1 REVIEW (AC-23 b3e9fe6e)",
+        "SELFDIG-CORRECTIVE-2026-11-13": "13 REVIEW / 2 READY (core 76fcb829 Approved)",
+        "SELFDIG-CORRECTIVE-IDENTITY-2026-11-13": "3 REVIEW / 1 READY (ea9e9f2a Approved)",
+        "SELFDIG-CORRECTIVE-JOURNAL-ENV-2026-11-13": "2 VERIFIED (env fix 1f2156ea)",
+        "SELFDIG-CORRECTIVE-CLOSEOUT-2026-11-13": "2 PENDING (release smoke + §9 report)"
       },
       "progress": {
-        "verified_records": 150,
-        "ready_for_live": 39,
-        "review": 0,
-        "pending": 0,
-        "total_records": 189,
-        "unique": 183,
+        "records": 212,
+        "unique": 206,
+        "verified": 147,
+        "ready_for_live": 41,
+        "review": 16,
+        "pending": 2,
         "deployed_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
         "deployed_version": "2.58.198"
       },
@@ -1026,10 +1030,12 @@
       "delivery_gate_ref": "plans/features/self-diag-01/release-258198/gate-delivery-23477658.txt",
       "corrective_2026_11_13": {
         "owner_input": "plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md",
-        "status": "building",
-        "blocks_epic_done": true,
+        "status": "approved_predeploy",
+        "core": "76fcb829 Approved (predeploy)",
+        "identity": "ea9e9f2a Approved",
         "journal": "restored-verified-1f2156ea",
-        "identity": "code ea9e9f2a under review; production manifest proof deferred to next release"
+        "release_rule": "epic-level train only; scoped --slice deploy red on deferred dependency closure",
+        "blocks_epic_done": true
       }
     },
     {
@@ -4465,8 +4471,39 @@
       "target_task_ids": [
         "self-diag-01"
       ],
-      "reconciled": false,
-      "note": "Owner corrective after 2.58.198: real journal access (insufficient permissions), checkup must research its own code via existing SourceReader/read_source_code/inspect_runtime inside the standard checkup, diagnostic conversation continuation via existing LLM routing (no repository link required, repo_origin from flags.self_diag_repo_origin), L1 empty-content fallback must preserve intent/context, deploy identity no_manifest/deployed_sha=None/healthy=unknown, honest unknown instead of zero counters. Hard invariant: no lexical routing/hardcoded intents (no regex/word lists/substring matching in code, config, prompts, or a hidden fallback); LLM decides, code executes structured decisions. Architect scopes, Builder fixes, Reviewer independently verifies E2E + anti-hardcode audit, one release with smoke."
+      "reconciled": true,
+      "note": "Owner corrective after 2.58.198: real journal access (insufficient permissions), checkup must research its own code via existing SourceReader/read_source_code/inspect_runtime inside the standard checkup, diagnostic conversation continuation via existing LLM routing (no repository link required, repo_origin from flags.self_diag_repo_origin), L1 empty-content fallback must preserve intent/context, deploy identity no_manifest/deployed_sha=None/healthy=unknown, honest unknown instead of zero counters. Hard invariant: no lexical routing/hardcoded intents (no regex/word lists/substring matching in code, config, prompts, or a hidden fallback); LLM decides, code executes structured decisions. Architect scopes, Builder fixes, Reviewer independently verifies E2E + anti-hardcode audit, one release with smoke. | Reconciled 2026-11-13: 23 required rows across 4 corrective slices (core 13 REVIEW/2 READY, identity 3 REVIEW/1 READY, journal-env 2 VERIFIED, closeout 2 PENDING).",
+      "coverage_refs": [
+        {
+          "task_id": "self-diag-01",
+          "map": "plans/features/self-diag-01/requirements-map.json",
+          "req_ids": [
+            "SD1-COR-01",
+            "SD1-COR-03",
+            "SD1-COR-04",
+            "SD1-COR-05",
+            "SD1-COR-09",
+            "SD1-COR-07",
+            "SD1-COR-08",
+            "SD1-COR-EV",
+            "SD1-COR-AC-A",
+            "SD1-COR-AC-B",
+            "SD1-COR-AC-C",
+            "SD1-COR-AC-D",
+            "SD1-COR-AC-E",
+            "SD1-COR-AC-F",
+            "SD1-COR-LIVE-TELEGRAM",
+            "SD1-COR-ID-01",
+            "SD1-COR-ID-02",
+            "SD1-COR-ID-03",
+            "SD1-COR-LIVE-MANIFEST",
+            "SD1-COR-J1",
+            "SD1-COR-J2",
+            "SD1-COR-CL-01",
+            "SD1-COR-CL-02"
+          ]
+        }
+      ]
     }
   ],
   "source_inventory": {
