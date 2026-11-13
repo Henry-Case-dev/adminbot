@@ -111,6 +111,21 @@ provenance) зелёные и на базе, и на кандидате — он
 * Ошибка резолва: `budget_gate` отдаёт fail-open `True`, но искусственных
   потолков всё равно нет (заводского значения не осталось).
 
+### 7.1. Проверка реальным предикатом (без моков)
+
+Проба вне pytest на детерминированном локальном checkout (реальные байты файлов):
+
+```
+predicate(real budget_gate) = True          # резолв через существующий API
+env policy unset: 0 0 0                     # max_files/depth/requests
+no-policy: ok files=10 limits={files:0, depth:0, requests:0, budgets_enforced:True}
+env=2:     ok files=2  limits={files:2, depth:0, requests:0, ...} reason=budget
+```
+
+То есть: ON без явной политики не включает заводских 6/2/16; явная политика
+оператора (`SOURCE_READ_MAX_FILES=2`) честно применяется и видна в
+`not_checked.applied_limits`. OFF (см. §3) не применяет её вовсе.
+
 ## 8. Оставшиеся швы (следующие слайсы, НЕ C1)
 
 1. `_MAX_REF_CANDIDATES=4`, `_MAX_CANDIDATES=3`, `_MAX_LOCATOR_PATHS=3` (`:170-182`)
