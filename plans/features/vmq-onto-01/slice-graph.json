@@ -102,7 +102,7 @@
       "id": "VMQ-M1",
       "title": "MEMORY episodes and longitudinal views (delta над MEMORY-06/07/08)",
       "owner_role": "Builder",
-      "depends_on": ["VMQ-ONTO-A"],
+      "depends_on": [],
       "write_scope": [
         "services/memory_episodes.py",
         "services/memory_maintenance.py",
@@ -114,7 +114,8 @@
       "acceptance": "Эпизоды строятся по связной Reply-ветке и хронологии, тематические линии покрывают годы с контрпримерами, а продольное представление инкрементально, версионируемо и корректно инвалидируется.",
       "risk": "R2",
       "next_role": "Builder",
-      "coherence": "Одна evidence-линия памяти: derived-эпизоды и их продольная агрегация с ревизиями; без второго graph store."
+      "coherence": "Одна evidence-линия памяти: derived-эпизоды и их продольная агрегация с ревизиями; без второго graph store.",
+      "note_history": "13.11.2026: ребро VMQ-M1 -> VMQ-ONTO-A снято как ошибочное (стояло с первого коммита графа 5e0fbc28 от 09.11.2026). Замороженный контракт plans/features/vmq-onto-01/architecture-m1-episodes.md прямо запрещает эту зависимость: строка 84 «M1 не должен блокироваться наличием ONTO-A/B… не делать M1 зависимым от нового semantic module», строка 48 «ONTO-A/B typed meaning | M1 logic PARALLEL_SAFE», строка 85 «ONTO-A/B contract can be integrated independently; (3) M2 объединяет episode/semantic refs». По контракту связь M1 с ONTO односторонняя и через M2 (строка 49 «M1 output contract prerequisite; M1 не зависит от M2»), что совпадает с полосой L2 в шапке графа («VMQ-M1 -> VMQ-M2»). Ребро держало scoped deploy-гейт VMQ-M1 красным на O-01/O-02/VMQ-A-01 при фактически независимом слайсе. Зависимостей-узлов внутри эпика у M1 не осталось; внешняя опора — контракты MEMORY-06/07/08 в plans/features/memory-cognitive-02, но это не узел данного графа. Другие рёбра, write_scope и статусы строк не менялись."
     },
     {
       "id": "VMQ-M2",
