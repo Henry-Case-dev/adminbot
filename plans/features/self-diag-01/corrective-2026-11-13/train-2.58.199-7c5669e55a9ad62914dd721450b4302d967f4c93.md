@@ -5,6 +5,7 @@
 - Worktree: `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\2-58-199-train-8ec228d101d0-704ae241`.
 - **Code/test merge tip: `7c5669e55a9ad62914dd721450b4302d967f4c93`.**
 - **Docs merge tip (before this evidence commit): `d62514d9651575cf6ffcbd4d5c026c5c5cdf5d91`.**
+- **Combined-review fix (restored M1 initial binding): `a15f8345e3570cc01ab0fd6d2f0f3f833e68e810`; see §9.**
 - Status: **REVIEW** (Builder handoff to independent Reviewer; not deployed, not approved).
 
 ## 1. Merged slice SHAs
@@ -27,12 +28,13 @@ for all four); every tip is an ancestor of the train HEAD.
   manual resolution; no conflict hunks existed, therefore no semantic conflict decision was
   taken. No ProbeSpec/block collision occurred (the four slices touch disjoint files).
 - No approved behavior was changed, dropped, reordered or re-worded by the merge.
-- Content proof: every one of the 74 changed paths at train HEAD was compared to the blob
-  at each of the eight approved tips (`git rev-parse HEAD:<path>` vs `git rev-parse <tip>:<path>`).
-  **74 / 74 paths byte-identical to an approved tip; 0 mismatches; 0 files different from
+- Content proof: every one of the 75 union paths at train HEAD was compared to the blob
+  at each approved tip (`git rev-parse HEAD:<path>` vs `git rev-parse <tip>:<path>`).
+  **75 / 75 paths byte-identical to an approved tip; 0 mismatches; 0 files different from
   every approved branch.** No partial merge, no whitespace reflow, no re-encoded file.
+  (The 74-path result of the first pass plus the restored M1 binding; see §9.)
 
-## 3. Merged file set vs `23477658` (74 files)
+## 3. Merged union file set vs `23477658` (75 files; plus this report, §9)
 
 Product / tooling (21):
 ```
@@ -72,15 +74,16 @@ A tests/test_vmq_m1_episode_contract.py
 ```
 (6 modified, 3 added; no test file outside the approved slices.)
 
-Plans/evidence (44): `plans/features/self-diag-01/corrective-2026-11-13/*` (10 files),
-`plans/features/self-diag-01/requirements-map.json`, `plans/features/vmq-onto-01/*` (31 files:
-3 architecture-next2 docs, 2 `evidence/vmq-m/*`, 26 `evidence/vmq-mem/next-stage/*`),
+Plans/evidence (45): `plans/features/self-diag-01/corrective-2026-11-13/*` (10 files),
+`plans/features/self-diag-01/requirements-map.json`, `plans/features/vmq-onto-01/*` (32 files:
+3 architecture-next2 docs, 3 `evidence/vmq-m/*` including restored `binding-m1-80726249.md`,
+26 `evidence/vmq-mem/next-stage/*`),
 `plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md`,
 `plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md`.
 
-**Unexpected files outside the union of the four approved diffs: none.** Every added file is
-either an approved test, `tools/release_manifest.py` (approved identity slice deploy artifact)
-or approved plans/evidence. No `plans/current_task.md`, `plans/workflow_state.md` or
+**Unexpected files outside the union: only this report** (declared in §9). Every other added
+file is either an approved test, `tools/release_manifest.py` (approved identity slice deploy
+artifact) or approved plans/evidence. No `plans/current_task.md`, `plans/workflow_state.md` or
 `plans/progress_scope.json` edit.
 
 ## 4. Scope guards (verified)
@@ -170,4 +173,65 @@ Web tests rewrite tracked PNG/JSON evidence under `plans/features/evol/audit/evi
 - Byte-preservation proves the merge did not modify approved content; it does not replace
   independent behavioral review of the combined candidate.
 - Docs tip written below this file's own commit: the branch tip after committing this evidence is
-  reported in the handoff message; the code/test merge tip is `7c5669e5`.
+  reported in the handoff message; the code/test merge tip is `7c5669e5`. The only non-union
+  artifact is this report itself (§9).
+
+## 9. Combined-review fix — restored M1 initial binding (2026-11-13)
+
+The combined-review defect: `plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-80726249.md`
+existed at code tip `cfec9a1a` and at the initial M1 docs commit `955e282a`, but the M1 fix docs
+commit `d2c95ca2` renamed it to `binding-m1-cfec9a1a.md` and the train therefore lost the
+original artifact. The file was restored with exact bytes:
+
+- `git checkout 955e282a -- plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-80726249.md`
+- restore commit `a15f8345e3570cc01ab0fd6d2f0f3f833e68e810`;
+- blob `fb03162a8fcc8f1d6cb1c4a00054515960378217`, 9170 bytes,
+  sha256 `4b3c83edf185f8c03bd61f6eae817ee8588cae9d756b0c57d4a43391910266f4`;
+- identical to `955e282a:<path>`, to `7c5669e5:<path>` (the file was present at the code merge
+  tip) and to the master restored copy (`56ffb880`).
+
+Union re-verification (`HEAD` after restore), every path of each tip's `base..tip` diff compared
+blob-to-blob with the train:
+
+| Tip | Paths in diff | Matched in train | Mismatched |
+|---|---|---|---|
+| `76fcb829` | 17 | 17 | 0 |
+| `e5a92eba` | 25 | 25 | 0 |
+| `ea9e9f2a` | 11 | 11 | 0 |
+| `6639baa3` | 12 | 12 | 0 |
+| `cfec9a1a` | 5 | 4 | 1 |
+| `d2c95ca2` | 5 | 5 | 0 |
+| `96c8bc72` | 2 | 2 | 0 |
+| `a3492925` | 32 | 32 | 0 |
+| `955e282a` | 5 | 2 | 3 |
+
+The four per-tip mismatches are expected supersessions, not lost content:
+
+- `cfec9a1a` → `plans/features/vmq-onto-01/evidence/vmq-m/engineering.md` was updated by the
+  approved docs tip `d2c95ca2`; train matches `d2c95ca2`.
+- `955e282a` → `engineering.md` (matches `d2c95ca2`), `services/mca_episode_jobs.py` and
+  `tests/test_vmq_m1_episode_contract.py` (both match `cfec9a1a`).
+- the restored `binding-m1-80726249.md` is matched.
+
+Union totals: **75 unique paths, 75 matched, 0 mismatch** (the full path list is §3 plus the
+restored M1 binding). Train diff vs base has 76 paths = 75 union + 1 evidence report.
+
+**Evidence extra declaration:** `train-2.58.199-7c5669e5...md` (this file) is the **only**
+non-union path in the train. It is intentionally kept in the corrective evidence directory and
+declared explicitly; relocating it would not make the union exact because no approved tip
+contains it. It contains no product code, tests, settings or generated runtime data.
+
+No product/test path changed by this fix: `git diff 7c5669e5..HEAD` after the restore contains
+only `plans/` files (restored binding + this report).
+
+Decisive bounded re-run after the docs fix (same interpreter, cwd = train worktree):
+
+| Set | Result | Exit |
+|---|---|---|
+| `tests/test_selfdiag_corrective_research.py` | **28 passed** | 0 |
+| corrective focused set (10 files) | **330 passed** | 0 |
+| `tests/test_deploy_identity.py tests/test_release_manifest.py` | **58 passed** | 0 |
+| `tests/test_vmq_m1_episode_contract.py` | **34 passed** | 0 |
+| `tests/test_memory_period_vector_leg.py` | **30 passed** | 0 |
+
+The counts equal the pre-fix numbers, so the docs-only restoration did not affect behavior.
