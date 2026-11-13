@@ -334,6 +334,37 @@ def test_proven_limit_invalidates_cached_planning_window():
     assert mc.proven_limit_for(NANO_BASE, "MODEL-XYZ") is not None
 
 
+@pytest.mark.asyncio
+async def test_proven_limit_invalidates_full_id_cache_for_short_id(monkeypatch):
+    """N1 (ревью D): cache под полным ID (`z-ai/...`) + proven limit по
+    короткому ID → возвращается proven limit, а не catalog.
+
+    `record_proven_limit`/`invalidate_runtime_capacity` обязаны сравнивать ID
+    канонически (namespace/routing-suffix), иначе устаревший catalog-кэш
+    затеняет факт провайдера."""
+    monkeypatch.setattr(mc, "_http_get_json", _catalog([
+        {"id": GLM_MODEL, "context_length": 1_048_576},
+    ]))
+    full = "z-ai/glm-5.3-flash-uncensored"
+    short = "glm-5.3-flash-uncensored"
+    cached = await mc.resolve_capacity(NANO_BASE, full)
+    assert (cached.source, cached.effective_context_window) == (
+        mc.SOURCE_PROVIDER_CATALOG, 1_048_576)
+    # Планировочное окно тоже закэшировано под коротким написанием.
+    mc.resolve_model_context_window(short)
+    mc.record_proven_limit(NANO_BASE, short, 131_072)
+    # Инвалидация сработала по каноническому ID (полный ↔ короткий).
+    assert not [k for k in mc._CACHE
+                if mc.normalize_model_id(k[2]) == short]
+    assert ("exact", short) not in mc._WINDOW_CACHE
+    result = await mc.resolve_capacity(NANO_BASE, full)
+    assert result.source == mc.SOURCE_PROVEN_LIMIT
+    assert result.effective_context_window == 131_072
+    # Обратное направление: предел по полному ID виден короткому написанию.
+    mc.record_proven_limit(NANO_BASE, full, 65_536)
+    assert mc.proven_limit_for(NANO_BASE, short) == 65_536
+
+
 # ── D4: fallback пересчитывается, primary не занижается ────────────────────
 
 @pytest.mark.asyncio

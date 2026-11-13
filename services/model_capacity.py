@@ -235,6 +235,21 @@ def normalize_model_id(model_name: str | None) -> str:
     return base
 
 
+def _same_model_id(left: str | None, right: str | None) -> bool:
+    """Совпадение ID с нормализацией namespace/routing-suffix (N1 ревью D).
+
+    Обе стороны сравниваются канонически (`normalize_model_id`): иначе полный
+    ID в кэше и короткий ID в `record_proven_limit`/инвалидации не совпали бы,
+    и устаревший catalog-кэш продолжал бы затенять доказанный предел. Пустые
+    имена сравниваются как прежде (сырой lower) — молча ничего не расширяем.
+    """
+    norm_left = normalize_model_id(left)
+    norm_right = normalize_model_id(right)
+    if norm_left and norm_right:
+        return norm_left == norm_right
+    return str(left or "").strip().lower() == str(right or "").strip().lower()
+
+
 def _env_override_window() -> int | None:
     """`CHAT_MODEL_CONTEXT_WINDOW` (env-only ClassVar); None/мусор → None."""
     try:
@@ -983,13 +998,17 @@ def invalidate_runtime_capacity(base_url: str, model: str,
     (runtime 400/context-length error → переоценка в рамках run;
     spec §7/T-4605; fingerprint/override игнорируются — тройка суверенна).
 
+    N1 ревью D: сравнение ID — каноническое (`_same_model_id`), иначе запись
+    под полным ID (`z-ai/...`) переживала бы инвалидацию по короткому и
+    затеняла доказанный предел.
+
     R17: provider host/model/reason — без ключей/URL-пути."""
     provider_class = detect_provider_class(base_url)
     host = _base_url_host(base_url)
-    name = str(model or "").strip().lower()
+    name = normalize_model_id(model) or str(model or "").strip().lower()
     victim_keys = [key for key in _CACHE
                    if key[0] == provider_class and key[1] == host
-                   and key[2] == name]
+                   and _same_model_id(key[2], model)]
     for key in victim_keys:
         _CACHE.pop(key, None)
     if victim_keys:
@@ -1094,8 +1113,7 @@ def record_proven_limit(base_url: str, model: str, limit_tokens: int, *,
     # Свежий каталог/кэш мог быть больше доказанного предела.
     invalidate_runtime_capacity(base_url, model, reason=entry.reason)
     for cache_key in [k for k in _WINDOW_CACHE
-                      if str(k[1]).strip().lower()
-                      == str(entry.model).strip().lower()]:
+                      if _same_model_id(k[1], entry.model)]:
         _WINDOW_CACHE.pop(cache_key, None)
     _CAPACITY_METRICS["capacity_proven_limit_total"] += 1
     logger.warning(
