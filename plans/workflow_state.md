@@ -1,27 +1,26 @@
 ﻿# Workflow State
 
-Task: self-diag-01 corrective (P0, owner 2026-11-13) + vmq-onto-01 in parallel
+Task: self-diag-01 corrective (P0, owner 2026-11-13) + vmq-onto-01 approved slices awaiting release
 Task source: plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md + 2026-11-13-vmq-next02-natural-retrieval-metric.md + 2026-11-12-queue-order-selfdiag-quantum.md
 Status: in_progress
 Primary phase: build
 Active feature: self-diag-01 (corrective) + vmq-onto-01
-Active lanes: Builder ses_e2cdd5c5effe0BLaveCRaYIJB1 (self-diag core: checkup research loop, continuation, repo resolution, L1 degradation); Builder ses_e2cdd1dffffedGF8QTJpYSLVKZ (deploy identity/manifest + honest counters); Builder ses_e2d36bf94ffe557G6z1G6zaqXI (vmq NEXT-02 final §A+NEXT-05); Builder ses_e2d15dd9fffeC9TZGu3ulBs4ir (M1 story-assembly fix)
-Join barriers: self-diag core+identity -> Reviewer E2E + anti-hardcode audit -> one release + smoke; vmq NEXT-02 -> quality review -> release slice; M1 -> re-review M-03.
-Last verified: production 2.58.198 at 23477658 (schema 47, no DDL, rollback 25876167). Journal access RESTORED and verified as the service user: cause = adminbot missing from systemd-journal group (files 0640 root:systemd-journal), fix `usermod -aG systemd-journal adminbot` + restart; `runuser -u adminbot -- journalctl -u admin_bot -n 300` rc=0 with current invocation entries; /healthz 200; evidence commit 1f2156ea. Self-diag prior 150 VERIFIED rows kept but the end-user scenario was not proven; corrective reopens limited scope. vmq: 1/70, 54 owner-mandated REAL_GAP rows source-anchored; M1 candidate 80726249 review M-03 FAILED (story-assembly error swallowed); NEXT-02 final building.
-Next unlocks: corrective candidates -> Reviewer E2E (A-G) + anti-hardcode -> one release + smoke -> corrective DONE -> vmq slices continue.
+Active lanes: Builder ses_e2cdd5c5effe0BLaveCRaYIJB1 (self-diag core: checkup research loop, continuation, repo resolution, L1 degradation); Reviewer ses_e2cb0b029ffeUnwBVc8ohmUYyF (identity ea9e9f2a)
+Join barriers: core candidate -> Reviewer E2E + anti-hardcode -> combined release train (self-diag core+identity + vmq M1 cfec9a1a + NEXT-02/05 96c8bc72) -> DevOps 2.58.199 + smoke -> PM postdeploy binding.
+Last verified: production 2.58.198 at 23477658 (schema 47, no DDL, rollback 25876167). Journal access restored+verified as service user (group systemd-journal; rc=0, current invocation; evidence 1f2156ea). vmq map: 1 VERIFIED / 6 REVIEW / 0 FAILED / 63 PENDING; 54 owner-mandated gaps remain. Approved candidates: vmq M1 cfec9a1a (deploy gate errors=0) and NEXT-02/05 96c8bc72 (quality review Approved, §B excluded, no cap/threshold weakening). Self-diag identity/counters ea9e9f2a under review; production manifest proof deferred to the next release.
+Next unlocks: core candidate -> independent review -> combined release train -> DevOps deploy + smoke -> postdeploy binding -> continue vmq gaps (ONTO-A/B first).
 Next execution: awaiting_children
 Review: pending
 Deployment: verified 2.58.198 @ 23477658 (schema 47, no DDL); rollback 25876167
 Human gate: none
-Progress scope: plans/progress_scope.json | initiative DONE 114/114; self-diag corrective P0 (prior 150/39 kept); vmq 1/70; source 36/36, queue 40/40
-Updated: 2026-11-13T16:25:00+12:00
+Progress scope: plans/progress_scope.json | initiative DONE 114/114; self-diag corrective P0; vmq 1/6/0/63 (54 owner-mandated gaps); source 36/36, queue 40/40
+Updated: 2026-11-13T17:10:00+12:00
 
 ## Facts
 
-- Owner corrective (binding): no lexical routing/hardcoded intents anywhere (code/config/prompt/fallback). LLM decides intent; code validates/executes structured decisions. Checkup must research the bot's own code via existing SourceReader/read_source_code/inspect_runtime inside the standard checkup; continuation must not require a repo URL (repo_origin from flags.self_diag_repo_origin); L1 empty-content fallback must preserve established intent/context; deploy identity must prove the running version; counters must be honest unknown instead of zero. One release + smoke; Reviewer independently verifies E2E A-G and the anti-hardcode invariant.
-- Journal: fixed at environment level (group membership), no code change, persists across restarts/deploys; no root bot, no sudo, no sandbox weakening, no Better Stack.
-- Architect contract: `plans/features/self-diag-01/corrective-2026-11-13/architecture-corrective.md` (SELFDIG_CORRECTIVE_READY). Builders split: core (checkup loop/continuation/repo/L1) + identity/counters; disjoint files.
-- M1 review: M-01/M-02 VERIFIED on fixtures, M-03 FAILED (process_rechecks swallows assemble_stories; complete=True unreliable). Builder fixing with regression; re-review M-03 only.
-- NEXT-02 final: §A period-only FTS tokenization repair + NEXT-05 additive timings; §B excluded; paired quality measurement per owner decision (year share diagnostic only).
-- Natural/future observations remain nonblocking; no owner QA.
-- Backlog: .gitignore:7, git log timeout, mca10b 643/644, cfg03 dead knob, two pre-existing RED, 5 direct_fallback_recompose RED, write-points scan parity, send_chunked_reply >4096, speech _chat_overrides fail-open, rejected_subject mixes lexical+KNN.
+- Owner corrective (binding): no lexical routing/hardcoded intents; LLM decides, code executes structured decisions. Checkup must research own code via existing SourceReader/read_source_code/inspect_runtime inside the standard checkup; continuation must not require a repo URL; L1 empty-content fallback preserves intent; deploy identity proves the running version; counters return honest unknown instead of zero. One release + smoke; Reviewer E2E A-G + anti-hardcode audit.
+- Journal: environment fixed (usermod -aG systemd-journal adminbot + restart); verified from the service user; persists across restarts/deploys; no root bot, no sudo, no sandbox weakening.
+- Identity/counters: proven cause = no manifest producer existed; new tools/release_manifest.py writes schema-1 manifest before restart, refuses dirty tree, supports rollback/dry-run; identity distinguishes manifest/process/checkout; counters honest null/not_checked. Production manifest appears only on the next release.
+- vmq: M1 (episodes: boundaries, provenance, rebuild idempotency; M-03 fixed) and NEXT-02/05 (§A period-only FTS tokenization repair + additive timings; §B excluded) independently approved. Quality: 0 mandatory-fact losses, 115/120 identical rows, year share diagnostic only. NEXT-03 lacks candidate-bound approval on the new candidate; NEXT-04 PENDING; NEXT-01 postrelease.
+- Epic vmq remains open: 54 owner-mandated REAL_GAP rows (ONTO, M2, Q0, Q0-IBM, Q1, O, U, R, memory/time evidence) — release of the two slices does not close it.
+- Backlog: embedding fallback swaps provider silently (B1, Architect decision), 9550 NULL-timestamp facts (B2), no participant→years link (B3), 5 pre-existing asap32 RED, empty blocks under rerank (B5), web/api identity branch/source fields empty (byte-freeze), plus the standing backlog items.
