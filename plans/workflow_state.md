@@ -1,25 +1,27 @@
 ﻿# Workflow State
 
-Task: vmq-onto-01 (queue 4, P0) — corrected NEXT-02 build + map bookkeeping; self-diag-01 is delivered_awaiting_evidence
-Task source: plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md + plans/owner_inputs/2026-11-13-selfdiag-stage-correct-closure.md
+Task: vmq-onto-01 (queue 4, P0) — final NEXT-02 candidate under owner quality contract; self-diag-01 is delivered_awaiting_evidence
+Task source: plans/owner_inputs/2026-11-12-queue-order-selfdiag-quantum.md + plans/owner_inputs/2026-11-13-selfdiag-stage-correct-closure.md + plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md
 Status: in_progress
 Primary phase: build
 Active feature: vmq-onto-01
-Active lanes: Builder ses_e2e072317ffcZMrD78uraomsl7 (corrected NEXT-02); PM ses_e2dff8767ffeZAd8PdMLd3e0fV (vmq map NEXT statuses)
-Join barriers: corrected NEXT-02 candidate + valid paired measurement -> Reviewer -> release; NEXT-04 PENDING; NEXT-03 controlled REVIEW; NEXT-05 timings REVIEW; natural NEXT-01/TIME-09/V live postrelease.
-Last verified: production 2.58.198 at 234776589c934024ed0e8dceba189fb9d70d3215 (schema 47, no DDL, rollback 25876167). Initiative DONE 114/114. Self-diag: 150 VERIFIED / 39 READY / 0 REVIEW / 0 PENDING; delivery PASS, acceptance pending future evidence. VMQ: 1/70; NEXT-03 controlled positive independently confirmed (fact:2242, 2023, stems=2, one row, period_kept=1, both policies); NEXT-04 PENDING (archive C2 lacks a positive lexical row); NEXT-05 timings pass; NEXT-02 FAILED (2026 share 61.63/61.84 vs 58.1; base retrieval produces the 2026 numerator; FTS/§2 tokenization mismatch; 15-question CI 50–73% covers the threshold); corrected Builder implementing FTS tokenization + bounded historical augmentation, threshold unchanged.
-Next unlocks: corrected candidate + valid measurement -> Reviewer -> release -> natural postrelease observations; NEXT-04 remains PENDING unless a real archive row appears.
+Active lanes: Builder ses_e2d36bf94ffe557G6z1G6zaqXI (final §A+NEXT-05 candidate from 23477658, no §B); PM ses_e2d368b41ffev0le1hbX6i0jmP (66-row reconciliation under owner decision)
+Join barriers: final candidate + row classification -> Reviewer quality verification -> release; future observations nonblocking.
+Last verified: production 2.58.198 at 234776589c934024ed0e8dceba189fb9d70d3215 (schema 47, no DDL, rollback 25876167). Initiative DONE 114/114. Self-diag: 150 VERIFIED / 39 READY / 0 REVIEW / 0 PENDING; delivery PASS, acceptance pending future evidence. VMQ: 1/70 VERIFIED, NEXT-03 controlled REVIEW, NEXT-05 timings REVIEW, NEXT-02 FAILED (60.92/62.20% vs 58.1), 66 PENDING under reclassification; §A real FTS tokenization repair confirmed, §B inert and excluded; owner forbids 2026 cap/year quotas/forced displacement and made year share diagnostic-only.
+Next unlocks: final candidate -> Reviewer quality verification (M 2.58.198 release) -> PV ep closure decision -> next P0 queue task.
 Next execution: awaiting_children
 Review: pending
 Deployment: verified 2.58.198 @ 23477658 (schema 47, no DDL); rollback 25876167
 Human gate: none
 Progress scope: plans/progress_scope.json | initiative DONE 114/114; self-diag delivered 150/39/0/0; vmq 1/70; source 36/36, queue 40/40
-Updated: 2026-11-13T11:03:39+12:00
+Updated: 2026-11-13T14:45:00+12:00
 
 ## Facts
 
-- NEXT-03 is confirmed only on the controlled question, not the original 17; the independent rerun on both policies leaves exactly one row fact:2242 (2023, stems=2), period_kept=1, despite_empty=1. NEXT-04 is PENDING; the archive C2 has no positive lexical row (10 lexical all shared=1; FTS top-64 old rows all shared=1); the synthetic fixture confirms the mechanism but is not archive evidence.
-- NEXT-05 timings pass (32/32, knn 190–233 ms, fts 6–55 ms, p95 1172/1156 vs 1618); additive fields, no DDL.
-- NEXT-02 real cause: FTS tokenizes short tokens; §2 drops <4 chars and requires 2 exact stems; 97/191 rows entered only via a discarded token; 0 lexical accepted; all rendered period rows KNN; 2026 numerator is base retrieval (56/56), base slice 78% 2026; corpus 65%; a single FTS fix gives ~2–3 rows vs needed +9; option-1 slot priority was a no-op. The 15-question metric CI 50–73% covers 58.1; the corrected contract requires a valid paired measurement and bounded historical augmentation without lowering the threshold.
-- VMQ-V is already deployed (2.58.170) but has an evidence gap; V-01/V-03 `owner_action_required` must be false; the map's 952b9ebd is historical, current production 23477658. PM is fixing the map.
-- Owner rules: stage-correct REVIEW before deploy; natural/stat/voluntary waits never block; no fake evidence; no owner QA; no new acceptance stage.
+- Owner decision 2026-11-13 (vmq NEXT-02): natural retrieval + valid quality metric. Forbidden: artificial 2026 cap, year quotas, forced displacement of fresh relevant facts, threshold lowering, new retrieval mechanisms for the metric, large retrieval refactor. Keep the real FTS fix. Year share = diagnostic. 17-question sample too small (CI 49–71 covers 58.1). Architect revises contract, Reviewer verifies quality, then finish the epic if no real mandatory defects.
+- Quality contract `architecture-next2-quality.md`: final candidate = §A period-only FTS tokenization repair + NEXT-05 additive `knn_ms`/`fts_ms`; §B pool-33/slot-priority excluded; paired baseline/candidate on same corpus/queries; old/multi-year/recent strata; no fresh degradation.
+- NEXT-02 measured FAIL remains historical fact (60.92/62.20 vs 58.1 point; CI covers threshold; corpus 65% 2026; base slice 78%). Not a gate anymore; not rewritten as PASS.
+- NEXT-03 controlled positive independently confirmed (fact:2242, 2023, stems=2, one row, both policies). NEXT-04 PENDING: archive C2 has no positive lexical row; synthetic fixture is not archive evidence.
+- VMQ-V deployed in 2.58.170 @ 42f068df but `evidence/vmq-v/` missing — bind deployed evidence or keep honest gap. V-01/V-03 `owner_action_required=false` (agents observe).
+- Natural/future: NEXT-01 live vector turn, TIME-09 Status/Analytics events, V-01..V-04 real voice; IBM `blocked_external`. No owner QA.
+- Backlog: `.gitignore:7`, git log timeout, mca10b 643/644, cfg03 dead knob, two pre-existing RED, 5 `direct_fallback_recompose` RED, send_chunked_reply word >4096, speech `_chat_overrides` fail-open, `rejected_subject` mixes lexical+KNN.
