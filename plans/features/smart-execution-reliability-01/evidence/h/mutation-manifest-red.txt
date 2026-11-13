@@ -1,0 +1,49 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ TestDeployManifestIdentity.test_existing_deploy_tool_writes_manifest_bound_to_release _
+
+self = <tests.test_smart_exec_selfdiag.TestDeployManifestIdentity object at 0x0000019F28DB87D0>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2630/test_existing_deploy_tool_writ0')
+
+    def test_existing_deploy_tool_writes_manifest_bound_to_release(
+            self, tmp_path):
+        from tools import release_manifest
+
+>       root, sha = _fixture_repo(tmp_path, version=APP_VERSION)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_smart_exec_selfdiag.py:410:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2630/test_existing_deploy_tool_writ0')
+version = '2.58.199', manifest = True
+
+    def _fixture_repo(tmp_path: pathlib.Path, *, version: str,
+                      manifest: bool = True) -> tuple[pathlib.Path, str]:
+        from tools import release_manifest
+
+        root = pathlib.Path(tmp_path) / "deployed"
+        (root / "config").mkdir(parents=True)
+        (root / "config" / "settings.py").write_text(
+            f'APP_VERSION = "{version}"\n', encoding="utf-8")
+        (root / "bot.py").write_text("print('deployed')\n", encoding="utf-8")
+        _git(root, "init", "-q")
+        _git(root, "config", "user.email", "selfdiag@example.invalid")
+        _git(root, "config", "user.name", "selfdiag")
+        _git(root, "add", "config/settings.py", "bot.py")
+        _git(root, "commit", "-q", "-m", "release fixture")
+        sha = _git(root, "rev-parse", "HEAD")
+        if manifest:
+            deployed_at = datetime.datetime(2026, 11, 14, 12, 0, 0,
+                                            tzinfo=datetime.timezone.utc)
+            data = release_manifest.build_manifest(root, now=deployed_at)
+>           assert data["deployed_sha"] == sha
+E           AssertionError: assert '000000000000...0000000000000' == 'effd36ed4178...db9c04e186c74'
+E
+E             - effd36ed41781e7edc979992027db9c04e186c74
+E             + 0000000000000000000000000000000000000000
+
+tests\test_smart_exec_selfdiag.py:398: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_smart_exec_selfdiag.py::TestDeployManifestIdentity::test_existing_deploy_tool_writes_manifest_bound_to_release
+1 failed in 3.27s

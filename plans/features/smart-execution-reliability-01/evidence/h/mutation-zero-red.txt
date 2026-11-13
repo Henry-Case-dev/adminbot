@@ -1,0 +1,114 @@
+FFF..F                                                                   [100%]
+================================== FAILURES ===================================
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[unreadable-True-unknown] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x00000279F7BFDA30>
+state = 'unreadable', used_fallback = True, expected = 'unknown'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+E       AssertionError: assert 'confirmed_zero' == 'unknown'
+E
+E         - unknown
+E         + confirmed_zero
+
+tests\test_smart_exec_selfdiag.py:529: AssertionError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[unreadable-False-unknown] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x00000279F839E8A0>
+state = 'unreadable', used_fallback = False, expected = 'unknown'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+E       AssertionError: assert 'confirmed_zero' == 'unknown'
+E
+E         - unknown
+E         + confirmed_zero
+
+tests\test_smart_exec_selfdiag.py:529: AssertionError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[ok-False-observed] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x00000279F839E930>
+state = 'ok', used_fallback = False, expected = 'observed'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+E       AssertionError: assert 'confirmed_zero' == 'observed'
+E
+E         - observed
+E         + confirmed_zero
+
+tests\test_smart_exec_selfdiag.py:529: AssertionError
+___ TestUnknownVersusConfirmedZero.test_unknown_state_does_not_become_zero ____
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x00000279F839F290>
+
+    @pytest.mark.asyncio
+    async def test_unknown_state_does_not_become_zero(self):
+        collector = _collector(_StateFetcher("", ""))
+        bundle, _facts = await collector.collect_for_checkup(
+            logs_text="", used_fallback=False, chat_id=CHAT_ID,
+            request_id="h5-unknown")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == "unknown"
+E       AssertionError: assert 'confirmed_zero' == 'unknown'
+E
+E         - unknown
+E         + confirmed_zero
+
+tests\test_smart_exec_selfdiag.py:546: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[unreadable-True-unknown]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[unreadable-False-unknown]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[ok-False-observed]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_unknown_state_does_not_become_zero
+4 failed, 2 passed in 3.44s

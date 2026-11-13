@@ -1,0 +1,9 @@
+cmd: git diff --check 8c5549b7 HEAD -- services handlers tools tests
+
+exit=0
+
+cmd: git diff --check 8c5549b7 HEAD
+
+exit=0
+
+old-vs-fixed test blob (git diff -w 33a78b3f d238f808 -- tests/test_smart_exec_selfdiag.py): only the removed extra blank line at EOF

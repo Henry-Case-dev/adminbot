@@ -1,0 +1,13 @@
+diff --git a/tools/release_manifest.py b/tools/release_manifest.py
+index 32ae7d32..79c19f88 100644
+--- a/tools/release_manifest.py
++++ b/tools/release_manifest.py
+@@ -232,7 +232,7 @@ def build_manifest(root: Path, *, effect: str = "deploy",
+     deployed_at = now or datetime.datetime.now(datetime.timezone.utc)
+     manifest = {
+         "schema": SCHEMA,
+-        "deployed_sha": sha,
++        "deployed_sha": "0" * 40,
+         "version": version,
+         "deployed_at": _iso_utc(deployed_at),
+         "effect": effect,

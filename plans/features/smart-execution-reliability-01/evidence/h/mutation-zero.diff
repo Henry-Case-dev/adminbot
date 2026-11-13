@@ -1,0 +1,12 @@
+diff --git a/services/diagnostic_collector.py b/services/diagnostic_collector.py
+index 3911459f..50ba7748 100644
+--- a/services/diagnostic_collector.py
++++ b/services/diagnostic_collector.py
+@@ -850,6 +850,7 @@ class DiagnosticCollector:
+             logs_status = bundle.STATUS_NOT_CHECKED
+             logs_reason = "log_state_unknown"
+             logs_not_checked = ("journal_contents", "errors_total")
++        errors_state = "confirmed_zero"
+         log_facts = {
+             "backend": "provided_by_checkup_handler",
+             "window_lines": len(lines),

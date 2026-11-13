@@ -1,0 +1,310 @@
+..FFF...F.FF..F.FFFFFF...                                                [100%]
+================================== FAILURES ===================================
+_ TestCheckupRootCauseContract.test_addendum_allows_technical_search_without_whole_repo _
+
+self = <tests.test_smart_exec_selfdiag.TestCheckupRootCauseContract object at 0x0000024C52462C30>
+
+    def test_addendum_allows_technical_search_without_whole_repo(self):
+        text = checkup_prompts.CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM
+>       assert "traceback" in text
+E       AssertionError: assert 'traceback' in '\n\n╨Ф╨Ш╨Р╨У╨Э╨Ю╨б╨в╨Ш╨з╨Х╨б╨Ъ╨Ш╨Х ╨Ш╨Э╨б╨в╨а╨г╨Ь╨Х╨Э╨в╨л:\n╨Т ╤Н╤В╨╛╨╝ ╨╖╨░╨┐╤Г╤Б╨║╨╡ ╤В╨╡╨▒╨╡ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л ╨╛╨▒╤К╤П╨▓╨╗╨╡╨╜╨╜╤Л╨╡ ╨╜╨╕╨╢╨╡ read-only ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╤Л ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨╕. ╨Ш╨╝...╨Х╤Б╨╗╨╕ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╨╕╨╗╨╕ ╨╛╤В╨║╨░╨╖╨░╨╗, ╤З╨╡╤Б╤В╨╜╨╛ ╤Б╨║╨░╨╢╨╕, ╤З╤В╨╛ ╨╕╨╝╨╡╨╜╨╜╨╛ ╨╛╤Б╤В╨░╨╗╨╛╤Б╤М ╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╤Л╨╝, ╨╕ ╨╜╨╡ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╣, ╤З╤В╨╛ ╨┐╤А╨╛╨▓╨╡╤А╨╕╨╗.'
+
+tests\test_smart_exec_selfdiag.py:164: AssertionError
+_ TestCheckupReportCategories.test_addendum_lists_all_categories_and_keeps_canon_bytes _
+
+self = <tests.test_smart_exec_selfdiag.TestCheckupReportCategories object at 0x0000024C52463170>
+
+    def test_addendum_lists_all_categories_and_keeps_canon_bytes(self):
+        text = checkup_prompts.CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM
+        for phrase in self.REQUIRED:
+>           assert phrase in text, phrase
+E           AssertionError: ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╨╛╨╡ ╤А╨░╨▒╨╛╤З╨╡╨╡ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡
+E           assert '╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╨╛╨╡ ╤А╨░╨▒╨╛╤З╨╡╨╡ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡' in '\n\n╨Ф╨Ш╨Р╨У╨Э╨Ю╨б╨в╨Ш╨з╨Х╨б╨Ъ╨Ш╨Х ╨Ш╨Э╨б╨в╨а╨г╨Ь╨Х╨Э╨в╨л:\n╨Т ╤Н╤В╨╛╨╝ ╨╖╨░╨┐╤Г╤Б╨║╨╡ ╤В╨╡╨▒╨╡ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л ╨╛╨▒╤К╤П╨▓╨╗╨╡╨╜╨╜╤Л╨╡ ╨╜╨╕╨╢╨╡ read-only ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╤Л ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨╕. ╨Ш╨╝...╨Х╤Б╨╗╨╕ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╨╕╨╗╨╕ ╨╛╤В╨║╨░╨╖╨░╨╗, ╤З╨╡╤Б╤В╨╜╨╛ ╤Б╨║╨░╨╢╨╕, ╤З╤В╨╛ ╨╕╨╝╨╡╨╜╨╜╨╛ ╨╛╤Б╤В╨░╨╗╨╛╤Б╤М ╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╤Л╨╝, ╨╕ ╨╜╨╡ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨░╨╣, ╤З╤В╨╛ ╨┐╤А╨╛╨▓╨╡╤А╨╕╨╗.'
+
+tests\test_smart_exec_selfdiag.py:191: AssertionError
+____ TestCheckupReportCategories.test_facts_carry_status_not_only_metrics _____
+
+self = <tests.test_smart_exec_selfdiag.TestCheckupReportCategories object at 0x0000024C52463680>
+
+    @pytest.mark.asyncio
+    async def test_facts_carry_status_not_only_metrics(self):
+        class _Fetcher:
+            last_state = "ok"
+            last_journal_state = "ok"
+
+        collector = dc.DiagnosticCollector(
+            deps=rp.ProbeDeps(logs_fetcher=_Fetcher()),
+            limits=rp.ProbeLimits(probe_timeout_seconds=2.0,
+                                  max_output_chars=9000,
+                                  snapshot_ttl_seconds=5.0))
+        _, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n", used_fallback=False,
+            chat_id=CHAT_ID, request_id="h1-02")
+        assert "status=degraded" in facts or "status=ok" in facts
+        assert "reason_code=" in facts
+>       assert "not_checked=" in facts
+E       AssertionError: assert 'not_checked=' in 'DIAGNOSTIC_EVIDENCE status=degraded observed_at=2026-11-13T21:06:23.992018+00:00\n- deploy [unknown] declared=1 confi...ia.stt\n    reason_code=missing_dependency:db\n- logs [ok] declared=1 configured=1 probe_succ\n[facts_budget_exceeded]'
+
+tests\test_smart_exec_selfdiag.py:214: AssertionError
+______ TestJournalEnvironment.test_own_invocation_without_sudo_or_shell _______
+
+self = <tests.test_smart_exec_selfdiag.TestJournalEnvironment object at 0x0000024C524941A0>
+
+    @pytest.mark.asyncio
+    async def test_own_invocation_without_sudo_or_shell(self):
+        calls: list = []
+
+        async def _runner(argv):
+            calls.append(list(argv))
+            return 0, "2026-11-13 ERROR boom\n", ""
+
+        fetcher = slf.CheckupLogsFetcher(
+            unit_override="admin_bot.service",
+            identity_probe=lambda: _systemd_identity(),
+            journal_runner=_runner)
+        text, used_fallback = await fetcher.fetch()
+        assert used_fallback is False
+        argv = calls[0]
+        assert argv[0] == "journalctl"
+        assert f"_SYSTEMD_INVOCATION_ID={'a' * 32}" in argv
+        assert "--unit" not in argv
+        assert not any(token in ("sudo", "sh", "-c", "/bin/sh")
+                       for token in argv)
+        assert "state=ok" in text
+>       assert fetcher.last_state == "ok"
+               ^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CheckupLogsFetcher' object has no attribute 'last_state'
+
+tests\test_smart_exec_selfdiag.py:305: AttributeError
+___ TestJournalEnvironment.test_permission_failure_keeps_internal_fallback ____
+
+self = <tests.test_smart_exec_selfdiag.TestJournalEnvironment object at 0x0000024C52494CE0>
+
+    @pytest.mark.asyncio
+    async def test_permission_failure_keeps_internal_fallback(self):
+        async def _runner(argv):
+            return 1, "", "No journal files were opened due to insufficient " \
+                          "permissions"
+
+        entries = [{"ts": "2026-11-13 05:00:00", "level": "ERROR",
+                    "message": "ledger-boom"}]
+        fetcher = slf.CheckupLogsFetcher(
+            identity_probe=lambda: _systemd_identity(),
+            journal_runner=_runner,
+            ledger_reader=lambda limit: entries,
+            stdout_tail_reader=lambda limit: None)
+        text, used_fallback = await fetcher.fetch()
+        assert used_fallback is True
+        assert "ledger-boom" in text
+        assert "╨╛╤Б╨╜╨╛╨▓╨╜╨╛╨╣ ╨╢╤Г╤А╨╜╨░╨╗ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜" in text
+>       assert fetcher.last_journal_state == "unreadable"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CheckupLogsFetcher' object has no attribute 'last_journal_state'
+
+tests\test_smart_exec_selfdiag.py:343: AttributeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.system_logs_fetcher:system_logs_fetcher.py:337 [checkup fetcher] journal unavailable | rc=1 | stderr_tail='No journal files were opened due to insufficient permissions'
+_ TestJournalEnvironment.test_process_rights_are_visible_and_root_is_flagged __
+
+self = <tests.test_smart_exec_selfdiag.TestJournalEnvironment object at 0x0000024C524952B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024C46C68260>
+
+    @pytest.mark.asyncio
+    async def test_process_rights_are_visible_and_root_is_flagged(
+            self, monkeypatch):
+        async def _runner(argv):
+            return 0, "2026-11-13 ERROR boom\n", ""
+
+        monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)
+        root_fetcher = slf.CheckupLogsFetcher(
+            identity_probe=lambda: _systemd_identity(),
+            journal_runner=_runner)
+        root_text, _ = await root_fetcher.fetch()
+>       assert "uid=0" in root_text
+E       AssertionError: assert 'uid=0' in '[log-source] backend=systemd unit=admin_bot.service invocation=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa window=300 read=1 matched=1 state=ok\n2026-11-13 ERROR boom'
+
+tests\test_smart_exec_selfdiag.py:357: AssertionError
+_ TestDeployManifestIdentity.test_source_reader_and_checkup_use_the_manifest __
+
+self = <tests.test_smart_exec_selfdiag.TestDeployManifestIdentity object at 0x0000024C52496450>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2628/test_source_reader_and_checkup0')
+
+    def test_source_reader_and_checkup_use_the_manifest(self, tmp_path):
+        root, sha = _fixture_repo(tmp_path, version=APP_VERSION)
+        deployed_at = datetime.datetime(2026, 11, 14, 12, 0, 0,
+                                        tzinfo=datetime.timezone.utc)
+        started = deployed_at + datetime.timedelta(seconds=5)
+>       local = sr.resolve_local_source(runtime_root=str(root),
+                ^^^^^^^^^^^^^^^^^^^^^^^
+                                        configured_root="",
+                                        process_started_at=started)
+E       AttributeError: module 'services.source_reader' has no attribute 'resolve_local_source'
+
+tests\test_smart_exec_selfdiag.py:450: AttributeError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[unreadable-True-unknown] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x0000024C52462900>
+state = 'unreadable', used_fallback = True, expected = 'unknown'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'errors_state'
+
+tests\test_smart_exec_selfdiag.py:529: KeyError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[unreadable-False-unknown] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x0000024C52462810>
+state = 'unreadable', used_fallback = False, expected = 'unknown'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'errors_state'
+
+tests\test_smart_exec_selfdiag.py:529: KeyError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[ok-False-observed] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x0000024C52463920>
+state = 'ok', used_fallback = False, expected = 'observed'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'errors_state'
+
+tests\test_smart_exec_selfdiag.py:529: KeyError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[info_only-False-confirmed_zero] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x0000024C524637A0>
+state = 'info_only', used_fallback = False, expected = 'confirmed_zero'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'errors_state'
+
+tests\test_smart_exec_selfdiag.py:529: KeyError
+_ TestUnknownVersusConfirmedZero.test_checkup_logs_state_is_honest[empty-False-confirmed_zero] _
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x0000024C52496FC0>
+state = 'empty', used_fallback = False, expected = 'confirmed_zero'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,used_fallback,expected", [
+        ("unreadable", True, "unknown"),
+        ("unreadable", False, "unknown"),
+        ("ok", False, "observed"),
+        ("info_only", False, "confirmed_zero"),
+        ("empty", False, "confirmed_zero"),
+    ])
+    async def test_checkup_logs_state_is_honest(self, state, used_fallback,
+                                                expected):
+        collector = _collector(_StateFetcher(state, state))
+        bundle, facts = await collector.collect_for_checkup(
+            logs_text="2026-11-13 ERROR boom\n" if state == "ok" else "",
+            used_fallback=used_fallback, chat_id=CHAT_ID,
+            request_id=f"h5-{state}-{used_fallback}")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'errors_state'
+
+tests\test_smart_exec_selfdiag.py:529: KeyError
+___ TestUnknownVersusConfirmedZero.test_unknown_state_does_not_become_zero ____
+
+self = <tests.test_smart_exec_selfdiag.TestUnknownVersusConfirmedZero object at 0x0000024C52495A60>
+
+    @pytest.mark.asyncio
+    async def test_unknown_state_does_not_become_zero(self):
+        collector = _collector(_StateFetcher("", ""))
+        bundle, _facts = await collector.collect_for_checkup(
+            logs_text="", used_fallback=False, chat_id=CHAT_ID,
+            request_id="h5-unknown")
+        source = next(item for item in bundle.sources
+                      if item.source_id == "logs:checkup_input")
+>       assert source.facts["errors_state"] == "unknown"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'errors_state'
+
+tests\test_smart_exec_selfdiag.py:546: KeyError
+=========================== short test summary info ===========================
+FAILED tests/test_smart_exec_selfdiag.py::TestCheckupRootCauseContract::test_addendum_allows_technical_search_without_whole_repo
+FAILED tests/test_smart_exec_selfdiag.py::TestCheckupReportCategories::test_addendum_lists_all_categories_and_keeps_canon_bytes
+FAILED tests/test_smart_exec_selfdiag.py::TestCheckupReportCategories::test_facts_carry_status_not_only_metrics
+FAILED tests/test_smart_exec_selfdiag.py::TestJournalEnvironment::test_own_invocation_without_sudo_or_shell
+FAILED tests/test_smart_exec_selfdiag.py::TestJournalEnvironment::test_permission_failure_keeps_internal_fallback
+FAILED tests/test_smart_exec_selfdiag.py::TestJournalEnvironment::test_process_rights_are_visible_and_root_is_flagged
+FAILED tests/test_smart_exec_selfdiag.py::TestDeployManifestIdentity::test_source_reader_and_checkup_use_the_manifest
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[unreadable-True-unknown]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[unreadable-False-unknown]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[ok-False-observed]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[info_only-False-confirmed_zero]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_checkup_logs_state_is_honest[empty-False-confirmed_zero]
+FAILED tests/test_smart_exec_selfdiag.py::TestUnknownVersusConfirmedZero::test_unknown_state_does_not_become_zero
+13 failed, 12 passed in 6.22s

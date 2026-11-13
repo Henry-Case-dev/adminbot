@@ -1,0 +1,31 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ TestDiagnosticContinuation.test_report_is_structural_context_without_marker_words _
+
+self = <tests.test_smart_exec_selfdiag.TestDiagnosticContinuation object at 0x000001D6DD893650>
+
+    @pytest.mark.asyncio
+    async def test_report_is_structural_context_without_marker_words(self):
+        from services import bot_output_ledger as ledger
+        from services.database import DatabaseService
+
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        try:
+            await ledger.record_delivered_output(
+                db, chat_id=CHAT_ID, tg_message_id=91,
+                text="╨Ю╨в╨з╨Б╨в: ╨┐╤А╨╕╤З╨╕╨╜╨░ ╨▓ ╤В╨░╨╣╨╝╨░╤Г╤В╨╡ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░, ╤Б╤В╤А╨╛╨║╨░ 20.",
+                output_kind="checkup_report", sent_at=int(time.time()),
+                parent_message_ref="tg:5", correlation_id="checkup:h2")
+            report = await dcs._recent_checkup_report_text(db, CHAT_ID)
+        finally:
+            await db.close()
+>       assert report.startswith("╨Ю╨в╨з╨Б╨в")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x00007FF97F7A1D00>('╨Ю╨в╨з╨Б╨в')
+E        +    where <built-in method startswith of str object at 0x00007FF97F7A1D00> = ''.startswith
+
+tests\test_smart_exec_selfdiag.py:244: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_smart_exec_selfdiag.py::TestDiagnosticContinuation::test_report_is_structural_context_without_marker_words
+1 failed in 3.25s

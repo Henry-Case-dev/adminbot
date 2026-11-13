@@ -1,0 +1,14 @@
+diff --git a/services/direct_chat_service.py b/services/direct_chat_service.py
+index 973630df..55b0edea 100644
+--- a/services/direct_chat_service.py
++++ b/services/direct_chat_service.py
+@@ -4030,7 +4030,8 @@ def _reply_total_chars(message, alias_resolver=None, nickname_fn=None) -> int:
+
+
+ async def _recent_checkup_report_text(db, chat_id: int) -> str:
+-    """╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣ ╨Ф╨Ю╨б╨в╨Р╨Т╨Ы╨Х╨Э╨Э╨л╨Щ ╨╛╤В╤З╤С╤В ╤З╨╡╨║╨░╨┐╨░ (SELF-DIAG-01 ┬з4).
++    return ""
++    """╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣ ╨Ф╨Ю╨б╨в╨Р╨Т╨Ы╨Х╨Э╨Э╨л╨Щ ╨╛╤В╤З╤С╤В ╤З╨╡╨┐╨░╨┐╨░ (SELF-DIAG-01 ┬з4).
+
+     ╨Ь╨╛╨┤╤Г╨╗╤М╨╜╨░╤П ╤Д╤Г╨╜╨║╤Ж╨╕╤П (╨╜╨╡ ╨╝╨╡╤В╨╛╨┤) тАФ ╤З╨░╤Б╤В╨╕╤З╨╜╤Л╨╡ DI-╨╛╨▒╤К╨╡╨║╤В╤Л ╤В╨╡╤Б╤В╨╛╨▓ ╨╜╨╡ ╨╛╨▒╤П╨╖╨░╨╜╤Л
+     ╤А╨╡╨░╨╗╨╕╨╖╨╛╨▓╤Л╨▓╨░╤В╤М ╨╜╨╛╨▓╤Л╨╣ ╨╝╨╡╤В╨╛╨┤. ╨Ш╤Б╤В╨╛╤З╨╜╨╕╨║ тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ durable ledger
