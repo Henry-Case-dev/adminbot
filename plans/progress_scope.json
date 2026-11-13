@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T01:52:13+12:00",
+  "updated": "2026-11-14T01:52:38+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1867,7 +1867,7 @@
       "source_note": "plans/current_task.md lines 11750-13308 (owner-authored). Stages A-M: budgets/tool-loop/evidence, model capacity, local-first own code, GitHub SafeFetch, finalization, SELF-DIAG H, production defects I1-I6, anti-hardcode J, acceptance L, order/DoD M. One epic; no duplicate correctives.",
       "queue_note": "2026-11-14: map/plan/slice-graph committed (99 reqs, 13 slices); contract parts 1-2 frozen; production recon committed (budgets OFF everywhere but tool-chain limits active; capacity 16384 vs catalog 1048576; SafeFetch single-DNS-snapshot cause; I2 backlog; I4 unmapped codes). Wave 1 building: A+B budgets/tool-loop, D capacity, C1 SourceReader, F SafeFetch. Baseline = production d20a7f73. | 2026-11-14: FACTCHECK-REQUEST-INTEGRITY v2 FULL amendment captured; it is part of this epic (not a separate task) and is executed after the core stages; PM mapping pending. | FACTCHECK v2 mapped: 87 reqs, S13-S17, separate map with own source; wave after core.",
       "created": "2026-11-14T00:16:56+12:00",
-      "updated": "2026-11-14T01:50:50+12:00",
+      "updated": "2026-11-14T01:52:38+12:00",
       "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
       "source_sha256": "32ef8c8289cf3f66e8949048a449178223cc0f058c3701e60cda72f8a60ecaf1",
       "source_line": "plans/current_task.md:11750-13308",
@@ -1882,7 +1882,6 @@
       "coverage_complete": true,
       "maps": [
         "plans/features/smart-execution-reliability-01/requirements-map.json",
-        "plans/features/smart-execution-reliability-01/slice-graph.json",
         "plans/features/smart-execution-reliability-01/requirements-map-fc-amendment.json"
       ],
       "amendment_factcheck": {
@@ -1891,7 +1890,8 @@
         "source_line": "plans/current_task.md:13311-14702",
         "status": "mapped",
         "order": "after the SMART core stages (owner chat instruction)"
-      }
+      },
+      "slice_graph": "plans/features/smart-execution-reliability-01/slice-graph.json"
     }
   ],
   "owner_inputs": [
