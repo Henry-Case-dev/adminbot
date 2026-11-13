@@ -363,6 +363,32 @@ sample-builder `12475a92bb572640eeec7fd014ad25eef80290b3d1a96bda9ea5d41f7a0df767
 
 Sha всех артефактов — в `next2final-summary.json` (`artifacts[]`).
 
+## 9. Приложенные исходные документы (candidate-bound)
+
+Reviewer вернул `REVIEW_PENDING_SOURCE`: контракт и решение владельца
+отсутствовали в candidate-ветке/Git-дереве, поэтому обязательства проверялись
+только по этому binding. Ниже перечисленные документы добавлены в ветку
+`vmq/next2-final` **побайтовыми копиями** docs-линии
+(`master` = `fb7e6be7a0c0322fce7aae341453ba75215c8c64`), без каких-либо
+смысловых правок. Код `96c8bc72` не изменялся; правки — только docs.
+
+| Документ (repo-relative) | sha256 | Байт | Роль |
+|---|---|---:|---|
+| `plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md` | `d730045387fe77cddb12d8f185a91206b9f1577d8826c0cb2111ef4b06a0a2f1` | 3 620 | решение владельца (verbatim): естественный retrieval, отказ от 58,1 % как gate |
+| `plans/features/vmq-onto-01/architecture-next2-quality.md` | `cfef9d0572189c5ff17d9e57a99b1f3f0f45390faed845ff262bdada9f691cb6` | 20 223 | binding quality-контракт: состав §A+NEXT-05, страты, метрики, pass/fail |
+| `plans/features/vmq-onto-01/architecture-next2-corrected.md` | `82998a726fc9826b2f13a712022a8630e33278c85ef3344b08ebbf019593b4c8` | 20 966 | предыдущий контракт, на который ссылается quality (§«предыдущий контракт») |
+| `plans/features/vmq-onto-01/architecture-next2-mechanism.md` | `e0a63c1162683db7ba01bd592df32da34f19687e21b7900fcc407b61a8ba3c7a` | 12 793 | линия решения Architect (переклассификация 58,1 %), для прослеживаемости |
+
+Проверка идентичности: sha256 скопированных файлов совпадает с sha256
+соответствующих blob'ов `master:<path>` (сравнение по байтам, не по тексту);
+все четыре пути на docs-линии не имели незакоммиченных изменений.
+`architecture-next2-mechanism.md` в binding напрямую не цитируется — включён
+только как линия решения; `architecture-next2-corrected.md` цитируется самим
+quality-контрактом.
+
+Эти файлы нужны исключительно для независимого review gate; они не меняют
+поведение продукта и не являются частью кода кандидата.
+
 BUILDER_HANDOFF_NEXT2_FINAL_READY_FOR_REVIEW — код `96c8bc72`;
 независимый approval не заявляется, статус NEXT-02/NEXT-05 не меняется
 Builder'ом.
