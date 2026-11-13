@@ -396,13 +396,46 @@ def _attempt_journal_writer(db):
     async def _write(sql: str, params: tuple) -> None:
         # Транзакцией уже владеет эта же задача (`serialized` реентрантен):
         # коммит делает владелец, иначе чужая работа зафиксировалась бы раньше.
+        # Откат здесь тоже НЕ наш: она принадлежит вызывающему.
         if getattr(db, "_write_owner", None) is asyncio.current_task():
             await conn.execute(sql, params)
             return
         async with serialized():
-            await conn.execute(sql, params)
-            await conn.commit()
+            try:
+                await conn.execute(sql, params)
+                await conn.commit()
+            except BaseException:
+                # Неудачный `INSERT` оставляет неявную транзакцию на ОБЩЕМ
+                # соединении: пока она открыта, единственный писатель держит
+                # write-lock, и соседние пути (бронь квоты, следующий журнал)
+                # падают по `busy_timeout` — ровно класс исходного инцидента.
+                # `DatabaseService.write_transaction` в этом месте делает
+                # rollback; повторяем контракт под уже взятым `serialized()`.
+                # Чужую (reentrant) транзакцию не трогаем — см. ветку выше.
+                try:
+                    await conn.rollback()
+                except BaseException:
+                    logger.warning(
+                        "[meme] attempt journal rollback failed (connection "
+                        "state unknown) | db=%s", getattr(db, "db_path", "?"),
+                        exc_info=True)
+                raise
 
+    async def _busy_timeout_ms():
+        """Фактический `busy_timeout` соединения писателя (для диагностики)."""
+        try:
+            cursor = await conn.execute("PRAGMA busy_timeout")
+            row = await cursor.fetchone()
+            await cursor.close()
+        except Exception:
+            return None
+        try:
+            return int(row[0]) if row else None
+        except (TypeError, ValueError):
+            return None
+
+    # Атрибут на функции: вызывающий лог не угадывает таймаут пути (F2).
+    _write.busy_timeout_ms = _busy_timeout_ms
     return _write
 
 
@@ -1494,25 +1527,52 @@ class SqliteQuotaLedger:
             last_error: Exception | None = exc
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if self._spool_attempt(row):
-            self._log_journal_fallback(row, last_error, elapsed_ms,
-                                       carrier="durable-spool")
+            self._log_journal_fallback(
+                row, last_error, elapsed_ms, carrier="durable-spool",
+                busy_timeout_ms=await self._writer_busy_timeout_ms())
             return
         self._hold_unpersisted(row, last_error)
 
+    async def _writer_busy_timeout_ms(self) -> int:
+        """Таймаут ожидания ФАКТИЧЕСКОГО пути записи (диагностика, F2).
+
+        Writer идёт на соединении приложения, его `busy_timeout` — 5000 мс
+        (`DatabaseService`), а не 250 мс файлового пути. Значение читается у
+        соединения, и только при недоступности — константа приложения.
+        """
+        probe = getattr(self._journal_writer, "busy_timeout_ms", None)
+        if callable(probe):
+            try:
+                value = await probe()
+            except Exception:             # noqa: BLE001 - диагностика
+                value = None
+            try:
+                if value:
+                    return int(value)
+            except (TypeError, ValueError):
+                pass
+        return JOURNAL_BUSY_TIMEOUT_MS
+
     def _log_journal_fallback(self, row: dict, error: Exception | None,
-                              elapsed_ms: int, *, carrier: str) -> None:
+                              elapsed_ms: int, *, carrier: str,
+                              busy_timeout_ms: int =
+                              ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS) -> None:
         """Строка попытки ушла в durable-носитель — с ТОЧНОЙ причиной.
 
         Раньше писалось только `error=OperationalError`: ни текста SQLite, ни
         кода, ни операции, ни длительности (production 13.11.2026). Теперь
         причина наблюдаема, а содержимое попытки в лог НЕ попадает.
+        `busy_timeout_ms` — ожидание ИМЕННО этого пути: 250 мс для файлового
+        соединения журнала и фактическое значение соединения приложения для
+        writer-пути (иначе следующий инцидент диагностируется по неверной
+        цифре).
         """
         logger.warning(
             "[meme] attempt spooled (journal unavailable) | attempt=%s | "
             "carrier=%s | op=%s | table=%s | db=%s | busy_timeout_ms=%d | "
             "elapsed_ms=%d | error=%s",
             str(row.get("attempt_id"))[:12], carrier, ATTEMPT_INSERT_OP,
-            ATTEMPT_TABLE, self.path, ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS,
+            ATTEMPT_TABLE, self.path, int(busy_timeout_ms),
             int(elapsed_ms), _journal_error_detail(error))
 
     def _hold_unpersisted(self, row: dict, error: Exception | None) -> None:

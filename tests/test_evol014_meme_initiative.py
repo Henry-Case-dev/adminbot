@@ -2408,3 +2408,82 @@ async def test_finish_async_writes_attempt_rows_through_single_writer(tmp_path):
     assert terminal["outcome"] == "published"
     assert meme.attempt_mode_of(meme.parse_attempt_facts(terminal)) == "auto"
     assert not pathlib.Path(ledger.pending_path()).exists()
+
+
+@pytest.mark.asyncio
+async def test_writer_failure_rolls_back_and_keeps_other_writers_moving(
+        tmp_path, caplog):
+    """Отказ writer'а не оставляет открытую транзакцию на общем соединении.
+
+    Иначе единственный писатель держит write-lock: соседний путь (бронь квоты
+    на своём соединении) падает по `busy_timeout` — ровно класс production
+    инцидента. Лог обязан назвать ФАКТИЧЕСКИЙ таймаут пути (5000 у соединения
+    приложения, не 250 файлового).
+    """
+    db_path = tmp_path / "writer-fail.db"
+    meme.SqliteQuotaLedger(str(db_path)).apply_schema()
+    svc = DatabaseService(str(db_path))
+    await svc.initialize()
+    try:
+        ledger = meme.open_ledger(svc)
+        assert ledger is not None and ledger._journal_writer is not None
+        con = sqlite3.connect(str(db_path))
+        try:
+            con.execute("DROP TABLE meme_initiative_attempt")
+            con.commit()
+        finally:
+            con.close()
+
+        with caplog.at_level(logging.WARNING, logger="services.meme_initiative"):
+            await ledger.record_attempt_async(_publication_row("fail-1",
+                                                              ts=NOW_TS))
+
+        assert not svc.db.in_transaction, \
+            "отказ writer'а оставил открытую транзакцию на общем соединении"
+        log = "\n".join(record.getMessage() for record in caplog.records)
+        assert "no such table" in log
+        assert "busy_timeout_ms=5000" in log, log
+
+        # Чужой writer получает lock сразу: соединение не удерживает транзакцию.
+        started = time.monotonic()
+        other = sqlite3.connect(str(db_path), timeout=1, isolation_level=None)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.execute("COMMIT")
+        finally:
+            other.close()
+        assert time.monotonic() - started < 1.0, "write-lock остался занят"
+
+        # Носитель восстановился: строка переносится ровно один раз.
+        assert pathlib.Path(ledger.pending_path()).exists()
+        meme.SqliteQuotaLedger(str(db_path)).apply_schema()
+        for _ in range(2):
+            ledger._flush_pending_attempts()
+        assert not pathlib.Path(ledger.pending_path()).exists()
+        assert _journal_ids(ledger) == ["fail-1"], _journal_ids(ledger)
+    finally:
+        await svc.close()
+
+
+def test_spool_drain_deduplicates_already_written_attempt_id(tmp_path):
+    """Спул может содержать attempt_id, уже лежащий в журнале (сбой между
+    вставкой и удалением файла): повторный перенос не даёт дубля и не застревает.
+
+    Свойство держится `INSERT OR IGNORE`; при простом `INSERT` строка «dup-1»
+    падает на PK и спул не опустошается.
+    """
+    led = _ledger(tmp_path)
+    led.record_attempt(_attempt_row("dup-1", ts=NOW_TS))
+    spool_path = pathlib.Path(led.pending_path())
+    rows = [_attempt_row("dup-1", ts=NOW_TS),
+            _attempt_row("new-2", ts=NOW_TS + 1)]
+    spool_path.write_text(
+        "".join(json.dumps(meme._spool_payload(row), ensure_ascii=False) + "\n"
+                for row in rows), encoding="utf-8")
+
+    led._flush_pending_attempts()
+
+    assert not spool_path.exists(), "спул обязан опустеть при дубликате"
+    assert _journal_ids(led) == ["dup-1", "new-2"], _journal_ids(led)
+    assert [row["attempt_id"] for row in led.attempts(-100, limit=10)] == \
+        ["new-2", "dup-1"]
