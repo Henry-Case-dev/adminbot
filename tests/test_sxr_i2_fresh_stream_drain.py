@@ -545,3 +545,137 @@ def test_defaults_are_drain_not_threshold(monkeypatch):
     assert mj.semantic_batches_per_run() >= 2
     assert mj.semantic_run_budget_seconds() >= 30
     assert mj.SEMANTIC_PER_CHAT_MAX == 50
+
+
+# ═══ 10. F1: сбой всех COUNT — честная недоступность, не ложный 0 ═══════════
+
+@pytest.mark.asyncio
+async def test_all_lag_counts_failed_is_unavailable_not_zero(
+        tmp_path, monkeypatch):
+    """Ревью I2 F1: behind непуст, но ни один COUNT не удался → available=False.
+
+    На прежнем коде замер отдавал `available=True, rows=0` и
+    `lag_source="cursor_distance"`, то есть выдавал сбой чтения за «отставания
+    нет». Ноль допустим только как измеренный ноль.
+    """
+    db = await _db(tmp_path, "lagfail.db")
+    try:
+        for i in range(5):
+            await _msg(db, text=f"строка {i}")
+        runner = mj.ExperienceReviewRunner(db)
+        payload = {
+            "counters": mj.default_counters(),
+            f"{mj.SEMANTIC_CURSOR_PREFIX}-100": 0,
+        }
+
+        async def _boom(chat_id, cursor_pos):
+            raise RuntimeError("read failed")
+
+        monkeypatch.setattr(runner, "_chat_rows_after", _boom)
+        now = int(time.time())
+        lag = await runner._measure_semantic_lag(payload, now=now)
+        assert lag["available"] is False, "сбой измерения не должен быть нулём"
+        assert lag["chats"] == 1
+        assert lag["measured_chats"] == 0
+        assert lag["failed_chats"] == 1
+        assert lag["partial"] is True
+        payload[mj.SEMANTIC_LAG_KEY] = lag
+        snapshot = mj.semantic_progress_snapshot(payload, now=now)
+        # Источник явно pending-fallback; ложного cursor_distance нет.
+        assert snapshot["lag_source"] == "pending"
+        assert snapshot["lag_rows"] == 0
+        assert snapshot["lag_seconds"] is None
+        assert snapshot["lag_seconds_source"] == "unknown"
+    finally:
+        await db.close()
+
+
+# ═══ 11. F2: lag_seconds из измеренной дистанции, не pending ════════════════
+
+@pytest.mark.asyncio
+async def test_lag_seconds_measured_from_cursor_distance(tmp_path):
+    """Ревью I2 F2: при lag_rows>0 возраст не может оставаться нулём.
+
+    pending-счётчик пуст (прод-рассогласование), но строки после курсора есть:
+    `lag_seconds` обязан считаться по данным (timestamp самой старой из них).
+    """
+    db = await _db(tmp_path, "lagsec.db")
+    try:
+        now = int(time.time())
+        await _msg(db, text="самая старая", ts=now - 3600)
+        await _msg(db, text="следующая", ts=now - 60)
+        runner = mj.ExperienceReviewRunner(db)
+        payload = {
+            "counters": mj.default_counters(),
+            f"{mj.SEMANTIC_CURSOR_PREFIX}-100": 0,
+        }
+        lag = await runner._measure_semantic_lag(payload, now=now)
+        assert lag["available"] is True
+        assert lag["rows"] == 2
+        assert lag["oldest_ts"] == now - 3600
+        assert lag["age_seconds"] >= 3590
+        payload[mj.SEMANTIC_LAG_KEY] = lag
+        snapshot = mj.semantic_progress_snapshot(payload, now=now)
+        assert snapshot["lag_rows"] == 2
+        assert snapshot["pending_rows"] == 0          # счётчик пуст
+        assert snapshot["lag_seconds"] >= 3590         # а возраст — не 0
+        assert snapshot["lag_seconds_source"] == "cursor_distance"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_lag_seconds_unknown_is_none_not_zero(tmp_path, monkeypatch):
+    """Ревью I2 F2: неизвестность не подставляется нулём."""
+    db = await _db(tmp_path, "lagunknown.db")
+    try:
+        await _msg(db, text="строка")
+        runner = mj.ExperienceReviewRunner(db)
+        payload = {
+            "counters": mj.default_counters(),
+            f"{mj.SEMANTIC_CURSOR_PREFIX}-100": 0,
+        }
+
+        async def _boom(chat_id, cursor_pos):
+            raise RuntimeError("read failed")
+
+        monkeypatch.setattr(runner, "_chat_rows_after", _boom)
+        now = int(time.time())
+        lag = await runner._measure_semantic_lag(payload, now=now)
+        assert lag["available"] is False
+        payload[mj.SEMANTIC_LAG_KEY] = lag
+        snapshot = mj.semantic_progress_snapshot(payload, now=now)
+        assert snapshot["lag_seconds"] is None
+        assert snapshot["lag_seconds_source"] == "unknown"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_lag_seconds_pending_fallback_marks_source(tmp_path, monkeypatch):
+    """Если замер недоступен, возраст берётся из pending — с явным source."""
+    db = await _db(tmp_path, "lagpending.db")
+    try:
+        await _msg(db, text="строка")
+        runner = mj.ExperienceReviewRunner(db)
+        now = int(time.time())
+        payload = {
+            "counters": mj.default_counters(),
+            f"{mj.SEMANTIC_CURSOR_PREFIX}-100": 0,
+            mj.SEMANTIC_PENDING_KEY: {"-100": 5},
+            mj.SEMANTIC_PENDING_SINCE_KEY: {"-100": now - 120},
+        }
+
+        async def _boom(chat_id, cursor_pos):
+            raise RuntimeError("read failed")
+
+        monkeypatch.setattr(runner, "_chat_rows_after", _boom)
+        lag = await runner._measure_semantic_lag(payload, now=now)
+        assert lag["available"] is False
+        payload[mj.SEMANTIC_LAG_KEY] = lag
+        snapshot = mj.semantic_progress_snapshot(payload, now=now)
+        assert snapshot["lag_source"] == "pending"
+        assert snapshot["lag_seconds"] == 120
+        assert snapshot["lag_seconds_source"] == "pending"
+    finally:
+        await db.close()
