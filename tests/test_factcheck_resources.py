@@ -166,8 +166,7 @@ async def test_on_page_size_20_and_smaller_provider_results_used_as_is():
     agg = _Agg(blocks)
     outcome = await fsp.run_retrieval(
         _plan(1), aggregator=agg, limits=_on_limits())
-    assert outcome.refs_collected <= 20
-    assert outcome.refs_collected >= 1
+    assert outcome.refs_collected == 20   # 20 результатов на страницу
 
     # Провайдер вернул меньше страницы — используем фактическое количество.
     small = "\n\n".join(
