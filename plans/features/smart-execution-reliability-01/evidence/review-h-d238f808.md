@@ -1,0 +1,1 @@
+﻿# Review H - S8-SELFDIAG`n`nCandidate d238f808; evidence 120517a6. Preliminary Needs Fixes; review continues.`n`nLedger: SXR-H1-01..H5-01 UNVERIFIED pending independent implementation, test, and adversarial checks.`n`nImplementation: pending.`nTest validity: pending.`nIndependent challenge: pending.
