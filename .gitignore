@@ -12,6 +12,9 @@ media/*cookies*
 *cookies*.txt
 *.cookies
 deploy_result.json
+# SELF-DIAG-01 deploy identity: манифест создаётся deploy-скриптом на сервере,
+# не является исходником и не коммитится.
+.deploy/
 # Локальная БД (переписка/пользователи) и файлы деплой-команд — не в git
 *.db
 # SQLite WAL/SHM runtime-файлы (в т.ч. воркера импорта истории) — не в git

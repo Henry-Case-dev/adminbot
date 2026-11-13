@@ -60,15 +60,20 @@ py bot.py                       # на Linux — python3 bot.py
 Короткий гайд «как выкатить изменения и не уронить бота»:
 
 ```bash
-# 1. Обновить код (на сервере, от пользователя сервиса)
+# 1. Обновить код (на сервере, от пользователя, владеющего checkout)
 cd /var/www/admin_bot
 git pull --ff-only
 
-# 2. Перезапустить сервис
+# 2. Зафиксировать выкаченную версию (deploy identity, .deploy/release.json)
+#    ДО рестарта: deployed_sha = HEAD, version = APP_VERSION checkout.
+#    Тот же пользователь, что владеет checkout (иначе .deploy/ не записать).
+venv/bin/python tools/release_manifest.py
+
+# 3. Перезапустить сервис
 sudo systemctl restart admin_bot
 sudo systemctl status admin_bot --no-pager     # active (running)
 
-# 3. Проверить здоровье
+# 4. Проверить здоровье
 curl -fsS http://127.0.0.1:8000/api/health | head  # HTTP 200
 journalctl -u admin_bot -n 50 --no-pager | grep -iE 'error|traceback' || echo 'чисто'
 ```
@@ -79,7 +84,7 @@ journalctl -u admin_bot -n 50 --no-pager | grep -iE 'error|traceback' || echo '�
 
 ### Вход на сервер и секреты (R17)
 
-- **SSH — доступ по ключу (ed25519); парольный вход сохранён намеренно.** По решению владельца (**UPD3 §4**, раунд 10.17) ротация SSH-пароля/ключа **не требуется**: секреты в `plans/current_task.md` — норма, файл **untracked** (в `.gitignore`, в репозиторий и его историю не попадает; утечки в git-истории нет — скан 10.16 чист). Гейты `T-1661`/`T-1664` фичи 10.16 F5 закрыты **ОТМЕНОЙ**, а не выполнением (фича помечена `CANCELLED`); `PasswordAuthentication no`/новая ротация в планах не стоят. Деплой — `git pull --ff-only` + `systemctl restart admin_bot`.
+- **SSH — доступ по ключу (ed25519); парольный вход сохранён намеренно.** По решению владельца (**UPD3 §4**, раунд 10.17) ротация SSH-пароля/ключа **не требуется**: секреты в `plans/current_task.md` — норма, файл **untracked** (в `.gitignore`, в репозиторий и его историю не попадает; утечки в git-истории нет — скан 10.16 чист). Гейты `T-1661`/`T-1664` фичи 10.16 F5 закрыты **ОТМЕНОЙ**, а не выполнением (фича помечена `CANCELLED`); `PasswordAuthentication no`/новая ротация в планах не стоят. Деплой — `git pull --ff-only` + `venv/bin/python tools/release_manifest.py` + `systemctl restart admin_bot`.
 - **R17 — секреты живут только в `.env` и в базе админки** (или менеджере секретов). В репозиторий, логи и коммиты они не попадают: в API и UI ключ отдаётся только как «настроен» + последние 4 символа (`configured ••••1234`), в логи — только факт наличия и безопасные reason-коды. Забыл пароль от сервера — ротируй, а не коммить.
 - **`plans/current_task.md` — личный untracked-файл владельца** (ТЗ текущего раунда): он в `.gitignore` (строка 70), в git не коммитится и в историю не попадает (проверено: `git ls-files`/`git log --all` пусто). Внутреннее содержимое с деплой-заметками — не для репозитория; отчёт о скане — [`plans/reports/round10.16_security_scan.md`](plans/reports/round10.16_security_scan.md).
 

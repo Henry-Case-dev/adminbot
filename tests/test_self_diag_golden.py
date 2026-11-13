@@ -114,8 +114,13 @@ class FakeFetcher:
 
 
 class FakeRing:
-    def __init__(self, entries=None):
+    def __init__(self, entries=None, *, records_total=None,
+                 errors_total=None, started_at="2026-11-13T00:00:00Z"):
         self.entries = entries or []
+        self.records_total = records_total
+        self._errors_total = (errors_total if errors_total is not None
+                              else len(self.entries))
+        self.started_at = started_at
 
     def get_entries(self, level="INFO", limit=200):
         return self.entries[:limit]
@@ -124,7 +129,10 @@ class FakeRing:
         return {"ERROR": len(self.entries)}
 
     def get_errors_total(self):
-        return len(self.entries)
+        return self._errors_total
+
+    def get_records_total(self):
+        return self.records_total
 
 
 class FakeConfigCache:
@@ -320,12 +328,27 @@ CASES = [
     {
         "id": "G02-errors-none", "kind": "probe",
         "category": "known_cause", "dimension": ["accuracy", "hallucination"],
-        "scenario": "Кольцо ошибок пусто — писать «здоров» нельзя",
+        "scenario": "Кольцо ошибок пусто и наблюдений не было — 0 не выдумывается",
         "probe": "logs.errors",
         "deps": {"log_ring_getter": lambda: FakeRing([])},
+        "expect": {"status": "not_checked", "reason_code": "no_observations",
+                   "source": "logs:errors",
+                   "facts": {"facts.error_entries": None,
+                             "facts.errors_total": None,
+                             "facts.stack": None},
+                   "not_checked": ["error_entries", "errors_total",
+                                   "stack_summary"]},
+    },
+    {
+        "id": "G02b-errors-observed-zero", "kind": "probe",
+        "category": "known_cause", "dimension": ["accuracy", "evidence"],
+        "scenario": "Записи в ring были, ошибок среди них нет — доказанный 0",
+        "probe": "logs.errors",
+        "deps": {"log_ring_getter": lambda: FakeRing([], records_total=7)},
         "expect": {"status": "ok", "reason_code": "no_error_entries",
                    "source": "logs:errors",
-                   "facts": {"facts.error_entries": 0, "facts.stack": None},
+                   "facts": {"facts.error_entries": 0,
+                             "facts.records_observed": 7},
                    "not_checked": ["stack_summary"]},
     },
     {
@@ -337,7 +360,9 @@ CASES = [
         "expect": {"status": "ok", "reason_code": "empty_log_window",
                    "source": "logs:local",
                    "facts": {"facts.empty_window": True,
-                             "facts.used_fallback": False},
+                             "facts.used_fallback": False,
+                             "facts.error_marker_count": None,
+                             "facts.error_marker_basis": "no_observations"},
                    "honest_path": {"healthy": None}},
     },
     {

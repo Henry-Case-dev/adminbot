@@ -940,15 +940,45 @@ def _probe_fds_process(ctx: ProbeContext) -> ProbeObservation:
 _ERROR_MARKER_RE = re.compile(r"\b(?:ERROR|CRITICAL|Traceback)\b")
 
 
-def _ring_snapshot() -> dict:
+def _ring_snapshot(ring=None) -> dict:
     try:
-        ring = log_ring.get_log_ring()
+        ring = ring if ring is not None else log_ring.get_log_ring()
+        getter = getattr(ring, "get_records_total", None)
+        records_total = (getter() if callable(getter)
+                         else getattr(ring, "records_total", None))
+        errors_total = int(ring.get_errors_total())
+        if records_total is not None and int(records_total) == 0:
+            # Ноль ошибок без единой наблюдённой записи — не факт.
+            errors_total = None
         return {
             "levels": dict(ring.level_counts()),
-            "errors_total": int(ring.get_errors_total()),
+            "errors_total": errors_total,
+            "records_total": (int(records_total)
+                              if records_total is not None else None),
+            "started_at": getattr(ring, "started_at", None),
+            "maxlen": getattr(ring, "maxlen", None),
         }
     except Exception:
-        return {"levels": {}, "errors_total": None}
+        return {"levels": {}, "errors_total": None, "records_total": None,
+                "started_at": None, "maxlen": None}
+
+
+def _ring_observed(snapshot: dict, entries) -> bool:
+    """Были ли вообще наблюдения в ring-buffer.
+
+    ``records_total`` — точный счётчик handler'а. Если его нет (инъекция
+    тестового ring без счётчика), наличие записей/errors_total само доказывает
+    наблюдение; полный ноль — «не наблюдали», а не доказанный ноль ошибок.
+    """
+    records = snapshot.get("records_total")
+    if records is not None:
+        return int(records) > 0
+    if entries:
+        return True
+    try:
+        return int(snapshot.get("errors_total") or 0) > 0
+    except (TypeError, ValueError):
+        return False
 
 
 async def _probe_logs_window(ctx: ProbeContext) -> ProbeObservation:
@@ -974,13 +1004,16 @@ async def _probe_logs_window(ctx: ProbeContext) -> ProbeObservation:
     text = str(text or "")
     lines = [line for line in text.splitlines() if line.strip()]
     markers = len(_ERROR_MARKER_RE.findall(text))
+    empty_window = len(lines) == 0
     facts = {
         "backend": _fetcher_source(fetcher),
         "window_lines": len(lines),
         "used_fallback": bool(used_fallback),
-        "error_marker_count": markers,
-        "error_marker_basis": "line_markers",
-        "empty_window": len(lines) == 0,
+        # Пустое окно — не наблюдение «0 ошибок»: маркеры не считались.
+        "error_marker_count": None if empty_window else markers,
+        "error_marker_basis": ("no_observations" if empty_window
+                               else "line_markers"),
+        "empty_window": empty_window,
         "ring": _ring_snapshot(),
         "read_ms": int((ctx.deps.monotonic() - started) * 1000),
     }
@@ -1017,14 +1050,38 @@ async def _probe_logs_errors(ctx: ProbeContext) -> ProbeObservation:
     except Exception:
         return _observation(
             "logs", status=bundle.STATUS_UNAVAILABLE, facts={},
-            source_id="logs:errors", reason_code="log_ring_unavailable")
+            source_id="logs:errors", reason_code="log_ring_unavailable",
+            not_checked=("error_entries", "errors_total"))
     limit = min(int(ctx.arguments.get("limit") or 20),
                 int(ctx.limits.max_rows))
     include_stack = bool(ctx.arguments.get("include_stack", True))
     try:
         entries = ring.get_entries(level="ERROR", limit=limit)
     except Exception:
-        entries = []
+        return _observation(
+            "logs", status=bundle.STATUS_UNAVAILABLE,
+            facts={"error_entries": None, "errors_total": None,
+                   "basis": "in_process_ring"},
+            source_id="logs:errors", reason_code="log_ring_read_failed",
+            not_checked=("error_entries", "errors_total", "stack_summary"))
+    snapshot = _ring_snapshot(ring)
+    observed = _ring_observed(snapshot, entries)
+    base_facts = {
+        "error_entries": (len(entries) if observed else None),
+        "errors_total": (snapshot.get("errors_total") if observed else None),
+        "records_observed": (snapshot.get("records_total")
+                             if observed else 0),
+        "latest_ts": (entries[0].get("ts") if observed and entries else None),
+        "levels": snapshot,
+        "basis": "in_process_ring",
+    }
+    if not observed:
+        return _observation(
+            "logs", status=bundle.STATUS_NOT_CHECKED,
+            facts=dict(base_facts, stack=None),
+            source_id="logs:errors",
+            reason_code="no_observations",
+            not_checked=("error_entries", "errors_total", "stack_summary"))
     stack = None
     stack_redaction = None
     if include_stack:
@@ -1038,17 +1095,15 @@ async def _probe_logs_errors(ctx: ProbeContext) -> ProbeObservation:
                 cursor=str(ctx.arguments.get("cursor") or ""))
             stack_redaction = report
             break
-    facts = {
-        "error_entries": len(entries),
-        "latest_ts": (entries[0].get("ts") if entries else None),
-        "levels": _ring_snapshot(),
-        "stack": stack,
-    }
+    facts = dict(base_facts, stack=stack)
+    errors_observed = bool(entries) or bool(
+        snapshot.get("errors_total") or 0)
     return _observation(
-        "logs", status=bundle.STATUS_OK if entries else bundle.STATUS_OK,
+        "logs", status=bundle.STATUS_OK,
         facts=facts, source_id="logs:errors",
         health_criterion="none",
-        reason_code=("errors_observed" if entries else "no_error_entries"),
+        reason_code=("errors_observed" if errors_observed
+                     else "no_error_entries"),
         redaction=stack_redaction,
         not_checked=(() if entries else ("stack_summary",)))
 
@@ -1320,25 +1375,44 @@ async def _probe_telegram_delivery_async(
             source_id="telegram:delivery", reason_code="no_chat_scope",
             not_checked=("chat_output_ledger",))
     from services import bot_output_ledger
+    if not bot_output_ledger.ledger_enabled():
+        return _observation(
+            "telegram", status=bundle.STATUS_NOT_CONFIGURED, facts={
+                "delivered": None,
+                "basis": "bot_output_ledger_rows",
+            },
+            source_id="telegram:delivery", reason_code="ledger_disabled",
+            not_checked=("chat_output_ledger", "delivered"))
+    if getattr(db, "list_bot_outputs_between", None) is None:
+        return _observation(
+            "telegram", status=bundle.STATUS_NOT_CONFIGURED, facts={
+                "delivered": None,
+                "basis": "bot_output_ledger_rows",
+            },
+            source_id="telegram:delivery", reason_code="ledger_reader_absent",
+            not_checked=("chat_output_ledger", "delivered"))
     window = ctx.time_window or (0, int(ctx.now))
     limit = min(int(ctx.arguments.get("limit") or 100),
                 int(ctx.limits.max_rows))
     try:
         rows = await bot_output_ledger.list_bot_output_history(
             db, int(ctx.chat_id), since_ts=window[0], until_ts=window[1],
-            limit=limit)
+            limit=limit, raise_on_error=True)
     except Exception:
-        rows = None
-    if rows is None:
         return _observation(
-            "telegram", status=bundle.STATUS_UNAVAILABLE, facts={},
+            "telegram", status=bundle.STATUS_UNAVAILABLE, facts={
+                "delivered": None,
+                "basis": "bot_output_ledger_rows",
+            },
             source_id="telegram:delivery", reason_code="ledger_read_failed",
-            not_checked=("chat_output_ledger",))
+            not_checked=("chat_output_ledger", "delivered"))
     media_only = sum(1 for row in rows if row.get("media_only"))
     undated = sum(1 for row in rows if not row.get("time_known", True))
     last = rows[-1] if rows else None
     facts = {
         "delivered": len(rows),
+        "basis": "bot_output_ledger_rows",
+        "observations": len(rows),
         "media_only": media_only,
         "undated": undated,
         "last_delivered_at": (last.get("sent_at") if last else None),
@@ -1405,12 +1479,14 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
     statuses: dict[str, int] = {}
     last_success = None
     last_error = None
+    voice_rows = 0
     for row in rows or ():
         row = dict(row)
         is_voice = (str(row.get("media_type") or "") == "voice"
                     or bool(row.get("transcript_status")))
         if not is_voice:
             continue
+        voice_rows += 1
         status = str(row.get("transcript_status") or "pending")
         statuses[status] = statuses.get(status, 0) + 1
         if status in ("ready", "ok", "completed"):
@@ -1428,15 +1504,27 @@ async def _probe_media_stt(ctx: ProbeContext) -> ProbeObservation:
     failed = sum(count for key, count in statuses.items()
                  if key in ("failed", "error"))
     pending = statuses.get("pending", 0)
-    facts = {
+    base_facts = {
         "window": list(window),
-        "statuses": statuses,
-        "failed": failed,
-        "pending": pending,
-        "last_success_at": last_success,
-        "last_error": last_error,
         "rows_scanned": len(rows or ()),
+        "voice_rows": voice_rows,
     }
+    if voice_rows == 0:
+        # Ноль сбоев среди нуля наблюдённых транскрипций — не факт здоровья.
+        return _observation(
+            "media", status=bundle.STATUS_NOT_CHECKED,
+            facts=dict(base_facts, statuses={}, failed=None, pending=None,
+                       last_success_at=None, last_error=None),
+            source_id=f"media:stt:chat:{ctx.chat_id}",
+            reason_code="no_voice_rows",
+            not_checked=("voice_transcripts", "provider_latency",
+                         "album_cohesion"),
+            source_ref=bundle.source_ref(
+                store="sqlite", entity_type="message",
+                entity_id=f"chat:{ctx.chat_id}", chat_id=int(ctx.chat_id)))
+    facts = dict(base_facts, statuses=statuses, failed=failed,
+                 pending=pending, last_success_at=last_success,
+                 last_error=last_error)
     healthy = False if failed else None
     return _observation(
         "media",
@@ -1836,6 +1924,7 @@ def default_repo_root(deps: ProbeDeps) -> str | None:
 _IDENTITY_STATUS_MAP = {
     "verified_deployed": bundle.STATUS_OK,
     "local_unverified": bundle.STATUS_OK,
+    "mismatch": bundle.STATUS_DEGRADED,
     "unavailable": bundle.STATUS_UNAVAILABLE,
     "permission_denied": bundle.STATUS_PERMISSION_DENIED,
     "path_denied": bundle.STATUS_PERMISSION_DENIED,
@@ -1881,8 +1970,12 @@ async def _probe_deploy_identity(ctx: ProbeContext) -> ProbeObservation:
             "local_source_verification"),
         "version_provenance": record.get("version_provenance"),
         "deployed_at": record.get("deployed_at"),
-        "observed_at": record.get("observed_at"),
+        "process_started_at": record.get("process_started_at"),
+        "effect": record.get("effect"),
+        "previous_sha": record.get("previous_sha"),
         "conflict": record.get("conflict"),
+        "conflict_values": record.get("conflict_values"),
+        "observed_at": record.get("observed_at"),
     }
     commits = None
     not_checked = ["commits_since_deploy"]
@@ -1902,13 +1995,16 @@ async def _probe_deploy_identity(ctx: ProbeContext) -> ProbeObservation:
     verified = None
     if code == "verified_deployed":
         verified = True
-    elif code in ("local_unverified", "unavailable", "permission_denied",
-                  "path_denied"):
+    elif code in ("mismatch", "local_unverified", "unavailable",
+                  "permission_denied", "path_denied"):
         verified = False
+    healthy = True if code == "verified_deployed" else (
+        False if code == "mismatch" else None)
     return _observation(
         "deploy", status=status, facts=facts,
         source_id="deploy:identity",
-        health_criterion="none", verified=verified,
+        health_criterion="identity_consistent", verified=verified,
+        healthy=healthy,
         reason_code=(None if status == bundle.STATUS_OK
                      else str(record.get("reason") or code)),
         not_checked=tuple(not_checked))
@@ -2381,7 +2477,7 @@ _BUILTIN_PROBES: tuple[ProbeSpec, ...] = (
         "dirty/upstream; commits — только по явному include_commits.",
         READ_SCOPE_REPO, handler=_probe_deploy_identity,
         args={"include_commits": {"type": "boolean"}},
-        source_owner="repo"),
+        source_owner="repo", health_criterion="identity_consistent"),
     ProbeSpec(
         "network.endpoints", "network", "DNS настроенных сервисов",
         "DNS только уже настроенных хостов (LLM/embeddings/Telegram API); "

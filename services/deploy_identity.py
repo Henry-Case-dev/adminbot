@@ -805,6 +805,7 @@ def _empty_record(code: str, reason: str,
             "schema_version": None,
         },
         "deployed_at": None,
+        "process_started_at": None,
         "observed_at": now,
         "sources": (
             ["runtime_app_version"] if runtime_version is not None else []
@@ -863,6 +864,7 @@ def collect_identity(repo_root=None, *,
                     "schema_version": None,
                 },
                 "deployed_at": None,
+                "process_started_at": None,
                 "observed_at": _iso_utc(_utc_now()),
                 "sources": [],
                 "conflict": [],
@@ -932,6 +934,9 @@ def _collect_identity(repo_root, process_started_at) -> dict:
 
     deployed_at_iso = (_iso_utc(manifest_deployed_at)
                        if manifest_deployed_at is not None else None)
+    process_dt = _parse_datetime(process_started_at)
+    process_started_iso = (_iso_utc(process_dt)
+                           if process_dt is not None else None)
     if manifest_ok:
         deployed_sha = manifest_sha
     elif manifest_reason == "no_manifest":
@@ -966,6 +971,7 @@ def _collect_identity(repo_root, process_started_at) -> dict:
             "schema_version": artifact_schema_version,
         },
         "deployed_at": deployed_at_iso,
+        "process_started_at": process_started_iso,
         "observed_at": observed_at,
         "sources": [],
         "conflict": [],
@@ -979,8 +985,6 @@ def _collect_identity(repo_root, process_started_at) -> dict:
         "previous_sha": previous_sha,
         "previous_version": previous_version,
     }
-
-    process_dt = _parse_datetime(process_started_at)
 
     code = ""
     reason = ""

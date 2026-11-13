@@ -384,6 +384,7 @@ def test_closed_sets_and_record_keys_match_contract_v1_1():
         "local_source_verification",
         "artifact",
         "deployed_at",
+        "process_started_at",
         "observed_at",
         "sources",
         "conflict",
@@ -467,9 +468,10 @@ def test_verified_deployed_requires_manifest_head_clean_version_start(tmp_path):
     root, sha = _real_repo(tmp_path)
     deployed_at = _now() - timedelta(minutes=10)
     _write_manifest(root, _manifest_data(sha, deployed_at=_iso(deployed_at)))
+    started_at = _now()
 
     record = di.collect_identity(
-        root, process_started_at=_iso(_now()))
+        root, process_started_at=_iso(started_at))
 
     assert record["code"] == "verified_deployed"
     assert record["reason"] == ""
@@ -483,6 +485,7 @@ def test_verified_deployed_requires_manifest_head_clean_version_start(tmp_path):
         "consistent": True,
     }
     assert record["deployed_at"] == _iso(deployed_at)
+    assert record["process_started_at"] == _iso(started_at)
     assert record["artifact"]["kind"] == "git_checkout"
     assert record["artifact"]["release_branch"] == BRANCH
     assert record["effect"] == "deploy"
