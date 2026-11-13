@@ -56,6 +56,13 @@ REBUILD_RANGE_MAX_BATCHES = 20
 REBUILD_RECHECK_MAX = 20
 
 
+class RecheckAssemblyError(RuntimeError):
+    """Перепроверка обновила эпизоды, но пересборка историй не удалась:
+    projection не гарантирована. Ошибка повторяемая — assemble_stories
+    идемпотентна, следующий bounded rebuild завершит проекцию. Текст
+    исключения намеренно не содержит источника/тела ошибки (R17)."""
+
+
 def backfill_coalesce_key(chat_id: int) -> str:
     """Unique key durable-задачи (без дублей/параллельного старта)."""
     return f"episodes.backfill:{int(chat_id)}"
@@ -345,12 +352,25 @@ class EpisodesBackfillRunner:
                 reason = "batch_cap_reached"
         if complete:
             try:
-                result["rechecked"] = await self.process_rechecks(
+                recheck = await self.process_rechecks_with_status(
                     int(chat_id), limit=REBUILD_RECHECK_MAX)
             except asyncio.CancelledError:
                 raise
             except Exception:
+                # Непредвиденный сбой recheck-стадии: projection не
+                # гарантирована, completed не выдаётся (retryable).
                 result["errors"] += 1
+                complete = False
+                reason = "recheck_failed"
+            else:
+                result["rechecked"] = int(recheck["processed"])
+                if recheck["assemble"] == "failed":
+                    # Перепроверка обновила эпизоды, но пересборка историй
+                    # не удалась: projection НЕ гарантирована — честный
+                    # partial/error, повторный bounded rebuild завершит её.
+                    result["errors"] += 1
+                    complete = False
+                    reason = "assemble_failed"
         result["episodes_after"] = await self._count_episodes(chat_id)
         result["episodes_created"] = max(
             0, result["episodes_after"] - result["episodes_before"])
@@ -365,12 +385,16 @@ class EpisodesBackfillRunner:
         row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
-    async def process_rechecks(self, chat_id: int, *, limit: int = 20) -> int:
-        """Перепроверить эпизоды с `recheck_pending=1`: повторное извлечение
-        по исходным сообщениям (содержимое эпизода обновляется на месте,
-        `discovered_at` не меняется — A11) + новая версия историй
-        (override не затирается). Возврат — число перепроверенных."""
-        from services.mca_episodes import queue_source_recheck  # noqa: F401
+    async def process_rechecks_with_status(
+            self, chat_id: int, *, limit: int = 20) -> dict:
+        """Перепроверить эпизоды с `recheck_pending=1` и явно сообщить
+        статус пересборки историй.
+
+        Возврат: ``{"processed": n, "assemble": ok|failed|skipped,
+        "reason": None|"assemble_failed"}``. Ошибка извлечения по
+        отдельному эпизоду остаётся честным `pending` (retryable), а
+        ошибка `assemble_stories` НЕ выдаётся за успех: она возвращается
+        вызывающему как failed (M-03: projection не гарантирована)."""
         repo = self._service.repo
         processed = 0
         for episode in await repo.list_recheck_episodes(
@@ -391,20 +415,42 @@ class EpisodesBackfillRunner:
                                exc_info=True)
                 await repo.set_episode_recheck(
                     episode["episode_id"], pending=True)
-        if processed:
-            # Контент эпизодов изменился → проекция историй пересобирается
-            # (bounded; no-op при отсутствии изменений, override не
-            # затирается). Иначе читатель видел бы устаревшую историю до
-            # следующей порции backfill (M-03: одинаковая projection).
-            try:
-                await self._service.assemble_stories(
-                    int(chat_id), int(time.time()))
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.warning("[mca05] recheck assemble failed",
-                               exc_info=True)
-        return processed
+        status = {"processed": processed, "assemble": "skipped",
+                  "reason": None}
+        if not processed:
+            return status
+        # Контент эпизодов изменился → проекция историй пересобирается
+        # (bounded; no-op при отсутствии изменений, override не
+        # затирается). Ошибка assembly — не успех: статус failed, повтор
+        # остаётся возможным (assemble идемпотентна).
+        try:
+            await self._service.assemble_stories(
+                int(chat_id), int(time.time()))
+            status["assemble"] = "ok"
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "[mca05] recheck assemble failed | chat=%s | err=%s",
+                chat_id, type(exc).__name__)
+            status["assemble"] = "failed"
+            status["reason"] = "assemble_failed"
+        return status
+
+    async def process_rechecks(self, chat_id: int, *, limit: int = 20) -> int:
+        """Перепроверить эпизоды с `recheck_pending=1`: повторное извлечение
+        по исходным сообщениям (содержимое эпизода обновляется на месте,
+        `discovered_at` не меняется — A11) + новая версия историй
+        (override не затирается). Возврат — число перепроверенных.
+
+        Если пересборка историй не удалась, честно поднимает
+        `RecheckAssemblyError` (retryable): вызывающий не должен считать
+        projection готовой."""
+        status = await self.process_rechecks_with_status(
+            chat_id, limit=limit)
+        if status["assemble"] == "failed":
+            raise RecheckAssemblyError("story assemble failed")
+        return int(status["processed"])
 
     async def _episode_source_messages(self, chat_id: int,
                                        episode: dict) -> list[dict]:

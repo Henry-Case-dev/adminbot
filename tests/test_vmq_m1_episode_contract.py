@@ -31,6 +31,7 @@ from services import mca_gates
 from services.database import DatabaseService
 from services.mca_episode_jobs import (
     EpisodesBackfillRunner,
+    RecheckAssemblyError,
     enqueue_episodes_backfill,
 )
 from services.mca_episodes import (
@@ -648,6 +649,102 @@ class TestM03RebuildIdempotency:
                 await _count(db, "SELECT COUNT(DISTINCT segment_key) "
                                  "FROM mca_episodes")
             assert await _count(db, "SELECT COUNT(*) FROM mca_episodes") == 4
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_rebuild_reports_assemble_failure_after_recheck(
+            self, monkeypatch):
+        """M-03 blocker regression: recheck успешен, но пересборка историй
+        падает → rebuild НЕ `complete=True` (честный `assemble_failed`),
+        повтор завершает проекцию без потери override и без дублей."""
+        db = await _fixture([
+            _msg(CHAT, 1, 11, "Событие для пересборки истории", T2021)])
+        try:
+            svc = EpisodeService(db, llm=None, now=NOW)
+            await svc.process_batch(
+                CHAT, [_msg(CHAT, 1, 11, "Событие для пересборки истории",
+                            T2021)])
+            repo = EpisodeRepository(db)
+            story = (await repo.list_stories(CHAT))[0]
+            await repo.update_story_manual(
+                story["story_id"], int(story["expected_version"]),
+                title="Ручная правка", now=NOW)
+            assert await queue_source_recheck(
+                db, CHAT, [f"{CHAT}:tg:1"]) == 1
+
+            fail = {"armed": True, "calls": 0}
+            original = EpisodeService.assemble_stories
+
+            async def _flaky(self, chat_id, now, **kwargs):
+                fail["calls"] += 1
+                if fail["armed"] and fail["calls"] >= 2:
+                    raise RuntimeError("story assemble unavailable")
+                return await original(self, chat_id, now, **kwargs)
+
+            monkeypatch.setattr(EpisodeService, "assemble_stories", _flaky)
+            runner = EpisodesBackfillRunner(
+                db, llm=_FakeLLM(default=_extract(summary="После правки")))
+            first = await runner.rebuild_range(
+                CHAT, since_ts=0, until_ts=T2021 + 86400)
+            assert first["rechecked"] == 1
+            assert first["errors"] >= 1
+            assert first["complete"] is False
+            assert first["reason"] == "assemble_failed"
+            # Эпизод перепроверен, но story ещё не пересобрана.
+            episode = (await repo.list_episodes(CHAT))[0]
+            assert episode["extraction_version"].endswith("+recheck")
+            stale_story = await repo.get_story(story["story_id"])
+            stale_effective = effective_story(stale_story)
+            assert "После правки" not in stale_effective["summary"]
+            assert stale_effective["title"] == "Ручная правка"
+
+            # Повторный bounded rebuild: честный completed, проекция
+            # догоняет текущий эпизод, override и IDs сохранены.
+            fail["armed"] = False
+            second = await runner.rebuild_range(
+                CHAT, since_ts=0, until_ts=T2021 + 86400)
+            assert second["complete"] is True
+            assert second["reason"] == "completed"
+            assert second["errors"] == 0
+            fresh = await repo.get_story(story["story_id"])
+            effective = effective_story(fresh)
+            assert effective["title"] == "Ручная правка"
+            assert "После правки" in effective["summary"]
+            assert fresh["override_title"] == "Ручная правка"
+            assert await _count(
+                db, "SELECT COUNT(*) FROM mca_stories") == 1
+            assert await _count(
+                db, "SELECT COUNT(*) FROM mca_story_episode_links") == 1
+            assert await _count(
+                db, "SELECT COUNT(*) FROM mca_episodes") == 1
+            versions = await repo.list_story_versions(story["story_id"])
+            assert len(versions) >= 2
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_process_rechecks_surfaces_assembly_failure(
+            self, monkeypatch):
+        """`process_rechecks` не выдаёт упавшую пересборку за успех."""
+        db = await _fixture([_msg(CHAT, 1, 11, "Событие для recheck", T2021)])
+        try:
+            await EpisodeService(db, llm=None, now=NOW).process_batch(
+                CHAT, [_msg(CHAT, 1, 11, "Событие для recheck", T2021)])
+            assert await queue_source_recheck(
+                db, CHAT, [f"{CHAT}:tg:1"]) == 1
+
+            async def _broken(self, chat_id, now, **kwargs):
+                raise RuntimeError("story assemble unavailable")
+
+            monkeypatch.setattr(EpisodeService, "assemble_stories", _broken)
+            runner = EpisodesBackfillRunner(
+                db, llm=_FakeLLM(default=_extract(summary="После recheck")))
+            with pytest.raises(RecheckAssemblyError):
+                await runner.process_rechecks(CHAT)
+            episode = (await EpisodeRepository(db).list_episodes(CHAT))[0]
+            assert episode["extraction_version"].endswith("+recheck")
+            assert int(episode["recheck_pending"] or 0) == 0
         finally:
             await db.close()
 
