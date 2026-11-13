@@ -1,4 +1,4 @@
-﻿
+
 FAILED tests/test_factcheck_subject_contract.py::TestScenarioAOrdinary::test_material_is_byte_identical_without_llm_cal
 l
 FAILED tests/test_factcheck_subject_contract.py::TestScenarioAOrdinary::test_envelope_keeps_ordinary_claim_date_and_anc
