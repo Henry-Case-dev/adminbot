@@ -313,18 +313,24 @@ def traceback_frames(text: str) -> dict:
 
 def stack_summary(text: str,
                   *,
-                  budget_chars: int = 2000,
+                  budget_chars: int = 0,
                   cursor: str = "",
-                  max_frames: int = 120) -> dict:
+                  max_frames: int = 0) -> dict:
     """Структурная выжимка traceback вместо «обрезки первых N символов».
 
     Кадры разбираются и отдаются по бюджету с continuation-курсором
     ``frame:<offset>``; exception-headline и source_id сохраняются. Полная
     длина текста и число кадров видимы в coverage, поэтому «тупая» обрезка
     не маскирует потерю причинно важных кадров.
+
+    SXR-C3-02 (SMART-EXECUTION-RELIABILITY-01 C3): ``budget_chars=0`` и
+    ``max_frames=0`` — заводские значения и означают «искусственного бюджета
+    нет»: отдаются ВСЕ разобранные кадры с валидным exception; положительные
+    значения остаются явной политикой вызова (provider/payload safety) и
+    работают как раньше с continuation-курсором.
     """
     raw = str(text or "")
-    budget = max(200, int(budget_chars or 2000))
+    budget = max(0, int(budget_chars or 0))
     parsed = _parse_traceback(raw)
     frames = parsed["frames"]
     total = len(frames)
@@ -349,17 +355,17 @@ def stack_summary(text: str,
                 "next_cursor": "", "coverage": coverage(("traceback",),
                                                          why="bad_cursor"),
             }
-    hard_limit = max(1, int(max_frames or 120))
-    window = frames[start:start + hard_limit]
+    hard_limit = max(0, int(max_frames or 0))
+    window = frames[start:start + hard_limit] if hard_limit else frames[start:]
     shown: list[dict] = []
     used = 0
     for item in window:
         cost = 96 + len(item.get("file", "")) + len(item.get("function", ""))
-        if shown and used + cost > budget:
+        if budget and shown and used + cost > budget:
             break
         shown.append(item)
         used += cost
-        if used >= budget:
+        if budget and used >= budget:
             break
     end = start + len(shown)
     next_cursor = f"frame:{end}" if end < total else ""
@@ -376,7 +382,7 @@ def stack_summary(text: str,
             complete=complete,
             truncated=bool(next_cursor),
             why=(f"frame_limit_{hard_limit}" if len(window) < len(frames)
-                 else "budget"),
+                 else ("budget" if next_cursor else "")),
         ),
         "raw_chars": len(raw),
         "shown_frames": len(shown),
@@ -575,21 +581,29 @@ def build_bundle(*, request_id: str, chat_scope: str, scope: str,
     )
 
 
-def render_page(bundle: DiagnosticEvidenceBundle, *, max_chars: int,
+def render_page(bundle: DiagnosticEvidenceBundle, *, max_chars: int = 0,
                 offset: int = 0) -> tuple[dict, int]:
-    """Страница tool-результата по бюджету; (payload, next_offset).
+    """Страница tool-результата по ЯВНОМУ бюджету; (payload, next_offset).
 
-    ``next_offset == len(sources)`` — всё показано. Ни один источник не
-    теряется молча: ``page.omitted_source_ids`` + ``truncated`` видны модели.
-    Бюджет включает claims: они фильтруются по показанным источникам и
-    ограничиваются, чтобы одна область не вытесняла остальные.
+    SXR-C3-02 (SMART-EXECUTION-RELIABILITY-01 C3): ``max_chars=0`` — заводское
+    значение и означает «искусственного output-бюджета нет»: отдаются ВСЕ
+    источники и ВСЕ claims, facts не срезаются. Положительное значение — явная
+    политика вызова (реальный payload/провайдер), работающая как раньше с
+    continuation: ``next_offset == len(sources)`` — всё показано, иначе
+    ``page.omitted_source_ids`` + ``truncated`` видны модели, ни один источник
+    не теряется молча.
+
+    Прежний жёсткий лимит «10 claims» удалён: claims ограничивает только тот
+    же явный бюджет страницы, а не скрытая константа. Бюджет включает claims:
+    они фильтруются по показанным источникам, чтобы одна область не вытесняла
+    остальные.
     """
     payload = bundle.to_dict()
     all_sources = list(payload["sources"])
     all_claims = list(payload.get("claims") or [])
     total = len(all_sources)
     start = max(0, min(int(offset or 0), total))
-    limit = max(600, int(max_chars or 4000))
+    limit = max(0, int(max_chars or 0))
     base = dict(payload)
     base["sources"] = []
     base["claims"] = []
@@ -597,21 +611,22 @@ def render_page(bundle: DiagnosticEvidenceBundle, *, max_chars: int,
         base["redaction"] = redaction(0, (), reason="page_2")
     shown: list[dict] = []
     end = start
-    reserve = min(1500, max(300, limit // 4))
+    reserve = min(1500, max(300, limit // 4)) if limit else 0
     for index in range(start, total):
-        candidate = dict(base)
-        candidate["sources"] = shown + [all_sources[index]]
-        if len(json.dumps(candidate, ensure_ascii=False)) > limit - reserve:
-            if shown:
+        if limit:
+            candidate = dict(base)
+            candidate["sources"] = shown + [all_sources[index]]
+            if len(json.dumps(candidate, ensure_ascii=False)) > limit - reserve:
+                if shown:
+                    break
+                # Один источник больше бюджета — отдаём метаданные без facts,
+                # иначе страница не сдвинется вперёд.
+                compact = dict(all_sources[index])
+                compact.pop("facts", None)
+                compact["facts_omitted"] = True
+                shown.append(compact)
+                end = index + 1
                 break
-            # Один источник больше бюджета — отдаём метаданные без facts,
-            # иначе страница не сдвинется вперёд.
-            compact = dict(all_sources[index])
-            compact.pop("facts", None)
-            compact["facts_omitted"] = True
-            shown.append(compact)
-            end = index + 1
-            break
         shown.append(all_sources[index])
         end = index + 1
     page = dict(base)
@@ -628,20 +643,19 @@ def render_page(bundle: DiagnosticEvidenceBundle, *, max_chars: int,
             continue
         seen.add(key)
         claims.append(item)
-        if len(claims) >= 10:
-            break
     page["claims"] = claims
     page["claims_truncated"] = len(claims) < len(all_claims)
-    # Финальная гарантия бюджета: сначала снимаем claims, затем — хвост
+    # Финальная гарантия ЯВНОГО бюджета: сначала снимаем claims, затем — хвост
     # источников; показанный источник без facts сохраняется как метаданные.
-    if len(json.dumps(page, ensure_ascii=False)) > limit and claims:
+    if limit and len(json.dumps(page, ensure_ascii=False)) > limit and claims:
         page["claims"] = []
         page["claims_truncated"] = True
-    while len(json.dumps(page, ensure_ascii=False)) > limit and len(
+    while limit and len(json.dumps(page, ensure_ascii=False)) > limit and len(
             page["sources"]) > 1:
         page["sources"].pop()
         end -= 1
-    if len(json.dumps(page, ensure_ascii=False)) > limit and page["sources"]:
+    if limit and len(json.dumps(page, ensure_ascii=False)) > limit \
+            and page["sources"]:
         compact = dict(page["sources"][0])
         compact.pop("facts", None)
         compact["facts_omitted"] = True
@@ -660,9 +674,20 @@ def render_page(bundle: DiagnosticEvidenceBundle, *, max_chars: int,
                      "total_sources": total,
                      "why": ("" if not omitted else "output_budget")}
     page["coverage"] = cov
-    if len(json.dumps(page, ensure_ascii=False)) > limit:
-        # Крайний случай: сам базовый конверт больше бюджета. Отдаём
-        # валидный минимальный JSON, а не обрезанную строку.
+    if limit and len(json.dumps(page, ensure_ascii=False)) > limit \
+            and page["sources"]:
+        # Бюджет съела не выборка, а bookkeeping (omitted ids/coverage):
+        # сохраняем показанный источник без facts, затем — continuation по
+        # next_offset без списка id. Только если и конверт не влезает,
+        # отдаём минимальный валидный JSON.
+        compact = dict(page["sources"][0])
+        compact.pop("facts", None)
+        compact["facts_omitted"] = True
+        page["sources"] = [compact]
+    if limit and len(json.dumps(page, ensure_ascii=False)) > limit \
+            and page["page"].pop("omitted_source_ids", None) is not None:
+        page["truncated"] = True
+    if limit and len(json.dumps(page, ensure_ascii=False)) > limit:
         page = {
             "schema": page.get("schema"),
             "status": page.get("status"),
@@ -681,7 +706,7 @@ def render_page(bundle: DiagnosticEvidenceBundle, *, max_chars: int,
     return page, end
 
 
-def render_json(bundle: DiagnosticEvidenceBundle, *, max_chars: int = 6000,
+def render_json(bundle: DiagnosticEvidenceBundle, *, max_chars: int = 0,
                 offset: int = 0) -> tuple[str, int]:
     page, next_offset = render_page(bundle, max_chars=max_chars,
                                     offset=offset)
@@ -689,11 +714,13 @@ def render_json(bundle: DiagnosticEvidenceBundle, *, max_chars: int = 6000,
 
 
 def render_facts_text(bundle: DiagnosticEvidenceBundle, *,
-                      max_chars: int = 3000) -> str:
+                      max_chars: int = 0) -> str:
     """Компактный текстовый блок тех же фактов для LLM-входа чекапа.
 
     Это НЕ второй источник: строки строятся из того же bundle, что отдаётся
-    tool-результатом. Ограничение — engineering-бюджет, не keyword-гейт.
+    tool-результатом. ``max_chars=0`` (заводское значение, SXR-C3-02) —
+    искусственного бюджета нет: отдаются все факты; положительное значение —
+    явная политика вызова, применяемая как раньше с честным маркером.
     """
     lines = [f"DIAGNOSTIC_EVIDENCE status={bundle.status} "
              f"observed_at={bundle.observed_at}"]
@@ -714,6 +741,7 @@ def render_facts_text(bundle: DiagnosticEvidenceBundle, *,
     if bundle.not_checked:
         lines.append("not_checked=" + ",".join(bundle.not_checked))
     text = "\n".join(lines)
-    if len(text) > max_chars:
-        text = text[:max_chars] + "\n[facts_budget_exceeded]"
+    limit = max(0, int(max_chars or 0))
+    if limit and len(text) > limit:
+        text = text[:limit] + "\n[facts_budget_exceeded]"
     return text

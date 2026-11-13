@@ -1,0 +1,13 @@
+diff --git a/services/direct_context_composer.py b/services/direct_context_composer.py
+index aeed2c04..6d3f4f3d 100644
+--- a/services/direct_context_composer.py
++++ b/services/direct_context_composer.py
+@@ -183,7 +183,7 @@ def middle_max_messages() -> int:
+     ``select_middle`` ╨▓╨╕╨┤╨╕╤В ╨Т╨б╨Х ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╤Л middle; ╨╛╨▒╤К╤С╨╝ ╨╛╨│╤А╨░╨╜╨╕╤З╨╕╨▓╨░╨╡╤В ╤В╨╛╨╗╤М╨║╨╛
+     ╤А╨╡╨░╨╗╤М╨╜╨╛╨╡ ╨╛╨║╨╜╨╛ ╨╝╨╛╨┤╨╡╨╗╨╕ ╨╜╨░ ╤Н╤В╨░╨┐╨╡ ╨╡╨┤╨╕╨╜╨╛╨│╨╛ ╨░╨╗╨╗╨╛╨║╨░╤В╨╛╤А╨░.
+     """
+-    return _env_policy_int("CHAT_MIDDLE_MAX_MESSAGES")
++    return _env_int("CHAT_MIDDLE_MAX_MESSAGES", 60, 1)
+
+
+ def thread_walk_max() -> int:
