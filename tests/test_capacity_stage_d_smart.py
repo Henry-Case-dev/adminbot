@@ -297,6 +297,31 @@ async def test_verified_cache_used_by_sync_tool_path(monkeypatch):
     assert other_window == 1_000_000
 
 
+@pytest.mark.asyncio
+async def test_cached_verified_window_scope_includes_route(monkeypatch):
+    """D2: «cached value только того же endpoint+model+route» — значение,
+    посчитанное для другого route того же endpoint/model, sync-путём не
+    наследуется (он ищет только route-less запись)."""
+    monkeypatch.setattr(mc, "_http_get_json", _catalog([
+        {"id": GLM_MODEL, "context_length": 202_752},
+    ]))
+    routed = await mc.resolve_capacity(NANO_BASE, GLM_MODEL,
+                                       route="image_edits")
+    assert routed.effective_context_window == 202_752
+    # Другой route того же endpoint/model: чужой cache не применяется.
+    assert mc._cached_verified_window(NANO_BASE, GLM_MODEL) is None
+    window, source = mc.resolve_evidence_window_tokens(GLM_MODEL,
+                                                       base_url=NANO_BASE)
+    assert (window, source) == (1_000_000, mc.WINDOW_SOURCE_FALLBACK)
+    # Свой route видит свою запись, route-less — только после route-less резолва.
+    assert mc._cached_verified_window(NANO_BASE, GLM_MODEL,
+                                      route="image_edits") == (
+        202_752, mc.SOURCE_PROVIDER_CATALOG)
+    await mc.resolve_capacity(NANO_BASE, GLM_MODEL)
+    assert mc._cached_verified_window(NANO_BASE, GLM_MODEL) == (
+        202_752, mc.SOURCE_PROVIDER_CATALOG)
+
+
 def test_proven_limit_invalidates_cached_planning_window():
     """D2/D6: доказанный предел сбрасывает уже посчитанное планировочное окно
     (регистр/написание ID не имеют значения) — иначе старый cache затенял бы

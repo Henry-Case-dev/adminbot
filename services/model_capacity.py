@@ -1700,17 +1700,23 @@ async def _resolve_route_metadata(provider_class: str, base_url: str,
     return None
 
 
-def _cached_verified_window(base_url: str, model: str) -> tuple[int, str] | None:
-    """Свежее ВЕРИФИЦИРОВАННОЕ значение того же provider/base_url/model.
+def _cached_verified_window(base_url: str, model: str,
+                            route: str | None = None
+                            ) -> tuple[int, str] | None:
+    """Свежее ВЕРИФИЦИРОВАННОЕ значение того же provider/base_url/model/route.
 
     D2-уровень 4: sync-потребители (tool-окно, fallback recompose) не ходят
     в сеть, но обязаны видеть уже подтверждённую ёмкость (каталог/рантайм/
-    proven), а не планировочные 1M. Route/fingerprint в кэше не важны."""
+    proven), а не планировочные 1M. Route входит в область совпадения
+    (контракт D2: «cached value только того же endpoint+model+route»):
+    значение, посчитанное для другого route того же endpoint'а, не наследуется
+    (sync-путь без route видит только route-less записи)."""
     model_key = normalize_model_id(model)
     if not model_key:
         return None
     provider_class = detect_provider_class(base_url)
     host = _base_url_host(base_url)
+    route_key = str(route or "").strip().lower()
     now = time.time()
     for key, (result, expires_at) in list(_CACHE.items()):
         if now >= expires_at:
@@ -1721,6 +1727,8 @@ def _cached_verified_window(base_url: str, model: str) -> tuple[int, str] | None
                 and str(key[2]).strip().lower() != str(model or "").strip().lower():
             continue
         if base_url and key[1] != host:
+            continue
+        if str(key[5] if len(key) > 5 else "").strip().lower() != route_key:
             continue
         if result.source in (SOURCE_FALLBACK, SOURCE_ESTIMATED_UNKNOWN):
             continue
