@@ -152,6 +152,8 @@ async def test_a_two_consecutive_jobs_take_different_next_messages(tmp_path):
     hot_config.set_config_cache(_FakeHot({
         "memory.experience_drain_chats_per_pass": 4,
         "memory.experience_drain_per_chat_max": 10,
+        # SXR-I2: тест проверяет границу ОДНОГО окна/прохода, не дренаж.
+        "memory.experience_semantic_batches_per_run": 1,
     }))
     db = await _db(tmp_path, "a.db")
     try:
@@ -538,6 +540,8 @@ async def test_i_backlog_larger_than_one_pass_drains_by_portions(tmp_path):
     hot_config.set_config_cache(_FakeHot({
         "memory.experience_drain_chats_per_pass": 4,
         "memory.experience_drain_per_chat_max": 10,
+        # SXR-I2: тест проверяет границу ОДНОГО окна/прохода, не дренаж.
+        "memory.experience_semantic_batches_per_run": 1,
     }))
     db = await _db(tmp_path, "i.db")
     try:
@@ -720,6 +724,8 @@ async def test_exp01_new_job_inherits_full_semantic_checkpoint(tmp_path):
     hot_config.set_config_cache(_FakeHot({
         "memory.experience_drain_chats_per_pass": 4,
         "memory.experience_drain_per_chat_max": 10,
+        # SXR-I2: тест проверяет границу ОДНОГО окна/прохода, не дренаж.
+        "memory.experience_semantic_batches_per_run": 1,
     }))
     db = await _db(tmp_path, "e01.db")
     try:
@@ -845,6 +851,8 @@ async def test_exp10b_more_than_64_chats_no_pending_key_dropped(tmp_path):
     hot_config.set_config_cache(_FakeHot({
         "memory.experience_drain_chats_per_pass": 4,
         "memory.experience_drain_per_chat_max": 10,
+        # SXR-I2: тест проверяет границу ОДНОГО окна/прохода, не дренаж.
+        "memory.experience_semantic_batches_per_run": 1,
     }))
     db = await _db(tmp_path, "e10b.db")
     try:
@@ -892,6 +900,7 @@ async def test_exp02_drain_limits_are_hot_configurable(tmp_path):
     hot_config.set_config_cache(_FakeHot({
         "memory.experience_drain_chats_per_pass": 1,
         "memory.experience_drain_per_chat_max": 3,
+        "memory.experience_semantic_batches_per_run": 1,
     }))
     try:
         for i in range(5):
