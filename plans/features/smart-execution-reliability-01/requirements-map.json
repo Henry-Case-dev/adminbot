@@ -4490,7 +4490,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E1-01-672",
@@ -4505,7 +4514,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E1-01-674",
@@ -4520,7 +4538,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E1-01-682",
@@ -4535,7 +4562,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E1-01-684",
@@ -4550,7 +4586,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-107",
@@ -4565,7 +4610,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-688",
@@ -4580,7 +4634,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-690",
@@ -4595,7 +4658,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-700",
@@ -4610,7 +4682,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-702",
@@ -4625,7 +4706,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-704",
@@ -4640,7 +4730,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E2-01-706",
@@ -4655,7 +4754,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E3-01-710",
@@ -4670,7 +4778,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E3-01-718",
@@ -4685,7 +4802,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E3-01-720",
@@ -4700,7 +4826,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E3-01-722",
@@ -4715,7 +4850,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E3-01-724",
@@ -4730,7 +4874,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E3-01-726",
@@ -4745,7 +4898,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E4-01-730",
@@ -4760,7 +4922,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E4-01-737",
@@ -4775,7 +4946,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E4-01-739",
@@ -4790,7 +4970,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-E4-01-741",
@@ -4805,7 +4994,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-F1-01-749",
@@ -7870,8 +8068,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1096",
@@ -7885,8 +8102,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1098",
@@ -7900,8 +8136,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1110",
@@ -7915,8 +8170,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1112",
@@ -7930,8 +8204,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1114",
@@ -7945,8 +8238,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1116",
@@ -7960,8 +8272,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-02-1106",
@@ -7975,8 +8306,27 @@
       "acceptance": "Законная защита forbidden_effect не удалена; произвольные эффекты ради роста числа уроков не разрешены; тесты не подогнаны под два конкретных идентификатора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "Защита сохранена: recommendation-level effects, contour pairs (forward и reverse), machine-пары и free text по-прежнему отклоняются (test_recommendation_level_effects_still_forbidden, test_free_text_contour_effect_in_applicability_is_rejected с событием experience.lesson_rejected/reason_code=forbidden_effect); мутационная проверка ловит снятие защиты. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-02-1108",
@@ -7990,8 +8340,27 @@
       "acceptance": "Законная защита forbidden_effect не удалена; произвольные эффекты ради роста числа уроков не разрешены; тесты не подогнаны под два конкретных идентификатора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "Защита сохранена: recommendation-level effects, contour pairs (forward и reverse), machine-пары и free text по-прежнему отклоняются (test_recommendation_level_effects_still_forbidden, test_free_text_contour_effect_in_applicability_is_rejected с событием experience.lesson_rejected/reason_code=forbidden_effect); мутационная проверка ловит снятие защиты. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-02-1118",
@@ -8005,8 +8374,27 @@
       "acceptance": "Законная защита forbidden_effect не удалена; произвольные эффекты ради роста числа уроков не разрешены; тесты не подогнаны под два конкретных идентификатора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "Защита сохранена: recommendation-level effects, contour pairs (forward и reverse), machine-пары и free text по-прежнему отклоняются (test_recommendation_level_effects_still_forbidden, test_free_text_contour_effect_in_applicability_is_rejected с событием experience.lesson_rejected/reason_code=forbidden_effect); мутационная проверка ловит снятие защиты. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I5-01-1151",
@@ -15430,7 +15818,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00676",
@@ -15445,7 +15842,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00677",
@@ -15460,7 +15866,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00678",
@@ -15475,7 +15890,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00679",
@@ -15490,7 +15914,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00680",
@@ -15505,7 +15938,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "Local-first источник собственного кода: LocalSnapshotProvider, SourceReader, resolve_self_repo_identity и deploy identity читают подтверждённый локальный снимок; независимость сценариев подтверждена TestScenarioIndependence (5 сценариев, 0 сетевых вызовов). 29 passed в tests/test_smart_e_local_first_source.py; 216 + 367 = 583 passed в расширенных прогонах. RED на базе 36dd6b23: probe даёт provider=github, ref_source=remote_default_branch, snippet REMOTE_BYTES=1; 28 errors при импорте нового API. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00686",
@@ -15520,7 +15962,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00694",
@@ -15535,7 +15986,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00695",
@@ -15550,7 +16010,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00696",
@@ -15565,7 +16034,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00697",
@@ -15580,7 +16058,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00698",
@@ -15595,7 +16082,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestLocalRootDiscovery (9): приоритет configured root и SELF_DIAG_LOCAL_REPO_ROOT над runtime root, различимые причины недоступности (permission_denied, root_empty, app_markers_missing), cwd не используется, чужой repo_origin даёт origin_mismatch; SourceReader() без аргументов поднимает провайдер. 29 passed в focused-файле; 583 passed в расширенных прогонах. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00708",
@@ -15610,7 +16106,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00712",
@@ -15625,7 +16130,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00713",
@@ -15640,7 +16154,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00714",
@@ -15655,7 +16178,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00715",
@@ -15670,7 +16202,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00716",
@@ -15685,7 +16226,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestVersionDistinction (6): deployed SHA, checkout SHA и runtime identity различаются; checkout без подтверждения даёт local_checkout_unverified и commit_bound=false; неизвестный ref не выдаётся за SHA (unverified_revision, не master); для deployed_files revision_kind=deployed_files, commit_bound=false, _local_bytes_verified=false; конфликт версий честно репортится. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00728",
@@ -15700,7 +16250,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00732",
@@ -15715,7 +16274,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00733",
@@ -15730,7 +16298,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00734",
@@ -15745,7 +16322,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00735",
@@ -15760,7 +16346,16 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "unit",
+          "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+          "ref": "binding-e-18fa4d59…md §2–§5 — реализация, RED→GREEN и прогоны на 18fa4d59",
+          "observation": "TestSourceOrder (11): подтверждённый локальный источник идёт первым и без сетевых вызовов; provenance содержит repo/commit/path/line_range/status; откат на GitHub только при отказе/read-error и по deployed SHA; .env/traversal/ADS дают path_denied; превышение размера даёт unsupported; отсутствие источника даёт source_missing; неизвестный deployed SHA даёт deployed_revision_unknown. 29 passed focused; 583 passed расширенно. Это review-stage подтверждение реализации, а не production-приёмка: деплоя не было, runtime-проверки (systemd-пользователь процесса, GitHub API по deployed commit) остаются postdeploy (binding §8) и не заявляются выполненными. Независимого review-артефакта для 18fa4d59 в репозитории и истории ветвей нет, поэтому строка остаётся PENDING.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+          "artifact_sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+        }
+      ]
     },
     {
       "source_id": "L00747",
@@ -19532,8 +20127,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01091",
@@ -19547,8 +20161,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01092",
@@ -19562,8 +20195,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01093",
@@ -19577,8 +20229,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01094",
@@ -19592,8 +20263,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01100",
@@ -19607,8 +20297,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01101",
@@ -19622,8 +20331,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01102",
@@ -19637,8 +20365,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01103",
@@ -19652,8 +20399,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01104",
@@ -19667,8 +20433,27 @@
       "acceptance": "Проверены фактические отклонённые предложения и путь LLM-промпт -> схема lesson/effect -> валидатор; установлено, что именно произошло (неподдерживаемый effect, устаревший набор типов, расхождение контракта, неверный origin/type либо законный отказ); исправлен генератор или валидатор; подтверждены сохранение допустимого урока и его допустимого применения, а также отклонение действительно запрещённых эффектов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Needs Fixes",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "review-i3-89a37168.md — независимое ревью I3 на d471309a: поведение VERIFIED, Needs Fixes только по candidate-bound привязке/гейту",
+          "observation": "Независимое ревью I3 на d471309a: Reviewer лично проверил _forbidden_effects, exact machine-applicability regex, contour-pair regex, валидатор/активатор и контракт генератор→потребитель; прочитал все 7 тестов (не vacuous); независимая проверка на реальном DB/service-пути по communication.ignore_unread, memory.details_ignore, typos.ignore, custom.no_ignore, free text, ignore.rules и system.prompt — принятые предпочтения не отклоняются, истинные эффекты отклоняются. Вердикт Needs Fixes относится только к отсутствию candidate-bound привязки и гейту; деплой не выполнялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+          "artifact_sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+          "ref": "binding-i3-89a37168.md §3–§5 — исправление, RED→GREEN, прогоны и probe",
+          "observation": "mca_experience.py: machine-subject applicability классифицируется до проверки эффектов, затемнение слова ignore снято только для subject-частей, истинные эффекты остаются запрещёнными. 7 passed в tests/test_sxr_i3_lesson_effects.py; 226 passed + 1 pre-existing failed (14 файлов lessons/experience); 287 passed + 1 pre-existing failed (11 importer-файлов); мутация contour-pair даёт 1 failed/6 passed; probe: два бывших кандидата становятся valid/active/selected при rejected_events=0. Production-деплоя не было. Строка ведётся в REVIEW: независимого Approved-вердикта нет (Reviewer — Needs Fixes только по candidate-bound привязке/гейту), поэтому review-stage гейт остаётся красным до повторного прохода Reviewer по gate/binding. Восстановление уже лежащих в production candidate-строк — postdeploy (binding §8), не заявляется выполненным.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+          "artifact_sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+        }
+      ]
     },
     {
       "source_id": "L01120",
@@ -22176,7 +22961,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings, implementation-evidence записана в 45 строк SXR-E1-01..E4-01, но строки остаются PENDING: независимого review-артефакта для 18fa4d59 нет ни в репозитории, ни в истории ветвей (см. evidence/pm-binding-e-i3-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) переведены в REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с опубликованными review-i3-89a37168.md и binding-i3-89a37168.md; вердикт Reviewer — Needs Fixes только по candidate-bound привязке/гейту (поведение VERIFIED), поэтому review-stage гейт ожидаемо красный до повторного прохода Reviewer. Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись.",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -22689,6 +23474,69 @@
       ],
       "ddl_changes": 0,
       "deployed": false
+    },
+    "S5-LOCAL-FIRST": {
+      "slice": "S5-LOCAL-FIRST",
+      "lane": "E",
+      "covers_req_ids": [
+        "SXR-E1-01",
+        "SXR-E2-01",
+        "SXR-E3-01",
+        "SXR-E4-01"
+      ],
+      "scope_note": "Кандидат E привязан к строкам E1–E4. Независимого review-артефакта для 18fa4d59 нет ни в репозитории, ни в истории всех ветвей (review-e-18fa4d59.md отсутствует), поэтому строки остаются PENDING: статус REVIEW без Approved-ревью был бы ложным. Нужен Reviewer-проход по HEAD 44258430 (docs-only поверх 18fa4d59).",
+      "candidate_commit": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+      "code": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+      "docs": "2d6878bf894554dfc8a90fefb6ce2bff2283a94c",
+      "head": "442584309e94af706cecf0726b0622a0e0ae4dd1",
+      "base": "36dd6b232bf2705cc470764a7ab71451c5c49fdf",
+      "branch": "smart/e-local",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-9a0f2c2b",
+      "review": null,
+      "review_status": "missing",
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/binding-e-18fa4d593591b8438b2e3832fd7aa8e6af478064.md",
+        "sha256": "ed024ec788b1b7d035eb9d2248ac4bd9ded313176ee3a44e2208d8b1b5583d4a"
+      },
+      "tests": {
+        "focused": 29,
+        "broad": 583,
+        "red_on_base_36dd6b23": "28 errors (missing API) + probe provider=github/ref_source=remote_default_branch"
+      },
+      "blocked_on": "Независимое ревью E (Reviewer): артефакт review для 18fa4d59 отсутствует.",
+      "postdeploy_open": "systemd-пользователь процесса и GitHub API по deployed commit (binding §8) — только после деплоя."
+    },
+    "S10-LEARNING-INCIDENTS": {
+      "slice": "S10-LEARNING-INCIDENTS",
+      "lane": "I3",
+      "covers_req_ids": [
+        "SXR-I3-01",
+        "SXR-I3-02"
+      ],
+      "scope_note": "Кандидат I3 привязан к строкам I3-01/I3-02. SXR-I5-01 принадлежит тому же срезу S10, но остаётся PENDING и потребует перепривязки на собственный кандидат при его ревью.",
+      "candidate_commit": "d471309a7a2ba9ac21ab380064accf771bc02751",
+      "code": "89a3716839f758afdf0ec9b6fff68a23013e97ab",
+      "docs": "d471309a7a2ba9ac21ab380064accf771bc02751",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "smart/i3-lessons",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-5d94bdef",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-i3-89a37168.md",
+        "sha256": "13ea42fcc523aab3ed3bc24109dead81dd80e0e010522bd4694f46db960571a9"
+      },
+      "review_verdict": "Needs Fixes (только candidate-bound привязка/гейт; поведение VERIFIED)",
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+        "sha256": "63279742b45e006f23160d8d8e54111f941e340382cdc86ae9c0c55941665e95"
+      },
+      "tests": {
+        "i3_focused": 7,
+        "lessons_experience_14_files": "226 passed, 1 pre-existing failed",
+        "importer_11_files": "287 passed, 1 pre-existing failed",
+        "mutation_contour_pair": "1 failed, 6 passed после снятия защиты"
+      },
+      "pending": "Повторный Reviewer-проход по gate/binding для Approved; поведение уже проверено.",
+      "postdeploy_open": "Восстановление уже лежащих в production candidate-строк (binding §8) — только после деплоя."
     }
   },
   "deployment_state": {
