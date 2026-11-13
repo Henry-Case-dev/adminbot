@@ -138,3 +138,25 @@ python -m pytest tests/test_evol_reply_context_consumers.py tests/test_memory_at
 3 прогонов; на ветке — 2 failed / 1 passed. Не связано с S13 (search_aggregator
 не менялся). Предложение: изолировать провайдеры в тесте (или помечать
 network-зависимым маркером).
+
+
+## 10. Дополнительная проверка финального кандидата (2026-11-14)
+
+- Код кандидата: `bc2ac583`; evidence-коммит: `2237ffcb` (только `plans/**`).
+- `python -m pytest -q tests/test_factcheck_subject_contract.py` — **39 passed**
+  (три последовательных прогона: 39/39, стабильно).
+- Широкий набор: 47 файлов `tests/test_*` по фильтру
+  `factcheck|temporal|media|evol_fc|bgs01|rc_target` — **995 passed** (52.25 с).
+  Один более ранний прогон дал 994 passed + pre-existing DDG-flake
+  `test_all_irrelevant_is_honest_failure`; изолированно и на повторе — PASS
+  (см. §9).
+- Мутации на финальном кандидате (каждая — временная правка + `git checkout --`):
+  M1 убрать остаток предмета в `_claim_units` → 4 failed;
+  M2 не обнулять `original_published_at` для request-origin → 2 failed;
+  M3 `_claim_digest` пустой → 3 failed;
+  M4 `resolve_check_subject` игнорирует уточнение → 14 failed.
+- `py_compile` изменённых модулей — exit 0.
+- RED на базе `d20a7f73` — **34 failed, 3 passed** (см. §4).
+
+Эти прогоны подтверждают тот же контракт на финальном SHA; они не заменяют
+живые LLM/provider проверки из §8.
