@@ -1,0 +1,7 @@
+﻿
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_evol018_prompt_audit.py::test_grep_audit_finds_no_unregistered_prompt_constants
+FAILED tests/test_evol018_prompt_audit.py::test_grep_audit_counts_are_stable
+FAILED tests/test_prompt_field_audit.py::test_every_editable_prompt_has_reachable_surface
+3 failed, 23 passed, 1 warning in 6.14s

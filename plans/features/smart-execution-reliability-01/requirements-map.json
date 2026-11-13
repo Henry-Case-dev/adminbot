@@ -5569,8 +5569,27 @@
       "acceptance": "Финализация исправлена как общий контракт всех потребителей Smart-модуля; отдельного механизма финализации только для checkup нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: единый контракт завершения инструментального исследования для всех применимых путей; отдельного механизма финализации для checkup в кандидате не создано; `tool_loop.py` структурно не заменялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G1-01-821",
@@ -5584,8 +5603,27 @@
       "acceptance": "Финализация исправлена как общий контракт всех потребителей Smart-модуля; отдельного механизма финализации только для checkup нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: единый контракт завершения инструментального исследования для всех применимых путей; отдельного механизма финализации для checkup в кандидате не создано; `tool_loop.py` структурно не заменялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G1-01-823",
@@ -5599,8 +5637,27 @@
       "acceptance": "Финализация исправлена как общий контракт всех потребителей Smart-модуля; отдельного механизма финализации только для checkup нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: единый контракт завершения инструментального исследования для всех применимых путей; отдельного механизма финализации для checkup в кандидате не создано; `tool_loop.py` структурно не заменялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G1-01-825",
@@ -5614,8 +5671,27 @@
       "acceptance": "Финализация исправлена как общий контракт всех потребителей Smart-модуля; отдельного механизма финализации только для checkup нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: единый контракт завершения инструментального исследования для всех применимых путей; отдельного механизма финализации для checkup в кандидате не создано; `tool_loop.py` структурно не заменялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G2-01-829",
@@ -5629,8 +5705,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G2-01-834",
@@ -5644,8 +5739,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G2-01-836",
@@ -5659,8 +5773,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G2-01-838",
@@ -5674,8 +5807,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G2-01-840",
@@ -5689,8 +5841,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G2-01-842",
@@ -5704,8 +5875,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G3-01-856",
@@ -5719,8 +5909,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G3-01-858",
@@ -5734,8 +5943,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G3-01-860",
@@ -5749,8 +5977,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G4-01-864",
@@ -5764,8 +6011,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G4-01-878",
@@ -5779,8 +6045,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G4-01-880",
@@ -5794,8 +6079,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G4-01-882",
@@ -5809,8 +6113,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G5-01-886",
@@ -5824,8 +6147,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G5-01-888",
@@ -5839,8 +6181,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G5-01-890",
@@ -5854,8 +6215,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G5-01-892",
@@ -5869,8 +6249,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G5-01-894",
@@ -5884,8 +6283,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-G5-01-896",
@@ -5899,8 +6317,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-01-904",
@@ -7225,12 +7662,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I4-01-1140",
@@ -7240,12 +7696,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I4-01-1147",
@@ -7255,12 +7730,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I4-02-1134",
@@ -7270,12 +7764,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-02",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Все неизвестные причины не заменены одним универсальным reason code; warning unmapped не удалён; второй реестр кодов ошибок не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§2, §3: реестр ровно один (`services/mca_events.py::REASON_CODES`, без дублей), WARN `unmapped:` не удалён, неизвестные коды схлопываются только в стабильный `unmapped:<sha8>` и сырое значение не публикуется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I4-02-1136",
@@ -7285,12 +7798,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-02",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Все неизвестные причины не заменены одним универсальным reason code; warning unmapped не удалён; второй реестр кодов ошибок не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§2, §3: реестр ровно один (`services/mca_events.py::REASON_CODES`, без дублей), WARN `unmapped:` не удалён, неизвестные коды схлопываются только в стабильный `unmapped:<sha8>` и сырое значение не публикуется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I4-02-1138",
@@ -7300,12 +7832,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-02",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Все неизвестные причины не заменены одним универсальным reason code; warning unmapped не удалён; второй реестр кодов ошибок не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§2, §3: реестр ровно один (`services/mca_events.py::REASON_CODES`, без дублей), WARN `unmapped:` не удалён, неизвестные коды схлопываются только в стабильный `unmapped:<sha8>` и сырое значение не публикуется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I3-01-1089",
@@ -16665,8 +17216,27 @@
       "acceptance": "Финализация исправлена как общий контракт всех потребителей Smart-модуля; отдельного механизма финализации только для checkup нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: единый контракт завершения инструментального исследования для всех применимых путей; отдельного механизма финализации для checkup в кандидате не создано; `tool_loop.py` структурно не заменялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00827",
@@ -16680,8 +17250,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00831",
@@ -16695,8 +17284,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00832",
@@ -16710,8 +17318,27 @@
       "acceptance": "В существующем исполнении есть исследовательская и финальная фазы без нового агента/клиента/пайплайна; финальная фаза использует существующий LLM/Writer; лишний повторный вызов не выполняется, если ответ уже сформирован; при остановке до ответа финализация идёт по накопленным данным и не зависит от остатка лимита исследовательских вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §2, §3: две фазы внутри существующего исполнения — исследование tool-раундами, финал существующим `llm.generate`; при готовом ответе `finalize_mode=\"\"` и 0 дополнительных вызовов; `_finish_degraded` не зависит от остатка исследовательского лимита. RED на 8fc8b534 — деградация вместо финала; GREEN на cffc9fb2 — `finalize_mode=llm` / `structured_partial`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00844",
@@ -16725,8 +17352,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00846",
@@ -16740,8 +17386,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00847",
@@ -16755,8 +17420,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00848",
@@ -16770,8 +17454,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00849",
@@ -16785,8 +17488,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00850",
@@ -16800,8 +17522,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00851",
@@ -16815,8 +17556,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00852",
@@ -16830,8 +17590,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00853",
@@ -16845,8 +17624,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00854",
@@ -16860,8 +17658,27 @@
       "acceptance": "При любом исходе сохраняются исходный запрос и контекст, диагностические факты, успешные и частичные tool results, provenance, подтверждённые ошибки источников, непроверенные области и причина остановки; отказ одного источника не обнуляет исследование; возврат только последнего текста модели без результата работы и перевод техошибки в 'задайте простой вопрос' отсутствуют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: исходные сообщения, успешные и частичные tool-результаты, provenance, подтверждённые отказы и непроверенные области входят в финальный payload; отказ одного источника не обнуляет run; `partial_text` не подменяет финал при наличии tool-результатов.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00862",
@@ -16875,8 +17692,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00866",
@@ -16890,8 +17726,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00867",
@@ -16905,8 +17760,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00868",
@@ -16920,8 +17794,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00869",
@@ -16935,8 +17828,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00873",
@@ -16950,8 +17862,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00874",
@@ -16965,8 +17896,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00875",
@@ -16980,8 +17930,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00876",
@@ -16995,8 +17964,27 @@
       "acceptance": "Нормальное завершение использует evidence и не заявляет непроверенное; деградировавшее даёт содержательный ответ по доступным данным, честно обозначает неудачные источники, отделяет выводы от гипотез и не скрывает частичность; при недоступном финальном LLM-вызове используется безопасный структурированный partial; саркастичная заглушка вместо отчёта не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: нормальный финал по evidence без повторных инструментов; при недоступном/пустом LLM — детерминированный структурный partial с причиной, отказами и непроверенным; `TOOL_LOOP_FALLBACK_PHRASE` только когда данных нет вовсе.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00884",
@@ -17010,8 +17998,27 @@
       "acceptance": "Используются структурированные коды ошибок; при retryable=false маршрут не повторяется без изменения условий; одинаковый инфраструктурный отказ не воспроизводится бесконечно; при наличии безопасной альтернативы она используется, иначе часть исследования завершается, а работа продолжается на доступном evidence; новой системы анализа ошибок по строкам пользовательского текста нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "review-g-9b83863b.md — независимый Reviewer Approved для S7-FINALIZE (кандидат cffc9fb2)",
+          "observation": "Independent Reviewer Approved на точном кандидате cffc9fb2 (docs 9b83863b): один общий chat_with_tools; финализация существующим llm.generate без tools; структурный partial при недоступном/пустом LLM; подавление маршрута по структурному `tool|host`, не по тексту пользователя; 17 G-тестов, мутация A 8/17 red и мутация B 4/17 red с восстановлением в 17/17; независимый вброс Reviewer'а на точном кандидате совпал с регенерированным JSONL (router_calls=1, denied/route_terminal). Это review-stage доказательство, не production: реальные provider-ответы и Telegram-путь остаются postdeploy UNVERIFIED, DONE не заявлен.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+          "artifact_sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+          "ref": "binding-g-cffc9fb2.md",
+          "observation": "§1, §3: терминальные `retryable=false` коды закрывают маршрут (включая tool-scoped `disabled`/`unknown_tool`/`provider_unconfigured`), транзиентные `retryable=true` и `extract_failed` — нет; маршрут идентифицируется структурно по `tool|host`, другой хост/URL диспатчится. RED на 8fc8b534 — повторные 2 вызова; GREEN — router_calls=1, `denied/route_terminal`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+          "artifact_sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+        }
+      ]
     },
     {
       "source_id": "L00902",
@@ -18671,12 +19678,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "L01142",
@@ -18686,12 +19712,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "L01143",
@@ -18701,12 +19746,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "L01144",
@@ -18716,12 +19780,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "L01145",
@@ -18731,12 +19814,31 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SXR-I4-01",
-      "slice": "S10-LEARNING-INCIDENTS",
+      "slice": "S9-EVENT-PIPELINE",
       "acceptance": "Найдены реальные producer reason codes и восстановлена согласованность существующего реестра mca_events; подтверждены канонический код события, сохранение диагностического смысла, правильная классификация и отсутствие утечки секретов/произвольного payload; штатный skip отличается от failure.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "review-i4-4bf11400.md — независимый Reviewer Approved для I4 (SXR-I4-01/02, кандидат 4bf11400)",
+          "observation": "Independent Reviewer Approved на точном кандидате 4bf11400 (docs 42ce5675): единственный AST-реестр `REASON_CODES` расширен 341→357, 8 прод-маркеров независимо пересчитаны `sha256(code)[:8]`, `build_event()`/WARN-путь не изменены, второго реестра и утечек нет; 32 новых теста, 80 passed + 2 pre-existing, мутация 3/29 red с восстановлением, RED на базе 22 failed / 10 passed. Это review-stage доказательство: деплоя не было, production не проверялся.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+          "artifact_sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+          "ref": "binding-i4-4bf11400.md",
+          "observation": "§1–§3: 8/8 маркеров прод-recon §8 декодированы в реальные producer-коды и найдены в emit-сайтах; `reason_code` — сам канонический код без `unmapped:`; штатный skip остаётся `skipped`/WARN, реальный failed publish — `failed`.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+          "artifact_sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
+        }
+      ]
     },
     {
       "source_id": "L01149",
@@ -21074,7 +22176,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2.",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -21312,51 +22414,49 @@
     },
     "S9-EVENT-PIPELINE": {
       "slice": "S9-EVENT-PIPELINE",
-      "lane": "I2",
-      "stage": "I2",
+      "lane": "I4",
+      "stage": "I4",
       "covers_req_ids": [
-        "SXR-I2-01"
+        "SXR-I4-01",
+        "SXR-I4-02"
       ],
-      "scope_note": "Кандидат 9be4227e привязан только к SXR-I2-01 (13 строк карты). REVIEW-часть принята Reviewer; машинный статус READY_FOR_LIVE отражает оставшееся postdeploy-подтверждение (дренаж 2M, стоимость COUNT+MIN, событие), postrelease_wait одобрен Reviewer в review evidence. SXR-I1-01 (20 строк) остаётся READY_FOR_LIVE на собственном кандидате 76d60678 (binding сохранён в S9-EVENT-PIPELINE-I1). SXR-I1-02 (3 строки) и SXR-I2-02 (4 строки) остаются PENDING: отдельного candidate-bound вердикта по ним нет. Деплоя не было, эпик DONE не отмечен.",
-      "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
-      "code": "3a78f961d52abe2a532ba0e9d447d5f589c0f228",
-      "tests": "45bfe2a4060bc7e88f16790a43a3472a89d38049",
+      "scope_note": "Кандидат 4bf11400 привязан к SXR-I4-01 (8 строк) и SXR-I4-02 (3 запрета). Строки I4 переведены из S10-LEARNING-INCIDENTS в S9-EVENT-PIPELINE: plan.md (строка списка срезов: «S9-EVENT-PIPELINE | I1, I2, I4») и slice-graph.json (S9 = «Stage I1/I2/I4 … reason codes», S10 = «Stage I3/I5») прямо относят reason codes к S9, поэтому прежняя привязка строк I4 к S10 была ошибкой карты, а не решением. SXR-I1-01 остаётся READY_FOR_LIVE на 76d60678 (ключ S9-EVENT-PIPELINE-I1), SXR-I2-01 — READY_FOR_LIVE на 9be4227e (ключ S9-EVENT-PIPELINE-I2); SXR-I1-02 и SXR-I2-02 остаются PENDING. Это review-stage приёмка: production-наблюдение «после правки нет новых unmapped» необязательно и не блокирует (оба требования preprod, live_required=false). Деплоя не было.",
+      "candidate_commit": "4bf114007e1e9549609b2259403c89282e04b5aa",
+      "code": "4bf114007e1e9549609b2259403c89282e04b5aa",
+      "docs": "42ce567572e7cdd9d4c178defe30026c541df90b",
       "base": "d20a7f730715ba9e9cba7673c0557794979be339",
-      "branch": "smart/i2-stream",
-      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-c809ebc5",
+      "branch": "smart/i4-codes",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-4634be53",
       "review": {
-        "path": "plans/features/smart-execution-reliability-01/evidence/review-i2-9be4227e.md",
-        "sha256": "8c626cdefc12beb300b5d0484e66cc7c20b20c3fbdeac0171988f8f44bbfef61"
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-i4-4bf11400.md",
+        "sha256": "df17bd004502646f19a7b303670a80f76ac20fbb95b28aff370107618716d6a4"
       },
       "binding": {
-        "path": "plans/features/smart-execution-reliability-01/evidence/binding-i2-c5e63d9c.md",
-        "sha256": "9ea5e5478b47d291d4c6a945c217608dcbc2dc95141f76dd8f4edf85f26732af"
+        "path": "plans/features/smart-execution-reliability-01/evidence/binding-i4-4bf11400.md",
+        "sha256": "a62985961848309a20474607e296afb34b753832869807d9dc378aa6a019229e"
       },
-      "test_runs": {
-        "contract": 17,
-        "with_webapp_api": 29,
-        "plus_contract_legacy_webapp_api": 59,
-        "broad_14_files": "219 passed + 1 pre-existing (mca16)",
-        "red_on_637c7f31": "2 failed / 2 passed",
-        "red_on_base_d20a7f73": "11 failed (исходный объём I2)",
-        "mutation_none_to_zero": "2 failed / 2 passed; restore -> 4 passed"
+      "tests": {
+        "i4_new_file": 32,
+        "five_length_pin_files": "80 passed, 2 pre-existing failed",
+        "mca13_event_contract": 27,
+        "mca17_perimeter_events": 20,
+        "red_on_base_d20a7f73": "22 failed / 10 passed",
+        "mutation_remove_fresh_stream_lag": "3 failed / 29 passed; restore -> 32 passed",
+        "builder_cross_sets_not_rerun_by_reviewer": "356+1 и 1313 (сервер рестартовал длинные прогоны; focused-проверки выполнены)"
       },
       "covered": [
-        "причина отставания доказана: ровно один батч (≤50 строк) за прогон при поступлении выше потолка дренажа",
-        "multi-batch дренаж до batch/wall-clock бюджета; checkpoint после каждого батча и heartbeat",
-        "lag_rows = COUNT-дистанция после курсора; pending_rows отдельно; измеренный ноль отличим от неизвестности",
-        "lag_seconds из того же замера (COUNT+MIN timestamp); lag_seconds_source в снимке, diagnostics и API",
-        "consumers сохраняют None (не превращают неизвестность в 0): _latest_job_async, memory_intel_funnels, _learning_analytics",
-        "порог warning 500 и курсор не перематывались; массовый перепроцессинг не запускался"
+        "8/8 прод-маркеров unmapped декодированы в реальные producer-коды и подтверждены в emit-сайтах",
+        "новые коды дают канонический reason_code без префикса unmapped:",
+        "штатный skip не превращён в failure; реальный failed publish остаётся failed",
+        "второй реестр кодов не создан; WARN unmapped сохранён, сырое значение не утекает"
       ],
       "partial": [
-        "замер ограничен ≤16 худшими чатами, при большем числе lag_partial=True — число не выдаётся за полное",
-        "crash-safe повтор опирается на существующий recover_stale watchdog 60с, отдельного механизма не добавлялось"
+        "production-наблюдение «после правки нет новых unmapped» необязательно (preprod-требования)",
+        "backlog-коды graphrag_rebuild/mca_vision/memory_communities намеренно не добавлены — отдельное решение PM"
       ],
       "not_covered": [
-        "production-дренаж 2 059 418 строк после деплоя и сходимость backlog",
-        "стоимость COUNT(*)+MIN(timestamp) на реальном 2.8 ГБ файле, отсутствие роста database is locked/нагрузки",
-        "событие experience.fresh_stream_lag на deployed SHA и effective defaults (batches=12, budget=180, threshold=500, budgets off)"
+        "реальный production-прогон на deployed SHA — деплоя не было",
+        "деплой, схема БД, настройки, соседние подсистемы не менялись"
       ],
       "ddl_changes": 0,
       "deployed": false
@@ -21483,6 +22583,109 @@
         "production effective values (env/hot CHAT_UNKNOWN_MODEL_WINDOW, CHAT_MODEL_CONTEXT_WINDOW, models.chat_context_window_override, слоты, fallback model/base_url, kill-switch'и)",
         "реальный context-overflow от провайдера: один recovery/recompose-цикл, сохранение tool evidence, события/метрики; _PROVEN_LIMITS сбрасывается рестартом",
         "L1 fallback для catalog-only маленькой модели и реальный fallback-recompose — только после деплоя"
+      ],
+      "ddl_changes": 0,
+      "deployed": false
+    },
+    "S9-EVENT-PIPELINE-I2": {
+      "slice": "S9-EVENT-PIPELINE",
+      "lane": "I2",
+      "stage": "I2",
+      "covers_req_ids": [
+        "SXR-I2-01"
+      ],
+      "scope_note": "Сохранённая привязка I2 (кандидат 9be4227e): SXR-I2-01 (13 строк) — READY_FOR_LIVE с postrelease_wait, одобренным Reviewer. Основной ключ S9-EVENT-PIPELINE перепривязан на I4 (4bf11400), потому что срез S9 по plan.md §«S9-EVENT-PIPELINE | I1, I2, I4» и slice-graph покрывает три этапа; I1 остаётся в S9-EVENT-PIPELINE-I1. Строки SXR-I2-01 этим перепривязыванием не менялись. Деплоя не было.",
+      "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+      "code": "3a78f961d52abe2a532ba0e9d447d5f589c0f228",
+      "tests": "45bfe2a4060bc7e88f16790a43a3472a89d38049",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "smart/i2-stream",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-c809ebc5",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-i2-9be4227e.md",
+        "sha256": "8c626cdefc12beb300b5d0484e66cc7c20b20c3fbdeac0171988f8f44bbfef61"
+      },
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/binding-i2-c5e63d9c.md",
+        "sha256": "9ea5e5478b47d291d4c6a945c217608dcbc2dc95141f76dd8f4edf85f26732af"
+      },
+      "test_runs": {
+        "contract": 17,
+        "with_webapp_api": 29,
+        "plus_contract_legacy_webapp_api": 59,
+        "broad_14_files": "219 passed + 1 pre-existing (mca16)",
+        "red_on_637c7f31": "2 failed / 2 passed",
+        "red_on_base_d20a7f73": "11 failed (исходный объём I2)",
+        "mutation_none_to_zero": "2 failed / 2 passed; restore -> 4 passed"
+      },
+      "covered": [
+        "причина отставания доказана: ровно один батч (≤50 строк) за прогон при поступлении выше потолка дренажа",
+        "multi-batch дренаж до batch/wall-clock бюджета; checkpoint после каждого батча и heartbeat",
+        "lag_rows = COUNT-дистанция после курсора; pending_rows отдельно; измеренный ноль отличим от неизвестности",
+        "lag_seconds из того же замера (COUNT+MIN timestamp); lag_seconds_source в снимке, diagnostics и API",
+        "consumers сохраняют None (не превращают неизвестность в 0): _latest_job_async, memory_intel_funnels, _learning_analytics",
+        "порог warning 500 и курсор не перематывались; массовый перепроцессинг не запускался"
+      ],
+      "partial": [
+        "замер ограничен ≤16 худшими чатами, при большем числе lag_partial=True — число не выдаётся за полное",
+        "crash-safe повтор опирается на существующий recover_stale watchdog 60с, отдельного механизма не добавлялось"
+      ],
+      "not_covered": [
+        "production-дренаж 2 059 418 строк после деплоя и сходимость backlog",
+        "стоимость COUNT(*)+MIN(timestamp) на реальном 2.8 ГБ файле, отсутствие роста database is locked/нагрузки",
+        "событие experience.fresh_stream_lag на deployed SHA и effective defaults (batches=12, budget=180, threshold=500, budgets off)"
+      ],
+      "ddl_changes": 0,
+      "deployed": false
+    },
+    "S7-FINALIZE": {
+      "slice": "S7-FINALIZE",
+      "lane": "G",
+      "stage": "G",
+      "covers_req_ids": [
+        "SXR-G1-01",
+        "SXR-G2-01",
+        "SXR-G3-01",
+        "SXR-G4-01",
+        "SXR-G5-01"
+      ],
+      "scope_note": "Кандидат cffc9fb2 покрывает все 5 обязательных требований среза S7 (47 строк карты: 24 инвентарных + 23 prose additional_requirements). Reviewer Approved (review-g-9b83863b.md), RED на 8fc8b534, GREEN 17/17, мутации A и B 8/17 и 4/17 red с восстановлением. Это review-stage приёмка: реальные provider-ответы и Telegram-путь остаются postdeploy, эпик не DONE, деплоя не было. Map-level candidate_commit намеренно пуст (мульти-лейновый эпик) — scoped review/deploy разрешает кандидата через этот slice-binding, как уже сделано для S4-CAPACITY и S9-EVENT-PIPELINE. Артефакт review-g-9b83863b.md — однострочная транскрипция вердикта с литералами `n; сохранён побайтно из кандидатного worktree, содержание не редактировалось.",
+      "candidate_commit": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+      "code": "cffc9fb29bf7817bcf6658d0a758332f5b1021bb",
+      "docs": "9b83863b64d3d607d24f7761d561e219cd78d65e",
+      "base": "8fc8b534ebb993fca29fc2f86b7aef2d95796660",
+      "branch": "smart/g-finalize",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/SMART-EXECUTION-RELIABILITY-01-92d1db8aefb1-ff384255",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-g-9b83863b.md",
+        "sha256": "fb1a1f6679ca39a1fb1f5ccebb8156adf6a591a6f96714f5dcaae8c7d766f075"
+      },
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/binding-g-cffc9fb2.md",
+        "sha256": "b7fea53caf588d34ea62e1798e60678735be55f746e5fe59678b1ac1931c571b"
+      },
+      "tests": {
+        "g_suite": 17,
+        "focused": "435 passed, 2 pre-existing failed",
+        "tool_loop_44_files": "1574 passed, 14 failed (те же 14 на базе 8fc8b534)",
+        "prompt_audit": "23 passed, 3 pre-existing failed",
+        "mutations": "A: 8/17 red -> 17/17; B: 4/17 red -> 17/17"
+      },
+      "covered": [
+        "один общий путь chat_with_tools: финализация существующим llm.generate без tools, один вызов",
+        "при готовом ответе модели дополнительный вызов не выполняется",
+        "финал не зависит от остатка исследовательского лимита и не подменяется саркастичной заглушкой при данных",
+        "структурный partial при недоступном/пустом LLM с причиной, отказами, provenance и непроверенным",
+        "терминальные retryable=false коды закрывают маршрут по структурному tool|host; транзиентные и extract_failed — нет",
+        "EVOL-018: блок direct.tool_finalize в реестре (113 блоков, factory hash 5c9b8200b681)"
+      ],
+      "partial": [
+        "реальные provider-endpoint'ы и Telegram-путь не проверялись — нужен деплой",
+        "пре-существующие падения вне пути G (bounds round1026, asap32, image_generation, unified_image и др.) не чинились"
+      ],
+      "not_covered": [
+        "production effective config (MCA_TOOL_MAX_*), реальные ответы провайдеров и Telegram-сценарий",
+        "деплой/прод/схема/каталог не менялись"
       ],
       "ddl_changes": 0,
       "deployed": false

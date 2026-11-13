@@ -1,0 +1,23 @@
+﻿diff --git a/services/tool_loop.py b/services/tool_loop.py
+index b228e6ba..59748d55 100644
+--- a/services/tool_loop.py
++++ b/services/tool_loop.py
+@@ -1305,6 +1305,18 @@ async def chat_with_tools(llm, messages: list[dict], *,
+         items = _evidence_inventory(tool_results, tool_context_parts)
+         text = ""
+         mode = ""
++        # MUTATION A (review blocker): ╨┐╤А╨╕╨╜╤Г╨┤╨╕╤В╨╡╨╗╤М╨╜╨╛ ╨▓╨╡╤А╨╜╤Г╤В╤М ╤Б╨░╤А╨║╨░╤Б╤В╨╕╤З╨╜╤Г╤О
++        # ╨╖╨░╨│╨╗╤Г╤И╨║╤Г ╨┐╤А╨╕ ╨╜╨░╨╗╨╕╤З╨╕╨╕ ╨┤╨░╨╜╨╜╤Л╤Е, ╨╝╨╕╨╜╤Г╤П ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Г╤О ╤Д╨░╨╖╤Г.
++        if items:
++            text = TOOL_LOOP_FALLBACK_PHRASE
++            mode = "fallback_phrase"
++            _log_degraded(reason, llm_rounds, tool_trace, text,
++                          limits=limits, finalize_mode=mode)
++            return ToolLoopResult(
++                text, rounds_used=llm_rounds, degraded=True, reason=reason,
++                tool_trace=tool_trace,
++                tool_context="\n".join(tool_context_parts),
++                tool_results=tool_results, finalize_mode=mode)
+         if items:
+             finalize_error = "llm_error"
+             if allow_llm:

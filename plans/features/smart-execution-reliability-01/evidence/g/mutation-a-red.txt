@@ -1,0 +1,14 @@
+﻿WARNING  services.mca_events:mca_events.py:704 mca_event=tool_call | ts=1794594484 | event_name=tool_call | outcome=skipped | level=WARN | component=tools | stage=execute | status=denied | chat_id=-1001234567890 | duration_ms=0 | attempt=0 | entity_ids={"tool": "fetch_article", "args_fingerprint": "869d26fb94bf1061"} | reason_code=tool_step_limit
+WARNING  services.tool_loop:tool_loop.py:1550 [tools] provider rejected tools тАФ plain answer | error=research broke
+WARNING  services.tool_loop:tool_loop.py:1592 [tools] plain fallback failed with evidence | error=LLMError
+WARNING  services.tool_loop:tool_loop.py:376 [tools] degraded | reason=llm_error | rounds_used=0 | calls=1 | budgets_on=True | tools=execute_web_search | partial_chars=87 | finalize=fallback_phrase
+=========================== short test summary info ===========================
+FAILED tests/test_smart_g_finalize_round1114.py::TestFinalizationContract::test_stop_with_evidence_finalizes_with_context
+FAILED tests/test_smart_g_finalize_round1114.py::TestFinalizationContract::test_one_failed_source_does_not_reset_research
+FAILED tests/test_smart_g_finalize_round1114.py::TestFinalizationContract::test_all_sources_failed_finalize_names_failures
+FAILED tests/test_smart_g_finalize_round1114.py::TestFinalizationContract::test_final_llm_unavailable_gives_structured_partial
+FAILED tests/test_smart_g_finalize_round1114.py::TestFinalizationContract::test_exhausted_research_counters_do_not_block_finalize
+FAILED tests/test_smart_g_finalize_round1114.py::TestConsumersShareContract::test_checkup_research_stop_returns_finalized_text
+FAILED tests/test_smart_g_finalize_round1114.py::TestConsumersShareContract::test_factcheck_tool_path_uses_same_finalization
+FAILED tests/test_smart_g_finalize_round1114.py::TestPlanEvidenceCompleteness::test_policy_denied_plan_step_named_in_structured_partial
+8 failed, 9 passed in 3.56s

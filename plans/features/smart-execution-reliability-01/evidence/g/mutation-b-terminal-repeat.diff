@@ -1,0 +1,13 @@
+﻿diff --git a/services/tool_loop.py b/services/tool_loop.py
+index b228e6ba..74fb5f50 100644
+--- a/services/tool_loop.py
++++ b/services/tool_loop.py
+@@ -616,6 +616,8 @@ def _terminal_route_of(name: str, info) -> str:
+     ╨╖╨░╨║╤А╤Л╨▓╨░╨╡╤В: ╨┤╤А╤Г╨│╨╛╨╣ ╨┐╤Г╤В╤М ╨╜╨░ ╤В╨╛╨╝ ╨╢╨╡ ╤Е╨╛╤Б╤В╨╡ ╨╝╨╛╨╢╨╡╤В ╨▒╤Л╤В╤М ╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜.
+     ``retryable=true`` (╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜) ╨╝╨░╤А╤И╤А╤Г╤В ╨Э╨Х ╨╖╨░╨║╤А╤Л╨▓╨░╨╡╤В:
+     ╤В╤А╨░╨╜╨╖╨╕╨╡╨╜╤В╨╜╤Л╨╣ ╨╛╤В╨║╨░╨╖ ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╤В╤Б╤П ╨▓ ╨┐╤А╨╡╨┤╨╡╨╗╨░╤Е ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╕ ╤А╨╡╤В╤А╨░╨╡╨▓ (┬зG5)."""
++    # MUTATION B (review blocker): ╤А╨░╨╖╤А╨╡╤И╨╕╤В╤М ╨┐╨╛╨▓╤В╨╛╤А ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗╤М╨╜╨╛╨│╨╛ ╨╝╨░╤А╤И╤А╤Г╤В╨░.
++    return ""
+     if not isinstance(info, dict):
+         return ""
+     if info.get("retryable"):

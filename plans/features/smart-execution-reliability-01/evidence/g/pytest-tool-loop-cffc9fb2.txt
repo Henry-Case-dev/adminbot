@@ -1,0 +1,18 @@
+﻿
+tests\test_unified_image_request_round1026.py:703: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_recomposed_under_fallback_budget_tools_kept
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_no_adapter_primary_sized_payload_fallback
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateChatRecompose::test_chat_adapter_failure_loud_oversized_diagnostic
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_error_loud_and_payload_intact
+FAILED tests/test_direct_fallback_recompose_asap32.py::TestGenerateStrengthenedDiagnostics::test_generate_adapter_invalid_shape_loud
+FAILED tests/test_er65_sent_segment_snapshot.py::test_snapshot_regenerates_byte_stable_from_code
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_generate_image_is_ninth
+FAILED tests/test_image_generation_round1023.py::TestToolSchema::test_active_tools_gate
+FAILED tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools
+FAILED tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+FAILED tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+14 failed, 1574 passed in 192.52s (0:03:12)

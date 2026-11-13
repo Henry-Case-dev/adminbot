@@ -1,0 +1,12 @@
+﻿------------------------------ Captured log call ------------------------------
+WARNING  services.worker_settings:worker_settings.py:95 [settings] chat layer unavailable тАФ source=error | key=flags.budgets_enabled | chat=-1001234567890
+WARNING  services.budget_gate:budget_gate.py:168 [budget_gate] chat layer unavailable тАФ global value used | chat=-1001234567890 | enabled=True | source=default
+WARNING  services.mca_events:mca_events.py:704 mca_event=tool_call | ts=1794594515 | event_name=tool_call | outcome=failed | level=WARN | component=tools | stage=execute | status=error | chat_id=-1001234567890 | duration_ms=0 | attempt=1 | entity_ids={"tool": "fetch_article", "args_fingerprint": "0d9086fd37ce5c4e"} | reason_code=destination_blocked
+WARNING  services.mca_events:mca_events.py:704 mca_event=tool_call | ts=1794594515 | event_name=tool_call | outcome=failed | level=WARN | component=tools | stage=execute | status=error | chat_id=-1001234567890 | duration_ms=0 | attempt=1 | entity_ids={"tool": "fetch_article", "args_fingerprint": "48b8a71b75e9bc8e"} | reason_code=destination_blocked
+WARNING  services.mca_events:mca_events.py:704 mca_event=tool_call | ts=1794594515 | event_name=tool_call | outcome=failed | level=WARN | component=tools | stage=execute | status=error | chat_id=-1001234567890 | duration_ms=0 | attempt=1 | entity_ids={"tool": "fetch_article", "args_fingerprint": "751458822b65773d"} | reason_code=destination_blocked
+=========================== short test summary info ===========================
+FAILED tests/test_smart_g_finalize_round1114.py::TestTerminalRoutes::test_disabled_tool_is_terminal_tool_wide
+FAILED tests/test_smart_g_finalize_round1114.py::TestTerminalRoutes::test_route_host_from_verified_url
+FAILED tests/test_smart_g_finalize_round1114.py::TestTerminalRoutes::test_single_provider_route_is_tool_wide
+FAILED tests/test_smart_g_finalize_round1114.py::TestTerminalRoutes::test_other_query_to_blocked_host_not_dispatched
+4 failed, 13 passed in 3.40s
