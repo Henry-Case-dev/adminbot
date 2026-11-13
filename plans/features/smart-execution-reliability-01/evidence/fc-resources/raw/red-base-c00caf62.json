@@ -1,0 +1,148 @@
+{
+ "total": 14,
+ "passed": 0,
+ "failed": [
+  {
+   "check": "factory_base_seconds_120",
+   "ok": false,
+   "detail": "10.0"
+  },
+  {
+   "check": "factory_max_seconds_600",
+   "ok": false,
+   "detail": "45.0"
+  },
+  {
+   "check": "factory_refine_24",
+   "ok": false,
+   "detail": "3"
+  },
+  {
+   "check": "factory_total_queries_64",
+   "ok": false,
+   "detail": "12"
+  },
+  {
+   "check": "factory_search_chars_100k",
+   "ok": false,
+   "detail": "8000"
+  },
+  {
+   "check": "old_claim_hard_cap_removed",
+   "ok": false,
+   "detail": "True"
+  },
+  {
+   "check": "claim_units_40_tail_kept",
+   "ok": false,
+   "detail": "16"
+  },
+  {
+   "check": "temporal_parts_40_tail_kept",
+   "ok": false,
+   "detail": "8"
+  },
+  {
+   "check": "temporal_queries_no_cap_2",
+   "ok": false,
+   "detail": "2"
+  },
+  {
+   "check": "factcheck_limits_factory_contract",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "off_limits_have_no_caps",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "page_size_more_than_old_4",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "off_no_query_cap_64",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "off_no_char_budget",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  }
+ ],
+ "results": [
+  {
+   "check": "factory_base_seconds_120",
+   "ok": false,
+   "detail": "10.0"
+  },
+  {
+   "check": "factory_max_seconds_600",
+   "ok": false,
+   "detail": "45.0"
+  },
+  {
+   "check": "factory_refine_24",
+   "ok": false,
+   "detail": "3"
+  },
+  {
+   "check": "factory_total_queries_64",
+   "ok": false,
+   "detail": "12"
+  },
+  {
+   "check": "factory_search_chars_100k",
+   "ok": false,
+   "detail": "8000"
+  },
+  {
+   "check": "old_claim_hard_cap_removed",
+   "ok": false,
+   "detail": "True"
+  },
+  {
+   "check": "claim_units_40_tail_kept",
+   "ok": false,
+   "detail": "16"
+  },
+  {
+   "check": "temporal_parts_40_tail_kept",
+   "ok": false,
+   "detail": "8"
+  },
+  {
+   "check": "temporal_queries_no_cap_2",
+   "ok": false,
+   "detail": "2"
+  },
+  {
+   "check": "factcheck_limits_factory_contract",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "off_limits_have_no_caps",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "page_size_more_than_old_4",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "off_no_query_cap_64",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  },
+  {
+   "check": "off_no_char_budget",
+   "ok": false,
+   "detail": "AttributeError: module 'services.factcheck_planner' has no attribute 'FactcheckLimits'"
+  }
+ ]
+}

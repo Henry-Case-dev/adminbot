@@ -1,0 +1,22 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+________ test_on_page_size_20_and_smaller_provider_results_used_as_is _________
+
+    @pytest.mark.asyncio
+    async def test_on_page_size_20_and_smaller_provider_results_used_as_is():
+        # 30 ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨╛╨▓ ╨▓ ╨▓╤Л╨┤╨░╤З╨╡; ╤Б╤В╤А╨░╨╜╨╕╤Ж╨░ 20 тЖТ ╨▒╨╡╤А╤С╨╝ 20, ╨╜╨╡ ┬л╤А╨╛╨▓╨╜╨╛ 20┬╗ ╨╕ ╨╜╨╡ 4.
+        blocks = "\n\n".join(
+            f"╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╨▒╨╗╨╛╨║ {i}\n"
+            f"https://example.org/{i}" for i in range(1, 31))
+        agg = _Agg(blocks)
+        outcome = await fsp.run_retrieval(
+            _plan(1), aggregator=agg, limits=_on_limits())
+>       assert outcome.refs_collected == 20   # 20 ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨╛╨▓ ╨╜╨░ ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Г
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 12 == 20
+E        +  where 12 = RetrievalOutcome(evidence_map=EvidenceMap(refs=(EvidenceRef(evidence_id='ev-1', url='https://example.org/1', support='...1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╨▒╨╗╨╛╨║ 30\nhttps://example.org/30',), search_text_total_chars=2020, search_text_truncated=False).refs_collected
+
+tests\test_factcheck_resources.py:169: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_resources.py::test_on_page_size_20_and_smaller_provider_results_used_as_is
+1 failed in 2.92s

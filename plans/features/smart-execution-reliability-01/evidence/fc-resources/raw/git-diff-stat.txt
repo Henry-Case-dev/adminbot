@@ -1,0 +1,5 @@
+ services/factcheck_planner.py     | 825 +++++++++++++++++++++++++++++---------
+ services/temporal_factcheck.py    |  71 +++-
+ tests/test_factcheck_fc_r1_fix.py |   6 +-
+ tests/test_factcheck_resources.py | 508 +++++++++++++++++++++++
+ 4 files changed, 1204 insertions(+), 206 deletions(-)
