@@ -136,6 +136,12 @@ async def _latest_job_async(db, kind: str) -> dict | None:
                 "backlog_chats": int(progress.get("backlog_chats") or 0),
                 "lag_seconds": int(progress.get("lag_seconds") or 0),
                 "deferred_chats": int(progress.get("deferred_chats") or 0),
+                # SXR-I2: измеренное расстояние курсора до данных отдельно от
+                # счётчика pending (иначе реальное отставание скрыто).
+                "lag_rows": int(progress.get("lag_rows") or 0),
+                "lag_chats": int(progress.get("lag_chats") or 0),
+                "pending_rows": int(progress.get("pending_rows") or 0),
+                "lag_source": str(progress.get("lag_source") or "pending"),
             }
     return out
 
@@ -324,6 +330,10 @@ async def memory_intel_funnels(
                 "max_message_id": await _max_smart_message_id(db),
                 "pending": int((review_job or {}).get(
                     "semantic_pending") or 0),
+                # SXR-I2: измеренное расстояние курсора до данных (не
+                # счётчик pending) — реальное отставание fresh-потока.
+                "lag_rows": int(((review_job or {}).get(
+                    "semantic_progress") or {}).get("lag_rows") or 0),
                 # EXP-FIX-02: пропускная способность/лаг дренажа бэклога.
                 "backlog_rows": int(((review_job or {}).get(
                     "semantic_progress") or {}).get("backlog_rows") or 0),

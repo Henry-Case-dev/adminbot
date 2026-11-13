@@ -1320,7 +1320,13 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
         state_counts[state] = state_counts.get(state, 0) + 1
     return {
         "fresh_lag": {
-            "lag_rows": _int(progress.get("backlog_rows")),
+            # SXR-I2: lag_rows — измеренное расстояние курсора до данных;
+            # legacy-снимок без замера честно падает на backlog (pending).
+            "lag_rows": _int(progress.get("lag_rows", progress.get(
+                "backlog_rows"))),
+            "pending_rows": _int(progress.get("pending_rows", progress.get(
+                "backlog_rows"))),
+            "lag_source": str(progress.get("lag_source") or "pending"),
             "actionable_rows": _int(progress.get("actionable_rows")),
             "lag_seconds": _int(progress.get("lag_seconds")),
             "max_observed_rows": _int(durable.get("fresh_stream_lag_rows")),
