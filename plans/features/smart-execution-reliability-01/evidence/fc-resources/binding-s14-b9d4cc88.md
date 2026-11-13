@@ -15,7 +15,7 @@ Evidence-коммиты после кода не меняют поведение
 |---|---|
 | `services/factcheck_planner.py` | `FactcheckLimits` + async/sync резолвер (master S1 → chat → global → default), новые заводские 120/600/24/64/100 000/20/32; OFF снимает бюджеты; run_retrieval исполняет по содержательным состояниям; 100k — порция без потери хвоста; снят cap 12 evidence refs и план больше не режется 12/64; 20 результатов на страницу |
 | `services/temporal_factcheck.py` | `decompose_claim` 32-частными порциями без хвоста (было 8); `search_queries_for` без скрытого cap 2 (ON — общий 64, OFF — без cap) |
-| `tests/test_factcheck_resources.py` | новый durable CONTRACT-набор, 19 тестов |
+| `tests/test_factcheck_resources.py` | новый durable CONTRACT-набор, 20 тестов |
 | `tests/test_factcheck_fc_r1_fix.py` | обновлена 1 старая ассерция, кодировавшая удалённый cap “2 запроса” (противоречила owner §6.4) |
 | `services/param_catalog.py` | **не менялся**: аудит показал, что `limits.factcheck_*` там не объявлены; новых admin-ключей/панелей не создано |
 
@@ -150,10 +150,10 @@ Evidence-коммиты после кода не меняют поведение
 
 ```
 pytest tests/test_factcheck_resources.py -q
-→ 19 passed in 2.99s
+→ 20 passed in 3.02s
 
 pytest <40 factcheck-related files> -q
-→ 820 passed, 2 failed, 4 errors in 43.20s
+→ 822 passed, 1 failed, 4 errors in 43.93s
 ```
 
 Те же 39 factcheck-файлов базы (без нового файла) на `c00caf62`:

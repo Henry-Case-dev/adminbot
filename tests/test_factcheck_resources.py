@@ -198,6 +198,11 @@ def test_claim_portion_32_keeps_tail_beyond_32():
     assert fsp._CLAIM_UNITS_PORTION == 32
 
 
+def test_short_text_is_not_padded_to_portion():
+    units = fsp.build_claim_units([], "Короткий факт подтверждён источником.")
+    assert len(units) == 1
+
+
 # ── 2. OFF-контракт: никакого скрытого enforcement ──────────────────────────
 
 @pytest.mark.asyncio

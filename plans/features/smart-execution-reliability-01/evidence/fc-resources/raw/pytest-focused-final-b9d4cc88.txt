@@ -1,27 +1,27 @@
 ........................................................................ [  8%]
 ........................................................................ [ 17%]
-F....................................................................... [ 26%]
+........................................................................ [ 26%]
 ........................................................................ [ 34%]
 ........................................................................ [ 43%]
 ........................................................................ [ 52%]
-........................................................................ [ 61%]
+........................................................................ [ 60%]
 ........................................................................ [ 69%]
 ........................................................................ [ 78%]
-........................E.....E...........EE............................ [ 87%]
-......................................................................F. [ 95%]
+.........................E.....E...........EE........................... [ 87%]
+.......................................................................F [ 95%]
 python.exe :
-строка:1 знак:283
-+ ... e"; cd $wt; & "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -X u ...
+строка:1 знак:337
++ ... ll; cd $wt; & "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -X u ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
 
 WARNING: closed 7 leaked aiosqlite connection(s)
-..................................                                       [100%]
+...................................                                      [100%]
 =================================== ERRORS ====================================
 _ ERROR at setup of TestScenario1ForwardedClaimWithLink.test_pipeline_runs_and_no_claim_pool_not_used _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002388B4283B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000205985D9F70>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -37,7 +37,7 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 tests\test_evol_fc_admission.py:171: AttributeError
 _ ERROR at setup of TestScenario5EmptyTarget.test_handler_honest_unavailable_without_invented_verdict _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002388B43C440>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000205985D9430>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -53,7 +53,7 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 tests\test_evol_fc_admission.py:171: AttributeError
 _ ERROR at setup of TestScenario8CooldownAndSingleFlight.test_retry_after_early_refusal_not_blocked _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002388B5DB680>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000205953FD670>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -69,7 +69,7 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 tests\test_evol_fc_admission.py:171: AttributeError
 _ ERROR at setup of TestScenario8CooldownAndSingleFlight.test_single_flight_and_antispam_preserved _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002388B5D8440>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000205953FD010>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -84,32 +84,9 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 
 tests\test_evol_fc_admission.py:171: AttributeError
 ================================== FAILURES ===================================
-_________ TestRelevanceCascade.test_all_irrelevant_is_honest_failure __________
-
-self = <tests.test_factcheck_fc_r1_fix.TestRelevanceCascade object at 0x0000023884D07470>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023885E904A0>
-
-    @pytest.mark.asyncio
-    async def test_all_irrelevant_is_honest_failure(self, monkeypatch):
-        agg = _make_relevance_aggregator(
-            monkeypatch,
-            {"results": [{"title": "╨С╨╛╤А╤Й", "content":
-                          "╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░ ╨║╨░╨┐╤Г╤Б╤В╨░ ╨║╨░╤Б╤В╤А╤О╨╗╤П",
-                          "url": "https://t.example/1"}]},
-            {"results": [{"title": "╨Я╨╛╨│╨╛╨┤╨░", "content":
-                          "╨╛╤Б╨░╨┤╨║╨╕ ╤В╨╡╨╝╨┐╨╡╤А╨░╤В╤Г╤А╨░ ╨▓╨╡╤В╨╡╤А ╨┐╤А╨╛╨│╨╜╨╛╨╖",
-                          "url": "https://e.example/1"}]})
-        terms = content_terms("╨▓╤Б╨┐╨╗╨╡╤Б╨║ ╤Е╨╛╨▒╨╗ ╨▓╨╡╨╣╨┐╨╡╤А╤Л ╨╗╤С╨│╨║╨╕╤Е", limit=10)
->       with pytest.raises(AllSearchEnginesFailedException):
-E       Failed: DID NOT RAISE AllSearchEnginesFailedException
-
-tests\test_factcheck_fc_r1_fix.py:223: Failed
------------------------------- Captured log call ------------------------------
-WARNING  services.search_aggregator:search_aggregator.py:813 SearchAggregator: level failed тЖТ fallback | provider=tavily | cause=irrelevant_results | error=irrelevant results (low query overlap)
-WARNING  services.search_aggregator:search_aggregator.py:813 SearchAggregator: level failed тЖТ fallback | provider=exa | cause=irrelevant_results | error=irrelevant results (low query overlap)
 ___ TestValidatorStage.test_evidence_injection_stays_data_not_instructions ____
 
-self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x0000023885377710>
+self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000002059243D9D0>
 
     @pytest.mark.asyncio
     async def test_evidence_injection_stays_data_not_instructions(self):
@@ -129,7 +106,7 @@ self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x0000023885
         assert v_user.count("<evidence>") == 1
         assert v_user.count("</evidence>") == 1
 >       assert "&lt;/evidence&gt;" in v_user
-E       assert '&lt;/evidence&gt;' in '<claim>╨▓ 2022 ╨│╨╛╨┤╤Г ╨▓╨▓╨╡╨╗╨╕ ╨╜╨╛╨▓╤Л╨╣ ╨╜╨░╨╗╨╛╨│</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 14.11.2026 03:12, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T22:12:02+00:00\n</Chat_Time_Context>'
+E       assert '&lt;/evidence&gt;' in '<claim>╨▓ 2022 ╨│╨╛╨┤╤Г ╨▓╨▓╨╡╨╗╨╕ ╨╜╨╛╨▓╤Л╨╣ ╨╜╨░╨╗╨╛╨│</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 14.11.2026 03:17, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T22:17:34+00:00\n</Chat_Time_Context>'
 
 tests\test_mca20_rework1_f1_f2.py:253: AssertionError
 ============================== warnings summary ===============================
@@ -141,10 +118,9 @@ tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_aft
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ===========================
-FAILED tests/test_factcheck_fc_r1_fix.py::TestRelevanceCascade::test_all_irrelevant_is_honest_failure
 FAILED tests/test_mca20_rework1_f1_f2.py::TestValidatorStage::test_evidence_injection_stays_data_not_instructions
 ERROR tests/test_evol_fc_admission.py::TestScenario1ForwardedClaimWithLink::test_pipeline_runs_and_no_claim_pool_not_used
 ERROR tests/test_evol_fc_admission.py::TestScenario5EmptyTarget::test_handler_honest_unavailable_without_invented_verdict
 ERROR tests/test_evol_fc_admission.py::TestScenario8CooldownAndSingleFlight::test_retry_after_early_refusal_not_blocked
 ERROR tests/test_evol_fc_admission.py::TestScenario8CooldownAndSingleFlight::test_single_flight_and_antispam_preserved
-2 failed, 820 passed, 3 warnings, 4 errors in 43.20s
+1 failed, 822 passed, 3 warnings, 4 errors in 43.93s
