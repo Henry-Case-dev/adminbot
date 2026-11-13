@@ -1,7 +1,7 @@
 # Addendum к binding C2/C3 — исправление review-блокера (whitespace only)
 
 - Предыдущий кандидат: `fa37e48522ce3522943442a6e378cc2dc36eb139`
-- Новый кандидат для повторного ревью: `0f6f703960722c55523df40a4e5e06758de77ead`
+- Новый кандидат для повторного ревью: `946bfc260ed6772469eb79fa311dee0b92f476c0`
 - Ветка: `smart/c-source`; база `36dd6b23` (C1) не менялась.
 - Вердикт Reviewer: `Needs Fixes` с единственным блокером — trailing whitespace в
   `git diff --check 36dd6b23 fa37e485`.
@@ -12,7 +12,7 @@
 |---|---|
 | `services/direct_context_composer.py` | CRLF → LF по всему файлу; trailing spaces/tabs удалены. Логика, лимиты, docstring-содержание и тесты не менялись. |
 | `plans/features/.../evidence/c2c3/*.txt`, `*.diff` | удалены trailing spaces (pytest-логи/мутационный diff), содержимое читаемо |
-| `plans/features/.../evidence/review-c2c3-fa37e485.md` | line endings + лишняя пустая строка в EOF; текст ревью не менялся |
+| `plans/features/.../evidence/review-c2c3-fa37e485.md` | line endings + лишняя пустая строка в EOF; текст ревью не менялся (включая финальное обновление `dd96aafd review-c2c3-update`) |
 
 Доказательство отсутствия поведенческих изменений:
 ```
@@ -31,6 +31,10 @@ python -m pytest tests/test_smart_exec_evidence.py \
 50 passed in 3.81s
 # evidence/c2c3/pytest-whitespace-fix-0f6f7039.txt
 ```
+
+Финальная нормализация также покрыла review-артефакт, обновлённый параллельным
+`dd96aafd review-c2c3-update`; содержание не менялось. Итоговый `HEAD`
+`946bfc26` — кандидат для повторного ревью.
 
 Focused 24 + C1 26 = 50 passed; поведение и все проверки предыдущего кандидата
 сохранены. Мутационное доказательство `fa37e485` остаётся действительным: файлы
