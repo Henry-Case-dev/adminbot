@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T11:12:15+12:00",
+  "updated": "2026-11-13T14:39:17+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -834,7 +834,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); next executable slice is VMQ-MEM-NEXT; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T11:12:15+12:00",
+      "updated": "2026-11-13T14:39:17+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13 (PM bookkeeping after evidence): production 2.58.198 @ 23477658 (schema 47, DDL 0). VMQ map commit dc655e51: 70 mandatory rows - 1 VERIFIED (VMQ-GROUNDS-01), 2 REVIEW (NEXT-03 controlled-only, NEXT-05 timings), 1 FAILED (NEXT-02 2026 share 61.63/61.84 vs <=58.1, corrected contract in progress), 66 PENDING (incl. NEXT-01, NEXT-04, V-01..V-04). No new VERIFIED.",
+      "queue_note": "2026-11-13: owner chose natural retrieval + quality metric; no 2026 cap/year quotas/forced displacement; real FTS fix kept; no large retrieval refactor. NEXT-02 remains FAILED until the quality review; NEXT-05 timings pass; NEXT-03 controlled positive; NEXT-04 PENDING; Architect quality contract in progress.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -4428,6 +4428,17 @@
       "reconciled": true,
       "note": "Owner decision: apply the new Epic Closure Protocol + Stage-Correct Acceptance to self-diag-01 and all later epics; REVIEW with independent approval passes before deploy; natural/voluntary waits never block; no extra acceptance stages.",
       "recorded_in": "plans/workflow_state.md"
+    },
+    {
+      "id": "OI-2026-11-13-VMQ-NEXT02-QUALITY",
+      "source_path": "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md",
+      "source_sha256": "D730045387FE77CDDB12D8F185A91206B9F1577D8826C0CB2111EF4B06A0A2F1",
+      "kind": "decision",
+      "target_task_ids": [
+        "vmq-onto-01"
+      ],
+      "reconciled": false,
+      "note": "Owner chooses natural retrieval + quality metric: forbids an artificial 2026 cap, year quotas, forced displacement of fresh relevant facts; keeps the real FTS fix; no large retrieval refactor or new mechanisms for the metric; 17-question sample is too small; Architect revises the contract, Reviewer verifies quality, finish the epic if no real mandatory defects remain."
     }
   ],
   "source_inventory": {
