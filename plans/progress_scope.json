@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T00:16:56+12:00",
+  "updated": "2026-11-14T00:17:32+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1867,7 +1867,10 @@
       "source_note": "plans/current_task.md lines 11750-13308 (owner-authored). Stages A-M: budgets/tool-loop/evidence, model capacity, local-first own code, GitHub SafeFetch, finalization, SELF-DIAG H, production defects I1-I6, anti-hardcode J, acceptance L, order/DoD M. One epic; no duplicate correctives.",
       "queue_note": "2026-11-14: owner priority. Intake captured; PM mapping + Architect contract running. Production base 2.58.199 @ d20a7f73 (identity verified, journal restored). Nothing implemented yet.",
       "created": "2026-11-14T00:16:56+12:00",
-      "updated": "2026-11-14T00:16:56+12:00"
+      "updated": "2026-11-14T00:17:32+12:00",
+      "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
+      "source_sha256": "32ef8c8289cf3f66e8949048a449178223cc0f058c3701e60cda72f8a60ecaf1",
+      "source_line": "plans/current_task.md:11750-13308"
     }
   ],
   "owner_inputs": [
@@ -4475,8 +4478,19 @@
       "target_task_ids": [
         "vmq-onto-01"
       ],
-      "reconciled": false,
-      "note": "Owner chooses natural retrieval + quality metric: forbids an artificial 2026 cap, year quotas, forced displacement of fresh relevant facts; keeps the real FTS fix; no large retrieval refactor or new mechanisms for the metric; 17-question sample is too small; Architect revises the contract, Reviewer verifies quality, finish the epic if no real mandatory defects remain."
+      "reconciled": true,
+      "note": "Owner chooses natural retrieval + quality metric: forbids an artificial 2026 cap, year quotas, forced displacement of fresh relevant facts; keeps the real FTS fix; no large retrieval refactor or new mechanisms for the metric; 17-question sample is too small; Architect revises the contract, Reviewer verifies quality, finish the epic if no real mandatory defects remain. | Reconciled 2026-11-14: metric contract implemented as REVIEW rows NEXT-02/NEXT-05 at 96c8bc72; NEXT-04 remains PENDING under the same clause (archive lacks a positive lexical case).",
+      "coverage_refs": [
+        {
+          "task_id": "vmq-onto-01",
+          "map": "plans/features/vmq-onto-01/requirements-map.json",
+          "req_ids": [
+            "VMQ-NEXT-02",
+            "VMQ-NEXT-05",
+            "VMQ-NEXT-04"
+          ]
+        }
+      ]
     },
     {
       "id": "OI-2026-11-13-SELFDIG-CORRECTIVE",
