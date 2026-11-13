@@ -1,0 +1,27 @@
+global k=2 => [{'rowid': 5, 'fact_id': 5, 'distance': 0.0}, {'rowid': 4, 'fact_id': 4, 'distance': 0.0}]
+rowid IN literal chat1 => [{'rowid': 1, 'fact_id': 1, 'distance': 0.0}, {'rowid': 2, 'fact_id': 2, 'distance': 1.0}]
+rowid IN subquery chat1 => [{'rowid': 1, 'fact_id': 1, 'distance': 0.0}, {'rowid': 2, 'fact_id': 2, 'distance': 1.0}]
+rowid IN subquery chat2 k=2 => [{'rowid': 5, 'fact_id': 5, 'distance': 0.0}, {'rowid': 4, 'fact_id': 4, 'distance': 0.0}]
+rowid IN empty => []
+rowid IN + aux read => [{'rowid': 5, 'chat_id': 2, 'fact_id': 5, 'distance': 0.0}, {'rowid': 4, 'chat_id': 2, 'fact_id': 4, 'distance': 0.0}]
+int8 rowid IN subquery chat1 => [{'rowid': 1, 'fact_id': 1, 'distance': 0.0}, {'rowid': 2, 'fact_id': 2, 'distance': 178.19090270996094}]
+plan => [{'id': 2, 'parent': 0, 'notused': 0, 'detail': 'SCAN t VIRTUAL TABLE INDEX 0:3{___}___[___'}, {'id': 8, 'parent': 0, 'notused': 0, 'detail': 'LIST SUBQUERY 1'}, {'id': 10, 'parent': 8, 'notused': 0, 'detail': 'SCAN facts'}]
+vec_version v0.1.9
+create partition-key table => []
+KNN partition filter chat=2 => [{'fact_id': 4, 'distance': 0.0}, {'fact_id': 3, 'distance': 0.0}]
+KNN partition filter chat=1 => [{'fact_id': 0, 'distance': 0.0}, {'fact_id': 1, 'distance': 1.0}]
+create metadata-col table => []
+KNN metadata filter chat=1 => [{'rowid': 1, 'chat_id': 1, 'distance': 0.0}]
+create aux table => []
+KNN aux filter chat=1 => ERROR OperationalError An illegal WHERE constraint was provided on a vec0 auxiliary column in a KNN query.
+scalar vec_distance_cosine scan aux => [{'rowid': 1, 'd': 0.0}]
+scalar vec_distance_cosine scan aux count => 2
+query bytes 69044 dims 3072
+global KNN k=512: rows=512 best=103.6 ms
+global KNN k=20: rows=20 best=96.7 ms
+scoped small chat k=20: rows=20 best=77.0 ms
+scoped tiny chat k=20: rows=2 best=76.1 ms
+scoped big chat k=20: rows=20 best=98.8 ms
+scoped big chat k=40: rows=40 best=96.4 ms
+global k=512 for chat 5885953495: total=512 own=9 want=10 partial=True
+global k=512 for chat 1313107079: total=512 own=0 want=10 partial=True
