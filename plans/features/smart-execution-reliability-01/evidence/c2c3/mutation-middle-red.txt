@@ -1,0 +1,17 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ TestComposerCaps.test_middle_top_k_factory_cap_removed ____________
+
+self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x0000017C22C64440>
+
+    def test_middle_top_k_factory_cap_removed(self):
+        rows = [_row(i, 1000 + i) for i in range(1, 76)]
+>       assert comp.middle_max_messages() == 0
+E       assert 60 == 0
+E        +  where 60 = <function middle_max_messages at 0x0000017C228CA200>()
+E        +    where <function middle_max_messages at 0x0000017C228CA200> = comp.middle_max_messages
+
+tests\test_smart_exec_evidence.py:319: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_smart_exec_evidence.py::TestComposerCaps::test_middle_top_k_factory_cap_removed
+1 failed in 3.35s
