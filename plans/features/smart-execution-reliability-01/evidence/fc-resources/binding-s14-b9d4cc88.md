@@ -1,9 +1,9 @@
-# S14-FC-RESOURCES — binding evidence (candidate b21451eb)
+# S14-FC-RESOURCES — binding evidence (candidate b9d4cc88)
 
 Срез: `S14-FC-RESOURCES` (FACTCHECK-REQUEST-INTEGRITY v2 §5–§6/§10.4/§13.3,
 SMART-EXECUTION-RELIABILITY-01, wave8).
 База среза: `c00caf62` (merge S13 `ffe417d0` + S1 `8fc8b534`).
-Код-кандидат: `b21451eb` (ветка `smart/fc-s14-resources`).
+Код-кандидат: `b9d4cc88` (ветка `smart/fc-s14-resources`).
 Evidence-коммиты после кода не меняют поведение; reviewer проверяет HEAD ветки.
 Источник: `plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md`
 (sha256 `767baf0a…dc7a`), строки 429–684, 900–984, 1253–1292.
@@ -25,7 +25,7 @@ Evidence-коммиты после кода не меняют поведение
 ## 2. Аудит всех источников ограничений (SFC-5-08)
 
 Сырые данные: `raw/audit-deployed-d20a7f73.json` (deployed-линия),
-`raw/audit-candidate-b21451eb.json` (кандидат), `raw/audit-base-head.json`
+`raw/audit-candidate-b9d4cc88.json` (кандидат), `raw/audit-base-head.json`
 (S13+S1 до изменений). Скрипт: `raw/audit_caps.py`.
 Сравнение deployed `d20a7f73` → база: константы factcheck не менялись (0
 расхождений), поэтому deployed-значения = текущие до S14.
@@ -153,7 +153,7 @@ pytest tests/test_factcheck_resources.py -q
 → 19 passed in 2.99s
 
 pytest <40 factcheck-related files> -q
-→ 821 passed, 1 failed, 4 errors in 43.99s
+→ 820 passed, 2 failed, 4 errors in 43.20s
 ```
 
 Те же 39 factcheck-файлов базы (без нового файла) на `c00caf62`:
@@ -163,7 +163,7 @@ pytest <40 factcheck-related files> -q
 Разница ровно новым durable-набором (19 тестов) плюс один сетевой flaky;
 2 failed + 4 errors идентичны на базе (см.
 `raw/pytest-focused-base-c00caf62.txt` и
-`raw/pytest-focused-final-21451eb.txt`):
+`raw/pytest-focused-final-b9d4cc88.txt`):
 - `test_factcheck_fc_r1_fix.py::...test_all_irrelevant_is_honest_failure` —
   сетевой DuckDuckGo-fallback: тест ожидает отказ, живой провайдер отвечает;
   на финальном прогоне прошёл (flaky от сети), на базе падал;
@@ -182,7 +182,7 @@ S1-регрессии после merge: `tests/test_smart_exec_ab_round1114.py` 
 `raw/s14_resource_probe.py` (14 наблюдаемых проверок, без новых API):
 - база `c00caf62`: **0/14** — 10 c/45 c/3/12/8000/16 refs, temporal 8,
   скрытый cap 2, нет OFF-контракта (`raw/red-base-c00caf62.json`);
-- кандидат `21451eb`: **14/14** (`raw/green-candidate-21451eb.json`).
+- кандидат `b9d4cc88`: **14/14** (`raw/green-candidate-b9d4cc88.json`).
 
 Покрытие RED: константы, hard cap claim units, temporal tail, temporal queries,
 `FactcheckLimits`, OFF-caps, page>4, OFF query cap, OFF char budget.

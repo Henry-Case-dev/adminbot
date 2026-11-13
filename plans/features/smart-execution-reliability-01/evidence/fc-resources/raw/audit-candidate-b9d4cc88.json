@@ -2,7 +2,7 @@
  "rev": "HEAD",
  "files": {
   "services/factcheck_planner.py": {
-   "lines": 2389,
+   "lines": 2392,
    "constants": [
     {
      "line": 62,
@@ -464,17 +464,17 @@
      "text": "else re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100])"
     },
     {
-     "line": 2278,
+     "line": 2281,
      "slice": 100,
      "text": "re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]"
     },
     {
-     "line": 2298,
+     "line": 2301,
      "slice": 100,
      "text": "r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]] = \\"
     },
     {
-     "line": 2304,
+     "line": 2307,
      "slice": 100,
      "text": "key = ref.url or re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]"
     }
@@ -583,17 +583,17 @@
      "value": "budget"
     },
     {
-     "line": 2100,
+     "line": 2103,
      "name": "max_rows",
      "value": "page_limit"
     },
     {
-     "line": 2364,
+     "line": 2367,
      "name": "refine_calls",
      "value": "counters[\"refine\"]"
     },
     {
-     "line": 2365,
+     "line": 2368,
      "name": "budget_seconds",
      "value": "budget"
     }
