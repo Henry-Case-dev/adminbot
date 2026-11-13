@@ -297,6 +297,18 @@ async def test_verified_cache_used_by_sync_tool_path(monkeypatch):
     assert other_window == 1_000_000
 
 
+def test_proven_limit_invalidates_cached_planning_window():
+    """D2/D6: доказанный предел сбрасывает уже посчитанное планировочное окно
+    (регистр/написание ID не имеют значения) — иначе старый cache затенял бы
+    факт провайдера."""
+    assert mc.resolve_model_context_window("MODEL-XYZ") == (
+        mc.UNKNOWN_WINDOW_DEFAULT, mc.WINDOW_SOURCE_FALLBACK)
+    assert ("exact", "model-xyz") in mc._WINDOW_CACHE
+    mc.record_proven_limit(NANO_BASE, "MODEL-XYZ", 4096)
+    assert ("exact", "model-xyz") not in mc._WINDOW_CACHE
+    assert mc.proven_limit_for(NANO_BASE, "MODEL-XYZ") is not None
+
+
 # ── D4: fallback пересчитывается, primary не занижается ────────────────────
 
 @pytest.mark.asyncio

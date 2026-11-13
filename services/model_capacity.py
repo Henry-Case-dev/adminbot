@@ -1094,7 +1094,8 @@ def record_proven_limit(base_url: str, model: str, limit_tokens: int, *,
     # Свежий каталог/кэш мог быть больше доказанного предела.
     invalidate_runtime_capacity(base_url, model, reason=entry.reason)
     for cache_key in [k for k in _WINDOW_CACHE
-                      if k[1] == entry.model]:
+                      if str(k[1]).strip().lower()
+                      == str(entry.model).strip().lower()]:
         _WINDOW_CACHE.pop(cache_key, None)
     _CAPACITY_METRICS["capacity_proven_limit_total"] += 1
     logger.warning(
