@@ -532,17 +532,18 @@ class TestL1PackageLosses:
     @pytest.mark.asyncio
     async def test_budget_never_exceeds_window_for_unknown_model(
             self, monkeypatch):
-        """Тот же кламп на консервативном fallback-окне неизвестной модели:
-        бюджет остаётся внутри 16384, даже если hot просит больше."""
+        """Тот же кламп для неизвестной модели: окно — ПЛАНИРОВОЧНАЯ оценка
+        1M (SMART D1, не подтверждённая ёмкость), поэтому hot-бюджет 50000
+        в него помещается и клампа нет; инвариант «бюджет ≤ окно» сохранён."""
         from services import direct_l1 as l1
 
         _set_hot(monkeypatch, 50000)
         budget, meta = await l1.resolve_l1_context_budget(
             base_url="https://example.invalid/v1",
             model="model-that-does-not-exist-xyz")
-        assert meta["context_window"] <= 16384
-        assert budget <= meta["available_input_budget"] <= 16384
-        assert budget < 50000
+        assert meta["context_window"] == 1_000_000
+        assert budget <= meta["available_input_budget"] <= meta["context_window"]
+        assert budget == 50000
 
     @pytest.mark.asyncio
     async def test_fallback_window_source_is_reported_honestly(self):

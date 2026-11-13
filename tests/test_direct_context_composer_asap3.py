@@ -291,10 +291,11 @@ class TestModelCapacityIntegration:
         assert apply_budget_policy(25000, 8000) == (8000, "cap")
         assert apply_budget_policy(5000, 8000) == (5000, "cap")
 
-    def test_unknown_model_fallback_source(self):
+    def test_unknown_model_estimated_source(self):
         window, source = resolve_model_context_window("no-such-model-asap3")
         assert source == comp.WINDOW_SOURCE_FALLBACK
-        assert window == 16384
+        assert window == 1_000_000
+
 
 
 class TestComposerFlag:

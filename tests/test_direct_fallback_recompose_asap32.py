@@ -429,6 +429,13 @@ class TestToolSchemasInFallbackBudget:
             return default
 
         monkeypatch.setattr("services.chat_params.get_chat_param", fake_param)
+        # SMART D1/D2: маленькое окно запасной модели больше НЕ получается
+        # аварийным 16384 — оно задаётся подтверждённым exact-реестром.
+        import services.model_capacity as _mc
+        monkeypatch.setitem(_mc.MODEL_EXACT_WINDOWS, "mystery-small-16k",
+                            16384)
+        monkeypatch.setattr(_mc, "_WINDOW_CACHE", {})
+        monkeypatch.setattr(_mc, "_CACHE", {})
         import services.direct_chat_service as dcs
         rows = [_row(1000 + i, 1700000000 + i,
                      "сообщение окна с содержательным текстом " * 8)

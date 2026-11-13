@@ -204,10 +204,13 @@ class RecomposeFakeLLM:
     def __init__(self):
         self.calls = []
         self.adapted_calls = []
-        self._chat_model = "deepseek-chat"          # 131072 (registry)
-        self._fallback_model = "mystery-small-16k"  # → fallback 16384
+        self._chat_model = "deepseek-chat"          # 131072 (exact registry)
+        # SMART D1/D2: маленькое окно резервной модели теперь ДОКАЗАНО
+        # (exact registry `gpt-4` = 8192), а не выводится из неизвестной
+        # модели через прежний 16384-fallback.
+        self._fallback_model = "gpt-4"              # 8192 (exact registry)
         self._base_url = "https://nano-gpt.com/v1"
-        self._fallback_base_url = "https://api.deepseek.com/v1"
+        self._fallback_base_url = "https://nano-gpt.com/v1"
 
     async def generate(self, messages, temperature=None, chat_id=None,
                        fallback_payload_adapter=None, **kwargs):
@@ -379,7 +382,8 @@ class TestFallbackRecompose:
         from services.token_counter import count_tokens
         primary_tokens = count_tokens(primary_user)
         adapted_tokens = count_tokens(adapted_user)
-        fb_budget = mc.fallback_window_for_model("mystery-small-16k")[0]
+        fb_budget = mc.fallback_window_for_model("gpt-4")[0]
+        assert fb_budget == 8192
         fb_available = max(1, int((fb_budget - 1311) / 1.15))
         # recompose: fallback НЕ получает oversized primary payload.
         assert adapted_tokens <= fb_available, (

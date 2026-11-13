@@ -398,6 +398,69 @@ class TestWriterDynamicOutput:
             assert call["max_output_tokens"] not in (700, 4096, 16384)
 
 
+# ── SMART D6: context length exceeded → ограниченное восстановление ─────────
+
+def _overflow_error(*, limit: int | None = 2000, budget: int = 1500):
+    """Типизированная ошибка провайдера с планом восстановления (как её
+    отдаёт `llm_client` после `model_capacity.note_context_overflow`)."""
+    from services.llm_client import LLMContextOverflowError
+    from services import model_capacity as mc
+
+    info = mc.ContextOverflowInfo(
+        code="context_length_exceeded", structured=True,
+        limit_tokens=limit, requested_tokens=9000, max_output_tokens=None,
+        model="unit-model", detail="context_length_exceeded")
+    plan = mc.ContextRecoveryPlan(
+        info=info, limit_tokens=int(limit or 0), budget_tokens=budget,
+        output_reserve=1024, attempt=1, max_attempts=1, uncertain=False,
+        preserve_tool_evidence=True, reason="proven_limit_recorded")
+    err = LLMContextOverflowError("LLM context overflow (400)")
+    err.context_info = info
+    err.context_recovery = plan
+    return err
+
+
+class TestContextOverflowRecovery:
+    @pytest.mark.asyncio
+    async def test_l2_recomposes_once_under_proven_limit(self):
+        """D6: предел записан, payload пересобран в нём, запрос восстановлен
+        ровно одним повтором; tool evidence остаётся в пакете."""
+        evidence = "СНИППЕТ ИСТОЧНИКА " * 4000
+        blocks = ["<Current_Question>вопрос</Current_Question>"] + [
+            "<Global_Context>" + ("строка окна " * 400) + "</Global_Context>"
+        ] * 12
+        llm = _MetadataLLM([_overflow_error(),
+                            _completion("ответ после восстановления")])
+        svc = _make_service(llm=llm)
+        text, _mode = await svc._l2_write_answer(
+            CHAT, "вопрос", temperature=0.5, evidence=evidence,
+            user_blocks=blocks)
+        assert text == "ответ после восстановления"
+        assert llm.steps() == ["l2_writer", "l2_recovery"]
+        first = str(llm.calls[0]["messages"][1]["content"])
+        second = str(llm.calls[1]["messages"][1]["content"])
+        assert len(second) < len(first), "payload пересобран под предел"
+        assert "<Tool_Evidence>" in second, "evidence не потерян"
+        assert "вопрос</Current_Question>" in second or "вопрос" in second
+
+    @pytest.mark.asyncio
+    async def test_l2_without_recovery_plan_does_not_retry(self):
+        """D6: лимит не раскрыт → нет выдуманного бюджета и нет второго
+        платного вызова; ошибка остаётся вызывающему."""
+        from services.llm_client import LLMContextOverflowError
+
+        err = LLMContextOverflowError("LLM context overflow (400)")
+        err.context_info = None
+        err.context_recovery = None
+        llm = _MetadataLLM([err, _completion("второго вызова быть не должно")])
+        svc = _make_service(llm=llm)
+        with pytest.raises(LLMContextOverflowError):
+            await svc._l2_write_answer(
+                CHAT, "q", temperature=0.5,
+                user_blocks=["<Current_Question>q</Current_Question>"])
+        assert llm.steps() == ["l2_writer"]
+
+
 # ── UR-18: LLMCompletion доезжает до Writer ──────────────────────────────────
 
 class TestCompletionMetadata:

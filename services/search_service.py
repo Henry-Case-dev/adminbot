@@ -85,7 +85,13 @@ class SearchService:
         # агрегатор, динамический лимит — в инструкцию выжимки. При
         # `EVIDENCE_WINDOW_DYNAMIC_ENABLED=OFF` лимит остаётся прежним 4000.
         try:
-            window = auto_budget.resolve_evidence_tool_window("search")
+            # SMART D4: окно считается для ФАКТИЧЕСКИ назначенной модели этого
+            # клиента (search может идти отдельным ключом/моделью), а не для
+            # «главной модели чата» из настроек.
+            window = auto_budget.resolve_evidence_tool_window(
+                "search",
+                model=str(getattr(self.llm, "_chat_model", "") or "") or None,
+                base_url=str(getattr(self.llm, "_base_url", "") or "") or None)
             # OFF (legacy) → ровно прежние 4000 и в агрегаторе, и в выжимке.
             search_cap = int(window.effective_limit
                              if window.source == "legacy"

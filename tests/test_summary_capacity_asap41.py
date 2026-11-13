@@ -195,8 +195,11 @@ async def test_chain_override_above_fallback(monkeypatch):
     type(mc.settings).CHAT_MODEL_CONTEXT_WINDOW = None
     fallback = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                          "mystery-nothing-model-2")
-    assert fallback.source == mc.SOURCE_FALLBACK
-    assert fallback.effective_context_window == 16384
+    # SMART D1: неизвестная модель → planning 1M (не 16384); источник
+    # честно помечен как estimation, а не аварийный «консервативный минимум».
+    assert fallback.source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert fallback.effective_context_window == mc.UNKNOWN_WINDOW_DEFAULT
+
 
 
 # ── Учёт по фактическому serialized prompt (§6, fixture-контрпример) ───────
@@ -333,6 +336,15 @@ async def test_c_model_switch_invalidates_and_replans(monkeypatch):
     first_calls = llm_call.calls["count"]
     key_before = mc._cache_key("https://nano-gpt.com/v1", "deepseek-chat")
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
+
+    # SMART D1: маленькое окно маленькой модели теперь ПОДТВЕРЖДАЕТСЯ
+    # runtime-metadata (`/props`), а не прежним 16384-fallback'ом.
+    async def _props(url, *, headers=None):
+        if str(url).endswith("/props"):
+            return {"default_generation_settings": {"n_ctx": 16384}}
+        return None
+
+    monkeypatch.setattr(mc, "_http_get_json", _props)
     small = await sl1.run_l1(rows=rows, chat_id=CHAT_ID, llm_call=llm_call,
                              correlation_id="run-c2")
     assert small.usable
@@ -469,7 +481,7 @@ async def test_replan_never_raises_on_resolve_failure(monkeypatch):
         base_url="https://nano-gpt.com/v1", model="mystery-fail-replan",
         required_input_tokens=1000, reserved_output_tokens=500,
         current_mode=mc.MODE_WHOLE_WINDOW)
-    assert plan.mode == mc.MODE_WHOLE_WINDOW  # 1000+500 ≤ 16384 fallback
+    assert plan.mode == mc.MODE_WHOLE_WINDOW  # 1000+500 ≤ 1M estimate
     assert plan.window_source == mc.SOURCE_FALLBACK
     assert plan.fallback_used is True
 

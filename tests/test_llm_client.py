@@ -1134,6 +1134,50 @@ class TestEpic49DiagnosticLog:
         assert "body_4xx='context length exceeded'" in msg
 
     @pytest.mark.asyncio
+    async def test_context_overflow_keeps_legacy_message_and_typing(
+            self, monkeypatch):
+        """B1 ревью D: context-overflow 400 остаётся типизированной ошибкой
+        (`LLMContextOverflowError` с `context_info`/`context_recovery` и
+        обновлённой ёмкостью), но текст сообщения — прежний диагностический
+        `LLM HTTP 400: <url>`, как до SMART D6 (лог/классификаторы не
+        меняются)."""
+        from services import model_capacity as mc
+        from services.llm_client import LLMContextOverflowError
+
+        url = "https://api.test/v1/chat/completions"
+        mc.clear_proven_limits()
+        mc.invalidate_capacity_cache()
+
+        def handler(request):
+            return httpx.Response(400, json={"error": {
+                "code": "context_length_exceeded",
+                "message": ("This model's maximum context length is 32768 "
+                            "tokens. However, your messages resulted in "
+                            "40000 tokens."),
+            }}, request=request)
+
+        client = _make_client(handler, monkeypatch, max_retries=1)
+        try:
+            with pytest.raises(LLMContextOverflowError) as ei:
+                await client.generate([
+                    {"role": "system", "content": "sys"},
+                    {"role": "user", "content": "запрос" * 50},
+                ])
+            assert str(ei.value) == f"LLM HTTP 400: {url}"
+            assert isinstance(ei.value, LLMError)
+            assert ei.value.context_info is not None
+            assert ei.value.context_info.limit_tokens == 32768
+            assert ei.value.context_info.structured is True
+            assert ei.value.context_recovery is not None
+            assert ei.value.context_recovery.budget_tokens <= 32768
+            # Ёмкость endpoint/model обновлена реальным `_post`-путём.
+            assert mc.proven_limit_for(
+                "https://api.test/v1", "chat-model") == 32768
+        finally:
+            mc.clear_proven_limits()
+            mc.invalidate_capacity_cache()
+
+    @pytest.mark.asyncio
     async def test_400_body_truncated_to_500_chars(self, monkeypatch, caplog):
         import logging
 
