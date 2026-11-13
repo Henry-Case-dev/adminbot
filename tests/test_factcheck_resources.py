@@ -411,6 +411,42 @@ async def test_off_saved_budget_does_not_enforce_end_to_end(monkeypatch):
     assert outcome.budget_source == "chat"
 
 
+@pytest.mark.asyncio
+async def test_normal_path_uses_plan_chat_limits_without_manual_args(
+        monkeypatch):
+    """Штатный вызов `run_retrieval(plan, aggregator)` (как в оркестраторе)
+    сам резолвит per-chat effective-настройки по `plan.chat_id`."""
+    async def fake_read(key, *, chat_id=None, default=None):
+        return {
+            "limits.factcheck_retrieval_seconds": (30.0, "chat"),
+            "limits.factcheck_retrieval_seconds_max": (60.0, "chat"),
+            "limits.factcheck_refine_calls": (0, "chat"),
+            "limits.factcheck_max_queries_total": (5, "chat"),
+            "limits.factcheck_search_text_chars": (50_000, "chat"),
+            "limits.factcheck_page_size": (7, "chat"),
+            "limits.factcheck_claim_portion": (10, "chat"),
+            "limits.factcheck_primary_fetches": (1, "chat"),
+            "limits.factcheck_excerpt_chars": (500, "chat"),
+        }[key]
+
+    async def fake_budgets(chat_id=None):
+        return budget_gate.BudgetState(
+            enabled=True, source="chat", chat_id=chat_id, known=True)
+
+    monkeypatch.setattr(
+        "services.worker_settings.resolve_setting_with_source", fake_read)
+    monkeypatch.setattr(budget_gate, "resolve_budgets", fake_budgets)
+
+    agg = _Agg("Борщ рецепт\nhttps://t.example/1")
+    outcome = await fsp.run_retrieval(_plan(10), aggregator=agg)
+    assert outcome.queries_attempted == 5          # общий бюджет из чата
+    assert outcome.budget_exhausted is True
+    assert outcome.budget_source == "chat"
+    assert dict(outcome.limit_sources)[
+        "limits.factcheck_max_queries_total"] == "chat"
+    assert agg.calls  # поиск реально выполнялся по этому пути
+
+
 # ── 4. Содержательные состояния завершения ─────────────────────────────────
 
 @pytest.mark.asyncio

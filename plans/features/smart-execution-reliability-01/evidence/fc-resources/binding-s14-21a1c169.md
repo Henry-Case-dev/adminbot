@@ -14,7 +14,7 @@ SMART-EXECUTION-RELIABILITY-01, wave8).
 |---|---|
 | `services/factcheck_planner.py` | `FactcheckLimits` + async/sync резолвер (master S1 → chat → global → default), новые заводские 120/600/24/64/100 000/20/32; OFF снимает бюджеты; run_retrieval исполняет по содержательным состояниям; 100k — порция без потери хвоста; снят cap 12 evidence refs и план больше не режется 12/64; 20 результатов на страницу |
 | `services/temporal_factcheck.py` | `decompose_claim` 32-частными порциями без хвоста (было 8); `search_queries_for` без скрытого cap 2 (ON — общий 64, OFF — без cap) |
-| `tests/test_factcheck_resources.py` | новый durable CONTRACT-набор, 18 тестов |
+| `tests/test_factcheck_resources.py` | новый durable CONTRACT-набор, 19 тестов |
 | `tests/test_factcheck_fc_r1_fix.py` | обновлена 1 старая ассерция, кодировавшая удалённый cap “2 запроса” (противоречила owner §6.4) |
 | `services/param_catalog.py` | **не менялся**: аудит показал, что `limits.factcheck_*` там не объявлены; новых admin-ключей/панелей не создано |
 
@@ -70,6 +70,10 @@ SMART-EXECUTION-RELIABILITY-01, wave8).
   `test_on_deadline_and_query_budget_are_applied` — 1 claim = 120 c, 2 = 180 c,
   40 = 600 c; 40 частей → ровно 64 попытки (40 базовых + 24 уточняющих), а не
   40+24=88 отдельно. `stop_reason=budget_exhausted`.
+- Штатный путь без ручных аргументов:
+  `test_normal_path_uses_plan_chat_limits_without_manual_args` —
+  `run_retrieval(plan, aggregator)` берёт per-chat 5/30/7 из
+  `plan.chat_id`, делает 5 попыток и сообщает `budget_source=chat`.
 - 20 результатов на страницу: `test_on_page_size_20_...` — 30 кандидатов →
   ровно 20 evidence refs, провайдер с 3 результатами → 3 (без требования
   «ровно 20»).
@@ -145,7 +149,7 @@ SMART-EXECUTION-RELIABILITY-01, wave8).
 
 ```
 pytest tests/test_factcheck_resources.py -q
-→ 18 passed in 3.03s
+→ 19 passed in 2.99s
 
 pytest <39 factcheck-related files> -q
 → 819 passed, 2 failed, 4 errors in 49.96s
