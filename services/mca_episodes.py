@@ -573,6 +573,32 @@ class EpisodeRepository:
             "ORDER BY updated_at DESC, episode_id LIMIT ?",
             (int(chat_id), max(1, int(limit))))
 
+    async def list_episodes_in_range(self, chat_id: int, *,
+                                     from_ts: int | None = None,
+                                     to_ts: int | None = None,
+                                     limit: int = 200) -> list[dict]:
+        """Эпизоды, чьё событийное окно пересекает `[from_ts, to_ts]`
+        (bounded LIMIT, без OFFSET-сканов архива).
+
+        Используется overlap-дедупом (M-03: повторный rebuild старых
+        порций не создаёт дубликаты даже при >500 эпизодах чата) и
+        coverage-окнами view. Эпизоды с неизвестным временем включаются
+        (NULL не отсекается), но период им НЕ присваивается — они остаются
+        в `unknown_time_episode_refs` (честный unknown)."""
+        where = ["chat_id = ?"]
+        params: list = [int(chat_id)]
+        if from_ts is not None:
+            where.append("(event_end_ts IS NULL OR event_end_ts >= ?)")
+            params.append(int(from_ts))
+        if to_ts is not None:
+            where.append("(event_start_ts IS NULL OR event_start_ts <= ?)")
+            params.append(int(to_ts))
+        params.append(max(1, int(limit)))
+        return await self._fetch_all(
+            "SELECT * FROM mca_episodes WHERE " + " AND ".join(where) +
+            " ORDER BY COALESCE(event_start_ts, 0) DESC, episode_id LIMIT ?",
+            tuple(params))
+
     async def find_episode_by_segment(self, chat_id: int,
                                       seg_key: str) -> dict | None:
         return await self._fetch_one(
@@ -1491,8 +1517,10 @@ def emit_story_event(event_name: str, *, outcome: str, chat_id: int,
     """Событие витрины (§16.1: имена фиксированы — контракт mca-12).
 
     Поля (в `entity_ids` JSON + кодовых полях, spec (j)): story/episode
-    refs, обе даты, участники-ID, краткое R17-safe описание. Вызывается
-    ТОЛЬКО после фиксации результата (rollback → события нет)."""
+    refs, обе даты, участники-ID, краткое R17-safe описание. ``summary`` —
+    короткая кодовая метка (ids/счётчики), НЕ текст сообщений/источников
+    (R17: source content передаётся только через authorized source refs).
+    Вызывается ТОЛЬКО после фиксации результата (rollback → события нет)."""
     try:
         from services.mca_events import emit_mca_event
         entity = {
@@ -1940,6 +1968,543 @@ async def episodes_needing_backfill(db, chat_id: int, *,
     return out
 
 
+# ── VMQ-M1: episode/period view contract (M-01..M-03) ───────────────────────
+#
+# Контракт: plans/features/vmq-onto-01/architecture-m1-episodes.md
+# («Episode/period», M-01..M-03). EpisodeView — derived-проекция над
+# СУЩЕСТВУЮЩИМИ `mca_episodes`/`smart_messages`: границы события берутся
+# ТОЛЬКО из времени исходных сообщений, source refs упорядочены (хронология
+# эпизода), fingerprint источников включает ревизии MCA-03
+# (`smart_messages.current_revision`), качество/полнота — честные флаги.
+# LongitudinalView — coverage/периоды по тем же refs: календарные bucket'ы
+# (год) только для отчёта, это НЕ сущность и НЕ доказательство.
+#
+# Δ DDL = 0: view ничего не пишет, вторая таблица/поля не создаются.
+# Topic refs отсутствуют до контракта ONTO-A/B — пустая честная величина,
+# а не выдуманная тема. Legacy-строки без source refs остаются видимыми
+# (прежний путь), но в view помечены как unlinked/unknown.
+EPISODE_VIEW_VERSION = "vmq-m1/episode-view/v1"
+LONGITUDINAL_VIEW_VERSION = "vmq-m1/longitudinal-view/v1"
+
+SOURCE_INTEGRITY_OK = "ok"              # все source refs существуют
+SOURCE_INTEGRITY_PARTIAL = "partial"    # часть refs удалена/недоступна
+SOURCE_INTEGRITY_MISSING = "missing"    # ни один ref не разрешён
+SOURCE_INTEGRITY_UNKNOWN = "unknown"    # refs не сохранены (legacy)
+
+VIEW_STATE_OK = "ok"
+VIEW_STATE_EMPTY = "empty"
+VIEW_STATE_UNAVAILABLE = "unavailable"
+
+EPISODE_SOURCE_MAX = 500          # кап source refs на эпизод (bounded)
+EPISODE_VIEW_LIMIT_MAX = 200      # кап списка episode view на вызов
+LONGITUDINAL_MAX_EPISODES = 400   # кап покрытия subject view (bounded)
+_SOURCE_QUERY_CHUNK = 400         # параметров SQLite на один SELECT (bounded)
+PERIOD_GRAIN_YEAR = "year"
+
+
+def _parse_source_key(key: str) -> tuple[str, str] | None:
+    """`chat:tg:<id>` / `chat:db:<id>` → (`tg`|`db`, id); иначе None."""
+    text = str(key or "")
+    if ":tg:" in text:
+        _chat, _sep, raw = text.rpartition(":tg:")
+        return ("tg", raw) if raw else None
+    if ":db:" in text:
+        _chat, _sep, raw = text.rpartition(":db:")
+        return ("db", raw) if raw else None
+    return None
+
+
+def episode_source_fingerprint(message_keys,
+                               *, revisions: dict | None = None) -> str:
+    """Детерминированный fingerprint набора источников эпизода (M-01/M-03).
+
+    Порядок refs значим (хронология эпизода), поэтому в material входит
+    ordered list; при наличии добавляется ревизия источника
+    (`smart_messages.current_revision`). Отсутствующая ревизия → ``?``
+    (честный unknown; ноль не подставляется). Один и тот же набор
+    source revisions → один и тот же fingerprint; изменённая ревизия
+    источника меняет fingerprint (stale-детект без записи в БД)."""
+    parts: list[str] = []
+    for key in list(message_keys or ())[:EPISODE_SOURCE_MAX]:
+        rev = None
+        if isinstance(revisions, dict):
+            rev = revisions.get(str(key))
+        parts.append(f"{str(key)}@{'?' if rev is None else int(rev)}")
+    return hashlib.sha256("\x1e".join(parts).encode("utf-8")).hexdigest()[:32]
+
+
+async def _source_states(db, chat_id: int, keys) -> dict[str, dict]:
+    """Наличие/ревизии source refs в строгом chat scope (bounded SELECT'ы).
+
+    Возврат: ``{message_key: {"revision", "timestamp", "content_hash"}}``
+    только для реально существующих строк. Отсутствующий ключ = источник
+    удалён/недоступен (называется вызывающим, не выдумывается)."""
+    wanted = [str(k) for k in dict.fromkeys(keys or ())]
+    want_tg: list[int] = []
+    want_db: list[int] = []
+    for key in wanted[:EPISODE_SOURCE_MAX]:
+        parsed = _parse_source_key(key)
+        if parsed is None:
+            continue
+        kind, raw = parsed
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        (want_tg if kind == "tg" else want_db).append(value)
+    out: dict[str, dict] = {}
+    try:
+        for column, values, prefix in (
+                ("tg_message_id", want_tg, "tg"), ("id", want_db, "db")):
+            for start in range(0, len(values), _SOURCE_QUERY_CHUNK):
+                chunk = values[start:start + _SOURCE_QUERY_CHUNK]
+                if not chunk:
+                    continue
+                placeholders = ",".join("?" for _ in chunk)
+                cursor = await db.db.execute(
+                    "SELECT id, tg_message_id, timestamp, current_revision, "
+                    "content_hash FROM smart_messages WHERE chat_id = ? AND "
+                    f"{column} IN ({placeholders})",
+                    tuple([int(chat_id)] + chunk))
+                for row in await cursor.fetchall():
+                    row = dict(row)
+                    token = (int(row["tg_message_id"])
+                             if prefix == "tg" else int(row["id"]))
+                    out[f"{int(chat_id)}:{prefix}:{token}"] = {
+                        "revision": int(row.get("current_revision") or 1),
+                        "timestamp": (int(row["timestamp"])
+                                      if row.get("timestamp") is not None
+                                      else None),
+                        "content_hash": row.get("content_hash"),
+                    }
+    except Exception:
+        logger.warning("[mca05] source states read failed | chat=%s",
+                       chat_id, exc_info=True)
+    return out
+
+
+def _opt_int(value) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclasses.dataclass(frozen=True)
+class EpisodeView:
+    """EpisodeView контракта M-01 (ADR VMQ-M1): bounded chat-scoped эпизод.
+
+    ``event_start_ts``/``event_end_ts`` — ТОЛЬКО из времени исходных
+    сообщений; ``discovered_at`` — отдельная дата обнаружения. ``summary``/
+    ``title``/``claims`` — производные, не доказательство.
+    ``projection_complete`` — агрегат честных флагов проекции (не
+    «истина» о событии)."""
+
+    episode_ref: str
+    chat_id: int
+    event_start_ts: int | None
+    event_end_ts: int | None
+    event_period_known: bool
+    discovered_at: int
+    updated_at: int
+    participants: tuple[str, ...]
+    topic_refs: tuple[str, ...]          # пусто до ONTO-A/B (не выдумывается)
+    source_refs: tuple[str, ...]         # упорядочены (хронология)
+    source_fingerprint: str
+    source_integrity: str
+    missing_source_refs: tuple[str, ...]
+    extraction_version: str
+    derived_version: str
+    content_status: str
+    stale: bool
+    projection_complete: bool
+    title: str
+    summary: str
+    claims: tuple[dict, ...]
+    outcome: str
+    outcome_known: bool
+    mapping_status: str
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+def episode_view_from_row(row: dict, *,
+                          source_state: dict | None = None) -> EpisodeView:
+    """Строка `mca_episodes` (+ source states) → EpisodeView (read-only)."""
+    keys = tuple(str(k) for k in _json_loads(
+        (row or {}).get("message_keys_json"), []))[:EPISODE_SOURCE_MAX]
+    states = source_state or {}
+    revisions = {key: (states.get(key) or {}).get("revision") for key in keys}
+    missing = tuple(key for key in keys if key not in states)
+    if not keys:
+        integrity = SOURCE_INTEGRITY_UNKNOWN
+    elif not missing:
+        integrity = SOURCE_INTEGRITY_OK
+    elif len(missing) < len(keys):
+        integrity = SOURCE_INTEGRITY_PARTIAL
+    else:
+        integrity = SOURCE_INTEGRITY_MISSING
+    event_start = _opt_int((row or {}).get("event_start_ts"))
+    event_end = _opt_int((row or {}).get("event_end_ts"))
+    period_known = event_start is not None and event_end is not None
+    content_status = episode_content_status(row or {})
+    stale = (bool(int((row or {}).get("recheck_pending") or 0))
+             or integrity in (SOURCE_INTEGRITY_PARTIAL,
+                              SOURCE_INTEGRITY_MISSING))
+    projection_complete = bool(
+        period_known and content_status == CONTENT_READY
+        and integrity == SOURCE_INTEGRITY_OK and not stale)
+    participants = tuple(str(p) for p in _json_loads(
+        (row or {}).get("participants_json"), []))
+    claims = tuple(dict(c) for c in _json_loads(
+        (row or {}).get("claims_json"), []) if isinstance(c, dict))
+    return EpisodeView(
+        episode_ref=str((row or {}).get("episode_id") or ""),
+        chat_id=int((row or {}).get("chat_id") or 0),
+        event_start_ts=event_start,
+        event_end_ts=event_end,
+        event_period_known=period_known,
+        discovered_at=_opt_int((row or {}).get("discovered_at")) or 0,
+        updated_at=_opt_int((row or {}).get("updated_at")) or 0,
+        participants=participants,
+        topic_refs=(),
+        source_refs=keys,
+        source_fingerprint=episode_source_fingerprint(keys,
+                                                      revisions=revisions),
+        source_integrity=integrity,
+        missing_source_refs=missing,
+        extraction_version=str((row or {}).get("extraction_version") or ""),
+        derived_version=EPISODE_VIEW_VERSION,
+        content_status=content_status,
+        stale=stale,
+        projection_complete=projection_complete,
+        title=str((row or {}).get("title") or ""),
+        summary=str((row or {}).get("summary") or ""),
+        claims=claims,
+        outcome=str((row or {}).get("outcome") or ""),
+        outcome_known=bool(str((row or {}).get("outcome") or "")
+                           and str((row or {}).get("outcome")
+                                   or "") != EPISODE_UNKNOWN_OUTCOME),
+        mapping_status=str((row or {}).get("mapping_status") or "unmapped"),
+    )
+
+
+async def get_episode_view(db, chat_id: int,
+                           episode_id: str) -> EpisodeView | None:
+    """EpisodeView одного эпизода (строгий chat scope). Fail-open → None."""
+    try:
+        repo = EpisodeRepository(db)
+        row = await repo.get_episode(str(episode_id))
+        if row is None or int(row.get("chat_id") or 0) != int(chat_id):
+            return None
+        keys = _json_loads(row.get("message_keys_json"), [])
+        states = await _source_states(db, int(chat_id), keys)
+        return episode_view_from_row(row, source_state=states)
+    except Exception:
+        logger.warning("[mca05] episode view read failed | chat=%s | id=%s",
+                       chat_id, str(episode_id)[:40], exc_info=True)
+        return None
+
+
+async def _episode_views(db, chat_id: int, *, limit: int,
+                         from_ts: int | None = None,
+                         to_ts: int | None = None) -> tuple[EpisodeView, ...]:
+    """Внутренний bounded-список EpisodeView (ошибки чтения пробрасывает —
+    вызывающий выбирает честную деградацию)."""
+    cap = max(1, min(int(limit or 1), LONGITUDINAL_MAX_EPISODES))
+    repo = EpisodeRepository(db)
+    if from_ts is not None or to_ts is not None:
+        rows = await repo.list_episodes_in_range(
+            int(chat_id), from_ts=from_ts, to_ts=to_ts, limit=cap)
+    else:
+        rows = await repo.list_episodes(int(chat_id), limit=cap)
+    keys: list[str] = []
+    for row in rows:
+        keys.extend(_json_loads(row.get("message_keys_json"), []))
+    states = await _source_states(db, int(chat_id), keys)
+    return tuple(episode_view_from_row(row, source_state=states)
+                 for row in rows)
+
+
+async def list_episode_views(db, chat_id: int, *,
+                             limit: int = EPISODE_VIEW_LIMIT_MAX,
+                             from_ts: int | None = None,
+                             to_ts: int | None = None
+                             ) -> tuple[EpisodeView, ...]:
+    """Bounded-список EpisodeView чата (одно окно source states). Fail-open
+    → () — отсутствие view не блокирует legacy-пути (M-01 деградация)."""
+    try:
+        return await _episode_views(
+            db, int(chat_id),
+            limit=max(1, min(int(limit or 1), EPISODE_VIEW_LIMIT_MAX)),
+            from_ts=from_ts, to_ts=to_ts)
+    except Exception:
+        logger.warning("[mca05] episode views read failed | chat=%s",
+                       chat_id, exc_info=True)
+        return ()
+
+
+def period_year(ts, *, timezone: str = "UTC") -> int | None:
+    """Календарный год мгновения в поясе чата (M-02 period bucket).
+
+    ``None`` для отсутствующего/неположительного timestamp — честный
+    unknown, а не выдуманная дата. Пояс приходит из существующего
+    time-контракта (`chat_clock`); неизвестная зона → UTC."""
+    try:
+        value = int(ts)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    import datetime
+    import zoneinfo
+    moment = datetime.datetime.fromtimestamp(value, datetime.timezone.utc)
+    try:
+        return int(moment.astimezone(
+            zoneinfo.ZoneInfo(str(timezone or "UTC"))).year)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, FileNotFoundError,
+            KeyError, OSError):
+        return int(moment.year)
+
+
+async def _view_timezone(chat_id: int) -> tuple[str, str]:
+    """(IANA, source) через единственный time-контракт `chat_clock`."""
+    try:
+        from services import chat_clock
+        iana, source, _cv = await chat_clock.resolve_chat_timezone(
+            int(chat_id))
+        return str(iana or "UTC"), str(source or "")
+    except Exception:
+        return "UTC", "utc_fallback"
+
+
+@dataclasses.dataclass(frozen=True)
+class LongitudinalView:
+    """Subject longitudinal view (M-02): обзор ПОКРЫТИЯ и опор, не биография.
+
+    Coverage — календарные bucket'ы по времени источников; пропущенный
+    период = отсутствие эпизодов, а НЕ доказательство отсутствия событий.
+    ``support_source_refs`` — независимые корни (повтор одного root/мема не
+    повышает доказательность); counterexamples сохраняются отдельно и не
+    сливаются с supporting. ``coverage['complete']`` всегда False до
+    подтверждённых границ архива (не выдаём projection за полный архив)."""
+
+    chat_id: int
+    subject_id: str | None
+    state: str
+    coverage: dict
+    episode_refs: tuple[str, ...]
+    support_source_refs: tuple[str, ...]
+    support_episode_refs: tuple[str, ...]
+    independent_support_count: int
+    counterexample_pairs: tuple[dict, ...]
+    repeated_claims: int
+    claims_without_refs: int
+    unknown_time_episode_refs: tuple[str, ...]
+    stale_episode_refs: tuple[str, ...]
+    legacy_unlinked_episode_refs: tuple[str, ...]
+    timezone: str
+    timezone_source: str
+    notes: tuple[str, ...]
+    derived_version: str
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+def _longitudinal_notes() -> tuple[str, ...]:
+    return (
+        "periods_are_calendar_buckets_not_entities",
+        "missing_period_means_no_episode_not_no_event",
+        "summary_title_claims_are_derived",
+        "coverage_complete_unknown_until_archive_bounds_proven",
+        "topic_refs_empty_until_onto_contract",
+    )
+
+
+async def subject_longitudinal_view(db, chat_id: int, *,
+                                    subject_id: str | None = None,
+                                    limit: int = LONGITUDINAL_MAX_EPISODES,
+                                    from_ts: int | None = None,
+                                    to_ts: int | None = None
+                                    ) -> LongitudinalView:
+    """Scoped longitudinal/coverage view (M-02). Read-only, fail-open:
+    ошибка чтения → ``state='unavailable'`` (legacy-пути не блокируются)."""
+    iana, tz_source = await _view_timezone(int(chat_id))
+    cap = max(1, min(int(limit or 1), LONGITUDINAL_MAX_EPISODES))
+    subject = str(subject_id) if subject_id is not None else None
+    try:
+        views = list(await _episode_views(
+            db, int(chat_id), limit=cap, from_ts=from_ts, to_ts=to_ts))
+        if subject is not None:
+            views = [v for v in views if subject in v.participants]
+        if not views:
+            empty_note = ("no_episodes_for_subject" if subject is not None
+                          else "no_episodes_in_scope")
+            return LongitudinalView(
+                chat_id=int(chat_id), subject_id=subject,
+                state=VIEW_STATE_EMPTY,
+                coverage={"period_grain": PERIOD_GRAIN_YEAR,
+                          "present_periods": [], "missing_periods": [],
+                          "unknown_time_episode_refs": [],
+                          "earliest_ts": None, "latest_ts": None,
+                          "complete": False,
+                          "complete_reason": empty_note,
+                          "timezone": iana},
+                episode_refs=(), support_source_refs=(),
+                support_episode_refs=(), independent_support_count=0,
+                counterexample_pairs=(),
+                repeated_claims=0, claims_without_refs=0,
+                unknown_time_episode_refs=(), stale_episode_refs=(),
+                legacy_unlinked_episode_refs=(),
+                timezone=iana, timezone_source=tz_source,
+                notes=_longitudinal_notes() + (empty_note,),
+                derived_version=LONGITUDINAL_VIEW_VERSION)
+
+        by_year: dict[int, list[str]] = {}
+        unknown_time: list[str] = []
+        stale_refs: list[str] = []
+        legacy_unlinked: list[str] = []
+        starts: list[int] = []
+        ends: list[int] = []
+        claim_rows: list[dict] = []
+        text_to_refs: dict[str, list[str]] = {}
+        seen_norm: set[str] = set()
+        repeated = 0
+        claims_without_refs = 0
+        for view in views:
+            if view.event_start_ts is not None:
+                starts.append(int(view.event_start_ts))
+            if view.event_end_ts is not None:
+                ends.append(int(view.event_end_ts))
+            year = period_year(view.event_end_ts or view.event_start_ts,
+                               timezone=iana)
+            if year is None:
+                unknown_time.append(view.episode_ref)
+            else:
+                by_year.setdefault(year, []).append(view.episode_ref)
+            if view.stale:
+                stale_refs.append(view.episode_ref)
+            if not view.source_refs:
+                legacy_unlinked.append(view.episode_ref)
+            for claim in view.claims:
+                text = str(claim.get("text") or "").strip()
+                if not text:
+                    continue
+                refs = [str(r) for r in (claim.get("refs") or ())]
+                claim_rows.append({"text": text, "refs": refs})
+                norm = normalize_claim_text(text)
+                if norm in seen_norm:
+                    repeated += 1
+                else:
+                    seen_norm.add(norm)
+                for ref in refs:
+                    text_to_refs.setdefault(text, [])
+                    if view.episode_ref not in text_to_refs[text]:
+                        text_to_refs[text].append(view.episode_ref)
+                if not refs:
+                    claims_without_refs += 1
+
+        # Независимая опора: один корневой source ref на РАЗЛИЧНУЮ
+        # формулировку; повтор-мем/тот же root не добавляет
+        # доказательности (M-02: повтор != независимое свидетельство).
+        support_by_norm: dict[str, str] = {}
+        for claim in claim_rows:
+            norm = normalize_claim_text(claim.get("text"))
+            refs = sorted({str(r) for r in claim.get("refs") or ()})
+            if not norm or not refs:
+                continue
+            support_by_norm.setdefault(norm, refs[0])
+        support_source_refs = tuple(sorted(set(support_by_norm.values())))
+        support_episode_refs: list[str] = []
+        for claim in claim_rows:
+            if not claim.get("refs"):
+                continue
+            for ref in text_to_refs.get(claim["text"], []):
+                if ref not in support_episode_refs:
+                    support_episode_refs.append(ref)
+
+        pairs: list[dict] = []
+        for left, right in detect_contradictions(claim_rows):
+            pairs.append({
+                "left_text": str(left)[:200],
+                "left_refs": text_to_refs.get(str(left), [])[:8],
+                "right_text": str(right)[:200],
+                "right_refs": text_to_refs.get(str(right), [])[:8],
+            })
+
+        years = sorted(by_year)
+        missing = (list(range(years[0], years[-1] + 1))
+                   if len(years) > 1 else [])
+        missing = [year for year in missing if year not in by_year]
+        coverage = {
+            "period_grain": PERIOD_GRAIN_YEAR,
+            "earliest_ts": min(starts) if starts else None,
+            "latest_ts": max(ends) if ends else None,
+            "present_periods": [
+                {"period": str(year), "count": len(by_year[year]),
+                 "episode_refs": sorted(by_year[year])[:EPISODE_SOURCE_MAX]}
+                for year in years],
+            "missing_periods": [str(year) for year in missing],
+            "unknown_time_episode_refs": sorted(unknown_time),
+            "complete": False,
+            "complete_reason": "archive_bounds_unknown",
+            "timezone": iana,
+        }
+        notes = list(_longitudinal_notes())
+        if subject is not None and not views:
+            notes.append("no_episodes_for_subject")
+        if unknown_time:
+            notes.append("unknown_time_episodes_present")
+        if legacy_unlinked:
+            notes.append("legacy_episodes_without_source_refs")
+        return LongitudinalView(
+            chat_id=int(chat_id), subject_id=subject, state=VIEW_STATE_OK,
+            coverage=coverage,
+            episode_refs=tuple(v.episode_ref for v in views),
+            support_source_refs=support_source_refs,
+            support_episode_refs=tuple(support_episode_refs),
+            independent_support_count=len(support_by_norm),
+            counterexample_pairs=tuple(pairs),
+            repeated_claims=repeated,
+            claims_without_refs=claims_without_refs,
+            unknown_time_episode_refs=tuple(sorted(unknown_time)),
+            stale_episode_refs=tuple(sorted(stale_refs)),
+            legacy_unlinked_episode_refs=tuple(sorted(legacy_unlinked)),
+            timezone=iana, timezone_source=tz_source,
+            notes=tuple(notes),
+            derived_version=LONGITUDINAL_VIEW_VERSION)
+    except Exception:
+        logger.warning("[mca05] longitudinal view failed | chat=%s",
+                       chat_id, exc_info=True)
+        return LongitudinalView(
+            chat_id=int(chat_id), subject_id=subject,
+            state=VIEW_STATE_UNAVAILABLE,
+            coverage={"period_grain": PERIOD_GRAIN_YEAR,
+                      "present_periods": [], "missing_periods": [],
+                      "unknown_time_episode_refs": [],
+                      "earliest_ts": None, "latest_ts": None,
+                      "complete": False,
+                      "complete_reason": "view_unavailable",
+                      "timezone": iana},
+            episode_refs=(), support_source_refs=(), support_episode_refs=(),
+            independent_support_count=0, counterexample_pairs=(),
+            repeated_claims=0,
+            claims_without_refs=0, unknown_time_episode_refs=(),
+            stale_episode_refs=(), legacy_unlinked_episode_refs=(),
+            timezone=iana, timezone_source=tz_source,
+            notes=("view_unavailable",),
+            derived_version=LONGITUDINAL_VIEW_VERSION)
+
+
+def _recheck_version(version) -> str:
+    """Стабильная версия после перепроверки: `<base>+recheck` (не
+    накапливает суффиксы при повторах — revision не «уплывает»)."""
+    base = str(version or EXTRACTOR_VERSION).split("+", 1)[0].strip()
+    return f"{base or EXTRACTOR_VERSION}+recheck"
+
+
 # ── EpisodeService: владелец пайплайна (D1/D4/D5/D7) ────────────────────────
 
 class EpisodeService:
@@ -2047,12 +2612,14 @@ class EpisodeService:
         стабильным ключам (для детерминированной сборки B08)."""
         keys = [str(m.get("message_key")) for m in segment]
         seg_key = segment_key(keys)
+        event_start, event_end = segment_times(segment)
         existing = await self.repo.find_episode_by_segment(chat_id, seg_key)
         if existing is not None:
             return None      # overlap без дублей
-        if await self._find_overlap_duplicate(chat_id, keys):
+        if await self._find_overlap_duplicate(
+                chat_id, keys, event_start=event_start,
+                event_end=event_end):
             return None
-        event_start, event_end = segment_times(segment)
         participant_ids = sorted({
             str(m["user_id"]) for m in segment
             if m.get("user_id") is not None})
@@ -2161,13 +2728,27 @@ class EpisodeService:
         return episode_id
 
     async def _find_overlap_duplicate(self, chat_id: int,
-                                      keys: list[str]) -> bool:
+                                      keys: list[str], *,
+                                      event_start: int | None = None,
+                                      event_end: int | None = None) -> bool:
         """Overlap-дедуп: сегмент, чей набор ключей ≥50% пересекается с уже
-        существующим эпизодом чата — дубль (тот же эпизод, не новый)."""
+        существующим эпизодом чата — дубль (тот же эпизод, не новый).
+
+        Окно поиска — событийный диапазон сегмента (bounded range query),
+        а не «последние 500 эпизодов» по `updated_at`: иначе повторный
+        rebuild старой порции при >500 эпизодов чата создавал бы дубликат
+        со сдвинутой границей (M-03 idempotency). Без известного времени
+        сегмента — прежний bounded-скан."""
         key_set = set(keys)
         if not key_set:
             return False
-        for episode in await self.repo.list_episodes(chat_id, limit=500):
+        if event_start is not None and event_end is not None:
+            episodes = await self.repo.list_episodes_in_range(
+                chat_id, from_ts=int(event_start), to_ts=int(event_end),
+                limit=300)
+        else:
+            episodes = await self.repo.list_episodes(chat_id, limit=500)
+        for episode in episodes:
             episode_keys = set(_json_loads(
                 episode.get("message_keys_json"), []))
             if not episode_keys:
@@ -2211,8 +2792,11 @@ class EpisodeService:
                     participant_ids=set(participant_ids))
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                logger.warning("[mca05] recheck extract failed", exc_info=True)
+            except Exception as exc:
+                # R17/security: текст исключения провайдера может нести
+                # тело запроса/сообщений — логируется только тип.
+                logger.warning("[mca05] recheck extract failed | err=%s",
+                               type(exc).__name__)
                 return False
             if payload is not None and not payload.get("valid"):
                 return False
@@ -2241,16 +2825,24 @@ class EpisodeService:
             open_questions = list(_json_loads(
                 episode.get("open_questions"), []))
         ts = _now(self._now)
+        # M-03: ревизия источника меняет и время события — окно эпизода
+        # пересчитывается из ТЕКУЩИХ timestamps исходных сообщений.
+        # Полностью неизвестное время не стирает уже известные даты
+        # (unknown не превращается в «нет даты» без основания).
+        new_start, new_end = segment_times(messages)
         sql = ("UPDATE mca_episodes SET title = ?, summary = ?, "
                "claims_json = ?, outcome = ?, open_questions = ?, "
-               "updated_at = ?, extraction_version = ? WHERE episode_id = ?")
+               "updated_at = ?, extraction_version = ?, "
+               "event_start_ts = COALESCE(?, event_start_ts), "
+               "event_end_ts = COALESCE(?, event_end_ts) "
+               "WHERE episode_id = ?")
 
         async def _body(_conn):
             await self._db.db.execute(sql, (
                 title, summary, _json_dumps(claims), outcome,
                 _json_dumps(open_questions), ts,
-                str(episode.get("extraction_version")
-                    or EXTRACTOR_VERSION) + "+recheck",
+                _recheck_version(episode.get("extraction_version")),
+                new_start, new_end,
                 str(episode["episode_id"])))
             return 1
 
@@ -2535,7 +3127,7 @@ class EpisodeService:
                                  else None),
                     event_end=(max(events_end) if events_end else None),
                     discovered_at=now, participants=participants,
-                    summary=summary[:200], stage="assemble",
+                    summary=f"episodes={len(members)}", stage="assemble",
                     pipeline_run_id=pipeline_run_id)
             elif not (existing_story is not None and set(
                     await self.repo.story_episode_ids(story_id))
@@ -2549,7 +3141,7 @@ class EpisodeService:
                                  else None),
                     event_end=(max(events_end) if events_end else None),
                     discovered_at=now, participants=participants,
-                    summary=summary[:200], stage="assemble",
+                    summary=f"episodes={len(members)}", stage="assemble",
                     pipeline_run_id=pipeline_run_id)
             else:
                 # Повторная сборка без изменения состава (изменились
@@ -2562,6 +3154,6 @@ class EpisodeService:
                                  else None),
                     event_end=(max(events_end) if events_end else None),
                     discovered_at=now, participants=participants,
-                    summary=summary[:200], stage="assemble",
+                    summary=f"episodes={len(members)}", stage="assemble",
                     pipeline_run_id=pipeline_run_id)
         return contradictions
