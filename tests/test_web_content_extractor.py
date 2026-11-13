@@ -37,7 +37,13 @@ def _make_extractor(handler, monkeypatch, trafilatura_result=TRAF_TEXT, **kwargs
 
     async def _tracking_handler(request):
         body = await request.aread()
-        requests.append((str(request.url), request, body))
+        # Соединение бывает пинуто к валидированному IP (SafeFetcher), поэтому
+        # логический URL собираем из Host — именно его видит сервер.
+        host = request.headers.get("host") or request.url.host
+        logical = f"{request.url.scheme}://{host}{request.url.path}"
+        if request.url.query:
+            logical = f"{logical}?{request.url.query.decode('ascii')}"
+        requests.append((logical, request, body))
         return handler(request)
 
     transport = httpx.MockTransport(_tracking_handler)

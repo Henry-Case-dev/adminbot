@@ -209,7 +209,10 @@ class FakeGitHub:
     # -- transport handler -----------------------------------------
     def handler(self, request: httpx.Request) -> httpx.Response:
         url = request.url
-        self.calls.append(f"{url.host}{url.path}")
+        # Соединение идёт на валидированный IP (pinning SafeFetcher), а
+        # логический хост сервер видит в Host — маршрутизация по vhost.
+        host = (request.headers.get("host", "").split(":")[0] or url.host)
+        self.calls.append(f"{host}{url.path}")
         if self.status is not None:
             headers = {}
             return httpx.Response(self.status, headers=headers,
@@ -217,7 +220,6 @@ class FakeGitHub:
         if self.redirect_to:
             return httpx.Response(302, headers={"location": self.redirect_to},
                                   request=request)
-        host = url.host
         path = url.path
         if host == "api.github.com":
             if path == "/search/repositories":
@@ -1419,3 +1421,56 @@ class TestToolCanon:
         state = asyncio.run(caps.resolve("source_read", 1, use_cache=False))
         assert state.status == caps.STATUS_READY
         assert state.tool_name == "read_source_code"
+
+
+class TestPinnedTransport:
+    """Транспорт GitHub-провайдера: TCP — на валидированный IP, vhost — в Host.
+
+    Контракт 2.58.200 (причина production-отказа SafeFetch): имя не резолвится
+    транспортом повторно, поэтому ротация A-записей не может дать peer вне
+    набора, проверенного SSRF-политикой для этой попытки.
+    """
+
+    @pytest.mark.asyncio
+    async def test_read_connects_to_validated_ip_and_keeps_vhost(self):
+        fake = FakeGitHub()
+        inner = fake.handler
+        seen: list[tuple[str, str, str]] = []
+
+        def handler(request):
+            seen.append((request.url.host,
+                         str(request.headers.get("host", "")),
+                         str(request.extensions.get("sni_hostname", ""))))
+            return inner(request)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler),
+                                   follow_redirects=False, timeout=None)
+        reader = sr.SourceReader(
+            provider=sr.GitHubProvider(sf.SafeFetcher(client=client)))
+        payload = await reader.run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme/ParallelLogic.java")
+        assert payload["status"] == sr.STATUS_OK, payload
+        assert payload["verified"] is True
+        assert seen
+        assert {host for host, _, _ in seen} == {PUBLIC_IP}
+        assert {vhost for _, vhost, _ in seen} == {"api.github.com"}
+        assert {sni for _, _, sni in seen} == {"api.github.com"}
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_stays_honest_with_pinned_transport(self):
+        def handler(request):
+            return httpx.Response(403, content=b'{"message":"rate"}',
+                                  headers={"x-ratelimit-remaining": "0"},
+                                  request=request)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler),
+                                   follow_redirects=False, timeout=None)
+        reader = sr.SourceReader(
+            provider=sr.GitHubProvider(sf.SafeFetcher(client=client)))
+        payload = await reader.run(
+            operation=sr.OPERATION_READ, repo=REPO, ref="main",
+            path="src/main/java/acme/ParallelLogic.java")
+        assert payload["error"] == sr.ERR_RATE_LIMIT
+        assert payload["verified"] is False
+        assert payload["error_detail"]["retryable"] is True

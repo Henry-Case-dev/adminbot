@@ -7,7 +7,10 @@
 """
 import asyncio
 import gzip
+import ipaddress
 import logging
+import socket
+import ssl
 import time
 
 import httpx
@@ -222,6 +225,228 @@ class TestRedirectsAndPeer:
         out = await sf.SafeFetcher().fetch_text("http://start.example/a",
                                                 client=_client(handler))
         assert out == "ok"
+
+
+# ── pinning соединения: ротация A-записей vs anti-rebinding ────────────────
+
+GITHUB_A = "140.82.114.6"
+GITHUB_B = "140.82.113.5"
+GITHUB_EDGE = "140.82.112.6"     # edge из свежего DNS при connect (recon 2.58.199)
+
+
+def _no_proxy_env(monkeypatch):
+    """Детерминизм: pinning не отключается env-прокси в среде теста."""
+    for name in ("http_proxy", "https_proxy", "all_proxy",
+                 "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+
+
+class TestPeerPinning:
+    """Причина production-отказа: снимок DNS не равен адресу connect.
+
+    RED до фикса: ``destination_blocked`` на легитимном соединении с другим
+    edge-IP того же GitHub. Новый контракт: TCP идёт на адрес из набора
+    ЭТОЙ попытки (URL → IP, имя → Host/SNI), peer не меняется после валидации,
+    а TransportError/таймаут не маскируются под запрет назначения."""
+
+    @pytest.mark.asyncio
+    async def test_dns_rotation_is_not_a_destination_block(self, monkeypatch):
+        _no_proxy_env(monkeypatch)
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A, GITHUB_B]})
+        seen = {}
+
+        def handler(request):
+            host = request.url.host
+            seen["url_host"] = host
+            seen["host_header"] = request.headers.get("host")
+            seen["sni"] = request.extensions.get("sni_hostname")
+            # Имя транспорт резолвит заново (ротация), адрес — уже нет.
+            try:
+                ipaddress.ip_address(str(host).strip("[]"))
+                peer = host
+            except ValueError:
+                peer = GITHUB_EDGE
+            return _resp(request, 200, b"ok", addr=(peer, 443))
+
+        out = await sf.SafeFetcher().fetch_text(
+            "https://api.github.com/repos/acme/mod", client=_client(handler))
+        assert out == "ok"
+        assert sf._is_ip_literal(seen["url_host"])
+        assert seen["url_host"] in {GITHUB_A, GITHUB_B}
+        assert seen["host_header"] == "api.github.com"
+        assert seen["sni"] == "api.github.com"
+
+    @pytest.mark.asyncio
+    async def test_peer_outside_attempt_set_still_blocked(self, monkeypatch):
+        """Anti-rebinding: peer вне набора этой попытки → block, не retryable."""
+        _no_proxy_env(monkeypatch)
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A]})
+
+        def handler(request):
+            return _resp(request, 200, b"ok", addr=(GITHUB_EDGE, 443))
+
+        with pytest.raises(sf.SafeFetchError) as exc:
+            await sf.SafeFetcher().fetch(
+                "https://api.github.com/repos/acme/mod",
+                client=_client(handler))
+        assert exc.value.code == "destination_blocked"
+        assert exc.value.stage == "connect"
+        assert exc.value.retryable is False
+
+    @pytest.mark.asyncio
+    async def test_rebinding_to_private_peer_blocked(self, monkeypatch):
+        _no_proxy_env(monkeypatch)
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A]})
+
+        def handler(request):
+            return _resp(request, 200, b"ok", addr=("10.0.0.9", 443))
+
+        with pytest.raises(sf.SafeFetchError) as exc:
+            await sf.SafeFetcher().fetch(
+                "https://api.github.com/repos/acme/mod",
+                client=_client(handler))
+        assert exc.value.code == "destination_blocked"
+
+    @pytest.mark.asyncio
+    async def test_redirect_hop_uses_its_own_validated_set(self, monkeypatch):
+        """Каждый хоп: свой resolve → свой pin; Host/SNI остаются именами."""
+        _no_proxy_env(monkeypatch)
+        raw_ip = "185.199.108.133"
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A],
+                                      "raw.githubusercontent.com": [raw_ip]})
+        seen = []
+
+        def handler(request):
+            host = request.headers.get("host")
+            seen.append((request.url.host, host))
+            if host == "api.github.com" and request.url.path.startswith("/repos/"):
+                return httpx.Response(
+                    302, headers={"location":
+                                  "https://raw.githubusercontent.com/"
+                                  "acme/mod/" + "a" * 40 + "/a.py"},
+                    request=request)
+            return _resp(request, 200, b"raw-bytes",
+                         addr=(request.url.host, 443))
+
+        out = await sf.SafeFetcher().fetch_text(
+            "https://api.github.com/repos/acme/mod/contents/a.py",
+            client=_client(handler))
+        assert out == "raw-bytes"
+        assert seen[0] == (GITHUB_A, "api.github.com")
+        assert seen[1] == (raw_ip, "raw.githubusercontent.com")
+
+    @pytest.mark.asyncio
+    async def test_ipv6_multi_record_pinned(self, monkeypatch):
+        _no_proxy_env(monkeypatch)
+        v6 = "2606:50c0:8000::153"
+        _patch_resolver(monkeypatch, {"api.github.com": [v6]})
+        seen = {}
+
+        def handler(request):
+            seen["url_host"] = request.url.host
+            seen["host_header"] = request.headers.get("host")
+            return _resp(request, 200, b"ok",
+                         addr=(request.url.host, 443))
+
+        out = await sf.SafeFetcher().fetch_text(
+            "https://api.github.com/repos/acme/mod", client=_client(handler))
+        assert out == "ok"
+        assert seen["url_host"] == v6
+        assert seen["host_header"] == "api.github.com"
+
+    @pytest.mark.asyncio
+    async def test_connect_failure_falls_back_to_next_validated_address(
+            self, monkeypatch):
+        """Первый валидированный адрес недоступен — пробуется следующий."""
+        _no_proxy_env(monkeypatch)
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A, GITHUB_B]})
+        tried = []
+
+        def handler(request):
+            tried.append(request.url.host)
+            if request.url.host == GITHUB_A:
+                raise httpx.ConnectError("refused", request=request)
+            return _resp(request, 200, b"ok",
+                         addr=(request.url.host, 443))
+
+        out = await sf.SafeFetcher().fetch_text(
+            "https://api.github.com/repos/acme/mod", client=_client(handler))
+        assert out == "ok"
+        assert tried == [GITHUB_A, GITHUB_B]
+
+    @pytest.mark.asyncio
+    async def test_all_validated_addresses_unreachable_is_transient(
+            self, monkeypatch):
+        """Недоступность валидированных адресов — transport-ошибка, не запрет."""
+        _no_proxy_env(monkeypatch)
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A, GITHUB_B]})
+
+        def handler(request):
+            raise httpx.ConnectError("unreachable", request=request)
+
+        with pytest.raises(sf.SafeFetchError) as exc:
+            await sf.SafeFetcher().fetch(
+                "https://api.github.com/repos/acme/mod",
+                client=_client(handler))
+        assert exc.value.code == "client_error"
+        assert exc.value.stage == "connect"
+        assert exc.value.retryable is True
+
+    @pytest.mark.asyncio
+    async def test_tls_verification_failure_is_not_retried_or_masked(
+            self, monkeypatch):
+        """Нарушение TLS — честный не-retryable connect-отказ.
+
+        Не ``destination_blocked`` (это не SSRF) и без повтора на следующем
+        адресе: невалидный сертификат не «лечится» другим IP, а проверка TLS
+        не ослабляется."""
+        _no_proxy_env(monkeypatch)
+        _patch_resolver(monkeypatch, {"api.github.com": [GITHUB_A, GITHUB_B]})
+        tried = []
+
+        def handler(request):
+            tried.append(request.url.host)
+            err = httpx.ConnectError("tls handshake failed", request=request)
+            err.__cause__ = ssl.SSLCertVerificationError(
+                1, "certificate verify failed: hostname mismatch")
+            raise err
+
+        with pytest.raises(sf.SafeFetchError) as exc:
+            await sf.SafeFetcher().fetch(
+                "https://api.github.com/repos/acme/mod",
+                client=_client(handler))
+        assert exc.value.code == "client_error"
+        assert exc.value.stage == "connect"
+        assert exc.value.retryable is False
+        assert tried == [GITHUB_A]
+        assert GITHUB_A not in exc.value.reason
+
+
+class TestDnsErrorSemantics:
+    def test_temporary_dns_failure_is_retryable(self, monkeypatch):
+        def _failing(host):
+            raise socket.gaierror(socket.EAI_AGAIN, "temporary failure")
+        monkeypatch.setattr(sf, "_resolve_ip", _failing)
+        with pytest.raises(sf.SafeFetchError) as exc:
+            sf.guarded_target("https://api.github.com/repos/acme/mod")
+        assert exc.value.code == "resolve_failed"
+        assert exc.value.retryable is True
+
+    def test_nonexistent_domain_is_not_retryable(self, monkeypatch):
+        def _failing(host):
+            raise socket.gaierror(socket.EAI_NONAME, "name not known")
+        monkeypatch.setattr(sf, "_resolve_ip", _failing)
+        with pytest.raises(sf.SafeFetchError) as exc:
+            sf.guarded_target("https://no-such-host.invalid/x")
+        assert exc.value.code == "resolve_failed"
+        assert exc.value.retryable is False
+
+    def test_empty_resolution_is_retryable(self, monkeypatch):
+        monkeypatch.setattr(sf, "_resolve_ip", lambda host: [])
+        with pytest.raises(sf.SafeFetchError) as exc:
+            sf.guarded_target("https://api.github.com/repos/acme/mod")
+        assert exc.value.code == "resolve_failed"
+        assert exc.value.retryable is True
 
 
 # ── потоковые лимиты (SC-06) ─────────────────────────────────────────────────
