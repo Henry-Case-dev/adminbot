@@ -1,0 +1,209 @@
+......FFFF.F.FF.FFFFF...                                                 [100%]
+================================== FAILURES ===================================
+___________ TestComposerCaps.test_middle_top_k_factory_cap_removed ____________
+
+self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x000002B33BEB9AF0>
+
+    def test_middle_top_k_factory_cap_removed(self):
+        rows = [_row(i, 1000 + i) for i in range(1, 76)]
+>       assert comp.middle_max_messages() == 0
+E       assert 60 == 0
+E        +  where 60 = <function middle_max_messages at 0x000002B33BDA5D00>()
+E        +    where <function middle_max_messages at 0x000002B33BDA5D00> = comp.middle_max_messages
+
+tests\test_smart_exec_evidence.py:319: AssertionError
+_________ TestComposerCaps.test_middle_explicit_policy_still_applies __________
+
+self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x000002B33BEBA030>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B347763590>
+
+    def test_middle_explicit_policy_still_applies(self, monkeypatch):
+        monkeypatch.setenv("CHAT_MIDDLE_MAX_MESSAGES", "5")
+        rows = [_row(i, 1000 + i) for i in range(1, 21)]
+>       assert comp.middle_max_messages() == 5
+E       assert 60 == 5
+E        +  where 60 = <function middle_max_messages at 0x000002B33BDA5D00>()
+E        +    where <function middle_max_messages at 0x000002B33BDA5D00> = comp.middle_max_messages
+
+tests\test_smart_exec_evidence.py:330: AssertionError
+______ TestComposerCaps.test_middle_garbage_policy_is_no_cap_not_default ______
+
+self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x000002B33BEBA570>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B3479D94F0>
+
+    def test_middle_garbage_policy_is_no_cap_not_default(self, monkeypatch):
+        monkeypatch.setenv("CHAT_MIDDLE_MAX_MESSAGES", "abc")
+>       assert comp.middle_max_messages() == 0
+E       assert 60 == 0
+E        +  where 60 = <function middle_max_messages at 0x000002B33BDA5D00>()
+E        +    where <function middle_max_messages at 0x000002B33BDA5D00> = comp.middle_max_messages
+
+tests\test_smart_exec_evidence.py:339: AssertionError
+__________ TestComposerCaps.test_episode_window_factory_cap_removed ___________
+
+self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x000002B33BEBAAE0>
+
+    def test_episode_window_factory_cap_removed(self):
+        rows = [_row(i, 1000 + i) for i in range(1, 51)]
+>       assert comp.episode_max_messages() == 0
+E       assert 40 == 0
+E        +  where 40 = <function episode_max_messages at 0x000002B33BDA5EE0>()
+E        +    where <function episode_max_messages at 0x000002B33BDA5EE0> = comp.episode_max_messages
+
+tests\test_smart_exec_evidence.py:345: AssertionError
+______________ TestComposerCaps.test_memory_fragment_cap_removed ______________
+
+self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x000002B33BEB9B20>
+
+    @pytest.mark.asyncio
+    async def test_memory_fragment_cap_removed(self):
+        class _Cand:
+            entity_type = "graph_fact"
+            sent_at = 1700000000
+            author_id = 1
+            entity_id = ""
+
+            def __init__(self, index):
+                self.id = f"fact:{index}"
+                self.preview = f"╤Д╨░╨║╤В {index}"
+
+        candidates = [_Cand(i) for i in range(1, 26)]
+        fragments, raw = await comp.collect_memory_fragments(
+            None, chat_id=1, candidates=candidates)
+>       assert raw == 25
+E       assert 10 == 25
+
+tests\test_smart_exec_evidence.py:376: AssertionError
+______ TestEvidenceBundleCaps.test_page_default_has_no_artificial_budget ______
+
+self = <tests.test_smart_exec_evidence.TestEvidenceBundleCaps object at 0x000002B33BEBB500>
+
+    def test_page_default_has_no_artificial_budget(self):
+        bundle = self._bundle()
+>       page, next_offset = eb.render_page(bundle)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: render_page() missing 1 required keyword-only argument: 'max_chars'
+
+tests\test_smart_exec_evidence.py:425: TypeError
+_ TestEvidenceBundleCaps.test_page_explicit_budget_still_paginates_with_continuation _
+
+self = <tests.test_smart_exec_evidence.TestEvidenceBundleCaps object at 0x000002B33BEBBAD0>
+
+    def test_page_explicit_budget_still_paginates_with_continuation(self):
+        bundle = self._bundle()
+        page, next_offset = eb.render_page(bundle, max_chars=2500)
+        assert 0 < next_offset < 40
+        assert page["truncated"] is True
+        assert page["page"]["next_offset"] == next_offset
+        assert page["page"]["total_sources"] == 40
+        omitted = page["page"].get("omitted_source_ids")
+        if omitted is not None:
+            assert len(omitted) == 40 - next_offset
+        page2, next2 = eb.render_page(bundle, max_chars=2500,
+                                      offset=next_offset)
+        shown = {s["source_id"] for s in page["sources"]}
+        shown2 = {s["source_id"] for s in page2["sources"]}
+>       assert shown and shown2 and not (shown & shown2)
+E       assert (set())
+
+tests\test_smart_exec_evidence.py:447: AssertionError
+_____ TestEvidenceBundleCaps.test_stack_summary_default_keeps_all_frames ______
+
+self = <tests.test_smart_exec_evidence.TestEvidenceBundleCaps object at 0x000002B33BCDC710>
+
+    def test_stack_summary_default_keeps_all_frames(self):
+        lines = ["Traceback (most recent call last):"]
+        for index in range(150):
+            lines.append(f'  File "/app/s{index}.py", line {index + 1}, '
+                         f'in fn_{index}')
+            lines.append("    return x")
+        lines.append("RuntimeError: boom")
+        text = "\n".join(lines)
+        page = eb.stack_summary(text)
+        assert page["frame_count"] == 150
+>       assert page["shown_frames"] == 150     # ╨▒╤Л╨╗╨╛ ╨▒╤Л тЙд120/╨┐╨╛ ╨▒╤О╨┤╨╢╨╡╤В╤Г 2000
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 18 == 150
+
+tests\test_smart_exec_evidence.py:468: AssertionError
+_________ TestResponseExtentCaps.test_fetch_step_factory_cap_removed __________
+
+self = <tests.test_smart_exec_evidence.TestResponseExtentCaps object at 0x000002B33BCDCD40>
+
+    def test_fetch_step_factory_cap_removed(self):
+        urls = " ".join(f"https://u{i}.example/" for i in range(6))
+        plan = rext.build_tool_plan(f"╤Б╤А╨░╨▓╨╜╨╕ {urls}",
+                                    available_tools={"fetch_article"})
+>       assert [s["arguments"]["url"] for s in plan] == [
+            f"https://u{i}.example/" for i in range(6)]
+E       AssertionError: assert [] == ['https://u0..../u5.example/']
+E
+E         Right contains 6 more items, first extra item: 'https://u0.example/'
+E         Use -v to get more diff
+
+tests\test_smart_exec_evidence.py:481: AssertionError
+_______ TestResponseExtentCaps.test_fetch_step_explicit_policy_boundary _______
+
+self = <tests.test_smart_exec_evidence.TestResponseExtentCaps object at 0x000002B33BCDD340>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B3479CFE00>
+
+    def test_fetch_step_explicit_policy_boundary(self, monkeypatch):
+        urls = " ".join(f"https://u{i}.example/" for i in range(4))
+        monkeypatch.setenv("DIRECT_TOOL_PLAN_MAX_FETCH_STEPS", "3")
+        assert rext.build_tool_plan(
+            f"╤Б╤А╨░╨▓╨╜╨╕ {urls}", available_tools={"fetch_article"}) == []
+        monkeypatch.setenv("DIRECT_TOOL_PLAN_MAX_FETCH_STEPS", "0")
+>       assert len(rext.build_tool_plan(
+            f"╤Б╤А╨░╨▓╨╜╨╕ {urls}", available_tools={"fetch_article"})) == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = len([])
+E        +    where [] = <function build_tool_plan at 0x000002B33BD416C0>('╤Б╤А╨░╨▓╨╜╨╕ https://u0.example/ https://u1.example/ https://u2.example/ https://u3.example/', available_tools={'fetch_article'})
+E        +      where <function build_tool_plan at 0x000002B33BD416C0> = rext.build_tool_plan
+
+tests\test_smart_exec_evidence.py:490: AssertionError
+_____________ TestResponseExtentCaps.test_web_query_is_not_sliced _____________
+
+self = <tests.test_smart_exec_evidence.TestResponseExtentCaps object at 0x000002B33BCDD910>
+
+    def test_web_query_is_not_sliced(self):
+        long_tail = "╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б" * 40
+        plan = rext.build_tool_plan(
+            f"╤Б╤А╨░╨▓╨╜╨╕ https://a.example/x ╨╕ https://b.example/y "
+            f"╨╕ ╨┐╤А╨╛╨▓╨╡╤А╤М ╨▓ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨╡ {long_tail}",
+            available_tools={"fetch_article", "execute_web_search"})
+        step = [s for s in plan if s["tool"] == "execute_web_search"][0]
+>       assert len(step["arguments"]["query"]) > 256
+E       AssertionError: assert 256 > 256
+E        +  where 256 = len('╤Б╤А╨░╨▓╨╜╨╕ ╨╕ ╨╕ ╨┐╤А╨╛╨▓╨╡╤А╤М ╨▓ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨╡ ╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М...╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜╨╜╤Л╨╣╨┐╨╛╨╕╤Б╨║╨╛╨▓╤Л╨╣╨╖╨░╨┐╤А╨╛╤Б╨╛╤З╨╡╨╜╤М╨┤╨╗╨╕╨╜')
+
+tests\test_smart_exec_evidence.py:500: AssertionError
+______ TestResponseExtentCaps.test_longform_output_no_artificial_ceiling ______
+
+self = <tests.test_smart_exec_evidence.TestResponseExtentCaps object at 0x000002B33BCDE1E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B348014230>
+
+    def test_longform_output_no_artificial_ceiling(self, monkeypatch):
+        from config import settings as settings_mod
+        monkeypatch.setattr(type(settings_mod.settings),
+                            "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS",
+                            20000, raising=False)
+>       assert rext.longform_max_output_tokens() == 20000
+E       assert 16384 == 20000
+E        +  where 16384 = <function longform_max_output_tokens at 0x000002B33BD40AE0>()
+E        +    where <function longform_max_output_tokens at 0x000002B33BD40AE0> = rext.longform_max_output_tokens
+
+tests\test_smart_exec_evidence.py:508: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_smart_exec_evidence.py::TestComposerCaps::test_middle_top_k_factory_cap_removed
+FAILED tests/test_smart_exec_evidence.py::TestComposerCaps::test_middle_explicit_policy_still_applies
+FAILED tests/test_smart_exec_evidence.py::TestComposerCaps::test_middle_garbage_policy_is_no_cap_not_default
+FAILED tests/test_smart_exec_evidence.py::TestComposerCaps::test_episode_window_factory_cap_removed
+FAILED tests/test_smart_exec_evidence.py::TestComposerCaps::test_memory_fragment_cap_removed
+FAILED tests/test_smart_exec_evidence.py::TestEvidenceBundleCaps::test_page_default_has_no_artificial_budget
+FAILED tests/test_smart_exec_evidence.py::TestEvidenceBundleCaps::test_page_explicit_budget_still_paginates_with_continuation
+FAILED tests/test_smart_exec_evidence.py::TestEvidenceBundleCaps::test_stack_summary_default_keeps_all_frames
+FAILED tests/test_smart_exec_evidence.py::TestResponseExtentCaps::test_fetch_step_factory_cap_removed
+FAILED tests/test_smart_exec_evidence.py::TestResponseExtentCaps::test_fetch_step_explicit_policy_boundary
+FAILED tests/test_smart_exec_evidence.py::TestResponseExtentCaps::test_web_query_is_not_sliced
+FAILED tests/test_smart_exec_evidence.py::TestResponseExtentCaps::test_longform_output_no_artificial_ceiling
+12 failed, 12 passed in 5.13s

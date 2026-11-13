@@ -24,6 +24,7 @@ R17: наружу только id/enum/числа; сырой текст в со
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field, replace as _dc_replace
 
@@ -151,18 +152,49 @@ def _env_int(name: str, default: int, minimum: int = 1) -> int:
     return max(minimum, value)
 
 
+def _env_policy_int(name: str) -> int:
+    """Явная политика оператора из env; ``0`` = переменная не задана.
+
+    SXR-C2-01 (SMART-EXECUTION-RELIABILITY-01 C2): у settings есть заводское
+    значение (60/40/…), по нему нельзя отличить «оператор выбрал 60» от
+    «заводской потолок». Здесь политика применяется только если переменная
+    реально задана; мусор/ноль/минус = искусственного потолка нет. Замена
+    одного числа другим не вводится.
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return 0
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
 def fresh_tail_min_messages() -> int:
     """`CHAT_FRESH_TAIL_MIN_MESSAGES` (env, default 20) — P1-пол tail."""
     return _env_int("CHAT_FRESH_TAIL_MIN_MESSAGES", 20, 1)
 
 
 def middle_max_messages() -> int:
-    """`CHAT_MIDDLE_MAX_MESSAGES` (env, default 60) — top-K middle."""
-    return _env_int("CHAT_MIDDLE_MAX_MESSAGES", 60, 1)
+    """`CHAT_MIDDLE_MAX_MESSAGES` — явный top-K middle; ``0`` = потолка нет.
+
+    SXR-C2-01: заводской top-K 60 удалён. Без явной политики оператора
+    ``select_middle`` видит ВСЕ кандидаты middle; объём ограничивает только
+    реальное окно модели на этапе единого аллокатора.
+    """
+    return _env_policy_int("CHAT_MIDDLE_MAX_MESSAGES")
 
 
 def thread_walk_max() -> int:
-    """`CHAT_THREAD_WALK_MAX` (env, default 40) — hard-cap walk до корня."""
+    """`CHAT_THREAD_WALK_MAX` (env, default 40) — hard-cap walk до корня.
+
+    SXR-C2-01 residual (cross-slice): потребитель
+    `DirectChatService._collect_thread_chain` и `thread_chain.collect_thread_chain`
+    трактуют `depth<=0` как «один hop», поэтому снять заводское 40 можно только
+    вместе с их правкой (вне write_scope S3-EVIDENCE). Потолок честно указан
+    в binding, а не заменён другим числом.
+    """
     return _env_int("CHAT_THREAD_WALK_MAX", 40, 1)
 
 
@@ -172,12 +204,24 @@ def episode_gap_seconds() -> int:
 
 
 def episode_max_messages() -> int:
-    """`CHAT_EPISODE_MAX_MESSAGES` (env, default 40)."""
-    return _env_int("CHAT_EPISODE_MAX_MESSAGES", 40, 1)
+    """`CHAT_EPISODE_MAX_MESSAGES` — явное окно эпизода; ``0`` = потолка нет.
+
+    SXR-C2-01: заводское окно 40 удалено. Без явной политики оператора
+    `compute_episode_span` отдаёт весь coherent-эпизод вокруг хита; объём
+    ограничивает только реальное окно модели.
+    """
+    return _env_policy_int("CHAT_EPISODE_MAX_MESSAGES")
 
 
 def episode_max_count() -> int:
-    """`CHAT_EPISODE_MAX_COUNT` (env, default 2) — эпизодов на run."""
+    """`CHAT_EPISODE_MAX_COUNT` (env, default 2) — эпизодов на run.
+
+    SXR-C2-01 residual (cross-slice): потребитель сравнивает
+    `stats["count"] >= episode_max_count()`, поэтому `0` как «без потолка»
+    здесь сломал бы отбор (ноль эпизодов). Снятие требует правки вызова в
+    `DirectChatService` (вне write_scope S3-EVIDENCE); честно указано в
+    binding-c2c3, а не замаскировано другим числом.
+    """
     return _env_int("CHAT_EPISODE_MAX_COUNT", 2, 1)
 
 
@@ -386,7 +430,7 @@ def _row_tg_id(row):
 
 def compute_episode_span(rows: list, anchor_tg_id: int | None, *,
                          gap_seconds: int = 300,
-                         max_messages: int = 40,
+                         max_messages: int = 0,
                          max_reply_depth: int = 6,
                          anchor_row_id: int | None = None
                          ) -> tuple[int, int, str] | None:
@@ -396,9 +440,10 @@ def compute_episode_span(rows: list, anchor_tg_id: int | None, *,
     tg_message_id хита. Шаги D4: (1) расширение по gap ≤ ``gap_seconds``;
     (2) reply-graph closure (предки/потомки по reply_to_id, depth cap 6,
     cycle-safe); (3) склейка непрерывного [start..end] («дырки» > gap →
-    split, берётся сегмент с хитом); (4) кап ``max_messages`` (окно вокруг
-    хита, приоритет «до хита» 3:1). Возвращает ``(start_idx, end_idx,
-    reason)`` включительно или None (якорь вне rows).
+    split, берётся сегмент с хитом); (4) ``max_messages`` — ЯВНАЯ политика
+    окна; ``0`` = потолка нет (SXR-C2-01: заводское 40 удалено, coherent
+    эпизод отдаётся целиком). Возвращает ``(start_idx, end_idx, reason)``
+    включительно или None (якорь вне rows).
 
     VMQ-MEM (дефект 2 измерения 2.58.179): аддитивный ``anchor_row_id`` —
     якорь по `smart_messages.id` для хитов без ``tg_message_id``
@@ -503,10 +548,10 @@ def compute_episode_span(rows: list, anchor_tg_id: int | None, *,
         seg_end = end
     start, end = seg_start, seg_end
 
-    # (4) кап сообщений: окно вокруг хита (3:1 в пользу «до хита»).
+    # (4) явная политика окна сообщений (3:1 в пользу «до хита»).
     size = end - start + 1
     reason = "+".join(reason_steps) if reason_steps else "hit"
-    if size > max_messages:
+    if max_messages and max_messages > 0 and size > max_messages:
         back = max(0, int(max_messages * 3 / 4))
         forward = max_messages - back - 1
         new_start = max(start, anchor_idx - back)
@@ -539,11 +584,17 @@ def _lexical_overlap(query: str, text: str) -> int:
 def select_middle(rows: list, *, query: str, chain_tg_ids: set[int],
                   participant_ids: set[int], top_k: int
                   ) -> list:
-    """Bounded top-K middle-строк (детерминированный вес: recency; членство
-    в reply-цепи; участник; лексическое перекрытие). Порядок вывода —
+    """Middle-строки: семантический вес + ``top_k`` как ЯВНАЯ политика.
+
+    Вес детерминированный: recency; членство в reply-цепи; участник;
+    лексическое перекрытие. При ``top_k<=0`` (SXR-C2-01: заводской top-K 60
+    удалён) возвращаются ВСЕ кандидаты — семантическое ранжирование сохраняется
+    порядком входа, объём ограничивает реальное окно модели. Порядок вывода —
     хронологический ASC (детерминизм, идемпотентность)."""
-    if not rows or top_k <= 0:
+    if not rows:
         return []
+    if top_k <= 0:
+        return list(rows)
     max_ts = max((int(_row_get(r, "timestamp") or 0) for r in rows),
                  default=0)
     scored: list[tuple[float, int, int]] = []
@@ -1914,7 +1965,7 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
                                    aliases=None, bot_user_id=None,
                                    neighbours_before: int = 2,
                                    neighbours_after: int = 2,
-                                   max_fragments: int = 10,
+                                   max_fragments: int = 0,
                                    role: str = ROLE_MEMORY):
     """Кандидаты retrieval → фрагменты с РЕАЛЬНЫМИ сообщениями и соседями.
 
@@ -1922,12 +1973,23 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
     идентификаторами, а не короткий вывод. Кандидат-сообщение разворачивается
     через существующий `db.get_messages_around`; факты/эпизоды без дословной
     реплики подаются как `summary_inference` с явной пометкой (не выдаются за
-    исходные слова). Возврат: ``(fragments, raw_count)``."""
+    исходные слова).
+
+    SXR-C2-01: ``max_fragments`` — ЯВНАЯ политика вызова; ``0`` (заводское
+    значение) = искусственного потолка нет. Семантический порядок кандидатов
+    retrieval и соседи каждого сообщения сохраняются.
+
+    Возврат: ``(fragments, raw_count)``."""
     fragments: list = []
     raw = 0
     seen_tg: set = set()
+    cap = max(0, int(max_fragments or 0))
+
+    def _cap_reached() -> bool:
+        return bool(cap) and len(fragments) >= cap
+
     for cand in candidates or ():
-        if len(fragments) >= max(1, int(max_fragments or 1)):
+        if _cap_reached():
             break
         raw += 1
         entity_type = str(getattr(cand, "entity_type", "") or "")
@@ -1968,7 +2030,7 @@ async def collect_memory_fragments(db, *, chat_id: int, candidates,
                     continue            # media-only строка без текста
                 seen_tg.add(row_tg)
                 fragments.append(frag)
-                if len(fragments) >= max(1, int(max_fragments or 1)):
+                if _cap_reached():
                     break
             continue
         # graph_fact / episode: дословной реплики нет → вывод модели/факт,
