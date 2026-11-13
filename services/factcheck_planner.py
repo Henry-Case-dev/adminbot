@@ -915,28 +915,10 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
     return tuple(rows)
 
 
-def adaptive_query_budget(claims_count: int, *, base: int = _MAX_QUERIES,
-                          total: int | None = None) -> int:
-    """§3.2: бюджет запросов зависит от числа существенных частей.
-
-    Малый клейм сохраняет прежний потолок (``base``), составная новость
-    получает по запросу на каждую часть (не больше ``total``): прежний
-    «≤3 запроса на всю новость» оставлял большинство частей без попытки.
-    """
-    count = max(1, int(claims_count))
-    limit_total = _max_queries_total() if total is None else int(total)
-    return max(1, min(max(count, int(base)), max(1, int(limit_total))))
-
-
-def _max_queries_total() -> int:
-    """Потолок запросов на один прогон (настраиваемый, не «магические 3»)."""
-    try:
-        from services import hot_config as hot
-        value = hot.get("limits.factcheck_max_queries_total",
-                        _MAX_QUERIES_TOTAL_DEFAULT)
-        return max(1, int(value))
-    except Exception:      # pragma: no cover — конфиг не рвёт план
-        return _MAX_QUERIES_TOTAL_DEFAULT
+#: S14: прежние `adaptive_query_budget`/`_max_queries_total` удалены как
+#: второй, скрытый источник потолка запросов. Единственный источник —
+#: `FactcheckLimits` (plan строит запросы по числу частей; исполнение
+#: применяет общий бюджет ON и не применяет его при OFF).
 
 
 #: Варианты единиц измерения для уточняющего запроса (§3.2: «варианты
@@ -1595,14 +1577,8 @@ def resolve_retrieval_budget(claims_count: int,
                                (1.0 + _BUDGET_SECONDS_PER_EXTRA_CLAIM * extra)))
 
 
-def _refine_calls_limit() -> int:
-    """Legacy-чтение только для внешних вызывающих; run_retrieval использует
-    `FactcheckLimits.refine_calls` (тот же ключ, но с учётом budgets OFF)."""
-    try:
-        return max(0, int(_hot_number(_LIMIT_REFINE,
-                                      _REFINE_CALLS_DEFAULT)))
-    except Exception:      # pragma: no cover
-        return _REFINE_CALLS_DEFAULT
+#: S14: прежний `_refine_calls_limit` удалён — единственный источник
+#: уточняющего бюджета `FactcheckLimits.refine_calls` (OFF снимает его).
 
 
 @dataclasses.dataclass(frozen=True)

@@ -376,6 +376,42 @@ async def test_all_audit_layers_are_read(monkeypatch):
     assert meta["sources"]["limits.factcheck_claim_portion"] == "chat"
 
 
+@pytest.mark.asyncio
+async def test_off_saved_budget_does_not_enforce_end_to_end(monkeypatch):
+    """Сохранённые 10 с / 12 запросов / 8000 символов не ограничивают
+    исследование при master OFF — проверено на реальном run_retrieval."""
+    async def fake_read(key, *, chat_id=None, default=None):
+        return {
+            "limits.factcheck_retrieval_seconds": (10.0, "chat"),
+            "limits.factcheck_retrieval_seconds_max": (45.0, "chat"),
+            "limits.factcheck_refine_calls": (3, "chat"),
+            "limits.factcheck_max_queries_total": (12, "chat"),
+            "limits.factcheck_search_text_chars": (8000, "chat"),
+            "limits.factcheck_page_size": (4, "chat"),
+            "limits.factcheck_claim_portion": (8, "chat"),
+            "limits.factcheck_primary_fetches": (2, "chat"),
+            "limits.factcheck_excerpt_chars": (600, "chat"),
+        }[key]
+
+    async def fake_budgets(chat_id=None):
+        return budget_gate.BudgetState(
+            enabled=False, source="chat", chat_id=chat_id, known=True)
+
+    monkeypatch.setattr(
+        "services.worker_settings.resolve_setting_with_source", fake_read)
+    monkeypatch.setattr(budget_gate, "resolve_budgets", fake_budgets)
+
+    limits = await fsp.resolve_factcheck_limits(CHAT)
+    outcome = await fsp.run_retrieval(
+        _plan(40), aggregator=_Agg("Борщ рецепт\nhttps://t.example/1"),
+        limits=limits)
+    assert outcome.budget_seconds is None
+    assert outcome.queries_attempted == 80
+    assert outcome.refine_calls == 40
+    assert outcome.budget_exhausted is False
+    assert outcome.budget_source == "chat"
+
+
 # ── 4. Содержательные состояния завершения ─────────────────────────────────
 
 @pytest.mark.asyncio
