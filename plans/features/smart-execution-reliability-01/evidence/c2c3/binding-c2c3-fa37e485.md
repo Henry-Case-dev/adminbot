@@ -132,15 +132,40 @@ Diff мутации: `evidence/c2c3/mutation-middle.diff`.
 
 ## 7. Честные остатки (НЕ выданы за выполненные)
 
-### 7.1 Cross-slice (нужна правка вне write_scope S3-EVIDENCE)
+### 7.0 Сводка по требованиям — S3 сам по себе НЕ закрывает C2-01/C3-02 полностью
+
+| Требование | Что реально сделано в этом срезе | Что осталось вне write_scope |
+|---|---|---|
+| SXR-C2-01 | сняты caps в 5 файлах среза (composer/evidence/response/SourceReader-линия) + проверено, что tool-loop не теряет результат | «все инструменты» требуют S2/S4/S8/S11/S13–S16: список ниже |
+| SXR-C2-02 | semantic selection сохранён; continuation (line range, page next_offset, все URL плана) проверен | ничего блокирующего в срезе |
+| SXR-C3-01 | исполнимый 7-шаговый тест SourceReader; шаги 2–6 для search/memory/OCR/transcript/factcheck | шаг 1 (реальный внешний вызов) для 5 типов — провайдерские тесты соответствующих срезов |
+| SXR-C3-02 | символьные caps/JSON/повторное усечение/OFF-бюджет/real-window packing в 5 файлах | L1/Writer/fallback/reserves в `direct_chat_service`/`tool_loop` — S2/S4/S7/S11 |
+
+**Вывод для PM/Reviewer:** строки карты C2-01 и части C3-02 нельзя помечать `VERIFIED` только по этому binding; нужен join с перечисленными срезами.
+
+### 7.1 Покрытие категорий C2-01 (явно, без «всё проверено»)
+
+| Категория owner-требования | В этом срезе | Остаток / владелец |
+|---|---|---|
+| результаты поиска | tool-loop отдаёт полный результат (тест `execute_web_search`, >4000 символов) | `tool_router._compact_search_candidates`/`_truncate` — S2; `source_reader:2133 max_symbols=4000` для discovery — S2/S6 |
+| документы/страницы | C1: 6/2/16 и 3/1/8 удалены; line-range/paging, oversized >2 МБ, continuation | — |
+| фрагменты памяти | `middle 60`, `episode 40`, `memory 10` заводские сняты в composer; порядок/соседи сохранены | `mca_retrieval` candidate caps, `direct_chat_service._MEMORY_FACT_MAX_CHARS` — S11/S4 |
+| OCR/Vision | доставка структурированного результата до payload (шаги 2–6) | `mca_vision` `max_tokens=16/8`, `vision_max_bytes/pixels` — S13/владелец vision; физические пределы остаются законно |
+| транскрипты | доставка до payload (шаги 2–6) | `voice_transcripts._MAX_ITEMS=3`, `youtube_transcript_engine.max_symbols` — S13/S14 |
+| фактчек | доставка до payload (шаги 2–6) | `factcheck_*` `max_symbols`, `_VERBATIM_MAX_MESSAGES=40`, `_DIGEST/VERBATIM_BUDGET_CHARS`, `image ... max_chars=2000` — S13–S16 |
+| длина исходных сообщений | снят срез `search_query[:256]` | `limits.chat_current_question_max_chars` (default 800), `_CORRECTION_OWN_TEXT_CAP` — `direct_chat_service`, S4/S11 |
+| размер tool result | `evidence_bundle` defaults/claims/facts/stack caps сняты; повторного усечения нет | `tool_router.Truncation/_truncate` — S2 |
+| суммарный объём для модели | `budget_tokens=0` не режет; при реальном окне — существующая упаковка + provenance | stage budgets/reserves в `direct_chat_service`/`auto_budget` — S4 |
+
+### 7.2 Cross-slice (нужна правка вне write_scope S3-EVIDENCE)
 1. `thread_walk_max()` = 40 (`direct_context_composer.py:189`): потребитель `DirectChatService._collect_thread_chain` → `thread_chain.collect_thread_chain` трактует `depth<=0` как «1 hop», поэтому снятие 40 требует правки этих файлов (S4/S11). В коде оставлен честный docstring-residual.
 2. `episode_max_count()` = 2 (`direct_context_composer.py:216`): потребитель `direct_chat_service.py:10391` делает `stats["count"] >= max_count`; `0` = «без потолка» сломал бы отбор. Нужна правка вызова (S4/S11).
 3. `services/tool_router.py`: `Truncation`/`_truncate`/`_compact_search_candidates`, счётчики результатов поиска — S2-TOOL-LOOP write scope; здесь только проверено, что tool-loop не режет пришедший результат.
 4. `services/source_reader.py:2133`: discovery-каскад передаёт `search.search(..., max_symbols=4000)`; `search_aggregator._truncate` — жёсткий `text[:max_symbols]` (файл вне S3). Это остаточный искусственный срез **индекса URL** при discovery; требует S2/S6 или отдельного среза.
-5. `services/search_service.py` `max_symbols`/`checkup_service` `CHECKUP_MAX_INPUT_SYMBOLS`, factcheck `max_symbols`, OCR/Vision `max_tokens`, `voice_transcripts._MAX_ITEMS=3`, `youtube_transcript_engine.max_symbols`, `image_context_memory` caps — принадлежат S13–S16/S8 и не менялись; в этом срезе для них исполняемо проверено только сквозное отсутствие потерь в tool-loop/payload (шаги 2–6).
-6. `direct_chat_service` L1/Writer/fallback-сокращения — S4/S7; здесь не менялись.
+5. `services/search_service.py` `max_symbols`/`checkup_service` `CHECKUP_MAX_INPUT_SYMBOLS`, factcheck `max_symbols`, OCR/Vision `max_tokens`, `voice_transcripts._MAX_ITEMS=3`, `youtube_transcript_engine.max_symbols`, `image_context_memory` caps, `mca_vision` caps — принадлежат S13–S16/S8 и не менялись; в этом срезе для них исполняемо проверено только сквозное отсутствие потерь в tool-loop/payload (шаги 2–6).
+6. `direct_chat_service` message-length caps, L1/Writer, section reserves и fallback-сокращения — S4/S7/S11; здесь не менялись.
 
-### 7.2 Postdeploy-only
+### 7.3 Postdeploy-only
 - Реальное effective-состояние `flags.budgets_enabled` (чатовые override/global) и фактическое отсутствие env-политик в production можно подтвердить только на деплое; локально проверен только дефолт и явные значения.
 - Сквозной live-LLM payload с провайдером не выполнялся (нет права/сети в этом срезе): шаг 6 проверен на реальном `chat_with_tools` с fake-LLM, который принимает ровно тот payload, что был бы отправлен. Это не доказывает поведение конкретного провайдерского API.
 - Для OCR/транскриптов/фактчека шаг 1 (реальный внешний вызов) не исполнялся; проверены их структурированные результаты на входе tool-loop.
