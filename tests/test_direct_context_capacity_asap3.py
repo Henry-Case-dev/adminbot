@@ -13,6 +13,10 @@ import pytest
 from config.settings import settings
 from services import model_capacity as mc
 
+# SMART-EXECUTION-RELIABILITY-01 D1/D2: контракт окна проверяется с
+# прод-дефолтами (kill-switch ON), как в test_capacity_resolver_asap31.
+pytestmark = pytest.mark.asap31
+
 
 @pytest.fixture(autouse=True)
 def _clean_cache():
@@ -29,16 +33,25 @@ class TestResolveWindow:
         assert window == 131072
         assert source == mc.WINDOW_SOURCE_MAP
 
-    def test_prefix_match_case_insensitive(self):
-        window, source = mc.resolve_model_context_window("DeepSeek-R1-Distill-32B")
+    def test_exact_id_case_insensitive(self):
+        window, source = mc.resolve_model_context_window("DeepSeek-Chat")
         assert window == 131072
         assert source == mc.WINDOW_SOURCE_MAP
 
-    def test_unknown_model_fallback_16384(self):
+    def test_family_prefix_is_not_capacity(self):
+        """SMART D2: семейный префикс (`DeepSeek-R1-Distill-32B`) ёмкость
+        точной модели не определяет → планировочная 1M-оценка."""
+        window, source = mc.resolve_model_context_window(
+            "DeepSeek-R1-Distill-32B")
+        assert window == mc.UNKNOWN_WINDOW_DEFAULT
+        assert source == mc.WINDOW_SOURCE_FALLBACK
+
+    def test_unknown_model_unknown_window_1m(self):
         window, source = mc.resolve_model_context_window(
             "totally-unknown-model-xyz")
-        assert window == 16384
+        assert window == 1_000_000
         assert source == mc.WINDOW_SOURCE_FALLBACK
+
 
     def test_unknown_warns_once_per_model(self, caplog):
         mc.resolve_model_context_window("mystery-model")
@@ -63,19 +76,24 @@ class TestResolveWindow:
 
     def test_empty_model_name_fallback(self):
         window, source = mc.resolve_model_context_window(None)
-        assert window == 16384
+        assert window == mc.UNKNOWN_WINDOW_DEFAULT
         assert source == mc.WINDOW_SOURCE_FALLBACK
 
-    def test_fallback_model_takes_min(self):
+    def test_fallback_model_does_not_shrink_primary(self):
+        """SMART D4: primary-цепочка НЕ занижается окном резервной модели;
+        fallback резолвится отдельно при фактическом переходе."""
         window, source = mc.resolve_effective_window(
             "gpt-4o", "deepseek-chat")
-        # primary 128000, fallback 131072 → min = 128000 (primary).
         assert window == 128000
         assert source == mc.WINDOW_SOURCE_MAP
         window2, _ = mc.resolve_effective_window(
             "deepseek-chat", "gpt-4")
-        # fallback-окно (8192) меньше primary → conservative min.
-        assert window2 == 8192
+        # Прежний preemptive-min (8192) больше не применяется.
+        assert window2 == 131072
+        # Окно резервной модели резолвится отдельно и без сети.
+        fb_window, fb_source = mc.fallback_window_for_model("gpt-4")
+        assert (fb_window, fb_source) == (8192, mc.SOURCE_REGISTRY)
+
 
     def test_fallback_model_ignored_when_absent(self):
         window, _ = mc.resolve_effective_window("deepseek-chat", None)

@@ -1705,8 +1705,7 @@ class ToolRouter:
 
     # ── execute_web_search ────────────────────────────────────────
 
-    @staticmethod
-    def _evidence_window(kind: str, ctx: ToolContext):
+    def _evidence_window(self, kind: str, ctx: ToolContext):
         """Окно ОДНОГО tool-вызова: бюджет композера → окно модели → legacy.
 
         Учитывает уже доставленный в этом ходе evidence (суммарная доля окна
@@ -1725,8 +1724,14 @@ class ToolRouter:
             except (TypeError, ValueError):
                 continue
         try:
+            # SMART D4: окно считается для ФАКТИЧЕСКИ назначенной модели
+            # провайдера этого роутера, а не «всегда главной модели чата».
+            _llm = getattr(self, "llm", None)
+            _model = str(getattr(_llm, "_chat_model", "") or "") or None
+            _base = str(getattr(_llm, "_base_url", "") or "") or None
             return auto_budget.resolve_evidence_tool_window(
-                kind, call_budget_chars=budget, turn_spent_chars=spent)
+                kind, call_budget_chars=budget, turn_spent_chars=spent,
+                model=_model, base_url=_base)
         except Exception:      # pragma: no cover - защитная ветка
             floor = (auto_budget.SEARCH_RESULT_SOFT_FLOOR
                      if kind == "search" else 0)

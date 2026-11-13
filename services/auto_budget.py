@@ -467,6 +467,7 @@ def resolve_evidence_tool_window(
         kind: str, *, call_budget_chars: int | None = None,
         input_budget_tokens: int | None = None,
         model: str | None = None,
+        base_url: str | None = None,
         hard_ceiling: int | None = None,
         turn_spent_chars: int = 0) -> EvidenceToolWindow:
     """Лимит одного tool-вызова (search/article). Никогда не бросает.
@@ -487,7 +488,7 @@ def resolve_evidence_tool_window(
             kind=str(kind or ""), effective_limit=min(legacy, ceiling),
             source="legacy", hard_ceiling=ceiling, floor=floor)
     window_tokens, window_source = capacity.resolve_evidence_window_tokens(
-        model)
+        model, base_url=base_url)
     window_chars = capacity.chars_for_tokens(window_tokens)
     try:
         spent = max(0, int(turn_spent_chars or 0))

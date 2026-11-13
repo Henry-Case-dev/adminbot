@@ -87,17 +87,20 @@ async def test_nanogpt_catalog_missing_model_falls_to_registry(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_nanogpt_catalog_unreachable_registry_fallback(monkeypatch):
-    """§53: каталог недоступен → registry/fallback; Analytics видит честный
-    source (registry), NOT provider_catalog."""
+async def test_nanogpt_catalog_unreachable_registry_or_estimate(monkeypatch):
+    """§53 + SMART D1: каталог недоступен → exact registry, а незнакомая
+    модель → честная планировочная 1M-оценка (не 16384)."""
     await _no_network(monkeypatch)
     window, source = await mc.resolve_stage_window(
         "https://nano-gpt.com/api/v1", "deepseek-chat")
     assert (window, source) == (131072, mc.SOURCE_REGISTRY)
     result = await mc.resolve_capacity("https://nano-gpt.com/api/v1",
                                        "mystery-nanogpt-model")
-    assert result.source == mc.SOURCE_FALLBACK
-    assert result.fallback_used is True
+    assert result.source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert result.fallback_used is False
+    assert result.effective_context_window == mc.UNKNOWN_WINDOW_DEFAULT
+    assert result.confidence == "estimated"
+
 
 
 @pytest.mark.asyncio
@@ -127,14 +130,16 @@ async def test_deepseek_verified_registry_source(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_deepseek_unknown_model_honest_fallback(monkeypatch):
-    """DeepSeek-identity без registry-совпадения → честный fallback
-    (НЕ угадываем из имени/URL, §56)."""
+async def test_deepseek_unknown_model_honest_estimate(monkeypatch):
+    """DeepSeek-identity без registry-совпадения → честная 1M-оценка
+    (НЕ угадываем из имени/URL, §56; НЕ 16384)."""
     await _no_network(monkeypatch)
     result = await mc.resolve_capacity("https://api.deepseek.com/v1",
                                        "mystery-deepseek-x")
-    assert result.source == mc.SOURCE_FALLBACK
-    assert result.fallback_used is True
+    assert result.source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert result.fallback_used is False
+    assert result.effective_context_window == mc.UNKNOWN_WINDOW_DEFAULT
+
 
 
 # ── §55: OpenRouter adapter сохранён ────────────────────────────────────────
@@ -169,7 +174,7 @@ async def test_local_runtime_llamacpp_preserved(monkeypatch):
     assert result.effective_context_window == 16384
 
 
-# ── §56: unknown — не угадывать из URL, честный fallback ────────────────────
+# ── §56: unknown — не угадывать из URL, планировочная 1M-оценка ─────────────
 
 @pytest.mark.asyncio
 async def test_unknown_provider_no_url_guessing(monkeypatch):
@@ -177,15 +182,14 @@ async def test_unknown_provider_no_url_guessing(monkeypatch):
     window, source = await mc.resolve_stage_window(
         "https://supermodel-hosting.example.com/v1",
         "ultra-model-1000000k-context")
-    assert source == mc.SOURCE_FALLBACK
-    assert window == 16384
+    assert source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert window == mc.UNKNOWN_WINDOW_DEFAULT
 
-
-# ── §57/§69: короткий fetch, кэш, инвалидация при switch ────────────────────
+    # ── §57/§69: короткий fetch, кэш, инвалидация при switch ────────────────────
 
 @pytest.mark.asyncio
 async def test_discovery_failure_short_negative_cache(monkeypatch):
-    """§57: discovery failure НЕ блокирует generation; fallback-результат
+    """§57 + D1: discovery failure НЕ блокирует generation; оценка
     кэшируется коротко (endpoint не долбится)."""
     calls = {"n": 0}
 
@@ -197,8 +201,9 @@ async def test_discovery_failure_short_negative_cache(monkeypatch):
     for _ in range(3):
         result = await mc.resolve_capacity("https://nano-gpt.com/api/v1",
                                            "mystery-neg-cache")
-    assert result.fallback_used is True
+    assert result.source == mc.SOURCE_ESTIMATED_UNKNOWN
     assert calls["n"] == 1                     # TTL 300 c, не на каждый вызов
+
 
 
 @pytest.mark.asyncio

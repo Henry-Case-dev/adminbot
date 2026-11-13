@@ -52,6 +52,20 @@ def _slot(monkeypatch, base_url, model):
                         raising=False)
 
 
+def _small_local_runtime(monkeypatch, n_ctx: int = 16384):
+    """Маленькая локальная модель с ПОДТВЕРЖДЁННЫМ окном (runtime `/props`).
+
+    SMART D1/D2: неизвестная модель больше не получает 16384 «по умолчанию»;
+    сценарий §143 «маленькое окно → multi-chunk» доказывается реальным
+    runtime-metadata адаптером, а не консервативным fallback'ом."""
+    async def _props(url, *, headers=None):
+        if str(url).endswith("/props"):
+            return {"default_generation_settings": {"n_ctx": n_ctx}}
+        return None
+
+    monkeypatch.setattr(mc, "_http_get_json", _props)
+
+
 def _rows(count, *, start_id=1, text_size=40):
     return [
         {"id": start_id + i, "tg_message_id": start_id + i,
@@ -150,9 +164,11 @@ async def test_payload_over_21k_not_truncated(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_small_local_model_all_processed(monkeypatch):
-    """Unknown-модель → fallback 16384 (§8) → авто multi-chunk; ВСЕ 369
-    обработаны; chronological; без semantic prefilter."""
+    """Маленькая локальная модель (16K, подтверждено runtime) → авто
+    multi-chunk; ВСЕ 369 обработаны; chronological; без semantic prefilter."""
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
+    _small_local_runtime(monkeypatch)
+
     rows = _rows(369)
     llm_call = _mock_llm_call()
     result = await sl1.run_l1(rows=rows, chat_id=CHAT_ID,
@@ -178,7 +194,9 @@ async def test_small_local_model_all_processed(monkeypatch):
 @pytest.mark.asyncio
 async def test_chunked_chronological_order_and_coverage(monkeypatch):
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
+    _small_local_runtime(monkeypatch)
     rows = _rows(120)
+
     seen_orders = []
 
     async def _call(messages):
@@ -221,7 +239,9 @@ async def test_model_switch_recalculates(monkeypatch):
     assert big.usable and llm_call.calls["count"] >= 1
     # Смена модели (новый слот → новый ключ кэша → пересчёт, §38).
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
+    _small_local_runtime(monkeypatch)
     small = await sl1.run_l1(rows=rows, chat_id=CHAT_ID, llm_call=llm_call)
+
     assert small.usable
     assert llm_call.calls["count"] > 1, "auto multi-chunk после смены модели"
     coverage = sl1.last_run_coverage()
@@ -234,7 +254,9 @@ async def test_model_switch_recalculates(monkeypatch):
 @pytest.mark.asyncio
 async def test_window_growth_recalculated(monkeypatch):
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
+    _small_local_runtime(monkeypatch)
     rows_6h = _rows(369)
+
     llm_call = _mock_llm_call()
     first = await sl1.run_l1(rows=rows_6h, chat_id=CHAT_ID, llm_call=llm_call)
     chunks_6h = llm_call.calls["count"]
@@ -328,6 +350,9 @@ async def test_off_chunking_keeps_legacy_truncation(monkeypatch):
                         "SUMMARY_COVERAGE_CHUNKING_ENABLED", False,
                         raising=False)
     _slot(monkeypatch, "http://127.0.0.1:8080/v1", "tiny-local-model")
+    # SMART D1: маленькое окно берётся из runtime-metadata (16K), а не из
+    # прежнего 16384-fallback — иначе payload 300 строк в него не упирается.
+    _small_local_runtime(monkeypatch)
     rows = _rows(300)
     llm_call = _mock_llm_call()
     result = await sl1.run_l1(rows=rows, chat_id=CHAT_ID, llm_call=llm_call)

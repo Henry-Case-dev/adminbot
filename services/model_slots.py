@@ -117,7 +117,13 @@ async def collect_slots(*, chat_id: int | None = None) -> dict:
                     "source": budget.source,
                     "fallback_used": budget.source
                     == capacity.SOURCE_FALLBACK,
+                    # SMART D1/D2: планировочная 1M-оценка видна как
+                    # не-подтверждённое значение (не «fallback-авария»).
+                    "estimated": budget.source in (
+                        capacity.SOURCE_ESTIMATED_UNKNOWN,
+                        capacity.SOURCE_FALLBACK),
                 },
+
                 "budget": {
                     "mandatory_tokens": 0,
                     "output_reserve": budget.output_reserve,

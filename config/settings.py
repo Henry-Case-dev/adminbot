@@ -682,9 +682,10 @@ class Settings:
     # реестра новых механизмов (default ON, резолв per-call, Δ каталога = 0).
     # Каждый OFF = байт-в-байт прежнее поведение (spec 10.2, паритет-тесты).
     #   MODEL_CAPACITY_RESOLVER_ENABLED — структурированный Model Capacity
-    #     Resolver (precedence override → runtime → provider_catalog →
-    #     registry → fallback); OFF → прежний путь: карта MODEL_CONTEXT_WINDOWS
-    #     + env CHAT_MODEL_CONTEXT_WINDOW + fallback 16384.
+    #     Resolver (precedence proven_limit → override → runtime →
+    #     provider_catalog → exact registry → 1M estimated); OFF → прежний
+    #     путь: карта MODEL_CONTEXT_WINDOWS + env CHAT_MODEL_CONTEXT_WINDOW
+    #     + 1M estimated для неизвестной модели (не 16384).
     #   AUTO_BUDGET_RESOLVER_ENABLED — единый stage auto budget resolver
     #     поверх capacity; OFF → прежние per-stage бюджеты (Direct D2,
     #     Summary static hybrid 30000-путь).
@@ -747,8 +748,15 @@ class Settings:
     # (int, группа models_llm) читает ЭТО поле как env-дефолт (hot-first).
     CHAT_MODEL_CONTEXT_WINDOW: ClassVar[int | None] = _env_int_optional(
         "CHAT_MODEL_CONTEXT_WINDOW", None)
+    # SMART-EXECUTION-RELIABILITY-01 (stage D1, owner 14.11.2026):
+    # заводское окно НЕИЗВЕСТНОЙ модели — 1 000 000 токенов, планировочная
+    # оценка (НЕ подтверждённая ёмкость провайдера). Прежний аварийный
+    # 16384 как универсальный fallback удалён: он молча занижал реальные
+    # 128K/1M-модели. Значение остаётся env-настройкой для конкретного
+    # деплоя; намеренно заданные реальные лимиты известных моделей
+    # (`MODEL_CONTEXT_WINDOWS`/каталог провайдера) оно не переопределяет.
     CHAT_UNKNOWN_MODEL_WINDOW: ClassVar[int] = _env_int_min(
-        "CHAT_UNKNOWN_MODEL_WINDOW", 16384, 1024)
+        "CHAT_UNKNOWN_MODEL_WINDOW", 1_000_000, 1024)
     # ADR-1028-2 D4/D5/D6/D7: границы composer-эвристик (env-only ClassVar).
     CHAT_EPISODE_GAP_SECONDS: ClassVar[int] = _env_int_min(
         "CHAT_EPISODE_GAP_SECONDS", 300, 1)
