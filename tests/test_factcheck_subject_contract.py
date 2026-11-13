@@ -302,8 +302,8 @@ class TestScenarioDCondition:
         plan = fsp.build_retrieval_plan(
             _decision([(material_part, "literal")]), claim_text=subject_text)
         assert plan is not None
-        joined = " ".join(q.text.lower() for q in plan.queries)
-        assert "1990" in joined
+        assert any("1990" in claim.text for claim in plan.claims)
+        assert len(plan.claims) >= 2
 
 
 # ── E. Уточнение задаёт самостоятельный вопрос ──────────────────────────────
