@@ -200,7 +200,8 @@ production не затрагивался.
 
 Ноль больше не подставляется при неизвестности; поле `lag_seconds_source`
 отдают снимок, `experience_diagnostics` и оба места `memory_overview` API.
-Потребители, ожидающие число (`int(x or 0)`), сохраняют прежний контракт.
+Потребители обязаны сохранять `None` (см. §11): `lag_seconds=None` —
+неизвестно, `0` — только измеренный ноль.
 
 ### 10.3. RED → GREEN
 
@@ -232,4 +233,53 @@ GREEN на `fa1bdb23`: `15 passed` в контрактном наборе.
 (2 059 418 строк после курсора) проверяется только после контролируемого
 выката. Стоимость `COUNT(*)`+`MIN(timestamp)` — один проход по PK-диапазону,
 на синтетике тестов измерена; на реальном файле 2.8 ГБ — после выката.
+
+## 11. Rework B1/B2 (неизвестно ≠ ноль, сквозной контракт потребителей)
+
+Ревью I2: **B1** (блокер) — снимок отдавал `lag_seconds=None/unknown`, но
+потребители превращали это в `0`: `memory_overview` (`int(x or 0)` в
+`_latest_job_async` и `memory_intel_funnels`) и
+`experience_diagnostics._learning_analytics` (`_int(None) == 0`). Сквозной
+probe показывал `0/unknown`. **B2** — `git diff --check` находил лишнюю
+пустую строку в конце этого файла (`:235`, new blank line at EOF).
+
+* Новый кодовый коммит (CODE_SHA): **`3a78f961d52abe2a532ba0e9d447d5f589c0f228`**
+  (`web/api/memory_overview.py` `_opt_seconds` + два места применения;
+  `services/experience_diagnostics.py` `_opt_int` + `fresh_lag.lag_seconds`).
+* Тестовый коммит: **`45bfe2a4`** (4 точечные проверки потребителей: 2 API +
+  2 diagnostics).
+* B2: хвостовая пустая строка удалена (файл заканчивается одним переводом
+  строки), `git diff --check` чист.
+
+### 11.1. Сквозной контракт
+
+| Слой | `lag_seconds=None` (неизвестно) | `lag_seconds=0` (измеренный ноль) |
+|---|---|---|
+| `semantic_progress_snapshot` | `None`, source `unknown` | `0`, source `cursor_distance` |
+| `memory_overview._latest_job_async` | `None` (ключ сохранён) | `0` |
+| `memory_overview.memory_intel_funnels` | `None` | `0` |
+| `experience_diagnostics._learning_analytics` | `None` | `0` |
+
+`_opt_seconds`/`_opt_int`: `None` → `None` (не 0), число → int, мусор → `None`.
+Нечитаемый как число возраст считается неизвестным, а не нулевым.
+
+### 11.2. RED → GREEN и мутация
+
+RED: код откачен к `637c7f31`, новые тесты на месте — `2 failed, 2 passed`
+(падают оба «unknown → None»: diagnostics и API; измеренный ноль зелёный в
+обоих вариантах, как и должно быть). GREEN на `45bfe2a4`: `17 passed`
+(контрактный набор) и `29 passed` вместе с API-набором.
+
+Мутация «вернуть `or 0`» (API и diagnostics обратно на `int(... or 0)`/`_int`):
+`2 failed, 2 passed` — падают оба сценария неизвестности. После восстановления
+дерево чистое.
+
+### 11.3. Прогоны
+
+| Прогон | Результат |
+|---|---|
+| `pytest tests/test_sxr_i2_fresh_stream_drain.py` | **17 passed** |
+| `+ test_lesson_strategy_contract.py test_mod_acl_ux01_exp_fix_semantic_checkpoint.py test_webapp_memory_overview_api.py` | **59 passed** |
+| Широкий набор 14 файлов опыта/MCA | **219 passed, 1 предсуществующий провал** (mca16, см. §7) |
+| `git diff --check` (рабочее дерево и диапазон коммитов) | чисто |
 
