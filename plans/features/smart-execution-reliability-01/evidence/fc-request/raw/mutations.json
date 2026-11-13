@@ -1,0 +1,96 @@
+[
+ {
+  "mutation": "M1_cache_ignores_subject",
+  "status": "KILLED",
+  "expected_groups": [
+   "TestCacheIdentity",
+   "TestCacheRoundTrip"
+  ],
+  "failing_tests": [
+   "TestCacheIdentity::test_different_subjects_get_different_slice_keys",
+   "TestCacheIdentity::test_same_subject_reuses_slice_and_different_request_does_not_split_it",
+   "TestCacheRoundTrip::test_slice_written_for_subject_a_is_not_read_for_subject_b"
+  ],
+  "expected_failures_observed": [
+   "TestCacheIdentity::test_different_subjects_get_different_slice_keys",
+   "TestCacheIdentity::test_same_subject_reuses_slice_and_different_request_does_not_split_it",
+   "TestCacheRoundTrip::test_slice_written_for_subject_a_is_not_read_for_subject_b"
+  ],
+  "summary": [
+   "3 failed, 34 passed in 3.53s"
+  ]
+ },
+ {
+  "mutation": "M2_claim_units_drops_subject_remainder",
+  "status": "KILLED",
+  "expected_groups": [
+   "TestClaimUnits",
+   "TestScenarioDCondition"
+  ],
+  "failing_tests": [
+   "TestClaimUnits::test_condition_not_dropped_when_material_item_matches",
+   "TestScenarioDCondition::test_condition_reaches_plan_without_subject_kwargs",
+   "TestScenarioDCondition::test_condition_reaches_retrieval_plan",
+   "TestScenarioFExpansion::test_material_and_added_fact_both_in_subject"
+  ],
+  "expected_failures_observed": [
+   "TestClaimUnits::test_condition_not_dropped_when_material_item_matches",
+   "TestScenarioDCondition::test_condition_reaches_plan_without_subject_kwargs",
+   "TestScenarioDCondition::test_condition_reaches_retrieval_plan"
+  ],
+  "summary": [
+   "4 failed, 33 passed in 3.73s"
+  ]
+ },
+ {
+  "mutation": "M3_envelope_ignores_subject_text",
+  "status": "KILLED",
+  "expected_groups": [
+   "TestScenarioCNarrowing",
+   "TestScenarioEStandaloneQuestion",
+   "TestStageConsistency"
+  ],
+  "failing_tests": [
+   "TestStageConsistency::test_envelope_branch_checks_the_established_subject"
+  ],
+  "expected_failures_observed": [
+   "TestStageConsistency::test_envelope_branch_checks_the_established_subject"
+  ],
+  "summary": [
+   "1 failed, 36 passed in 3.64s"
+  ]
+ },
+ {
+  "mutation": "M4_material_date_transferred_to_question",
+  "status": "KILLED",
+  "expected_groups": [
+   "TestScenarioEStandaloneQuestion"
+  ],
+  "failing_tests": [
+   "TestProvenance::test_forwarded_origin_date_not_mixed_with_message_date",
+   "TestScenarioEStandaloneQuestion::test_request_is_subject_and_material_date_not_transferred"
+  ],
+  "expected_failures_observed": [
+   "TestScenarioEStandaloneQuestion::test_request_is_subject_and_material_date_not_transferred"
+  ],
+  "summary": [
+   "2 failed, 35 passed in 3.58s"
+  ]
+ },
+ {
+  "mutation": "M5_question_signed_to_material_author",
+  "status": "KILLED",
+  "expected_groups": [
+   "TestScenarioEStandaloneQuestion"
+  ],
+  "failing_tests": [
+   "TestScenarioEStandaloneQuestion::test_request_is_subject_and_material_date_not_transferred"
+  ],
+  "expected_failures_observed": [
+   "TestScenarioEStandaloneQuestion::test_request_is_subject_and_material_date_not_transferred"
+  ],
+  "summary": [
+   "1 failed, 36 passed in 3.58s"
+  ]
+ }
+]

@@ -1,0 +1,15 @@
+O1_slice_key_differs_by_subject	false
+O1_keys	["3052f78d4400a42a9b9e182a7a3673f4", "3052f78d4400a42a9b9e182a7a3673f4"]
+O2_full_subject_survives_claim_units	false
+O2_units	["╨Ф╤А╨╡╨▓╨╜╤П╤П ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╨╢╨╡╨╜╤Б╨║╨╛╨│╨╛ ╨╛╨▒╤А╨╡╨╖╨░╨╜╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╤В╤Л╤Б╤П╤З╨╕ ╨╗╨╡╤В."]
+O3_plan_accepts_subject_provenance	false
+O3_error	"build_retrieval_plan() got an unexpected keyword argument 'subject_origin'"
+O4_resolver_exists	false
+O4_error	"module 'services.factcheck_orchestrator' has no attribute 'resolve_check_subject'"
+O5_envelope_reason	null
+O5_claim_text_is_question	false
+O5_has_request_text_field	false
+O5_has_material_claim_field	false
+O5_material_date_not_transferred	false
+O5_attribution_author	"╨Р╨▓╤В╨╛╤А ╨┐╨╛╤Б╤В╨░"
+O5_subject_fingerprint	false

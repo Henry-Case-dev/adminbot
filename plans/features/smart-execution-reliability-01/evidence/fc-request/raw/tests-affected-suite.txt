@@ -1,0 +1,26 @@
+........................................................................ [ 10%]
+........................................................................ [ 21%]
+........................................................................ [ 32%]
+........................................................................ [ 43%]
+........................................................................ [ 54%]
+........................................................................ [ 65%]
+........................................................................ [ 76%]
+........................................................................ [ 87%]
+........................................................................ [ 98%]
+C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:729
++ ... ct -Unique; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 7 leaked aiosqlite connection(s)
+.......                                                                  [100%]
+============================== warnings summary ===============================
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+  C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-execution-reliability-01-45d7d5f19c3b-0f532274\services\search_aggregator.py:945: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+    with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+655 passed, 1 deselected, 2 warnings in 49.05s

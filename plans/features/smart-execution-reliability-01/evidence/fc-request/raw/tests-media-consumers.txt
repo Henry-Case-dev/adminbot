@@ -1,0 +1,11 @@
+........................................................................ [ 52%]
+C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+строка:1 знак:275
++ ... d"; cd $wt; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 1 leaked aiosqlite connection(s)
+.................................................................        [100%]
+137 passed in 7.07s
