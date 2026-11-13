@@ -1,0 +1,59 @@
+# Session 2 — global/per-chat layers (PG read-only) + settings instance
+# Chat ids redacted: CHAT_C1, CHAT_C2, CHAT_DM.
+
+### GLOBAL_ROWS
+flags.budgets_enabled|false|flags|2026-10-25 06:13:07.439995+00:00
+models.llm_base_url|"https://nano-gpt.com/api/v1"|models|2026-09-12 05:43:07.884798+00:00
+models.llm_model_name|"z-ai/glm-5.3-flash-uncensored"|models|2026-11-11 12:04:22.696731+00:00
+
+(no rows for models.llm_provider,
+ memory.experience_fresh_stream_lag_warn_threshold,
+ flags.self_diag_repo_origin)
+
+### CHAT_ROWS
+CHAT_C2|True|True|{"flags.budgets_enabled": false}|2026-11-11 13:14:05.843018+00:00
+CHAT_C1|True|True|{"flags.budgets_enabled": false}|2026-11-13 11:07:51.226500+00:00
+CHAT_DM|False|True|{}|2026-10-28 08:54:24.139196+00:00
+
+### OVERRIDE_KEYS_PRESENT
+CHAT_C2 8 flags.budgets_enabled,flags.meme_initiative_enabled,flags.summary_enabled,flags.vision_enabled,initiative.meme_length_limit,memory.experience_review_cadence,prompts.meme_image,prompts.meme_joke
+CHAT_C1 31 character.expression,flags.budgets_enabled,flags.chat_silent_ack_enabled,flags.deep_sleep_enabled,flags.irony_filter_enabled,flags.meme_initiative_enabled,flags.relations_tone_enabled,flags.summary_filter_enabled,flags.vision_enabled,humor.feedback,initiative.meme_length_limit,limits.*,prompts.meme_image,prompts.meme_joke,prompts.summary_cover_style,prompts.summary_cover_style_id
+CHAT_DM 5 flags.chat_running_summary_enabled,flags.smart_cache_enabled,flags.summary_enabled,memory.dream_enabled,memory.nostalgia_enabled
+
+(no models.llm_model_name / models.llm_base_url override in any chat)
+
+### SETTINGS_INSTANCE (correct import config.settings.settings)
+{"APP_VERSION": null, "CHAT_UNKNOWN_MODEL_WINDOW": 16384, "TOOL_CHAIN_LIMITS_ENABLED": true,
+ "SELF_DIAG_LOCAL_REPO_ROOT": "", "BUDGETS_ENABLED": true,
+ "LLM_MODEL_NAME": "deepseek-v4-flash", "LLM_BASE_URL": "https://nano-gpt.com/api/v1",
+ "LLM_FALLBACK_MODEL": "deepseek-v4-flash",
+ "LLM_FALLBACK_BASE_URL": "https://api.deepseek.com",
+ "FRESH_STREAM_LAG_WARN_ROWS": null}
+
+### ENV_FALLBACK
+LLM_FALLBACK_MODEL=deepseek-v4-flash
+LLM_FALLBACK_BASE_URL=https://api.deepseek.com
+TOOL_CHAIN_LIMITS_ENABLED=null
+CHAT_UNKNOWN_MODEL_WINDOW=null
+SELF_DIAG_LOCAL_REPO_ROOT=null
+
+### PG model rows (excerpt)
+flags.budgets_enabled | false | flags
+models.chat_model_context_window | null | models
+models.llm_base_url | "https://nano-gpt.com/api/v1" | models
+models.llm_display_name | "NanoGPT Deepseek" | models
+models.llm_fallback_base_url | "https://api.deepseek.com" | models
+models.llm_fallback_display_name | "Deepseek " | models
+models.llm_fallback_model | "deepseek-flash" | models
+models.llm_model_name | "z-ai/glm-5.3-flash-uncensored" | models
+models.llm_timeout | 30.0 | models
+models.llm_total_budget | 60.0 | models
+(no models.llm_provider row)
+
+### Local dialect / factory
+- `BUDGETS_ENABLED` default: true
+- `CHAT_UNKNOWN_MODEL_WINDOW` default: 16384
+- `TOOL_CHAIN_LIMITS_ENABLED` default: true
+- `SELF_DIAG_LOCAL_REPO_ROOT` default: ""
+- `FRESH_STREAM_LAG_WARN_ROWS` = 500 (module constant)
+- `DEFAULT_REPO_ORIGIN` = "Henry-Case-dev/adminbot"

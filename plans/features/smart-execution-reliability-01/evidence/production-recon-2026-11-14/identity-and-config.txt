@@ -1,0 +1,80 @@
+# Session 1 — identity (raw, chat ids redacted)
+# host=192.255.209.205 user=root; read-only; server times UTC.
+
+### META
+2026-11-13T12:33:32Z
+vps159032-gqg
+root
+Etc/UTC
+
+### GIT
+?? .cache/
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+BRANCH=release/2.58.199
+d20a7f730715ba9e9cba7673c0557794979be339|2026-11-13T20:19:45+12:00|chore(release): 2.58.199 - bump APP_VERSION ...
+UPSTREAM=origin/release/2.58.199
+AHEAD_BEHIND=0	0
+
+### VERSION
+APP_VERSION = "2.58.199"   # (13.11.2026): 2.58.199 - ...
+
+### SERVICE
+ExecMainStartTimestamp=Fri 2026-11-13 08:36:18 UTC
+ExecMainPID=454989
+WorkingDirectory=/var/www/admin_bot
+User=adminbot
+Group=
+ActiveState=active
+SubState=running
+FragmentPath=/etc/systemd/system/admin_bot.service
+InvocationID=b186b2f407c0421982951ebc63e37313
+PID=454989
+
+### UNIT_ENV
+(empty: Environment= not set)
+
+### PROC_ENV
+INVOCATION_ID=b186b2f407c0421982951ebc63e37313
+DB_PATH=local_database.db
+LLM_BASE_URL=https://nano-gpt.com/api/v1
+LLM_MODEL_NAME=deepseek-v4-flash
+ADMIN_USER_ID_SET=1
+POSTGRES_DSN_SET=1
+
+### DOTENV_KEYS
+DB_PATH=local_database.db
+LLM_BASE_URL=https://nano-gpt.com/api/v1
+LLM_MODEL_NAME=deepseek-v4-flash
+
+### HEALTH
+code=200 time=0.002067
+{"status":"ok","version":"2.58.199"}
+
+### MANIFEST
+{"deployed_at": "2026-11-13T08:36:16.759775Z", "deployed_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "dirty_tracked": false, "effect": "deploy", "previous_sha": null, "previous_version": null, "release_branch": "release/2.58.199", "schema": 1, "version": "2.58.199"}
+
+### SCHEMA
+DB=/var/www/admin_bot/local_database.db
+-rw-r----- 1 adminbot adminbot 2811887616 Nov 13 12:31 /var/www/admin_bot/local_database.db
+-rw-r----- 1 adminbot adminbot      32768 Nov 13 12:32 /var/www/admin_bot/local_database.db-shm
+-rw-r----- 1 adminbot adminbot   11573112 Nov 13 12:33 /var/www/admin_bot/local_database.db-wal
+[stderr] bash: line 39: sqlite3: command not found
+
+### JOURNAL_AS_SERVICE_USER
+sudo -u adminbot journalctl -u admin_bot -n 20 --no-pager
+... (jobs: VisionMediaWorker/SummaryScheduler/NostalgiaWorker/Goodmorning/UptimeHeartbeat, current PID 454989)
+rc=0
+
+### INVOCATION
+systemd=b186b2f407c0421982951ebc63e37313
+proc=b186b2f407c0421982951ebc63e37313
+
+# Session 2 — unit definition
+systemctl cat admin_bot:
+User=adminbot
+WorkingDirectory=/var/www/admin_bot
+EnvironmentFile=/var/www/admin_bot/.env
+ExecStart=/var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py
+ExecMainStartTimestamp=Fri 2026-11-13 08:36:18 UTC
+InvocationID=b186b2f407c0421982951ebc63e37313
+date -u: 2026-11-13T12:35:36Z

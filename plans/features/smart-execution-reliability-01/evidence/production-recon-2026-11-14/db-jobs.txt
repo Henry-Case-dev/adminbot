@@ -1,0 +1,93 @@
+﻿# Session 2 — SQLite read-only recon (mode=ro, PRAGMA query_only=ON)
+# DB: /var/www/admin_bot/local_database.db; chat ids redacted.
+
+DB_PATH /var/www/admin_bot/local_database.db
+user_version [{"user_version": 47}]
+journal_mode [{"journal_mode": "wal"}]
+page_count [{"page_count": 686546}]
+freelist_count [{"freelist_count": 0}]
+tables_with_reason []
+
+task_jobs_by_kind_status (excerpt):
+experience.review | completed | 394
+task_jobs_running []
+
+## Latest experience.review job
+
+experience_job {"job_id": "4a347a3759ea486dae8d1fe69035de03", "kind": "experience.review", "status": "completed", "created_at": 1794572481, "updated_at": 1794572496, "finished_at": 1794572496, "heartbeat_at": 1794572481, "attempt": 1, "max_attempts": 3, "coalesce_key": "experience.review:global"}
+  payload semantic_watermark 2405380
+  payload semantic_pending {"CHAT_C1": 14399}
+  payload semantic_pending_since {"CHAT_C1": 1786829061}
+  payload semantic_retry {}
+  payload semantic_progress {"backlog_rows": 14399, "backlog_chats": 1, "actionable_rows": 14399, "actionable_chats": 1, "lag_seconds": 7743420, "deferred_chats": 0, "watermark": 2405380}
+  payload semantic_last_ts {"CHAT_C1": 1794572481, "CHAT_DM": 1794563482, "CHAT_C2": 1794570681}
+  payload counters {"captured_feedback": 3, "captured_events": 0, "proposed": 1, "skipped_existing": 32, "validated": 1, "activated": 1, "suspended": 0, "errors": 0, "batches": 1, "detector_scanned": 100, "detector_detected": 0, "detector_skipped": 100, "capture_write_failures": 0, "semantic_scanned": 75, "semantic_selected": 49, "semantic_extracted": 4, "semantic_candidates": 3, "semantic_rejected": 1, "semantic_duplicates": 0, "semantic_llm_unavailable": 0, "semantic_reject_reasons": {"hearsay_or_joke": 1}, "semantic_rows_read": 50, "semantic_rows_eligible": 49, "semantic_rows_ineligible": 1, ...}
+  payload cursor_message_rowid 38500
+  cursors {"semantic_cursor:CHAT_C1": 12992, "semantic_cursor:CHAT_DM": 2404795, "semantic_cursor:CHAT_C2": 2405179}
+  chat_lag {"chat": "CHAT_C1", "cursor": 12992, "pending_counter": 14399, "rows_after_cursor": 2059418, "max_id": 2405456}
+  chat_lag {"chat": "CHAT_DM", "cursor": 2404795, "pending_counter": 0, "rows_after_cursor": 0, "max_id": 2404795}
+  chat_lag {"chat": "CHAT_C2", "cursor": 2405179, "pending_counter": 0, "rows_after_cursor": 0, "max_id": 2405179}
+
+## Previous experience.review job (cursor delta)
+
+experience_job {"job_id": "60f3515ade534a32adaf647fd6f57254", "status": "completed", "created_at": 1794571581, "updated_at": 1794571601, "finished_at": 1794571601, "attempt": 1, "coalesce_key": "experience.review:global"}
+  payload semantic_watermark 2405305
+  payload semantic_pending {"CHAT_C1": 14374}
+  payload semantic_pending_since {"CHAT_C1": 1786829061}
+  payload semantic_progress {"backlog_rows": 14374, "lag_seconds": 7742520, "watermark": 2405305, ...}
+  cursors {"semantic_cursor:CHAT_C1": 12941, "semantic_cursor:CHAT_DM": 2404795, "semantic_cursor:CHAT_C2": 2405179}
+  chat_lag {"chat": "CHAT_C1", "cursor": 12941, "pending_counter": 14374, "rows_after_cursor": 2059468, "max_id": 2405456}
+
+## Meme attempt journal (I1)
+
+meme_attempt_table [{"name": "meme_initiative_attempt"}]
+meme_attempt_totals [{"c": 28678, "mn": 1793450523, "mx": 1794573081}]
+meme_attempt_recent [
+ {"attempt_id": "8fd68b0976cb4523a9088b08b0cc6f33", "chat_id": "CHAT_C1", "ts": 1794573081, "stage": "considered", "outcome": "passed", "reason_code": "", "limit_source": "", "limit_value": null, "window_messages": 500},
+ {"attempt_id": "628e935894b4437e8b41b9e36cbaa6ae", "chat_id": "CHAT_C1", "ts": 1794573081, "stage": "skipped", "outcome": "skipped", "reason_code": "cooldown_active", ...},
+ {"attempt_id": "80be6c8c37cb42b791ded48515c729d1", "chat_id": "CHAT_C2", "ts": 1794573081, "stage": "considered", "outcome": "passed", ...},
+ {"attempt_id": "dee3b9430e5c4f178899db9df695f0bc", "chat_id": "CHAT_C2", "ts": 1794573081, "stage": "skipped", "outcome": "skipped", "reason_code": "cooldown_active", ...},
+ {"attempt_id": "a4cdc0bc19144eb689488dd5c590a07d", "chat_id": "CHAT_C1", "ts": 1794572781, "stage": "considered", "outcome": "passed", ...}]
+meme_attempt_7d [
+ {"stage": "considered", "outcome": "passed", "reason_code": "", "c": 10733},
+ {"stage": "skipped", "outcome": "skipped", "reason_code": "cooldown_active", "c": 5598},
+ {"stage": "skipped", "outcome": "skipped", "reason_code": "daily_quota_reached", "c": 4172},
+ {"stage": "skipped", "outcome": "skipped", "reason_code": "no_random_hit", "c": 808},
+ {"stage": "skipped", "outcome": "skipped", "reason_code": "publication_conflict", "c": 105},
+ {"stage": "eligible", "outcome": "passed", "reason_code": "", "c": 49},
+ {"stage": "image_generation", "outcome": "passed", "reason_code": "", "c": 49},
+ {"stage": "joke", "outcome": "passed", "reason_code": "", "c": 49},
+ {"stage": "summary", "outcome": "passed", "reason_code": "", "c": 49},
+ {"stage": "publish", "outcome": "published", "reason_code": "sent", "c": 42}]
+
+## mca_events — unmapped / lag / detector
+
+mca_unmapped_recent [
+ {"id": 307327, "ts": 1794572496, "event_name": "experience.fresh_stream_lag", "outcome": "skipped", "reason_code": "unmapped:18d14796", "chat_id": CHAT_C1},
+ {"id": 307316, "ts": 1794572481, "event_name": "detector_scan", "outcome": "success", "reason_code": "unmapped:4f8aced7", "chat_id": null},
+ {"id": 306923, "ts": 1794571601, "event_name": "experience.fresh_stream_lag", "outcome": "skipped", "reason_code": "unmapped:18d14796", "chat_id": CHAT_C1},
+ {"id": 306913, "ts": 1794571581, "event_name": "detector_scan", "outcome": "success", "reason_code": "unmapped:4f8aced7", "chat_id": null},
+ {"id": 306912, "ts": 1794571581, "event_name": "detector_signal", "outcome": "success", "reason_code": "unmapped:a999e0fd", "chat_id": CHAT_C1},
+ ...]
+mca_lag_or_detector_events [
+ {"id": 307327, "event_name": "experience.fresh_stream_lag", "reason_code": "unmapped:18d14796", "usage_json": "{\\"chat_id\\": \\"CHAT_C1\\", \"lag_rows\": 14399, \"cursor_rowid\": 12992, \"threshold\": 500}"},
+ {"id": 307316, "event_name": "detector_scan", "reason_code": "unmapped:4f8aced7", "chat_id": null, "usage_json": null},
+ {"id": 306923, "event_name": "experience.fresh_stream_lag", "reason_code": "unmapped:18d14796", "usage_json": "{\\"chat_id\\": \\"CHAT_C1\\", \"lag_rows\": 14374, \"cursor_rowid\": 12941, \"threshold\": 500}"},
+ {"id": 306913, "event_name": "detector_scan", "reason_code": "unmapped:4f8aced7", "chat_id": null, "usage_json": null},
+ ...]
+mca_events_last_ts [{"mx": 1794573300}]
+
+## Checkup durable output
+output_id=1661, chat_id=CHAT_DM, tg_message_id=222, sent_at=1794562988,
+output_kind=checkup_report, delivery_status=delivered, source_feature=checkup,
+correlation_id=checkup:3f9bd22a592e4532a3790051cb87e320
+text="Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли"
+
+## Integrity
+quick_check [{"quick_check": "ok"}]
+
+## Derived timestamps (UTC)
+1793450523 -> 2026-10-31T12:42:03Z
+1794573081 -> 2026-11-13T12:31:21Z
+1794572496 -> 2026-11-13T12:21:36Z
+1786829061 -> 2026-08-15T21:24:21Z

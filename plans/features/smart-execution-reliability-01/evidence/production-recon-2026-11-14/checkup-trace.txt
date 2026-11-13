@@ -1,0 +1,50 @@
+# checkup:3f9bd22a592e4532a3790051cb87e320 — journal window 2026-11-13 09:35–09:50 UTC
+# journalctl -u admin_bot --since '2026-11-13 09:35:00' --until '2026-11-13 09:50:00'
+# lines in window: 1018; chat id redacted to CHAT_DM
+
+2026-11-13T09:42:49+00:00 ... handlers.checkup - INFO - [checkup] triggered | chat=CHAT_DM user=CHAT_DM
+2026-11-13T09:42:49+00:00 ... handlers.checkup - INFO - [checkup] identity | runtime= | deployed_sha=d20a7f730715 | checkout_sha=d20a7f730715 | source_verified=True | git_meta=True | commits_since_deploy=None | sources=12/15 | status=degraded
+
+2026-11-13T09:42:55+00:00 ... services.agentic_events - INFO - event=TOOL_PLAN_CREATED | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tools=inspect_runtime,read_source_code | ts=1794562975.597
+2026-11-13T09:42:55+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_START | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=1 | ts=1794562975.598
+2026-11-13T09:42:55+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=1 | status=ok | out_chars=8905 | ts=1794562975.624
+2026-11-13T09:42:55+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_START | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=read_source_code | round=1 | ts=1794562975.624
+2026-11-13T09:42:55+00:00 ... services.mca_events - WARNING - mca_event=tool_call | ts=1794562975 | event_name=tool_call | outcome=failed | level=WARN | component=tools | stage=execute | status=error | chat_id=CHAT_DM | trace_id=checkup:3f9bd22a592e4532a3790051cb87e320 | duration_ms=317 | attempt=1 | entity_ids={"tool": "read_source_code", "args_fingerprint": "9dbeeada4e8def64"} | reason_code=destination_blocked
+2026-11-13T09:42:55+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=read_source_code | round=1 | status=error | out_chars=1478 | ts=1794562975.942
+2026-11-13T09:43:00+00:00 ... services.agentic_events - INFO - event=TOOL_PLAN_CREATED | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tools=inspect_runtime,read_source_code | ts=1794562980.914
+2026-11-13T09:43:00+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_START | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=2 | ts=1794562980.914
+2026-11-13T09:43:00+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=2 | status=ok | out_chars=1940 | ts=1794562980.917
+2026-11-13T09:43:00+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_START | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=read_source_code | round=2 | ts=1794562980.917
+2026-11-13T09:43:01+00:00 ... services.mca_events - WARNING - mca_event=tool_call | ts=1794562981 | event_name=tool_call | outcome=failed | level=WARN | component=tools | stage=execute | status=error | chat_id=CHAT_DM | trace_id=checkup:3f9bd22a592e4532a3790051cb87e320 | duration_ms=243 | attempt=1 | entity_ids={"tool": "read_source_code", "args_fingerprint": "db8fecf10dd58b36"} | reason_code=destination_blocked
+2026-11-13T09:43:01+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=read_source_code | round=2 | status=error | out_chars=1478 | ts=1794562981.161
+2026-11-13T09:43:03+00:00 ... services.agentic_events - INFO - event=TOOL_PLAN_CREATED | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tools=inspect_runtime,inspect_runtime | ts=1794562983.695
+2026-11-13T09:43:03+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_START | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=3 | ts=1794562983.696
+2026-11-13T09:43:03+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=3 | status=ok | out_chars=4049 | ts=1794562983.7
+2026-11-13T09:43:03+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_START | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=3 | ts=1794562983.7
+2026-11-13T09:43:03+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=3 | status=ok | out_chars=6691 | ts=1794562983.704
+2026-11-13T09:43:08+00:00 ... services.agentic_events - INFO - event=TOOL_PLAN_CREATED | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tools=inspect_runtime | ts=1794562988.049
+2026-11-13T09:43:08+00:00 ... services.mca_events - WARNING - mca_event=tool_call | ts=1794562988 | event_name=tool_call | outcome=skipped | level=WARN | component=tools | stage=execute | status=denied | chat_id=CHAT_DM | trace_id=checkup:3f9bd22a592e4532a3790051cb87e320 | duration_ms=0 | attempt=0 | entity_ids={"tool": "inspect_runtime", "args_fingerprint": "6c199f99bbe87332"} | reason_code=tool_step_limit
+2026-11-13T09:43:08+00:00 ... services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=checkup:3f9bd22a592e4532a3790051cb87e320 | chat_id=CHAT_DM | tool=inspect_runtime | round=4 | status=denied | error_code=chain_call_limit | ts=1794562988.049
+
+## SafeFetch failures (same window)
+
+2026-11-13T09:42:55+00:00 ... services.mca_events - ERROR - mca_event=safe_fetch | ts=1794562975 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | entity_id=api.github.com | duration_ms=310 | stage=connect | reason_code=destination_blocked | error_json={"type": "SafeFetchError", "code": "destination_blocked", "stage": "connect", "retryable": false}
+2026-11-13T09:42:55+00:00 ... services.mca_events - INFO - mca_event=mca07_source_fetch | ts=1794562975 | event_name=mca07_source_fetch | outcome=failed | level=INFO | component=retrieval_context | stage=source_fetch | reason_code=destination_blocked | error_json={"http": 0, "network_calls": 1, "retryable": false}
+2026-11-13T09:42:55+00:00 ... services.tool_router - INFO - [tools] read_source_code | op=locate | status=error | stage=discover | verified=False | lines=[] | files=0 | calls=1
+2026-11-13T09:43:01+00:00 ... services.mca_events - ERROR - mca_event=safe_fetch | ts=1794562981 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | entity_id=api.github.com | duration_ms=235 | stage=connect | reason_code=destination_blocked | error_json={"type": "SafeFetchError", "code": "destination_blocked", "stage": "connect", "retryable": false}
+2026-11-13T09:43:01+00:00 ... services.mca_events - INFO - mca_event=mca07_source_fetch | ts=1794562981 | event_name=mca07_source_fetch | outcome=failed | level=INFO | component=retrieval_context | stage=source_fetch | reason_code=destination_blocked | error_json={"http": 0, "network_calls": 2, "retryable": false}
+2026-11-13T09:43:01+00:00 ... services.tool_router - INFO - [tools] read_source_code | op=read | status=error | stage=discover | verified=False | lines=[] | files=0 | calls=2
+
+## Limit / degradation / report
+
+2026-11-13T09:42:55+00:00 ... services.model_capacity - WARNING - model_capacity: unknown model 'z-ai/glm-5.3-flash-uncensored' — conservative window=16384 (CHAT_UNKNOWN_MODEL_WINDOW); ...
+2026-11-13T09:43:08+00:00 ... services.tool_loop - WARNING - [tools] chain limit | reason=chain_call_limit | unit=calls | scope=chain | value=6 | tool=inspect_runtime | round=4 | total_calls=6 | metered_calls=2
+2026-11-13T09:43:08+00:00 ... services.tool_loop - WARNING - [tools] degraded | reason=chain_call_limit | rounds_used=4 | lost_rounds=0 | tools=inspect_runtime,read_source_code | partial_chars=87
+2026-11-13T09:43:08+00:00 ... handlers.checkup - INFO - [checkup] report sent | chat=CHAT_DM
+2026-11-13T09:43:08+00:00 ... services.mca_events - INFO - mca_event=checkup_triggered | ts=1794562988 | event_name=checkup_triggered | outcome=success | level=INFO | component=checkup | stage=final | status=report_sent | duration_ms=19126 | chat_id=CHAT_DM | source_ref_json={"prompt_source": "global", "prompt_hash": "401803bbcc754e7e", "prompt_version_used": "global:401803bbcc75", "prompt_chars": 8894, "research_rounds": 4, "research_calls": 7, "research_tools": "inspect_runtime,read_source_code", "research_degraded": true, "research_reason": "chain_call_limit", "latency_ms": 18791, "report_chars": 87, "metrics_included": true, "input_truncated": false, "used_fallback": false, "chat_scoped": true, "report_chunks": 1, "bundle_delivered": true, "bundle_status": "degraded", "bundle_truncated": false, "sources": 15, "not_checked": 25}
+
+## Durable output (SQLite mca_bot_outputs)
+output_id=1661, chat_id=CHAT_DM, tg_message_id=222, sent_at=1794562988,
+output_kind=checkup_report, delivery_status=delivered, source_feature=checkup,
+correlation_id=checkup:3f9bd22a592e4532a3790051cb87e320
+text="Чет долго думал, аж перегрелся - и всё равно ни к чему не пришёл. Спроси проще, что ли"

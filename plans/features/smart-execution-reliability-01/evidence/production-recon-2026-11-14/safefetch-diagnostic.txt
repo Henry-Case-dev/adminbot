@@ -1,0 +1,28 @@
+# Session 2 — SafeFetch / capacity diagnostic (read-only, deployed venv)
+# sudo -u adminbot venv/bin/python (uid 999, cwd /var/www/admin_bot)
+
+PY 3.12.3 UID 999 CWD /var/www/admin_bot
+PROXY_ENV {}
+HTTPX 0.28.1
+
+SETTINGS (module-level import; see settings-layers.txt for the instance values)
+{"APP_VERSION": "2.58.199", "CHAT_UNKNOWN_MODEL_WINDOW": null, ...}
+
+HOST api.github.com
+DNS ["AF_INET:140.82.114.6"]
+DNS ["AF_INET:140.82.114.6"]
+DNS ["AF_INET:140.82.113.5"]
+GUARDED {"url": "https://api.github.com/repos/Henry-Case-dev/adminbot/contents/config/settings.py?ref=release/2.58.199", "host": "api.github.com", "port": 443, "resolved": ["140.82.114.5"]}
+TLS {"ip": "140.82.114.5", "peer": "140.82.114.5", "version": "TLSv1.3", "subject": "((('commonName', '*.github.com'),),)", "notAfter": "Jan 25 23:59:59 2027 GMT"}
+RAW_PEER {"peer": "('140.82.112.6', 443)", "status": 200, "validated": false}
+SAFEFETCH_ERROR {"code": "destination_blocked", "stage": "connect", "reason": "actual peer address not validated", "retryable": false}
+
+CAPACITY_SYNC [16384, "unknown_fallback"]
+CAPACITY_ASYNC {"provider": "nanogpt", "model": "z-ai/glm-5.3-flash-uncensored", "declared_context_window": null, "runtime_context_window": null, "effective_context_window": 1048576, "max_output_tokens": 32768, "source": "provider_catalog", "confidence": "verified", "fallback_used": false}
+
+REPO_IDENTITY {"target": "self", "repo": "Henry-Case-dev/adminbot", "ref": "d20a7f730715ba9e9cba7673c0557794979be339", "ref_source": "deployed_sha", "deployed_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "checkout_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "deployed_matches_checkout": true, "local_source_verification": "verified_deployed", "dirty": false, "conflict": [], "local_snapshot": false, "identity_error": "", "note": ""}
+DEPLOY_IDENTITY {"code": "unavailable", "deployed_sha": null, "checkout_sha": null, "dirty": null, "sources": ["runtime_app_version"]}
+
+[stderr]
+mca_event=safe_fetch | ... stage=connect | reason_code=destination_blocked | error_json={"type": "SafeFetchError", "code": "destination_blocked", "stage": "connect", "retryable": false}
+model_capacity: unknown model 'z-ai/glm-5.3-flash-uncensored' — conservative window=16384 (CHAT_UNKNOWN_MODEL_WINDOW); ...
