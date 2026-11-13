@@ -16,11 +16,12 @@
   `SXR-D3-01`, `SXR-D4-01`, `SXR-D5-01`, `SXR-D6-01`.
 - **Docs-коммит:** этот файл (`git log -- plans/features/smart-execution-reliability-01/evidence`).
 - **Ре-верификация 14.11.2026 (сессия восстановления после перезапуска
-  backend OpenCode):** прогоны выполнены на дереве `8210eb7b` из
-  `C:\Code\Python\adminbot\.venv\Scripts\python.exe` (Python 3.12.0),
-  `-p no:cacheprovider`, рабочая директория — этот worktree. Перезапуски
-  backend'а случались во время сессии, но не меняли ни файлы worktree, ни
-  результаты уже завершённых прогонов (повторные прогоны совпали).
+  backend OpenCode):** прогоны выполнены на деревьях `8210eb7b` и
+  `1a991e7d` из `C:\Code\Python\adminbot\.venv\Scripts\python.exe`
+  (Python 3.12.0), `-p no:cacheprovider`, рабочая директория — этот
+  worktree. Перезапуски backend'а случались во время сессии, но не меняли ни
+  файлы worktree, ни результаты уже завершённых прогонов (повторные прогоны
+  совпали).
 
 ## 1. Что изменено в поведении
 
