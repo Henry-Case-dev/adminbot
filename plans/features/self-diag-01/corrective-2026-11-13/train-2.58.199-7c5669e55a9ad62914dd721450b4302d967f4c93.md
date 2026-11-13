@@ -33,6 +33,9 @@ for all four); every tip is an ancestor of the train HEAD.
   **75 / 75 paths byte-identical to an approved tip; 0 mismatches; 0 files different from
   every approved branch.** No partial merge, no whitespace reflow, no re-encoded file.
   (The 74-path result of the first pass plus the restored M1 binding; see §9.)
+  After the release-train fixture fix (§10), `tests/test_release_manifest.py` intentionally
+  differs from the approved identity tip by +11/-4 test-only lines; the remaining 74 union
+  paths stay byte-identical. The union composition itself is unchanged.
 
 ## 3. Merged union file set vs `23477658` (75 files; plus this report, §9)
 
@@ -235,3 +238,34 @@ Decisive bounded re-run after the docs fix (same interpreter, cwd = train worktr
 | `tests/test_memory_period_vector_leg.py` | **30 passed** | 0 |
 
 The counts equal the pre-fix numbers, so the docs-only restoration did not affect behavior.
+
+## 10. Version-collision fix in the release-manifest fixture (2026-11-13)
+
+DevOps pre-deploy finding: after `APP_VERSION` is bumped to 2.58.199, two manifest tests used the
+literal `"2.58.199"` for their second deploy, which became the current version and made the fixture
+commit a no-op (`nothing to commit, working tree clean`): 2 failed / 56 passed. The same 58 passed
+on the pre-bump tip. This is a test-fixture collision, not a product defect.
+
+Fix (test-only, exactly the verified DevOps patch, +11/-4):
+`tests/test_release_manifest.py` now derives the "next" version as `_next_patch(APP_VERSION)`
+(`major.minor.patch+1`) and asserts against that variable. The intent is unchanged: the previous
+manifest is taken from the existing manifest, and the rollback manifest points to the previous
+running version. Commit `773417ffa6c4e95e2c2c8277377ade460fded15f`; no product path changed.
+
+RED proof (not tautological): temporarily forcing `tools.release_manifest.previous_release` to
+return `(sha, None)` made both tests fail with `assert None == '2.58.199'`
+(`test_previous_release_is_taken_from_existing_manifest`, and
+`test_rollback_manifest_points_to_previous_running_version`); the producer was restored.
+
+Bump simulation: with `APP_VERSION` temporarily set to `2.58.199` (uncommitted, restored to
+`2.58.198` before the test commit) the identity+manifest set gave **58 passed**, proving the fix
+closes the post-bump collision.
+
+GREEN after the fix (train worktree): `tests/test_release_manifest.py` **20 passed**;
+`tests/test_deploy_identity.py tests/test_release_manifest.py` **58 passed**; corrective new
+**28 passed**; corrective focused **330 passed**; M1 **34 passed**; NEXT-02 `period_vector_leg`
+**30 passed**; all exit 0. Code tip remains `7c5669e5`.
+
+This test file is now the only union path that intentionally differs from its approved tip
+(the other 74 paths remain byte-identical); it contains no product code, and the delta is exactly
+the DevOps-prepared fixture patch.
