@@ -160,7 +160,7 @@ pytest <40 factcheck-related files> -q
 ```
 → 801 passed, 2 failed, 4 errors in 45.21s
 ```
-Разница ровно новым durable-набором (19 тестов) плюс один сетевой flaky;
+Разница ровно новым durable-набором (20 тестов) плюс один сетевой flaky;
 2 failed + 4 errors идентичны на базе (см.
 `raw/pytest-focused-base-c00caf62.txt` и
 `raw/pytest-focused-final-b9d4cc88.txt`):
