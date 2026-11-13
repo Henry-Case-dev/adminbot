@@ -95,15 +95,17 @@ def _text(text):
 
 class TestToolLoopFailSafe:
     @pytest.mark.asyncio
-    async def test_identical_repeats_return_answer_not_exception(self):
-        """SMART-EXECUTION-RELIABILITY-01 §B4: предела 4 раунда нет; повтор
-        одинакового вызова не даёт новых данных → `no_progress`, ответ (не
-        исключение) с сохранёнными envelope'ами."""
+    async def test_identical_repeats_finalize_without_stub(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B4/§G2: предела 4 раунда нет; повтор
+        одинакового вызова не даёт новых данных → `no_progress`, но ответ
+        формирует финальная фаза по накопленным результатам, а не заглушка."""
         llm = _ScriptedLLM([_tool_call() for _ in range(6)])
         out = await chat_with_tools(llm, [{"role": "user", "content": "q"}],
                                     tools=[], router=_Router(), ctx=object())
         assert isinstance(out, ToolLoopResult)
-        assert str(out) == TOOL_LOOP_FALLBACK_PHRASE
+        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
+        assert str(out) == "plain"                 # финальный LLM по evidence
+        assert out.finalize_mode == "llm"
         assert out.degraded is True and out.reason == "no_progress"
         assert out.rounds_used == 3
         assert len(out.tool_trace) == 3
@@ -111,10 +113,11 @@ class TestToolLoopFailSafe:
         assert all(t["ok"] for t in out.tool_trace)
 
     @pytest.mark.asyncio
-    async def test_multi_round_research_preserves_partial_content(self):
+    async def test_multi_round_research_finalizes_on_evidence(self):
         # Модель надумала текст и продолжает звать инструменты; исследование
-        # останавливается по отсутствию прогресса — отдаём ПОСЛЕДНИЙ непустой
-        # content (не заглушку), накопленные результаты сохранены.
+        # останавливается по отсутствию прогресса. §G3: последний
+        # промежуточный текст НЕ является результатом работы — финал строится
+        # по накопленным tool-результатам, которые сохранены.
         answers = [LLMChatResult(content="уже почти ответ", tool_calls=[
             LLMToolCall(id="c", name="execute_web_search",
                         arguments='{"query": "x"}')],
@@ -125,8 +128,9 @@ class TestToolLoopFailSafe:
         out = await chat_with_tools(llm, [{"role": "user", "content": "q"}],
                                     tools=[], router=_Router(), ctx=object())
         assert out.degraded is True
-        assert str(out) == "уже почти ответ"
         assert out.reason == "no_progress"
+        assert out.finalize_mode == "llm"
+        assert str(out) == "plain"
         assert out.tool_results
 
     @pytest.mark.asyncio
@@ -147,7 +151,13 @@ class TestToolLoopFailSafe:
         out = await chat_with_tools(_Boom(), [{"role": "user", "content": "q"}],
                                     tools=[], router=_Router(), ctx=object())
         assert out.degraded is True and out.reason == "llm_error"
-        assert str(out) == "частичный"
+        # Финальный LLM недоступен (у двойника нет Writer) → безопасный
+        # структурный partial по фактически полученным данным, не заглушка.
+        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
+        assert out.finalize_mode == "structured_partial"
+        assert "llm_error" in str(out)
+        assert "execute_web_search" in str(out)
+        assert out.tool_results
 
     @pytest.mark.asyncio
     async def test_round_zero_llm_error_still_plain_fallback(self):

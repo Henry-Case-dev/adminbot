@@ -171,7 +171,9 @@ class TestToolLoopLimits:
     @pytest.mark.asyncio
     async def test_identical_repeat_stops_by_no_progress(self, monkeypatch):
         """Предела 4 раунда больше нет: повтор одного и того же вызова без
-        изменения условий не даёт новых данных → честный stop `no_progress`."""
+        изменения условий не даёт новых данных → честный stop `no_progress`.
+        §G: при накопленных результатах ответ формирует финальная фаза, а не
+        саркастичная заглушка."""
         from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE
         router = ToolRouter(_deps())
         always = [LLMChatResult(content=None,
@@ -184,7 +186,9 @@ class TestToolLoopLimits:
                                     ctx=_ctx(bot=_FakeBot()))
         assert out.degraded is True
         assert out.reason == "no_progress"
-        assert out == TOOL_LOOP_FALLBACK_PHRASE
+        assert out != TOOL_LOOP_FALLBACK_PHRASE
+        assert out.finalize_mode == "llm"
+        assert out.tool_results                 # результаты сохранены
         assert llm.calls == 3          # раунд исполнения + 2 без прогресса
 
 
