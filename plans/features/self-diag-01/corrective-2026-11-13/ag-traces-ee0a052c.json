@@ -1,0 +1,156 @@
+{
+  "candidate_code_sha": "ee0a052cac7a4ad840ff98a789609272c78c1386",
+  "candidate_file": "services/checkup_service.py",
+  "candidate_file_sha256": "73da0b67a2615b301c1e2025d72bd5794c4548d99dd925f71967f11b282a97bc",
+  "routes": [
+    {
+      "id": "A",
+      "correlation_id": "ag-A",
+      "route": "CheckupLogsFetcher(boundary:fixture)->DiagnosticCollector.collect_for_checkup",
+      "bundle_status": "degraded",
+      "journal_source": "logs:local",
+      "journal_status": "ok",
+      "backend": "fake:journal pid=1",
+      "error_marker_count": 1,
+      "not_checked": [
+        "journal_contents"
+      ],
+      "facts_chars": 3024,
+      "production_journal_evidence": "plans/features/self-diag-01/corrective-2026-11-13/journal-access-evidence.md (┬з5 rc=0/current invocation)",
+      "note": "journald is Linux-only; local run uses FakeFetcher at journal subprocess boundary"
+    },
+    {
+      "id": "B",
+      "correlation_id": "ag-B",
+      "route": "CheckupService.checkup->tool_loop.chat_with_tools->ToolRouter",
+      "tool_calls": [
+        {
+          "tool": "read_source_code",
+          "args": {
+            "path": "services/checkup_service.py",
+            "line_start": 150,
+            "line_end": 175
+          }
+        },
+        {
+          "tool": "inspect_runtime",
+          "args": {
+            "probe": "logs.window",
+            "scope": "instance"
+          }
+        }
+      ],
+      "result_source": {
+        "status": "ok",
+        "verified": true,
+        "repo": "Henry-Case-dev/adminbot",
+        "ref": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6",
+        "commit": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6",
+        "path": "services/checkup_service.py",
+        "line_range": [
+          150,
+          175
+        ],
+        "snippet_head": "        if telemetry is not None:\n            telemetry.update(prompt_telemetry)\n        started = time.monotonic()\n    "
+      },
+      "repo_identity": {
+        "target": "self",
+        "repo": "Henry-Case-dev/adminbot",
+        "requested_ref": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6",
+        "ref_source": "deployed_sha",
+        "deployed_sha": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6",
+        "checkout_sha": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6",
+        "deployed_matches_checkout": true,
+        "local_source_verification": "verified_deployed",
+        "dirty": false,
+        "conflict": [],
+        "identity_error": "",
+        "note": ""
+      },
+      "result_runtime": {
+        "status": "ok",
+        "probe": "logs.window",
+        "source_id": "logs:local"
+      },
+      "final_answer": "╨б╨╕╨╜╤В╨╡╨╖ ╨┐╨╛ ╤А╨╡╨░╨╗╤М╨╜╤Л╨╝ ╨┤╨░╨╜╨╜╤Л╨╝.",
+      "research_calls": 2
+    },
+    {
+      "id": "C",
+      "correlation_id": "ag-C",
+      "route": "real mca_bot_outputs->DirectChatService._plan_direct_l1->L1->ToolRouter",
+      "report_source": "output_kind=checkup_report",
+      "report_in_context": true,
+      "structured_decision": {
+        "needed": true,
+        "target": "self",
+        "sources": [
+          "source_code"
+        ]
+      },
+      "announced_tools": [
+        "read_source_code"
+      ],
+      "tool_result": {
+        "status": "ok",
+        "path": "services/checkup_service.py",
+        "line_range": [
+          150,
+          175
+        ],
+        "ref": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6",
+        "commit": "bc25f323750bfd8546e3d335fcbe9e78389c1fc6"
+      },
+      "final_answer": "(L2 Writer ╨╜╨╡ ╨▓╤Л╨╖╤Л╨▓╨░╨╗╤Б╤П ╨▓ trace; ╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨╕ ╤З╤В╨╡╨╜╨╕╨╡ ╨║╨╛╨┤╨░ ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡)"
+    },
+    {
+      "id": "D",
+      "correlation_id": "ag-D",
+      "route": "_plan_direct_l1(slot->main->empty)->fallback->adaptive tool phase",
+      "plan_is_none": true,
+      "previous_decision": {
+        "ts": 1794548418,
+        "diagnostic_needed": true,
+        "diagnostic_target": "self",
+        "diagnostic_sources": "source_code"
+      },
+      "preserved": true,
+      "fallback_caps": [
+        "source_code"
+      ],
+      "auto_tool_calls": 0,
+      "final_answer": "(╤З╨╡╤Б╤В╨╜╨░╤П ╨┤╨╡╨│╤А╨░╨┤╨░╤Ж╨╕╤П; ╤И╨░╨▒╨╗╨╛╨╜ L2 ╨▓ trace ╨╜╨╡ ╨│╨╡╨╜╨╡╤А╨╕╤А╨╛╨▓╨░╨╗╤Б╤П)"
+    },
+    {
+      "id": "E",
+      "correlation_id": "ag-E",
+      "route": "DiagnosticCollector.probe logs.window",
+      "status": "unavailable",
+      "source_status": "unavailable",
+      "reason_code": "logs_read_failed",
+      "not_checked": [
+        "journal_window"
+      ],
+      "facts": {},
+      "note": "no zero substituted for unavailable journal"
+    },
+    {
+      "id": "F",
+      "correlation_id": "ag-F",
+      "route": "ToolRouter._diagnostic_guard->diagnostic_policy",
+      "denied": true,
+      "handler_calls": 0,
+      "answer_head": "╨Ю╨и╨Ш╨С╨Ъ╨Р prompt_readback: ╨в╨╡╨║╤Б╤В ╨┐╤А╨╛╨╝╨┐╤В╨╛╨▓ ╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤В╨╛╨╗╤М╨║╨╛ ╨░╨┤╨╝╨╕╨╜╨╕╤Б╤В╤А╨░╤В╨╛╤А╤Г ╤Н╤В╨╛╨│╨╛ ╤З╨░╤В╨░ ╨┐╨╛ ╤П╨▓╨╜╨╛╨╝╤Г ╨╖╨░╨┐╤А╨╛╤Б╤Г; ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝ ╨╛╨╜ ╨╜╨╡ ╨▓╤Л╨┤╨░╤С╤В╤Б╤П. [denied_prompt_content_member]"
+    },
+    {
+      "id": "G",
+      "correlation_id": "ag-G",
+      "route": "source_reader.resolve_self_repo_identity->deploy_identity",
+      "deployed_sha": "ffffffffffffffffffffffffffffffffffffffff",
+      "checkout_sha": "c31609ace8db181c400867d50f645c1df5cabc94",
+      "deployed_matches_checkout": false,
+      "ref_source": "local_checkout_unverified",
+      "note": "deployed SHA ╨╜╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╗╨╛╨║╨░╨╗╤М╨╜╤Л╨╝ checkout; ╤З╨╕╤В╨░╨╡╤В╤Б╤П ╨╗╨╛╨║╨░╨╗╤М╨╜╨░╤П ╨▓╨╡╤А╤Б╨╕╤П, ╤Б╨╛╨╛╤В╨▓╨╡╤В╤Б╤В╨▓╨╕╨╡ ╤А╨░╨▒╨╛╤В╨░╤О╤Й╨╡╨╝╤Г ╨┐╤А╨╛╤Ж╨╡╤Б╤Б╤Г ╨╜╨╡ ╨┤╨╛╨║╨░╨╖╨░╨╜╨╛"
+    }
+  ]
+}
