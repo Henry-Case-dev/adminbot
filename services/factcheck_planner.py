@@ -536,8 +536,8 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     установленный предмет (может быть вопросом пользователя или условием,
     которых нет в исходной публикации); проверка принадлежности НЕ отключена,
     но привязана к предмету, а не к исходному тексту. Части материала, не
-    вошедшие в предмет, не ищутся (не расширяют проверку); если ни одна часть
-    не подошла, ниже предмет декомпозируется сам.
+    вошедшие в предмет, не ищутся (не расширяют проверку); непокрытый остаток
+    предмета (условие/вопрос пользователя) добавляется предложениями.
 
     FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки материала
     изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути ДО
@@ -557,10 +557,26 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
         if getattr(item, "verifiable", True) is not False \
                 and text.lower() not in {u.lower() for u in units}:
             units.append(text)
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim_thesis)
+                 if s.strip()] or [claim_thesis]
     if not units or (len(units) == 1 and units[0].lower() == claim_low):
         # гейт не декомпозировал → предложения тезиса без служебных меток
-        units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim_thesis)
-                 if s.strip()] or [claim_thesis]
+        units = sentences
+    else:
+        # S13 §4.1: предмет может содержать условие/вопрос пользователя,
+        # которых нет в claim_items. Они — часть УЖЕ установленного предмета и
+        # не должны исчезать из плана только потому, что item-фильтр принял
+        # лишь material-часть. Остаток предмета добавляется структурно
+        # (предложения), без лексических правил и новых категорий.
+        covered = [u.lower() for u in units]
+        for sentence in sentences:
+            low = sentence.lower()
+            if low == claim_low:
+                continue
+            if any(low in c or c in low for c in covered):
+                continue
+            units.append(sentence)
+            covered.append(low)
     return [search_thesis_text(u) for u in units if u][:cap]
 
 
