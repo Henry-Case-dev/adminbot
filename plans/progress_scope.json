@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T16:02:40+12:00",
+  "updated": "2026-11-13T16:21:11+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -834,7 +834,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); next executable slice is VMQ-MEM-NEXT; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T16:02:40+12:00",
+      "updated": "2026-11-13T16:21:11+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: 66 PENDING classified on 2.58.198 - 54 REAL_GAP owner-mandated (ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U/MEM-TIME evidence/R), 9 covered -> REVIEW on binding, 1 postrelease (NEXT-01), 2 blocked_external (Q-04/QM-08). All 54 rows source-anchored to current_task.md owner clauses (0 derived). NEXT-02 corrective candidate (A FTS fix + NEXT-05 timings, no B) is building; M1 episodes building in parallel (disjoint files). Closing NEXT-02 does NOT finish the epic. | 2026-11-13: self-diag corrective (owner) added as P0; vmq M1 candidate 80726249 in independent review, NEXT-02 final candidate building; vmq continues in parallel on disjoint files.",
+      "queue_note": "2026-11-13: M1 candidate 80726249 review M-01/M-02 pass, M-03 FAILED (assemble_stories swallowed, complete unreliable); fix running. NEXT-02 final (§A+NEXT-05, no §B) building with quality measurement. self-diag corrective is P0 and runs in parallel on disjoint files.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -936,7 +936,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T16:02:40+12:00",
+      "updated": "2026-11-13T16:21:11+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -944,7 +944,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13 corrective (owner): 2.58.198 user-visible diagnostics incomplete. P0: real journal access; checkup research loop with existing SourceReader/read_source_code/inspect_runtime; diagnostic conversation continuation via LLM routing; L1 empty-content fallback preserving intent; deploy identity manifest; honest unknown/not_checked instead of zero. Anti-hardcode invariant: no lexical routing anywhere. Architect contract first, then Builder, independent Reviewer E2E, one release + smoke. Prior 150 VERIFIED rows are not revoked but the end-user scenario was not proven.",
+      "queue_note": "2026-11-13 corrective (owner, P0): journal access RESTORED and verified as the service user (systemd-journal group membership; rc=0, current invocation entries; /healthz 200; env-only, no code). Two Builders: (a) checkup research loop + continuation + repo resolution + L1 degradation; (b) deploy identity/manifest + honest counters. Anti-hardcode invariant binding. Then Reviewer E2E A-G + anti-hardcode audit, one release + smoke, corrective DONE. Prior 150 VERIFIED rows kept; epic not DONE until corrective passes.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -1020,8 +1020,9 @@
       "delivery_gate_ref": "plans/features/self-diag-01/release-258198/gate-delivery-23477658.txt",
       "corrective_2026_11_13": {
         "owner_input": "plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md",
-        "status": "scoping",
-        "blocks_epic_done": true
+        "status": "building",
+        "blocks_epic_done": true,
+        "journal": "restored-verified-1f2156ea"
       }
     },
     {
