@@ -64,6 +64,13 @@ def _isolated(monkeypatch):
     monkeypatch.setattr(type(sr.settings), "SOURCE_READ_ENABLED", True)
     monkeypatch.setattr(type(sr.settings), "SOURCE_READ_GITHUB_TOKEN", "")
     monkeypatch.setattr(type(sr.settings), "SELF_DIAG_LOCAL_REPO_ROOT", "")
+    # SXR-E добавил второй корень того же процесса (runtime identity), который
+    # не управляется SELF_DIAG_LOCAL_REPO_ROOT. Модуль проверяет путь через
+    # stub-провайдер, поэтому локальный источник отключается точечно — тот же
+    # смысл, что и пустой configured root выше, без ослабления проверок.
+    monkeypatch.setattr(
+        sr, "resolve_local_source",
+        lambda *a, **kw: {"usable": False, "root": None})
 
     async def _budgets_off(chat_id=None):
         return False
