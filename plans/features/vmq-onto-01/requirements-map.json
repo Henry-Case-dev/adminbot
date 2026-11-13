@@ -128,7 +128,8 @@
   "notes": [
     "2026-11-11 — причина ошибки учёта (одна запись, bookkeeping): ключ хранится в bot_settings с префиксом «flags.» — flags.chat_rag_rerank_enabled. Поиск по имени настройки/переменной (CHAT_RAG_RERANK_ENABLED) или по ключу без префикса (chat_rag_rerank_enabled) не находит строку и даёт ложный вывод «строки нет, эффективное значение False». Это ошибка учёта, а не дефект продукта; исправленное значение — в config_fact_2026_11_11 этой карты.",
     "2026-11-11 (после 11:15Z) — граница окна для всех утверждений вида «ходов не было / period_fill=0 / строк period_vector_leg ноль»: они написаны по наблюдательным окнам ДО 11:15:41Z (последнее такое окно — 08:24→11:11Z) и остаются верными только для своих окон. Первый реальный прямой ход — 11:15:41Z, первый ход с исполненной векторной ногой — 11:16:50Z, первая durable-строка period_fill — 11:16:49Z (и единственная за историю таблицы). Повторять эти утверждения как текущие нельзя; подробности и что именно доказано — per_turn_observation_2026_11_11 и evidence/vmq-mem/next-stage/prod-turns-2026-11-11.md.",
-    "2026-11-13 (bookkeeping, не приёмка) — текущая производственная привязка вынесена в current_production_2026_11_13 (2.58.198 @ 23477658, schema 47, DDL 0) без перезаписи исторических deployed_commit 952b9ebd/0fed5845/7c3c01b2. Строки ступени VMQ-MEM-NEXT получили состояния по факту: 02 FAILED (измеренный провал клаузы доли 2026 на кандидате c0de0c2b, исправленный контракт architecture-next2-corrected.md в работе), 03 REVIEW (подтверждён только controlled-кейс, набор 17 вопросов не покрыт), 04 PENDING (в архиве нет положительной лексической строки), 05 REVIEW (аддитивные knn_ms/fts_ms 32/32, p95 1172/1156 ≤ 1618, отдельного approval по строке нет). REVIEW здесь значит «candidate-bound evidence передана независимому ревью», а не «одобрено»: scoped review gate на этих строках красный и это ожидаемо."
+    "2026-11-13 (bookkeeping, не приёмка) — текущая производственная привязка вынесена в current_production_2026_11_13 (2.58.198 @ 23477658, schema 47, DDL 0) без перезаписи исторических deployed_commit 952b9ebd/0fed5845/7c3c01b2. Строки ступени VMQ-MEM-NEXT получили состояния по факту: 02 FAILED (измеренный провал клаузы доли 2026 на кандидате c0de0c2b, исправленный контракт architecture-next2-corrected.md в работе), 03 REVIEW (подтверждён только controlled-кейс, набор 17 вопросов не покрыт), 04 PENDING (в архиве нет положительной лексической строки), 05 REVIEW (аддитивные knn_ms/fts_ms 32/32, p95 1172/1156 ≤ 1618, отдельного approval по строке нет). REVIEW здесь значит «candidate-bound evidence передана независимому ревью», а не «одобрено»: scoped review gate на этих строках красный и это ожидаемо.",
+    "2026-11-13 (VMQ-M1, bookkeeping) — слайс M1 привязан к кандидату cfec9a1a (ветка vmq/m1, база 23477658, docs d2c95ca2): строки M-01..M-03 переведены в REVIEW с candidate-bound ревью (review-m1-cfec9a1a.md) и реализационным evidence (engineering.md, §D4 для исправленного failure path). Это не VERIFIED: кандидат не выложен, topic_refs остаются ONTO, потребление в retrieval — M2. Предсуществующий test_write_points_go_through_single_writer воспроизведён на базе -> BACKLOG."
   ],
   "lineage_divergence_2026_11_11": {
     "observed": "2026-11-11",
@@ -727,10 +728,35 @@
       "req_id": "M-01",
       "slice": "VMQ-M1",
       "acceptance": "Эпизоды строятся по связной Reply-ветке, авторам и временной близости: давние семантически близкие, но независимые реплики не сливаются в одно событие; каждый эпизод имеет ordered_message_refs и source_revision_fingerprint, сверяемые с исходными сообщениями.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "engineering.md §2 «M-01 — границы, source refs, качество» + §4 (34 passed); binding-m1-cfec9a1a.md §«M-01»",
+          "observation": "EpisodeView/episode_view_from_row/get_episode_view/list_episode_views: ordered source_refs, event_start/end только из timestamps источников (discovered_at отдельно), participants — canonical smart_messages.user_id, source_fingerprint = sha256(ordered refs + MCA-03 current_revision) с '?' при отсутствующей ревизии, source_integrity ok|partial|missing|unknown в строгом chat scope, карточка чужого чата -> None. tests/test_vmq_m1_episode_contract.py (34 passed) покрывает reply-ветку в горизонте, reply вне горизонта/неизвестный parent, параллельные разговоры и gap, overlap без дублей, unknown timestamp -> partial/unknown, изоляцию чата. Проверка на fixture source rows и temp-БД: живой архив и LLM не использовались.",
+          "type_detail": "unit/integration на fixture source rows",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/engineering.md",
+          "artifact_sha256": "c3077f1674b3ad0c7228a0972deec8e72908fc97f1b984c5b6829e38b36ddb9e",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true,
+          "coverage_scope": "fixture source rows; реальный архив не наблюдался"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "review-m1-cfec9a1a.md — независимое ревью кандидата cfec9a1a (сессия Reviewer ses_e2e402b89ffeMtlTa841KOgwA0)",
+          "observation": "Вердикт Reviewer: M-03 VERIFIED for the corrected failure path; M-01/M-02 сохраняют ранее подтверждённый статус. Реализация: diff 80726249..cfec9a1a ограничен services/mca_episode_jobs.py и tests/test_vmq_m1_episode_contract.py; сбой assemble_stories пробрасывается как assemble_failed, process_rechecks сохраняет тип возврата и поднимает RecheckAssemblyError без текста исходного исключения. Проверка тестов: оба новых теста проверяют наблюдаемое состояние (незавершённый первый rebuild, точная причина, обновление story на повторе, сохранённый manual override, отсутствие дублей эпизодов). Независимый контрпример: форсированный сбой сборки после успешного recheck — RUN1 complete=False, reason=assemble_failed, errors=1, rechecked=1; повтор обновил story, override сохранён, эпизод один; секретная строка из текста исключения в результат не попала; возврат старого поведения валит оба новых теста.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+          "artifact_sha256": "9d13f70718d500b059c2ca0fa156d5f60e8d7876723cb07d615bc8b2e37ab163",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "candidate_deployed": false,
+          "carried_from_candidate": "80726249",
+          "carry_note": "M-01/M-02 подтверждены на 80726249 и перенесены на cfec9a1a: содержательный diff между кандидатами — только M-03-файлы (services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py), services/mca_episodes.py не менялся."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -762,6 +788,27 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
+      },
+      "m1_candidate_2026_11_13": {
+        "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+        "binding": "plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-cfec9a1a.md",
+        "review": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+        "docs_commit": "d2c95ca296edb061f5698de500f87bd34d5430f4",
+        "status_reason": "REAL_GAP 13.11.2026 классифицирован по базе 23477658, где кода M1 не было. На ветке vmq/m1 кандидат cfec9a1a реализует контракт architecture-m1-episodes.md и прошёл независимое ревью, поэтому строка переведена в REVIEW, а не VERIFIED: кандидат не выложен в production.",
+        "boundary": "topic_refs остаются ONTO (ONTO-A/B) и не выдумываются в M1; потребление EpisodeView/LongitudinalView в unified retrieval — M2, services/mca_retrieval_context.py этим кандидатом не изменялся.",
+        "previous_bucket": "REAL_GAP (по базе 23477658)"
+      },
+      "live_required_override": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "changed_at": "2026-11-13",
+        "by": "PM при привязке кандидата cfec9a1a",
+        "authority": "plans/features/vmq-onto-01/architecture-m1-episodes.md (строки 62-69, 75-77; заморожен Architect, ARCH_M1_READY)",
+        "why": "Контракт слайса определяет приёмку M-01..M-03 как candidate-bound fixtures/source-lineage проверку и прямо говорит: естественный production-эпизод не нужен для unit proof (M-01), широкое покрытие production-архива по фикстуре не объявлять (M-02), долговременную работу scheduler не выдумывать (M-03); live/production probes вне Builder acceptance. Флаг live_required=true/live_when=preprod был выставлен до заморозки контракта и требовал недокументированного preprod-evidence, которого контракт не требует.",
+        "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
+        "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
+        "reverted_by": "только новый owner-input или изменение контракта Architect"
       }
     },
     {
@@ -774,10 +821,35 @@
       "req_id": "M-02",
       "slice": "VMQ-M1",
       "acceptance": "Тематическая линия охватывает несколько независимых эпизодов за разные годы и несёт supporting и counterexample ссылки; на золотых примерах видно покрытие лет и отсутствие выдуманных событий.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "engineering.md §2 «M-02 — периоды/coverage/опоры» + §4 (34 passed); binding-m1-cfec9a1a.md §«M-02»",
+          "observation": "LongitudinalView + subject_longitudinal_view: календарные bucket'ы по годам через chat_clock (IANA чата, fallback UTC с timezone_source), coverage present_periods/missing_periods/unknown_time_episode_refs, coverage['complete']=False + complete_reason, support_source_refs — одна опора на различную формулировку (repeated_claims), counterexample_pairs отдельно от support (существующий detect_contradictions), subject filter по canonical participant ID. Тесты: 2021+2023 два независимых эпизода при missing 2022 и complete=False; повтор мема не повышает независимость; встретились/не встречались дают counterexample_pairs; старое событие не получает период 2026; отсутствующий subject -> honest empty.",
+          "type_detail": "unit/integration на детерминированной multi-year фикстуре",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/engineering.md",
+          "artifact_sha256": "c3077f1674b3ad0c7228a0972deec8e72908fc97f1b984c5b6829e38b36ddb9e",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true,
+          "coverage_scope": "deterministic multi-year fixture; реальный архив/качество тем не наблюдались"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "review-m1-cfec9a1a.md — независимое ревью кандидата cfec9a1a (сессия Reviewer ses_e2e402b89ffeMtlTa841KOgwA0)",
+          "observation": "Вердикт Reviewer: M-03 VERIFIED for the corrected failure path; M-01/M-02 сохраняют ранее подтверждённый статус. Реализация: diff 80726249..cfec9a1a ограничен services/mca_episode_jobs.py и tests/test_vmq_m1_episode_contract.py; сбой assemble_stories пробрасывается как assemble_failed, process_rechecks сохраняет тип возврата и поднимает RecheckAssemblyError без текста исходного исключения. Проверка тестов: оба новых теста проверяют наблюдаемое состояние (незавершённый первый rebuild, точная причина, обновление story на повторе, сохранённый manual override, отсутствие дублей эпизодов). Независимый контрпример: форсированный сбой сборки после успешного recheck — RUN1 complete=False, reason=assemble_failed, errors=1, rechecked=1; повтор обновил story, override сохранён, эпизод один; секретная строка из текста исключения в результат не попала; возврат старого поведения валит оба новых теста.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+          "artifact_sha256": "9d13f70718d500b059c2ca0fa156d5f60e8d7876723cb07d615bc8b2e37ab163",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "candidate_deployed": false,
+          "carried_from_candidate": "80726249",
+          "carry_note": "M-01/M-02 подтверждены на 80726249 и перенесены на cfec9a1a: содержательный diff между кандидатами — только M-03-файлы (services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py), services/mca_episodes.py не менялся."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -809,6 +881,27 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
+      },
+      "m1_candidate_2026_11_13": {
+        "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+        "binding": "plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-cfec9a1a.md",
+        "review": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+        "docs_commit": "d2c95ca296edb061f5698de500f87bd34d5430f4",
+        "status_reason": "REAL_GAP 13.11.2026 классифицирован по базе 23477658, где кода M1 не было. На ветке vmq/m1 кандидат cfec9a1a реализует контракт architecture-m1-episodes.md и прошёл независимое ревью, поэтому строка переведена в REVIEW, а не VERIFIED: кандидат не выложен в production.",
+        "boundary": "topic_refs остаются ONTO (ONTO-A/B) и не выдумываются в M1; потребление EpisodeView/LongitudinalView в unified retrieval — M2, services/mca_retrieval_context.py этим кандидатом не изменялся.",
+        "previous_bucket": "REAL_GAP (по базе 23477658)"
+      },
+      "live_required_override": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "changed_at": "2026-11-13",
+        "by": "PM при привязке кандидата cfec9a1a",
+        "authority": "plans/features/vmq-onto-01/architecture-m1-episodes.md (строки 62-69, 75-77; заморожен Architect, ARCH_M1_READY)",
+        "why": "Контракт слайса определяет приёмку M-01..M-03 как candidate-bound fixtures/source-lineage проверку и прямо говорит: естественный production-эпизод не нужен для unit proof (M-01), широкое покрытие production-архива по фикстуре не объявлять (M-02), долговременную работу scheduler не выдумывать (M-03); live/production probes вне Builder acceptance. Флаг live_required=true/live_when=preprod был выставлен до заморозки контракта и требовал недокументированного preprod-evidence, которого контракт не требует.",
+        "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
+        "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
+        "reverted_by": "только новый owner-input или изменение контракта Architect"
       }
     },
     {
@@ -821,10 +914,46 @@
       "req_id": "M-03",
       "slice": "VMQ-M1",
       "acceptance": "Продольное представление субъекта собирается инкрементально и версионируемо: edit/delete/rebuild переводят в stale только связанные derived-записи и не выдают удалённое как живой факт.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "engineering.md §2 «M-03 — incremental/rebuild/watermark/override» + §4 (34 passed); binding-m1-cfec9a1a.md §«M-03»",
+          "observation": "rebuild_range (bounded keyset, until_ts, REBUILD_RANGE_MAX_BATCHES=20) идёт через тот же process_batch; watermark не продвигается при errors>0 (paused/model_unavailable); overlap-дедуп по событийному диапазону (list_episodes_in_range) не создаёт дубль при >500 эпизодов; edit/delete дают revision/partial|missing/stale; persisted manual override переживает rebuild; incremental и bounded rebuild на одном наборе источников дают равные projection (refs/event/participants/fingerprint/content); max_batches=1 -> complete=False, batch_cap_reached.",
+          "type_detail": "unit/integration на temp-БД",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/engineering.md",
+          "artifact_sha256": "c3077f1674b3ad0c7228a0972deec8e72908fc97f1b984c5b6829e38b36ddb9e",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true,
+          "coverage_scope": "temp-БД/fixtures; долговременная работа scheduler не наблюдалась"
+        },
+        {
+          "type": "test",
+          "ref": "engineering.md §3 «D4 — ревью-блокер M-03: recheck успешен, пересборка истории упала» (RED на 80726249 -> GREEN на cfec9a1a)",
+          "observation": "До фикса 80726249: RUN1 complete=True/reason=completed при устаревшей story (rechecked=1, errors=0). После cfec9a1a: RUN1 complete=False/reason=assemble_failed, rechecked=1, errors=1, story честно не обновлена; RUN2 complete=True/completed, story обновлена, override сохранён, эпизод один (версий >=2). Долговременная регрессия: test_rebuild_reports_assemble_failure_after_recheck и test_process_rechecks_surfaces_assembly_failure; process_rechecks поднимает retryable RecheckAssemblyError без текста источника.",
+          "type_detail": "RED->GREEN регрессия на публичных API",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/engineering.md",
+          "artifact_sha256": "c3077f1674b3ad0c7228a0972deec8e72908fc97f1b984c5b6829e38b36ddb9e",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true,
+          "coverage_scope": "исправленный failure path M-03; автоматического ретрая внутри одного вызова нет"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "review-m1-cfec9a1a.md — независимое ревью кандидата cfec9a1a (сессия Reviewer ses_e2e402b89ffeMtlTa841KOgwA0)",
+          "observation": "Вердикт Reviewer: M-03 VERIFIED for the corrected failure path; M-01/M-02 сохраняют ранее подтверждённый статус. Реализация: diff 80726249..cfec9a1a ограничен services/mca_episode_jobs.py и tests/test_vmq_m1_episode_contract.py; сбой assemble_stories пробрасывается как assemble_failed, process_rechecks сохраняет тип возврата и поднимает RecheckAssemblyError без текста исходного исключения. Проверка тестов: оба новых теста проверяют наблюдаемое состояние (незавершённый первый rebuild, точная причина, обновление story на повторе, сохранённый manual override, отсутствие дублей эпизодов). Независимый контрпример: форсированный сбой сборки после успешного recheck — RUN1 complete=False, reason=assemble_failed, errors=1, rechecked=1; повтор обновил story, override сохранён, эпизод один; секретная строка из текста исключения в результат не попала; возврат старого поведения валит оба новых теста.",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+          "artifact_sha256": "9d13f70718d500b059c2ca0fa156d5f60e8d7876723cb07d615bc8b2e37ab163",
+          "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "candidate_deployed": false,
+          "carried_from_candidate": "80726249",
+          "carry_note": "M-01/M-02 подтверждены на 80726249 и перенесены на cfec9a1a: содержательный diff между кандидатами — только M-03-файлы (services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py), services/mca_episodes.py не менялся."
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -853,6 +982,27 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
+      },
+      "m1_candidate_2026_11_13": {
+        "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+        "binding": "plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-cfec9a1a.md",
+        "review": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+        "docs_commit": "d2c95ca296edb061f5698de500f87bd34d5430f4",
+        "status_reason": "REAL_GAP 13.11.2026 классифицирован по базе 23477658, где кода M1 не было. На ветке vmq/m1 кандидат cfec9a1a реализует контракт architecture-m1-episodes.md и прошёл независимое ревью, поэтому строка переведена в REVIEW, а не VERIFIED: кандидат не выложен в production.",
+        "boundary": "topic_refs остаются ONTO (ONTO-A/B) и не выдумываются в M1; потребление EpisodeView/LongitudinalView в unified retrieval — M2, services/mca_retrieval_context.py этим кандидатом не изменялся.",
+        "previous_bucket": "REAL_GAP (по базе 23477658)"
+      },
+      "live_required_override": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "changed_at": "2026-11-13",
+        "by": "PM при привязке кандидата cfec9a1a",
+        "authority": "plans/features/vmq-onto-01/architecture-m1-episodes.md (строки 62-69, 75-77; заморожен Architect, ARCH_M1_READY)",
+        "why": "Контракт слайса определяет приёмку M-01..M-03 как candidate-bound fixtures/source-lineage проверку и прямо говорит: естественный production-эпизод не нужен для unit proof (M-01), широкое покрытие production-архива по фикстуре не объявлять (M-02), долговременную работу scheduler не выдумывать (M-03); live/production probes вне Builder acceptance. Флаг live_required=true/live_when=preprod был выставлен до заморозки контракта и требовал недокументированного preprod-evidence, которого контракт не требует.",
+        "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
+        "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
+        "reverted_by": "только новый owner-input или изменение контракта Architect"
       }
     },
     {
@@ -11330,5 +11480,116 @@
     "owner": "Builder -> Reviewer",
     "action": "Minimal candidate from 23477658: keep period-only FTS repair and additive knn_ms/fts_ms, revert the pool=33/slot-priority experiment; run paired 60-query quality set (20 per stratum); Reviewer independently verifies the exact candidate. In parallel (read-only): bind V-01..V-04 and VMQ-A-01 to 23477658 and run VMQ-MEM/TIME evidence on a prod-DB copy.",
     "why": "The previous next_executable (DevOps probe for NEXT-01) is stale as a pointer: NEXT-01 is postrelease observation. The old field is kept unchanged."
+  },
+  "slice_candidate_bindings": {
+    "m1": {
+      "slice": "VMQ-M1",
+      "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+      "candidate_short": "cfec9a1a",
+      "docs_commit": "d2c95ca296edb061f5698de500f87bd34d5430f4",
+      "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
+      "base_version": "2.58.198",
+      "branch": "vmq/m1",
+      "deployed": false,
+      "status": "REVIEW",
+      "recorded_at": "2026-11-13",
+      "why_review_not_verified": "Кандидат слайса не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки M-01..M-03 остаются REVIEW с candidate-bound независимым ревью и привязкой к cfec9a1a.",
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
+        "sha256": "9d13f70718d500b059c2ca0fa156d5f60e8d7876723cb07d615bc8b2e37ab163",
+        "verdict": "M-03 VERIFIED for the corrected failure path; M-01/M-02 keep previously verified status",
+        "reviewer": "независимая сессия Reviewer ses_e2e402b89ffeMtlTa841KOgwA0",
+        "recording": "вердикт транскрибирован Orchestrator'ом: у Reviewer в рантайме не было write-tool; approval Orchestrator'ом не добавлялся"
+      },
+      "binding": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-cfec9a1a.md",
+        "sha256": "4f4669827680d87b0d8b45929e018cc62cc49a57f3dddc457f520857a9dfb8f9",
+        "supersedes": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-m/binding-m1-80726249.md",
+          "commit": "955e282a",
+          "how": "исходная привязка переименована и обновлена docs-коммитом d2c95ca2 в binding-m1-cfec9a1a.md; на master файл не переносился — доступен в истории ветки vmq/m1"
+        }
+      },
+      "engineering": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-m/engineering.md",
+        "sha256": "c3077f1674b3ad0c7228a0972deec8e72908fc97f1b984c5b6829e38b36ddb9e",
+        "sections": "§2 что изменено, §3 D1..D4 (RED->GREEN), §4 тесты, §5 нет DDL/embeddings, §6 предсуществующий сбой, §8 честные границы"
+      },
+      "tests": {
+        "focused": "pytest tests/test_vmq_m1_episode_contract.py -q -> 34 passed",
+        "episode_story": "mca05_episodes_stories + evol021_episode_semantics + asap8_f7_stories + asap8_v63_b08_stories + mca12_stories + vmq_m1 -> 161 passed",
+        "memory_story": "test_memory_contracts + test_graphrag_memory + test_mca17_sleep_memory_workers_round1050 + test_memory_health -> 295 passed",
+        "wide": "110 passed / 1 failed — test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer падает и на базе 23477658 -> BACKLOG_ONLY, не блокирует M1",
+        "source": "счётчики из engineering.md §4 и review-m1-cfec9a1a.md §Runs; PM батареи не перезапускал (нового аудита не заказывали)"
+      },
+      "covered_rows": [
+        "M-01",
+        "M-02",
+        "M-03"
+      ],
+      "partial_rows": {},
+      "not_covered": [
+        "реальный production-архив: качество и полноту эпизодов фикстура не доказывает (engineering.md §8.1-§8.2), coverage['complete'] всегда False",
+        "topic_refs пусты до ONTO-A/B: семантические темы вне M1",
+        "потребление EpisodeView/LongitudinalView в unified retrieval — M2; services/mca_retrieval_context.py не изменялся",
+        "долговременная работа scheduler и естественные многодневные изменения не наблюдались",
+        "кандидат не выложен: production-поведение M1 не проверялось",
+        "сбой assemble_stories не ретраится автоматически внутри одного вызова; проекцию доводит явный повторный bounded rebuild"
+      ],
+      "ddl": 0,
+      "embeddings": 0,
+      "ddl_evidence": "git diff --name-only 23477658..cfec9a1a не содержит services/database.py/миграций; PRAGMA user_version не меняется (test_m1_flows_do_not_change_schema)",
+      "embeddings_evidence": "spy на LLMClient.embed/embed_once, EmbeddingExecutor.embed, EmbeddingProviderAdapter.embed_batch -> 0 вызовов; отсутствие embed-путей подтверждено статически",
+      "code_scope": [
+        "services/mca_episodes.py",
+        "services/mca_episode_jobs.py",
+        "tests/test_vmq_m1_episode_contract.py"
+      ],
+      "topic_refs": "ONTO",
+      "m2_consumption": "вне среза: services/mca_retrieval_context.py не изменялся; unified retrieval подключает EpisodeView/LongitudinalView в M2",
+      "pre_existing_failure": {
+        "test": "tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer",
+        "reproduced_on_base": "234776589c934024ed0e8dceba189fb9d70d3215",
+        "cause": "скан-паритет write-points устарел относительно текущего кода (baseline не обновлён)",
+        "disposition": "BACKLOG_ONLY; M1 не добавлял write-points в database.py/чужие модули"
+      },
+      "live_required_reconciliation": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "changed_at": "2026-11-13",
+        "by": "PM при привязке кандидата cfec9a1a",
+        "authority": "plans/features/vmq-onto-01/architecture-m1-episodes.md (строки 62-69, 75-77; заморожен Architect, ARCH_M1_READY)",
+        "why": "Контракт слайса определяет приёмку M-01..M-03 как candidate-bound fixtures/source-lineage проверку и прямо говорит: естественный production-эпизод не нужен для unit proof (M-01), широкое покрытие production-архива по фикстуре не объявлять (M-02), долговременную работу scheduler не выдумывать (M-03); live/production probes вне Builder acceptance. Флаг live_required=true/live_when=preprod был выставлен до заморозки контракта и требовал недокументированного preprod-evidence, которого контракт не требует.",
+        "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
+        "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
+        "reverted_by": "только новый owner-input или изменение контракта Architect"
+      },
+      "gate_note": "Флаг live_required снят до запуска гейта: первый прогон review-гейта дал ровно три ошибки «live requirement lacks evidence for stage review», все остальные проверки (candidate binding, candidate-bound implementation evidence, независимый approval Reviewer) прошли. Снятие флага — сверка с замороженным контрактом слайса, а не подгонка evidence; см. live_required_override.",
+      "gate": {
+        "review": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence",
+          "output": "stage=review inventory=380 manual=69 scoped=3 errors=0",
+          "exit": 0,
+          "checked_at": "2026-11-13",
+          "note": "гейт прошёл по механизму slice_candidate_bindings.m1 (верхнеуровневый candidate_commit 709865f6 принадлежит замороженному слайсу VMQ-MEM-TIME и для этого среза не используется)."
+        },
+        "deploy": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED",
+            "FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "stage=deploy inventory=380 manual=69 scoped=3 errors=3"
+          ],
+          "exit": 1,
+          "checked_at": "2026-11-13",
+          "scoping": "гейт ограничен --slice VMQ-M1/strict; других ошибок, кроме замыкания зависимостей графа, нет",
+          "why_red": "slice-graph задаёт VMQ-M1 -> VMQ-ONTO-A -> VMQ-A, а строки O-01, O-02, VMQ-A-01 остаются PENDING (контракт ONTO не реализован). Контракт architecture-m1-episodes.md (строки 84-85) называет зависимость M1 от ONTO API-level, а не на физическое завершение O-строк; ребро графа этим заданием не менялось.",
+          "not_done": true
+        }
+      },
+      "deploy_readiness": "Не готов к выкладке по двум независимым причинам: (1) scoped deploy-гейт красный на замыкании VMQ-ONTO-A/VMQ-A; (2) кандидат cfec9a1a не влит в release-линию. REVIEW не равен допуску к деплою."
+    }
   }
 }
