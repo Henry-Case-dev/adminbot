@@ -1486,6 +1486,22 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         keywords,
         mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
     ) if keywords else ""
+    # VMQ-NEXT-02 (§A, 13.11.2026): у ПЕРИОДНОГО FTS-вызова (граф-факты с
+    # годовым окном) источник кандидатов обязан быть согласован с §2. Токен,
+    # чья основа (§2: `len(stem_word(token)) >= 4`) отбрасывается предметным
+    # фильтром, не должен сам формировать пул: иначе `"к"*`/`"в"*`/`"что"*`
+    # выбирают весь LIMIT, а потребитель отклоняет 100 % строк. Фильтр
+    # применяется ТОЛЬКО здесь; глобальный `build_fts_query` и все прочие
+    # вызовы `retrieve` сохраняют прежнюю формулу байт-в-байт. Длинные
+    # содержательные токены и их prefix/stem варианты остаются прежними.
+    period_match = ""
+    period_keywords: list = []
+    if request.period_fill:
+        period_keywords = _period_fts_keywords(keywords)
+        period_match = build_fts_query(
+            period_keywords,
+            mode=("prefix_or_stem" if request.lexical_stem else "prefix_or")
+        ) if period_keywords else ""
     now = int(time.time())
     # P0-HA ISOLATION (§3): при активной количественной связке mode НЕ
     # повышается до "history" по _HISTORY_MARKERS (список маркеров не меняет)
@@ -1513,6 +1529,11 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     #: VMQ-MEM next stage (§1): идентичности строк ПЕРИОДНОЙ векторной ноги —
     #: они идут первыми в обходе и не проходят порог §2 (смысловой путь).
     period_vector_ids: set = set()
+    #: VMQ-NEXT-05 (13.11.2026): раздельные длительности уже выполняемых
+    #: периодных вызовов (`knn_ms`/`fts_ms`) и коды отсутствия измерения.
+    #: Накопитель общий для каналов: FTS-ветка пишет `fts_ms`, векторная —
+    #: `knn_ms`; отсутствие вызова остаётся отсутствием (не 0 ms).
+    period_stats: dict = {}
     exact_used = False      # L-MCA07-3: reason_code `exact_match_used`
 
     def _allow(name: str) -> bool:
@@ -1633,6 +1654,18 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 logger.warning("[mca07] entity channel failed", exc_info=True)
 
     # ── lexical/FTS: сообщения + граф-факты ─────────────────────────────────
+    # VMQ-NEXT-02 (§A, 13.11.2026): периодный FTS граф-фактов использует
+    # match, из которого удалены токены, заведомо отбрасываемые §2. Канал
+    # сообщений сохраняет прежний match: §2 судит факты, а сообщения не
+    # входят в периодный пул. Если §2-совместимых токенов нет вовсе —
+    # честная деградация: лексическая нога периода не выполняется,
+    # векторная продолжает работу; пустое/неограниченное FTS-выражение не
+    # строится и основной retrieval не прекращается.
+    if request.period_fill:
+        period_stats["fts_words_total"] = len(keywords)
+        period_stats["fts_words_kept"] = len(period_keywords)
+        period_stats["fts_words_dropped"] = max(
+            0, len(keywords) - len(period_keywords))
     if _allow("lexical") and match:
         for chat_id in chat_ids:
             try:
@@ -1646,13 +1679,24 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             except Exception:
                 logger.warning("[mca07] lexical messages channel failed",
                                exc_info=True)
+            facts_match = period_match if request.period_fill else match
+            if not facts_match:
+                period_stats["fts_ms_reason"] = "fts_match_empty"
+                continue
             try:
+                # VMQ-NEXT-05: длительность ИМЕННО периодного FTS-вызова
+                # (граф-факты с годовым окном), а не сообщений; остальные
+                # вызовы того же SQL не измеряются.
+                fts_clock = (time.perf_counter() if request.period_fill
+                             else None)
                 rows = await db.search_graph_facts_fts(
-                    chat_id, match, max(1, fetch_k * 2), now,
+                    chat_id, facts_match, max(1, fetch_k * 2), now,
                     include_direct_reply=bool(request.include_direct_reply),
                     include_archived=bool(request.include_archived),
                     include_self=bool(request.include_self),
                     exclude_years=_exclude_years_of(request))
+                if fts_clock is not None:
+                    _period_add_ms(period_stats, "fts_ms", fts_clock)
                 for pos, row in enumerate(rows or []):
                     cand = _fact_candidate(row, "lexical", pos,
                                            resolve_item_id)
@@ -1665,8 +1709,12 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 # Совместимость с двойниками без include_archived: обычный
                 # (не архивный) вызов — архив в них и так не виден.
                 try:
+                    fts_clock = (time.perf_counter() if request.period_fill
+                                 else None)
                     rows = await db.search_graph_facts_fts(
-                        chat_id, match, max(1, fetch_k * 2), now)
+                        chat_id, facts_match, max(1, fetch_k * 2), now)
+                    if fts_clock is not None:
+                        _period_add_ms(period_stats, "fts_ms", fts_clock)
                     for pos, row in enumerate(rows or []):
                         cand = _fact_candidate(row, "lexical", pos,
                                                resolve_item_id)
@@ -1676,9 +1724,13 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                     if rows:
                         channels.append("lexical")
                 except Exception:
+                    if request.period_fill and "fts_ms" not in period_stats:
+                        period_stats["fts_ms_reason"] = "fts_error"
                     logger.warning("[mca07] lexical facts channel failed",
                                    exc_info=True)
             except Exception:
+                if request.period_fill and "fts_ms" not in period_stats:
+                    period_stats["fts_ms_reason"] = "fts_error"
                 logger.warning("[mca07] lexical facts channel failed",
                                exc_info=True)
 
@@ -1691,13 +1743,14 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             # фиксированным k, JOIN по rowid к graph_facts и окно по годам
             # ПОСЛЕ среза. Функция живёт рядом с `_vec_candidates`; её нет у
             # двойников → честная деградация на лексику с кодом причины.
-            period_stats: dict = {}
             rows = []
             reader = getattr(memory, "period_fill_candidates", None)
             if not callable(reader):
                 period_stats["vector_leg"] = "unsupported_memory"
+                period_stats["knn_ms_reason"] = "vector_leg_unsupported"
             else:
                 for chat_id in chat_ids:
+                    knn_clock = time.perf_counter()
                     try:
                         rows = await reader(
                             chat_id, request.query, k=fetch_k,
@@ -1708,11 +1761,16 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                             include_archived=bool(
                                 request.include_archived),
                             stats=period_stats)
+                        # VMQ-NEXT-05: измерение выполнено — длительность
+                        # уже случившегося периодного KNN-вызова (embed+KNN).
+                        _period_add_ms(period_stats, "knn_ms", knn_clock)
                     except TypeError:
                         period_stats["vector_leg"] = "unsupported_memory"
+                        period_stats["knn_ms_reason"] = "vector_leg_unsupported"
                         rows = []
                     except Exception:
                         period_stats["vector_leg"] = "error"
+                        period_stats["knn_ms_reason"] = "vector_leg_error"
                         rows = []
                     break
             for pos, row in enumerate(rows or ()):
@@ -1926,7 +1984,24 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                 period_stats.get("vector_pool_miss"))),
             "subject_proxy": _subject_proxy_counts(ordered, fact_rows,
                                                    period_vector_ids),
+            # VMQ-NEXT-02 (§A): сколько токенов запроса отброшено из
+            # периодного FTS как §2-несовместимые (основа <4). Bounded числа,
+            # без текстов запроса/фактов.
+            "fts_words_total": int(period_stats.get("fts_words_total") or 0),
+            "fts_words_kept": int(period_stats.get("fts_words_kept") or 0),
+            "fts_words_dropped": int(
+                period_stats.get("fts_words_dropped") or 0),
+            # VMQ-NEXT-05 (§2, 13.11.2026): раздельные длительности УЖЕ
+            # выполненных периодных вызовов. Поля аддитивны для legacy
+            # readers; отсутствие измерения — `None` + код причины, никогда
+            # не выдуманный `0 ms`, и на отбор/status/fallback не влияет.
+            "knn_ms": _period_ms_of(period_stats, "knn_ms"),
+            "fts_ms": _period_ms_of(period_stats, "fts_ms"),
         }
+        for _field in ("knn_ms", "fts_ms"):
+            if period_usage[_field] is None:
+                period_usage[_field + "_reason"] = str(
+                    period_stats.get(_field + "_reason") or "not_executed")
     usage_json = {"policy": policy, "years": years,
                   "excluded": {key: int(value) for key, value
                                in sorted(excluded.items()) if int(value)}}
@@ -2013,6 +2088,26 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         provenance_backed=(subject_ref not in (None, "")))
 
 
+def _period_fts_keywords(keywords: list[str]) -> list[str]:
+    """§2-совместимые токены ПЕРИОДНОГО FTS-запроса (VMQ-NEXT-02 §A).
+
+    §2 (`_rag_subject_stems`) считает только основы длиной `>= 4`. Токен,
+    чья основа короче, всё равно будет отброшен потребителем, поэтому он не
+    должен формировать периодный пул. Зеркалим §2 на той же морфологии
+    (`text_morphology.stem_word`), не меняя глобальный `build_fts_query`:
+    длинные содержательные токены и их prefix/stem варианты сохраняются.
+    Пустой результат — честная деградация вызывающей ветки, а не пустое
+    или неограниченное FTS-выражение.
+    """
+    from services.text_morphology import stem_word
+    out: list = []
+    for word in keywords or ():
+        token = str(word or "")
+        if token and len(stem_word(token)) >= 4:
+            out.append(token)
+    return out
+
+
 def _exclude_years_of(request: RetrievalRequest):
     """Годы SQL-окна FTS: только у периодного добора, иначе None (прежний SQL)."""
     if not request.period_fill:
@@ -2024,6 +2119,27 @@ def _exclude_years_of(request: RetrievalRequest):
         except (TypeError, ValueError):
             continue
     return tuple(sorted(set(years))) or None
+
+
+def _period_add_ms(stats: dict, field: str, started: float) -> None:
+    """Аддитивно накопить длительность уже выполненного периодного вызова.
+
+    `field` — `knn_ms`/`fts_ms`; значение пишется только когда вызов реально
+    исполнялся. Отсутствующий вызов сюда не попадает вовсе (его код причины
+    ставит вызывающая ветка), поэтому «нет измерения» никогда не становится
+    нулём. Неотрицательное число, мс с тысячными."""
+    elapsed = max(0.0, (time.perf_counter() - started) * 1000.0)
+    previous = stats.get(field)
+    base = float(previous) if isinstance(previous, (int, float)) else 0.0
+    stats[field] = round(base + elapsed, 3)
+
+
+def _period_ms_of(stats: dict, field: str):
+    """Измеренная длительность периодного канала либо `None` (не 0)."""
+    value = stats.get(field)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return max(0.0, float(value))
+    return None
 
 
 def _period_marked(row, request: RetrievalRequest, source: str) -> dict:

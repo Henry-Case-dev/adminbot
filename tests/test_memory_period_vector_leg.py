@@ -17,7 +17,13 @@
     словарём «сейчас»;
   * §1/§5 поколение индекса `compat_not_proven` → нога не принимается:
     деградация на лексический путь с кодом причины, без исключения и без
-    молчаливой пустоты.
+    молчаливой пустоты;
+  * VMQ-NEXT-02 §A (13.11.2026): периодный FTS-запрос согласован с §2 —
+    токены с основой <4 не формируют пул, длинные prefix/stem варианты
+    сохраняются, глобальный `build_fts_query` не меняется;
+  * VMQ-NEXT-05 (13.11.2026): `usage_json.period_fill` несёт аддитивные
+    `knn_ms`/`fts_ms` реально выполненных вызовов; отсутствие измерения —
+    `None` + код причины (не 0 ms); `period_fill=False` — прежний SQL.
 
 TEST-LIFECYCLE: CONTRACT owner=VMQ-ONTO-01/next-stage
 R17: только синтетические факты и векторы, никаких реальных переписок.
@@ -34,7 +40,7 @@ from services import direct_chat_service as dcs
 from services import hot_config as hot
 from services import mca_retrieval_context as mrc
 from services.database import DatabaseService
-from services.summary_memory import MemoryManager
+from services.summary_memory import MemoryManager, build_fts_query
 
 CHAT = -100
 CHAT_FOREIGN = -999
@@ -345,6 +351,349 @@ class TestFtsYearWindow:
                 include_archived=True, exclude_years=extra)
             assert [int(row["id"]) for row in rows] == [fact]
 
+    @pytest.mark.asyncio
+    async def test_top_n_excluded_year_does_not_hide_older_row(
+            self, db, monkeypatch):
+        """Несколько top-N строк исключаемого года: валидная старая строка
+        остаётся, т.е. предикат стоит до LIMIT, а не режет уже взятый срез."""
+        memory = await _memory(db, monkeypatch)
+        for index in range(3):
+            await _seed(db, memory, "ремонт ремонт ванной ремонт",
+                        _unit(index), year=2026, with_vec=False)
+        old = await _seed(db, memory, "ремонт", _mix(0.2, 0.9), year=2023,
+                          with_vec=False)
+        now = int(time.time())
+        top = await db.search_graph_facts_fts(CHAT, "ремонт", 2, now,
+                                              include_self=True,
+                                              include_archived=True)
+        assert len(top) == 2
+        assert all(int(row["id"]) != old for row in top), (
+            "без окна top-2 — строки 2026")
+        windowed = await db.search_graph_facts_fts(
+            CHAT, "ремонт", 2, now, include_self=True,
+            include_archived=True, exclude_years=(2026,))
+        assert [int(row["id"]) for row in windowed] == [old], (
+            "фильтр после LIMIT вернул бы пустой срез")
+
+
+# ── VMQ-NEXT-05: `knn_ms`/`fts_ms` в `usage_json.period_fill` ──────────────
+
+
+class TestPeriodUsageTimings:
+    """Раздельные длительности уже выполненных периодных вызовов.
+
+    Измеряется ровно периодная FTS-нога (граф-факты с годовым окном) и
+    периодная KNN-нога (`period_fill_candidates`). Отсутствующий/упавший
+    канал — `None` + код причины, никогда не `0 ms`; прежние ключи usage и
+    status/fallback не меняются.
+    """
+
+    @staticmethod
+    def _events(monkeypatch):
+        captured: list = []
+
+        def _emit(stage, outcome, **kwargs):
+            captured.append({"stage": stage, "outcome": outcome,
+                             "kwargs": dict(kwargs)})
+
+        monkeypatch.setattr(mrc, "emit_stage_event", _emit)
+        return captured
+
+    @staticmethod
+    def _request(**overrides):
+        base = dict(
+            chat_id=CHAT, query="старый факт про ванную ремонт",
+            mode="specific", purpose="reply", top_k=32,
+            channels=("lexical", "vector"), reply_depth=0,
+            memory_scope="historical", lexical_stem=True,
+            include_archived=True, include_self=True,
+            include_direct_reply=True, preserve_channel_order=True,
+            period_fill=True, exclude_years=(2026,))
+        base.update(overrides)
+        return mrc.RetrievalRequest(**base)
+
+    @staticmethod
+    def _period_usage(captured):
+        for event in captured:
+            usage = event["kwargs"].get("usage_json") or {}
+            if "period_fill" in usage:
+                return usage
+        return None
+
+    @pytest.mark.asyncio
+    async def test_measured_timings_are_numbers_and_legacy_keys_kept(
+            self, db, monkeypatch):
+        memory = await _memory(db, monkeypatch)
+
+        async def _accept(_self):
+            return ""
+
+        monkeypatch.setattr(MemoryManager, "_period_vector_guard", _accept)
+        await _seed(db, memory, "старый факт про ванную ремонт",
+                    _mix(0.9, 0.3), year=2023)
+        captured = self._events(monkeypatch)
+        result = await mrc.retrieve(db, memory, self._request())
+        assert result.status == mrc.RETRIEVAL_OK
+        usage = self._period_usage(captured)
+        assert usage is not None
+        fill = usage["period_fill"]
+        assert isinstance(fill["knn_ms"], (int, float))
+        assert fill["knn_ms"] >= 0
+        assert isinstance(fill["fts_ms"], (int, float))
+        assert fill["fts_ms"] >= 0
+        assert "knn_ms_reason" not in fill
+        assert "fts_ms_reason" not in fill
+        # Прежние ключи не тронуты; поля аддитивны и JSON-сериализуемы.
+        for key in ("vector_leg", "vector_rows", "vector_pool_miss",
+                    "subject_proxy"):
+            assert key in fill
+        assert json.dumps(usage)
+        assert result.period_fill["knn_ms"] == fill["knn_ms"]
+        assert result.period_fill["fts_ms"] == fill["fts_ms"]
+        # VMQ-NEXT-02 §A: счётчики токенов периодного FTS — числа, без текста.
+        assert fill["fts_words_total"] >= fill["fts_words_kept"]
+        assert fill["fts_words_dropped"] == (
+            fill["fts_words_total"] - fill["fts_words_kept"])
+        assert fill["fts_words_kept"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_missing_vector_leg_is_null_with_reason(self, db,
+                                                          monkeypatch):
+        old = await _seed(db, None, "старый факт про ванную ремонт", None,
+                          year=2023, with_vec=False)
+        captured = self._events(monkeypatch)
+        result = await mrc.retrieve(
+            db, types.SimpleNamespace(), self._request())
+        fill = self._period_usage(captured)["period_fill"]
+        assert fill["knn_ms"] is None
+        assert fill["knn_ms_reason"] == "vector_leg_unsupported"
+        assert fill["vector_leg"] == "unsupported_memory"
+        assert isinstance(fill["fts_ms"], (int, float))
+        assert fill["fts_ms"] >= 0
+        assert result.status == mrc.RETRIEVAL_OK
+        assert old in {int(row["id"]) for row in (result.fact_rows or ())}
+
+    @pytest.mark.asyncio
+    async def test_fts_failure_is_null_with_reason_and_keeps_vector_leg(
+            self, db, monkeypatch):
+        memory = await _memory(db, monkeypatch)
+
+        async def _accept(_self):
+            return ""
+
+        monkeypatch.setattr(MemoryManager, "_period_vector_guard", _accept)
+        await _seed(db, memory, "старый факт про ванную ремонт",
+                    _mix(0.9, 0.3), year=2023)
+
+        async def _boom(*_args, **_kwargs):
+            raise RuntimeError("fts down")
+
+        monkeypatch.setattr(db, "search_graph_facts_fts", _boom)
+        captured = self._events(monkeypatch)
+        result = await mrc.retrieve(db, memory, self._request())
+        fill = self._period_usage(captured)["period_fill"]
+        assert fill["fts_ms"] is None
+        assert fill["fts_ms_reason"] == "fts_error"
+        assert isinstance(fill["knn_ms"], (int, float))
+        assert fill["knn_ms"] >= 0
+        assert fill["vector_leg"] == "ok"
+        assert result.status == mrc.RETRIEVAL_OK, (
+            "деградация одного канала не рвёт retrieval")
+
+    @pytest.mark.asyncio
+    async def test_period_fill_false_restores_baseline(self, db, monkeypatch):
+        memory = await _memory(db, monkeypatch)
+        calls: list = []
+        original = db.search_graph_facts_fts
+
+        async def _spy(*args, **kwargs):
+            calls.append(dict(kwargs))
+            return await original(*args, **kwargs)
+
+        monkeypatch.setattr(db, "search_graph_facts_fts", _spy)
+        captured = self._events(monkeypatch)
+        result = await mrc.retrieve(
+            db, memory, self._request(period_fill=False))
+        assert result.period_fill is None
+        assert calls and all(kw.get("exclude_years") is None
+                             for kw in calls), (
+            calls, "вне period_fill годовой предикат не включается")
+        for event in captured:
+            usage = event["kwargs"].get("usage_json") or {}
+            assert "period_fill" not in usage
+
+    def test_year_window_requires_period_fill(self):
+        assert mrc._exclude_years_of(self._request(period_fill=False)) is None
+        assert mrc._exclude_years_of(self._request()) == (2026,)
+
+    @pytest.mark.asyncio
+    async def test_short_token_does_not_seed_row_that_section_two_rejects(
+            self, db, monkeypatch):
+        """A1-класс: строка, совпавшая ТОЛЬКО по короткому токену, не входит
+        в §2-match; содержательная строка остаётся. Это тот же defect, что
+        давал 97/191 строк только через отброшенный токен."""
+        memory = await _memory(db, monkeypatch)
+        noise = await _seed(db, memory, "к в с что", _unit(0), year=2023,
+                            with_vec=False)
+        semantic = await _seed(db, memory, "недоволен отношением vasek",
+                               _unit(1), year=2023, with_vec=False)
+        query = "почему vasek был недоволен отношением к себе в чате"
+        tokens = mrc._tokenize(query)
+        full = build_fts_query(tokens, mode="prefix_or_stem")
+        filtered = build_fts_query(mrc._period_fts_keywords(tokens),
+                                   mode="prefix_or_stem")
+        now = int(time.time())
+        full_rows = await db.search_graph_facts_fts(
+            CHAT, full, 5, now, include_self=True, include_archived=True)
+        filtered_rows = await db.search_graph_facts_fts(
+            CHAT, filtered, 5, now, include_self=True,
+            include_archived=True)
+        full_ids = {int(row["id"]) for row in full_rows}
+        filtered_ids = {int(row["id"]) for row in filtered_rows}
+        assert noise in full_ids, "полный match заводит шум короткого токена"
+        assert noise not in filtered_ids, (
+            "§2-несовместимая строка не должна занимать периодный пул")
+        assert semantic in filtered_ids, (
+            "содержательная длинная основа остаётся в области поиска")
+        # Та же строка действительно проваливается в §2.
+        assert dcs._rag_subject_shared(
+            dcs._rag_subject_stems(query), "к в с что") == 0
+
+    def test_period_fts_keywords_mirror_section_two(self):
+        """§2-совместимые токены: основа ≥4; короткие служебные отброшены."""
+        assert mrc._period_fts_keywords(
+            ["почему", "к", "в", "что", "был", "vasek", "отношением"]
+        ) == ["почему", "vasek", "отношением"]
+        assert mrc._period_fts_keywords(["к", "в", "с", "что"]) == []
+
+
+# ── VMQ-NEXT-02 §A: периодный FTS не наполняется короткими токенами ────────
+
+
+class TestPeriodFtsTokenAlignment:
+    """Источник периодного candidate-пула согласован с §2, только у period call."""
+
+    @staticmethod
+    def _request(**overrides):
+        base = dict(
+            chat_id=CHAT, query="почему vasek был недоволен отношением к себе "
+                                "в чате",
+            mode="specific", purpose="reply", top_k=32,
+            channels=("lexical", "vector"), reply_depth=0,
+            memory_scope="historical", lexical_stem=True,
+            include_archived=True, include_self=True,
+            include_direct_reply=True, preserve_channel_order=True,
+            period_fill=True, exclude_years=(2026,))
+        base.update(overrides)
+        return mrc.RetrievalRequest(**base)
+
+    @pytest.mark.asyncio
+    async def test_period_call_drops_short_tokens_from_facts_fts_not_global(
+            self, db, monkeypatch):
+        memory = await _memory(db, monkeypatch)
+        matches: list = []
+        original = db.search_graph_facts_fts
+        original_messages = db.search_messages_fts
+
+        async def _facts_spy(_chat, match, *args, **kwargs):
+            matches.append(match)
+            return await original(_chat, match, *args, **kwargs)
+
+        async def _msg_spy(_chat, match, *args, **kwargs):
+            matches.append("messages:" + str(match))
+            return await original_messages(_chat, match, *args, **kwargs)
+
+        monkeypatch.setattr(db, "search_graph_facts_fts", _facts_spy)
+        monkeypatch.setattr(db, "search_messages_fts", _msg_spy)
+        captured = TestPeriodUsageTimings._events(monkeypatch)
+        await mrc.retrieve(db, memory, self._request())
+        facts = [m for m in matches if not m.startswith("messages:")]
+        messages = [m for m in matches if m.startswith("messages:")]
+        assert facts, "периодный FTS граф-фактов выполнен"
+        period_match = facts[-1]
+        assert '"к"*' not in period_match
+        assert '"в"*' not in period_match
+        assert '"что"*' not in period_match
+        assert '"был"*' not in period_match
+        assert '"vasek"*' in period_match
+        assert '"отношением"*' in period_match
+        # Канал сообщений сохраняет прежний полный match (периодный пул —
+        # только факты; поведение сообщений не меняется).
+        assert messages and '"к"*' in messages[-1]
+        usage = TestPeriodUsageTimings._period_usage(captured)["period_fill"]
+        assert usage["fts_words_dropped"] > 0
+        assert usage["fts_words_kept"] >= 2
+
+    @pytest.mark.asyncio
+    async def test_non_period_call_keeps_full_match(self, db, monkeypatch):
+        memory = await _memory(db, monkeypatch)
+        matches: list = []
+        original = db.search_graph_facts_fts
+
+        async def _spy(_chat, match, *args, **kwargs):
+            matches.append(match)
+            return await original(_chat, match, *args, **kwargs)
+
+        monkeypatch.setattr(db, "search_graph_facts_fts", _spy)
+        await mrc.retrieve(
+            db, memory,
+            self._request(period_fill=False, exclude_years=(),
+                          memory_scope="auto"))
+        assert matches and '"к"*' in matches[-1], (
+            "глобальная/обычная выдача не меняет build_fts_query")
+
+    @pytest.mark.asyncio
+    async def test_all_short_tokens_skip_only_period_facts_fts(
+            self, db, monkeypatch):
+        """Все токены <4: пустое FTS-выражение не строится, vector живёт."""
+        memory = await _memory(db, monkeypatch)
+
+        async def _accept(_self):
+            return ""
+
+        monkeypatch.setattr(MemoryManager, "_period_vector_guard", _accept)
+        old = await _seed(db, memory, "старый факт про ремонт",
+                          _mix(0.9, 0.3), year=2023)
+        facts_calls: list = []
+        original = db.search_graph_facts_fts
+
+        async def _spy(_chat, match, *args, **kwargs):
+            facts_calls.append(match)
+            return await original(_chat, match, *args, **kwargs)
+
+        monkeypatch.setattr(db, "search_graph_facts_fts", _spy)
+        captured = TestPeriodUsageTimings._events(monkeypatch)
+        result = await mrc.retrieve(
+            db, memory, self._request(query="к в с что и на"))
+        assert facts_calls == [], (
+            "§2-несовместимые токены не дают FTS-выражения и не зовут SQL")
+        fill = TestPeriodUsageTimings._period_usage(captured)["period_fill"]
+        assert fill["fts_ms"] is None
+        assert fill["fts_ms_reason"] == "fts_match_empty"
+        assert isinstance(fill["knn_ms"], (int, float))
+        assert result.status == mrc.RETRIEVAL_OK
+        assert old in {int(row["id"]) for row in (result.fact_rows or ())}
+
+    @pytest.mark.asyncio
+    async def test_year_window_still_applies_before_limit(self, db, monkeypatch):
+        """§2-совместимый match не отменяет годовое окно до LIMIT."""
+        memory = await _memory(db, monkeypatch)
+        for index in range(2):
+            await _seed(db, memory, "ремонт ремонт ванной ремонт",
+                        _unit(index), year=2026, with_vec=False)
+        old = await _seed(db, memory, "ремонт", _mix(0.2, 0.9),
+                          year=2023, with_vec=False)
+        now = int(time.time())
+        match = build_fts_query(["ремонт"], mode="prefix_or_stem")
+        top = await db.search_graph_facts_fts(CHAT, match, 1, now,
+                                              include_self=True,
+                                              include_archived=True)
+        assert len(top) == 1 and int(top[0]["id"]) != old
+        windowed = await db.search_graph_facts_fts(
+            CHAT, match, 1, now, include_self=True, include_archived=True,
+            exclude_years=(2026,))
+        assert [int(row["id"]) for row in windowed] == [old]
+
 
 # ── §1/§2/§3: сквозь реальный сборщик блока ────────────────────────────────
 
@@ -562,7 +911,8 @@ class TestOnePeriodLegPerTurn:
             CHAT, _Msg(question), "", memory_scope="auto")
         period = self._period_calls(calls)
         assert len(period) == 1, (calls, "auto платит одну периодную ногу")
-        # Пул — ЛИТЕРАЛЬНО 32: константа реализацией не считается.
+        # Пул — контрактная константа 32 (VMQ-MEM next stage), не `limit*2`:
+        # проверяется фактический аргумент вызова.
         assert period[0]["limit"] == 32, (
             period[0], "пул периодной ноги фиксирован")
         assert service._rag_period_pool, "пул сохранён для пересборки"
