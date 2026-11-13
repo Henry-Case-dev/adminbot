@@ -1,0 +1,443 @@
+{
+  "schema": "openworkflow-source-inventory-delta-v1",
+  "note": "Read-only proposal for Orchestrator (sole writer of plans/progress_scope.json). Merge into source_inventory.sections; do not treat as applied.",
+  "source_path": "plans/current_task.md",
+  "heading_level": 1,
+  "sections": [
+    {
+      "id": "H1:06b54b72ae47:1",
+      "sha256": "2a2fa8e8f5e434e5c5c2e97855e3b8b71ec436addb391baaba93d3d264047a65",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'SMART-EXECUTION-RELIABILITY-01 — устранение скрытых бюджетов Smart-модуля, восстановление ' (стр. 11750-11871) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-0-01",
+            "SXR-0-02",
+            "SXR-0-03",
+            "SXR-0-04",
+            "SXR-1-01",
+            "SXR-1-02"
+          ]
+        }
+      ],
+      "section_range": [
+        11750,
+        11871
+      ]
+    },
+    {
+      "id": "H1:fa93e0018545:1",
+      "sha256": "5e3e4afb6b7119cf08dad5ed22ffaa725a0abd18826502f01ab4c4b0cf208e8d",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП A. Единый контракт отключения бюджетов во всём проекте' (стр. 11872-12004) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-A1-01",
+            "SXR-A1-02",
+            "SXR-A1-03",
+            "SXR-A1-04",
+            "SXR-A2-01",
+            "SXR-A2-02",
+            "SXR-A2-03",
+            "SXR-A2-04",
+            "SXR-A3-01",
+            "SXR-A3-02",
+            "SXR-A3-03"
+          ]
+        }
+      ],
+      "section_range": [
+        11872,
+        12004
+      ]
+    },
+    {
+      "id": "H1:c9aad64a9bf7:1",
+      "sha256": "7fa4bc53b0f465cc0a2b0f1f6ce212be6f6411a78ae6782a3194cdf6f0dc22e2",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП B. Полностью исправить общий tool-loop Smart-модуля' (стр. 12005-12149) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-B1-01",
+            "SXR-B1-02",
+            "SXR-B1-03",
+            "SXR-B1-04",
+            "SXR-B1-05",
+            "SXR-B1-06",
+            "SXR-B2-01",
+            "SXR-B2-02",
+            "SXR-B3-01",
+            "SXR-B4-01",
+            "SXR-B4-02"
+          ]
+        }
+      ],
+      "section_range": [
+        12005,
+        12149
+      ]
+    },
+    {
+      "id": "H1:7ec5f70acd0e:1",
+      "sha256": "fe3d6ce58a5d3d41e8a503a802bedde0318ed822197f992933a165f325ed9535",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП C. Устранить скрытые ограничения внутри инструментов и передачи evidence' (стр. 12150-12245) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-C1-01",
+            "SXR-C1-02",
+            "SXR-C1-03",
+            "SXR-C2-01",
+            "SXR-C2-02",
+            "SXR-C3-01",
+            "SXR-C3-02"
+          ]
+        }
+      ],
+      "section_range": [
+        12150,
+        12245
+      ]
+    },
+    {
+      "id": "H1:7274e4594b35:1",
+      "sha256": "e4de4f6d2ba5b27838ffa4365e0d854226d7754859c96a84952dce0d7290cdd4",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП D. Единое и надёжное определение контекстного окна модели' (стр. 12246-12405) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-D1-01",
+            "SXR-D1-02",
+            "SXR-D1-03",
+            "SXR-D2-01",
+            "SXR-D2-02",
+            "SXR-D3-01",
+            "SXR-D3-02",
+            "SXR-D4-01",
+            "SXR-D5-01",
+            "SXR-D6-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12246,
+        12405
+      ]
+    },
+    {
+      "id": "H1:549c294bb811:1",
+      "sha256": "4bdce250a3393dc6532b7fdcffae65e2c12836311e31d1d2396c6a6e881333b2",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП E. Собственный production-код — основной источник самодиагностики' (стр. 12406-12484) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-E1-01",
+            "SXR-E2-01",
+            "SXR-E3-01",
+            "SXR-E4-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12406,
+        12484
+      ]
+    },
+    {
+      "id": "H1:df548ef5b833:1",
+      "sha256": "340778ba96ba0fbd59c9a18e37e6b50f099b023b08c738cea514e102f0db3969",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП F. Восстановить нормальную доступность GitHub для всех пользователей' (стр. 12485-12554) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-F1-01",
+            "SXR-F2-01",
+            "SXR-F3-01",
+            "SXR-F4-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12485,
+        12554
+      ]
+    },
+    {
+      "id": "H1:1478c3210c2b:1",
+      "sha256": "fb76768383eaab98006e2f4877713c7eb5f4bd5082f4bed7564c60a336ee636b",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП G. Обязательная финализация любого инструментального исследования' (стр. 12555-12639) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-G1-01",
+            "SXR-G2-01",
+            "SXR-G3-01",
+            "SXR-G4-01",
+            "SXR-G5-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12555,
+        12639
+      ]
+    },
+    {
+      "id": "H1:aa45b9b64cbc:1",
+      "sha256": "dbfb00468fc8c9732b22e344e3646b39662c442c5edaab4f9eb98503598c7655",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП H. Довести SELF-DIAG до полноценного рабочего состояния' (стр. 12640-12738) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-H1-01",
+            "SXR-H1-02",
+            "SXR-H2-01",
+            "SXR-H3-01",
+            "SXR-H4-01",
+            "SXR-H5-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12640,
+        12738
+      ]
+    },
+    {
+      "id": "H1:7ec7bbb77b6e:1",
+      "sha256": "86460272dd6e83f21c05220df0aad84bceacc2d7ec0c08f602a1e60378a76671",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП I. Обработать остальные подтверждённые production-ошибки' (стр. 12739-12963) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-I0-01",
+            "SXR-I1-01",
+            "SXR-I1-02",
+            "SXR-I2-01",
+            "SXR-I2-02",
+            "SXR-I3-01",
+            "SXR-I3-02",
+            "SXR-I4-01",
+            "SXR-I4-02",
+            "SXR-I5-01",
+            "SXR-I6-01",
+            "SXR-I6-02",
+            "SXR-I7-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12739,
+        12963
+      ]
+    },
+    {
+      "id": "H1:4ec3a8dbea83:1",
+      "sha256": "d39cd6d1ef3b1bbf089c829c80fae0c2ce63f66f43b936135b79c6a9e28eb372",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП J. Архитектурный запрет на хардкод намерений' (стр. 12964-12998) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-J-01",
+            "SXR-J-02",
+            "SXR-J-03"
+          ]
+        }
+      ],
+      "section_range": [
+        12964,
+        12998
+      ]
+    },
+    {
+      "id": "H1:a02b2fd67295:1",
+      "sha256": "67daa10f118cea9ac7ca20628f1f5417d820631f0036df1bca1be90b8d2f8098",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП K. Права, настройки и ограничения scope' (стр. 12999-13053) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-K1-01",
+            "SXR-K2-01",
+            "SXR-K3-01"
+          ]
+        }
+      ],
+      "section_range": [
+        12999,
+        13053
+      ]
+    },
+    {
+      "id": "H1:a729907d8871:1",
+      "sha256": "621a3f344113bafffba4ee9d72fef908996f30e3d12677fb4738e5b750961617",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП L. Конечная независимая приёмка' (стр. 13054-13202) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-L1-01",
+            "SXR-L2-01",
+            "SXR-L3-01",
+            "SXR-L4-01",
+            "SXR-L5-01",
+            "SXR-L6-01",
+            "SXR-L7-01",
+            "SXR-L8-01"
+          ]
+        }
+      ],
+      "section_range": [
+        13054,
+        13202
+      ]
+    },
+    {
+      "id": "H1:ae4f950d9e0a:1",
+      "sha256": "8924a2303c03317889f87b923ab1e322d1fc7d9d5b13623561b82e6d0e0500ae",
+      "disposition": "mapped",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "coverage_refs": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json"
+      ],
+      "reason": "Раздел owner-ТЗ 'ЭТАП M. Порядок выполнения и Definition of DONE' (стр. 13203-13308) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+      "requirement_refs": [
+        {
+          "task_id": "smart-execution-reliability-01",
+          "map": "plans/features/smart-execution-reliability-01/requirements-map.json",
+          "req_ids": [
+            "SXR-M1-01",
+            "SXR-M2-01",
+            "SXR-M2-02",
+            "SXR-M2-03",
+            "SXR-M2-04",
+            "SXR-M3-01",
+            "SXR-M4-01",
+            "SXR-M4-02"
+          ]
+        }
+      ],
+      "section_range": [
+        13203,
+        13308
+      ]
+    }
+  ]
+}

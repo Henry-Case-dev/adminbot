@@ -1,0 +1,549 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "SMART-EXECUTION-RELIABILITY-01",
+  "created": "2026-11-14",
+  "source": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
+  "queue_position": "P0, queue 1 (registered by Orchestrator; this graph does not dispatch)",
+  "baseline": "production 2.58.199 @ d20a7f730715ba9e9cba7673c0557794979be339 (release/2.58.199); schema 47; identity verified_deployed",
+  "baseline_evidence": [
+    "plans/features/smart-execution-reliability-01/production-recon-2026-11-14.md",
+    "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/identity-and-config.txt",
+    "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/settings-layers.txt",
+    "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/checkup-trace.txt",
+    "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/safefetch-diagnostic.txt",
+    "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/db-jobs.txt",
+    "plans/features/smart-execution-reliability-01/evidence/production-recon-2026-11-14/fs-spool.txt"
+  ],
+  "baseline_proven": [
+    "effective budgets=false (global false + chat overrides); tool-chain лимиты active by env default",
+    "chat path capacity 16384 unknown_fallback vs catalog 1048576/32768 provider_catalog verified",
+    "SafeFetch destination_blocked cause: single stale DNS snapshot vs actual peer 140.82.112.6 (A-record rotation)",
+    "I2: cursor moves +50/run, 2 059 418 rows after cursor, lag field counts semantic_pending",
+    "I4: both unmapped codes are producer event names missing from REASON_CODES",
+    "journal readable by service user (journalctl rc=0, invocation matches)"
+  ],
+  "baseline_open": [
+    "I1 exact SQLite exception not logged (code logs only exception class)",
+    "fate of concrete spooled attempt ids not proven",
+    "additional unmapped markers not decoded (observation only)",
+    "deploy_identity.collect_identity() unavailable in standalone process"
+  ],
+  "architect_contract": {
+    "parts": [
+      "plans/features/smart-execution-reliability-01/architecture-contract-part1.md",
+      "plans/features/smart-execution-reliability-01/architecture-contract-part2.md"
+    ],
+    "status": "SMART_PART1_READY / SMART_PART2_READY: контракт зафиксирован, код не изменялся",
+    "pm_reconciliation": [
+      "part1 относит 'shared result sequencing' и константы direct_execution.py:104-106 к этапу B, part2 сериализует direct_execution.py как S4->S7. PM-решение: S2 (B) - первый писатель direct_execution.py, S4 (D) - второй (capacity-проводка), S7 (G) - третий; это сохраняет владельца приёмки B и порядок M1 (B до D).",
+      "part1 С включает evidence serialization/composer boundaries: в write_scope S3 добавлены services/evidence_bundle.py и services/response_extent.py.",
+      "part2 I6 локализует KNN/correction в summary_memory.py и direct_chat_service.py: write_scope S11 приведён к этому.",
+      "part2 H: уже выкаченные journal/manifest/identity исправления 2.58.199 не переимплементируются; S8 доказывает остаток H1-H5."
+    ]
+  },
+  "dependency_order": "S0 -> S1 -> S2; S2 -> {S3, S4, S7}; S3 -> S5 -> S6; S4 -> {S7, S11}; {S3,S5,S7} -> S8; {S0} -> {S9,S10}; все -> S12. Параллельные писатели: (S0 read-only + S9 + S10), затем S1, затем S2, затем (S3 | S4), затем (S5 | S7 | S11), затем (S6 | S8), затем S12.",
+  "lanes": {
+    "wave0": "S0 (read-only baseline/contract) + S9 и S10 (независимые production-дефекты, разные файлы); F2-диагностика сети выполняется как read-only evidence внутри S0.",
+    "wave1": "S1 (master-бюджеты + карта ограничителей) при продолжающихся S9/S10.",
+    "wave2": "S2 (tool-loop; единственный писатель tool_loop/tool_result/tool_router/direct_execution).",
+    "wave3": "S3 (evidence/SourceReader/сериализация) | S4 (capacity; после S2 из-за direct_execution.py).",
+    "wave4": "S5 (local-first, после S3) | S7 (finalization, после S2+S4) | S11 (memory/correction, после S4).",
+    "wave5": "S6 (GitHub, после S5) | S8 (SELF-DIAG, после S3+S5+S7).",
+    "wave6": "S12 независимая приёмка L1-L8, инварианты J/K, единый релиз, production smoke."
+  },
+  "serialized_files": [
+    "config/settings.py - S1 -> S4 (S4 зависит от S1); иных писателей нет",
+    "services/tool_loop.py, services/tool_result.py - S2 -> S7",
+    "services/tool_router.py - только S2 (единая политика исполнения)",
+    "services/direct_execution.py - S2 -> S4 -> S7 (B: снятие cap; D: capacity-проводка; G: финализация)",
+    "services/source_reader.py - S3 -> S5 -> S6 (осознанный последовательный join, локализация GitHub-маршрута)",
+    "services/evidence_bundle.py, services/response_extent.py - только S3",
+    "services/direct_chat_service.py - S4 -> S11",
+    "services/summary_memory.py - только S11 (KNN/correction path)",
+    "services/deploy_identity.py - S5 -> S8",
+    "plans/features/smart-execution-reliability-01/** - S0 владеет map/plan/graph; evidence-подкаталоги разделены по слайсам; architecture-contract-part*.md пишет Architect"
+  ],
+  "join_barriers": [
+    "S3 не считается готовым, пока S2 не заморозил единый execution-контракт: иначе evidence-window и per-tool caps правятся под старую семантику.",
+    "S6 проверяется end-to-end только после S5: GitHub-маршрут использует тот же SourceReader, что и local-first.",
+    "S8 требует S3+S5+S7: чекап использует полный SourceReader, локальный источник и финализацию.",
+    "S12 не может быть Approved при незакрытых S1-S11; REVIEW-статусы зависимостей не допускаются к релизу."
+  ],
+  "invariants": [
+    "При OFF бюджеты не ограничивают инструменты, контекст и evidence.",
+    "Tool-loop завершает сложное исследование без произвольного числа раундов/вызовов.",
+    "Каждый корректный tool call исполняется либо получает структурированный результат.",
+    "Default неизвестной модели - 1 000 000; реальная ёмкость определяется единым resolver.",
+    "Собственный production-код - основной источник self-research; GitHub - резервный.",
+    "Внешний GitHub доступен через существующий безопасный механизм без ослабления SSRF/TLS/peer.",
+    "Ошибка исследования не уничтожает накопленные результаты.",
+    "Чекап и продолжение используют реальные инструменты и семантическую LLM-маршрутизацию.",
+    "Нет новых хардкодов фраз, словарей намерений и лексических fallback.",
+    "Production-ошибки I1-I6 закрыты по причине, а не порогами/заглушками/отключением.",
+    "Права, безопасность, платёжные контракты и целостность данных сохранены.",
+    "Исправления активны после релиза без ручного включения владельцем."
+  ],
+  "conflict_guards": {
+    "SELF-DIAG-01": "Этап H продолжает SELF-DIAG; ранее подготовленные corrective-2 не реализуются отдельно, их требования входят сюда. Карта self-diag-01 не переписывается этим эпиком.",
+    "VMQ-ONTO-01": "Структурное исправление KNN chat-scope, если уже входит в VMQ, не дублируется: S11 связывается с существующим исправлением и проверяет конечный контракт (I6).",
+    "budgets": "Не создавать новый master-тумблер и новые бюджетные настройки; исправляется существующий budget_gate.",
+    "tool_calling": "Не создавать второй tool-loop и checkup_tools_budget; единый контракт для всех потребителей.",
+    "source_reader": "Не создавать второй SourceReader, новый индекс кода или хранилище на запрос.",
+    "architecture": "Решения владельца уже приняты: Architect фиксирует контракт и инварианты, но не открывает новые Human Gate и альтернативные архитектуры.",
+    "payments": "Монетизация, YooMoney, начисления и баланс вне scope.",
+    "owner_manual": "Ни один пункт не требует ручного включения/настройки владельцем после деплоя."
+  },
+  "external_dependencies": [
+    {
+      "id": "EXT-NANOGPT-CATALOG",
+      "affects": [
+        "SXR-D3-01",
+        "SXR-L3-01"
+      ],
+      "kind": "provider_capability",
+      "statement": "NanoGPT может не раскрывать context window/max output для z-ai/glm-5.3-flash-uncensored. Тогда обязателен default 1M с маркировкой estimated и адаптивное восстановление; выдуманная запись запрещена."
+    },
+    {
+      "id": "EXT-GITHUB-NET",
+      "affects": [
+        "SXR-F2-01",
+        "SXR-L5-01"
+      ],
+      "kind": "production_network",
+      "statement": "Фактический peer/DNS/transport production может отличаться от локального окружения. Локализация должна выполняться в production-окружении; при недоступности канала применяется протокол fail2ban (короткий recon, пауза >=22 мин, HTTP /healthz как индикатор жизни)."
+    },
+    {
+      "id": "EXT-JOURNAL-PERM",
+      "affects": [
+        "SXR-H3-01"
+      ],
+      "kind": "deployment_environment",
+      "statement": "Доступ сервисного пользователя к journald зависит от unit/systemd на VPS; проверка выполняется в окружении процесса, не из админской SSH-сессии."
+    }
+  ],
+  "owner_checks_policy": {
+    "policy_ref": "AGENTS.md (Owner is not mandatory QA, project rule 2026-11-10) + source M4",
+    "statement": "L1-L8, production smoke, журнал, manifest и все I1-I6 проверяются агентами. Отложенные owner_live_checks, если появятся, регистрируются отдельно, не блокируют DONE и не заявляются выполненными; обязательная техническая проверка не превращается в owner-чек."
+  },
+  "slices": [
+    {
+      "id": "S0-BASELINE",
+      "title": "Production baseline, effective configuration and frozen execution contract",
+      "owner_role": "DevOps (read-only production) + Architect (contract freeze) + PM",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json",
+        "plans/features/smart-execution-reliability-01/plan.md",
+        "plans/features/smart-execution-reliability-01/slice-graph.json",
+        "plans/features/smart-execution-reliability-01/evidence/baseline/**"
+      ],
+      "acceptance": "Recon 2026-11-14 (deployed SHA d20a7f73 / 2.58.199, effective budgets=false во всех трёх чатах, tool-chain лимиты активны, capacity 16384 vs catalog 1048576, trace чекапа, причина SafeFetch, I2 backlog, I4 коды) проверен и нормализован; явные пробелы (точное SQLite-исключение I1, судьба spooled-строк, дополнительные unmapped-маркеры, standalone identity) зафиксированы как открытые; Architect contract part1/part2 зафиксированы; код и production не изменяются.",
+      "risk": "R0",
+      "next_role": "Reviewer",
+      "mode": "read-only (plans + production probes)",
+      "coherence": "Один результат: проверяемая отправная точка и замороженный контракт, без которых нельзя ни доказать OFF-контракт, ни принять релиз; изменения кода здесь запрещены.",
+      "waves": "wave0",
+      "requirements": [
+        "SXR-0-01",
+        "SXR-0-02",
+        "SXR-0-03",
+        "SXR-0-04",
+        "SXR-1-01",
+        "SXR-1-02"
+      ]
+    },
+    {
+      "id": "S1-BUDGET-MASTER",
+      "title": "Stage A: единый контракт OFF для бюджетов и классификация ограничителей",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S0-BASELINE"
+      ],
+      "write_scope": [
+        "services/budget_gate.py",
+        "services/worker_budget.py",
+        "services/budget_limits.py",
+        "config/settings.py",
+        "tests/test_smart_exec_budget_master.py",
+        "plans/features/smart-execution-reliability-01/evidence/a/**"
+      ],
+      "acceptance": "При effective flags.budgets_enabled=false ни один путь не включает enforcement (включая ошибку чтения master и env/legacy); last-known-valid не переводит OFF в ON; effective production values приложены; составлена конечная карта ограничителей с категориями 1-4 и решением сохранить/удалить.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один контракт включения/выключения бюджетов и одна карта ограничителей; разделение на несколько задач разорвало бы доказательство отсутствия обходов master.",
+      "waves": "wave1",
+      "requirements": [
+        "SXR-A1-01",
+        "SXR-A1-02",
+        "SXR-A1-03",
+        "SXR-A1-04",
+        "SXR-A2-01",
+        "SXR-A2-02",
+        "SXR-A2-03",
+        "SXR-A2-04",
+        "SXR-A3-01",
+        "SXR-A3-02",
+        "SXR-A3-03"
+      ]
+    },
+    {
+      "id": "S2-TOOL-LOOP",
+      "title": "Stage B: общий tool-loop без искусственных 4/2/6/4 и единая политика всех путей",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S1-BUDGET-MASTER"
+      ],
+      "write_scope": [
+        "services/tool_loop.py",
+        "services/tool_result.py",
+        "services/tool_router.py",
+        "services/tool_schemas.py",
+        "services/direct_execution.py",
+        "tests/test_smart_exec_tool_loop.py",
+        "plans/features/smart-execution-reliability-01/evidence/b/**"
+      ],
+      "acceptance": "Все корректно запрошенные tool calls исполняются или получают структурированный отказ/отмену; нет фиксированных 4 раундов, slice до 2 и cap 6; metered/учёт/стоимость разведены; повторы и дедупликация по правилам B1; 360с не универсальный дедлайн; завершение по прогрессу без LLM-оценщика и лексических эвристик; тот же контракт для Direct/L1/checkup/SourceReader/search/factcheck/retrieval.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один исполняемый контракт исследования для всех потребителей; по отдельности числа и семантика повторов/прогресса не дают проверяемого пользовательского результата.",
+      "waves": "wave2",
+      "requirements": [
+        "SXR-B1-01",
+        "SXR-B1-02",
+        "SXR-B1-03",
+        "SXR-B1-04",
+        "SXR-B1-05",
+        "SXR-B1-06",
+        "SXR-B2-01",
+        "SXR-B2-02",
+        "SXR-B3-01",
+        "SXR-B4-01",
+        "SXR-B4-02"
+      ]
+    },
+    {
+      "id": "S3-EVIDENCE",
+      "title": "Stage C: потолки инструментов и полный путь evidence до LLM payload",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S1-BUDGET-MASTER",
+        "S2-TOOL-LOOP"
+      ],
+      "write_scope": [
+        "services/source_reader.py",
+        "services/direct_context_composer.py",
+        "services/context_middleware.py",
+        "services/evidence_bundle.py",
+        "services/response_extent.py",
+        "tests/test_smart_exec_evidence.py",
+        "plans/features/smart-execution-reliability-01/evidence/c/**"
+      ],
+      "acceptance": "SourceReader не ограничен потолками 6/2/16 и defaults 3/1/8, счётчики не ломают следующий независимый запрос; аналогичные caps других инструментов проверены; для каждого типа прослежены 7 шагов до LLM payload; секционные/символьные caps при OFF не уничтожают evidence; при реальном окне используется существующая упаковка с возможностью дочитать.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Одна сквозная цепочка 'источник -> ToolResult -> composer -> payload'; локальное исправление любого звена без остальных не observable и не проверяемо.",
+      "waves": "wave3",
+      "requirements": [
+        "SXR-C1-01",
+        "SXR-C1-02",
+        "SXR-C1-03",
+        "SXR-C2-01",
+        "SXR-C2-02",
+        "SXR-C3-01",
+        "SXR-C3-02"
+      ]
+    },
+    {
+      "id": "S4-CAPACITY",
+      "title": "Stage D: единый capacity resolver, default 1M и восстановление после context exceeded",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S1-BUDGET-MASTER",
+        "S2-TOOL-LOOP"
+      ],
+      "write_scope": [
+        "services/model_capacity.py",
+        "config/settings.py",
+        "services/llm_client.py",
+        "services/direct_l1.py",
+        "services/direct_execution.py",
+        "services/direct_chat_service.py",
+        "services/summary_l1_capacity.py",
+        "tests/test_smart_exec_capacity.py",
+        "plans/features/smart-execution-reliability-01/evidence/d/**"
+      ],
+      "acceptance": "CHAT_UNKNOWN_MODEL_WINDOW=1 000 000 и ни одного 16384-fallback в перечисленных ветках; приоритет источник->кэш->registry->1M соблюдён; NanoGPT z-ai/glm-5.3-flash-uncensored определяется без выдуманной записи; все LLM-потребители используют окно фактической модели; окно отделено от бюджета; context length exceeded восстанавливается без 16384 и бесконечных платных повторов.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один resolver и одно разделение 'окно vs бюджет'; частичное исправление оставляет расхождения между модулями, которые и породили дефект.",
+      "waves": "wave3",
+      "requirements": [
+        "SXR-D1-01",
+        "SXR-D1-02",
+        "SXR-D1-03",
+        "SXR-D2-01",
+        "SXR-D2-02",
+        "SXR-D3-01",
+        "SXR-D3-02",
+        "SXR-D4-01",
+        "SXR-D5-01",
+        "SXR-D6-01"
+      ]
+    },
+    {
+      "id": "S5-LOCAL-FIRST",
+      "title": "Stage E: local-first чтение собственного production-кода",
+      "owner_role": "Builder + Reviewer + DevOps",
+      "depends_on": [
+        "S3-EVIDENCE"
+      ],
+      "write_scope": [
+        "services/source_reader.py",
+        "services/deploy_identity.py",
+        "tests/test_smart_exec_local_first.py",
+        "plans/features/smart-execution-reliability-01/evidence/e/**"
+      ],
+      "acceptance": "SourceReader автоматически получает проверенный локальный источник работающей версии без ручных шагов владельца; различаются deployed/checkout/runtime/remote; несовпадающий checkout не выдаётся за production; порядок источников и provenance соблюдены.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один контракт источника собственного кода и его идентичности; без него чекап и L4 не могут отличить production от checkout.",
+      "waves": "wave4",
+      "requirements": [
+        "SXR-E1-01",
+        "SXR-E2-01",
+        "SXR-E3-01",
+        "SXR-E4-01"
+      ]
+    },
+    {
+      "id": "S6-GITHUB",
+      "title": "Stage F: восстановление разрешённого GitHub без ослабления безопасности",
+      "owner_role": "Builder + DevOps + Reviewer",
+      "depends_on": [
+        "S5-LOCAL-FIRST"
+      ],
+      "write_scope": [
+        "services/safe_fetch.py",
+        "services/source_reader.py",
+        "tests/test_smart_exec_github.py",
+        "plans/features/smart-execution-reliability-01/evidence/f/**"
+      ],
+      "acceptance": "В production установлена и устранена конкретная причина destination_blocked/stage=connect; публичный GitHub читается через существующий read_source_code (поиск, ветка/commit, ссылка, связанные файлы); SSRF/peer/TLS/redirect/private/metadata ограничения сохранены, trusted bypass и shell-обход отсутствуют; rate limit/private repo возвращаются честно.",
+      "risk": "R3",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один сетевой дефект и его безопасное исправление; отдельная 'команда GitHub' или отключение проверок запрещены владельцем.",
+      "waves": "wave5",
+      "requirements": [
+        "SXR-F1-01",
+        "SXR-F2-01",
+        "SXR-F3-01",
+        "SXR-F4-01"
+      ]
+    },
+    {
+      "id": "S7-FINALIZE",
+      "title": "Stage G: обязательная финализация любого инструментального исследования",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S2-TOOL-LOOP",
+        "S4-CAPACITY"
+      ],
+      "write_scope": [
+        "services/tool_loop.py",
+        "services/tool_result.py",
+        "services/direct_execution.py",
+        "tests/test_smart_exec_finalize.py",
+        "plans/features/smart-execution-reliability-01/evidence/g/**"
+      ],
+      "acceptance": "Исследовательская и финальная фазы разделены на существующем LLM/Writer; при остановке без ответа финализация идёт по накопленным данным независимо от старого лимита; сохраняются запрос, контекст, факты, успешные и частичные результаты, provenance, ошибки, непроверенные области и причина остановки; деградировавший ответ содержателен и честен, саркастичная заглушка не публикуется; терминальные отказы не повторяются.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один контракт завершения исследования для всех потребителей; отдельная финализация только для чекапа прямо запрещена.",
+      "waves": "wave4",
+      "requirements": [
+        "SXR-G1-01",
+        "SXR-G2-01",
+        "SXR-G3-01",
+        "SXR-G4-01",
+        "SXR-G5-01"
+      ]
+    },
+    {
+      "id": "S8-SELFDIAG",
+      "title": "Stage H: SELF-DIAG - причины, продолжение, журнал, manifest, unknown",
+      "owner_role": "Builder + DevOps + Reviewer",
+      "depends_on": [
+        "S3-EVIDENCE",
+        "S5-LOCAL-FIRST",
+        "S7-FINALIZE"
+      ],
+      "write_scope": [
+        "services/checkup_service.py",
+        "services/checkup_prompts.py",
+        "services/diagnostic_collector.py",
+        "services/diagnostic_policy.py",
+        "services/system_logs_fetcher.py",
+        "services/deploy_identity.py",
+        "tools/release_manifest.py",
+        "handlers/checkup.py",
+        "tests/test_smart_exec_selfdiag.py",
+        "plans/features/smart-execution-reliability-01/evidence/h/**"
+      ],
+      "acceptance": "Чекап исследует причины через существующие компоненты и модель выбирает объект анализа без таблицы 'код->файл'; отчёт различает состояние/дефект/причину/гипотезу/недоступное/рекомендацию; продолжение работает на Direct без слов-маркеров; journal читается в окружении процесса с минимальными правами; .deploy/release.json согласован с процессом и переживает рестарт; недоступная наблюдаемость даёт unknown, работающая - подтверждённый ноль.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один пользовательский сценарий 'чекап + продолжение' с проверяемым отчётом; его части (журнал, manifest, identity) не дают результата по отдельности.",
+      "waves": "wave5",
+      "requirements": [
+        "SXR-H1-01",
+        "SXR-H1-02",
+        "SXR-H2-01",
+        "SXR-H3-01",
+        "SXR-H4-01",
+        "SXR-H5-01"
+      ]
+    },
+    {
+      "id": "S9-EVENT-PIPELINE",
+      "title": "Stage I1/I2/I4: журнал мемов и spool, fresh stream lag, reason codes",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S0-BASELINE"
+      ],
+      "write_scope": [
+        "services/meme_initiative.py",
+        "services/mca_events.py",
+        "services/experience_diagnostics.py",
+        "services/mca_experience_jobs.py",
+        "tests/test_smart_exec_event_pipeline.py",
+        "plans/features/smart-execution-reliability-01/evidence/i-events/**"
+      ],
+      "acceptance": "OperationalError журнала мемов локализован и устранён, запись и опустошение spool идемпотентны без потерь/дублей; fresh stream продвигает курсор и реально обрабатывает данные без потери/систематического пропуска, lag считается корректно; reason codes сопоставлены существующему реестру mca_events с сохранением смысла и без утечки секретов.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один durable event pipeline: запись, курсор и коды классификации используют общую проводку событий; разные writers на mca_events разошлись бы.",
+      "waves": "wave0",
+      "requirements": [
+        "SXR-I1-01",
+        "SXR-I1-02",
+        "SXR-I2-01",
+        "SXR-I2-02"
+      ]
+    },
+    {
+      "id": "S10-LEARNING-INCIDENTS",
+      "title": "Stage I3/I5: lesson_rejected/forbidden_effect и причины инцидентов",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S0-BASELINE"
+      ],
+      "write_scope": [
+        "services/mca_experience.py",
+        "services/mca_incidents.py",
+        "tests/test_smart_exec_learning_incidents.py",
+        "plans/features/smart-execution-reliability-01/evidence/i-learning/**"
+      ],
+      "acceptance": "Установлено, почему допустимый social_preference отклонён forbidden_effect; исправлен генератор либо валидатор; допустимый урок сохраняется и применяется, действительно запрещённые эффекты по-прежнему отклоняются; причины инцидентов asap8b01 и qnd.event установлены, in-scope дефекты исправлены, остальное отражено в существующих задачах без отключения detector и занижения severity.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один контракт 'сгенерированное -> валидированное -> классифицированное' событие обучения и инцидентов; запрещено решать ростом разрешённых эффектов.",
+      "waves": "wave0",
+      "requirements": [
+        "SXR-I3-01",
+        "SXR-I3-02",
+        "SXR-I4-01",
+        "SXR-I4-02",
+        "SXR-I5-01"
+      ]
+    },
+    {
+      "id": "S11-MEMORY-CORRECTION",
+      "title": "Stage I6/I7: chat-scope KNN и обрезка correction frame",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S4-CAPACITY"
+      ],
+      "write_scope": [
+        "services/summary_memory.py",
+        "services/direct_chat_service.py",
+        "tests/test_smart_exec_memory_scope.py",
+        "plans/features/smart-execution-reliability-01/evidence/i-memory/**"
+      ],
+      "acceptance": "Retrieval изолирован по разрешённому chat scope и нужные кандидаты не вытесняются чужими чатами без роста k_last, переиндексации и квот; correction claim не обрезается искусственно и полный текст сохранён либо дочитывается; style_policy success не трактуется как дефект, речевые настройки не изменены.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один retrieval/correction контракт памяти в затронутом runtime-пути; KNN и correction frame проверяются вместе, потому что оба относятся к достоверности пользовательского контекста.",
+      "waves": "wave4",
+      "requirements": [
+        "SXR-I6-01",
+        "SXR-I6-02",
+        "SXR-I7-01"
+      ]
+    },
+    {
+      "id": "S12-ACCEPT",
+      "title": "Stage J/K/L/M: независимая интеграционная приёмка, инварианты и единый релиз",
+      "owner_role": "Reviewer (independent) + DevOps + Orchestrator",
+      "depends_on": [
+        "S1-BUDGET-MASTER",
+        "S2-TOOL-LOOP",
+        "S3-EVIDENCE",
+        "S4-CAPACITY",
+        "S5-LOCAL-FIRST",
+        "S6-GITHUB",
+        "S7-FINALIZE",
+        "S8-SELFDIAG",
+        "S9-EVENT-PIPELINE",
+        "S10-LEARNING-INCIDENTS",
+        "S11-MEMORY-CORRECTION"
+      ],
+      "write_scope": [
+        "tests/smart_exec_acceptance/**",
+        "plans/features/smart-execution-reliability-01/release-evidence/**",
+        "plans/features/smart-execution-reliability-01/evidence/accept/**"
+      ],
+      "acceptance": "L1-L8 выполнены на фактическом кандидате и production: контрольный сценарий >4 раундов, >6 вызовов и >2 вызовов в раунде, полнота evidence до payload, 8 сценариев ёмкости, local-first, внешний GitHub с отказом запрещённому адресу, 7 вариантов финализации, чекап с продолжением без слов-маркеров, I1-I6 с причинами; J/K проверены отрицательными сценариями и независимыми формулировками; релиз активен без OFF/SHADOW и без ручного включения.",
+      "risk": "R3",
+      "next_role": "DevOps",
+      "mode": "reviewer + release evidence",
+      "coherence": "Один независимый интеграционный вердикт и один релиз для объединённого кандидата; приёмка не дробится на параллельные 'зелёные' вердикты по константам.",
+      "waves": "wave6",
+      "requirements": [
+        "SXR-I0-01",
+        "SXR-J-01",
+        "SXR-J-02",
+        "SXR-J-03",
+        "SXR-K1-01",
+        "SXR-K2-01",
+        "SXR-K3-01",
+        "SXR-L1-01",
+        "SXR-L2-01",
+        "SXR-L3-01",
+        "SXR-L4-01",
+        "SXR-L5-01",
+        "SXR-L6-01",
+        "SXR-L7-01",
+        "SXR-L8-01",
+        "SXR-M1-01",
+        "SXR-M2-01",
+        "SXR-M2-02",
+        "SXR-M2-03",
+        "SXR-M2-04",
+        "SXR-M3-01",
+        "SXR-M4-01",
+        "SXR-M4-02"
+      ]
+    }
+  ]
+}
