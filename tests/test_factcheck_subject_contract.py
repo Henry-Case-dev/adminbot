@@ -293,6 +293,19 @@ class TestScenarioDCondition:
         assert len(plan.claims) >= 2
 
 
+    def test_condition_reaches_plan_without_subject_kwargs(self, planner_on):
+        """RED на базе: план строится только из принятого item и теряет
+        добавленное условие, даже когда условие — часть проверяемого текста."""
+        material_part = ("Древняя традиция женского обрезания существует "
+                         "тысячи лет.")
+        subject_text = material_part + " " + CONDITION
+        plan = fsp.build_retrieval_plan(
+            _decision([(material_part, "literal")]), claim_text=subject_text)
+        assert plan is not None
+        joined = " ".join(q.text.lower() for q in plan.queries)
+        assert "1990" in joined
+
+
 # ── E. Уточнение задаёт самостоятельный вопрос ──────────────────────────────
 
 class TestScenarioEStandaloneQuestion:
@@ -617,3 +630,262 @@ class TestDeferredMediaRequest:
         assert asyncio.run(orch.deliver_deferred_factcheck(
             intent, [], bot=object())) is True
         assert captured["req"].user_hint == request_text
+
+
+class _RoundTripCache:
+    """SmartCache-двойник с маркерами TTL (get/set_update_marker)."""
+
+    def __init__(self):
+        self.markers = {}
+
+    async def get_update_marker(self, key, *, ttl_seconds):
+        return self.markers.get(key)
+
+    async def set_update_marker(self, key, payload, *, ttl_seconds):
+        self.markers[key] = payload
+
+
+class TestCacheRoundTrip:
+    """§4.5/§12.4: готовый срез другого предмета не выдаётся как наш."""
+
+    def _ctx(self):
+        message = fcx.ContextMessage(
+            message_id=1, tg_message_id=TARGET_TG, chat_id=CHAT_ID,
+            author="Автор поста", timestamp=SENT_AT, reply_to_tg_id=None,
+            is_forward=False, forward_source=None, text=MATERIAL,
+            verbatim=True)
+        return fcx.ConversationContext(
+            chat_id=CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_tg_message_id=TRIGGER_TG, messages=(message,),
+            window={"before": 10, "after": 0}, newest_message_id=900)
+
+    def test_slice_written_for_subject_a_is_not_read_for_subject_b(self):
+        cache = _RoundTripCache()
+        ctx = self._ctx()
+        assert asyncio.run(fcx.write_slice_cache(
+            cache, ctx, before=10, after=0, claim_text=MATERIAL))
+        hit = asyncio.run(fcx.read_slice_cache(
+            cache, ctx, before=10, after=0, claim_text=MATERIAL))
+        assert hit is not None and hit.messages
+        miss = asyncio.run(fcx.read_slice_cache(
+            cache, ctx, before=10, after=0, claim_text=REQUEST_ONLY))
+        assert miss is None
+
+    def test_same_subject_with_other_clarification_reuses_slice(self):
+        cache = _RoundTripCache()
+        ctx = self._ctx()
+        asyncio.run(fcx.write_slice_cache(
+            cache, ctx, before=10, after=0, claim_text=REQUEST_ONLY))
+        hit = asyncio.run(fcx.read_slice_cache(
+            cache, ctx, before=10, after=0,
+            claim_text="  " + REQUEST_ONLY + "  "))
+        assert hit is not None and hit.messages
+
+
+class TestStructuralRejection:
+    """§4.4/§4.2: чужие слова не подписываются автору, новый тезис без
+    происхождения не принимается, fallback сохраняет запрос."""
+
+    def test_ungrounded_material_part_is_dropped_not_signed_to_author(self):
+        subject, _ = _resolve(hint="проверь", replies=[{
+            "subject": MATERIAL,
+            "material_part": "традиция исчезла", "request_part": "",
+            "form_request": ""}])
+        assert "традиция исчезла" not in subject.material_part
+        assert subject.material_part == MATERIAL   # принято только дословное
+        assert subject.note == "ungrounded_material_part"
+        assert subject.text == MATERIAL
+        assert subject.resolved_by == "llm"
+
+    def test_subject_without_provenance_rejected_to_fallback(self):
+        hint = "докажи вот это"
+        subject, _ = _resolve(hint=hint, replies=[{
+            "subject": "совершенно новый тезис без основания",
+            "material_part": "", "request_part": "", "form_request": ""}])
+        assert subject.resolved_by == "fallback"
+        assert subject.note == "unusable_decision"
+        assert subject.text == MATERIAL
+        assert subject.request_text == hint
+
+    def test_invalid_json_fallback_keeps_request(self):
+        subject, _ = _resolve(hint=REQUEST_ONLY, replies=["не json"])
+        assert subject.resolved_by == "fallback"
+        assert subject.note == "invalid_json"
+        assert subject.text == MATERIAL
+        assert subject.request_text == REQUEST_ONLY
+
+    def test_llm_error_fallback_keeps_request(self):
+        class BrokenLLM:
+            async def generate(self, messages, **kwargs):
+                raise RuntimeError("provider down")
+
+        service = FakeService()
+        service.llm = BrokenLLM()
+        subject = asyncio.run(orch.resolve_check_subject(
+            service, material_text=MATERIAL, request_text=REQUEST_ONLY,
+            material_author="Автор поста", request_author="Аня",
+            material_tg_message_id=TARGET_TG,
+            request_tg_message_id=TRIGGER_TG, chat_id=CHAT_ID))
+        assert subject.resolved_by == "fallback"
+        assert subject.text == MATERIAL
+        assert subject.request_text == REQUEST_ONLY
+
+
+class _FakeBot:
+    id = 862000001
+
+    def __init__(self):
+        self.sent = []
+
+    async def send_message(self, chat_id, text, **kw):
+        self.sent.append({"chat_id": chat_id, "text": text, **kw})
+        return SimpleNamespace(message_id=888)
+
+    async def send_chat_action(self, chat_id, action, **kw):
+        return True
+
+
+class _StageService(FakeService):
+    """Сервис обеих веток: envelope-ветка возвращает TemporalRunResult."""
+
+    def __init__(self, replies=()):
+        super().__init__(replies)
+        self.envelope_calls = []
+
+    async def check_claim_envelope(self, envelope, *, chat_context=None):
+        self.envelope_calls.append({"envelope": envelope})
+        from services.temporal_factcheck import (
+            TemporalRunResult, TemporalVerdict)
+        verdict = TemporalVerdict(
+            factual_verdict="refuted", temporal_status="current",
+            evaluated_period={"from": 100, "to": 200, "precision": "day"},
+            assessment_mode="contextual", as_of=1792200100,
+            evidence_refs=("ev-1",), reason=None)
+        return TemporalRunResult(
+            envelope=envelope, verdict=verdict, verdict_text="Проверено.",
+            evidence_rows=({"evidence_id": "ev-1",
+                            "url": "https://example.org/src",
+                            "support": "подтверждение",
+                            "source_kind": "secondary",
+                            "published_at": None},),
+            fallback_used=False)
+
+
+class _StageDB:
+    def __init__(self, row):
+        self.row = row
+
+    async def get_messages_around(self, chat_id, tg, before, after):
+        return []
+
+    async def get_recent_messages(self, chat_id, limit):
+        return []
+
+    async def get_smart_message_origin_block(self, chat_id, tg):
+        return dict(self.row)
+
+
+class TestStageConsistency:
+    """§4.1/§12.3: предмет, установленный на входе, доходит до РЕАЛЬНЫХ
+    стадий оркестратора (envelope-ветка и legacy-ветка), а не только до
+    helper'ов."""
+
+    def _req(self, hint):
+        return orch.FactcheckRequest(
+            chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
+            target_tg_message_id=TARGET_TG, target_text=MATERIAL,
+            user_hint=hint, kind="reply", requester_name="Аня")
+
+    def _subject(self, hint=REQUEST_ONLY):
+        subject, _ = _resolve(hint=hint, replies=[{
+            "subject": REQUEST_ONLY, "material_part": "",
+            "request_part": REQUEST_ONLY, "form_request": ""}])
+        return subject
+
+    def test_envelope_branch_checks_the_established_subject(
+            self, monkeypatch):
+        monkeypatch.setattr(
+            "services.mca_gates.temporal_factcheck_enabled", lambda: True)
+        monkeypatch.setattr(
+            "services.factcheck_orchestrator.pipeline_v2_enabled",
+            lambda: True)
+        service = _StageService()
+        subject = self._subject()
+        asyncio.run(orch.run_factcheck(
+            self._req(REQUEST_ONLY), service=service,
+            db=_StageDB(_row()), bot=_FakeBot(), cache=None,
+            subject=subject))
+        assert service.envelope_calls, "envelope-ветка должна выполниться"
+        envelope = service.envelope_calls[0]["envelope"]
+        assert envelope.claim_text == REQUEST_ONLY
+        assert envelope.request_text == REQUEST_ONLY
+        assert envelope.material_claim_text == MATERIAL
+        assert envelope.subject_origin == orch.SUBJECT_ORIGIN_REQUEST
+
+    def test_legacy_branch_checks_the_established_subject(self, monkeypatch):
+        monkeypatch.setattr(
+            "services.factcheck_orchestrator.pipeline_v2_enabled",
+            lambda: True)
+        monkeypatch.setattr(
+            "services.mca_gates.temporal_factcheck_enabled", lambda: False)
+        service = _StageService()
+        subject = self._subject()
+        asyncio.run(orch.run_factcheck(
+            self._req(REQUEST_ONLY), service=service,
+            db=_StageDB(_row()), bot=_FakeBot(), cache=None,
+            subject=subject))
+        assert service.check_claim_calls
+        assert service.check_claim_calls[0]["target_text"] == REQUEST_ONLY
+
+    def test_no_clarification_makes_no_semantic_subject_call(
+            self, monkeypatch):
+        """A: обычный путь не получает новых LLM-вызовов вообще."""
+        monkeypatch.setattr(
+            "services.factcheck_orchestrator.pipeline_v2_enabled",
+            lambda: True)
+        monkeypatch.setattr(
+            "services.mca_gates.temporal_factcheck_enabled", lambda: False)
+        service = _StageService()
+        asyncio.run(orch.run_factcheck(
+            orch.FactcheckRequest(
+                chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
+                target_tg_message_id=TARGET_TG, target_text=MATERIAL,
+                kind="reply"),
+            service=service, db=_StageDB(_row()), bot=_FakeBot(),
+            cache=None))
+        assert service.llm is None            # llm не запрашивался вообще
+        assert service.check_claim_calls[0]["target_text"] == MATERIAL
+
+
+class TestGateAdmissionSeparation:
+    """§4.1: гейт допуска оценивает МАТЕРИАЛ, а нерез контекста строится под
+    ПРЕДМЕТ — разделение сохраняется и на handler-стадии."""
+
+    def test_gate_gets_admission_text_and_context_gets_subject(
+            self, monkeypatch):
+        captured = {}
+
+        class _Ctx:
+            def render_feed(self):
+                return "feed"
+
+        def fake_evaluate(db, chat_id, **kwargs):
+            captured.update(kwargs)
+
+            async def _run():
+                return (_decision([(MATERIAL, "literal")], scope="web"), _Ctx())
+            return _run()
+
+        monkeypatch.setattr(fcx, "wide_context_enabled", lambda: True)
+        monkeypatch.setattr(fsg, "suitability_gate_enabled", lambda: True)
+        monkeypatch.setattr(fsg, "evaluate_with_expansion", fake_evaluate)
+        monkeypatch.setattr(fh, "get_smart_cache", lambda: None)
+        feed, decision = asyncio.run(fh._fetch_context_with_gate(
+            CHAT_ID, 40, 10, target_tg_message_id=TARGET_TG,
+            trigger_message_id=TRIGGER_TG, claim_text=REQUEST_ONLY,
+            admission_text=MATERIAL, user_hint=REQUEST_ONLY,
+            explicit_request=True))
+        assert feed == "feed"
+        assert captured["claim_text"] == MATERIAL   # решение — по материалу
+        assert captured["subject_text"] == REQUEST_ONLY  # срез — под предмет
+        assert captured["explicit_request"] is True
