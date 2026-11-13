@@ -191,6 +191,8 @@ py C:\Users\main\.config\opencode\tools\requirements_gate.py check --map plans/f
 stage=plan inventory=380 manual=69 scoped=0 errors=0
 ```
 
+13.11.2026, после сверки 66 PENDING-строк (§14): повторный прогон даёт тот же вывод `stage=plan inventory=380 manual=69 scoped=0 errors=0`. `manual=69` считает только `additional_requirements`; строка `VMQ-A-01` живёт в инвентаре, поэтому обязательных строк 70 (§13). Прежняя запись §11 «62 строки» относится к 10.11.2026 и не является текущим счётом.
+
 Проверено шлюзом: все 380 извлечённых строк исходника присутствуют и совпадают по хешу, 69 ручных строк имеют реальные `source_line`/`source_text_sha256`/`source_excerpt`, у каждой обязательной строки есть `req_id`, один владелец-срез, наблюдаемая приёмка, `live_required/live_when`, допустимый статус; граф без циклов, все владельцы имеют узлы, одновременные write-scope не пересекаются.
 
 Дополнительно (ручная обратная сверка исходника):
@@ -218,12 +220,14 @@ stage=plan inventory=380 manual=69 scoped=0 errors=0
 
 ## 11. Что остаётся открытым
 
-- Восстановление `audit-head.md` (Architect) — единственный пробел в провенансе плана.
-- IBM credentials/quota (владелец, по протоколу QM-06) — внешний блокер `Q-04`/`QM-08`, не блокирует остальных.
+[13.11.2026: раздел исторический; текущее состояние — §14. Ниже исправлены только фактически устаревшие пункты, прежние формулировки сохранены.]
+
+- ~~Восстановление `audit-head.md` (Architect)~~ — [13.11.2026: файл существует, 21 917 байт, 12 разделов; карта построена против HEAD `c816e83c` (2.58.168), при биндинге пин обновить до `23477658`.]
+- IBM credentials/quota (владелец, по протоколу QM-06) — внешний блокер `Q-04`/`QM-08`, не блокирует остальных. [13.11.2026: добавляется зависимость от кода `Q-03`: IBM-драйвера `services/ibm_quantum_driver.py` в репозитории нет.]
 - Merge MEMORY-07/08 перед VMQ-M1 на общих файлах.
 - `owner_optional` строк в карте нет: все 62 строки — обязательная инженерная приёмка; ослаблять их нельзя. [13.11.2026: счёт вырос до 70 строк — см. §13]
-- `VMQ-MEM` нельзя запускать до `VMQ-M2`: измерять нечего, а правки retrieval-файла пересекаются.
-- `VMQ-MEM-TIME` (обязательный дефект временнóго охвата) открыт: первопричина не подтверждена, реализация запрещена до `year-bias-root-cause.md`; ревью/выкатку `7bc8545a` он не блокирует.
+- ~~`VMQ-MEM` нельзя запускать до `VMQ-M2`~~ — [13.11.2026: линия памяти уже выкачена ступенями 2.58.180/183/187/190; открыт не запуск, а доказательная приёмка `VMQ-MEM-01..04,07` и `VMQ-TIME-01..09` (§14).]
+- `VMQ-MEM-TIME` (обязательный дефект временнóго охвата) открыт: первопричина не подтверждена, реализация запрещена до `year-bias-root-cause.md`; ревью/выкатку `7bc8545a` он не блокирует. [13.11.2026: `year-bias-root-cause.md` существует, реализация выкачена (2.58.182/183); открыты вердикты по ветвям, матрица до/после, контроль текущего состояния и `VMQ-TIME-09` (§14).]
 
 ## 12. Ступень памяти `VMQ-MEM-NEXT` (запись 11.11.2026)
 
@@ -292,3 +296,61 @@ review (--slice VMQ-MEM-NEXT --candidate 234776589c934024ed0e8dceba189fb9d70d321
 ```
 
 Красные строки объяснимы и **не чинились** подгонкой: срез несёт два разных кандидата (03/04 измерены на базе `23477658`, 02/05 — на `c0de0c2b`), поэтому один вызов гейта всегда видит «чужой» кандидат у половины строк и `candidate mismatch` против верхнеуровневого `candidate_commit` (он принадлежит замороженному слайсу `VMQ-MEM-TIME`). Это bookkeeping-факт многоступенчатой карты, а не доказательство приёмки или провала.
+
+## 14. Сверка 66 PENDING-строк на проде 2.58.198 (13.11.2026)
+
+Основание: решение владельца `plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md` и контракт `architecture-next2-quality.md`. Метод: код и тесты проверены **на `23477658`** (`git show`/`git grep`/`git ls-tree`); рабочее дерево `master` @ `1a7c491e` — другая линия (merge-base `3193b657`), файлов релизной линии в checkout нет. Это lineage-факт, а не отсутствие реализации. Статусы не подменялись: классификация записана в поле `reconciliation_2_58_198_2026_11_13` каждой строки карты; `target_status` — предложение.
+
+| Бакет | Кол-во | Строки |
+|---|---|---|
+| COVERED_BY_DEPLOYED (→ предложено REVIEW) | 9 | `VMQ-A-01`; `V-01..V-04`; `VMQ-MEM-05`, `VMQ-MEM-06`, `VMQ-MEM-08`; `R-04` |
+| WAITING_FINAL_CANDIDATE | 1 | `VMQ-NEXT-02` (остаётся FAILED до финального кандидата) |
+| FUTURE_OBSERVATION (→ READY_FOR_LIVE) | 1 | `VMQ-NEXT-01` |
+| BLOCKED_EXTERNAL | 2 | `Q-04`, `QM-08` |
+| REAL_GAP | 54 | группы ниже |
+
+REAL_GAP по группам (все — обязательные строки без кода/доказательств на `23477658`):
+
+- `O-01..O-04` — `services/semantic_contracts.py` отсутствует во всех ветках; `graphrag_provenance.py` даёт только примитивы provenance.
+- `M-01..M-03` — `services/memory_episodes.py` не существует; `mca_episodes.py` — исходный гэп-сегментатор, не контракт M-01.
+- `M-04`, `M-05` — `person_overview`/`temporal_change` в `retrieve()` отсутствуют (grep 0); M-05 измерим только после M2.
+- `Q-01`, `Q-02`, `Q-07`, `Q-08`, `Q-09`, `QM-01..QM-07`, `QM-09` — на проде только `PROVIDER_ANU`/`PROVIDER_PRNG`: нет LfDR/Lizaonair/IBM, маскированных секретов, live-apply, кнопки проверки, unconfigured для четырёх провайдеров, null-калибровки и chat-scope фильтра.
+- `Q-03`, `Q-05`, `Q-06` — нет `services/ibm_quantum_driver.py` и `services/qan_pool.py`.
+- `I-01..I-06` — QAN-пула нет, e2e-следов `eligible → influenced → persisted` нет.
+- `S-01..S-03` — нет provider health/last_valid_sample, раздельных IBM quota/jobs/queue/pool и QAN-воронки со знаменателями.
+- `U-01`, `U-02` — нет `web/static/status-analytics.js` и виджетов покрытия годов/причин исключения.
+- `R-01..R-03` — релизный gate невыполним до появления тела эпика.
+- `VMQ-MEM-01..04`, `VMQ-MEM-07` — нет точного owner-запроса «шизы конфы» (grep 0), машинного per-run трейса, паритета plain/creative и независимого сравнения Reviewer.
+- `VMQ-TIME-01..09` — измерения частичные; TIME-04 нужна block-year трасса, TIME-09 — виджеты «Статуса»/«Аналитики»; TIME-06 фиксирует реальный остаточный дефект (нерелевантная строка 2025 под auto на вопросе о текущем состоянии).
+- `VMQ-NEXT-04` — положительного лексического случая и контроля C1/C2 нет; контракт качества прямо не поглощает строку.
+
+**Конечное условие DONE для `vmq-onto-01`** (всё сразу, иначе эпик остаётся открытым):
+
+1. `VMQ-NEXT-02` — финальный кандидат §A+NEXT-05 проходит paired quality set (60 запросов, 20/страта) и обязательные инварианты; независимое ревью exact candidate — Approved; 58,1% не gate.
+2. `V-01..V-04`, `VMQ-A-01` — биндинг к `23477658` и независимое ревью; `evidence/vmq-v/*.json` не обязательны, если верификация идёт на exact candidate.
+3. `VMQ-MEM-01..04,07` и `VMQ-TIME-01..08` — матрица 5 классов с точным запросом, машинный трейс, 4 метрики, паритет, матрица до/после и независимый прогон Reviewer на 2.58.198.
+4. `VMQ-TIME-09`, `U-01`, `U-02` — покрытие годов и причины исключения в «Статусе»/«Аналитике» из реальных событий.
+5. `ONTO-A/B`, `M1`, `M2`, `Q0`, `Q0-IBM`, `Q1`, `O`, `U` — реализованы, независимо отревьюены и выкачены; `Q-04`/`QM-08` остаются законно `blocked_external`.
+6. `R-01..R-03` — release gate на выкаченном кандидате: effective-ON, сохранённые пользовательские значения, baseline vs new, DevOps-манифест, честный IBM.
+
+Законно postrelease/nonblocking: только `VMQ-NEXT-01` (реальный ход с непустой векторной ногой; owner — агент, триггер — первый ход с `period_vector_leg=ok` и `vector_rows>=1`) и postdeploy-часть `R-01`/`R-03`. Закрытие NEXT-02 — **corrective stage**, а не DONE эпика: 54 обязательные строки без покрытия не дают ни DONE, ни `WAITING_EXTERNAL`.
+
+Минимальные назначения REAL_GAP (write scope и acceptance — в `reconciliation_2_58_198_2026_11_13.assignments`):
+
+1. `VMQ-ONTO-A/B` — Architect (freeze) → Builder → Reviewer; `services/semantic_contracts.py`, `graphrag_provenance.py`, `tests/test_semantic_contracts.py`.
+2. `VMQ-M1` — Builder → Reviewer; `services/memory_episodes.py` (+ `mca_episodes.py`, `dossier_rebuild_jobs.py`, `database.py`), `tests/test_memory_episodes.py`.
+3. `VMQ-M2` — Builder → Reviewer; `services/mca_retrieval_context.py` (`person_overview`/`temporal_change`, coverage/evidence expansion), `tests/test_memory_unified_retrieval.py`.
+4. `VMQ-Q0` — Builder → Reviewer; `services/mca_random_source.py`, `handlers/web.py`, `web/app.js|index.html`, `tests/test_qan_provider_settings.py`, `tests/test_qan_failover.py`.
+5. `VMQ-Q0-IBM` — Builder → Reviewer; `services/ibm_quantum_driver.py`, `services/qan_pool.py`, `tests/test_qan_ibm_driver.py`; `Q-04`/`QM-08` остаются внешними.
+6. `VMQ-Q1` — Builder → Reviewer; шесть consumer-модулей, `tests/test_qan_consumers.py`.
+7. `VMQ-O` — Builder → Reviewer; `services/mca_events.py`, `pipeline_analytics.py`, `status_service.py`, `usage_events.py`, `tests/test_qan_observability.py`.
+8. `VMQ-U` (+ `VMQ-TIME-09`) — Builder + Playwright/Browser Use → Reviewer; `web/static/status-analytics.js`, `web/index.html`, `web/app.js`, `handlers/web.py`, `tests/ui_vmq_status_analytics_e2e.py`.
+9. Память/время (evidence-only, код не нужен кроме TIME-04) — Builder (read-only harness на копии прод-БД) → Reviewer; `evidence/vmq-mem/`, `evidence/vmq-mem/time/`, `tests/test_memory_multi_formulation_parity.py`.
+10. `VMQ-R` — после 1–9: Reviewer + DevOps + PM; `evidence/`, `reports/`.
+
+Повторный прогон шлюза плана после правок:
+
+```
+stage=plan inventory=380 manual=69 scoped=0 errors=0
+```
+

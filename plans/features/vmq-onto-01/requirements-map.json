@@ -492,7 +492,14 @@
     "owner_action_required": false,
     "owner_action_note": "Владелец не является QA. Естественные голосовые события наблюдаются агентами read-only по прод-БД, трассе хода и payload; отдельного действия владельца нет.",
     "evidence_owner": "агенты: Builder/DevOps снимают строку source-ref и захваченный Writer payload, Reviewer подтверждает независимо",
-    "status_effect": "ни одна строка V-01..V-04 не переведена в VERIFIED и не переведена в REVIEW этим блоком: он фиксирует deployed + evidence gap."
+    "status_effect": "ни одна строка V-01..V-04 не переведена в VERIFIED и не переведена в REVIEW этим блоком: он фиксирует deployed + evidence gap.",
+    "rebind_2026_11_13": {
+      "finding": "Код и тесты VMQ-V найдены на релизной линии 23477658: services/voice_transcripts.py (resolve_voice_bundle/refresh_voice_bundle/wait_for_voice_bundle/prepare_voice_evidence/render_voice_block), handlers/voice_transcription.py, services/database.py (set_smart_message_transcript, get_voice_window, count_voice_sources), tests/test_vmq_v_voice_writer.py — 36 тестов, явно размеченных по V-01..V-04.",
+      "still_true": "В checkout master (@1a7c491e) этих файлов нет: master и прод-линия разошлись (merge-base 3193b657). Поэтому прежний статус EVIDENCE_GAP заменяется на EVIDENCE_AVAILABLE_ON_RELEASE_LINE, но не на VERIFIED.",
+      "bind_condition": "Каталог evidence/vmq-v/ не обязателен, если Reviewer получает exact candidate 23477658 и видит тесты/код в checkout этой линии; иначе — DevOps-снимок артефактов.",
+      "owner_action_required": false,
+      "do_not": "Не назначать владельцу запись голосовых: проверка выполняется агентом на тестовом чате/копии БД."
+    }
   },
   "next_executable": {
     "slice": "VMQ-MEM-NEXT",
@@ -584,7 +591,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/voice-source-revision.json",
           "description": "реальный Telegram voice -> строка БД: один source ref, ревизия транскрипта, автор из исходного сообщения"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Реализовано и выкачено: set_smart_message_transcript пишет status/revision/updated_at как версию исходного source-ref; тест test_transcript_is_version_of_single_source_ref. Артефакт живёт на релизной линии 23477658, в checkout master его нет — биндинг после интеграции линии.",
+        "evidence_refs": [
+          "23477658:services/database.py::set_smart_message_transcript",
+          "23477658:handlers/voice_transcription.py",
+          "23477658:tests/test_vmq_v_voice_writer.py::test_transcript_is_version_of_single_source_ref"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-V-02",
@@ -606,7 +625,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/media-group-payload.json",
           "description": "payload source list для 2 и 3 соседних голосовых, разные авторы, Reply к одному из них"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Реализовано: resolve_voice_bundle (kind reply|quote|chronology|missing, упорядоченные source-ref, авторы, прерывание текстом, cross-chat изоляция); тесты двух/трёх соседних голосовых и непереставимости краёв. Артефакт на 23477658.",
+        "evidence_refs": [
+          "23477658:services/voice_transcripts.py::resolve_voice_bundle",
+          "23477658:tests/test_vmq_v_voice_writer.py::test_two_adjacent_voices_delivered_with_authors",
+          "23477658:tests/test_vmq_v_voice_writer.py::test_three_adjacent_voices_ordered"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-V-03",
@@ -638,7 +669,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/writer-payload-captured.json",
           "description": "captured final Writer payload с request_ref, source_refs[] и delivered_revision"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Реализовано: prepare_voice_evidence/render_voice_block и _prepare_turn_voice_evidence доставляют ready-транскрипт в финальный payload Writer; тесты доставки и применения ревизии перед Writer.",
+        "evidence_refs": [
+          "23477658:services/voice_transcripts.py::prepare_voice_evidence",
+          "23477658:services/direct_chat_service.py::_prepare_turn_voice_evidence",
+          "23477658:tests/test_vmq_v_voice_writer.py::test_ready_transcript_text_reaches_payload_block"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-V-04",
@@ -660,7 +703,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/stt-race-restart.json",
           "description": "race fixture STT/answer + live analogue: один ответ, корректный deferred/genuinely_unavailable"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Реализовано: честные pending/failed/unavailable/missing, bounded wait, сохранение ready-текста после рестарта, один ответ; тесты restart/pending/failed и «не выдавать отсутствие за отсутствие материала».",
+        "evidence_refs": [
+          "23477658:services/voice_transcripts.py::wait_for_voice_bundle",
+          "23477658:tests/test_vmq_v_voice_writer.py::test_restart_between_stt_and_question_keeps_ready_text",
+          "23477658:tests/test_vmq_v_voice_writer.py::test_unfinished_stt_stays_honest_pending"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-M-01",
@@ -685,7 +740,20 @@
       ],
       "extended_by": [
         "VMQ-MEM-02"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Эпизоды по связной Reply-ветке с ordered_message_refs/source_revision_fingerprint не реализованы (memory_episodes.py нет; mca_episodes.py — гэп-сегментация).",
+        "evidence_refs": [
+          "git show 23477658:services/memory_episodes.py -> отсутствует; git log --all пуст",
+          "23477658:services/mca_episodes.py (segment_messages, карточка) — существующий L1-сегментатор, не контракт M-01",
+          "23477658:services/memory_maintenance.py, services/dossier_rebuild_jobs.py — обслуживание, без episode scope/версий"
+        ],
+        "owner": "Builder (VMQ-M1)",
+        "needs_code": true,
+        "unit": "VMQ-M1"
+      }
     },
     {
       "source_id": "MAN-M-02",
@@ -710,7 +778,20 @@
       ],
       "extended_by": [
         "VMQ-MEM-03"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Многолетняя тематическая линия с supporting+counterexample не реализована: тем-линий за разные годы в коде нет.",
+        "evidence_refs": [
+          "git show 23477658:services/memory_episodes.py -> отсутствует; git log --all пуст",
+          "23477658:services/mca_episodes.py (segment_messages, карточка) — существующий L1-сегментатор, не контракт M-01",
+          "23477658:services/memory_maintenance.py, services/dossier_rebuild_jobs.py — обслуживание, без episode scope/версий"
+        ],
+        "owner": "Builder (VMQ-M1)",
+        "needs_code": true,
+        "unit": "VMQ-M1"
+      }
     },
     {
       "source_id": "MAN-M-03",
@@ -732,7 +813,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m1/subject-view-rebuild.json",
           "description": "edit/delete/rebuild: derived_version, stale-инвалидация, отсутствие воскрешения удалённого"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Инкрементальное версионируемое продольное досье субъекта не реализовано: dossier_rebuild_jobs.py пересобирает без stale-инвалидации связанных derived-записей.",
+        "evidence_refs": [
+          "git show 23477658:services/memory_episodes.py -> отсутствует; git log --all пуст",
+          "23477658:services/mca_episodes.py (segment_messages, карточка) — существующий L1-сегментатор, не контракт M-01",
+          "23477658:services/memory_maintenance.py, services/dossier_rebuild_jobs.py — обслуживание, без episode scope/версий"
+        ],
+        "owner": "Builder (VMQ-M1)",
+        "needs_code": true,
+        "unit": "VMQ-M1"
+      }
     },
     {
       "source_id": "MAN-M-04",
@@ -761,7 +855,19 @@
         "VMQ-MEM-02",
         "VMQ-MEM-06",
         "VMQ-MEM-08"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Person overview / temporal queries не отвечаются: intent-классов person_overview/temporal_change в retrieve() нет, coverage/независимые периоды/контрпримеры в bundle не формируются.",
+        "evidence_refs": [
+          "git grep person_overview|temporal_change 23477658 -- services -> 0 совпадений",
+          "23477658:services/mca_retrieval_context.py — единый retrieve() с 10 каналами, без coverage/evidence expansion"
+        ],
+        "owner": "Builder + Architect (VMQ-M2)",
+        "needs_code": true,
+        "unit": "VMQ-M2"
+      }
     },
     {
       "source_id": "MAN-M-05",
@@ -783,7 +889,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/db-resource-check.md",
           "description": "DB & resource check: счётчики embedding generations, отсутствие cross-chat строк, WAL/lock поведение"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Негативная проверка «нет массового reembedding/cross-chat» измерима только после появления M2; на текущем retrieval проверять нечего (векторы 25 652 строки не менялись с 2.58.187 — это NEXT-линия, не M2).",
+        "evidence_refs": [
+          "git grep person_overview|temporal_change 23477658 -- services -> 0 совпадений",
+          "23477658:services/mca_retrieval_context.py — единый retrieve() с 10 каналами, без coverage/evidence expansion"
+        ],
+        "owner": "Builder + Architect (VMQ-M2)",
+        "needs_code": true,
+        "unit": "VMQ-M2"
+      }
     },
     {
       "source_id": "MAN-O-01",
@@ -805,7 +923,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-onto-a/typed-concept-checks.json",
           "description": "typed checks: canonical_type для user/topic/event/fact, speaker vs subject"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Typed-проекции user/topic/event/fact и ролей speaker/subject нет: semantic_contracts.py не существует ни в одной ветке; memory_contracts.py даёт enum'ы смыслов, но не typed-проверки концептов.",
+        "evidence_refs": [
+          "git show 23477658:services/semantic_contracts.py -> отсутствует; git log --all по этому пути пуст",
+          "23477658:services/graphrag_provenance.py (EDGE_CONFIDENT|TENTATIVE|LEGACY_UNVERIFIED, classify_fact_provenance, independent_roots_count) — готовые примитивы provenance",
+          "23477658:services/message_identity.py, services/summary_aliases.py — идентичность/алиасы без typed-контракта"
+        ],
+        "owner": "Builder (VMQ-ONTO-A/B) + Architect",
+        "needs_code": true,
+        "unit": "VMQ-ONTO-A/B"
+      }
     },
     {
       "source_id": "MAN-O-02",
@@ -827,7 +958,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-onto-a/ambiguity-negative-examples.json",
           "description": "negative examples: «Папаха»/«папаха», одинаковые ники, неоднозначный термин"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Разрешение неоднозначности как контракт не реализовано: entity_resolver даёт alias/manual-каскад, но негативных typed-кейсов (алиас != существительное, тёзки, ambiguous) нет.",
+        "evidence_refs": [
+          "git show 23477658:services/semantic_contracts.py -> отсутствует; git log --all по этому пути пуст",
+          "23477658:services/graphrag_provenance.py (EDGE_CONFIDENT|TENTATIVE|LEGACY_UNVERIFIED, classify_fact_provenance, independent_roots_count) — готовые примитивы provenance",
+          "23477658:services/message_identity.py, services/summary_aliases.py — идентичность/алиасы без typed-контракта"
+        ],
+        "owner": "Builder (VMQ-ONTO-A/B) + Architect",
+        "needs_code": true,
+        "unit": "VMQ-ONTO-A/B"
+      }
     },
     {
       "source_id": "MAN-O-03",
@@ -849,7 +993,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-onto-b/typed-relations-provenance.md",
           "description": "source-recon tests: typed relations, legacy не verified, конфликты и версии терминов"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Типизированные отношения с направлением/автором/временем не реализованы; graphrag_provenance.py даёт provenance-классы и независимость корней, но typed relation view и версии определений отсутствуют.",
+        "evidence_refs": [
+          "git show 23477658:services/semantic_contracts.py -> отсутствует; git log --all по этому пути пуст",
+          "23477658:services/graphrag_provenance.py (EDGE_CONFIDENT|TENTATIVE|LEGACY_UNVERIFIED, classify_fact_provenance, independent_roots_count) — готовые примитивы provenance",
+          "23477658:services/message_identity.py, services/summary_aliases.py — идентичность/алиасы без typed-контракта"
+        ],
+        "owner": "Builder (VMQ-ONTO-A/B) + Architect",
+        "needs_code": true,
+        "unit": "VMQ-ONTO-A/B"
+      }
     },
     {
       "source_id": "MAN-O-04",
@@ -875,7 +1032,20 @@
       "extended_by": [
         "VMQ-MEM-06",
         "VMQ-MEM-08"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Единый retrieval не использует семантические определения как подсказку: person_overview/temporal_change в 23477658 отсутствуют (grep 0), второго роутера нет просто потому, что нет и первого typed-слоя.",
+        "evidence_refs": [
+          "git show 23477658:services/semantic_contracts.py -> отсутствует; git log --all по этому пути пуст",
+          "23477658:services/graphrag_provenance.py (EDGE_CONFIDENT|TENTATIVE|LEGACY_UNVERIFIED, classify_fact_provenance, independent_roots_count) — готовые примитивы provenance",
+          "23477658:services/message_identity.py, services/summary_aliases.py — идентичность/алиасы без typed-контракта"
+        ],
+        "owner": "Builder (VMQ-ONTO-A/B) + Architect",
+        "needs_code": true,
+        "unit": "VMQ-ONTO-A/B"
+      }
     },
     {
       "source_id": "MAN-Q-01",
@@ -897,7 +1067,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0/random-source-inventory.md",
           "description": "source audit: единственный RandomSource, 4 адаптера, mapping legacy-настроек, сохранён AnuClient"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Реестра четырёх провайдеров нет: в проде только ANU+PRNG; адаптеров LfDR/Lizaonair/IBM и mapping legacy keys.random_quantum_* нет.",
+        "evidence_refs": [
+          "git show 23477658:services/mca_random_source.py — PROVIDER_ANU, PROVIDER_PRNG; ibm/qiskit/lizaonair/lfdr = 0",
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "реестр purposes/CANDIDATES_CAP и ANU-адаптер существуют — расширять, не переписывать"
+        ],
+        "owner": "Builder (VMQ-Q0)",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-Q-02",
@@ -919,7 +1102,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0/failover-matrix.json",
           "description": "failover matrix на реальных провайдерах + reason codes, PRNG только последним"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Персистентный selected/effective provider и failover-матрица с reason codes не реализованы (PRNG есть как последний источник, но матрицы и событий нет).",
+        "evidence_refs": [
+          "git show 23477658:services/mca_random_source.py — PROVIDER_ANU, PROVIDER_PRNG; ibm/qiskit/lizaonair/lfdr = 0",
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "реестр purposes/CANDIDATES_CAP и ANU-адаптер существуют — расширять, не переписывать"
+        ],
+        "owner": "Builder (VMQ-Q0)",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-Q-03",
@@ -941,7 +1137,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0-ibm/demand-first-events.json",
           "description": "real request events: attempted_fresh, job_submitted, not_submitted/reason, inflight_shared"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Demand-first QPU job/atomic join и not_submitted с причиной не реализованы: IBM-драйвера нет.",
+        "evidence_refs": [
+          "git show 23477658:services/ibm_quantum_driver.py -> отсутствует; services/qan_pool.py -> отсутствует",
+          "git grep -i ibm 23477658 -- services handlers web -> только vendor JS"
+        ],
+        "owner": "Builder (VMQ-Q0-IBM)",
+        "needs_code": true,
+        "unit": "VMQ-Q0-IBM"
+      }
     },
     {
       "source_id": "MAN-Q-04",
@@ -965,7 +1173,19 @@
         }
       ],
       "blocked_external": true,
-      "external_dependency": "IBM Quantum: нужны реальные credentials/token и instance владельца + доступный Open Plan QPU (квота/очередь). До этого строка остаётся PENDING+blocked_external и НИКОГДА не VERIFIED на симуляторе; остальные провайдеры, пул, fallback, чистота PRNG и replay реализуемы без неё."
+      "external_dependency": "IBM Quantum: нужны реальные credentials/token и instance владельца + доступный Open Plan QPU (квота/очередь). До этого строка остаётся PENDING+blocked_external и НИКОГДА не VERIFIED на симуляторе; остальные провайдеры, пул, fallback, чистота PRNG и replay реализуемы без неё.",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "BLOCKED_EXTERNAL",
+        "target_status": "PENDING",
+        "reason": "Реальный IBM QPU job (measured bitstrings с provenance: job_id, backend, is_simulator=false, shots, bit_count) невозможен без токена/instance владельца и доступной квоты Open Plan; симулятор/quasi_dists не засчитываются. Дополнительно требуется код Q-03 (IBM-драйвера нет).",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/slice-graph.json#external_blockers.EXT-IBM-QPU"
+        ],
+        "owner": "Builder (код) / внешний владелец реквизитов",
+        "trigger": "IBM Quantum API token + instance + доступная квота Open Plan",
+        "needs_code": true,
+        "unit": "VMQ-Q0-IBM (external)"
+      }
     },
     {
       "source_id": "MAN-Q-05",
@@ -987,7 +1207,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0-ibm/pool-race-restart.json",
           "description": "concurrency/race e2e: два запроса на одном job, cancel, restart, partial claim rollback"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Отдельного IBM-пула с атомарными claims по полным bit ranges и восстановлением после рестарта нет.",
+        "evidence_refs": [
+          "git show 23477658:services/ibm_quantum_driver.py -> отсутствует; services/qan_pool.py -> отсутствует",
+          "git grep -i ibm 23477658 -- services handlers web -> только vendor JS"
+        ],
+        "owner": "Builder (VMQ-Q0-IBM)",
+        "needs_code": true,
+        "unit": "VMQ-Q0-IBM"
+      }
     },
     {
       "source_id": "MAN-Q-06",
@@ -1009,7 +1241,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0-ibm/purity-replay-audit.md",
           "description": "code-path audit + replay: чистота IBM direct пути, детерминированный replay, маркировка PRNG"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Purity-тракт (нет random.Random/numpy.random/secrets/seed-expansion/XOR с PRNG) проверить нечего: IBM-тракта нет.",
+        "evidence_refs": [
+          "git show 23477658:services/ibm_quantum_driver.py -> отсутствует; services/qan_pool.py -> отсутствует",
+          "git grep -i ibm 23477658 -- services handlers web -> только vendor JS"
+        ],
+        "owner": "Builder (VMQ-Q0-IBM)",
+        "needs_code": true,
+        "unit": "VMQ-Q0-IBM"
+      }
     },
     {
       "source_id": "MAN-Q-07",
@@ -1031,7 +1275,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0/null-calibration.json",
           "description": "null tests: стабильная карта, калибровка max-statistic, малые expected, multiple comparisons"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Null-калибровки eligible-карты нет: attractor/void/power/blind в 23477658 не существуют (grep 0).",
+        "evidence_refs": [
+          "git show 23477658:services/mca_random_source.py — PROVIDER_ANU, PROVIDER_PRNG; ibm/qiskit/lizaonair/lfdr = 0",
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "реестр purposes/CANDIDATES_CAP и ANU-адаптер существуют — расширять, не переписывать"
+        ],
+        "owner": "Builder (VMQ-Q0)",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-Q-08",
@@ -1053,7 +1310,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q0/mapping-property-tests.json",
           "description": "property/stat tests: unbiased mapping, один источник на поле, n=1 без расхода энтропии"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Отсутствие modulo bias частично есть (rejection sampling), но фильтра chat scope до генерации и проверки «одно поле — один effective provider» нет.",
+        "evidence_refs": [
+          "git show 23477658:services/mca_random_source.py — PROVIDER_ANU, PROVIDER_PRNG; ibm/qiskit/lizaonair/lfdr = 0",
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "реестр purposes/CANDIDATES_CAP и ANU-адаптер существуют — расширять, не переписывать"
+        ],
+        "owner": "Builder (VMQ-Q0)",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-I-01",
@@ -1075,7 +1345,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/consumer-memory.json",
           "description": "used and validated refs: eligible -> influenced choice -> persisted evidence"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Memory/archive exploration: QAN-eligible→influenced→persisted следа нет; worker существует, QAN-результата не получает.",
+        "evidence_refs": [
+          "23477658:services/nostalgia_worker.py, dream_worker.py, anticliche_worker.py, chat_lore.py, initiative_observer.py существуют, но QAN-пула нет",
+          "git grep -i qan 23477658 -- services handlers -> 0"
+        ],
+        "owner": "Builder (VMQ-Q1)",
+        "needs_code": true,
+        "unit": "VMQ-Q1"
+      }
     },
     {
       "source_id": "MAN-I-02",
@@ -1097,7 +1379,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/consumer-nostalgia.json",
           "description": "output/evidence: candidates -> quantum focus -> grounded story -> gated -> published"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Nostalgia: влияние QAN на выбор не реализовано/не зафиксировано.",
+        "evidence_refs": [
+          "23477658:services/nostalgia_worker.py, dream_worker.py, anticliche_worker.py, chat_lore.py, initiative_observer.py существуют, но QAN-пула нет",
+          "git grep -i qan 23477658 -- services handlers -> 0"
+        ],
+        "owner": "Builder (VMQ-Q1)",
+        "needs_code": true,
+        "unit": "VMQ-Q1"
+      }
     },
     {
       "source_id": "MAN-I-03",
@@ -1119,7 +1413,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/consumer-sleep.json",
           "description": "persist revision: explored cells, promoted derived items, watermark/идемпотентность"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Sleep: QAN-влияние на выбор консолидации не реализовано.",
+        "evidence_refs": [
+          "23477658:services/nostalgia_worker.py, dream_worker.py, anticliche_worker.py, chat_lore.py, initiative_observer.py существуют, но QAN-пула нет",
+          "git grep -i qan 23477658 -- services handlers -> 0"
+        ],
+        "owner": "Builder (VMQ-Q1)",
+        "needs_code": true,
+        "unit": "VMQ-Q1"
+      }
     },
     {
       "source_id": "MAN-I-04",
@@ -1141,7 +1447,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/consumer-deep-sleep.json",
           "description": "sleep job & evidence: deep findings, multi-year coverage, cursor/watermark"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Deep sleep: QAN-влияние не реализовано.",
+        "evidence_refs": [
+          "23477658:services/nostalgia_worker.py, dream_worker.py, anticliche_worker.py, chat_lore.py, initiative_observer.py существуют, но QAN-пула нет",
+          "git grep -i qan 23477658 -- services handlers -> 0"
+        ],
+        "owner": "Builder (VMQ-Q1)",
+        "needs_code": true,
+        "unit": "VMQ-Q1"
+      }
     },
     {
       "source_id": "MAN-I-05",
@@ -1163,7 +1481,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/consumer-initiative.json",
           "description": "decision & Telegram ledger: влияние на фокус при сохранённом молчании"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Initiative: QAN-влияние на инициативу не реализовано.",
+        "evidence_refs": [
+          "23477658:services/nostalgia_worker.py, dream_worker.py, anticliche_worker.py, chat_lore.py, initiative_observer.py существуют, но QAN-пула нет",
+          "git grep -i qan 23477658 -- services handlers -> 0"
+        ],
+        "owner": "Builder (VMQ-Q1)",
+        "needs_code": true,
+        "unit": "VMQ-Q1"
+      }
     },
     {
       "source_id": "MAN-I-06",
@@ -1185,7 +1515,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/consumer-meme.json",
           "description": "meme pipeline e2e: влияние на идею, сохранность промптов, дедуп"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Meme initiative: влияние QAN на идею без поломки joke/image промптов и дедупа не реализовано.",
+        "evidence_refs": [
+          "23477658:services/nostalgia_worker.py, dream_worker.py, anticliche_worker.py, chat_lore.py, initiative_observer.py существуют, но QAN-пула нет",
+          "git grep -i qan 23477658 -- services handlers -> 0"
+        ],
+        "owner": "Builder (VMQ-Q1)",
+        "needs_code": true,
+        "unit": "VMQ-Q1"
+      }
     },
     {
       "source_id": "MAN-Q-09",
@@ -1207,7 +1549,20 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-q1/same-pool-influence.json",
           "description": "same-pool comparison: два запуска с разными draw дают разный допустимый фокус"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "selection_changed/decision_delivered на одном eligible pool не реализованы: QAN-пула нет.",
+        "evidence_refs": [
+          "git show 23477658:services/mca_random_source.py — PROVIDER_ANU, PROVIDER_PRNG; ibm/qiskit/lizaonair/lfdr = 0",
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "реестр purposes/CANDIDATES_CAP и ANU-адаптер существуют — расширять, не переписывать"
+        ],
+        "owner": "Builder (VMQ-Q0)",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-S-01",
@@ -1229,7 +1584,18 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-o/provider-probe-logs.json",
           "description": "real probe logs по каждому provider: last_valid_sample_at, latency, payload validation"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Измеренного provider health/last_valid_sample по каждому провайдеру нет: провайдер один (ANU), QAN-событий нет.",
+        "evidence_refs": [
+          "23477658:services/mca_events.py, pipeline_analytics.py, status_service.py, usage_events.py существуют, но QAN-событий/provider health нет"
+        ],
+        "owner": "Builder (VMQ-O)",
+        "needs_code": true,
+        "unit": "VMQ-O"
+      }
     },
     {
       "source_id": "MAN-S-02",
@@ -1251,7 +1617,18 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-o/ibm-quota-pool.json",
           "description": "API + DB events: quota_remaining, inflight jobs, pool occupancy, late_to_pool"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Раздельных IBM quota/jobs/queue/ready pool нет: IBM-подсистемы нет.",
+        "evidence_refs": [
+          "23477658:services/mca_events.py, pipeline_analytics.py, status_service.py, usage_events.py существуют, но QAN-событий/provider health нет"
+        ],
+        "owner": "Builder (VMQ-O)",
+        "needs_code": true,
+        "unit": "VMQ-O"
+      }
     },
     {
       "source_id": "MAN-S-03",
@@ -1273,7 +1650,18 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-o/funnel-denominators.json",
           "description": "reconciliation queries: run funnel, denominators, historical aggregates после retention"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Воронка QAN со знаменателями и durable-агрегатами после TTL не реализована (общая аналитика есть, QAN-воронки нет).",
+        "evidence_refs": [
+          "23477658:services/mca_events.py, pipeline_analytics.py, status_service.py, usage_events.py существуют, но QAN-событий/provider health нет"
+        ],
+        "owner": "Builder (VMQ-O)",
+        "needs_code": true,
+        "unit": "VMQ-O"
+      }
     },
     {
       "source_id": "MAN-U-01",
@@ -1295,7 +1683,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-u/network-vs-db.json",
           "description": "compare network <-> DB на живых данных: статусы и знаменатели"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "«Статус»/«Аналитика» не читают QAN-события: виджетов provider health/funnel нет, сверки network<->DB не было.",
+        "evidence_refs": [
+          "git show 23477658:web/static/status-analytics.js -> отсутствует; git log --all пуст",
+          "23477658:web/index.html, web/app.js — виджетов покрытия годов/причин исключения нет"
+        ],
+        "owner": "Builder + UI acceptance (VMQ-U)",
+        "needs_code": true,
+        "unit": "VMQ-U"
+      }
     },
     {
       "source_id": "MAN-U-02",
@@ -1317,7 +1717,19 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-u/browser-acceptance.md",
           "description": "browser tests Playwright + Browser Use: trace, filters, mobile, singleflight"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Кликабельной трассы, фильтров периода/чата и различия 0/unknown/no_data/unconfigured/stale на живых данных нет.",
+        "evidence_refs": [
+          "git show 23477658:web/static/status-analytics.js -> отсутствует; git log --all пуст",
+          "23477658:web/index.html, web/app.js — виджетов покрытия годов/причин исключения нет"
+        ],
+        "owner": "Builder + UI acceptance (VMQ-U)",
+        "needs_code": true,
+        "unit": "VMQ-U"
+      }
     },
     {
       "source_id": "MAN-R-01",
@@ -1339,7 +1751,18 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-r/effective-flags.md",
           "description": "config dump masked + restart: effective ON, пользовательские значения не перезаписаны"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Effective-ON «готовых функций» эпика проверить нечего: QAN/ONTO-функции не выпущены; применимо только к уже выкаченным memory/voice-линиям.",
+        "evidence_refs": [
+          "замыкание VMQ-R (slice-graph) невыполнимо: ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U не реализованы"
+        ],
+        "owner": "Reviewer + DevOps + PM (VMQ-R)",
+        "needs_code": false,
+        "unit": "VMQ-R (после остальных)"
+      }
     },
     {
       "source_id": "MAN-R-02",
@@ -1365,7 +1788,18 @@
       "extended_by": [
         "VMQ-MEM-07",
         "VMQ-MEM-05"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Baseline-vs-new на идентичных snapshots невозможен: новых функций эпика нет.",
+        "evidence_refs": [
+          "замыкание VMQ-R (slice-graph) невыполнимо: ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U не реализованы"
+        ],
+        "owner": "Reviewer + DevOps + PM (VMQ-R)",
+        "needs_code": false,
+        "unit": "VMQ-R (после остальных)"
+      }
     },
     {
       "source_id": "MAN-R-03",
@@ -1387,7 +1821,18 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-r/release-manifest.md",
           "description": "DevOps manifest: healthz, restart/recovery, deployed commit, blocked_external видим"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "DevOps-манифест по невыпущенному телу эпика и честный blocked_external IBM не оформлялись (IBM-кода нет).",
+        "evidence_refs": [
+          "замыкание VMQ-R (slice-graph) невыполнимо: ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U не реализованы"
+        ],
+        "owner": "Reviewer + DevOps + PM (VMQ-R)",
+        "needs_code": false,
+        "unit": "VMQ-R (после остальных)"
+      }
     },
     {
       "source_id": "MAN-R-04",
@@ -1410,7 +1855,18 @@
           "description": "PM reconciliation: сохранность внешних карт/очереди, отсутствие повторных MEMORY-строк"
         }
       ],
-      "amendment_note": "Поправка 10.11.2026 встроена как VMQ-MEM без нового эпика, без длительного ресерча и без human gate; существующие строки и счётчики эпика не переписаны."
+      "amendment_note": "Поправка 10.11.2026 встроена как VMQ-MEM без нового эпика, без длительного ресерча и без human gate; существующие строки и счётчики эпика не переписаны.",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "PM-сверка выполнена: дублей MEMORY-06/07/08 нет, строки не потеряны, acceptance current_task не менялся (plan §5, §9 и настоящая сверка).",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/plan.md",
+          "plans/features/vmq-onto-01/requirements-map.json"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-QM-01",
@@ -1434,7 +1890,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L9",
-      "amendment_excerpt": "При выборе ANU, Lizaonair, LfDR или IBM Quantum в селекторе динамически показывать все необходимые именно этому провайдеру поля"
+      "amendment_excerpt": "При выборе ANU, Lizaonair, LfDR или IBM Quantum в селекторе динамически показывать все необходимые именно этому провайдеру поля",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Динамических полей по провайдеру в админке нет: селектор/поля LfDR/Lizaonair/IBM отсутствуют, подключение только через существующий ANU-набор.",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-02",
@@ -1458,7 +1926,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L11",
-      "amendment_excerpt": "Сохранённый ключ должен отображаться в поле замаскированным (••••••••), с возможностью замены и удаления"
+      "amendment_excerpt": "Сохранённый ключ должен отображаться в поле замаскированным (••••••••), с возможностью замены и удаления",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Маскирования секретов нового реестра нет: маска/замена/удаление без перезаписи и без открытого текста не реализованы.",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-03",
@@ -1482,7 +1962,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L13",
-      "amendment_excerpt": "Любое изменение параметров через админку должно сохраняться и применяться к действующему сервису, переживать рестарт"
+      "amendment_excerpt": "Любое изменение параметров через админку должно сохраняться и применяться к действующему сервису, переживать рестарт",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Live-apply без рестарта, авто-fallback и сохранность старых значений для четырёх провайдеров не реализованы.",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-04",
@@ -1506,7 +1998,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L15",
-      "amendment_excerpt": "кнопка \"Проверить подключение\" с реальным запросом и проверкой полученных данных"
+      "amendment_excerpt": "кнопка \"Проверить подключение\" с реальным запросом и проверкой полученных данных",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Кнопки «Проверить подключение» с временем/задержкой/причиной для всех провайдеров нет (test_connection привязан к ANU).",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-05",
@@ -1530,7 +2034,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L17",
-      "amendment_excerpt": "агенты обязаны самостоятельно исследовать официальную документацию провайдеров с использованием доступных поисковых движков"
+      "amendment_excerpt": "агенты обязаны самостоятельно исследовать официальную документацию провайдеров с использованием доступных поисковых движков",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Сверки официальной документации провайдеров (ссылки+дата) в артефактах нет.",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-06",
@@ -1554,7 +2070,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L19",
-      "amendment_excerpt": "Если для реального подключения требуются реквизиты, которые нельзя получить самостоятельно, агенты должны запросить их у меня простым языком"
+      "amendment_excerpt": "Если для реального подключения требуются реквизиты, которые нельзя получить самостоятельно, агенты должны запросить их у меня простым языком",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Протокол запроса реквизитов у владельца не оформлен; это не владельческий QA, а документ-процедура.",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-07",
@@ -1578,7 +2106,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L21",
-      "amendment_excerpt": "Все настроенные провайдеры должны реально получать случайные данные, а автоматическое переключение должно работать при отказах"
+      "amendment_excerpt": "Все настроенные провайдеры должны реально получать случайные данные, а автоматическое переключение должно работать при отказах",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Реальной приёмки запросами по всем настроенным провайдерам и отказам ключей нет: нет настройки провайдеров.",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-QM-08",
@@ -1604,7 +2144,19 @@
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L21",
       "amendment_excerpt": "Для IBM дополнительно проверить регистрацию QPU job, состояние очереди и поступление измеренных битов в пул",
       "blocked_external": true,
-      "external_dependency": "IBM Quantum: тот же внешний блокер (credentials/quota). Регистрация job/очередь/пул проверяются реальным QPU job после получения реквизитов; симуляция не засчитывается."
+      "external_dependency": "IBM Quantum: тот же внешний блокер (credentials/quota). Регистрация job/очередь/пул проверяются реальным QPU job после получения реквизитов; симуляция не засчитывается.",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "BLOCKED_EXTERNAL",
+        "target_status": "PENDING",
+        "reason": "IBM job/queue/pool с реальными квотами требует тех же реквизитов и квоты Open Plan; до этого строка остаётся unconfigured/blocked_external и не становится VERIFIED.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/slice-graph.json#external_blockers.EXT-IBM-QPU"
+        ],
+        "owner": "Builder (код) / внешний владелец реквизитов",
+        "trigger": "IBM Quantum API token + instance + доступная квота Open Plan",
+        "needs_code": true,
+        "unit": "VMQ-Q0-IBM (external)"
+      }
     },
     {
       "source_id": "MAN-QM-09",
@@ -1628,7 +2180,19 @@
         }
       ],
       "amendment_ref": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md#L23",
-      "amendment_excerpt": "отсутствие ключа конкретного провайдера должно честно отображаться как `unconfigured`, не блокируя остальные источники"
+      "amendment_excerpt": "отсутствие ключа конкретного провайдера должно честно отображаться как `unconfigured`, не блокируя остальные источники",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "unconfigured-поведение для четырёх провайдеров и заводское ON без перезаписи пользовательских значений не реализованы (для ANU — есть).",
+        "evidence_refs": [
+          "git grep -i \"lizaonair|lfdr|ibm_qiskit\" 23477658 -- handlers web services -> 0",
+          "23477658:handlers/web.py, web/app.js — нет селектора провайдеров и полей по провайдеру"
+        ],
+        "owner": "Builder (VMQ-Q0) + Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-Q0"
+      }
     },
     {
       "source_id": "MAN-MEM-01",
@@ -1664,6 +2228,19 @@
         "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
         "state": "owner_reported_live_defect_unmeasured",
         "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Точного owner-запроса «юмористический рассказ об основных шизах конфы» в измерениях нет; матрица 5 классов с run_id/dataset_ref как артефакт не оформлена.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2.58.179.md (5 классов, 4 метрики, §7 асимметрия)",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-candidate-7bc8545a.md",
+          "точного owner-запроса «шизы конфы» в артефактах нет: grep «шиз» -> 0"
+        ],
+        "owner": "Builder (read-only harness) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM (evidence)"
       }
     },
     {
@@ -1699,6 +2276,19 @@
         "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
         "state": "owner_reported_live_defect_unmeasured",
         "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Машинного per-run трейса (episodes/periods/sources/relations, снятого с retrieve()/bundle) нет; измерения текстовые.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2.58.179.md (5 классов, 4 метрики, §7 асимметрия)",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-candidate-7bc8545a.md",
+          "точного owner-запроса «шизы конфы» в артефактах нет: grep «шиз» -> 0"
+        ],
+        "owner": "Builder (read-only harness) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM (evidence)"
       }
     },
     {
@@ -1734,6 +2324,19 @@
         "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
         "state": "owner_reported_live_defect_unmeasured",
         "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Четыре метрики посчитаны в measurement-2.58.179 §4 с фиксированными знаменателями, но воспроизводимость из следа не обеспечена: relevance машинно не решалась.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2.58.179.md (5 классов, 4 метрики, §7 асимметрия)",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-candidate-7bc8545a.md",
+          "точного owner-запроса «шизы конфы» в артефактах нет: grep «шиз» -> 0"
+        ],
+        "owner": "Builder (read-only harness) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM (evidence)"
       }
     },
     {
@@ -1768,6 +2371,19 @@
         "observation": "На чате с историей около 2,07 млн сообщений запрос «напиши юмористический рассказ об основных шизах конфы» даёт связный рассказ с текущими и более старыми событиями, а обычные вопросы о многолетней истории участников часто выдают случайные факты без связной реконструкции.",
         "state": "owner_reported_live_defect_unmeasured",
         "note": "Живой дефект-репорт владельца, а не гипотеза: строка остаётся PENDING, пока parity не измерена на реальном архиве; удачный творческий ответ дефект не закрывает."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Паритет не установлен: творческий путь получает второй материал-билдер (measurement-2.58.179 §7), обычный — нет; парного «не хуже» по четырём метрикам нет.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2.58.179.md (5 классов, 4 метрики, §7 асимметрия)",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-candidate-7bc8545a.md",
+          "точного owner-запроса «шизы конфы» в артефактах нет: grep «шиз» -> 0"
+        ],
+        "owner": "Builder (read-only harness) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM (evidence)"
       }
     },
     {
@@ -1796,7 +2412,17 @@
       "extends_req_ids": [
         "R-02",
         "M-04"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Методика измерений считает только след retrieve()/payload, а не текст рассказа; удачный творческий ответ доказательством не засчитывался (measurement-2.58.179 §4 и §7).",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2.58.179.md"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-MEM-06",
@@ -1824,7 +2450,17 @@
       "extends_req_ids": [
         "O-04",
         "M-04"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Артефакт Architect доставлен: end-to-end путь до Writer на deployed 32e018b9 с точками потери периодов по каждому из пяти классов и отрицательным доказательством.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/architect-e2e-path.md"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-MEM-07",
@@ -1851,7 +2487,20 @@
       "amendment_excerpt": "Architect должен проверить именно end-to-end retrieval до Writer, Reviewer — независимо сравнить результаты на реальной истории.",
       "extends_req_ids": [
         "R-02"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Независимого сравнения Reviewer на реальной истории нет: артефакт reviewer-independent-comparison.md отсутствует.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2.58.179.md (5 классов, 4 метрики, §7 асимметрия)",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-candidate-7bc8545a.md",
+          "точного owner-запроса «шизы конфы» в артефактах нет: grep «шиз» -> 0"
+        ],
+        "owner": "Builder (read-only harness) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM (evidence)"
+      }
     },
     {
       "source_id": "MAN-MEM-08",
@@ -1879,7 +2528,17 @@
       "extends_req_ids": [
         "O-04",
         "M-04"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Отрицательный контроль выполнен: второго пайплайна и словарных триггеров не появилось, правки идут в существующем retrieve(); раздел §8 измерения кандидата.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-candidate-7bc8545a.md"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-TIME-01",
@@ -1952,6 +2611,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L31"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Выборка 6/15 есть, но по-блочного распределения годов на КАЖДЫЙ прогон в repo-артефакте нет (сырьё в WorkspaceData — не durable), контрпример «2023-2024 заменён более свежим» разобран качественно.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2026,6 +2697,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L30"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Многолетние связанные факты о третьем лице недостижимы на данных (38 субъектов, ни один не покрывает 2 года; 8 927 импортированных фактов без автора/ссылки); приёмка «≥3 участника, включая топ-автора, и ≥1 источник 2023/2024» не выполнялась, not_applicable не оформлялся.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2100,6 +2783,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L32"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Доставка событий разных лет есть (6/15), но требуемый конфликт 2023 из measurement-2.58.179 в выборку не входил; 9/15 провалов — «материал есть, до Writer не дошёл».",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2174,6 +2869,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L23"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Машинной трассы block-year-visibility.json (кандидат→принят→рендер→Writer и категории причин) нет; есть только перечень наблюдённых причин.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-MEM-TIME (bounded code)"
       }
     },
     {
@@ -2248,6 +2955,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L33"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "year-bias-root-cause.md существует, но вердикты confirmed/rejected по каждой ветви и контроль «исправление после первопричины» независимо не подтверждены.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2322,6 +3041,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L32"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Условие «для текущего положения дел 0 периодных строк» не выполняется на deployed-линии: под auto появилась нерелевантная строка 2025 (8436) при 7/8 строк 2026; инвентаризация неизменности embeddings (reuse-inventory) не сделана.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2396,6 +3127,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L34"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Матрицы до/после нет; сравнение с 2.58.179 по релевантности и выдуманным связям не выполнялось, порог «не ниже творческого класса» не измерялся.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2452,6 +3195,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L35"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Независимая проверка есть, но исход подтверждён частично: 6/15, «несколько лет в одном блоке» системным результатом не стало, контроль текущего состояния частично нарушен.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-TIME (evidence)"
       }
     },
     {
@@ -2513,6 +3268,18 @@
           "plans/owner_inputs/2026-11-10-vmq-time-refinement.md#L36"
         ],
         "note": "Уточнение владельца 10.11.2026 к уже зарегистрированным VMQ-TIME-01..07 (plans/owner_inputs/2026-11-10-vmq-time-refinement.md, sha256 826be7bc6f473cc4c0dade946678b3f7fabed499296191d8378e65d774607577): запрет механических исправлений, квота только как оперативный набор, полноценное участие архивных фактов по смыслу запроса через существующий L1, разделение исторической значимости / достоверности / актуальности, пересмотр GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести, профиль из нескольких периодов, адаптивный подбор доказательств при сохранении бюджетов. Новый эпик, human gate и многодневный ресерч не создаются; прежний acceptance сохранён в acceptance_history."
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "«Статус»/«Аналитика» не показывают покрытие годов и причины исключения: виджетов нет (U-срез не реализован), status-analytics-year-coverage*.json/md не создавались.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/independent-sample-709865f6.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
+        "needs_code": true,
+        "unit": "VMQ-MEM-TIME (bounded code)"
       }
     },
     {
@@ -2591,7 +3358,19 @@
       "extends_req_ids": [
         "VMQ-TIME-01",
         "VMQ-TIME-03"
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "FUTURE_OBSERVATION",
+        "target_status": "READY_FOR_LIVE",
+        "reason": "Нужен реальный прямой ход, где периодная нога вернёт ≥1 строку (subject_proxy=knn) и operative-проход останется байт-идентичным. Код выкачен (952b9ebd, 2.58.187), допуск индекса ADMITTED_COMPATIBLE; наблюдения на ходе пока нет. Nonblocking по delivery-протоколу: честная деградация на лексический путь названа и выкачена, а событие нельзя получить по требованию.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/prod-turns-2026-11-11.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/index-compat-diagnosis.md"
+        ],
+        "owner": "DevOps (наблюдение) -> Builder/Reviewer",
+        "trigger": "первый исторический ход с period_vector_leg=ok и vector_rows>=1 на проде 2.58.198+",
+        "needs_code": false
+      }
     },
     {
       "source_id": "MAN-NEXT-02",
@@ -2737,6 +3516,19 @@
         "cause_analysis_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2-cause-decomposition-23477658.md (sha256 1606d68fa30b9d2baea6cc553ed54a96af232493e0e7902327db5eb9887f47ff)",
         "not_a_product_rollback": "в прод ничего не выкатывалось этим кандидатом; текущий прод 23477658 остаётся базой, отката не требуется",
         "status_effect": "строка FAILED; PENDING не выставляется, потому что клауза измерена и провалена, а не ожидает замера"
+      },
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "WAITING_FINAL_CANDIDATE",
+        "target_status": "REVIEW",
+        "reason": "Исправление идёт по architecture-next2-quality.md: сохранить §A period-only FTS, аддитивные knn_ms/fts_ms, откатить §B pool=33/slot-priority к 23477658; порог 58,1% больше не gate, обязательны paired quality invariants на 60 запросах и независимое ревью exact candidate. Остаётся FAILED (измеренный провал) до готового кандидата и доказательств; REVIEW — следующий допустимый статус, не текущий.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/architecture-next2-quality.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/binding-next2b-77791184.md"
+        ],
+        "owner": "Builder -> Reviewer",
+        "trigger": "финальный кандидат §A+NEXT-05 на базе 23477658",
+        "needs_code": true,
+        "unit": "VMQ-MEM-NEXT (final candidate)"
       }
     },
     {
@@ -2865,7 +3657,10 @@
           "year": 2023,
           "stems_shared": 2,
           "verdict": "{\"selected\":[]} — валидный пустой вердикт реранка",
-          "policies": ["historical", "auto"],
+          "policies": [
+            "historical",
+            "auto"
+          ],
           "block_rows": 1,
           "period_kept": 1,
           "period_kept_despite_empty": 1,
@@ -3047,7 +3842,19 @@
         "review_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next-a-positive-23477658.md",
         "status_effect": "PENDING сохраняется; VERIFIED не выставляется"
       },
-      "unverified_reason_2026_11_13": "Проверка выполнена на текущей прод-базе (23477658 / 2.58.198): в блоке C2 под auto нет ни одной строки лексического добора — 10 лексических кандидатов все с shared=1, top-64 старых строк FTS все shared=1. Синтетическая фикстура подтверждает механизм, но не является архивным доказательством. Строка остаётся PENDING по отсутствию положительного случая, а не по формулировке клаузы (чтение установлено 12.11.2026 и выровнено со §4 13.11.2026, см. metrics_semantics_2026_11_12.strict_reading_2026_11_13)."
+      "unverified_reason_2026_11_13": "Проверка выполнена на текущей прод-базе (23477658 / 2.58.198): в блоке C2 под auto нет ни одной строки лексического добора — 10 лексических кандидатов все с shared=1, top-64 старых строк FTS все shared=1. Синтетическая фикстура подтверждает механизм, но не является архивным доказательством. Строка остаётся PENDING по отсутствию положительного случая, а не по формулировке клаузы (чтение установлено 12.11.2026 и выровнено со §4 13.11.2026, см. metrics_semantics_2026_11_12.strict_reading_2026_11_13).",
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "REAL_GAP",
+        "target_status": "PENDING",
+        "reason": "Положительного лексического случая на архиве нет (10 кандидатов shared=1, top-64 старых строк FTS shared=1); контроль C1/C2 на deployed-линии не подтверждён. Контракт architecture-next2-quality.md §Конечное условие прямо не поглощает NEXT-04.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-a-23477658.md",
+          "plans/features/vmq-onto-01/architecture-next2-quality.md (строки 68-71)"
+        ],
+        "owner": "Builder (read-only harness) -> Reviewer",
+        "needs_code": false,
+        "unit": "VMQ-MEM-NEXT (evidence)"
+      }
     },
     {
       "source_id": "MAN-NEXT-05",
@@ -7717,7 +8524,17 @@
           "artifact_path": "plans/features/vmq-onto-01/audit-head.md",
           "description": "mapping HEAD/MEMORY/очередь + контракт событий и fixtures (Architect)"
         }
-      ]
+      ],
+      "reconciliation_2_58_198_2026_11_13": {
+        "bucket": "COVERED_BY_DEPLOYED",
+        "target_status": "REVIEW",
+        "reason": "Артефакт доставлен: audit-head.md (12 разделов, дельта HEAD/MEMORY/ONTO/QAN, §6 сценарий→тест, §7 дубли, §9 DAG). Привязка к HEAD c816e83c (2.58.168) устарела по версии — при биндинге обновить пин до 23477658; новых правок кода не требуется.",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/audit-head.md"
+        ],
+        "owner": "Reviewer (binding) / PM",
+        "needs_code": false
+      }
     },
     {
       "source_id": "L00993",
@@ -9675,5 +10492,342 @@
       ]
     },
     "status_effect_2026_11_12": "Замер выполнен, но строки не закрыты: 02 PENDING (доля 2026 выше базы), 03 PENDING (вакуумно), 04 PENDING (формулировка C2). Память эпика НЕ может отчитываться как завершённая часть: по вопросам без года тренд ушёл в противоположную сторону, а открытый дефект VMQ-MEM-NEXT-YEARMIX-2026-11-12 остаётся в этой записи. [12.11.2026, уточнение] «Формулировка C2» у VMQ-NEXT-04 больше НЕ открытый вопрос: смысл клаузы восстановлен из собственного источника (§2 дизайна, см. metrics_semantics_2026_11_12), и строка остаётся PENDING не из-за формулировки, а из-за отсутствия положительного случая (ноль строк лексического добора во всех 34 блоках)."
+  },
+  "reconciliation_2_58_198_2026_11_13": {
+    "date": "2026-11-13",
+    "production": "2.58.198 @ 234776589c934024ed0e8dceba189fb9d70d3215, schema 47, DDL 0",
+    "owner_basis": [
+      "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md"
+    ],
+    "contract": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+    "method": "Код и тесты проверены на 23477658 (git show/grep/ls-tree). Рабочее дерево master @1a7c491e — другая линия (merge-base 3193b657), файлов релизной линии в checkout нет; это lineage-факт, а не отсутствие реализации.",
+    "scope": "66 строк PENDING + 1 строка FAILED (VMQ-NEXT-02, corrective в работе) на 13.11.2026; строки REVIEW/VERIFIED не пересматривались.",
+    "buckets": {
+      "COVERED_BY_DEPLOYED": {
+        "count": 9,
+        "req_ids": [
+          "R-04",
+          "V-01",
+          "V-02",
+          "V-03",
+          "V-04",
+          "VMQ-A-01",
+          "VMQ-MEM-05",
+          "VMQ-MEM-06",
+          "VMQ-MEM-08"
+        ]
+      },
+      "WAITING_FINAL_CANDIDATE": {
+        "count": 1,
+        "req_ids": [
+          "VMQ-NEXT-02"
+        ]
+      },
+      "FUTURE_OBSERVATION": {
+        "count": 1,
+        "req_ids": [
+          "VMQ-NEXT-01"
+        ]
+      },
+      "BLOCKED_EXTERNAL": {
+        "count": 2,
+        "req_ids": [
+          "Q-04",
+          "QM-08"
+        ]
+      },
+      "REAL_GAP": {
+        "count": 54,
+        "req_ids": [
+          "I-01",
+          "I-02",
+          "I-03",
+          "I-04",
+          "I-05",
+          "I-06",
+          "M-01",
+          "M-02",
+          "M-03",
+          "M-04",
+          "M-05",
+          "O-01",
+          "O-02",
+          "O-03",
+          "O-04",
+          "Q-01",
+          "Q-02",
+          "Q-03",
+          "Q-05",
+          "Q-06",
+          "Q-07",
+          "Q-08",
+          "Q-09",
+          "QM-01",
+          "QM-02",
+          "QM-03",
+          "QM-04",
+          "QM-05",
+          "QM-06",
+          "QM-07",
+          "QM-09",
+          "R-01",
+          "R-02",
+          "R-03",
+          "S-01",
+          "S-02",
+          "S-03",
+          "U-01",
+          "U-02",
+          "VMQ-MEM-01",
+          "VMQ-MEM-02",
+          "VMQ-MEM-03",
+          "VMQ-MEM-04",
+          "VMQ-MEM-07",
+          "VMQ-NEXT-04",
+          "VMQ-TIME-01",
+          "VMQ-TIME-02",
+          "VMQ-TIME-03",
+          "VMQ-TIME-04",
+          "VMQ-TIME-05",
+          "VMQ-TIME-06",
+          "VMQ-TIME-07",
+          "VMQ-TIME-08",
+          "VMQ-TIME-09"
+        ]
+      }
+    },
+    "status_changes_applied": "нет: ни одна строка не переведена в REVIEW/VERIFIED без candidate-bound доказательства; target_status ниже — предложение, а не факт. VMQ-NEXT-02 остаётся FAILED до финального кандидата.",
+    "target_status_delta": {
+      "REVIEW_when_bound": [
+        "VMQ-A-01",
+        "V-01",
+        "V-02",
+        "V-03",
+        "V-04",
+        "VMQ-MEM-05",
+        "VMQ-MEM-06",
+        "VMQ-MEM-08",
+        "R-04"
+      ],
+      "READY_FOR_LIVE": [
+        "VMQ-NEXT-01"
+      ],
+      "UNCHANGED_PENDING": 56
+    },
+    "completion_condition": [
+      "NEXT-02: финальный кандидат §A+NEXT-05 проходит paired quality set (60 запросов, 20/страта) и обязательные invariants (нет потери baseline-фактов, нет temporal-ошибок, нет регрессий delivery/irrelevant/performance), независимое ревью exact candidate — Approved; 58,1% не gate.",
+      "V-01..V-04 и VMQ-A-01: биндинг к 23477658 (код+тесты+audit-head) и независимое ревью — REVIEW->VERIFIED без новых правок; evidence/vmq-v/*.json не обязательны, если верификация идёт на exact candidate.",
+      "MEM-01..04,07 и TIME-01..08: матрица 5 классов с точным owner-запросом, машинный трейс, 4 метрики, паритет, матрица до/после и независимый прогон Reviewer на 2.58.198; TIME-04 требует block-year trace.",
+      "TIME-09 и U-01/U-02: покрытие годов и причины исключения в «Статусе»/«Аналитике» из реальных событий.",
+      "ONTO-A/B, M1, M2, Q0, Q0-IBM, Q1, O, U: реализованы, независимо отревьюены и выкачены; Q-04/QM-08 остаются законно blocked_external (не DONE).",
+      "R-01..R-03: release gate выполнен на выкаченном кандидате; default-ON effective подтверждён, пользовательские значения сохранены, IBM честно показан как blocked_external.",
+      "NEXT-01: остаётся postrelease-наблюдением (READY_FOR_LIVE), не блокирует engineering delivery, но до реального события строка не VERIFIED."
+    ],
+    "legitimate_postrelease": [
+      "VMQ-NEXT-01 (реальный ход с непустой векторной ногой)",
+      "R-01/R-03 postdeploy-часть (effective-ON и DevOps-наблюдение после выката)"
+    ],
+    "not_done_reason": "54 обязательные строки не покрыты ни кодом, ни доказательствами на 23477658; тело эпика (ONTO, M1, M2, QAN, Q1, O, U) не реализовано ни в одной ветке. Эпик не может быть DONE или WAITING_EXTERNAL без этих работ; закрытие NEXT-02 — только corrective stage.",
+    "assignments": {
+      "VMQ-ONTO-A/B": {
+        "rows": [
+          "O-01",
+          "O-02",
+          "O-03",
+          "O-04"
+        ],
+        "owner": "Architect (freeze) -> Builder -> Reviewer",
+        "write_scope": [
+          "services/semantic_contracts.py",
+          "services/graphrag_provenance.py",
+          "services/message_identity.py",
+          "tests/test_semantic_contracts.py"
+        ],
+        "acceptance": "typed concept/relation views поверх memory_contracts.py; alias != существительное, тёзки раздельны, ambiguous остаётся ambiguous; cooccurrence не факт, legacy помечен; один retrieve() получает подсказку без второго роутера."
+      },
+      "VMQ-M1": {
+        "rows": [
+          "M-01",
+          "M-02",
+          "M-03"
+        ],
+        "owner": "Builder -> Reviewer",
+        "write_scope": [
+          "services/memory_episodes.py",
+          "services/mca_episodes.py",
+          "services/memory_maintenance.py",
+          "services/dossier_rebuild_jobs.py",
+          "services/database.py",
+          "tests/test_memory_episodes.py"
+        ],
+        "acceptance": "эпизод = связная Reply-ветка с упорядоченными refs и fingerprint; тематическая линия покрывает годы с контрпримером; досье версионируется, edit/delete/rebuild помечают stale только связанные derived-записи."
+      },
+      "VMQ-M2": {
+        "rows": [
+          "M-04",
+          "M-05",
+          "O-04"
+        ],
+        "owner": "Architect (contract) -> Builder -> Reviewer",
+        "write_scope": [
+          "services/mca_retrieval_context.py",
+          "services/direct_context_composer.py",
+          "services/database.py",
+          "tests/test_memory_unified_retrieval.py"
+        ],
+        "acceptance": "один retrieve() отвечает на person_overview/temporal_change с coverage, независимыми периодами и limitations; нет повторного мем-подтверждения, массовой перегенерации embeddings и cross-chat утечек."
+      },
+      "VMQ-Q0": {
+        "rows": [
+          "Q-01",
+          "Q-02",
+          "Q-07",
+          "Q-08",
+          "QM-01",
+          "QM-02",
+          "QM-03",
+          "QM-04",
+          "QM-05",
+          "QM-06",
+          "QM-09"
+        ],
+        "owner": "Builder + Architect (limits) -> Reviewer",
+        "write_scope": [
+          "services/mca_random_source.py",
+          "services/mca_dream_random.py",
+          "services/hot_config.py",
+          "handlers/web.py",
+          "web/app.js",
+          "web/index.html",
+          "tests/test_qan_provider_settings.py",
+          "tests/test_qan_failover.py"
+        ],
+        "acceptance": "один RandomSource с реестром anu/lfdr/lizaonair/ibm_qiskit; маскированные секреты без перезаписи; live-apply/рестарт; честная проверка подключения; unconfigured не блокирует; поле без modulo bias и без смешивания источников."
+      },
+      "VMQ-Q0-IBM": {
+        "rows": [
+          "Q-03",
+          "Q-05",
+          "Q-06",
+          "Q-04",
+          "QM-08"
+        ],
+        "owner": "Builder -> Reviewer; Q-04/QM-08 остаются blocked_external",
+        "write_scope": [
+          "services/ibm_quantum_driver.py",
+          "services/qan_pool.py",
+          "services/mca_random_source.py",
+          "tests/test_qan_ibm_driver.py"
+        ],
+        "acceptance": "on-demand job или атомарное присоединение в пределах adaptive deadline; поздние результаты в отдельном пуле без повторной выдачи битов; purity/replay на фейках API; Q-04/QM-08 — только реальный QPU, до реквизитов PENDING+blocked_external."
+      },
+      "VMQ-Q1": {
+        "rows": [
+          "I-01",
+          "I-02",
+          "I-03",
+          "I-04",
+          "I-05",
+          "I-06",
+          "Q-09"
+        ],
+        "owner": "Builder -> Reviewer (e2e)",
+        "write_scope": [
+          "services/nostalgia_worker.py",
+          "services/dream_worker.py",
+          "services/anticliche_worker.py",
+          "services/chat_lore.py",
+          "services/initiative_observer.py",
+          "services/mca_dream_random.py",
+          "tests/test_qan_consumers.py"
+        ],
+        "acceptance": "шесть e2e-следов eligible -> influenced choice -> module -> persisted/published/rejected; хотя бы одно реальное изменение решения доказано на тестовом наборе; без forced publish."
+      },
+      "VMQ-O": {
+        "rows": [
+          "S-01",
+          "S-02",
+          "S-03"
+        ],
+        "owner": "Builder -> Reviewer",
+        "write_scope": [
+          "services/mca_events.py",
+          "services/pipeline_analytics.py",
+          "services/status_service.py",
+          "services/usage_events.py",
+          "tests/test_qan_observability.py"
+        ],
+        "acceptance": "health с last_valid_sample_at и latency; IBM quota/jobs/queue/pool раздельно; воронка suggested->accepted->persisted/published с корректными знаменателями и честным «нет данных»."
+      },
+      "VMQ-U": {
+        "rows": [
+          "U-01",
+          "U-02",
+          "VMQ-TIME-09"
+        ],
+        "owner": "Builder -> Playwright/Browser Use -> Reviewer",
+        "write_scope": [
+          "web/index.html",
+          "web/app.js",
+          "web/static/app.css",
+          "web/static/status-analytics.js",
+          "handlers/web.py",
+          "tests/ui_vmq_status_analytics_e2e.py"
+        ],
+        "acceptance": "виджеты на серверных событиях, различают 0/unknown/no_data/unconfigured/stale, покрытие годов и причины исключения из реальных событий; network<->DB совпадает; desktop+mobile."
+      },
+      "VMQ-R": {
+        "rows": [
+          "R-01",
+          "R-02",
+          "R-03"
+        ],
+        "owner": "Reviewer + DevOps + PM",
+        "write_scope": [
+          "plans/features/vmq-onto-01/evidence/",
+          "plans/features/vmq-onto-01/reports/"
+        ],
+        "acceptance": "эффективные флаги ON с сохранёнными пользовательскими значениями; baseline vs new с неопределённостью; DevOps-манифест health/рестарт/откат; честный blocked_external IBM; закрытие только доказанных ID."
+      },
+      "VMQ-MEM (evidence)": {
+        "rows": [
+          "VMQ-MEM-01",
+          "VMQ-MEM-02",
+          "VMQ-MEM-03",
+          "VMQ-MEM-04",
+          "VMQ-MEM-07"
+        ],
+        "owner": "Builder (harness) -> Reviewer (independent run)",
+        "write_scope": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/",
+          "tests/test_memory_multi_formulation_parity.py"
+        ],
+        "acceptance": "матрица 5 классов включая точный owner-запрос, машинный трейс на прогон, 4 метрики с знаменателями, парный паритет plain/creative, независимый прогон Reviewer на 2.58.198. Любой найденный дефект маршрутизируется в M2/MEM, а не маскируется."
+      },
+      "VMQ-MEM-TIME (evidence+bounded code)": {
+        "rows": [
+          "VMQ-TIME-01",
+          "VMQ-TIME-02",
+          "VMQ-TIME-03",
+          "VMQ-TIME-04",
+          "VMQ-TIME-05",
+          "VMQ-TIME-06",
+          "VMQ-TIME-07",
+          "VMQ-TIME-08"
+        ],
+        "owner": "Builder (harness; TIME-04 instrumentation) -> Reviewer",
+        "write_scope": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/",
+          "services/direct_chat_service.py (только block-year trace)"
+        ],
+        "acceptance": "по-блочные годы и причины на каждый прогон в repo-артефакте; матрица до/после на копии прод-БД; контроль текущего состояния без исторических строк; независимое подтверждение Reviewer; embeddings не перестроены."
+      }
+    }
+  },
+  "next_executable_2026_11_13": {
+    "slice": "VMQ-MEM-NEXT (final candidate: A + NEXT-05)",
+    "owner": "Builder -> Reviewer",
+    "action": "Minimal candidate from 23477658: keep period-only FTS repair and additive knn_ms/fts_ms, revert the pool=33/slot-priority experiment; run paired 60-query quality set (20 per stratum); Reviewer independently verifies the exact candidate. In parallel (read-only): bind V-01..V-04 and VMQ-A-01 to 23477658 and run VMQ-MEM/TIME evidence on a prod-DB copy.",
+    "why": "The previous next_executable (DevOps probe for NEXT-01) is stale as a pointer: NEXT-01 is postrelease observation. The old field is kept unchanged."
   }
-}
+}
