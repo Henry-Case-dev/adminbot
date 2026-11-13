@@ -131,8 +131,30 @@ _GRAPH_VEC_TABLE_SQL_INT8 = (
 # cap при заполненном K — partial (телеметрия + WARNING, результат не
 # «молчаливо неполный»). Простой больший глобальный K фиксом НЕ считается
 # (§18F.4) — именно поэтому добор стадийный с гарантией per-chat.
+#
+# SXR-I6-01 (SMART-EXECUTION-RELIABILITY-01): staged overfetch сам по себе не
+# гарантирует scope — при перекосе чужие чаты заполняют k до cap (прод-лог
+# `own=3/16`, `own=5/30`, `k_last=512`, `filtered_other_chat=509`), и нужный
+# чат получает partial. Структурный фикс без DDL/переиндексации: sqlite-vec
+# 0.1.9 поддерживает `rowid IN (SELECT …)` внутри KNN — rowid vec-строки ==
+# id записи-источника (`graph_facts.id`/`smart_archive_facts.id`, инвариант
+# INSERT), поэтому chat-подзапрос отбирает кандидатов ДО top-K. Cap и
+# множитель НЕ увеличиваются; staged добор остаётся только для post-KNN
+# фильтров (TTL/origin), а не для вытеснения чужими чатами.
 _KNN_SCOPE_OVERFETCH_MULT = 4
 _KNN_SCOPE_K_CAP = 512
+
+
+def _chat_scope_rowid_clause(source_table: str) -> str:
+    """SQL-фрагмент exact chat-scope для vec0-KNN (rowid pre-filter).
+
+    `source_table` — таблица-источник, чей `id` равен rowid vec-строки
+    (`graph_facts` / `smart_archive_facts`). Подставляется только литерал
+    из кода; значение chat_id — параметр `?` (R17).
+    """
+    return f"AND rowid IN (SELECT id FROM {source_table} WHERE chat_id = ?)"
+
+
 _DEDUP_KNN_WANT = 3               # семантика 64.1: до 3 ближайших кандидатов
 _DEDUP_KNN_CAP = 192
 
@@ -4179,22 +4201,25 @@ class MemoryManager:
 
     @staticmethod
     async def _staged_knn_scope(run_knn, k_first: int, k_cap: int, want: int,
-                                keep) -> tuple[list, dict]:
-        """v6 D06 (§9A.3/§18F.4): staged overfetch для vec0-KNN, который не
-        умеет фильтр по auxiliary-колонке внутри MATCH. run_knn(k) → строки
-        top-k в порядке дистанции; keep(row) — предикат «свой чат» (+TTL/
-        liveness). k растёт ×4 от k_first (кламп в k_cap), пока keep-строк
-        < want и выборка не исчерпана (строк < k). Каждая попытка — полный
-        top-k скан (надмножество предыдущей), ответ строится по последней.
+                                keep, *, scope: str = "overfetch",
+                                ) -> tuple[list, dict]:
+        """Chat-scope KNN: rowid-подзапрос источника до top-K + staged добор.
+
+        SXR-I6-01: `run_knn` включает `_chat_scope_rowid_clause(...)` — чужие
+        чаты физически не входят в выдачу и не занимают k (без роста k_last,
+        DDL и переиндексации). Добор `k ×4` до cap остаётся только для
+        post-KNN фильтров своего чата (TTL/origin): пока keep-строк < want и
+        выборка не исчерпана (строк < k). Каждая попытка — полный top-k скан
+        (надмножество предыдущей), ответ строится по последней.
         Возвращает (rows, tele); tele: attempts, k_last, own, want,
         overfetch_used (потребовался стадийный добор, attempts > 1),
-        filtered_other_chat (чужие/просроченные в последнем скане),
-        exhausted (индекс дочитан), partial (своего < want при НЕ
-        исчерпанном индексе — чужие заняли K вплоть до cap)."""
+        filtered_other_chat (после rowid-scope — 0; ключ сохранён для
+        совместимости), exhausted (индекс дочитан), partial (своего < want
+        при НЕ исчерпанном индексе), scope (rowid)."""
         k = max(1, min(int(k_first), int(k_cap)))
         tele = {"attempts": 0, "k_last": k, "own": 0, "want": int(want),
                 "overfetch_used": False, "filtered_other_chat": 0,
-                "exhausted": False, "partial": False}
+                "exhausted": False, "partial": False, "scope": str(scope)}
         kept: list = []
         while True:
             tele["attempts"] += 1
@@ -4215,21 +4240,25 @@ class MemoryManager:
     @staticmethod
     def _log_knn_scope(tele: dict, tag: str, chat_id: int) -> None:
         """R17 (только числа/коды): честная деградация — partial WARNING,
-        стадийный добор INFO; здоровый первый-проб без добора не логируется."""
+        стадийный добор INFO; здоровый первый-проб без добора не логируется.
+        SXR-I6-01: scope=rowid — чужие чаты отсечены до KNN; partial означает
+        недобор СВОЕГО чата после TTL/origin-фильтра, а не вытеснение."""
         if tele.get("partial"):
             logger.warning(
-                "%s: chat-scope KNN partial — чужие чаты заполнили K до cap, "
+                "%s: chat-scope KNN partial — недобор своего чата до cap, "
                 "результат частичный | chat_id=%s | own=%d/%d | attempts=%d | "
-                "k_last=%d | overfetch_used=%d | filtered_other_chat=%d",
+                "k_last=%d | overfetch_used=%d | filtered_other_chat=%d | "
+                "scope=%s",
                 tag, chat_id, tele["own"], tele["want"], tele["attempts"],
                 tele["k_last"], int(tele["overfetch_used"]),
-                tele["filtered_other_chat"])
+                tele["filtered_other_chat"], tele.get("scope", "-"))
         elif tele.get("overfetch_used"):
             logger.info(
                 "%s: chat-scope KNN overfetch | chat_id=%s | own=%d/%d | "
-                "attempts=%d | k_last=%d | filtered_other_chat=%d",
+                "attempts=%d | k_last=%d | filtered_other_chat=%d | scope=%s",
                 tag, chat_id, tele["own"], tele["want"], tele["attempts"],
-                tele["k_last"], tele["filtered_other_chat"])
+                tele["k_last"], tele["filtered_other_chat"],
+                tele.get("scope", "-"))
 
     async def _search_archive_knn(self, chat_id: int, vector: list[float],
                                   limit: int) -> list[str]:
@@ -4240,21 +4269,21 @@ class MemoryManager:
     async def _search_archive_knn_scoped(
             self, chat_id: int, vector: list[float], limit: int,
     ) -> tuple[list[str], dict]:
-        # vec0 (0.1.x) не поддерживает ни JOIN, ни фильтр auxiliary-колонки
-        # внутри KNN-запроса — chat-scope обеспечивается ДО effective top-K
-        # доказанным staged overfetch (v6 D06, §9A.3/§18F.4): k растёт ×4 до
-        # cap, пока после chat-фильтра не наберётся limit фактов СВОЕГО чата;
-        # исчерпание индекса — честное «в чате меньше фактов», cap при
-        # заполненном K — partial (телеметрия + WARNING, не молчаливо
-        # неполный). Epic 60 (66.6, T-484): int8 — грубый KNN → реранк float →
-        # top-limit; float-only — точный MATCH.
+        # SXR-I6-01: exact chat-scope ДО KNN — rowid-подзапрос
+        # `smart_archive_facts` (rowid vec-строки == id факта). Чужие чаты не
+        # входят в top-K и не вытесняют свой даже при перекосе корпуса;
+        # staged добор остаётся только для post-KNN фильтров. Epic 60
+        # (66.6, T-484): int8 — грубый KNN → реранк float → top-limit;
+        # float-only — точный MATCH.
         embedding_json = json.dumps(vector)
+        scope_sql = _chat_scope_rowid_clause("smart_archive_facts")
 
         async def _run_int8(k: int):
             cursor = await self.db.db.execute(
                 "SELECT fact_id, chat_id FROM smart_archive "
-                "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
-                (embedding_json, k))
+                "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ? "
+                + scope_sql,
+                (embedding_json, k, chat_id))
             return await cursor.fetchall()
 
         if self._vec_int8:
@@ -4262,7 +4291,7 @@ class MemoryManager:
                 rows, tele = await self._staged_knn_scope(
                     _run_int8, limit * _KNN_SCOPE_OVERFETCH_MULT,
                     _KNN_SCOPE_K_CAP, limit,
-                    lambda row: row["chat_id"] == chat_id)
+                    lambda row: row["chat_id"] == chat_id, scope="rowid")
             except Exception:
                 logger.warning(
                     "SmartModule L3: int8 KNN failed — float path", exc_info=True)
@@ -4304,13 +4333,13 @@ class MemoryManager:
         async def _run_float(k: int):
             cursor = await self.db.db.execute(
                 "SELECT fact_id, chat_id, distance FROM smart_archive "
-                "WHERE embedding MATCH ? AND k = ?",
-                (embedding_json, k))
+                "WHERE embedding MATCH ? AND k = ? " + scope_sql,
+                (embedding_json, k, chat_id))
             return await cursor.fetchall()
 
         rows, tele = await self._staged_knn_scope(
             _run_float, limit * _KNN_SCOPE_OVERFETCH_MULT, _KNN_SCOPE_K_CAP,
-            limit, lambda row: row["chat_id"] == chat_id)
+            limit, lambda row: row["chat_id"] == chat_id, scope="rowid")
         self._log_knn_scope(tele, "SmartModule L3", chat_id)
         fact_ids = [row["fact_id"] for row in rows][:limit]
         if not fact_ids:
@@ -5450,22 +5479,22 @@ class MemoryManager:
                 "fact_id=%s", fact_id, exc_info=True)
 
     async def _dedup_knn(self, chat_id: int, vector: list[float]) -> list:
-        """64.1 + v6 D06 (§9A.3/§18F.4): KNN-дедуп по graph_facts_vec —
-        кандидаты ТОЛЬКО своего чата, chat-scope ДО top-K (было k=3 ГЛОБАЛЬНО
-        → фильтр в Python: три чужих кандидата могли скрыть реальный дубликат
-        своего чата). Staged overfetch ×4 до cap: пока не наберётся 3 своих
-        живых (TTL) кандидата либо индекс не исчерпан; исчерпание — честное
-        «в чате меньше фактов», недобор из-за cap при заполненном K — partial
-        (WARNING, не молчаливо). БЕЗ фильтров origin/status — unconfirmed
-        участвует как кандидат подтверждения."""
+        """64.1 + v6 D06 (§9A.3/§18F.4) + SXR-I6-01: KNN-дедуп по
+        graph_facts_vec — кандидаты ТОЛЬКО своего чата, exact chat-scope ДО
+        top-K через rowid-подзапрос источника (было: глобальный KNN → фильтр
+        в Python; чужие кандидаты могли скрыть реальный дубликат своего чата
+        и заполнить k до cap). Staged добор остаётся только для TTL своего
+        чата; исчерпание — честное «в чате меньше фактов». БЕЗ фильтров
+        origin/status — unconfirmed участвует как кандидат подтверждения."""
         now = int(time.time())
         embedding_json = json.dumps(vector)
 
         async def _run_knn(k: int):
             cursor = await self.db.db.execute(
                 "SELECT fact_id, chat_id, expires_at, distance FROM graph_facts_vec "
-                "WHERE embedding MATCH ? AND k = ?",
-                (embedding_json, k))
+                "WHERE embedding MATCH ? AND k = ? "
+                + _chat_scope_rowid_clause("graph_facts"),
+                (embedding_json, k, chat_id))
             return await cursor.fetchall()
 
         def _own_live(row) -> bool:
@@ -5474,7 +5503,7 @@ class MemoryManager:
 
         rows, tele = await self._staged_knn_scope(
             _run_knn, _DEDUP_KNN_WANT, _DEDUP_KNN_CAP, _DEDUP_KNN_WANT,
-            _own_live)
+            _own_live, scope="rowid")
         self._log_knn_scope(tele, "graphrag dedup", chat_id)
         return rows
 
@@ -6775,15 +6804,13 @@ class MemoryManager:
                               expired_only=False) -> list:
         """[(fact_id, cosine, float_vector|None), ...] по убыванию cosine.
 
-        B03.4/D06-остаток (v6.3, §18F.4): chat-scope ДО effective top-K —
-        РОВНО тот же анти-паттерн «глобальный KNN → фильтр после k», что был
-        в archive-KNN и dedup, лечится доказанным staged overfetch
-        (`_staged_knn_scope`): k растёт ×4 до жёсткого cap, пока после
-        chat/TTL/origin-фильтра не наберётся fetch_k фактов СВОЕГО чата либо
-        не исчерпается индекс. Чужие факты никогда не возвращаются и не
-        вытесняют свои. `expired_only=True` — вторая (архивная) стадия
-        B03.2: кандидаты ТОЛЬКО истёкшие (TTL <= now) для top-up свежей
-        выдачи/исторического поиска.
+        B03.4/D06-остаток (v6.3, §18F.4) + SXR-I6-01: chat-scope ДО effective
+        top-K. Exact scope даёт rowid-подзапрос источника внутри KNN
+        (`graph_facts`; rowid vec-строки == id факта) — чужие чаты физически
+        не входят в top-K и не занимают k до cap. Staged добор остаётся
+        только для chat/TTL/origin-фильтра своего чата. `expired_only=True` —
+        вторая (архивная) стадия B03.2: кандидаты ТОЛЬКО истёкшие (TTL <= now)
+        для top-up свежей выдачи/исторического поиска.
 
         int8-путь: грубый KNN → реранк по float (66.6); фейл int8 →
         float-MATCH (точная дистанция). include_self (default False) —
@@ -6791,19 +6818,20 @@ class MemoryManager:
         keep = self._vec_row_keep(chat_id, include_direct_reply, now,
                                   include_self, expired_only)
         want = max(1, int(fetch_k))
+        scope_sql = _chat_scope_rowid_clause("graph_facts")
         if self._vec_int8:
             async def _run_int8(k: int):
                 cursor = await self.db.db.execute(
                     "SELECT fact_id, chat_id, origin, expires_at FROM "
                     "graph_facts_vec WHERE embedding_i8 MATCH "
-                    "vec_quantize_int8(?, 'unit') AND k = ?",
-                    (json.dumps(vector), k))
+                    "vec_quantize_int8(?, 'unit') AND k = ? " + scope_sql,
+                    (json.dumps(vector), k, chat_id))
                 return await cursor.fetchall()
 
             try:
                 rows, tele = await self._staged_knn_scope(
                     _run_int8, want * _KNN_SCOPE_OVERFETCH_MULT,
-                    _KNN_SCOPE_K_CAP, want, keep)
+                    _KNN_SCOPE_K_CAP, want, keep, scope="rowid")
             except Exception:
                 logger.warning(
                     "graphrag RAG: int8 KNN failed — float path | chat_id=%s",
@@ -6815,13 +6843,14 @@ class MemoryManager:
         async def _run_float(k: int):
             cursor = await self.db.db.execute(
                 "SELECT fact_id, chat_id, origin, expires_at, distance "
-                "FROM graph_facts_vec WHERE embedding MATCH ? AND k = ?",
-                (json.dumps(vector), k))
+                "FROM graph_facts_vec WHERE embedding MATCH ? AND k = ? "
+                + scope_sql,
+                (json.dumps(vector), k, chat_id))
             return await cursor.fetchall()
 
         rows, tele = await self._staged_knn_scope(
             _run_float, want * _KNN_SCOPE_OVERFETCH_MULT, _KNN_SCOPE_K_CAP,
-            want, keep)
+            want, keep, scope="rowid")
         self._log_knn_scope(tele, "graphrag RAG", chat_id)
         return [(row["fact_id"], 1.0 - row["distance"], None) for row in rows]
 

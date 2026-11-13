@@ -4095,10 +4095,11 @@ CORRECTION_SUBJECT_UNKNOWN = "unresolved"
 #     занимал, запрещено, поэтому ветка с ``unknown`` говорит об этом прямо.
 CORRECTION_CHALLENGE_CLAIMED = "claimed"
 CORRECTION_CHALLENGE_UNKNOWN = "unknown"
-#: Сколько строк счёта показывать (выборка данных, не бюджет инструкций) и
-#: кап текста собственной оспариваемой реплики (паритет с Current_Question).
+#: Сколько строк счёта показывать (выборка данных, не бюджет инструкций).
+#: SXR-I6-02: символьный кап текста своей реплики/цитаты удалён — текст
+#: передаётся полностью; реальный предел — контекстное окно модели и лимит
+#: длины сообщения источника (Telegram), а не произвольная константа.
 _CORRECTION_MAX_ROWS = 8
-_CORRECTION_OWN_TEXT_CAP = 800
 #: Контрактный разбор СВОЕГО маркера (не текста участников): атрибуты кодов —
 #: единственный машинный слой рамки, из него собирается диагностика/манифест.
 _CORRECTION_FRAME_ATTR_RE = re.compile(
@@ -14808,24 +14809,18 @@ class DirectChatService:
                         continue
                 other_claims = tuple(item for item in labels if item)
 
-        # Кап текста своей реплики/цитаты — потеря не молчит (R17: только числа).
-        _claim_capped = claim_text[:_CORRECTION_OWN_TEXT_CAP]
-        _quote_capped = quote_text[:_CORRECTION_OWN_TEXT_CAP]
-        for _kind, _before, _after in (
-                ("claim", len(claim_text), len(_claim_capped)),
-                ("quote", len(quote_text), len(_quote_capped))):
-            if _before > _after:
-                logger.warning(
-                    "direct: correction frame %s truncated | chat=%s | "
-                    "chars=%d -> %d", _kind, chat_id, _before, _after)
+        # SXR-I6-02: содержательное утверждение человека не обрезается
+        # искусственно — полный текст источника передаётся в рамку (потеря
+        # «хвоста» утверждения недопустима). Упаковку по РЕАЛЬНОМУ
+        # контекстному окну выполняет существующий composer, не эта ветка.
         block = _render_correction_frame(
             link=link, subject=subject, trigger_label=trig_label,
             trigger_name=trig_name,
             claim_label=claim_label,
-            claim_text=escape_xml_text(_claim_capped) if _claim_capped else "",
+            claim_text=escape_xml_text(claim_text) if claim_text else "",
             claim_in_payload=claim_in_payload,
             claim_source_present=source_present,
-            quote_text=escape_xml_text(_quote_capped) if _quote_capped else "",
+            quote_text=escape_xml_text(quote_text) if quote_text else "",
             participant_label=participant_label,
             intervening=intervening, other_claims=other_claims,
             counting=counting, window_size=window_size)
