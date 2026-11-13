@@ -314,6 +314,139 @@ class TestRangeContinuation:
         assert payload["line_range"][1] == 400
 
 
+# ── SXR-C1-02 (§C1 440): oversized-текст доступен по диапазонам ────────────
+
+OVERSIZED_LINES = 35000
+
+
+def _oversized_file() -> tuple[dict[str, str], int]:
+    """Текст > 2 МБ (физический предел одной порции) с нумерованными строками."""
+    body = "\n".join(f"{index:06d} " + "x" * 60
+                     for index in range(1, OVERSIZED_LINES + 1)) + "\n"
+    assert len(body.encode("utf-8")) > 2_000_000
+    return {"services/huge.py": body}, OVERSIZED_LINES
+
+
+def _expected_lines(first: int, last: int) -> str:
+    return "\n".join(f"{index:06d} " + "x" * 60
+                     for index in range(first, last + 1))
+
+
+class TestOversizedRanges:
+    @pytest.mark.asyncio
+    async def test_initial_range_of_oversized_text_is_readable(self, tmp_path):
+        files, total = _oversized_file()
+        payload = await _reader(tmp_path, files).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/huge.py", line_start=1, line_end=200, follow=False)
+        assert payload["status"] == sr.STATUS_OK
+        assert payload["verified"] is True
+        assert payload["line_range"] == [1, 200]
+        assert payload["file_total_lines"] == total
+        assert payload["snippet"] == _expected_lines(1, 200)
+        assert payload["truncation"]["limit_source"] == "file_bytes_page"
+        assert payload["truncation"]["truncated"] is True
+        assert payload["truncation"]["retrievable_remainder_lines"] == total - 200
+        assert payload["truncation"]["next_line_start"] == 201
+
+    @pytest.mark.asyncio
+    async def test_next_range_of_oversized_text_is_readable(self, tmp_path):
+        files, total = _oversized_file()
+        reader = _reader(tmp_path, files)
+        first = await reader.run(operation=sr.OPERATION_READ, repo=REPO,
+                                 ref=SHA, path="services/huge.py",
+                                 line_start=1, line_end=200, follow=False)
+        second = await reader.run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/huge.py",
+            line_start=first["truncation"]["next_line_start"], line_end=400,
+            follow=False)
+        assert second["status"] == sr.STATUS_OK
+        assert second["verified"] is True
+        assert second["line_range"] == [201, 400]
+        assert second["snippet"] == _expected_lines(201, 400)
+        assert second["file_total_lines"] == total
+        assert second["truncation"]["next_line_start"] == 401
+
+    @pytest.mark.asyncio
+    async def test_tail_range_of_oversized_text_reaches_eof(self, tmp_path):
+        files, total = _oversized_file()
+        payload = await _reader(tmp_path, files).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/huge.py", line_start=total - 9, follow=False)
+        assert payload["status"] == sr.STATUS_OK
+        assert payload["line_range"] == [total - 9, total]
+        assert payload["snippet"] == _expected_lines(total - 9, total)
+        assert payload["truncation"]["truncated"] is False
+        assert "next_line_start" not in payload["truncation"]
+
+    @pytest.mark.asyncio
+    async def test_oversized_without_range_returns_first_portion(self, tmp_path):
+        files, total = _oversized_file()
+        body = files["services/huge.py"]
+        payload = await _reader(tmp_path, files).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/huge.py", follow=False)
+        assert payload["status"] == sr.STATUS_OK
+        assert payload["line_range"][0] == 1
+        assert payload["truncation"]["truncated"] is True
+        assert payload["truncation"]["next_line_start"] > 1
+        # Порция — не весь файл: в ответ не уходит ~3 МБ.
+        assert payload["snippet_chars"] < len(body)
+        assert payload["snippet_chars"] <= 2_000_000
+        assert payload["file_total_lines"] == total
+
+    @pytest.mark.asyncio
+    async def test_range_beyond_eof_is_honest_not_found(self, tmp_path):
+        files, total = _oversized_file()
+        payload = await _reader(tmp_path, files).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/huge.py", line_start=total + 50, follow=False)
+        assert payload["status"] == sr.STATUS_NOT_FOUND
+        assert payload["reason"] == "line_range_beyond_eof"
+        assert payload["verified"] is False and payload["snippet"] == ""
+
+    @pytest.mark.asyncio
+    async def test_oversized_binary_stays_binary(self, tmp_path):
+        files = {"services/huge.bin": b"\x00\x01\x02\x03" * 900_000}
+        payload = await _reader(tmp_path, files).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/huge.bin", line_start=1, line_end=10, follow=False)
+        assert payload["status"] == sr.STATUS_UNSUPPORTED
+        assert payload["reason"] == "binary_content"
+        assert payload["verified"] is False and payload["snippet"] == ""
+
+    @pytest.mark.asyncio
+    async def test_oversized_traversal_and_ads_still_denied(self, tmp_path):
+        files, _total = _oversized_file()
+        reader = _reader(tmp_path, files)
+        for path in ("../services/huge.py", "services/huge.py:stream"):
+            payload = await reader.run(operation=sr.OPERATION_READ, repo=REPO,
+                                       ref=SHA, path=path, line_start=1,
+                                       follow=False)
+            assert payload["error"] in (sr.ERR_PATH_DENIED,
+                                        sr.ERR_SOURCE_MISSING), path
+            assert payload["snippet"] == ""
+
+    @pytest.mark.asyncio
+    async def test_followup_does_not_pull_oversized_page(self, tmp_path):
+        """Служебное чтение цепочки не тянет мегабайтную порцию в ответ."""
+        body = "\n".join("x" * 60 for _ in range(40000)) + "\n"
+        assert len(body.encode("utf-8")) > 2_000_000
+        files = {"services/hub.py": "def hub():\n    huge_fn()\n    return 1\n",
+                 "services/huge_fn.py": "def huge_fn():\n" + body}
+        payload = await _reader(tmp_path, files).run(
+            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
+            path="services/hub.py", follow=True)
+        assert payload["status"] == sr.STATUS_OK
+        assert len(payload["files"]) == 1              # oversized sibling пропущен
+        assert payload["not_checked"]["files_read"] == 1
+        assert payload["snippet_chars"] < 20_000
+        assert payload["not_checked"]["chain_delivered_chars"] < 20_000
+
+
+
+
 # ── SXR-C1-02: safety остаётся ────────────────────────────────────────────
 
 class TestSafetyRetained:
@@ -350,22 +483,33 @@ class TestSafetyRetained:
         assert payload["verified"] is False and payload["snippet"] == ""
 
     @pytest.mark.asyncio
-    async def test_single_portion_limit_is_reported_not_silent(self, tmp_path,
-                                                               monkeypatch):
-        """Предел байтов файла — реальный safety: честный отказ, не «пусто»."""
+    async def test_portion_limit_pages_text_and_refuses_oversized_line(
+            self, tmp_path, monkeypatch):
+        """Предел порции: текст отдаётся страницами, «неделимая» строка — отказ."""
         monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_FILE_BYTES", 1024)
         files = {"services/hub.py": "def hub():\n    return 1\n",
-                 "services/large.py": "x = 1\n" * 400}
-        payload = await _reader(tmp_path, files).run(
-            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
-            path="services/large.py", follow=False)
-        assert payload["status"] == sr.STATUS_UNSUPPORTED
-        assert payload["reason"] == "file_too_large"
-        assert payload["verified"] is False
+                 "services/large.py": "x = 1\n" * 400,
+                 "services/one_line.py": "y" * 3000 + "\n"}
+        reader = _reader(tmp_path, files)
+        paged = await reader.run(operation=sr.OPERATION_READ, repo=REPO,
+                                 ref=SHA, path="services/large.py",
+                                 follow=False)
+        assert paged["status"] == sr.STATUS_OK
+        assert paged["line_range"][0] == 1
+        assert paged["truncation"]["limit_source"] == "file_bytes_page"
+        assert paged["truncation"]["next_line_start"] > 1
+        assert paged["snippet_chars"] <= 1024
+        assert paged["file_total_lines"] == 400
+        # Строка, которая сама не влезает в порцию, — честный file_too_large.
+        refused = await reader.run(operation=sr.OPERATION_READ, repo=REPO,
+                                   ref=SHA, path="services/one_line.py",
+                                   follow=False)
+        assert refused["status"] == sr.STATUS_UNSUPPORTED
+        assert refused["reason"] == "file_too_large"
+        assert refused["verified"] is False
         # Малый файл при том же пределе читается: отказ не глобальный.
-        small = await _reader(tmp_path, files).run(
-            operation=sr.OPERATION_READ, repo=REPO, ref=SHA,
-            path="services/hub.py", follow=False)
+        small = await reader.run(operation=sr.OPERATION_READ, repo=REPO,
+                                 ref=SHA, path="services/hub.py", follow=False)
         assert small["status"] == sr.STATUS_OK and small["verified"] is True
 
     @pytest.mark.asyncio

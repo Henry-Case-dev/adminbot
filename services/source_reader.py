@@ -533,13 +533,29 @@ class TreeListing:
 
 @dataclass(frozen=True)
 class SourceFile:
-    """Байты файла + провенанс (``endpoint`` — id вызова, не URL)."""
+    """Байты файла + провенанс (``endpoint`` — id вызова, не URL).
+
+    ``page`` заполняется только при постраничном чтении oversized-текста:
+    ``{line_start, line_end, total_lines, portion_bytes, budget_bytes,
+    truncated, next_line_start}`` — номера строк АБСОЛЮТНЫЕ по файлу.
+    """
 
     path: str
     data: bytes
     sha: str = ""
     size: int = 0
     endpoint: str = ENDPOINT_CONTENTS
+    page: dict | None = None
+
+
+def _control_bytes(raw: bytes) -> int:
+    """Служебные байты строки: тот же канон, что у ``decode_source_bytes``.
+
+    Считаются только управляющие символы, НЕ являющиеся текстовыми
+    (``\\t``/``\\n``/``\\r``/``\\f``/``\\v`` — легальные байты исходника).
+    """
+    return sum(1 for byte in raw if byte < 0x20
+               and byte not in (0x09, 0x0A, 0x0D, 0x0C, 0x0B))
 
 
 # ── разбор ссылок (по ФОРМЕ URL, без словарей имён) ─────────────────────────
@@ -743,7 +759,9 @@ class SourceProvider(Protocol):
     async def list_tree(self, repo: str, commit: str) -> TreeListing | None: ...
 
     async def read_file(self, repo: str, commit: str, path: str,
-                        *, blob_sha: str = "") -> SourceFile | None: ...
+                        *, blob_sha: str = "", line_start=None,
+                        line_end=None, page_ok: bool = True
+                        ) -> SourceFile | None: ...
 
 
 def _classify_http_status(status: int, headers) -> str:
@@ -935,7 +953,9 @@ class GitHubProvider:
                            truncated=bool(payload.get("truncated")))
 
     async def read_file(self, repo: str, commit: str, path: str,
-                        *, blob_sha: str = "") -> SourceFile | None:
+                        *, blob_sha: str = "", line_start=None,
+                        line_end=None, page_ok: bool = True
+                        ) -> SourceFile | None:
         """Байты файла для точной идентичности ``(repo, commit, path)``.
 
         Порядок (контракт §8): ``blobs`` (если sha уже известен из дерева) →
@@ -1063,6 +1083,8 @@ class LocalSnapshotProvider:
     """
 
     name = PROVIDER_LOCAL
+    #: Умеет читать диапазон строк без загрузки файла целиком (C1 §440).
+    supports_ranges = True
 
     def __init__(self, repo_root, *, repo_origin=None, identity_reader=None,
                  max_bytes: int | None = None) -> None:
@@ -1242,7 +1264,20 @@ class LocalSnapshotProvider:
         return TreeListing(entries=entries, truncated=truncated)
 
     async def read_file(self, repo: str, commit: str, path: str,
-                        *, blob_sha: str = "") -> SourceFile | None:
+                        *, blob_sha: str = "", line_start=None,
+                        line_end=None, page_ok: bool = True) -> SourceFile | None:
+        """Байты файла; для oversized-текста — запрошенная ПОРЦИЯ строк.
+
+        SXR-C1-02 (§C1 440): файл больше `max_file_bytes` не становится
+        недоступным целиком — при заданном диапазоне отдаётся именно он, без
+        заданного — первая порция с `page.next_line_start`. Физический предел
+        одной порции сохраняется; `file_too_large` — только если сама
+        запрошенная порция (первая строка диапазона) его превышает.
+
+        ``page_ok=False`` — служебные чтения цепочки (follow-up/локатор):
+        они не запрашивают диапазон у модели и не должны тянуть мегабайтную
+        порцию в один ответ, поэтому oversized-файл для них — `file_too_large`.
+        """
         if not repo or not commit or not path:
             return None
         if not self._matches_full(repo):
@@ -1286,8 +1321,12 @@ class LocalSnapshotProvider:
                                        detail="path_is_directory")
             size = int(target.stat().st_size)
             if size > self._max_bytes:
-                raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
-                                       detail="file_too_large")
+                if not page_ok:
+                    raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
+                                           detail="file_too_large")
+                return self._read_page(target, rel=rel, size=size,
+                                        line_start=line_start,
+                                        line_end=line_end)
             with target.open("rb") as handle:
                 data = handle.read(self._max_bytes + 1)
         except SourceFetchError:
@@ -1301,6 +1340,85 @@ class LocalSnapshotProvider:
                                    detail="file_too_large")
         return SourceFile(path=rel, data=data, sha="", size=len(data),
                           endpoint=ENDPOINT_LOCAL)
+
+    def _read_page(self, target: Path, *, rel: str, size: int,
+                   line_start=None, line_end=None) -> SourceFile:
+        """Порция строк oversized-файла: потоковое чтение, память ≤ порции.
+
+        Строки нумеруются по реальному файлу (CRLF сохраняется: разделитель —
+        только ``\\n``). Порция — непрерывный диапазон строк, укладывающийся в
+        `max_bytes`; остаток отдаётся `page.next_line_start`. Признак бинаря
+        считается по ВСЕМУ файлу (тот же порог, что у `decode_source_bytes`),
+        чтобы большой бинарь не «подтверждался» чистым началом.
+        """
+        budget = int(self._max_bytes)
+        wanted_start = max(1, int(line_start)) if line_start else 1
+        wanted_end = int(line_end) if line_end else 0
+        parts: list[bytes] = []
+        used = 0
+        first = 0
+        last = 0
+        total = 0
+        controls = 0
+        page_closed = False
+        first_line_too_large = False
+        with target.open("rb") as handle:
+            for raw in handle:
+                total += 1
+                controls += _control_bytes(raw)
+                if page_closed:
+                    continue
+                if total < wanted_start:
+                    continue
+                if wanted_end and total > wanted_end:
+                    page_closed = True
+                    continue
+                body = raw[:-1] if raw.endswith(b"\n") else raw
+                addition = len(body) + (1 if parts else 0)
+                if used + addition > budget:
+                    if not parts:
+                        first_line_too_large = True
+                    page_closed = True
+                    first = first or total
+                    continue
+                if not parts:
+                    first = total
+                parts.append(body)
+                used += addition
+                last = total
+        if size and (controls / float(size)) > _MAX_CONTROL_RATIO:
+            # Бинарь определяется по ВСЕМУ файлу: чистый текстовый «хвост» или
+            # начало не должны выдавать бинарь за проверенный исходник.
+            raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
+                                   detail="binary_content")
+        if first_line_too_large:
+            # Запрошенная порция физически не влезает (например одна строка
+            # > 2 МБ) — честный отказ, а не «файла нет».
+            raise SourceFetchError(ERR_UNSUPPORTED_KIND, STAGE_FETCH,
+                                   detail="file_too_large")
+        page = b"\n".join(parts)
+        if not page:
+            # Диапазон начинается за концом файла: порций нет.
+            return SourceFile(path=rel, data=b"", sha="", size=size,
+                              endpoint=ENDPOINT_LOCAL,
+                              page={"line_start": 0, "line_end": 0,
+                                    "total_lines": total,
+                                    "portion_bytes": 0,
+                                    "budget_bytes": budget,
+                                    "truncated": False,
+                                    "next_line_start": None,
+                                    "range_empty": True})
+        truncated = last < total
+        return SourceFile(path=rel, data=page, sha="", size=size,
+                          endpoint=ENDPOINT_LOCAL,
+                          page={"line_start": int(first),
+                                "line_end": int(last),
+                                "total_lines": int(total),
+                                "portion_bytes": len(page),
+                                "budget_bytes": budget,
+                                "truncated": bool(truncated),
+                                "next_line_start":
+                                    int(last) + 1 if truncated else None})
 
 
 def _default_identity_reader(repo_root):
@@ -1726,6 +1844,31 @@ class SourceReader:
         """
         return state.requests_exhausted(self._request_calls(state))
 
+    @staticmethod
+    def _range_hints(provider, state: "_RunState") -> dict:
+        """Подсказка диапазона только провайдеру, умеющему постраничное чтение.
+
+        SXR-C1-02 (§C1 440): для oversized-текста запрошенный ``line_start``/
+        ``line_end`` уходит в провайдер, чтобы он отдал ПОРЦИЮ, а не отказал
+        целиком. Провайдеры без этой возможности (GitHub: transport-лимит)
+        получают прежний вызов — их отказ остаётся честным.
+        """
+        if not getattr(provider, "supports_ranges", False):
+            return {}
+        hints: dict = {}
+        if state.line_start:
+            hints["line_start"] = int(state.line_start)
+        if state.line_end:
+            hints["line_end"] = int(state.line_end)
+        return hints
+
+    @staticmethod
+    def _service_read_hints(provider) -> dict:
+        """Служебное чтение цепочки: без мегабайтной порции в один ответ."""
+        if not getattr(provider, "supports_ranges", False):
+            return {}
+        return {"page_ok": False}
+
     @property
     def uses_auth(self) -> bool:
         return bool(getattr(self.provider, "uses_auth", False))
@@ -2057,7 +2200,8 @@ class SourceReader:
                 return None
             try:
                 source_file = await provider.read_file(
-                    repo, commit, path_candidate)
+                    repo, commit, path_candidate,
+                    **self._range_hints(provider, state))
             except SourceFetchError as exc:
                 if exc.code == ERR_UNSUPPORTED_KIND:
                     # Каталог/symlink/submodule: это не «файла нет». Запоминаем
@@ -2137,14 +2281,30 @@ class SourceReader:
                                    detail="path_required")
         source_file = prefetched
         if source_file is None:
-            source_file = await state.provider.read_file(info.full_name, commit,
-                                                         path_used)
+            source_file = await state.provider.read_file(
+                info.full_name, commit, path_used,
+                **self._range_hints(state.provider, state))
         if source_file is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
                         extra={"network_calls": self._request_calls(state)})
             raise SourceFetchError(ERR_SOURCE_MISSING, stage, http=404,
                                    detail="unreadable_file")
+        if source_file.page:
+            # Постраничное чтение oversized-текста: номера строк абсолютные,
+            # повторный срез по окну не применяется (проверяется ДО «пусто»).
+            state.files_read += 1
+            decoded_page = decode_source_bytes(source_file.data)
+            page_lines = split_lines(decoded_page.text)
+            page_symbol_line = (locate_symbol_line(page_lines, symbol)
+                                if symbol else 0)
+            if symbol and not page_symbol_line:
+                state.not_checked_reason = "symbol_not_in_page"
+            return self._page_payload(
+                state, info=info, commit=commit, path=path_used,
+                source_file=source_file, decoded=decoded_page, symbol=symbol,
+                symbol_line=page_symbol_line, stage=stage,
+                ref_kind=_ref_kind(state.requested_ref))
         if not source_file.data:
             # Пустой файл существует: это не «нет файла», а «нечего читать».
             return self._not_source_payload(
@@ -2203,7 +2363,8 @@ class SourceReader:
                 break
             try:
                 source_file = await state.provider.read_file(
-                    info.full_name, commit, entry.path, blob_sha=entry.sha)
+                    info.full_name, commit, entry.path, blob_sha=entry.sha,
+                    **self._service_read_hints(state.provider))
             except SourceFetchError as exc:
                 if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND):
                     continue
@@ -2334,7 +2495,8 @@ class SourceReader:
                 continue
             try:
                 source_file = await state.provider.read_file(
-                    info.full_name, commit, entry.path, blob_sha=entry.sha)
+                    info.full_name, commit, entry.path, blob_sha=entry.sha,
+                    **self._service_read_hints(state.provider))
             except SourceFetchError as exc:
                 if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND):
                     continue
@@ -2386,6 +2548,111 @@ class SourceReader:
         return _finish(incomplete)
 
     # -- сборка payload --------------------------------------------------
+    def _page_payload(self, state: "_RunState", *, info, commit: str,
+                      path: str, source_file: SourceFile,
+                      decoded: "DecodedSource", symbol: str, symbol_line: int,
+                      stage: str, ref_kind: str) -> dict:
+        """Payload ПОРЦИИ oversized-текста: абсолютные номера строк + продолжение.
+
+        Отличие от `_read_payload`: доставлены только запрошенные строки, и
+        `line_range` считается по файлу, а не по декодированному фрагменту.
+        `verified` — те же инварианты (реальные байты commit-pinned файла,
+        точный срез, `source_kind == "file"`), но подтверждается ровно порция.
+        """
+        page = dict(source_file.page or {})
+        kind = _kind_for_path(path)
+        first = int(page.get("line_start") or 0)
+        last = int(page.get("line_end") or 0)
+        total = int(page.get("total_lines") or 0)
+        if page.get("range_empty"):
+            state.not_checked_reason = "line_range_beyond_eof"
+            return self._payload(state, STATUS_NOT_FOUND, repo=info.full_name,
+                                 commit=commit, path=path,
+                                 reason="line_range_beyond_eof")
+        if not decoded.ok:
+            return self._not_source_payload(
+                state, info=info, commit=commit, path=path,
+                source_file=source_file, reason=decoded.reason, stage=stage)
+        text = decoded.text
+        page_lines = split_lines(text)
+        if not text or not page_lines:
+            state.not_checked_reason = "line_range_beyond_eof"
+            return self._payload(state, STATUS_NOT_FOUND, repo=info.full_name,
+                                 commit=commit, path=path,
+                                 reason="line_range_beyond_eof")
+        provider_name = self._provider_name(state)
+        local = self._local_verification(state)
+        verified = bool(kind == KIND_FILE)
+        if provider_name == PROVIDER_LOCAL:
+            verified = bool(verified and _local_bytes_verified(local, commit))
+        if verified and provider_name == PROVIDER_LOCAL:
+            verified_url = _local_verified_url(info.full_name, commit, path,
+                                               [first, last])
+        elif verified:
+            verified_url = _verified_url(info.full_name, commit, path,
+                                         [first, last])
+        else:
+            verified_url = ""
+        state.last_lines = page_lines
+        truncated = bool(page.get("truncated"))
+        next_line_start = page.get("next_line_start")
+        payload = self._payload(
+            state, STATUS_OK,
+            verified=verified,
+            repo=info.full_name,
+            commit=commit,
+            path=path,
+            source_kind=kind,
+            verified_url=verified_url,
+            line_range=[first, last],
+            snippet=text,
+            snippet_chars=len(text),
+            file_total_lines=total,
+            language=language_for_path(path) or info.language,
+            symbol=symbol,
+            symbol_found=bool(symbol and symbol_line),
+            parameter_only=(is_parameter_only(page_lines, symbol)
+                            if symbol else False),
+            truncation={
+                "truncated": truncated,
+                # Причина — физический предел ОДНОЙ порции, не окно evidence.
+                "why": "over_portion" if truncated else "",
+                "effective_limit": int(page.get("budget_bytes") or 0),
+                "limit_source": "file_bytes_page",
+                "retrievable_remainder_lines":
+                    max(0, total - last) if truncated else 0,
+                **({"next_line_start": int(next_line_start)}
+                   if next_line_start else {}),
+            },
+            read_level=("parsed" if (first <= 1 and last >= total)
+                        else "selected"))
+        payload["provenance"].update({
+            "provider": provider_name,
+            "endpoint": source_file.endpoint or ENDPOINT_LOCAL,
+            "fetched_at": int(time.time()),
+            "bytes": len(source_file.data),
+            "sha256": hashlib.sha256(source_file.data).hexdigest(),
+            "read_level": payload["read_level"],
+            # Порция, а не весь файл: границы и объём видимы явно.
+            "page": {"line_start": first, "line_end": last,
+                     "file_total_lines": total,
+                     "portion_bytes": len(source_file.data),
+                     "file_bytes": int(source_file.size or 0)},
+        })
+        if provider_name == PROVIDER_LOCAL:
+            _apply_local_provenance(payload, local)
+        payload["source_id"] = _source_id(info.full_name, commit, path)
+        _emit_stage(stage, "success",
+                    extra={"verified": verified,
+                           "files_read": state.files_read,
+                           "network_calls": self._request_calls(state),
+                           "http": 200, "ref_kind": ref_kind,
+                           "line_count": total,
+                           "page_lines": last - first + 1,
+                           "language": payload["language"],
+                           "repo_present": True})
+        return payload
+
     def _read_payload(self, state: "_RunState", *, info, commit: str,
                       path: str, source_file: SourceFile,
                       decoded: "DecodedSource", symbol: str, symbol_line: int,
