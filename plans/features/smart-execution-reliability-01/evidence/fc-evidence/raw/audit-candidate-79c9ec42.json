@@ -1,0 +1,668 @@
+{
+ "caps": {
+  "_EXCERPT_MAX_CHARS": 600,
+  "_SEARCH_TEXT_BUDGET_CHARS": 100000,
+  "_BUDGET_SECONDS_DEFAULT": 120.0,
+  "_BUDGET_SECONDS_MAX": 600.0,
+  "_REFINE_CALLS_DEFAULT": 24,
+  "_MAX_QUERIES_TOTAL_DEFAULT": 64,
+  "FACTCHECK_EXCERPT_CHARS": 600,
+  "FACTCHECK_PAGE_SIZE": 20,
+  "FACTCHECK_QUERIES_TOTAL": 64,
+  "FACTCHECK_SEARCH_TEXT_CHARS": 100000,
+  "FACTCHECK_BUDGET_SECONDS": 120.0,
+  "FACTCHECK_CLAIM_PORTION": 32,
+  "FACTCHECK_PRIMARY_FETCHES": 2,
+  "temporal_max_evidence_per_run()": 20,
+  "support_cut_1200_in_rows": true,
+  "assignments_16384": 0,
+  "has_capacity_resolver": true,
+  "has_subject_resolver": true,
+  "unknown_model_window": [
+   1000000,
+   "unknown_fallback"
+  ],
+  "evidence_budget_for_unknown": 800000,
+  "output_reserve_for_unknown": 100000,
+  "default_route_window": [
+   1000000,
+   "unknown_fallback"
+  ]
+ },
+ "subject": {
+  "material_chars": 223,
+  "request_chars": 127,
+  "units_from_material_claim": [
+   "Не вышла бы она блять из обихода.",
+   "Еще раз повторю, обрезание женщин настолько древняя традиция, что сша и в помине не было, "
+  ],
+  "units_request_only": [
+   "Фактчек, бот, реально есть страны с этой традицией на которые не влияли такие гегемоны как"
+  ],
+  "request_survives_in_material_claim": false,
+  "subject_resolver": true,
+  "subject_text": "Фактчек, бот, реально есть страны с этой традицией на которые не влияли такие гегемоны как Франция/Великобритания/Германия/США?",
+  "subject_origin": "request",
+  "subject_resolved_by": "llm",
+  "subject_keeps_request": true
+ },
+ "cwd": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b-5ac97214",
+ "delivery": [
+  {
+   "case": "fb-production-single-snippet",
+   "input": {
+    "refs": 1,
+    "support_chars": [
+     209
+    ],
+    "total_chars": 209,
+    "window_tokens": 1000000
+   },
+   "analyst": {
+    "payload_chars": 1925,
+    "evidence_rows": 1,
+    "evidence_ids": [
+     "ev-1"
+    ],
+    "evidence_chars": 312,
+    "delivery_meta": {},
+    "budget_note": true,
+    "provenance_opened_yes": true,
+    "provenance_opened_no": false,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 1041,
+    "evidence_rows": 1
+   },
+   "fallback": {
+    "adapted_delivery_meta": {}
+   },
+   "capacity_calls": [
+    [
+     "route-model",
+     "https://primary.example/api/v1"
+    ],
+    [
+     "fallback-model",
+     "https://fallback.example/api/v1"
+    ]
+   ],
+   "durable": {
+    "evidence_rows": 1,
+    "max_rows": 1,
+    "supports": [
+     209
+    ]
+   },
+   "run_evidence_rows": 1
+  },
+  {
+   "case": "wide-12x2000",
+   "input": {
+    "refs": 12,
+    "support_chars": [
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2140,
+     2140,
+     2140
+    ],
+    "total_chars": 25671,
+    "window_tokens": 1000000
+   },
+   "analyst": {
+    "payload_chars": 28070,
+    "evidence_rows": 12,
+    "evidence_ids": [
+     "ev-1",
+     "ev-2",
+     "ev-3",
+     "ev-4",
+     "ev-5",
+     "ev-6",
+     "ev-7",
+     "ev-8",
+     "ev-9",
+     "ev-10",
+     "ev-11",
+     "ev-12"
+    ],
+    "evidence_chars": 26689,
+    "delivery_meta": {},
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": true,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 26847,
+    "evidence_rows": 12
+   },
+   "fallback": {
+    "adapted_delivery_meta": {}
+   },
+   "capacity_calls": [
+    [
+     "route-model",
+     "https://primary.example/api/v1"
+    ],
+    [
+     "fallback-model",
+     "https://fallback.example/api/v1"
+    ]
+   ],
+   "durable": {
+    "evidence_rows": 12,
+    "max_rows": 12,
+    "supports": [
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2140,
+     2140,
+     2140
+    ]
+   },
+   "run_evidence_rows": 12
+  },
+  {
+   "case": "overflow-60x900-window-3000",
+   "input": {
+    "refs": 60,
+    "support_chars": [
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170
+    ],
+    "total_chars": 70200,
+    "window_tokens": 3000
+   },
+   "analyst": {
+    "payload_chars": 6924,
+    "evidence_rows": 2,
+    "evidence_ids": [
+     "ev-1",
+     "ev-2"
+    ],
+    "evidence_chars": 2457,
+    "delivery_meta": {
+     "delivered": 2,
+     "total": 60,
+     "delivered_chars": 2272,
+     "total_chars": 70200,
+     "budget_chars": 2400,
+     "capacity_unknown": false,
+     "truncated_ids": [
+      "ev-2"
+     ],
+     "remainder_ids": [
+      "ev-3",
+      "ev-4",
+      "ev-5",
+      "ev-6",
+      "ev-7",
+      "ev-8",
+      "ev-9",
+      "ev-10",
+      "ev-11",
+      "ev-12",
+      "ev-13",
+      "ev-14",
+      "ev-15",
+      "ev-16",
+      "ev-17",
+      "ev-18",
+      "ev-19",
+      "ev-20",
+      "ev-21",
+      "ev-22",
+      "ev-23",
+      "ev-24",
+      "ev-25",
+      "ev-26",
+      "ev-27",
+      "ev-28",
+      "ev-29",
+      "ev-30",
+      "ev-31",
+      "ev-32",
+      "ev-33",
+      "ev-34",
+      "ev-35",
+      "ev-36",
+      "ev-37",
+      "ev-38",
+      "ev-39",
+      "ev-40",
+      "ev-41",
+      "ev-42",
+      "ev-43",
+      "ev-44",
+      "ev-45",
+      "ev-46",
+      "ev-47",
+      "ev-48",
+      "ev-49",
+      "ev-50",
+      "ev-51",
+      "ev-52",
+      "ev-53",
+      "ev-54",
+      "ev-55",
+      "ev-56",
+      "ev-57",
+      "ev-58",
+      "ev-59",
+      "ev-60"
+     ],
+     "remainder_urls": [
+      "https://source3.example/page",
+      "https://source4.example/page",
+      "https://source5.example/page",
+      "https://source6.example/page",
+      "https://source7.example/page",
+      "https://source8.example/page",
+      "https://source9.example/page",
+      "https://source10.example/page",
+      "https://source11.example/page",
+      "https://source12.example/page",
+      "https://source13.example/page",
+      "https://source14.example/page",
+      "https://source15.example/page",
+      "https://source16.example/page",
+      "https://source17.example/page",
+      "https://source18.example/page",
+      "https://source19.example/page",
+      "https://source20.example/page",
+      "https://source21.example/page",
+      "https://source22.example/page",
+      "https://source23.example/page",
+      "https://source24.example/page",
+      "https://source25.example/page",
+      "https://source26.example/page",
+      "https://source27.example/page",
+      "https://source28.example/page",
+      "https://source29.example/page",
+      "https://source30.example/page",
+      "https://source31.example/page",
+      "https://source32.example/page",
+      "https://source33.example/page",
+      "https://source34.example/page",
+      "https://source35.example/page",
+      "https://source36.example/page",
+      "https://source37.example/page",
+      "https://source38.example/page",
+      "https://source39.example/page",
+      "https://source40.example/page",
+      "https://source41.example/page",
+      "https://source42.example/page",
+      "https://source43.example/page",
+      "https://source44.example/page",
+      "https://source45.example/page",
+      "https://source46.example/page",
+      "https://source47.example/page",
+      "https://source48.example/page",
+      "https://source49.example/page",
+      "https://source50.example/page",
+      "https://source51.example/page",
+      "https://source52.example/page",
+      "https://source53.example/page",
+      "https://source54.example/page",
+      "https://source55.example/page",
+      "https://source56.example/page",
+      "https://source57.example/page",
+      "https://source58.example/page",
+      "https://source59.example/page",
+      "https://source60.example/page"
+     ]
+    },
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": true,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 5789,
+    "evidence_rows": 2
+   },
+   "fallback": {
+    "adapted_delivery_meta": {
+     "delivered": 2,
+     "total": 60,
+     "delivered_chars": 2272,
+     "total_chars": 70200,
+     "budget_chars": 2400,
+     "capacity_unknown": false,
+     "truncated_ids": [
+      "ev-2"
+     ],
+     "remainder_ids": [
+      "ev-3",
+      "ev-4",
+      "ev-5",
+      "ev-6",
+      "ev-7",
+      "ev-8",
+      "ev-9",
+      "ev-10",
+      "ev-11",
+      "ev-12",
+      "ev-13",
+      "ev-14",
+      "ev-15",
+      "ev-16",
+      "ev-17",
+      "ev-18",
+      "ev-19",
+      "ev-20",
+      "ev-21",
+      "ev-22",
+      "ev-23",
+      "ev-24",
+      "ev-25",
+      "ev-26",
+      "ev-27",
+      "ev-28",
+      "ev-29",
+      "ev-30",
+      "ev-31",
+      "ev-32",
+      "ev-33",
+      "ev-34",
+      "ev-35",
+      "ev-36",
+      "ev-37",
+      "ev-38",
+      "ev-39",
+      "ev-40",
+      "ev-41",
+      "ev-42",
+      "ev-43",
+      "ev-44",
+      "ev-45",
+      "ev-46",
+      "ev-47",
+      "ev-48",
+      "ev-49",
+      "ev-50",
+      "ev-51",
+      "ev-52",
+      "ev-53",
+      "ev-54",
+      "ev-55",
+      "ev-56",
+      "ev-57",
+      "ev-58",
+      "ev-59",
+      "ev-60"
+     ],
+     "remainder_urls": [
+      "https://source3.example/page",
+      "https://source4.example/page",
+      "https://source5.example/page",
+      "https://source6.example/page",
+      "https://source7.example/page",
+      "https://source8.example/page",
+      "https://source9.example/page",
+      "https://source10.example/page",
+      "https://source11.example/page",
+      "https://source12.example/page",
+      "https://source13.example/page",
+      "https://source14.example/page",
+      "https://source15.example/page",
+      "https://source16.example/page",
+      "https://source17.example/page",
+      "https://source18.example/page",
+      "https://source19.example/page",
+      "https://source20.example/page",
+      "https://source21.example/page",
+      "https://source22.example/page",
+      "https://source23.example/page",
+      "https://source24.example/page",
+      "https://source25.example/page",
+      "https://source26.example/page",
+      "https://source27.example/page",
+      "https://source28.example/page",
+      "https://source29.example/page",
+      "https://source30.example/page",
+      "https://source31.example/page",
+      "https://source32.example/page",
+      "https://source33.example/page",
+      "https://source34.example/page",
+      "https://source35.example/page",
+      "https://source36.example/page",
+      "https://source37.example/page",
+      "https://source38.example/page",
+      "https://source39.example/page",
+      "https://source40.example/page",
+      "https://source41.example/page",
+      "https://source42.example/page",
+      "https://source43.example/page",
+      "https://source44.example/page",
+      "https://source45.example/page",
+      "https://source46.example/page",
+      "https://source47.example/page",
+      "https://source48.example/page",
+      "https://source49.example/page",
+      "https://source50.example/page",
+      "https://source51.example/page",
+      "https://source52.example/page",
+      "https://source53.example/page",
+      "https://source54.example/page",
+      "https://source55.example/page",
+      "https://source56.example/page",
+      "https://source57.example/page",
+      "https://source58.example/page",
+      "https://source59.example/page",
+      "https://source60.example/page"
+     ]
+    }
+   },
+   "capacity_calls": [
+    [
+     "route-model",
+     "https://primary.example/api/v1"
+    ],
+    [
+     "fallback-model",
+     "https://fallback.example/api/v1"
+    ]
+   ],
+   "durable": {
+    "evidence_rows": 2,
+    "max_rows": 2,
+    "supports": [
+     1170,
+     1102
+    ]
+   },
+   "run_evidence_rows": 2
+  },
+  {
+   "case": "fallback-8x400",
+   "input": {
+    "refs": 8,
+    "support_chars": [
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630
+    ],
+    "total_chars": 5040,
+    "window_tokens": 1000000
+   },
+   "analyst": {
+    "payload_chars": 2580,
+    "evidence_rows": 1,
+    "evidence_ids": [
+     "ev-1"
+    ],
+    "evidence_chars": 732,
+    "delivery_meta": {
+     "delivered": 1,
+     "total": 8,
+     "delivered_chars": 630,
+     "total_chars": 5040,
+     "budget_chars": 800,
+     "capacity_unknown": false,
+     "truncated_ids": [],
+     "remainder_ids": [
+      "ev-2",
+      "ev-3",
+      "ev-4",
+      "ev-5",
+      "ev-6",
+      "ev-7",
+      "ev-8"
+     ],
+     "remainder_urls": [
+      "https://source2.example/page",
+      "https://source3.example/page",
+      "https://source4.example/page",
+      "https://source5.example/page",
+      "https://source6.example/page",
+      "https://source7.example/page",
+      "https://source8.example/page"
+     ]
+    },
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": true,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 6089,
+    "evidence_rows": 8
+   },
+   "fallback": {
+    "adapted_delivery_meta": {
+     "delivered": 1,
+     "total": 8,
+     "delivered_chars": 630,
+     "total_chars": 5040,
+     "budget_chars": 800,
+     "capacity_unknown": false,
+     "truncated_ids": [],
+     "remainder_ids": [
+      "ev-2",
+      "ev-3",
+      "ev-4",
+      "ev-5",
+      "ev-6",
+      "ev-7",
+      "ev-8"
+     ],
+     "remainder_urls": [
+      "https://source2.example/page",
+      "https://source3.example/page",
+      "https://source4.example/page",
+      "https://source5.example/page",
+      "https://source6.example/page",
+      "https://source7.example/page",
+      "https://source8.example/page"
+     ]
+    }
+   },
+   "capacity_calls": [
+    [
+     "route-model",
+     "https://primary.example/api/v1"
+    ],
+    [
+     "fallback-model",
+     "https://fallback.example/api/v1"
+    ]
+   ],
+   "durable": {
+    "evidence_rows": 8,
+    "max_rows": 8,
+    "supports": [
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630
+    ]
+   },
+   "run_evidence_rows": 8
+  }
+ ]
+}

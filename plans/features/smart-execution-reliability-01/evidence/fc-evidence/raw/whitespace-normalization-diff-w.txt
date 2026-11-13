@@ -1,0 +1,17 @@
+--- diff-w-before-normalization
++++ diff-w-after-normalization
+@@ -582 +582 @@
+-index 57281e40..a12e6949 100644
++index 57281e40..65874f42 100644
+@@ -1282 +1282 @@
+-index abe540df..e4610bcb 100644
++index abe540df..86e3f7ff 100644
+@@ -2966 +2966 @@
+-index b45f35d0..929394f6 100644
++index b45f35d0..b4a7f11c 100644
+@@ -5082 +5082 @@
+-index 23f8c5a4..2d45f9d6 100644
++index 23f8c5a4..f81e68f1 100644
+@@ -5706 +5706 @@
+-index 00000000..d57e8f43
++index 00000000..badbf474

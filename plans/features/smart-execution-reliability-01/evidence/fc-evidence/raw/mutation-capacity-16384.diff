@@ -1,0 +1,13 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index a12e6949..d7c4977c 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -379,7 +379,7 @@ def _route_capacity(llm, kind: str = "primary") -> RouteCapacity | None:
+         if window <= 0:
+             return RouteCapacity(kind, model, base, 0, str(source or ""),
+                                  None, 0)
+-        budget = int(mc.evidence_window_for_tokens(window))
++        budget = int(mc.evidence_window_for_tokens(16384))
+         reserve = int(mc.output_reserve_tokens(window))
+         return RouteCapacity(kind, model, base, window, str(source or ""),
+                              max(0, budget), reserve)

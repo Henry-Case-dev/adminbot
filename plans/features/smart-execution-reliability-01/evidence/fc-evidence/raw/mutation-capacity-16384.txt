@@ -1,0 +1,146 @@
+FFFF.F...F.                                                              [100%]
+================================== FAILURES ===================================
+____________ test_evidence_over_8000_reaches_analyst_and_validator ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240B208EC0>
+
+    @pytest.mark.asyncio
+    async def test_evidence_over_8000_reaches_analyst_and_validator(monkeypatch):
+        """SFC-7-01/7-05: >8000 символов доходят до analyst И validator целиком.
+
+        12 выдержек по 2000 символов = 24 000: ёмкость маршрута (1M токенов)
+        вмещает всё, поэтому искусственной обрезки быть не должно — ни по числу
+        строк (20), ни по символам выдержки (1200)."""
+        refs = [_ref(i, support=_support(i, 2000)) for i in range(1, 13)]
+        run, llm = await _run(monkeypatch, 1_000_000, refs,
+                              claims=_coverage(refs))
+        analyst = llm.user_for("temporal_verdict")
+        validator = llm.user_for("temporal_validator")
+>       assert _evidence_ids(analyst) == [f"ev-{i}" for i in range(1, 13)]
+E       AssertionError: assert ['ev-1', 'ev-..., 'ev-6', ...] == ['ev-1', 'ev-..., 'ev-6', ...]
+E
+E         Right contains 5 more items, first extra item: 'ev-8'
+E         Use -v to get more diff
+
+tests\test_factcheck_evidence_delivery.py:205: AssertionError
+__________________________ test_no_hidden_row_cap_20 __________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1A8410>
+
+    @pytest.mark.asyncio
+    async def test_no_hidden_row_cap_20(monkeypatch):
+        """SFC-7-05/7-06: доставка не ограничена скрытым потолком 20 строк."""
+        refs = [_ref(i, support=_support(i, 900)) for i in range(1, 61)]
+        run, llm = await _run(monkeypatch, 1_000_000, refs,
+                              claims=_coverage(refs))
+        ids = _evidence_ids(llm.user_for("temporal_verdict"))
+>       assert len(ids) == 60 and ids[-1] == "ev-60"
+E       AssertionError: assert (14 == 60)
+E        +  where 14 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
+
+tests\test_factcheck_evidence_delivery.py:225: AssertionError
+_______________ test_capacity_resolver_called_with_actual_route _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1AAC90>
+
+    @pytest.mark.asyncio
+    async def test_capacity_resolver_called_with_actual_route(monkeypatch):
+        """SFC-7-03/7-04: ёмкость берётся единым resolver'ом по фактической модели
+        и endpoint клиента; отдельного окна 16384 в фактчеке нет."""
+        calls: list = []
+        _pin_resolver(monkeypatch, 3000, calls=calls)
+        llm = RecordingLLM()
+        refs = [_ref(1, support=_support(1, 2000))]
+        service = FactCheckService(aggregator=None, llm=llm)
+        await service.check_claim_envelope(_env(), retrieval=_outcome(refs))
+        assert ("route-model", "https://primary.example/api/v1") in calls
+        # нет собственного окна: модуль не содержит присвоения 16384
+        import inspect
+        import re
+        import services.factcheck_service as fcs
+        src = inspect.getsource(fcs)
+        assert "resolve_evidence_window_tokens" in src
+>       assert not re.search(r"16384\s*(?:\)|,|=)", src)
+E       assert not <re.Match object; span=(16853, 16859), match='16384)'>
+E        +  where <re.Match object; span=(16853, 16859), match='16384)'> = <function search at 0x000002247C75AE80>('16384\\s*(?:\\)|,|=)', '"""Epic 33/46 — FactCheckService: пайплайн фактчека (R33-3, Sections 42.6/55.5).\n\ncheck_claim: SearchAggregator.sea...убликации сам по себе не делает "\n                          "утверждение ложным.")\n        return " ".join(pieces)\n')
+E        +    where <function search at 0x000002247C75AE80> = <module 're' from 'C:\\Users\\main\\AppData\\Local\\Python\\pythoncore-3.12-64\\Lib\\re\\__init__.py'>.search
+
+tests\test_factcheck_evidence_delivery.py:249: AssertionError
+________ test_real_capacity_budget_limits_portion_and_keeps_remainder _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240D1B7EC0>
+
+    @pytest.mark.asyncio
+    async def test_real_capacity_budget_limits_portion_and_keeps_remainder(
+            monkeypatch):
+        """SFC-7-02/7-05: при реальном превышении ёмкости остаток сохраняется.
+
+        Окно 3000 токенов → evidence-бюджет 2400 символов: часть строк не входит,
+        но их ID/URL перечислены в `<evidence_delivery>`, а total = delivered +
+        remainder (нет молчаливой потери)."""
+        refs = [_ref(i, support=_support(i, 900)) for i in range(1, 11)]
+        run, llm = await _run(monkeypatch, 3000, refs, claims=_coverage(refs))
+        analyst = llm.user_for("temporal_verdict")
+        delivered = _evidence_ids(analyst)
+>       assert 0 < len(delivered) < 10
+E       AssertionError: assert 10 < 10
+E        +  where 10 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
+
+tests\test_factcheck_evidence_delivery.py:264: AssertionError
+___________ test_fallback_route_recomposes_payload_to_its_capacity ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240BEE38C0>
+
+    @pytest.mark.asyncio
+    async def test_fallback_route_recomposes_payload_to_its_capacity(monkeypatch):
+        """SFC-7-04: при переходе на fallback порция считается по fallback-модели.
+
+        primary вмещает всё (1M), fallback — 1000 токенов (800 символов). Клиент
+        вызывает adapter; аналитик получает fallback-порцию с remainder, а не
+        primary-payload «как есть»."""
+        windows = {
+            ("route-model", "https://primary.example/api/v1"): 1_000_000,
+            ("fallback-model", "https://fallback.example/api/v1"): 1000,
+        }
+
+        def _resolve(model=None, base_url=None):
+            return windows.get((model, base_url), 1_000_000), "proven_limit"
+
+        monkeypatch.setattr(mc, "resolve_evidence_window_tokens", _resolve)
+        llm = RecordingLLM(fallback_on_steps={"temporal_verdict"})
+        refs = [_ref(i, support=_support(i, 400)) for i in range(1, 9)]
+        run = await FactCheckService(None, llm).check_claim_envelope(
+            _env(), retrieval=_outcome(refs, claims=_coverage(refs)))
+        step, adapted_user, adapted = llm.calls[0]
+        assert step == "temporal_verdict" and adapted is True
+        delivered = _evidence_ids(adapted_user)
+>       assert 0 < len(delivered) < 8
+E       AssertionError: assert 8 < 8
+E        +  where 8 = len(['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6', ...])
+
+tests\test_factcheck_evidence_delivery.py:328: AssertionError
+_________________ test_tiny_share_route_still_marks_remainder _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002240BF75BE0>
+
+    @pytest.mark.asyncio
+    async def test_tiny_share_route_still_marks_remainder(monkeypatch):
+        """Даже очень маленькое окно не превращает отсутствие места в тихую потерю."""
+        refs = [_ref(i, support=_support(i, 700)) for i in range(1, 4)]
+        run, llm = await _run(monkeypatch, 250, refs)   # 200 символов бюджета
+        analyst = llm.user_for("temporal_verdict")
+        meta = json.loads(
+>           analyst.split("<evidence_delivery>")[1].split(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                "</evidence_delivery>")[0])
+E       IndexError: list index out of range
+
+tests\test_factcheck_evidence_delivery.py:407: IndexError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_evidence_delivery.py::test_evidence_over_8000_reaches_analyst_and_validator
+FAILED tests/test_factcheck_evidence_delivery.py::test_no_hidden_row_cap_20
+FAILED tests/test_factcheck_evidence_delivery.py::test_capacity_resolver_called_with_actual_route
+FAILED tests/test_factcheck_evidence_delivery.py::test_real_capacity_budget_limits_portion_and_keeps_remainder
+FAILED tests/test_factcheck_evidence_delivery.py::test_fallback_route_recomposes_payload_to_its_capacity
+FAILED tests/test_factcheck_evidence_delivery.py::test_tiny_share_route_still_marks_remainder
+6 failed, 5 passed in 2.88s

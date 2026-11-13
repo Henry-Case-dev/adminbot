@@ -1,0 +1,34 @@
+F..........                                                              [100%]
+================================== FAILURES ===================================
+____________ test_evidence_over_8000_reaches_analyst_and_validator ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000028863F24E30>
+
+    @pytest.mark.asyncio
+    async def test_evidence_over_8000_reaches_analyst_and_validator(monkeypatch):
+        """SFC-7-01/7-05: >8000 символов доходят до analyst И validator целиком.
+
+        12 выдержек по 2000 символов = 24 000: ёмкость маршрута (1M токенов)
+        вмещает всё, поэтому искусственной обрезки быть не должно — ни по числу
+        строк (20), ни по символам выдержки (1200)."""
+        refs = [_ref(i, support=_support(i, 2000)) for i in range(1, 13)]
+        run, llm = await _run(monkeypatch, 1_000_000, refs,
+                              claims=_coverage(refs))
+        analyst = llm.user_for("temporal_verdict")
+        validator = llm.user_for("temporal_validator")
+        assert _evidence_ids(analyst) == [f"ev-{i}" for i in range(1, 13)]
+        assert _evidence_ids(validator) == [f"ev-{i}" for i in range(1, 13)]
+        for i in range(1, 13):
+            marker = f"[source-{i}]"
+            assert marker in analyst, "выдержка потеряна в analyst payload"
+            assert marker in validator
+        # полный support (2000) а не исторические 1200
+        assert len(run.evidence_rows) == 12
+>       assert all(len(r["support"]) == 2000 for r in run.evidence_rows)
+E       assert False
+E        +  where False = all(<generator object test_evidence_over_8000_reaches_analyst_and_validator.<locals>.<genexpr> at 0x00000288641F7A00>)
+
+tests\test_factcheck_evidence_delivery.py:213: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_evidence_delivery.py::test_evidence_over_8000_reaches_analyst_and_validator
+1 failed, 10 passed in 2.86s

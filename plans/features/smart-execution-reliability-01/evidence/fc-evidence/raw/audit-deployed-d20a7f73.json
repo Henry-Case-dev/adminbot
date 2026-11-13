@@ -1,0 +1,346 @@
+{
+ "caps": {
+  "_EXCERPT_MAX_CHARS": 600,
+  "_MAX_EVIDENCE_REFS": 12,
+  "_SEARCH_TEXT_BUDGET_CHARS": 8000,
+  "_BUDGET_SECONDS_DEFAULT": 10.0,
+  "_BUDGET_SECONDS_MAX": 45.0,
+  "_REFINE_CALLS_DEFAULT": 3,
+  "_MAX_QUERIES_TOTAL_DEFAULT": 12,
+  "_CLAIM_UNITS_HARD_CAP": 16,
+  "temporal_max_evidence_per_run()": 20,
+  "support_cut_1200_in_rows": true,
+  "assignments_16384": 0,
+  "has_capacity_resolver": false,
+  "has_subject_resolver": false,
+  "capacity_error": "TypeError: resolve_evidence_window_tokens() takes from 0 to 1 positional arguments but 2 were given"
+ },
+ "subject": {
+  "material_chars": 223,
+  "request_chars": 127,
+  "units_from_material_claim": [
+   "Не вышла бы она блять из обихода.",
+   "Еще раз повторю, обрезание женщин настолько древняя традиция, что сша и в помине не было, "
+  ],
+  "units_request_only": [
+   "Фактчек, бот, реально есть страны с этой традицией на которые не влияли такие гегемоны как"
+  ],
+  "request_survives_in_material_claim": false,
+  "subject_resolver": false,
+  "subject_error": "AttributeError: module 'services.factcheck_orchestrator' has no attribute 'resolve_check_subject'"
+ },
+ "cwd": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b-11ee33aa",
+ "delivery": [
+  {
+   "case": "fb-production-single-snippet",
+   "input": {
+    "refs": 1,
+    "support_chars": [
+     209
+    ],
+    "total_chars": 209,
+    "window_tokens": 1000000
+   },
+   "analyst": {
+    "payload_chars": 1558,
+    "evidence_rows": 1,
+    "evidence_ids": [
+     "ev-1"
+    ],
+    "evidence_chars": 268,
+    "delivery_meta": {},
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": false,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 1041,
+    "evidence_rows": 1
+   },
+   "fallback": {
+    "adapted_delivery_meta": {}
+   },
+   "capacity_calls": [],
+   "durable": {
+    "evidence_rows": 1,
+    "max_rows": 1,
+    "supports": [
+     209
+    ]
+   },
+   "run_evidence_rows": 1
+  },
+  {
+   "case": "wide-12x2000",
+   "input": {
+    "refs": 12,
+    "support_chars": [
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2139,
+     2140,
+     2140,
+     2140
+    ],
+    "total_chars": 25671,
+    "window_tokens": 1000000
+   },
+   "analyst": {
+    "payload_chars": 16283,
+    "evidence_rows": 12,
+    "evidence_ids": [
+     "ev-1",
+     "ev-2",
+     "ev-3",
+     "ev-4",
+     "ev-5",
+     "ev-6",
+     "ev-7",
+     "ev-8",
+     "ev-9",
+     "ev-10",
+     "ev-11",
+     "ev-12"
+    ],
+    "evidence_chars": 14902,
+    "delivery_meta": {},
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": false,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 15576,
+    "evidence_rows": 12
+   },
+   "fallback": {
+    "adapted_delivery_meta": {}
+   },
+   "capacity_calls": [],
+   "durable": {
+    "evidence_rows": 12,
+    "max_rows": 12,
+    "supports": [
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200,
+     1200
+    ]
+   },
+   "run_evidence_rows": 12
+  },
+  {
+   "case": "overflow-60x900-window-3000",
+   "input": {
+    "refs": 60,
+    "support_chars": [
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170
+    ],
+    "total_chars": 70200,
+    "window_tokens": 3000
+   },
+   "analyst": {
+    "payload_chars": 26043,
+    "evidence_rows": 20,
+    "evidence_ids": [
+     "ev-1",
+     "ev-2",
+     "ev-3",
+     "ev-4",
+     "ev-5",
+     "ev-6",
+     "ev-7",
+     "ev-8",
+     "ev-9",
+     "ev-10",
+     "ev-11",
+     "ev-12",
+     "ev-13",
+     "ev-14",
+     "ev-15",
+     "ev-16",
+     "ev-17",
+     "ev-18",
+     "ev-19",
+     "ev-20"
+    ],
+    "evidence_chars": 24230,
+    "delivery_meta": {},
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": false,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 24832,
+    "evidence_rows": 20
+   },
+   "fallback": {
+    "adapted_delivery_meta": {}
+   },
+   "capacity_calls": [],
+   "durable": {
+    "evidence_rows": 20,
+    "max_rows": 20,
+    "supports": [
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170,
+     1170
+    ]
+   },
+   "run_evidence_rows": 20
+  },
+  {
+   "case": "fallback-8x400",
+   "input": {
+    "refs": 8,
+    "support_chars": [
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630
+    ],
+    "total_chars": 5040,
+    "window_tokens": 1000000
+   },
+   "analyst": {
+    "payload_chars": 6725,
+    "evidence_rows": 8,
+    "evidence_ids": [
+     "ev-1",
+     "ev-2",
+     "ev-3",
+     "ev-4",
+     "ev-5",
+     "ev-6",
+     "ev-7",
+     "ev-8"
+    ],
+    "evidence_chars": 5379,
+    "delivery_meta": {},
+    "budget_note": false,
+    "provenance_opened_yes": false,
+    "provenance_opened_no": false,
+    "search_text_leaked": false
+   },
+   "validator": {
+    "payload_chars": 6089,
+    "evidence_rows": 8
+   },
+   "fallback": {
+    "adapted_delivery_meta": {}
+   },
+   "capacity_calls": [],
+   "durable": {
+    "evidence_rows": 8,
+    "max_rows": 8,
+    "supports": [
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630,
+     630
+    ]
+   },
+   "run_evidence_rows": 8
+  }
+ ]
+}

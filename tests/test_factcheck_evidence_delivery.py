@@ -34,6 +34,7 @@ from services.factcheck_attribution import (
     attribution_evidence_ref,
 )
 from services.factcheck_service import FactCheckService
+import services.factcheck_service as fcs_module
 
 ANALYST = json.dumps({
     "factual_verdict": "insufficient_evidence",
@@ -341,7 +342,8 @@ async def test_fallback_route_recomposes_payload_to_its_capacity(monkeypatch):
 @pytest.mark.asyncio
 async def test_budget_stopped_search_forbids_absence_conclusion(monkeypatch):
     """SFC-8-02: если поиск остановлен бюджетом, аналитик не может решить,
-    что доказательств не существует — даже при непустом evidence."""
+    что доказательств не существует — даже при непустом evidence; та же
+    граница поиска доходит до validator, который правит вердикт."""
     refs = [_ref(1, support=_support(1, 500))]
     _pin_resolver(monkeypatch, 1_000_000)
     llm = RecordingLLM()
@@ -349,9 +351,12 @@ async def test_budget_stopped_search_forbids_absence_conclusion(monkeypatch):
         _env(), retrieval=_outcome(refs, budget_exhausted=True,
                                    skipped_budget=7))
     analyst = llm.user_for("temporal_verdict")
+    validator = llm.user_for("temporal_validator")
     assert "Поиск остановлен ограничением бюджета" in analyst
     assert "не делай вывод «доказательств нет»" in analyst
     assert "не открыто кандидатов: 7" in analyst
+    assert "Поиск остановлен ограничением бюджета" in validator
+    assert "не делай вывод «доказательств нет»" in validator
 
 
 @pytest.mark.asyncio
@@ -383,9 +388,13 @@ async def test_provenance_and_social_source_not_blocked(monkeypatch):
             claims=_coverage([facebook, other],
                              opened={facebook.evidence_id: True})))
     analyst = llm.user_for("temporal_verdict")
+    validator = llm.user_for("temporal_validator")
     assert "[ev-1]" in analyst          # соцсеть не заблокирована доменом
     assert "opened=yes" in analyst      # цитата прочитана
     assert "opened=no" in analyst       # сниппет не выдан за документ
+    # validator видит ту же provenance: сниппет нельзя принять за документ
+    assert "[ev-2] " in validator and "opened=no" in validator
+    assert "source=secondary" in validator
     assert any(r["evidence_id"] == "ev-1"
                and "facebook.com" in str(r.get("url"))
                for r in run.evidence_rows)
@@ -423,3 +432,33 @@ def test_attribution_quote_not_truncated_at_400():
     ref = attribution_evidence_ref(match)
     assert quote.strip() in ref.support
     assert len(ref.support) > 400
+
+
+# ── 7. Диагностика прогона: точка остановки и доставка видны в durable-следе
+
+def test_diagnostics_expose_stop_reason_and_delivery():
+    """SFC-8-01 «точка возникновения deadline»: остановка поиска и фактическая
+    доставка evidence попадают в диагностику прогона, а не теряются в логах."""
+    from services.factcheck_service import evidence_diagnostics
+    from services.temporal_factcheck import TemporalVerdict
+    refs = [_ref(1, support=_support(1, 300))]
+    retrieval = _outcome(refs, budget_exhausted=True, skipped_budget=5)
+    delivery = fcs_module._pack_evidence(
+        [{"evidence_id": "ev-1", "url": "https://s.example/1",
+          "support": _support(1, 300)}], budget_chars=320,
+        route=fcs_module.RouteCapacity(
+            "primary", "m", "https://e/api", 1000, "probe", 320, 10))
+    verdict = TemporalVerdict(
+        factual_verdict="insufficient_evidence", temporal_status="unknown",
+        evaluated_period={"from": None, "to": None}, reason="budget",
+        assessment_mode="contextual", as_of=1760000000)
+    diag = evidence_diagnostics(
+        retrieval=retrieval, retrieval_state="search_stopped",
+        evidence=delivery.rows, verdict=verdict, delivery=delivery)
+    assert diag["stop_reason"] == "budget_exhausted"
+    assert diag["fetch_skipped_budget"] == 5
+    assert diag["budget_exhausted"] is True
+    assert diag["evidence_delivery"]["delivered_rows"] == 1
+    assert diag["evidence_delivery"]["truncated"] == 1
+    assert diag["evidence_delivery"]["route"]["window_tokens"] == 1000
+    assert diag["evidence_delivery"]["route"]["output_reserve_tokens"] == 10

@@ -1,0 +1,36 @@
+.....F.....                                                              [100%]
+================================== FAILURES ===================================
+___________ test_fallback_route_recomposes_payload_to_its_capacity ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198543970E0>
+
+    @pytest.mark.asyncio
+    async def test_fallback_route_recomposes_payload_to_its_capacity(monkeypatch):
+        """SFC-7-04: при переходе на fallback порция считается по fallback-модели.
+
+        primary вмещает всё (1M), fallback — 1000 токенов (800 символов). Клиент
+        вызывает adapter; аналитик получает fallback-порцию с remainder, а не
+        primary-payload «как есть»."""
+        windows = {
+            ("route-model", "https://primary.example/api/v1"): 1_000_000,
+            ("fallback-model", "https://fallback.example/api/v1"): 1000,
+        }
+
+        def _resolve(model=None, base_url=None):
+            return windows.get((model, base_url), 1_000_000), "proven_limit"
+
+        monkeypatch.setattr(mc, "resolve_evidence_window_tokens", _resolve)
+        llm = RecordingLLM(fallback_on_steps={"temporal_verdict"})
+        refs = [_ref(i, support=_support(i, 400)) for i in range(1, 9)]
+        run = await FactCheckService(None, llm).check_claim_envelope(
+            _env(), retrieval=_outcome(refs, claims=_coverage(refs)))
+        step, adapted_user, adapted = llm.calls[0]
+>       assert step == "temporal_verdict" and adapted is True
+E       AssertionError: assert ('temporal_verdict' == 'temporal_verdict'
+E
+E           temporal_verdict and False is True)
+
+tests\test_factcheck_evidence_delivery.py:326: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_evidence_delivery.py::test_fallback_route_recomposes_payload_to_its_capacity
+1 failed, 10 passed in 2.91s

@@ -1659,6 +1659,14 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
         "fetch_skipped_deadline": _diag_count(
             getattr(retrieval, "fetch_skipped_deadline", None)
             if known else None),
+        # S15: точка остановки поиска и пропущенные из-за бюджета операции —
+        # durable-след прогона (прод-случай tfr-d4f381867a884cbd: поиск был
+        # прерван лимитом, но stage_trace показывал "success").
+        "stop_reason": (str(getattr(retrieval, "stop_reason", "") or "")
+                        if known else _DIAG_UNKNOWN),
+        "fetch_skipped_budget": _diag_count(
+            getattr(retrieval, "fetch_skipped_budget", None)
+            if known else None),
         "retrieval_class": str(retrieval_state or ""),
         "technical_reason": str(getattr(verdict, "reason", "") or ""),
         # FC-07.1 (corrective 05.11.2026): все attempted queries прогона —
@@ -3262,9 +3270,15 @@ class FactCheckService:
         # исход фиксируется дополнительной записью "verdict" в трассе.
         validator_outcome = None
         if evidence and raw_payload:
+            # S15: validator получает ту же серверную границу поиска, что и
+            # аналитик (owner §8.2) — остановка бюджетом не превращается в
+            # «доказательств нет» на стадии подтверждения вердикта.
+            validator_boundary = _evidence_context_note(retrieval, evidence)
+
             def _validator_payload(delivery_obj: EvidenceDelivery) -> str:
                 content = self._temporal_validator_payload(
-                    env, verdict, delivery_obj.rows, delivery=delivery_obj)
+                    env, verdict, delivery_obj.rows, delivery=delivery_obj,
+                    boundary_note=validator_boundary)
                 if _temporal_snap is not None:
                     content = _cclock.append_time_block(
                         content, _temporal_snap, phase=_cclock.PHASE_ANSWER)
@@ -3484,11 +3498,18 @@ class FactCheckService:
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         evidence,
         delivery: EvidenceDelivery | None = None,
+        boundary_note: str = "",
     ) -> str:
         """User-content validator-стадии (D11/TH-2, data-only): утверждение +
         серверный контекст + черновой вердикт + выдержки. Untrusted-evidence
         остаётся ДАННЫМИ: экранирование то же, что у аналитика, контейнер
-        <search_results> не разрывается содержимым сниппетов."""
+        <search_results> не разрывается содержимым сниппетов.
+
+        S15-FC-EVIDENCE: validator видит ТУ ЖЕ границу доказательств, что и
+        аналитик: provenance каждой выдержки (source/opened/strength — сниппет
+        не равен прочитанному документу, owner §8.2) и серверную оговорку об
+        остановке поиска бюджетом (`boundary_note`), иначе он может утвердить
+        вывод «доказательств нет» из искусственного предела."""
         sections = [
             "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
             "<temporal_context>" + escape_xml_text(json.dumps({
@@ -3506,9 +3527,12 @@ class FactCheckService:
                 "assessment_mode": verdict.assessment_mode,
             }, ensure_ascii=False)) + "</verdict_draft>",
             "<evidence>" + escape_xml_text("\n\n".join(
-                "[%s] published: %s\n%s" % (
+                "[%s] published: %s source=%s;opened=%s;strength=%s\n%s" % (
                     r.get("evidence_id") or "?",
                     _fmt_evidence_date(r.get("published_at")),
+                    r.get("source_kind") or "unknown",
+                    "yes" if r.get("opened") else "no",
+                    r.get("strength") or "none",
                     r["support"])
                 for r in evidence)) + "</evidence>",
         ]
@@ -3516,6 +3540,8 @@ class FactCheckService:
             block = delivery.payload_block()
             if block:
                 sections.append(block)
+        if boundary_note:
+            sections.append(boundary_note)
         return "\n\n".join(sections)
 
     async def _temporal_verdict_json(
