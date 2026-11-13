@@ -957,30 +957,42 @@ def _default_evaluated_period(envelope: TemporalClaimEnvelope) -> dict:
 
 # ── Декомпозиция (D8): части с собственными периодами; числа — mca-15 ───────
 
+#: S14 §5.2/§6.6: размер порции декомпозиции (было жёсткое 8). Не максимум:
+#: части сверх порции идут следующими порциями, хвост сохраняется.
+_CLAIM_PARTS_PORTION = 32
+
 def decompose_claim(envelope: TemporalClaimEnvelope) -> tuple[ClaimPart, ...]:
     """Детерминированная декомпозиция: предложения с собственными
     временными ограничениями; проверяемые числа — NumericClaim-совместимые
-    словари (REUSE mca-15 `NumericClaim` — метрика/единица/значение)."""
+    словари (REUSE mca-15 `NumericClaim` — метрика/единица/значение).
+
+    S14 §5.2/§6.6: 32 — размер ПОРЦИИ, а не потолок. Части сверх порции
+    обрабатываются следующими порциями; хвост исходного текста не
+    удаляется.
+    """
     text = envelope.claim_text or ""
     if not text.strip():
         return ()
     raw_parts = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", text) if s.strip()]
     parts: list[ClaimPart] = []
-    for i, chunk in enumerate(raw_parts[:8]):    # bounded: 8 частей
-        p_from, p_to, precision, notes = _extract_claimed_period(
-            chunk, envelope.original_published_at)
-        if not precision and envelope.claim_period_from is not None:
-            p_from, p_to = envelope.claim_period_from, envelope.claim_period_to
-            precision = envelope.claim_period_precision
-        numeric = _extract_numeric_claim(chunk)
-        parts.append(ClaimPart(
-            part_id=f"p{i + 1}", text=chunk,
-            period_from=p_from, period_to=p_to, precision=precision,
-            numeric=numeric))
-        if notes:
-            # Дата-ошибка извлечения ≠ дата-отсутствие (D15) — в uncertainty
-            # части на уровне вердикта попадает через envelope.date_uncertainty.
-            pass
+    for start in range(0, len(raw_parts), _CLAIM_PARTS_PORTION):
+        for offset, chunk in enumerate(
+                raw_parts[start:start + _CLAIM_PARTS_PORTION]):
+            i = start + offset
+            p_from, p_to, precision, notes = _extract_claimed_period(
+                chunk, envelope.original_published_at)
+            if not precision and envelope.claim_period_from is not None:
+                p_from, p_to = envelope.claim_period_from, envelope.claim_period_to
+                precision = envelope.claim_period_precision
+            numeric = _extract_numeric_claim(chunk)
+            parts.append(ClaimPart(
+                part_id=f"p{i + 1}", text=chunk,
+                period_from=p_from, period_to=p_to, precision=precision,
+                numeric=numeric))
+            if notes:
+                # Дата-ошибка извлечения ≠ дата-отсутствие (D15) — в uncertainty
+                # части на уровне вердикта попадает через envelope.date_uncertainty.
+                pass
     return tuple(parts)
 
 
@@ -1052,20 +1064,39 @@ def _semantic_query_text(text: str, *, limit: int = 200) -> str:
 
 def search_queries_for(parts: tuple[ClaimPart, ...],
                        envelope: TemporalClaimEnvelope,
-                       *, max_queries: int = 2) -> list[str]:
+                       *, max_queries: int | None = None,
+                       limits=None) -> list[str]:
     """Поисковые запросы temporal-поиска (D8/FC-SEMQUERY): по одному
     смысловому запросу на самостоятельную часть (сущности/термины/числа
     этой части), НЕ копия начала публикации. Годы заявленного периода
     добавляются к первому запросу (временное ограничение D8 сохранено).
     Деградация: пустые части → смысловая формулировка всего клейма.
 
+    S14 §5.2/§6.4: при effective budgets OFF (`max_queries=None`, limits
+    budgets OFF) фиксированного cap нет — запрос строится на каждую часть.
+    При ON действует общий бюджет фактчека (заводской 64), а не прежний
+    скрытый «2 запроса на весь temporal-поиск».
+
     FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки OCR/vision
     вынесены из запросов (REUSE factcheck_planner.search_thesis_text)."""
     try:
-        from services.factcheck_planner import search_thesis_text
+        from services import factcheck_planner as _fcp
+        search_thesis_text = _fcp.search_thesis_text
     except Exception:          # pragma: no cover — модуль не рвёт поиск
         def search_thesis_text(text: str) -> str:
             return str(text or "")
+    if max_queries is None and limits is None:
+        try:
+            limits = _fcp.resolve_factcheck_limits_sync(
+                getattr(envelope, "chat_id", None))
+        except Exception:      # pragma: no cover — конфиг не рвёт поиск
+            limits = None
+    cap: int | None = None
+    if max_queries is not None:
+        cap = max(1, int(max_queries))
+    elif limits is not None and getattr(limits, "budgets_enabled", False) \
+            and getattr(limits, "total_queries", None):
+        cap = max(1, int(limits.total_queries))
 
     queries: list[str] = []
     seen: set[str] = set()
@@ -1079,7 +1110,7 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
                     years.append(year)
     years_str = " OR ".join(str(y) for y in years[:3]) if years else ""
     for p in parts:
-        if len(queries) >= max(1, int(max_queries)):
+        if cap is not None and len(queries) >= cap:
             break
         text = _semantic_query_text(search_thesis_text(p.text))
         if not text:
@@ -1094,7 +1125,7 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
                 or normalize_text(search_thesis_text(
                     envelope.claim_text))[:200])
         queries.append(f"{base} {years_str}" if years_str else base)
-    return queries[:max(1, int(max_queries))]
+    return queries[:cap] if cap is not None else queries
 
 
 # ── Промпт вердиктной стадии (data-only, без инструментов — CA-20-12) ───────

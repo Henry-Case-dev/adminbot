@@ -143,12 +143,17 @@ INTENTS = (INTENT_ENTITY_CHECK, INTENT_NUMERIC, INTENT_TEMPORAL,
 QUERY_PURPOSE_BASE = "base"
 QUERY_PURPOSE_REFINE = "refine"
 
-_MAX_QUERIES = 3                 # прежний потолок малых клеймов (совместимость)
-_MAX_QUERIES_TOTAL_DEFAULT = 12  # потолок составной новости (настраивается)
-_QUERY_MAX_CHARS = 200
-_MAX_EVIDENCE_REFS = 12
-_MAX_PRIMARY_FETCHES = 2
-_EXCERPT_MAX_CHARS = 600
+#: Стартовое число запросов для КОРОТКОГО клейма (одна-две части). Это НЕ
+#: общий потолок исследования: составной клейм получает по запросу на часть,
+#: а общий/уточняющий бюджеты задаются `FactcheckLimits` (S14).
+_MAX_QUERIES = 3
+#: S14 FACTCHECK-REQUEST-INTEGRITY §5.2: заводской общий бюджет поисковых
+#: запросов (базовые + уточняющие ВМЕСТЕ), применяется только при
+#: effective budgets ON.
+_MAX_QUERIES_TOTAL_DEFAULT = 64
+_QUERY_MAX_CHARS = 200            # технический предел формулировки запроса
+_MAX_PRIMARY_FETCHES = 2          # политика нагрузки при budgets ON
+_EXCERPT_MAX_CHARS = 600          # размер выдержки открытой страницы
 
 
 _NUMERIC_PHRASE_RE = re.compile(
@@ -339,6 +344,10 @@ class RetrievalPlan:
     #: приоритетным текстом не выбирается.
     subject_origin: str = ""
     subject_fingerprint: str = ""
+    #: S14: чат прогона — для per-chat effective-настроек бюджетов фактчека
+    #: (chat override → global → default). Берётся из уже разрешённой цели,
+    #: второго резолва чата планировщик не делает.
+    chat_id: int | None = None
 
     def queries_for(self, claim_id: str) -> tuple[SearchQuery, ...]:
         """Запросы КОНКРЕТНОЙ части; непомеченные — только когда часть одна
@@ -528,7 +537,7 @@ def build_retrieval_plan(decision, *,
         return None
 
 
-def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
+def _claim_units(items, claim: str, *, cap: int | None = None) -> list[str]:
     """FC-SEMQUERY: самостоятельные проверяемые части для запросов —
     верифицируемые тексты claim_items; единый тезис-«всё сообщение»
     разбивается на предложения (как decompose_claim). Детерминированно.
@@ -579,7 +588,11 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
                 continue
             units.append(sentence)
             covered.append(low)
-    return [search_thesis_text(u) for u in units if u][:cap]
+    result = [search_thesis_text(u) for u in units if u]
+    # S14 §6.6: ``cap`` — размер ПОРЦИИ обработки (32), а не максимум
+    # проверяемых утверждений на весь запрос. Без явного ``cap`` хвост
+    # сохраняется; порционность обеспечивает ``build_claim_units``.
+    return result[:cap] if cap is not None else result
 
 
 _YEAR_ONLY_RE = re.compile(
@@ -601,10 +614,10 @@ def _numeric_refinements(unit: str, years: list[str]) -> list[str]:
 
 # ── §3.1/§3.2: разбор claim-единицы (сущности/метрики/интервал/тип) ──────────
 
-#: Жёсткий предел декомпозиции: части сверх бюджета запросов не исчезают, а
-#: честно помечаются непроверенными (`deadline_exceeded`) — Reviewer
-#: nonblocking «>8 частей молча выбрасывались».
-_CLAIM_UNITS_HARD_CAP = 16
+#: S14 §5.2/§6.6: размер ПОРЦИИ декомпозиции (было жёсткое 16). Части сверх
+#: порции не исчезают: материал обрабатывается последовательными порциями
+#: (``build_claim_units``), поэтому 32 — не максимум на весь запрос.
+_CLAIM_UNITS_PORTION = 32
 
 #: Латинские имена/тикеры/варианты термина (международные новости: «Alphabet
 #: (GOOGL)», «S&P 500», «Nasdaq»). Именно они уходят в англоязычный запрос —
@@ -792,42 +805,47 @@ def build_claim_units(items, claim: str, *,
     удаление имени из тезиса ломало смысл запроса.
 
     Reviewer (nonblocking): части сверх бюджета запросов больше не исчезают
-    молча — они остаются в плане (до ``_CLAIM_UNITS_HARD_CAP``), получают
-    ``deadline_exceeded`` в покрытии и честно называются как непроверенные.
+    молча — они остаются в плане, получают ``deadline_exceeded`` в покрытии
+    и честно называются как непроверенные.
+
+    S14 §6.6: 32 — размер ПОРЦИИ. Материал с большим числом существенных
+    частей обрабатывается последовательными порциями по 32, хвост исходного
+    текста не удаляется; ``claim_id`` сквозной по всему материалу.
     """
     claim_years = _years(claim)
     units: list[ClaimUnit] = []
-    for index, raw_unit in enumerate(
-            _claim_units(items, claim, cap=_CLAIM_UNITS_HARD_CAP)):
-        unit = str(raw_unit or "").strip()
-        if not unit:
-            continue
-        uterms = _claim_terms(unit, limit=8)
-        entities = [e for e in _entities(unit)
-                    if e.lower() not in {t.lower() for t in uterms}][:3]
-        uyears = _years(unit) or claim_years
-        metrics = _claim_metrics(unit, uyears)
-        timeframe, event_at = _claim_timeframe(unit, uyears)
-        if timeframe:
-            # Числа самого временного интервала («30», «2026») — это КОГДА
-            # событие, а не ЧТО измерено: иначе «30 октября» подтверждало бы
-            # заявленную сумму совпадением дня месяца (§3.3).
-            frame_numbers = set(re.findall(r"\d+", timeframe))
-            metrics = [m for m in metrics
-                       if set(re.findall(r"\d+", m)) - frame_numbers
-                       or not set(re.findall(r"\d+", m))]
-        units.append(ClaimUnit(
-            claim_id=f"c{len(units) + 1}",
-            text=unit,
-            source_link=source_link,
-            entities=tuple(entities),
-            metrics=tuple(metrics),
-            units=tuple(_metric_units(metrics)),
-            timeframe=timeframe,
-            timezone=_claim_timezone(unit),
-            claim_type=_claim_type(unit, metrics),
-            foreign_terms=tuple(_latin_terms(unit)),
-            event_at=event_at))
+    raw_units = _claim_units(items, claim)
+    for start in range(0, len(raw_units), _CLAIM_UNITS_PORTION):
+        for raw_unit in raw_units[start:start + _CLAIM_UNITS_PORTION]:
+            unit = str(raw_unit or "").strip()
+            if not unit:
+                continue
+            uterms = _claim_terms(unit, limit=8)
+            entities = [e for e in _entities(unit)
+                        if e.lower() not in {t.lower() for t in uterms}][:3]
+            uyears = _years(unit) or claim_years
+            metrics = _claim_metrics(unit, uyears)
+            timeframe, event_at = _claim_timeframe(unit, uyears)
+            if timeframe:
+                # Числа самого временного интервала («30», «2026») — это КОГДА
+                # событие, а не ЧТО измерено: иначе «30 октября» подтверждало бы
+                # заявленную сумму совпадением дня месяца (§3.3).
+                frame_numbers = set(re.findall(r"\d+", timeframe))
+                metrics = [m for m in metrics
+                           if set(re.findall(r"\d+", m)) - frame_numbers
+                           or not set(re.findall(r"\d+", m))]
+            units.append(ClaimUnit(
+                claim_id=f"c{len(units) + 1}",
+                text=unit,
+                source_link=source_link,
+                entities=tuple(entities),
+                metrics=tuple(metrics),
+                units=tuple(_metric_units(metrics)),
+                timeframe=timeframe,
+                timezone=_claim_timezone(unit),
+                claim_type=_claim_type(unit, metrics),
+                foreign_terms=tuple(_latin_terms(unit)),
+                event_at=event_at))
     return tuple(units)
 
 
@@ -1014,8 +1032,13 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
         units = (ClaimUnit(claim_id="c1",
                            text=search_thesis_text(claim)),)
     explicit_cap = max_queries is not None and int(max_queries) > 0
+    # S14 §5.2/§6.3: план строится по числу существенных частей; 64 — это
+    # бюджет ИСПОЛНЕНИЯ (run_retrieval), а не причина терять части плана.
+    # Поэтому верхняя граница плана не фиксируется старым 12/64: каждая
+    # часть получает запрос, а при effective budgets ON исполнение честно
+    # остановится на общем бюджете и отметит непроверенное.
     max_queries_value = (int(max_queries) if explicit_cap
-                         else adaptive_query_budget(len(units)))
+                         else max(len(units), _MAX_QUERIES))
 
     def _budget_reached() -> bool:
         return len(queries) >= max_queries_value
@@ -1108,8 +1131,15 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
         return None
     target_ref = getattr(decision, "target_ref", None)
     source_link = ""
-    if isinstance(target_ref, dict) and target_ref.get("target_tg_message_id"):
-        source_link = f"tg:{target_ref.get('target_tg_message_id')}"
+    chat_id = None
+    if isinstance(target_ref, dict):
+        if target_ref.get("target_tg_message_id"):
+            source_link = f"tg:{target_ref.get('target_tg_message_id')}"
+        raw_chat_id = target_ref.get("chat_id")
+        try:
+            chat_id = int(raw_chat_id) if raw_chat_id is not None else None
+        except (TypeError, ValueError):
+            chat_id = None
     return RetrievalPlan(
         queries=tuple(queries), needs_web=True,
         needs_chat_history=needs_chat,
@@ -1122,7 +1152,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
             subject_request_text=subject_request_text,
             subject_material_text=subject_material_text),
         subject_origin=subject_origin,
-        subject_fingerprint=subject_fingerprint)
+        subject_fingerprint=subject_fingerprint,
+        chat_id=chat_id)
 
 
 
@@ -1173,21 +1204,28 @@ def evidence_refs_from_search(results_text: str, *,
     return tuple(refs)
 
 
-def _excerpt_from_html(html_text: str, *, limit: int = _EXCERPT_MAX_CHARS
+def _excerpt_from_html(html_text: str, *, limit: int | None = _EXCERPT_MAX_CHARS
                        ) -> str:
-    """Первый содержательный абзац страницы (теги срезаны), cap 600."""
+    """Первый содержательный абзац страницы (теги срезаны); предел порции.
+
+    ``limit=None`` — бюджеты OFF: выдержка не обрезается искусственно.
+    """
     text = _TAG_RE.sub(" ", str(html_text or ""))
     text = re.sub(r"\s{2,}", " ", text)
     for chunk in re.split(r"(?<=[.!?])\s+", text.strip()):
         chunk = chunk.strip()
         if len(chunk) >= 80:
-            return chunk[:limit].rstrip()
-    return text.strip()[:limit] if text.strip() else ""
+            return chunk if limit is None else chunk[:limit].rstrip()
+    if not text.strip():
+        return ""
+    return text.strip() if limit is None else text.strip()[:limit]
 
 
 async def fetch_primary_evidence(url: str, *, fetch_text=None,
                                  max_bytes: int = 65536,
-                                 timeout: float = 4.0) -> EvidenceRef | None:
+                                 timeout: float = 4.0,
+                                 excerpt_chars: int | None = _EXCERPT_MAX_CHARS
+                                 ) -> EvidenceRef | None:
     """Открыть страницу-кандидат через СУЩЕСТВУЮЩИЙ SafeFetcher (REUSE;
     инъекция `fetch_text` — прецедент enrich_evidence_dates). Fail-open →
     None.
@@ -1209,7 +1247,9 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
         logger.info("[factcheck_planner] primary fetch failed | url=%s",
                     url, exc_info=True)
         return None
-    excerpt = _excerpt_from_html(html_text)
+    excerpt = _excerpt_from_html(
+        html_text,
+        limit=excerpt_chars if excerpt_chars is not None else None)
     if not excerpt or len(excerpt) < 40:
         return None
     published_at, _source = tf.parse_publication_date(html_text, url)
@@ -1219,9 +1259,15 @@ async def fetch_primary_evidence(url: str, *, fetch_text=None,
 
 
 def _assemble(refs: list[EvidenceRef]) -> EvidenceMap | None:
-    """Проставить стабильные ID ev-N текущего прогона + allowlist."""
+    """Проставить стабильные ID ev-N текущего прогона + allowlist.
+
+    S14: прежний жёсткий потолок 12 ссылок снят — он молча отбрасывал уже
+    полученные полезные доказательства и не входил ни в один бюджетный
+    параметр. Дедупликация/allowlist сохранены; ограничение доставки —
+    задача порций evidence (S15), а не скрытая потеря здесь.
+    """
     assembled: list[EvidenceRef] = []
-    for ref in refs[:_MAX_EVIDENCE_REFS]:
+    for ref in refs:
         assembled.append(dataclasses.replace(
             ref, evidence_id=f"ev-{len(assembled) + 1}"))
     if not assembled:
@@ -1231,31 +1277,279 @@ def _assemble(refs: list[EvidenceRef]) -> EvidenceMap | None:
 
 
 async def execute_retrieval(plan: RetrievalPlan, *, aggregator,
-                            fetch_text=None, max_rows_per_query: int = 4
+                            fetch_text=None,
+                            max_rows_per_query: int | None = None,
+                            limits: "FactcheckLimits | None" = None
                             ) -> EvidenceMap | None:
-    """Выполнить план: bounded 06C-запросы через существующий агрегатор +
-    до 2 первоисточников через SafeFetcher → EvidenceMap текущего прогона.
+    """Выполнить план: bounded запросы через существующий агрегатор +
+    первоисточники через SafeFetcher → EvidenceMap текущего прогона.
 
-    Ошибки запросов/фетчей не прерывают сбор (честная деградация); пусто →
-    None. Никогда не бросает."""
+    S14: размер страницы/политика открытий берутся из `FactcheckLimits`
+    (заводской 20 при ON; OFF — без продуктовых caps). Ошибки запросов/
+    фетчей не прерывают сбор (честная деградация); пусто → None.
+    Никогда не бросает."""
     outcome = await run_retrieval(plan, aggregator=aggregator,
                                   fetch_text=fetch_text,
-                                  max_rows_per_query=max_rows_per_query)
+                                  max_rows_per_query=max_rows_per_query,
+                                  limits=limits)
     return outcome.evidence_map
 
 
-# ── W6: единый retrieval-контур v2 (06C.8: бюджеты/дедлайны + метрики) ──────
+# ── S14: единый ресурсный контракт фактчека ─────────────────────────────────
+# Заводские значения (owner §5.2, 14.11.2026). При effective budgets OFF ни
+# одно из бюджетных значений не ограничивает исследование; при ON они —
+# политика, а не обязательный минимум.
+FACTCHECK_BUDGET_SECONDS = 120.0
+FACTCHECK_BUDGET_SECONDS_MAX = 600.0
+FACTCHECK_REFINE_CALLS = 24
+FACTCHECK_QUERIES_TOTAL = 64
+FACTCHECK_SEARCH_TEXT_CHARS = 100_000
+FACTCHECK_PAGE_SIZE = 20
+FACTCHECK_CLAIM_PORTION = 32
+FACTCHECK_PRIMARY_FETCHES = 2
+FACTCHECK_EXCERPT_CHARS = 600
 
-# Суммарный бюджет строк поиска, уходящих в user-content ветки (06C.8).
-_SEARCH_TEXT_BUDGET_CHARS = 8000
-# Базовый бюджет retrieval-контура (§3.2): больше НЕ безусловный потолок —
-# на каждую дополнительную существенную часть добавляется доля базового
-# бюджета, сверху действует технический предел прогона.
-_BUDGET_SECONDS_DEFAULT = 10.0
+#: Суммарный размер порции текстовой выдачи, уходящей в user-content ветки.
+#: S14: 100 000 — размер ПОРЦИИ; остаток не уничтожается
+#: (`RetrievalOutcome.search_text_portions`).
+_SEARCH_TEXT_BUDGET_CHARS = FACTCHECK_SEARCH_TEXT_CHARS
+#: Базовый бюджет retrieval-контура (owner §5.2): стартовый планировочный
+#: бюджет, а не обязательная длительность. Имена сохранены для совместимости
+#: существующих тестов/вызывающих.
+_BUDGET_SECONDS_DEFAULT = FACTCHECK_BUDGET_SECONDS
 _BUDGET_SECONDS_PER_EXTRA_CLAIM = 0.5
-_BUDGET_SECONDS_MAX = 45.0
-#: §3.2: сколько уточняющих запросов допускается на прогон (coverage-loop).
-_REFINE_CALLS_DEFAULT = 3
+_BUDGET_SECONDS_MAX = FACTCHECK_BUDGET_SECONDS_MAX
+#: §3.2/§6.4: сколько уточняющих запросов допускается на прогон при ON.
+_REFINE_CALLS_DEFAULT = FACTCHECK_REFINE_CALLS
+
+#: PG/hot-ключи ресурсного контракта (chat → global → default). Значения —
+#: числа; каталог их не объявляет (аудит S14), поэтому резолвер сам приводит
+#: типы и НЕ создаёт новую admin-панель.
+_LIMIT_BASE = "limits.factcheck_retrieval_seconds"
+_LIMIT_BASE_MAX = "limits.factcheck_retrieval_seconds_max"
+_LIMIT_REFINE = "limits.factcheck_refine_calls"
+_LIMIT_TOTAL_QUERIES = "limits.factcheck_max_queries_total"
+_LIMIT_SEARCH_CHARS = "limits.factcheck_search_text_chars"
+_LIMIT_PAGE_SIZE = "limits.factcheck_page_size"
+_LIMIT_CLAIM_PORTION = "limits.factcheck_claim_portion"
+_LIMIT_PRIMARY_FETCHES = "limits.factcheck_primary_fetches"
+_LIMIT_EXCERPT_CHARS = "limits.factcheck_excerpt_chars"
+#: PG-ключ master-рубильника (резолв принадлежит S1 `budget_gate`).
+_BUDGETS_KEY = "flags.budgets_enabled"
+
+
+@dataclasses.dataclass(frozen=True)
+class FactcheckLimits:
+    """Эффективные ресурсы фактчека + происхождение каждого значения.
+
+    ``budgets_enabled=False`` (master `flags.budgets_enabled` OFF): бюджетные
+    поля ``None`` — никакого продуктового deadline/cap не применяется.
+    Размеры порций (``page_size``/``claim_portion``) — структурные, не бюджет.
+    ``sources`` — пары (ключ, chat|global|default): сохранённое значение не
+    перезаписывается, а материализованный default не выдаётся за выбор
+    пользователя (SFC-5-09).
+    """
+
+    budgets_enabled: bool = True
+    budget_source: str = "default"
+    budget_known: bool = True
+    base_seconds: float | None = FACTCHECK_BUDGET_SECONDS
+    max_seconds: float | None = FACTCHECK_BUDGET_SECONDS_MAX
+    refine_calls: int | None = FACTCHECK_REFINE_CALLS
+    total_queries: int | None = FACTCHECK_QUERIES_TOTAL
+    search_text_chars: int | None = FACTCHECK_SEARCH_TEXT_CHARS
+    page_size: int = FACTCHECK_PAGE_SIZE
+    claim_portion: int = FACTCHECK_CLAIM_PORTION
+    primary_fetches: int | None = FACTCHECK_PRIMARY_FETCHES
+    excerpt_chars: int | None = FACTCHECK_EXCERPT_CHARS
+    sources: tuple[tuple[str, str], ...] = ()
+
+    def as_meta(self) -> dict:
+        """R17-safe снимок (без текстов/секретов)."""
+        return {
+            "budgets_enabled": bool(self.budgets_enabled),
+            "budget_source": str(self.budget_source),
+            "budget_known": bool(self.budget_known),
+            "base_seconds": self.base_seconds,
+            "max_seconds": self.max_seconds,
+            "refine_calls": self.refine_calls,
+            "total_queries": self.total_queries,
+            "search_text_chars": self.search_text_chars,
+            "page_size": self.page_size,
+            "claim_portion": self.claim_portion,
+            "primary_fetches": self.primary_fetches,
+            "excerpt_chars": self.excerpt_chars,
+            "sources": dict(self.sources),
+        }
+
+
+def _as_int(value, default: int) -> int:
+    try:
+        if isinstance(value, bool):
+            return int(value)
+        return int(float(value))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _as_float(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _limits_from_values(*, enabled: bool, budget_source: str,
+                        budget_known: bool, values: dict,
+                        sources: dict) -> FactcheckLimits:
+    """Собрать контракт: OFF снимает бюджеты, ON применяет значения."""
+    page_size = max(1, _as_int(values["page"], FACTCHECK_PAGE_SIZE))
+    portion = max(1, _as_int(values["portion"], _CLAIM_UNITS_PORTION))
+    if not enabled:
+        return FactcheckLimits(
+            budgets_enabled=False, budget_source=budget_source,
+            budget_known=budget_known,
+            base_seconds=None, max_seconds=None, refine_calls=None,
+            total_queries=None, search_text_chars=None,
+            page_size=page_size, claim_portion=portion,
+            primary_fetches=None, excerpt_chars=None,
+            sources=tuple(sorted(sources.items())))
+    base = max(0.0, _as_float(values["base"], _BUDGET_SECONDS_DEFAULT))
+    cap = max(base, _as_float(values["max"], _BUDGET_SECONDS_MAX))
+    refine = max(0, _as_int(values["refine"], _REFINE_CALLS_DEFAULT))
+    total = max(1, _as_int(values["total"], _MAX_QUERIES_TOTAL_DEFAULT))
+    chars = max(1, _as_int(values["chars"], _SEARCH_TEXT_BUDGET_CHARS))
+    fetches = max(0, _as_int(values["fetches"], _MAX_PRIMARY_FETCHES))
+    excerpt = max(1, _as_int(values["excerpt"], _EXCERPT_MAX_CHARS))
+    return FactcheckLimits(
+        budgets_enabled=True, budget_source=budget_source,
+        budget_known=budget_known, base_seconds=base, max_seconds=cap,
+        refine_calls=refine, total_queries=total, search_text_chars=chars,
+        page_size=page_size, claim_portion=portion,
+        primary_fetches=fetches, excerpt_chars=excerpt,
+        sources=tuple(sorted(sources.items())))
+
+
+async def _read_limit(key: str, default, *, chat_id):
+    """(значение, source) из единого read-path; fail-open на default."""
+    try:
+        from services import worker_settings
+        value, source = await worker_settings.resolve_setting_with_source(
+            key, chat_id=chat_id, default=default)
+        return value, source
+    except Exception:      # pragma: no cover — конфиг не рвёт контур
+        return default, "default"
+
+
+async def resolve_factcheck_limits(
+        chat_id=None, *,
+        budgets_enabled: bool | None = None,
+        budget_source: str | None = None,
+        budget_known: bool | None = None,
+) -> FactcheckLimits:
+    """Единственная async-точка эффективных ресурсов фактчека (S14).
+
+    Приоритет master-флага принадлежит S1 (`budget_gate.resolve_budgets`):
+    chat override → global → default, с last-known-valid. Фактчек не вводит
+    второй master и не угадывает происхождение сохранённых значений.
+    """
+    if budgets_enabled is None:
+        try:
+            from services import budget_gate
+            state = await budget_gate.resolve_budgets(chat_id)
+            enabled = bool(state.enabled)
+            source = str(getattr(state, "source", "default") or "default")
+            known = bool(getattr(state, "known", True))
+        except Exception:      # pragma: no cover — fail-open как прежде
+            from config.settings import settings
+            enabled = bool(getattr(settings, "BUDGETS_ENABLED", True))
+            source, known = "default", False
+    else:
+        enabled = bool(budgets_enabled)
+        source = str(budget_source or "default")
+        known = bool(True if budget_known is None else budget_known)
+
+    values, sources = {}, {}
+    for name, key, default in (
+            ("base", _LIMIT_BASE, _BUDGET_SECONDS_DEFAULT),
+            ("max", _LIMIT_BASE_MAX, _BUDGET_SECONDS_MAX),
+            ("refine", _LIMIT_REFINE, _REFINE_CALLS_DEFAULT),
+            ("total", _LIMIT_TOTAL_QUERIES, _MAX_QUERIES_TOTAL_DEFAULT),
+            ("chars", _LIMIT_SEARCH_CHARS, _SEARCH_TEXT_BUDGET_CHARS),
+            ("page", _LIMIT_PAGE_SIZE, FACTCHECK_PAGE_SIZE),
+            ("portion", _LIMIT_CLAIM_PORTION, _CLAIM_UNITS_PORTION),
+            ("fetches", _LIMIT_PRIMARY_FETCHES, _MAX_PRIMARY_FETCHES),
+            ("excerpt", _LIMIT_EXCERPT_CHARS, _EXCERPT_MAX_CHARS)):
+        value, src = await _read_limit(key, default, chat_id=chat_id)
+        values[name], sources[key] = value, src
+    sources[_BUDGETS_KEY] = source
+    return _limits_from_values(
+        enabled=enabled, budget_source=source, budget_known=known,
+        values=values, sources=sources)
+
+
+def resolve_factcheck_limits_sync(chat_id=None) -> FactcheckLimits:
+    """Sync-проекция для планирования (без I/O): прогретый chat override →
+    hot/global → settings default. Исполнение всё равно перечитывает async
+    (`run_retrieval`), поэтому sync-значение не является решающим."""
+    from config.settings import settings
+    from services import hot_config as hot
+    from services import chat_params as cp
+
+    enabled = None
+    source = "default"
+    known = True
+    try:
+        from services import budget_gate
+        state = budget_gate.last_known_state(chat_id)
+        if state is not None:
+            enabled = bool(state.enabled)
+            source = str(state.source)
+            known = bool(state.known)
+    except Exception:      # pragma: no cover
+        state = None
+    if enabled is None and chat_id is not None:
+        value, found = cp.read_override_sync(
+            int(chat_id), _BUDGETS_KEY, None)
+        if found:
+            enabled, source = bool(value), "chat"
+    if enabled is None:
+        sentinel = object()
+        value = hot.get(_BUDGETS_KEY, sentinel)
+        if value is not sentinel and value is not None:
+            enabled, source = bool(value), "global"
+    if enabled is None:
+        enabled = bool(getattr(settings, "BUDGETS_ENABLED", True))
+        source, known = "default", False
+
+    def _sync_value(key: str, default):
+        if chat_id is not None:
+            value, found = cp.read_override_sync(int(chat_id), key, None)
+            if found:
+                return value, "chat"
+        sentinel = object()
+        value = hot.get(key, sentinel)
+        if value is not sentinel and value is not None:
+            return value, "global"
+        return default, "default"
+
+    values, sources = {}, {}
+    for name, key, default in (
+            ("base", _LIMIT_BASE, _BUDGET_SECONDS_DEFAULT),
+            ("max", _LIMIT_BASE_MAX, _BUDGET_SECONDS_MAX),
+            ("refine", _LIMIT_REFINE, _REFINE_CALLS_DEFAULT),
+            ("total", _LIMIT_TOTAL_QUERIES, _MAX_QUERIES_TOTAL_DEFAULT),
+            ("chars", _LIMIT_SEARCH_CHARS, _SEARCH_TEXT_BUDGET_CHARS),
+            ("page", _LIMIT_PAGE_SIZE, FACTCHECK_PAGE_SIZE),
+            ("portion", _LIMIT_CLAIM_PORTION, _CLAIM_UNITS_PORTION),
+            ("fetches", _LIMIT_PRIMARY_FETCHES, _MAX_PRIMARY_FETCHES),
+            ("excerpt", _LIMIT_EXCERPT_CHARS, _EXCERPT_MAX_CHARS)):
+        value, src = _sync_value(key, default)
+        values[name], sources[key] = value, src
+    sources[_BUDGETS_KEY] = source
+    return _limits_from_values(
+        enabled=bool(enabled), budget_source=source, budget_known=known,
+        values=values, sources=sources)
 
 
 def _hot_number(key: str, default: float) -> float:
@@ -1267,28 +1561,45 @@ def _hot_number(key: str, default: float) -> float:
         return float(default)
 
 
+def _budget_seconds(claims_count: int, limits: FactcheckLimits):
+    """Адаптивный бюджет ON; ``None`` — бюджеты OFF (дедлайна нет)."""
+    if not limits.budgets_enabled or limits.base_seconds is None:
+        return None
+    extra = max(0, int(claims_count) - 1)
+    base = float(limits.base_seconds)
+    cap = float(limits.max_seconds if limits.max_seconds is not None else base)
+    return max(base, min(cap, base * (1.0 + _BUDGET_SECONDS_PER_EXTRA_CLAIM
+                                      * extra)))
+
+
 def resolve_retrieval_budget(claims_count: int,
-                            *, base: float | None = None) -> float:
+                            *, base: float | None = None,
+                            limits: FactcheckLimits | None = None):
     """§3.2: адаптивный бюджет по числу существенных частей.
 
-    Прежний скрытый жёсткий ``10s`` на любой составной фактчек оставлял
-    части без проверки. Теперь база — на прогон, плюс доля базы за каждую
-    дополнительную часть, с техническим пределом: не бесконечный поиск и
-    не необоснованный расход API. Дедлайн честно фиксируется по claim.
+    S14: при effective budgets OFF возвращает ``None`` — продуктового
+    deadline нет. ``base``/hot-ключи сохранены для совместимости; при
+    явном ``base`` (тест/вызывающий) значение используется как политика
+    вызывающего.
     """
+    if limits is not None:
+        if base is not None:
+            return float(base)
+        return _budget_seconds(claims_count, limits)
     base_value = float(_BUDGET_SECONDS_DEFAULT if base is None
                        else base)
-    base_value = _hot_number("limits.factcheck_retrieval_seconds", base_value)
-    cap = _hot_number("limits.factcheck_retrieval_seconds_max",
-                      _BUDGET_SECONDS_MAX)
+    base_value = _hot_number(_LIMIT_BASE, base_value)
+    cap = _hot_number(_LIMIT_BASE_MAX, _BUDGET_SECONDS_MAX)
     extra = max(0, int(claims_count) - 1)
     return max(base_value, min(cap, base_value *
                                (1.0 + _BUDGET_SECONDS_PER_EXTRA_CLAIM * extra)))
 
 
 def _refine_calls_limit() -> int:
+    """Legacy-чтение только для внешних вызывающих; run_retrieval использует
+    `FactcheckLimits.refine_calls` (тот же ключ, но с учётом budgets OFF)."""
     try:
-        return max(0, int(_hot_number("limits.factcheck_refine_calls",
+        return max(0, int(_hot_number(_LIMIT_REFINE,
                                       _REFINE_CALLS_DEFAULT)))
     except Exception:      # pragma: no cover
         return _REFINE_CALLS_DEFAULT
@@ -1327,15 +1638,33 @@ class RetrievalOutcome:
     off_topic_sources_dropped: int = 0
     stale_sources_dropped: int = 0
     refine_calls: int = 0
-    budget_seconds: float = 0.0
+    budget_seconds: float | None = 0.0
     #: §11.2 п.2 (ES-3): сколько кандидатов на открытие первоисточника
     #: осталось без попытки именно из-за дедлайна стадии. Отдельный счётчик:
     #: это не `source_extract_failed` и не «материалы не удалось разобрать».
     fetch_skipped_deadline: int = 0
+    #: S14: сколько кандидатов не открыто из-за политики нагрузки при ON
+    #: (не смешивается с дедлайном; при OFF счётчик всегда 0).
+    fetch_skipped_budget: int = 0
     #: FC-07.1 (corrective 05.11.2026): все attempted queries прогона —
     #: в приватную диагностику (корреляция с correlation_id); это уже
     #: деперсонализированные строки, ушедшие в поисковик, а не текст чата.
     attempted_queries: tuple[str, ...] = ()
+    #: S14 §13: машинная причина завершения retrieval (различает ранний
+    #: успех, достаточное evidence, отсутствие прогресса, отказ провайдера,
+    #: технический и бюджетный предел; не маскирует скрытый enforcement).
+    stop_reason: str = ""
+    #: S14: effective-состояние бюджетов и источник значений (без секретов).
+    budgets_enabled: bool = True
+    budget_source: str = "default"
+    budget_known: bool = True
+    limit_sources: tuple[tuple[str, str], ...] = ()
+    #: S14 §5.2/§7: 100 000 символов — размер ПОРЦИИ. Полный текст не теряется:
+    #: `search_text` = первая порция (совместимый контракт), `search_text_
+    #: portions` = все порции, `search_text_truncated` — есть ли остаток.
+    search_text_portions: tuple[str, ...] = ()
+    search_text_total_chars: int = 0
+    search_text_truncated: bool = False
 
     @property
     def ok(self) -> bool:
@@ -1363,6 +1692,9 @@ class RetrievalOutcome:
             "queries_attempted": self.queries_attempted,
             "queries_used": self.queries_used,
             "budget_exhausted": bool(self.budget_exhausted),
+            "stop_reason": str(self.stop_reason),
+            "budgets_enabled": bool(self.budgets_enabled),
+            "budget_source": str(self.budget_source),
             "planner_version": self.planner_version,
         }
 
@@ -1587,10 +1919,39 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
                            if str(getattr(ref, "evidence_id", "") or "")))
 
 
+#: S14 §6.3: содержательные причины завершения retrieval. Значения —
+#: машинные (для логов/метрик); текст причины не является пользовательским
+#: ответом. `unexplained_stop` — специальный маркер скрытого enforcement:
+#: исполнение прекратилось без отслеженной причины.
+STOP_SUFFICIENT_EVIDENCE = "sufficient_evidence"
+STOP_NO_PROGRESS = "no_progress"
+STOP_PROVIDERS_UNAVAILABLE = "providers_unavailable"
+STOP_BUDGET_EXHAUSTED = "budget_exhausted"
+STOP_TECHNICAL_LIMIT = "technical_limit"
+STOP_PATHS_EXHAUSTED = "paths_exhausted"
+STOP_CANCELLED = "cancelled"
+STOP_UNEXPLAINED = "unexplained_stop"
+STOP_NOT_STARTED = "not_started"
+
+
+def _text_portions(text: str, size: int | None) -> tuple[str, ...]:
+    """Разбить текст на порции БЕЗ потери: `"".join(portions) == text`."""
+    value = str(text or "")
+    if not value:
+        return ()
+    if size is None or int(size) <= 0 or len(value) <= int(size):
+        return (value,)
+    step = int(size)
+    return tuple(value[start:start + step]
+                 for start in range(0, len(value), step))
+
+
 async def run_retrieval(plan: RetrievalPlan, *, aggregator,
-                        fetch_text=None, max_rows_per_query: int = 4,
+                        fetch_text=None,
+                        max_rows_per_query: int | None = None,
                         budget_seconds: float | None = None,
                         refine_calls: int | None = None,
+                        limits: "FactcheckLimits | None" = None,
                         ) -> RetrievalOutcome:
     """Единый контур: план → запросы ПО КАЖДОЙ части → структурный evidence +
     строка выдачи для user-content. Дедлайн бюджета/ошибки запросов —
@@ -1599,11 +1960,16 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
 
     ASAP-FC-EVIDENCE-STYLE-02 §3: каждая claim-единица получает базовую
     попытку; далее coverage-loop добавляет уточнение ТОЛЬКО для непокрытых
-    частей (в пределах настраиваемого числа вызовов и адаптивного бюджета).
-    Ссылка попадает в evidence только если подтверждает ЯКОРЬ своей части
-    (метрика/сущность/тикер); иначе она снимается как off-topic и в
-    «Источники» не выводится. URL ≠ доказательство: содержимое достаётся
-    существующим SafeFetcher.
+    частей.
+
+    S14 FACTCHECK-REQUEST-INTEGRITY §5–6: ресурсы берутся из
+    `FactcheckLimits`. При effective budgets OFF (`budgets_enabled=False`)
+    нет продуктового дедлайна, общего/уточняющего cap и char-бюджета —
+    исполняются все запросы плана и уточнения по содержательной надобности;
+    при ON действуют 120/600 с, 24 уточняющих и 64 общих (базовые+уточняющие
+    ВМЕСТЕ), 100 000 символов — размер порции, 20 результатов на страницу,
+    32 claim units — размер порции. Поиск завершается по содержательному
+    состоянию (`stop_reason`), а не по счётчику.
     """
     loop = asyncio.get_running_loop()
     claims = tuple(plan.claims) if plan is not None and plan.claims else ()
@@ -1613,69 +1979,103 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             base_text = str(plan.queries[0].text or "")
         if base_text:
             claims = (_pseudo_claim(base_text),)
-    budget = float(budget_seconds) if budget_seconds is not None else \
-        resolve_retrieval_budget(len(claims) or 1)
-    deadline = loop.time() + budget
+    if limits is None:
+        limits = await resolve_factcheck_limits(
+            getattr(plan, "chat_id", None) if plan is not None else None)
+    if budget_seconds is not None:
+        budget: float | None = float(budget_seconds)
+    else:
+        budget = _budget_seconds(len(claims) or 1, limits)
+    deadline = loop.time() + budget if budget is not None else None
+    page_limit = (max(1, int(max_rows_per_query))
+                  if max_rows_per_query is not None
+                  else max(1, int(limits.page_size)))
+    refine_limit = (max(0, int(refine_calls)) if refine_calls is not None
+                    else limits.refine_calls)
+    total_limit = limits.total_queries
+    fetch_limit = limits.primary_fetches
+    excerpt_chars = limits.excerpt_chars
     outcome_empty = RetrievalOutcome(
         evidence_map=None, search_text="", queries_attempted=0,
         queries_used=0, refs_collected=0, fetch_errors=0,
         budget_exhausted=False, provider_failures=0,
-        claims=(), budget_seconds=budget)
+        claims=(), budget_seconds=budget, stop_reason=STOP_NOT_STARTED,
+        budgets_enabled=bool(limits.budgets_enabled),
+        budget_source=str(limits.budget_source),
+        budget_known=bool(limits.budget_known),
+        limit_sources=tuple(limits.sources))
     if plan is None or not plan.queries or aggregator is None:
         return outcome_empty
 
     relevance_search = getattr(aggregator, "search_relevant", None)
     runs: list[_ClaimRun] = [_ClaimRun(claim) for claim in claims]
-    runs_by_id = {run.claim.claim_id: run for run in runs}
     blocks: list[str] = []
     counters = {"attempted": 0, "used": 0, "fetch_errors": 0,
                 "provider_failures": 0, "empty": 0, "irrelevant": 0,
                 "off_topic": 0, "stale": 0, "refine": 0}
-    budget_exhausted = False
-    total_calls = len(plan.queries) + max(0, _refine_calls_limit()
-                                          if refine_calls is None
-                                          else int(refine_calls))
+    product_budget_hit = False
+    technical_deadline = False
+    stop_reason = ""
+    total_calls = (len(plan.queries) + (refine_limit or 0))
+
+    def _deadline_now() -> bool:
+        return deadline is not None and loop.time() >= deadline
+
+    async def _invoke(query: SearchQuery, query_terms, timeout_budget, trace):
+        if relevance_search is not None:
+            if timeout_budget is not None:
+                try:
+                    return await relevance_search(
+                        query.text, query.max_symbols,
+                        relevance_terms=query_terms,
+                        timeout_budget=timeout_budget, trace=trace)
+                except TypeError:
+                    try:
+                        return await relevance_search(
+                            query.text, query.max_symbols,
+                            relevance_terms=query_terms,
+                            timeout_budget=timeout_budget)
+                    except TypeError:
+                        pass
+            try:
+                return await relevance_search(
+                    query.text, query.max_symbols,
+                    relevance_terms=query_terms, trace=trace)
+            except TypeError:
+                return await relevance_search(
+                    query.text, query.max_symbols,
+                    relevance_terms=query_terms)
+        try:
+            return await aggregator.search(query.text, query.max_symbols,
+                                           trace=trace)
+        except TypeError:
+            return await aggregator.search(query.text, query.max_symbols)
 
     async def _attempt(query: SearchQuery, run: _ClaimRun) -> None:
-        nonlocal budget_exhausted
-        remaining = deadline - loop.time()
-        if remaining <= 0:
-            budget_exhausted = True
+        nonlocal product_budget_hit, technical_deadline
+        if total_limit is not None and counters["attempted"] >= int(total_limit):
+            product_budget_hit = True
             run.deadline_hit = True
             return
+        remaining = None
+        if deadline is not None:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                product_budget_hit = True
+                run.deadline_hit = True
+                return
         counters["attempted"] += 1
         run.attempts += 1
         run.attempted_texts.add(str(query.text).lower())
         query_terms = _claim_terms(query.text, limit=10)
-        calls_left = max(1, total_calls - counters["attempted"] + 1)
-        per_query_budget = max(1.0, remaining / calls_left)
+        per_query_budget = None
+        if remaining is not None:
+            calls_left = max(1, total_calls - counters["attempted"] + 1)
+            per_query_budget = max(1.0, remaining / calls_left)
         trace: dict = {}
         started_at = loop.time()
         try:
-            if relevance_search is not None:
-                try:
-                    chunk = await relevance_search(
-                        query.text, query.max_symbols,
-                        relevance_terms=query_terms,
-                        timeout_budget=per_query_budget, trace=trace)
-                except TypeError:
-                    try:
-                        chunk = await relevance_search(
-                            query.text, query.max_symbols,
-                            relevance_terms=query_terms,
-                            timeout_budget=per_query_budget)
-                    except TypeError:
-                        chunk = await relevance_search(
-                            query.text, query.max_symbols,
-                            relevance_terms=query_terms)
-            else:
-                try:
-                    chunk = await aggregator.search(query.text,
-                                                    query.max_symbols,
-                                                    trace=trace)
-                except TypeError:
-                    chunk = await aggregator.search(query.text,
-                                                    query.max_symbols)
+            chunk = await _invoke(query, query_terms, per_query_budget, trace)
         except Exception as exc:
             cause = str(getattr(exc, "reason", "") or "")
             provider = str(trace.get("provider") or "") or "search"
@@ -1686,6 +2086,9 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 counters["irrelevant"] += 1
                 run.irrelevant += 1
             elif cause == "budget":
+                # Транспортный/провайдерский предел конкретного вызова —
+                # НЕ продуктовый бюджет всего исследования (SFC-13-03).
+                technical_deadline = True
                 run.deadline_hit = True
                 counters["provider_failures"] += 1
             else:
@@ -1697,8 +2100,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                         "intent=%s | provider=%s | cause=%s",
                         run.claim.claim_id, query.intent, provider,
                         cause or "provider_error")
-            if loop.time() >= deadline:
-                budget_exhausted = True
+            if _deadline_now():
+                product_budget_hit = True
                 run.deadline_hit = True
             return
         if not chunk or not str(chunk).strip():
@@ -1708,13 +2111,13 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             return
         counters["used"] += 1
         blocks.append(str(chunk))
-        if loop.time() >= deadline:
-            # §3.2: бюджет ИСЧЕРПАН этим вызовом — честно фиксируем, чтобы
-            # оставшиеся части не выдавались за непроверенные «по факту».
-            budget_exhausted = True
+        if _deadline_now():
+            # §3.2/§5.2: продуктовый бюджет ИСЧЕРПАН этим вызовом — честно
+            # фиксируем, чтобы оставшиеся части не выдавались за проверенные.
+            product_budget_hit = True
             run.deadline_hit = True
         refs = evidence_refs_from_search(str(chunk), intent=query.intent,
-                                        max_rows=max_rows_per_query)
+                                        max_rows=page_limit)
         run.candidates += len(refs)
         provider = str(trace.get("provider") or "") or "search"
         latency = int((loop.time() - started_at) * 1000)
@@ -1746,29 +2149,51 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     for run in runs:
         queries = plan.queries_for(run.claim.claim_id)
         if not queries:
-            # Части не досталось запроса из-за потолка вызовов: это честный
-            # лимит (deadline), а не «данных не нашлось».
-            run.deadline_hit = True
-            budget_exhausted = True
+            # Запроса нет: при ON это упёршийся общий бюджет, при OFF —
+            # структурная аномалия вызывающего (честно отмечаем, не прячем).
+            if total_limit is not None:
+                run.deadline_hit = True
+                product_budget_hit = True
             continue
         for query in queries:
             if query.purpose == QUERY_PURPOSE_REFINE:
                 continue
+            if _deadline_now():
+                product_budget_hit = True
+                run.deadline_hit = True
+                break
+            if total_limit is not None and \
+                    counters["attempted"] >= int(total_limit):
+                product_budget_hit = True
+                run.deadline_hit = True
+                break
             await _attempt(query, run)
-    # Проход 2 (§3.2): уточнения — только непокрытым частям и только пока
-    # есть полезная вероятность (бюджет вызовов/времени). Сначала берём
-    # уточнение, уже заложенное в план для этой части, иначе строим его от
-    # её метрики/интервала (одна лишняя «догадка» не нужна).
-    refine_left = max(0, _refine_calls_limit() if refine_calls is None
-                      else int(refine_calls))
+    # Части, до которых общий бюджет не дошёл, честно помечаются лимитом
+    # (а не «источников не нашлось»).
+    if product_budget_hit:
+        for run in runs:
+            if run.attempts == 0 and not _claim_settled(run):
+                run.deadline_hit = True
+
+    # Проход 2 (§3.2/§6.4): уточнения — только непокрытым частям; при ON
+    # 24 уточняющих и общий 64 включают и базовые, и уточняющие запросы.
+    refine_left = refine_limit
     for run in runs:
-        if refine_left <= 0 or loop.time() >= deadline:
+        if _claim_settled(run):
+            continue
+        if total_limit is not None and \
+                counters["attempted"] >= int(total_limit):
+            product_budget_hit = True
+            break
+        if _deadline_now():
+            product_budget_hit = True
+            break
+        if refine_left is not None and refine_left <= 0:
+            product_budget_hit = True
             break
         # Reviewer F5: уточнение нужно, пока тезис НЕ подтверждён сильно и не
         # опровергнут. Любая показанная ссылка (в т.ч. `qualifies` — «событие
         # есть, числа нет») покрытием не считается.
-        if _claim_settled(run):
-            continue
         if run.attempts == 0 and not run.provider_failed:
             continue
         planned = [q for q in plan.queries_for(run.claim.claim_id)
@@ -1779,7 +2204,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         if query.text.lower() in run.attempted_texts:
             # §3.2: не повторять уже сделанный запрос — это не уточнение.
             continue
-        refine_left -= 1
+        if refine_left is not None:
+            refine_left -= 1
         counters["refine"] += 1
         await _attempt(query, run)
 
@@ -1794,23 +2220,31 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 if role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_QUALIFIES) \
                         and ref.url and ref.url not in eligible_urls:
                     eligible_urls.append(ref.url)
-    if plan.needs_primary_fetch and loop.time() < deadline:
-        fetched_total = 0
+    fetched_total = 0
+    fetch_skipped_budget = 0
+    fetch_limit_reached = False
+    if plan.needs_primary_fetch and not _deadline_now():
         for run in runs:
-            if fetched_total >= _MAX_PRIMARY_FETCHES or loop.time() >= deadline:
+            if fetch_limit is not None and fetched_total >= int(fetch_limit):
+                fetch_limit_reached = True
+                break
+            if _deadline_now():
                 break
             candidates = sorted(
                 ((ref, role) for ref, role, _n in run.bound.values()
                  if role in (EVIDENCE_ROLE_SUPPORTS, EVIDENCE_ROLE_QUALIFIES)),
                 key=lambda pair: 0 if pair[1] == EVIDENCE_ROLE_SUPPORTS else 1)
             for ref, _role in candidates:
-                if fetched_total >= _MAX_PRIMARY_FETCHES:
+                if fetch_limit is not None and \
+                        fetched_total >= int(fetch_limit):
+                    fetch_limit_reached = True
                     break
                 if not ref.url or ref.url in seen_urls:
                     continue
                 seen_urls.add(ref.url)
                 primary = await fetch_primary_evidence(
-                    ref.url, fetch_text=fetch_text)
+                    ref.url, fetch_text=fetch_text,
+                    excerpt_chars=excerpt_chars)
                 if primary is None:
                     counters["fetch_errors"] += 1
                     run.fetch_failed += 1
@@ -1848,6 +2282,11 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 run.bound[key] = (dataclasses.replace(
                     primary, claims=(run.claim.claim_id,),
                     event_at=run.claim.event_at), relevance.role, "")
+    if fetch_limit_reached:
+        # Политика нагрузки ON: сколько релевантных кандидатов осталось
+        # неоткрытыми именно из-за предела (не «источников не нашлось»).
+        fetch_skipped_budget = len(
+            [u for u in eligible_urls if u not in seen_urls])
 
     # Сборка EvidenceMap: только привязанные к claim ссылки; ev-N назначаются
     # после сортировки (сильные подтверждения и покрытие нескольких частей
@@ -1888,11 +2327,42 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         run.bound = {f"{i}": item for i, item in enumerate(remapped)}
         coverage.append(_finalize_claim(run))
 
-    search_text = "\n\n".join(blocks)[:_SEARCH_TEXT_BUDGET_CHARS]
+    full_text = "\n\n".join(blocks)
+    portions = _text_portions(full_text, limits.search_text_chars)
+    search_text = portions[0] if portions else ""
     fetch_skipped = 0
-    if eligible_urls and loop.time() >= deadline:
+    if eligible_urls and _deadline_now():
         # Дедлайн — фактическая причина, по которой открытие не состоялось.
         fetch_skipped = len([u for u in eligible_urls if u not in seen_urls])
+
+    all_settled = bool(runs) and all(_claim_settled(run) for run in runs)
+    planned_base = sum(
+        1 for run in runs
+        for query in plan.queries_for(run.claim.claim_id)
+        if query.purpose != QUERY_PURPOSE_REFINE)
+    if product_budget_hit:
+        stop_reason = STOP_BUDGET_EXHAUSTED
+    elif all_settled:
+        stop_reason = STOP_SUFFICIENT_EVIDENCE
+    elif counters["attempted"] == 0:
+        stop_reason = STOP_PATHS_EXHAUSTED
+    elif counters["used"] == 0 and technical_deadline \
+            and counters["provider_failures"] > 0 \
+            and not (counters["empty"] or counters["irrelevant"]):
+        stop_reason = STOP_TECHNICAL_LIMIT
+    elif counters["used"] == 0 and counters["provider_failures"] > 0 \
+            and not (counters["empty"] or counters["irrelevant"]):
+        stop_reason = STOP_PROVIDERS_UNAVAILABLE
+    elif counters["used"] == 0:
+        stop_reason = STOP_NO_PROGRESS
+    elif planned_base and counters["attempted"] < planned_base \
+            and not product_budget_hit:
+        # Скрытый enforcement: запросы плана остались без попытки без
+        # отслеженного бюджета/дедлайна/содержательной причины.
+        stop_reason = STOP_UNEXPLAINED
+    else:
+        stop_reason = STOP_PATHS_EXHAUSTED
+    budget_exhausted = bool(product_budget_hit)
     # FC-07.1: attempted queries прогона (порядок попыток, без повторов).
     attempted: list[str] = []
     for run in runs:
@@ -1914,7 +2384,16 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         refine_calls=counters["refine"],
         budget_seconds=budget,
         fetch_skipped_deadline=fetch_skipped,
-        attempted_queries=tuple(attempted))
+        fetch_skipped_budget=fetch_skipped_budget,
+        attempted_queries=tuple(attempted),
+        stop_reason=stop_reason,
+        budgets_enabled=bool(limits.budgets_enabled),
+        budget_source=str(limits.budget_source),
+        budget_known=bool(limits.budget_known),
+        limit_sources=tuple(limits.sources),
+        search_text_portions=portions,
+        search_text_total_chars=len(full_text),
+        search_text_truncated=len(portions) > 1)
 
 
 def _strong_binding_count(ref: EvidenceRef, runs: list[_ClaimRun]) -> int:

@@ -145,7 +145,11 @@ class TestSemanticQueries:
         envelope = _env(VAPING_CLAIM)
         parts = tf.decompose_claim(envelope)
         queries = tf.search_queries_for(parts, envelope)
-        assert queries and len(queries) <= 2
+        # S14 §5.2/§6.4: скрытый cap «2 запроса на весь temporal-поиск» снят;
+        # при effective budgets ON действует общий бюджет фактчека (64), а
+        # не старое число. Каждая часть получает свой смысловой запрос.
+        assert queries and len(queries) == len(parts)
+        assert len(queries) <= fsp.FACTCHECK_QUERIES_TOTAL
         raw = tf.normalize_text(VAPING_CLAIM)[:200]
         for q in queries:
             assert q != raw                       # не слайс начала
