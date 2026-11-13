@@ -7,14 +7,14 @@ Primary phase: build
 Active feature: smart-execution-reliability-01
 Active lanes: S16 Builder ses_e28b6b349ffesg0tp0wQiGp3Ql (smart/fc-s16-finalize from 9a89e3da + merged G cffc9fb2); PM S15 binding ses_e298a3ae0ffeq6NB6uTcTburbZ.
 Join barriers: S16 build -> S16 review -> S17 build/review; then integrated system-wide cap audit (C2-01/C3-01/C3-02) + S12 acceptance; one release train.
-Last verified: production 2.58.199 at d20a7f73 (schema 47, no DDL, rollback 25876167). Map after S14 binding: core 60 REVIEW / 7 READY_FOR_LIVE / 6 VERIFIED (S0) / 26 PENDING (S3 integration-required 3 + S12 23); FC 54 REVIEW / 2 READY_FOR_LIVE / 31 PENDING (S15 10, S16 5, S17 16). Gates: S8 review 57/0, S13 review 252/0, plan core/FC 0. S3 approved at 5e87ed48 and bound (27cd2d39, 7e5f9d85): S3 review 35 errors = only integration-required rows (C2-01/C3-01/C3-02), deploy red is structural dependency closure. I56 approved at d43fa1fd (+tests 58a8f859) and bound (4bcc52ff, 3fd4d68a); S11 gate 0 errors.
+Last verified: production 2.58.199 at d20a7f73 (schema 47, no DDL, rollback 25876167). Map after S14 binding: core 60 REVIEW / 7 READY_FOR_LIVE / 6 VERIFIED (S0) / 26 PENDING (S3 integration-required 3 + S12 23); FC 63 REVIEW / 3 READY_FOR_LIVE / 21 PENDING (S16 5, S17 16). Gates: S8 review 57/0, S13 review 252/0, plan core/FC 0. S3 approved at 5e87ed48 and bound (27cd2d39, 7e5f9d85): S3 review 35 errors = only integration-required rows (C2-01/C3-01/C3-02), deploy red is structural dependency closure. I56 approved at d43fa1fd (+tests 58a8f859) and bound (4bcc52ff, 3fd4d68a); S11 gate 0 errors.
 Candidates: H d238f808 (head 120517a6; merge conflict resolved ce9e9f01; cross-slice fixture 8c5549b7; 627 affected, RED 13/12, mutations) under review; S13 ffe417d0 approved and bound (38 reqs/252 rows REVIEW; FC review gate 0 errors; artifact review-s13-ffe417d0.md needs re-emit).
 Next unlocks: H handoff -> H review; FC tests/evidence -> S13 review; then FC S14-S17; integrated audit + S12 acceptance L/J/K/M; single release train and postdeploy smoke.
 Next execution: awaiting_children
 Review: S0 approved+VERIFIED; S3/I56 approved+bound; I1-02/I2-02 approved+REVIEW; H/S13 pending
 Deployment: verified 2.58.199 @ d20a7f73; rollback 25876167 (SMART epic not deployed)
 Human gate: none
-Progress scope: plans/progress_scope.json | SMART 186 reqs: 114 review (core 60 + FC 54), 9 ready, 6 verified, 57 pending (core 26 + FC 31)
+Progress scope: plans/progress_scope.json | SMART 186 reqs: 123 review (core 60 + FC 63), 10 ready, 6 verified, 47 pending (core 26 + FC 21)
 Updated: 2026-11-14T08:50:00+12:00
 
 ## Facts
