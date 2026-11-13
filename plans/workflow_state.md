@@ -1,27 +1,26 @@
 ﻿# Workflow State
 
-Task: self-diag-01 corrective (P0, owner 2026-11-13) + vmq-onto-01 approved slices — combined release train
-Task source: plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md + 2026-11-13-vmq-next02-natural-retrieval-metric.md + 2026-11-12-queue-order-selfdiag-quantum.md
+Task: smart-execution-reliability-01 (queue 1, P0, owner 2026-11-14) — execution reliability + SELF-DIAG stage H
+Task source: plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md (verbatim current_task.md 11750-13308)
 Status: in_progress
-Primary phase: build
-Active feature: self-diag-01 (corrective) + vmq-onto-01
-Active lanes: Builder ses_e2c420cf6ffeyVLy45EGjmMip1 (combined train release/2.58.199-train from 4 approved slices)
-Join barriers: train candidate -> combined-diff Reviewer -> DevOps bump 2.58.199 + deploy + smoke -> postdeploy binding -> corrective closeout.
-Last verified: production 2.58.198 at 23477658 (schema 47, no DDL, rollback 25876167). Journal access restored+verified as service user (systemd-journal; rc=0, current invocation; 1f2156ea). Approved slices: self-diag core 76fcb829 (checkup research loop, structured diagnostic_research, continuation to Writer, L1 degradation, adaptive_tool_chain fix; Reviewer Approved; 28/330/442 + p4), self-diag identity ea9e9f2a (manifest producer, identity semantics, honest counters; Approved; 58/555), vmq M1 cfec9a1a (episodes; M-03 fixed; deploy gate errors=0), vmq NEXT-02/05 96c8bc72 (§A FTS fix + timings; §B excluded; quality review Approved). Self-diag map: 147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING (206 unique); vmq: 1 VERIFIED / 6 REVIEW / 0 FAILED / 63 PENDING (54 gaps).
-Next unlocks: train -> combined review -> deploy 2.58.199 -> smoke (journal, Telegram E2E, manifest) -> closeout rows -> vmq ONTO-A/B.
+Primary phase: preparation
+Active feature: smart-execution-reliability-01
+Active lanes: PM ses_e2b280b15ffeehWbOFmhnZUT7r (requirements map/plan/slice graph A-M); Architect ses_e2b27b70bffeDBrlhXpsqx7dbY (frozen contract, limiter table); DevOps ses_e2b27731affeh0NgBpmOijqYPF (production recon: budgets/model/capacity/SafeFetch/journal/manifest/I1-I4)
+Join barriers: map + contract + recon -> first Builder wave (A/B tool-loop+budgets; C evidence/source-reader; D capacity) -> Reviewer E2E (L1-L8) -> one release + smoke.
+Last verified: production 2.58.199 at d20a7f730715ba9e9cba7673c0557794979be339 (schema 47, no DDL, rollback 25876167). Identity verified_deployed; journal rc=0 as service user; self-diag corrective core/identity/vmq slices deployed; self-diag map 147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING (now continued in stage H); vmq 1/6/0/63 with 54 owner-mandated gaps.
+Next unlocks: mapping+contract+recon -> Builder wave -> Reviewer independent E2E (budgets OFF control >4 rounds/>6 calls/>2 per round, evidence completeness, capacity scenarios, local-first, GitHub, finalization, checkup+continuation, I1-I6) -> one release -> smoke -> DONE.
 Next execution: awaiting_children
-Review: approved for slices; combined-diff review pending
-Deployment: verified 2.58.198 @ 23477658 (schema 47, no DDL); rollback 25876167
+Review: contract/mapping pending
+Deployment: verified 2.58.199 @ d20a7f73 (schema 47, no DDL); rollback 25876167
 Human gate: none
-Progress scope: plans/progress_scope.json | initiative DONE 114/114; self-diag corrective bound; vmq 1/6/0/63; source 36/36, queue 40/40
-Updated: 2026-11-13T19:12:00+12:00
+Progress scope: plans/progress_scope.json | priority epic 0 rows mapped yet; self-diag 147/41/16/2; vmq 1/6/0/63; queue 40/40 complete; intake pending 1 (new epic)
+Updated: 2026-11-14T00:20:00+12:00
 
 ## Facts
 
-- Owner corrective binding: no lexical routing anywhere; LLM decides, code executes structured decisions. Checkup researches own code via existing SourceReader/read_source_code/inspect_runtime; continuation needs no repo URL; L1 empty-content preserves established intent only for reply-to-bot with zero auto-run; identity proves the running version; counters honest unknown instead of zero. One release + smoke; Reviewer E2E A–G + anti-hardcode audit. Epic not DONE.
-- Core real defect found/fixed: `execution_mode="adaptive"` instead of canonical `adaptive_tool_chain` demoted the diagnostic decision to `simple_tools`, so L2 never received the code. C now runs to L2 Writer and the sent answer without asking for a repo link.
-- Live-model evidence: local provider nano-gpt / deepseek-v4.1-flash (not production-equivalent), 2 series × 9 unseen formulations, 4 positives / 5 negatives, one honest `neg_external` target flip (needed=false both series), per-case sha256 present, strict UTF-8.
-- Identity: proven cause = no `.deploy/release.json` producer existed; new `tools/release_manifest.py` writes schema-1 atomically before restart, refuses dirty trees, supports rollback/dry-run; identity distinguishes manifest/process/checkout; counters `null/not_checked` when unobserved. Production manifest appears only on the next release.
-- vmq: M1 and NEXT-02/05 approved; quality 0 mandatory-fact losses, 115/120 identical rows, year share diagnostic only, no cap/threshold weakening. Epic remains open with 54 owner-mandated gaps (ONTO/M2/Q0/Q0-IBM/Q1/O/U/R + evidence rows).
-- Release rule: scoped deploy is red only on deferred dependency closure → one epic-level train, then smoke. No fake VERIFIED.
-- Backlog: web/api identity branch/source fields empty (byte-freeze), embedding fallback swaps provider (Architect decision), NULL-timestamp facts, participant→years link, pre-existing RED sets.
+- Owner epic SMART-EXECUTION-RELIABILITY-01 (stages A-M) is the single container; it replaces previously prepared corrective-2 for SELF-DIAG and stage H carries the remaining SELF-DIAG obligations. No competing epics. One release + independent E2E acceptance.
+- Core product decisions already fixed by the owner: budgets OFF must disable all artificial limits (no env/legacy/inner bypass); remove 4/2/6/4 tool limits and 360 s universal deadline; one tool-loop policy for all paths; no lost tool calls; dedup/retry semantics; SourceReader ceilings 6/2/16 + defaults 3/1/8 removed; evidence must reach the LLM payload; unknown model window default 1,000,000 with a single capacity resolver and real NanoGPT catalog resolution; local-first own production code; GitHub restored via SafeFetch without weakening SSRF/TLS; mandatory meaningful finalization preserving evidence; anti-hardcode invariant; security/settings preserved; fixes active after release.
+- Reported production failure: checkup trace 3f9bd22a (13.11 09:42-09:43 UTC) — inspect_runtime success, two api.github.com SafeFetch destination_blocked, chain_call_limit 6/4, tool_step_limit, degraded partial_chars=87, stub instead of report; model_capacity unknown for z-ai/glm-5.3-flash-uncensored → 16384.
+- Production 2.58.199 already contains: journal access fix (env), manifest producer/identity verified, checkup research loop/continuation core (76fcb829), honest counters. Those are stage H starting points, not proof for the new clauses.
+- Queue: new epic at position 1; stale `unified-reply` record (2026-11-05) moved to 41 to keep unique positions; self-diag `continues_in` the new epic; vmq remains open (54 gaps) and is not displaced beyond its current paused slice.
+- Backlog: embedding provider fallback, NULL-timestamp facts, participant→years link, pre-existing RED sets, web/api identity branch/source fields.
