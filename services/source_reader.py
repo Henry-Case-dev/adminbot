@@ -156,13 +156,21 @@ _REASON_FOR_CODE = {
     ERR_PATH_DENIED: "permission_denied",
 }
 
-# ── предохранители (потолки — контракт §4) ──────────────────────────────────
-_MAX_FILES_CEILING = 6
-_MAX_DEPTH_CEILING = 2
-_MAX_REQUESTS_CEILING = 16
-_DEFAULT_MAX_FILES = 3
-_DEFAULT_MAX_DEPTH = 1
-_DEFAULT_MAX_REQUESTS = 8
+# ── предохранители ──────────────────────────────────────────────────────────
+# SXR-C1-01 (SMART-EXECUTION-RELIABILITY-01 C1): безусловные потолки
+# `_MAX_FILES_CEILING=6` / `_MAX_DEPTH_CEILING=2` / `_MAX_REQUESTS_CEILING=16`
+# и заводские defaults 3/1/8 удалены. Они блокировали необходимое чтение
+# независимо от бюджетов и заменены НЕ другим числом, а отсутствием
+# искусственного потолка: `0` в `max_files()/max_depth()/max_requests()`
+# означает «потолка нет» (см. `_RunState.limit_*`).
+#
+# Реальные технические предохранители сохраняются:
+#   * размер одной порции файла (`max_file_bytes`, 2 МБ) — память/транспорт;
+#   * безопасность путей/бинарей (`path_is_denied`, `_local_target`,
+#     `decode_source_bytes`, `SafeFetcher` SSRF/таймауты);
+#   * размер доставленной цепочки follow-up — не более одной «порции файла»
+#     (и не более запрошенного evidence-окна), чтобы один вызов не
+#     превращался в выгрузку всего репозитория в один ответ (C1 §442).
 _DEFAULT_MAX_FILE_BYTES = 2_000_000
 
 #: Сколько кандидатов «самый длинный ref первым» проверять при разборе
@@ -194,7 +202,12 @@ def source_read_enabled() -> bool:
 
 
 def _bounded_int(name: str, default: int, ceiling: int) -> int:
-    """env-целое с потолком: мусор/0/минус → дефолт, больше потолка → потолок."""
+    """env-целое с потолком: мусор/0/минус → дефолт, больше потолка → потолок.
+
+    Остаётся ТОЛЬКО для физического предела одной порции файла
+    (`SOURCE_READ_MAX_FILE_BYTES`); искусственные потолки чтения через него
+    больше не считаются.
+    """
     try:
         value = int(getattr(settings, name, default))
     except (TypeError, ValueError):
@@ -204,22 +217,60 @@ def _bounded_int(name: str, default: int, ceiling: int) -> int:
     return min(value, ceiling)
 
 
+def _env_policy_int(name: str) -> int:
+    """Явная политика оператора из env: ``0`` = переменная не задана.
+
+    Отличие от ``settings.SOURCE_READ_*`` важно: у settings есть заводское
+    значение (3/1/8), и по нему нельзя отличить «оператор выбрал 3» от
+    «заводской потолок». Политика применяется только если переменная реально
+    задана; мусор/ноль/минус = политики нет (не подменять её дефолтом).
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return 0
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
 def max_files() -> int:
-    return _bounded_int("SOURCE_READ_MAX_FILES", _DEFAULT_MAX_FILES,
-                        _MAX_FILES_CEILING)
+    """Явный лимит файлов за вызов; ``0`` = искусственного лимита нет."""
+    return _env_policy_int("SOURCE_READ_MAX_FILES")
 
 
 def max_depth() -> int:
-    return _bounded_int("SOURCE_READ_MAX_DEPTH", _DEFAULT_MAX_DEPTH,
-                        _MAX_DEPTH_CEILING)
+    """Явный лимит глубины follow-up; ``0`` = искусственного лимита нет."""
+    return _env_policy_int("SOURCE_READ_MAX_DEPTH")
 
 
 def max_requests() -> int:
-    return _bounded_int("SOURCE_READ_MAX_REQUESTS", _DEFAULT_MAX_REQUESTS,
-                        _MAX_REQUESTS_CEILING)
+    """Явный лимит сетевых вызовов на ЗАПРОС; ``0`` = лимита нет.
+
+    Счётчик — per-request (см. ``_RunState.network_baseline``): исчерпание
+    предыдущим независимым запросом не переносится на следующий.
+    """
+    return _env_policy_int("SOURCE_READ_MAX_REQUESTS")
+
+
+async def budget_limits_enforced(chat_id: int | None = None) -> bool:
+    """Effective ``flags.budgets_enabled`` через существующий ``budget_gate``.
+
+    OFF означает «искусственные пределы не применяются»; ошибка резолва НЕ
+    включает enforcement (заводского потолка больше нет — включать нечего).
+    """
+    try:
+        from services import budget_gate
+        return bool(await budget_gate.budgets_enabled(chat_id))
+    except Exception:      # pragma: no cover - защитная ветка
+        logger.warning("[source_reader] budgets predicate unavailable — "
+                       "artificial caps stay disengaged | chat=%s", chat_id)
+        return False
 
 
 def max_file_bytes() -> int:
+    """Предел байтов ОДНОГО файла — реальная память/транспорт (§C1 438)."""
     return _bounded_int("SOURCE_READ_MAX_FILE_BYTES", _DEFAULT_MAX_FILE_BYTES,
                         64 * 1024 * 1024)
 
@@ -1660,9 +1711,20 @@ class SourceReader:
     def _network_calls(self) -> int:
         return int(getattr(self.provider, "network_calls", 0) or 0)
 
-    def _exhausted(self) -> bool:
-        """Жёсткий предохранитель от ретрай-петли (§4, SOURCE_READ_MAX_REQUESTS)."""
-        return self._network_calls() >= max_requests()
+    def _request_calls(self, state: "_RunState | None") -> int:
+        """Сетевые вызовы ЭТОГО запроса (дельта от baseline), не всей жизни."""
+        if state is None:
+            return 0
+        current = self._network_calls()
+        return max(0, current - int(state.network_baseline or 0))
+
+    def _exhausted(self, state: "_RunState") -> bool:
+        """Стоп по сетевому лимиту — ТОЛЬКО явная политика при budgets ON.
+
+        Счётчик per-request: ресурс, исчерпанный предыдущим независимым
+        запросом, не делает следующий запрос неработоспособным (SXR-C1-03).
+        """
+        return state.requests_exhausted(self._request_calls(state))
 
     @property
     def uses_auth(self) -> bool:
@@ -1673,15 +1735,31 @@ class SourceReader:
                   repo: Any = "", query: Any = "", ref: Any = "", path: Any = "",
                   symbol: Any = "", line_start=None, line_end=None,
                   follow=None, language: Any = "", budget_chars: int = 0,
-                  context_query: Any = "") -> dict:
+                  context_query: Any = "", chat_id: int | None = None,
+                  budget_enforced: bool | None = None) -> dict:
         """Один вызов инструмента → payload Evidence Contract (§1.1).
 
         Все аргументы, кроме ``operation``, опциональны и могут быть выведены
         из контекста хода (``url`` ← resolved_url, ``query`` ← query хода).
-        Функция НИКОГДА не бросает: любой сбой → ``status:"error"``."""
+        Функция НИКОГДА не бросает: любой сбой → ``status:"error"``.
+
+        ``chat_id``/``budget_enforced`` — effective ``flags.budgets_enabled``:
+        OFF означает «искусственные потолки файлов/глубины/запросов не
+        применяются» (SXR-C1-01). ``budget_enforced`` можно передать уже
+        резолвленным (один резолв на ход); иначе предикат читается здесь.
+        """
         started = time.monotonic()
         state = _RunState(operation=str(operation or OPERATION_READ).lower(),
                           budget_chars=int(budget_chars or 0))
+        state.budget_enforced = (bool(budget_enforced)
+                                 if budget_enforced is not None
+                                 else await budget_limits_enforced(chat_id))
+        # Политика читается один раз на запрос; 0 = искусственного потолка нет.
+        if state.budget_enforced:
+            state.limit_files = max_files()
+            state.limit_depth = max_depth()
+            state.limit_requests = max_requests()
+        state.network_baseline = self._network_calls()
         try:
             payload = await self._run(state, url=url, repo=repo, query=query,
                                       ref=ref, path=path, symbol=symbol,
@@ -1698,10 +1776,12 @@ class SourceReader:
                                         state.stage or STAGE_FETCH,
                                         retryable=True,
                                         detail=type(exc).__name__))
-        calls = self._network_calls()
+        used = self._request_calls(state)
         payload["latency_ms"] = int((time.monotonic() - started) * 1000)
-        payload["network_calls"] = calls
-        payload.setdefault("provenance", {})["network_calls"] = calls
+        # per-request учёт (наблюдаемость); пожизненный счётчик — отдельно.
+        payload["network_calls"] = used
+        payload["network_calls_total"] = self._network_calls()
+        payload.setdefault("provenance", {})["network_calls"] = used
         return payload
 
     # -- основная логика -------------------------------------------------
@@ -1727,7 +1807,7 @@ class SourceReader:
                     detail="host_not_supported").to_payload())
             _emit_stage(STAGE_DISCOVER, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_PROVIDER_UNCONFIGURED],
-                        extra={"network_calls": self._network_calls()})
+                        extra={"network_calls": self._request_calls(state)})
             return payload
         state.line_start = line_start if line_start else (
             parsed.line_start if parsed is not None else None)
@@ -1822,7 +1902,7 @@ class SourceReader:
                 raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_DISCOVER,
                                        http=404, detail="repo_not_found")
             _emit_stage(STAGE_DISCOVER, "success",
-                        extra={"network_calls": self._network_calls(),
+                        extra={"network_calls": self._request_calls(state),
                                "repo_present": True})
             return (info, None, provider)
         text = str(query or context_query or "").strip()
@@ -1833,7 +1913,7 @@ class SourceReader:
         if not candidates:
             _emit_stage(STAGE_DISCOVER, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_NO_RESULTS],
-                        extra={"network_calls": self._network_calls()})
+                        extra={"network_calls": self._request_calls(state)})
             raise SourceFetchError(ERR_NO_RESULTS, STAGE_DISCOVER,
                                    detail="search_empty")
         top = candidates[0]
@@ -1841,13 +1921,13 @@ class SourceReader:
         if runner_up is not None and _ambiguous(top, runner_up):
             _emit_stage(STAGE_DISCOVER, "success",
                         reason_code="ambiguous_identity",
-                        extra={"network_calls": self._network_calls(),
+                        extra={"network_calls": self._request_calls(state),
                                "verified": False})
             return (None, self._ambiguous_payload(state, top, runner_up,
                                                   candidates), None)
         provider = self._provider_for(top["repo"].full_name)
         _emit_stage(STAGE_DISCOVER, "success",
-                    extra={"network_calls": self._network_calls(),
+                    extra={"network_calls": self._request_calls(state),
                            "repo_present": True, "verified": False})
         return (top["repo"], None, provider)
 
@@ -1884,7 +1964,7 @@ class SourceReader:
                 raise
             logger.info("[source_reader] discovery search failed | code=%s",
                         exc.code)
-        for info in await self._cascade_candidates(text):
+        for info in await self._cascade_candidates(state, text):
             key = info.full_name.lower()
             candidate = seen.get(key)
             score = _score_repo(info, tokens, wanted_lang, explicit=False)
@@ -1897,7 +1977,8 @@ class SourceReader:
                                            item["repo"].full_name))
         return ordered[:_MAX_CANDIDATES]
 
-    async def _cascade_candidates(self, text: str) -> list[RepoInfo]:
+    async def _cascade_candidates(self, state: "_RunState",
+                                  text: str) -> list[RepoInfo]:
         """Существующий поисковый каскад: из выдачи берутся ТОЛЬКО URL-формы.
 
         Имена проектов/пакеты не сопоставляются словарём: из текста выдачи
@@ -1926,7 +2007,7 @@ class SourceReader:
             if key in wanted:
                 continue
             wanted.add(key)
-            if len(out) >= 2 or self._exhausted():
+            if len(out) >= 2 or self._exhausted(state):
                 break
             info = await self.provider.resolve_repo(parsed.owner, parsed.repo)
             if info is not None:
@@ -1960,7 +2041,7 @@ class SourceReader:
             if not path_candidate or (ref_candidate, path_candidate) in seen:
                 continue
             seen.add((ref_candidate, path_candidate))
-            if self._exhausted():
+            if self._exhausted(state):
                 state.not_checked_reason = "budget"
                 return None
             try:
@@ -1971,7 +2052,7 @@ class SourceReader:
                 raise
             if not commit:
                 continue
-            if self._exhausted():
+            if self._exhausted(state):
                 state.not_checked_reason = "budget"
                 return None
             try:
@@ -2012,7 +2093,7 @@ class SourceReader:
         if not wanted:
             raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_FETCH,
                                    detail="no_ref")
-        if self._exhausted():
+        if self._exhausted(state):
             state.not_checked_reason = "budget"
             raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
                                    retryable=True, detail="request_budget")
@@ -2043,7 +2124,7 @@ class SourceReader:
         if identity is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
-                        extra={"network_calls": self._network_calls()})
+                        extra={"network_calls": self._request_calls(state)})
             raise SourceFetchError(ERR_SOURCE_MISSING, stage, http=404,
                                    detail="path_or_ref_not_found")
         ref_used, commit, path_used, prefetched = identity
@@ -2061,7 +2142,7 @@ class SourceReader:
         if source_file is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
-                        extra={"network_calls": self._network_calls()})
+                        extra={"network_calls": self._request_calls(state)})
             raise SourceFetchError(ERR_SOURCE_MISSING, stage, http=404,
                                    detail="unreadable_file")
         if not source_file.data:
@@ -2077,7 +2158,7 @@ class SourceReader:
             # Символ не подтверждён байтами: честный not_found, а не «вероятно».
             _emit_stage(stage, "success",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
-                        extra={"network_calls": self._network_calls(),
+                        extra={"network_calls": self._request_calls(state),
                                "verified": False, "line_count": len(lines)})
             return self._payload(state, STATUS_NOT_FOUND,
                                  repo=info.full_name, commit=commit,
@@ -2112,12 +2193,12 @@ class SourceReader:
         if not ranked:
             _emit_stage(STAGE_LOCATOR, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
-                        extra={"network_calls": self._network_calls()})
+                        extra={"network_calls": self._request_calls(state)})
             return self._payload(state, STATUS_NOT_FOUND,
                                  repo=info.full_name, commit=commit,
                                  reason="no_path_match")
         for entry in ranked[:_MAX_LOCATOR_PATHS]:
-            if self._exhausted():
+            if self._exhausted(state):
                 state.not_checked_reason = "budget"
                 break
             try:
@@ -2142,7 +2223,7 @@ class SourceReader:
                                       stage=STAGE_LOCATOR,
                                       ref_kind=_ref_kind(state.requested_ref))
         _emit_stage(STAGE_LOCATOR, "success",
-                    extra={"network_calls": self._network_calls(),
+                    extra={"network_calls": self._request_calls(state),
                            "files_read": state.files_read, "verified": False})
         payload = self._payload(state, STATUS_NOT_FOUND, repo=info.full_name,
                                 commit=commit, reason="symbol_not_found")
@@ -2150,10 +2231,18 @@ class SourceReader:
                                      for entry in ranked[:_MAX_LOCATOR_PATHS * 2]]
         return payload
 
-    # -- bounded follow-up (§4) ------------------------------------------
+    # -- follow-up: релевантная цепочка без потолка количества -----------
     async def _followup(self, state: "_RunState", *, info, payload: dict,
                         commit: str, symbol: str) -> dict:
-        """Ограниченный обход смежных файлов + честный `not_checked`."""
+        """Обход смежных файлов по РЕЛЕВАНТНОСТИ + честный `not_checked`.
+
+        SXR-C1-01: количество файлов и глубина цепочки больше не ограничены
+        заводскими 6/2 (и defaults 3/1): модель читает связанные файлы,
+        вызывающие участки и следующие модули, пока они релевантны задаче.
+        Остаётся технический предел ОДНОГО ответа — не более одной «порции
+        файла» доставленного текста цепочки (и не более запрошенного
+        evidence-окна), чтобы вызов не превращался в выгрузку репозитория.
+        """
         state.stage = STAGE_FOLLOWUP
         primary_path = str(payload.get("path") or "")
         snippet = str(payload.get("snippet") or "")
@@ -2168,9 +2257,14 @@ class SourceReader:
             "role": "primary",
             "symbol_found": bool(payload.get("symbol_found")),
         }]
-        depth_left = max_depth()
+        # Потолок глубины — только явная политика оператора (0 = нет).
+        depth_left = int(state.limit_depth or 0)
         reason = state.not_checked_reason
         untried: list[str] = []
+        # Предел доставленного объёма цепочки в ОДНОМ ответе: одна порция
+        # файла или запрошенное окно evidence (что меньше).
+        chain_cap = int(state.budget_chars or 0) or max_file_bytes()
+        state.chain_chars = 0
 
         def _finish(incomplete: bool) -> dict:
             payload["files"] = files
@@ -2178,27 +2272,29 @@ class SourceReader:
             payload["not_checked"].update({
                 "files_considered": max(state.files_considered, len(files)),
                 "files_read": state.files_read,
-                "depth_left": depth_left,
+                "depth_left": depth_left if state.limit_depth else None,
                 "reason": reason or "",
+                "chain_portion_limit": int(chain_cap),
+                "chain_delivered_chars": int(state.chain_chars),
             })
             if untried:
                 payload["not_checked"]["untried_paths"] = untried[:5]
             return payload
 
-        # Без идентификаторов в теле и без «параметр-только» обходить нечего:
-        # это не «не смогли прочитать», а «смежных целей не найдено».
-        if not identifiers or depth_left <= 0:
+        # Без идентификаторов в теле обходить нечего: это не «не смогли
+        # прочитать», а «смежных целей не найдено».
+        if not identifiers or (state.limit_depth and depth_left <= 0):
             _emit_stage(STAGE_FOLLOWUP, "skipped",
                         extra={"files_read": state.files_read,
-                               "network_calls": self._network_calls()})
-            if parameter_only:
+                               "network_calls": self._request_calls(state)})
+            if parameter_only and state.limit_depth:
                 reason = reason or "depth_limit"
             return _finish(bool(parameter_only))
-        if self._exhausted():
+        if self._exhausted(state):
             reason = "budget"
             _emit_stage(STAGE_FOLLOWUP, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_RATE_LIMIT],
-                        extra={"network_calls": self._network_calls()})
+                        extra={"network_calls": self._request_calls(state)})
             return _finish(True)
         # Сбой дерева на этапе follow-up НЕ отменяет уже подтверждённое чтение
         # основного файла: цепочка просто помечается неполной (честный
@@ -2214,19 +2310,26 @@ class SourceReader:
             reason = "tree_truncated"
         ranked = rank_sibling_paths(listing, identifiers, exclude=primary_path,
                                     language=info.language)
-        per_file_budget = max(600, int(state.budget_chars or 0)
-                              // max(1, max_files()))
+        per_file_budget = (max(600, int(state.budget_chars or 0)
+                               // max(1, len(ranked)))
+                           if state.budget_chars else 0)
         for entry in ranked:
-            if depth_left <= 0:
+            if state.depth_exhausted(depth_left):
                 reason = reason or "depth_limit"
                 untried.append(entry.path)
                 continue
-            if state.files_read >= max_files():
+            if state.files_exhausted():
                 reason = reason or "budget"
                 untried.append(entry.path)
                 continue
-            if self._exhausted():
+            if self._exhausted(state):
                 reason = "budget"
+                untried.append(entry.path)
+                continue
+            if state.chain_chars >= chain_cap:
+                # Доставлен объём одной порции: продолжение — следующим
+                # вызовом с конкретным путём/диапазоном (untried_paths).
+                reason = reason or "budget"
                 untried.append(entry.path)
                 continue
             try:
@@ -2267,7 +2370,9 @@ class SourceReader:
                 "symbol": child_symbol,
                 "role": "followup",
             })
-            depth_left = max(0, depth_left - 1)
+            state.chain_chars += len(window.text)
+            if state.limit_depth:
+                depth_left = max(0, depth_left - 1)
         incomplete = bool(untried) or (parameter_only and len(files) <= 1)
         if parameter_only and len(files) <= 1 and not reason:
             # Обход был ОБЯЗАН (§1.2.4), но смежных кандидатов не нашлось:
@@ -2276,7 +2381,7 @@ class SourceReader:
             incomplete = True
         _emit_stage(STAGE_FOLLOWUP, "success",
                     extra={"files_read": state.files_read,
-                           "network_calls": self._network_calls(),
+                           "network_calls": self._request_calls(state),
                            "verified": True})
         return _finish(incomplete)
 
@@ -2345,6 +2450,10 @@ class SourceReader:
                 "limit_source": "evidence_window",
                 "retrievable_remainder_lines":
                     int(window.retrievable_remainder_lines),
+                # Явное продолжение страницы: следующий line_start того же
+                # файла (SXR-C1-02 «диапазоны/страницы», не all-or-nothing).
+                **({"next_line_start": int(window.line_range[1]) + 1}
+                   if window.truncated else {}),
             },
             read_level=_read_level(window, len(lines)))
         payload["provenance"].update({
@@ -2361,7 +2470,7 @@ class SourceReader:
         _emit_stage(stage, "success",
                     extra={"verified": verified,
                            "files_read": state.files_read,
-                           "network_calls": self._network_calls(),
+                           "network_calls": self._request_calls(state),
                            "http": 200, "ref_kind": ref_kind,
                            "line_count": len(lines),
                            "path_depth": path.count("/"),
@@ -2401,7 +2510,7 @@ class SourceReader:
         payload["source_id"] = _source_id(info.full_name, commit, path)
         _emit_stage(stage, "skipped",
                     reason_code=_REASON_FOR_CODE[ERR_UNSUPPORTED_KIND],
-                    extra={"network_calls": self._network_calls(),
+                    extra={"network_calls": self._request_calls(state),
                            "files_read": state.files_read,
                            "verified": False})
         return payload
@@ -2440,15 +2549,17 @@ class SourceReader:
             "not_checked": {
                 "files_considered": state.files_considered,
                 "files_read": state.files_read,
-                "depth_left": max_depth(),
+                # None = искусственного потолка глубины нет (SXR-C1-01).
+                "depth_left": int(state.limit_depth) or None,
                 "reason": state.not_checked_reason,
+                "applied_limits": state.applied_limits(),
             },
             "followup_incomplete": False,
             "files": [],
             "read_level": "discovered",
             "reused": False,
             "source_id": "",
-            "network_calls": self._network_calls(),
+            "network_calls": self._request_calls(state),
             "latency_ms": 0,
             "provenance": {
                 "provider": provider_name,
@@ -2457,7 +2568,7 @@ class SourceReader:
                 "bytes": 0,
                 "sha256": "",
                 "read_level": "discovered",
-                "network_calls": self._network_calls(),
+                "network_calls": self._request_calls(state),
             },
         }
         payload.update({key: value for key, value in overrides.items()
@@ -2493,14 +2604,24 @@ class SourceReader:
             payload["not_checked"]["reason"] = state.not_checked_reason
         _emit_stage(exc.stage, "failed", reason_code=exc.reason_code,
                     extra={"http": exc.http,
-                           "network_calls": self._network_calls(),
+                           "network_calls": self._request_calls(state),
                            "retryable": exc.retryable})
         return payload
 
 
 @dataclass
 class _RunState:
-    """Состояние одного вызова: счётчики наблюдаемости и причина остановки."""
+    """Состояние ОДНОГО вызова: счётчики наблюдаемости и применяемая политика.
+
+    Живёт ровно один ``run()``: счётчики файлов/глубины/сети начинаются с нуля
+    на каждый независимый запрос, поэтому исчерпание предыдущего запроса не
+    переносится на следующий (SXR-C1-03).
+
+    ``limit_* == 0`` — искусственного потолка нет (заводское состояние:
+    потолки 6/2/16 и defaults 3/1/8 удалены, SXR-C1-01). Положительное
+    значение появляется ТОЛЬКО если effective ``flags.budgets_enabled`` ON и
+    оператор явно задал ``SOURCE_READ_MAX_FILES/DEPTH/REQUESTS``.
+    """
 
     operation: str = OPERATION_READ
     budget_chars: int = 0
@@ -2516,6 +2637,32 @@ class _RunState:
     files_read: int = 0
     not_checked_reason: str = ""
     last_lines: list[str] = field(default_factory=list)
+    #: effective budgets predicate и снимок применяемой политики на запрос.
+    budget_enforced: bool = False
+    limit_files: int = 0
+    limit_depth: int = 0
+    limit_requests: int = 0
+    #: пожизненный счётчик провайдера на входе запроса (per-request дельта).
+    network_baseline: int = 0
+    #: сколько символов цепочки follow-up уже доставлено в этом запросе.
+    chain_chars: int = 0
+
+    def files_exhausted(self) -> bool:
+        return bool(self.limit_files) and self.files_read >= self.limit_files
+
+    def depth_exhausted(self, depth_left: int) -> bool:
+        """``depth_left`` — остаток явной политики; без политики = 0 (нет)."""
+        return bool(self.limit_depth) and depth_left <= 0
+
+    def requests_exhausted(self, request_calls: int) -> bool:
+        return bool(self.limit_requests) and request_calls >= self.limit_requests
+
+    def applied_limits(self) -> dict:
+        """Что реально применялось к запросу (0 = искусственного лимита нет)."""
+        return {"files": int(self.limit_files),
+                "depth": int(self.limit_depth),
+                "requests": int(self.limit_requests),
+                "budgets_enforced": bool(self.budget_enforced)}
 
 
 # ── ранжирование (только реальные сигналы, без словарей имён) ──────────────

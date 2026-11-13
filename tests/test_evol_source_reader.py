@@ -284,9 +284,17 @@ def _no_dns(monkeypatch):
     # Kill-switch по умолчанию ON и токена нет (изоляция тестов).
     monkeypatch.setattr(type(settings), "SOURCE_READ_ENABLED", True)
     monkeypatch.setattr(type(settings), "SOURCE_READ_GITHUB_TOKEN", "")
-    monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_FILES", 3)
-    monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_DEPTH", 1)
-    monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_REQUESTS", 8)
+    # SXR-C1-01: заводских потолков 3/1/8 больше нет. Явной env-политики в
+    # тестах нет, а предикат бюджета детерминирован (без БД/hot-настроек):
+    # OFF — искусственные пределы не применяются.
+    for _name in ("SOURCE_READ_MAX_FILES", "SOURCE_READ_MAX_DEPTH",
+                  "SOURCE_READ_MAX_REQUESTS"):
+        monkeypatch.delenv(_name, raising=False)
+
+    async def _budgets_off(chat_id=None):
+        return False
+
+    monkeypatch.setattr(sr, "budget_limits_enforced", _budgets_off)
     source_reuse.clear()
 
 
@@ -538,20 +546,23 @@ class TestFollowUp:
         assert payload["files"][0]["role"] == "primary"
 
     @pytest.mark.asyncio
-    async def test_file_budget_produces_untried_paths(self, monkeypatch):
-        monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_FILES", 1)
+    async def test_explicit_file_policy_produces_untried_paths(self, monkeypatch):
+        """Явная политика оператора (env) при budgets ON — по-прежнему видна."""
+        monkeypatch.setenv("SOURCE_READ_MAX_FILES", "1")
         fake = FakeGitHub()
         payload = await _reader(fake).run(
             operation=sr.OPERATION_READ, repo=REPO, ref="main",
             path="src/main/java/acme/ParallelHatchPartMachine.java",
-            symbol="getParallel", follow=True)
+            symbol="getParallel", follow=True, budget_enforced=True)
         assert payload["followup_incomplete"] is True
         assert payload["not_checked"]["reason"] == "budget"
         assert payload["not_checked"]["untried_paths"]
         assert len(payload["files"]) == 1
+        assert payload["not_checked"]["applied_limits"]["files"] == 1
 
     @pytest.mark.asyncio
-    async def test_depth_limit_is_reported_not_hidden(self):
+    async def test_depth_ceiling_absent_by_default(self):
+        """Заводского потолка глубины 2/1 больше нет: цепочка читается."""
         fake = FakeGitHub()
         payload = await _reader(fake).run(
             operation=sr.OPERATION_READ, repo=REPO, ref="main",
@@ -561,7 +572,8 @@ class TestFollowUp:
         assert len(payload["files"]) >= 2
         assert payload["files"][1]["path"].endswith("ParallelLogic.java")
         assert payload["files"][1]["verified"] is True
-        assert payload["not_checked"]["depth_left"] == 0
+        assert payload["not_checked"]["depth_left"] is None      # потолка нет
+        assert payload["not_checked"]["applied_limits"]["depth"] == 0
 
     @pytest.mark.asyncio
     async def test_tree_failure_does_not_destroy_verified_read(self):
@@ -731,15 +743,17 @@ class TestGuards:
         assert payload["error"] == sr.ERR_DISABLED
 
     @pytest.mark.asyncio
-    async def test_request_budget_fuse_stops_the_lookup(self, monkeypatch):
-        monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_REQUESTS", 1)
+    async def test_explicit_request_policy_stops_the_lookup(self, monkeypatch):
+        """Явный лимит запросов (env + budgets ON) остаётся рабочим и честным."""
+        monkeypatch.setenv("SOURCE_READ_MAX_REQUESTS", "1")
         fake = FakeGitHub()
         payload = await _reader(fake).run(
             operation=sr.OPERATION_READ, repo=REPO, ref="1.20.1",
-            path="src/main/java/acme/ParallelLogic.java")
+            path="src/main/java/acme/ParallelLogic.java", budget_enforced=True)
         assert payload["status"] == sr.STATUS_ERROR
         assert payload["not_checked"]["reason"] == "budget"
         assert len(fake.calls) <= 1
+        assert payload["not_checked"]["applied_limits"]["requests"] == 1
 
     def test_module_never_executes_downloaded_code(self):
         """Инвариант «скачанный код не исполняется» — по AST, а не по тексту."""
