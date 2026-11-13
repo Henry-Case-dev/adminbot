@@ -7420,8 +7420,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-01-915",
@@ -7435,8 +7462,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-01-917",
@@ -7450,8 +7504,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-01-919",
@@ -7465,8 +7546,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-01-921",
@@ -7480,8 +7588,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-01-923",
@@ -7495,8 +7630,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-02-925",
@@ -7510,8 +7672,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H1-02-934",
@@ -7525,8 +7714,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H2-01-938",
@@ -7540,8 +7756,35 @@
       "acceptance": "Продолжение диагностического разговора работает на обычном Direct-пути: ранее сформированный отчёт, tool results и canonical reply context доступны; повторное предоставление данных и ссылки на репозиторий не требуется; сценарий работает без слов 'код/репозиторий/GitHub/чекап'; не любое последующее сообщение трактуется как продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: продолжение обычным Direct — structural ledger output_kind=checkup_report → L1-контекст без слов-маркеров; preserved_diagnostic_research только при reply-to-bot (TestDiagnosticContinuation; 124 passed; mutation continuation 1 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H2-01-940",
@@ -7555,8 +7798,35 @@
       "acceptance": "Продолжение диагностического разговора работает на обычном Direct-пути: ранее сформированный отчёт, tool results и canonical reply context доступны; повторное предоставление данных и ссылки на репозиторий не требуется; сценарий работает без слов 'код/репозиторий/GitHub/чекап'; не любое последующее сообщение трактуется как продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: продолжение обычным Direct — structural ledger output_kind=checkup_report → L1-контекст без слов-маркеров; preserved_diagnostic_research только при reply-to-bot (TestDiagnosticContinuation; 124 passed; mutation continuation 1 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H2-01-942",
@@ -7570,8 +7840,35 @@
       "acceptance": "Продолжение диагностического разговора работает на обычном Direct-пути: ранее сформированный отчёт, tool results и canonical reply context доступны; повторное предоставление данных и ссылки на репозиторий не требуется; сценарий работает без слов 'код/репозиторий/GitHub/чекап'; не любое последующее сообщение трактуется как продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: продолжение обычным Direct — structural ledger output_kind=checkup_report → L1-контекст без слов-маркеров; preserved_diagnostic_research только при reply-to-bot (TestDiagnosticContinuation; 124 passed; mutation continuation 1 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H2-01-944",
@@ -7585,8 +7882,35 @@
       "acceptance": "Продолжение диагностического разговора работает на обычном Direct-пути: ранее сформированный отчёт, tool results и canonical reply context доступны; повторное предоставление данных и ссылки на репозиторий не требуется; сценарий работает без слов 'код/репозиторий/GitHub/чекап'; не любое последующее сообщение трактуется как продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: продолжение обычным Direct — structural ledger output_kind=checkup_report → L1-контекст без слов-маркеров; preserved_diagnostic_research только при reply-to-bot (TestDiagnosticContinuation; 124 passed; mutation continuation 1 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H2-01-946",
@@ -7600,8 +7924,35 @@
       "acceptance": "Продолжение диагностического разговора работает на обычном Direct-пути: ранее сформированный отчёт, tool results и canonical reply context доступны; повторное предоставление данных и ссылки на репозиторий не требуется; сценарий работает без слов 'код/репозиторий/GitHub/чекап'; не любое последующее сообщение трактуется как продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: продолжение обычным Direct — structural ledger output_kind=checkup_report → L1-контекст без слов-маркеров; preserved_diagnostic_research только при reply-to-bot (TestDiagnosticContinuation; 124 passed; mutation continuation 1 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H3-01-950",
@@ -7615,8 +7966,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-952",
@@ -7630,8 +8024,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-954",
@@ -7645,8 +8082,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-956",
@@ -7660,8 +8140,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-958",
@@ -7675,8 +8198,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-960",
@@ -7690,8 +8256,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-962",
@@ -7705,8 +8314,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-964",
@@ -7720,8 +8372,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H3-01-966",
@@ -7735,8 +8430,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H4-01-970",
@@ -7750,8 +8488,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H4-01-972",
@@ -7765,8 +8546,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H4-01-981",
@@ -7780,8 +8604,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "MAN-SXR-H5-01-985",
@@ -7795,8 +8662,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H5-01-991",
@@ -7810,8 +8704,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H5-01-993",
@@ -7825,8 +8746,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-H5-01-995",
@@ -7840,8 +8788,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I0-01-1001",
@@ -20893,8 +21868,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00906",
@@ -20908,8 +21910,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00907",
@@ -20923,8 +21952,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00908",
@@ -20938,8 +21994,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00909",
@@ -20953,8 +22036,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00910",
@@ -20968,8 +22078,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00911",
@@ -20983,8 +22120,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00912",
@@ -20998,8 +22162,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00913",
@@ -21013,8 +22204,35 @@
       "acceptance": "Чекап автоматически исследует собственную реализацию при необходимости анализа кода, используя существующие DiagnosticEvidenceBundle, DiagnosticCollector, inspect_runtime, read_source_code, локальный код, общий tool-loop, diagnostic_policy и deploy identity; объект исследования выбирает модель; таблицы 'код ошибки -> файл -> инструмент' нет; технический поиск по traceback/символам/модулям разрешён; весь репозиторий без необходимости не читается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: чек-ап использует существующие collector/bundle/inspect_runtime/read_source_code/local/tool-loop/policy/identity; объект выбирает модель; таблицы «код→файл» нет; полный обход репозитория без нужды запрещён (TestCheckupRootCauseContract; 25 contract tests). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00927",
@@ -21028,8 +22246,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00928",
@@ -21043,8 +22288,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00929",
@@ -21058,8 +22330,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00930",
@@ -21073,8 +22372,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00931",
@@ -21088,8 +22414,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00932",
@@ -21103,8 +22456,35 @@
       "acceptance": "Отчёт чекапа различает подтверждённое рабочее состояние, дефект, установленную причину, гипотезу, недоступные сведения и рекомендуемое исправление; действующий характер и стиль чекапа сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: отчёт различает состояние/дефект/причину/гипотезу/unknown/исправление; канон характера байт-в-байт, facts несут status/reason_code/not_checked (TestCheckupReportCategories; 168 passed checkup-набора). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00936",
@@ -21118,8 +22498,35 @@
       "acceptance": "Продолжение диагностического разговора работает на обычном Direct-пути: ранее сформированный отчёт, tool results и canonical reply context доступны; повторное предоставление данных и ссылки на репозиторий не требуется; сценарий работает без слов 'код/репозиторий/GitHub/чекап'; не любое последующее сообщение трактуется как продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: продолжение обычным Direct — structural ledger output_kind=checkup_report → L1-контекст без слов-маркеров; preserved_diagnostic_research только при reply-to-bot (TestDiagnosticContinuation; 124 passed; mutation continuation 1 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00948",
@@ -21133,8 +22540,51 @@
       "acceptance": "Чтение системного журнала собственного unit проверено в фактическом окружении процесса после последних деплоев и восстановлено штатно с минимальными правами; бот не запущен от root, произвольный sudo/доступ к чужим сервисам отсутствует; внутренний поток событий остаётся fallback реального отказа.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: журнал только своего invocation/unit, без sudo/shell, чужой unit отклоняется, permission-fallback на ledger, uid/root-пометка (TestJournalEnvironment). Реальный журнал под service-user остаётся postdeploy — строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+            "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+            "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Фактическое чтение системного журнала под service-user физически наблюдается только на deployed SHA.",
+        "trigger": "Ближайший штатный деплой с d238f808; сервис запущен под adminbot и чекап читает журнал.",
+        "next_check": "На deployed SHA: journalctl от service-user rc=0 с совпадающим InvocationID, uid не root, чужой unit не подставляется.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H3; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00968",
@@ -21148,8 +22598,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00974",
@@ -21163,8 +22656,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00975",
@@ -21178,8 +22714,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00976",
@@ -21193,8 +22772,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00977",
@@ -21208,8 +22830,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00978",
@@ -21223,8 +22888,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00979",
@@ -21238,8 +22946,51 @@
       "acceptance": "Корректный .deploy/release.json реально существует, формируется существующим процессом деплоя, привязан к выложенной версии, согласован с запущенным процессом, переживает рестарт и используется SourceReader и чекапом; манифест задним числом с неподтверждённым SHA не создан.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил для REVIEW: манифест пишется существующим release_manifest, привязан к HEAD/APP_VERSION, грязное дерево → отказ, identity verified_deployed, чтение после рестарта, SourceReader/чекап используют SHA (TestDeployManifestIdentity). Реальный .deploy/release.json и рестарт — postdeploy, строка READY_FOR_LIVE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+            "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+            "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+            "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реальный .deploy/release.json после рестарта и совпадение deployed SHA/APP_VERSION существуют только на deployed-окружении.",
+        "trigger": "Ближайший штатный деплой с d238f808 выполнен штатным release_manifest и сервис перезапущен.",
+        "next_check": "На deployed SHA: release.json schema 1, deployed_sha == HEAD == APP_VERSION, identity verified_deployed после рестарта, SourceReader/чекап видят тот же SHA.",
+        "owner": "DevOps (деплой и production-наблюдение), Reviewer подтверждает evidence",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md §H4; evidence/h/binding-h-d238f808.md §3, §8; review-h-d238f808.md"
+      }
     },
     {
       "source_id": "L00983",
@@ -21253,8 +23004,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00987",
@@ -21268,8 +23046,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00988",
@@ -21283,8 +23088,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L00989",
@@ -21298,8 +23130,35 @@
       "acceptance": "При отсутствии наблюдаемости возвращаются unknown/unavailable/not_checked (журнал недоступен, Telegram delivered=0 без полноты данных, нет STT-событий при непроверенном источнике); при работающей наблюдаемости и отсутствии событий возвращается подтверждённый ноль; новые счётчики не созданы, восстановлена действующая проводка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "review-h-d238f808.md — independent review H (Approved for REVIEW; transcription artifact)",
+          "observation": "Reviewer подтвердил: unknown/unavailable/not_checked вместо нуля; подтверждённый ноль только для проверенного окна; Telegram delivered=None/0 и STT not_checked корректны (TestUnknownVersusConfirmedZero; mutation zero 4 red). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+          "artifact_sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "binding-h-d238f808.md §2–§6 — изменения, 25 contract-тестов, RED на базе, мутации",
+          "observation": "25 contract-тестов зелёные; сохранённые прогоны 168+124+181+129 = 627 passed; RED на базе d20a7f73 13 failed/12 passed; мутации: continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red; изменения LF-clean (whitespace-check).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+          "artifact_sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+          "ref": "h/pytest-selfdiag.txt — 25 passed на кандидате d238f808",
+          "observation": "25 passed (contract-набор tests/test_smart_exec_selfdiag.py); production/live не заявляются.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/h/pytest-selfdiag.txt",
+          "artifact_sha256": "b7dd4186afa35e75fcb3425d2141c60aac65f0a23d634c3ff7e0ab63f6d5eac3"
+        }
+      ]
     },
     {
       "source_id": "L01007",
@@ -25923,7 +27782,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9). PM i56 2026-11-14: SXR-I5-01 (10), SXR-I6-01 (10), SXR-I6-02 (6), SXR-I7-01 (5) переведены в REVIEW на кандидате d43fa1fd (tests 58a8f859, evidence c84e77d5, ветка smart/i56-memory-learning) с review-артефактом review-i56-c84e77d5.md и binding-артефактами из ветки (скопированы байт-в-байт). S11 привязан к d43fa1fd; S10 остаётся мульти-кандидатным (I3 d471309a + I5 d43fa1fd, ключ S10-LEARNING-INCIDENTS-I5) — scoped-гейт S10 структурно неприменим. PM s3c2c3 2026-11-14: S3-EVIDENCE перепривязан на 5e87ed48 (base 36dd6b23): C1-01/02/03 получили новые candidate-bound review+unit+test записи с bound_from_candidate=36dd6b23 (lineage), C2-02 переведён в REVIEW. SXR-C2-01/SXR-C3-01/SXR-C3-02 остаются PENDING (integration-required): ревью подтвердило только SourceReader-путь для C3-01 и system-wide непроверенное поведение C2-01/C3-02; авторитетная проверка — интеграционный аудит S12.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9). PM i56 2026-11-14: SXR-I5-01 (10), SXR-I6-01 (10), SXR-I6-02 (6), SXR-I7-01 (5) переведены в REVIEW на кандидате d43fa1fd (tests 58a8f859, evidence c84e77d5, ветка smart/i56-memory-learning) с review-артефактом review-i56-c84e77d5.md и binding-артефактами из ветки (скопированы байт-в-байт). S11 привязан к d43fa1fd; S10 остаётся мульти-кандидатным (I3 d471309a + I5 d43fa1fd, ключ S10-LEARNING-INCIDENTS-I5) — scoped-гейт S10 структурно неприменим. PM s3c2c3 2026-11-14: S3-EVIDENCE перепривязан на 5e87ed48 (base 36dd6b23): C1-01/02/03 получили новые candidate-bound review+unit+test записи с bound_from_candidate=36dd6b23 (lineage), C2-02 переведён в REVIEW. SXR-C2-01/SXR-C3-01/SXR-C3-02 остаются PENDING (integration-required): ревью подтвердило только SourceReader-путь для C3-01 и system-wide непроверенное поведение C2-01/C3-02; авторитетная проверка — интеграционный аудит S12. PM h 2026-11-14: S8-SELFDIAG привязан к d238f808 (evidence head 120517a6, ветка smart/h-selfdiag): H1-01/H1-02/H2-01/H5-01 (37 строк) — REVIEW; H3-01 (10) и H4-01 (10) — READY_FOR_LIVE с postrelease_wait (production journal/service-user и deployed manifest/restart parity). Review-артефакт — транскрипция вердикта Reviewer'а (отмечено в файле). S13 review-артефакт переэмитирован с реальными переносами (sha обновлён в S13-строках).",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -26634,6 +28493,65 @@
       "not_covered": [
         "смежные дефекты heartbeat и duplicate incident_opened — BACKLOG_ONLY вне кандидата",
         "postdeploy: старые строки asap8b01/qnd.event остаются незакрытыми до resolve с evidence"
+      ],
+      "deployed": false
+    },
+    "S8-SELFDIAG": {
+      "slice": "S8-SELFDIAG",
+      "lane": "H",
+      "covers_req_ids": [
+        "SXR-H1-01",
+        "SXR-H1-02",
+        "SXR-H2-01",
+        "SXR-H3-01",
+        "SXR-H4-01",
+        "SXR-H5-01"
+      ],
+      "scope_note": "Approved for REVIEW. Артефакт — транскрипция вердикта Reviewer'а (его shell-записи были отклонены portable shell scanner); содержание не менялось. H3 (production журнал/service-user) и H4 (deployed manifest / restart parity) — READY_FOR_LIVE postdeploy. Cross-slice fixture 8c5549b7 проверена и не ослабляет C2/C3; предсуществующий whitespace в старых S3/G-файлах — BACKLOG_ONLY.",
+      "candidate_commit": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+      "code": "d238f808d221f5d5c9e2e1fe8b2da8ae668d97c4",
+      "evidence_head": "120517a60ae19aa6fa1176cfa1c3b16164e68bec",
+      "base": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+      "base_lineage": {
+        "branch_base": "18fa4d593591b8438b2e3832fd7aa8e6af478064",
+        "merge_s3": "6baca8632d387186650f0e7833628dea89022f52",
+        "merge_g_and_head": "ce9e9f01b236448134058e03b44116defc92aa5f",
+        "cross_slice_fixture": "8c5549b7459de20152706dc80b9feb37bcd0c8a2"
+      },
+      "branch": "smart/h-selfdiag",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-h-d238f808.md",
+        "sha256": "2d807bdbb5a57f9ef9e884820221a6e57b82de2630c7efbcffc2535eaf59cc8c"
+      },
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/h/binding-h-d238f808.md",
+        "sha256": "37ccfae0dfb84f9f9ceb820bd71d53645ff0fba12462e0b20847c369eaeb3541"
+      },
+      "tests": {
+        "contract_25": "25 passed (h/pytest-selfdiag.txt)",
+        "checkup_168": "168 passed",
+        "selfdiag_identity_124": "124 passed",
+        "identity_probes_policy_181": "181 passed, 1 warning",
+        "integration_seams_129": "129 passed",
+        "total_affected": "627 passed, 0 failed",
+        "red_on_base_d20a7f73": "13 failed / 12 passed",
+        "mutations": "continuation 1 red, unknown→zero 4 red, manifest SHA=0 1 red",
+        "whitespace": "git diff --check 8c5549b7..d238f808 пуст"
+      },
+      "covered": [
+        "H1: причины вместо метрик; объект исследования выбирает модель, без таблицы код→файл",
+        "H2: продолжение на обычном Direct без слов-маркеров",
+        "H3: журнал только своего unit/invocation, без sudo/shell; фактические права видны",
+        "H4: манифест существующим инструментом, identity verified_deployed, чтение после рестарта",
+        "H5: unknown/unavailable/not_checked вместо нуля; новых счётчиков нет"
+      ],
+      "partial": [
+        "широкий прогон всего репозитория не выполнялся — зафиксированные 627 affected прогонов"
+      ],
+      "not_covered": [
+        "реальный production journal под service-user и рестарт — postdeploy (H3)",
+        "фактические байты .deploy/release.json после деплоя — postdeploy (H4)",
+        "живой Direct continuation без маркерных слов, Telegram delivered=0 с ledger, STT not_checked — postdeploy"
       ],
       "deployed": false
     }
