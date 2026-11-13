@@ -403,13 +403,16 @@ def _runtime_process_started_at():
 
 
 def _probe_app_root(root: Path) -> tuple[bool, bool, str]:
-    """Права сервисного пользователя и наличие файлов приложения.
+    """Права сервисного пользователя и признаки дерева приложения.
 
-    Возвращает ``(readable, files_present, reason)``. Проверяется фактическое
-    чтение каталога (а не только ``os.access``) и читаемость одного известного
-    файла приложения, если он есть. Секреты не запрашиваются; отсутствие
-    маркерного файла само по себе не отказ — конкретный файл проверяется при
-    чтении, а revision-токен без Git/манифеста не появляется.
+    Возвращает ``(readable, markers_present, reason)``. Проверяется фактическое
+    чтение каталога (а не только ``os.access``) и читаемость хотя бы одного
+    известного файла приложения. Секреты не запрашиваются.
+
+    Произвольный непустой каталог НЕ считается корнем приложения: без маркера
+    и без подтверждённого ``repo_origin`` источник помечается недоступным
+    (owner §E2: cwd/чужой каталог не становятся production-источником без
+    проверки).
     """
     entries = 0
     try:
@@ -436,6 +439,10 @@ def _probe_app_root(root: Path) -> tuple[bool, bool, str]:
             return False, False, "permission_denied"
         except (OSError, ValueError):
             continue
+    else:
+        # Маркеров нет: корнем может быть только дерево с подтверждённым
+        # repo_origin (проверяется вызывающим по identity).
+        return True, False, "app_markers_missing"
     return True, True, ""
 
 
@@ -459,12 +466,15 @@ def _local_revision(identity: dict) -> tuple[str, str]:
 
 def _local_source_state(*, identity: dict, root_source: str,
                         expected_origin: str, readable: bool,
-                        files_present: bool,
+                        markers_present: bool,
                         probe_reason: str = "") -> dict:
     """Единственное правило классификации локального источника.
 
-    Отвечает на «что это за локальный код и можно ли его читать», не подменяя
+    Отвечает на «что это локальный код и можно ли его читать», не подменяя
     deployed SHA, checkout SHA, runtime identity и доступные файлы.
+
+    ``markers_present`` — найден файл-маркер приложения. Дерево без маркера
+    принимается только при подтверждённом ``repo_origin`` (owner §E2).
     """
     identity = identity if isinstance(identity, dict) else {}
     provenance = identity.get("version_provenance")
@@ -478,6 +488,7 @@ def _local_source_state(*, identity: dict, root_source: str,
         git_origin_match = bool(
             expected_origin
             and observed_origin.casefold() == expected_origin.casefold())
+    files_present = bool(markers_present) or git_origin_match is True
     is_runtime_root = root_source == LOCAL_ROOT_RUNTIME
     identity_code = str(identity.get("code") or "unknown")
     manifest_version = provenance.get("manifest")
@@ -644,7 +655,7 @@ def resolve_local_source(*, repo_origin=None, root=None, runtime_root=None,
         if key in seen:
             continue
         seen.add(key)
-        readable, files_present, probe_reason = _probe_app_root(resolved)
+        readable, markers_present, probe_reason = _probe_app_root(resolved)
         identity: dict = {}
         if readable:
             try:
@@ -659,7 +670,7 @@ def resolve_local_source(*, repo_origin=None, root=None, runtime_root=None,
         state = _local_source_state(
             identity=identity if isinstance(identity, dict) else {},
             root_source=root_source, expected_origin=expected_origin,
-            readable=readable, files_present=files_present,
+            readable=readable, markers_present=markers_present,
             probe_reason=probe_reason)
         state["root"] = str(resolved)
         state["attempts"] = list(attempts)
@@ -676,7 +687,7 @@ def resolve_local_source(*, repo_origin=None, root=None, runtime_root=None,
     empty = _local_source_state(
         identity={}, root_source=LOCAL_ROOT_NONE,
         expected_origin=expected_origin, readable=False,
-        files_present=False, probe_reason="root_missing")
+        markers_present=False, probe_reason="root_missing")
     empty["root"] = None
     empty["attempts"] = attempts
     return fallback_record or empty
@@ -1570,7 +1581,7 @@ class LocalSnapshotProvider:
                             or LOCAL_ROOT_NONE),
             expected_origin=self.expected_origin(),
             readable=bool(self._source.get("readable", True)),
-            files_present=bool(self._source.get("files_present", True)),
+            markers_present=bool(self._source.get("files_present", True)),
             probe_reason=str(self._source.get("reason") or ""))
         local_identity = record.get("local_identity")
         if not isinstance(local_identity, dict):

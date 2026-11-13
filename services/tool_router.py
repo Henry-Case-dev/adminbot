@@ -3514,6 +3514,15 @@ class ToolRouter:
                     "identity_error": str(
                         diag_ctx.get("identity_error") or ""),
                     "note": str(diag_ctx.get("note") or ""),
+                    # SXR-E3: что именно прочитано и насколько это доказано.
+                    "source": str(diag_ctx.get("source") or ""),
+                    "verification": str(diag_ctx.get("verification") or ""),
+                    "version_verified": bool(
+                        diag_ctx.get("version_verified")),
+                    "files_only": bool(diag_ctx.get("files_only")),
+                    "selection_reason": str(
+                        diag_ctx.get("selection_reason") or ""),
+                    "source_note": str(diag_ctx.get("source_note") or ""),
                 }
         return json.dumps(payload, ensure_ascii=False)
 

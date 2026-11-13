@@ -429,6 +429,12 @@ class TestCheckupResearchLoop:
             identity_out = source_result["repo_identity"]
             assert identity_out["ref_source"] == "deployed_sha"
             assert identity_out["deployed_sha"] == sha
+            # SXR-E3: маршрутизатор доносит до модели выбранный источник,
+            # подтверждение версии и вид ревизии — без подмены полей.
+            for key in ("source", "verification", "version_verified",
+                        "files_only", "selection_reason", "source_note"):
+                assert identity_out[key] == identity[key], key
+            assert identity_out["source"] == "local"
             runtime_result = json.loads(tool_messages[1]["content"])
             assert runtime_result["status"] == "ok"
             assert runtime_result["probe"] == "logs.window"
