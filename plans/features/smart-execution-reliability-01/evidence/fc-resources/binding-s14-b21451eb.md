@@ -4,6 +4,7 @@
 SMART-EXECUTION-RELIABILITY-01, wave8).
 База среза: `c00caf62` (merge S13 `ffe417d0` + S1 `8fc8b534`).
 Код-кандидат: `b21451eb` (ветка `smart/fc-s14-resources`).
+Evidence-коммиты после кода не меняют поведение; reviewer проверяет HEAD ветки.
 Источник: `plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md`
 (sha256 `767baf0a…dc7a`), строки 429–684, 900–984, 1253–1292.
 Покрытие: 18 req_id / 161 строка карты (`items` 72 + `additional_requirements` 89).
@@ -245,6 +246,12 @@ S1-регрессии после merge: `tests/test_smart_exec_ab_round1114.py` 
    source, queries/candidates/opened/claim units/evidence chars, model
    capacity, stop reason, coverage). Существующие `factcheck_run`/coverage
    логи расширены полями outcome; отдельный аналитический раздел не создан.
+4. **Шов S15-FC-EVIDENCE**: S14 сохраняет все порции в
+   `RetrievalOutcome.search_text_portions` (join == полный текст) и снимает
+   cap evidence refs, но фактическую доставку порций analyst/validator/
+   verbalizer выполняет S15 (его `write_scope` — `factcheck_service.py`).
+   До S15 `search_text` = первая порция 100k; это осознанная граница среза,
+   а не заявленная полная доставка.
 
 Владельцу ничего не назначается: §14.3 источника запрещает ждать
 естественных событий чата и owner-проверки; всё, что можно проверить
