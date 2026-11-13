@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T19:11:00+12:00",
+  "updated": "2026-11-14T00:16:56+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -942,7 +942,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T19:11:00+12:00",
+      "updated": "2026-11-14T00:16:56+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
@@ -950,7 +950,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13 corrective (owner, P0): core 76fcb829 + identity ea9e9f2a Approved; journal env fix verified; PM bound 23 corrective rows (147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING). Scoped deploy red only on dependency closure -> one epic-level release train, then release smoke (journal, Telegram E2E, deployed manifest), then corrective closeout. Epic not DONE.",
+      "queue_note": "2026-11-13 corrective (owner, P0): core 76fcb829 + identity ea9e9f2a Approved; journal env fix verified; PM bound 23 corrective rows (147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING). Scoped deploy red only on dependency closure -> one epic-level release train, then release smoke (journal, Telegram E2E, deployed manifest), then corrective closeout. Epic not DONE. | 2026-11-14: remaining SELF-DIAG obligations (stage H) are consolidated into the owner's single priority epic SMART-EXECUTION-RELIABILITY-01; 2.58.199 deployed evidence and 147 VERIFIED rows preserved; no competing epic.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -1036,7 +1036,8 @@
         "journal": "restored-verified-1f2156ea",
         "release_rule": "epic-level train only; scoped --slice deploy red on deferred dependency closure",
         "blocks_epic_done": true
-      }
+      },
+      "continues_in": "smart-execution-reliability-01#stage-H"
     },
     {
       "id": "smart-module-semantic-routing-p0",
@@ -1486,15 +1487,15 @@
       ],
       "coverage_complete": true,
       "source_note": "Карта PM f21644b4: 261 обязательная строка (UR-01..UR-30 + подтребования, §11 чеклисты A-Д как UR-ACC-*, §12 запреты UR-BAN-*), 9 срезов UR-A..UR-G + подпакеты времени UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28), 3 live-строки (UR-ACC-E9/UR-30.7 postdeploy, UR-08.2 preprod). План-гейт 0 ошибок. ARCHITECT_REQUIRED до Builder на UR-A/C/C-CLOCK/C-SCHED/D/F (контракт 4359b966). Размещение: UR-B и контекстная часть UR-C стартуют сейчас параллельно CMV-D/E (свободные backend-файлы); UR-A — после освобождения direct_chat_service.py остатком RC v5; UR-F — только после мержа CMV-D+E (один писатель на web/app.js, web/index.html, web/static/app.css). Статус: UR-18 (метаданные генерации) принят и влит (3ad5036e); UR-B в работе.",
-      "updated": "2026-11-05",
-      "queue_position": 1,
+      "updated": "2026-11-14T00:16:56+12:00",
+      "queue_position": 41,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "active",
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "inspector step 3 under review; do not interrupt",
+      "queue_note": "inspector step 3 under review; do not interrupt | 2026-11-14: stale record (last update 2026-11-05, no live lane, no session); position moved from 1 to 41 to preserve unique queue positions after the owner's priority epic insertion. History preserved.",
       "release_state": "inspector slice released as 2.58.185 @ 40d52954; product healthy, no errors, DDL 0; two live items await the first ordinary turn (a real direct_turn_selection row and populated selection/style/clock sections) — a read-only script is ready and the check repeats on that event",
       "postdeploy_monitoring": {
         "blocking": false,
@@ -1853,6 +1854,20 @@
         "start_preconditions": "At start: read-only audit of the actual production code line (the module files are absent from the old master checkout), then Architect -> Builder -> Reviewer -> normal release. C2.2 and album completeness extend VISION-OWN-PROVENANCE / VISION-MULTI-COVERAGE; any edit to services/image_generation.py, the initiative journal (P0IM-*, HMF-*) or web/api/initiative_publications.py must be serialized with those rows' owners.",
         "status": "registered_only_not_started"
       }
+    },
+    {
+      "id": "smart-execution-reliability-01",
+      "queue_position": 1,
+      "priority": "P0",
+      "status": "PENDING",
+      "execution_state": "awaiting_architecture",
+      "blocked_by": [],
+      "blocker_sources": {},
+      "owner_input": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
+      "source_note": "plans/current_task.md lines 11750-13308 (owner-authored). Stages A-M: budgets/tool-loop/evidence, model capacity, local-first own code, GitHub SafeFetch, finalization, SELF-DIAG H, production defects I1-I6, anti-hardcode J, acceptance L, order/DoD M. One epic; no duplicate correctives.",
+      "queue_note": "2026-11-14: owner priority. Intake captured; PM mapping + Architect contract running. Production base 2.58.199 @ d20a7f73 (identity verified, journal restored). Nothing implemented yet.",
+      "created": "2026-11-14T00:16:56+12:00",
+      "updated": "2026-11-14T00:16:56+12:00"
     }
   ],
   "owner_inputs": [
@@ -4504,6 +4519,17 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-14-SMART-EXEC-RELIABILITY",
+      "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
+      "source_sha256": "32EF8C8289CF3F66E8949048A449178223CC0F058C3701E60CDA72F8A60ECAF1",
+      "kind": "new_task",
+      "target_task_ids": [
+        "smart-execution-reliability-01"
+      ],
+      "reconciled": false,
+      "note": "Priority epic SMART-EXECUTION-RELIABILITY-01 (stages A-M): budgets OFF must disable hidden artificial limits; common tool-loop must not truncate rounds/calls/evidence; internal tool caps (SourceReader etc.) and evidence delivery to the LLM payload fixed; single model-capacity resolver with 1M unknown default and real model windows; local-first own production code; GitHub SafeFetch availability restored securely; mandatory finalization of tool research; SELF-DIAG stage H (journal/manifest/checkup/continuation/unknown counters); production defects I1-I6; anti-hardcode invariant J; one release + independent E2E acceptance L. Replaces previously prepared corrective-2 for SELF-DIAG; one epic, no competing duplicates."
     }
   ],
   "source_inventory": {
