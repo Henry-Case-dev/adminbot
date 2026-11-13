@@ -3509,14 +3509,16 @@ class FactCheckService:
         клиента на fallback-модель/endpoint payload recompose'ится под ёмкость
         ЭТОГО маршрута; None → прежнее поведение (payload не меняется)."""
         from services.system2_handoff import parse_json_object
+        generate = getattr(self.llm, "generate", None)
+        if generate is None:
+            return None
         kwargs = {"module": "factcheck", "step": step,
                   "correlation_id": correlation_id}
         if fallback_payload_adapter is not None \
-                and _accepts_kwarg(self.llm.generate,
-                                   "fallback_payload_adapter"):
+                and _accepts_kwarg(generate, "fallback_payload_adapter"):
             kwargs["fallback_payload_adapter"] = fallback_payload_adapter
         try:
-            raw = await self.llm.generate(
+            raw = await generate(
                 [{"role": "system", "content": system},
                  {"role": "user", "content": user_payload}], **kwargs)
         except Exception:
