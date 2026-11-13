@@ -160,7 +160,14 @@ class TestSimpleExecutor:
             plan=None, router=router, ctx=None, query="x",
             chat_id=1, correlation_id="corr", announced={"fetch_article"})
         assert len(router.dispatched) == 2, "жёсткий бюджет total_calls"
-        assert result.chain_meta["steps"] == 2
+        # SMART-EXECUTION-RELIABILITY-01 §B1: ни один шаг не теряется молча —
+        # сверх явной политики каждый получает структурный denied-evidence.
+        assert result.chain_meta["steps"] == 5
+        assert result.chain_meta["ok"] == 2
+        denied = [s for s in result.evidence_sources
+                  if s.status == "denied"]
+        assert len(denied) == 3
+        assert all(s.error_code == "chain_call_limit" for s in denied)
 
     @pytest.mark.asyncio
     async def test_cancellation_propagates_clean(self):
