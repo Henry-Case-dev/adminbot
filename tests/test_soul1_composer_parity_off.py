@@ -404,7 +404,13 @@ async def test_p3_modes_off_matches_recorded_dump(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_p4_l1_planner_system_matches_recorded_dump():
-    from services.chat_prompts import DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    """P4: системный канон L1 сохранён байт-в-байт; пользовательский payload
+    проверяется по ожидаемому функциональному дополнению, а не по старому
+    полному дампу (он законно изменился: source_code/deep_diagnostics +
+    diagnostic_research)."""
+    from services.chat_prompts import (
+        DIRECT_L1_DIAGNOSTIC_RESEARCH_ADDENDUM,
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT)
     Stub, D = build_service()
     llm = StubLLM()
     await D._plan_direct_l1(
@@ -416,10 +422,17 @@ async def test_p4_l1_planner_system_matches_recorded_dump():
     assert cap, "L1 planner не вызвался"
     system = cap[0]["messages"][0]["content"]
     user = cap[0]["messages"][1]["content"]
-    _assert_matches("P4", system, user)
+    # (a) системный канон: байтовая сверка без пользовательского payload.
+    _assert_matches("P4", system, None)
     assert system == psb.resolve_prompt(
         "prompts.direct_l1_planner_system_prompt",
         DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+    # (b) функциональное дополнение: новые capability и ровно один блок
+    # диагностического решения (не переписывание канона).
+    assert "source_code" in user and "deep_diagnostics" in user
+    assert "[ДИАГНОСТИЧЕСКОЕ РЕШЕНИЕ]" in user
+    assert DIRECT_L1_DIAGNOSTIC_RESEARCH_ADDENDUM.strip() in user
+    assert user.count("[ДИАГНОСТИЧЕСКОЕ РЕШЕНИЕ]") == 1
 
 
 # ═══ независимость OFF-пути и аддитивность ON-контура ═══════════════════════

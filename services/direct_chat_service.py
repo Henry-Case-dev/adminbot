@@ -8414,7 +8414,7 @@ class DirectChatService:
                     c for c in _diag_caps if c not in _caps)
                 plan = _dc_replace(
                     plan, capabilities_needed=_caps,
-                    execution_mode="adaptive")
+                    execution_mode=_dx.EXECUTION_ADAPTIVE)
             except Exception:      # pragma: no cover - защитная ветка
                 pass
             _required_caps = _required_caps + tuple(_diag_caps)

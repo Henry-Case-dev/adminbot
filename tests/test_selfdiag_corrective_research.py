@@ -464,6 +464,137 @@ class TestContinuationContext:
         assert report == "ОТЧЁТ ЧЕКАПА"
 
     @pytest.mark.asyncio
+    async def test_continuation_full_handle_writer_answer_after_real_read(
+            self, tmp_path, monkeypatch):
+        """Owner §8.1 C: real DB/ledger + real `handle` + real router/read +
+        L2 Writer output, delivered through the real Direct answer path.
+
+        The model provider is a deterministic fixture (no external LLM); every
+        other subject (L1 context, decision parse, tool phase, router, source
+        reader, Writer input, sending) is the production path.
+        """
+        import asyncio
+        import time
+        from config.settings import settings
+        from services import bot_output_ledger as ledger
+        from services import hot_config as hot
+        from services import image_generation as ig
+        from services.database import DatabaseService
+        from tests.test_direct_chat import (
+            FakeMemory, _bot, _make_service, _message, _user)
+        from tests.test_soul1_capability_intent import (
+            READY_CONFIG, _Cfg, _async_list, _async_none)
+        from tests.test_diagnostic_policy import ADMIN_ID
+
+        class _FlowLLM:
+            def __init__(self):
+                self.steps = []
+                self.l2_messages = []
+                self.orchestrator_calls = 0
+                self.tool_ready = False
+
+            async def generate(self, messages, temperature=None, chat_id=None,
+                               module=None, step=None, correlation_id=None,
+                               **kwargs):
+                self.steps.append(step)
+                if step == "l1_planner":
+                    return json.dumps({
+                        "action": "reply", "confidence": 0.9,
+                        "diagnostic_research": {
+                            "needed": True, "target": "self",
+                            "sources": ["source_code"]}}, ensure_ascii=False)
+                if step == "orchestrator":
+                    self.orchestrator_calls += 1
+                    if self.orchestrator_calls == 1:
+                        return json.dumps({
+                            "action": "call_tool",
+                            "tool": "read_source_code",
+                            "arguments": {
+                                "operation": "read",
+                                "path": "services/checkup_service.py",
+                                "line_start": 150, "line_end": 175},
+                            "reason": "verify implementation",
+                            "evidence_goal": "checkup tool loop"},
+                            ensure_ascii=False)
+                    return json.dumps({"action": "finish", "reason": "enough"})
+                if step == "l2_writer":
+                    self.l2_messages = [dict(m) for m in messages]
+                    joined = "\n".join(str(m.get("content") or "")
+                                       for m in messages)
+                    self.tool_ready = "if telemetry is not None" in joined
+                    return ("По прочитанному коду: на строке 150 виден "
+                            "tool-loop чекапа." if self.tool_ready
+                            else "Код прочитать не удалось.")
+                return "ok"
+
+        class _BotMessage:
+            def __init__(self, text):
+                self.text = text
+                self.caption = None
+                self.message_id = 77
+                self.from_user = type("U", (), {"id": 999})()
+                self.chat = type("C", (), {"id": CHAT_ID,
+                                          "type": "supergroup"})()
+                self.reply_to_message = None
+
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        try:
+            await ledger.record_delivered_output(
+                db, chat_id=CHAT_ID, tg_message_id=77,
+                text="ОТЧЁТ-МАРКЕР: пустой L1; код проверен, строка 7541.",
+                output_kind="checkup_report", sent_at=int(time.time()),
+                parent_message_ref="tg:2", correlation_id="checkup:c")
+            await db.upsert_bot_reply(
+                CHAT_ID, 77, "ОТЧЁТ-МАРКЕР: пустой L1; код проверен.",
+                time.time())
+            await db.set_bot_reply_parent(CHAT_ID, 77, 2, time.time())
+            root, sha = _snapshot_repo(tmp_path)
+            monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT",
+                                str(root))
+            monkeypatch.setattr(type(settings), "SOURCE_READ_ENABLED", True)
+            monkeypatch.setattr(type(settings), "SOURCE_READ_GITHUB_TOKEN", "")
+            monkeypatch.setattr(type(settings), "DIRECT_L1_ENABLED", True)
+            monkeypatch.setattr(type(settings),
+                                "DIRECT_DECISION_MAKING_ENABLED", True)
+            monkeypatch.setattr(type(settings), "PERSONA_ENABLED", False)
+            hot.set_config_cache(_Cfg(dict(READY_CONFIG)))
+
+            async def _true(*_a, **_k):
+                return True
+            monkeypatch.setattr(ig, "resolve_module_enabled", _true)
+            monkeypatch.setattr(ig, "generate_and_send",
+                                _async_none())
+            llm = _FlowLLM()
+            router = ToolRouter(ToolDeps(search=None, memory=None,
+                                         aliases=None))
+            svc = _make_service(memory=FakeMemory(), db=db, llm=llm,
+                                tool_router=router, bot_id=999)
+            svc._build_user_content = _async_list([])
+            svc._image_pre_gate_block = _async_none()
+            svc._dig_pre_gate_block = _async_none()
+            message = _message(text="продолжи разбор", user=_user(ADMIN_ID))
+            message.reply_to_message = _BotMessage("ОТЧЁТ-МАРКЕР")
+            bot = _bot()
+            await svc.handle(bot, message, _user(ADMIN_ID))
+            await asyncio.sleep(0)
+            sent = [str(c.args[1]) for c in bot.send_message.await_args_list
+                    if len(c.args) > 1]
+            assert any("на строке 150" in text for text in sent), sent
+            answer = next(text for text in sent if "на строке 150" in text)
+            assert "пришли" not in answer.lower()
+            assert "github" not in answer.lower()
+            assert "репозитор" not in answer.lower()
+            assert llm.tool_ready is True
+            l2_input = "\n".join(str(m.get("content") or "")
+                                 for m in llm.l2_messages)
+            assert "if telemetry is not None" in l2_input
+            assert "repo_identity" in l2_input or "commit" in l2_input
+        finally:
+            hot.set_config_cache(None)
+            await db.close()
+
+    @pytest.mark.asyncio
     async def test_continuation_plan_uses_real_ledger_report_and_reads_code(
             self, tmp_path, monkeypatch):
         """C: реальный DB/ledger -> `_plan_direct_l1` -> structured decision.
@@ -809,6 +940,7 @@ async def test_tool_phase_forces_adaptive_only_for_structured_decision(
         monkeypatch):
     """Typed decision исполняется adaptive-контуром; без решения — как было."""
     from services import direct_chat_service as dcs
+    from services import direct_execution as _dx
 
     seen = {}
 
@@ -833,7 +965,7 @@ async def test_tool_phase_forces_adaptive_only_for_structured_decision(
         image_enabled=False, temperature=None, chat_id=CHAT_ID,
         correlation_id="corr", l1_plan=plan, response_plan=None,
         fallback_meta={}, time_line="", tool_schemas=schemas)
-    assert seen["plan"].execution_mode == "adaptive"
+    assert seen["plan"].execution_mode == _dx.EXECUTION_ADAPTIVE
     assert {"source_code", "deep_diagnostics"} <= set(seen["required_caps"])
 
     seen.clear()
