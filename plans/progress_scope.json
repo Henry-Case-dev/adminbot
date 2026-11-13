@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T14:39:17+12:00",
+  "updated": "2026-11-13T15:18:53+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -834,7 +834,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); next executable slice is VMQ-MEM-NEXT; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T14:39:17+12:00",
+      "updated": "2026-11-13T15:18:53+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: owner chose natural retrieval + quality metric; no 2026 cap/year quotas/forced displacement; real FTS fix kept; no large retrieval refactor. NEXT-02 remains FAILED until the quality review; NEXT-05 timings pass; NEXT-03 controlled positive; NEXT-04 PENDING; Architect quality contract in progress.",
+      "queue_note": "2026-11-13: 66 PENDING classified on 2.58.198 - 54 REAL_GAP owner-mandated (ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U/MEM-TIME evidence/R), 9 covered -> REVIEW on binding, 1 postrelease (NEXT-01), 2 blocked_external (Q-04/QM-08). All 54 rows source-anchored to current_task.md owner clauses (0 derived). NEXT-02 corrective candidate (A FTS fix + NEXT-05 timings, no B) is building; M1 episodes building in parallel (disjoint files). Closing NEXT-02 does NOT finish the epic.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -918,6 +918,10 @@
       "queue_after_note": "Владелец 2026-11-12: сразу после самодиагностики. Уточнение владельца: «квантовые рандомы» — это именно VMQ-ONTO-01, не goodmorning-quantum-media.",
       "progress": {
         "verified_rows": 1,
+        "review_rows": 2,
+        "failed_rows": 1,
+        "pending_rows": 66,
+        "real_gap_rows": 54,
         "total_rows": 70,
         "deployed_commit": "234776589c934024ed0e8dceba189fb9d70d3215"
       }
