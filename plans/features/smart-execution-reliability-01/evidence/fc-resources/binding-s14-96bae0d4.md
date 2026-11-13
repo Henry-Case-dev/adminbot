@@ -1,4 +1,4 @@
-# S14-FC-RESOURCES — binding evidence (candidate 21a1c169)
+# S14-FC-RESOURCES — binding evidence (candidate 96bae0d4)
 
 Срез: `S14-FC-RESOURCES` (FACTCHECK-REQUEST-INTEGRITY v2 §5–§6/§10.4/§13.3,
 SMART-EXECUTION-RELIABILITY-01, wave8).
