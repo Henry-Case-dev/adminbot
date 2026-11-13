@@ -62,11 +62,11 @@ self = <tests.test_smart_exec_evidence.TestComposerCaps object at 0x000002B33BEB
             sent_at = 1700000000
             author_id = 1
             entity_id = ""
-    
+
             def __init__(self, index):
                 self.id = f"fact:{index}"
                 self.preview = f"╤Д╨░╨║╤В {index}"
-    
+
         candidates = [_Cand(i) for i in range(1, 26)]
         fragments, raw = await comp.collect_memory_fragments(
             None, chat_id=1, candidates=candidates)
@@ -137,7 +137,7 @@ self = <tests.test_smart_exec_evidence.TestResponseExtentCaps object at 0x000002
 >       assert [s["arguments"]["url"] for s in plan] == [
             f"https://u{i}.example/" for i in range(6)]
 E       AssertionError: assert [] == ['https://u0..../u5.example/']
-E         
+E
 E         Right contains 6 more items, first extra item: 'https://u0.example/'
 E         Use -v to get more diff
 

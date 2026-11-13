@@ -8,6 +8,6 @@ index aeed2c04..6d3f4f3d 100644
      """
 -    return _env_policy_int("CHAT_MIDDLE_MAX_MESSAGES")
 +    return _env_int("CHAT_MIDDLE_MAX_MESSAGES", 60, 1)
- 
- 
+
+
  def thread_walk_max() -> int:

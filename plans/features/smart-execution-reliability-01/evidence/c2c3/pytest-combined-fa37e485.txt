@@ -11,13 +11,13 @@
 ........................................................................ [ 82%]
 ........................................................................ [ 90%]
 ........................................................................ [ 97%]
-C:\Code\Python\adminbot\.venv\Scripts\python.exe : 
+C:\Code\Python\adminbot\.venv\Scripts\python.exe :
 строка:1 знак:306
 + ... ence\c2c3"; C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytes ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 WARNING: closed 22 leaked aiosqlite connection(s)
 .....................                                                    [100%]
 957 passed in 98.41s (0:01:38)
