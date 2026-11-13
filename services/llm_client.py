@@ -225,7 +225,9 @@ class LLMContextOverflowError(LLMError):
     Ёмкость endpoint/model к этому моменту уже обновлена
     (`model_capacity.record_proven_limit`), поэтому пересобранный payload
     считается по доказанному пределу. Наследник LLMError: существующие
-    классификаторы/фолбэки продолжают работать."""
+    классификаторы/фолбэки продолжают работать. Текст сообщения — прежний
+    (`LLM HTTP 400: <url>`, B1 ревью D): детали несут тип и атрибуты, а
+    диагностический лог не меняется."""
 
     status: int | None = None
     body: str = ""
@@ -557,8 +559,7 @@ def _context_overflow_exc(err: LLMError, *, status: int,
         return None
     if info is None:
         return None
-    overflow = LLMContextOverflowError(
-        f"LLM context overflow ({status}): {err}")
+    overflow = LLMContextOverflowError(str(err))
     overflow.status = status
     overflow.body = str(getattr(err, "body", "") or "")
     overflow.model = model or str(info.model or "")
