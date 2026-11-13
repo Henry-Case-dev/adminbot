@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T01:51:43+12:00",
+  "updated": "2026-11-14T01:52:13+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -4430,28 +4430,8 @@
       "kind": "decision",
       "target_task_ids": [],
       "reconciled": true,
-      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01. | Reconciled 2026-11-12: 2.58.197 deployed; 111/114 rows verified; PB-LLM and AC-DONE remain WAITING_EXTERNAL for the first natural LLM attempt. Findings classified; backlog updated. | 2026-11-14: historical decision; task targets cleared (no per-task coverage claims), recorded_in its own preserved source.",
-      "coverage_refs": [
-        {
-          "task_id": "p0-init-meme-ux-diag",
-          "map": "plans/features/p0-init-meme-ux-diag/requirements-map.json",
-          "req_ids": [
-            "P0IM-AC-NODUP",
-            "P0IM-AC-SETTINGS",
-            "P0IM-PB-ACCESS",
-            "P0IM-PB-LLM",
-            "P0IM-PB-MANUAL",
-            "P0IM-OV-LIST",
-            "P0IM-S6-EFFECTIVE",
-            "P0IM-AC-MATRIX-FAIL",
-            "P0IM-AC-MATRIX-CONFIG",
-            "P0IM-AC-MATRIX-RBAC",
-            "P0IM-OV-SAMPLE",
-            "P0IM-PB-FILTERS",
-            "P0IM-AC-DONE"
-          ]
-        }
-      ],
+      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01. | Reconciled 2026-11-12: 2.58.197 deployed; 111/114 rows verified; PB-LLM and AC-DONE remain WAITING_EXTERNAL for the first natural LLM attempt. Findings classified; backlog updated. | 2026-11-14: historical decision; task targets cleared (no per-task coverage claims), recorded_in its own preserved source. | 2026-11-14: historical decision; per-task refs removed from the index (they remain in the preserved source and the p0-init map).",
+      "coverage_refs": [],
       "recorded_in": "plans/owner_inputs/2026-11-12-exit-corrective-cycle-initiative.md"
     },
     {
@@ -6335,7 +6315,7 @@
       },
       {
         "id": "H1:ae4f950d9e0a:1",
-        "sha256": "8924a2303c03317889f87b923ab1e322d1fc7d9d5b13623561b82e6d0e0500ae",
+        "sha256": "d17f8b99a3195668fc97ca2fc754a9b934aaa763149450cbeb95688e8f6b7fc4",
         "disposition": "mapped",
         "target_task_ids": [
           "smart-execution-reliability-01"
@@ -6343,7 +6323,7 @@
         "coverage_refs": [
           "plans/features/smart-execution-reliability-01/requirements-map.json"
         ],
-        "reason": "Раздел owner-ТЗ 'ЭТАП M. Порядок выполнения и Definition of DONE' (стр. 13203-13308) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line.",
+        "reason": "Раздел owner-ТЗ 'ЭТАП M. Порядок выполнения и Definition of DONE' (стр. 13203-13308) полностью разложен на обязательные требования эпика smart-execution-reliability-01; строки требований берутся из карты по source_line. | 2026-11-14: re-hashed after owner edit; disposition unchanged.",
         "requirement_refs": [
           {
             "task_id": "smart-execution-reliability-01",
