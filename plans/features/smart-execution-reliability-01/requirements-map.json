@@ -6,6 +6,9 @@
   "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
+  "amendment_maps": [
+    "plans/features/smart-execution-reliability-01/requirements-map-fc-amendment.json"
+  ],
   "additional_requirements": [
     {
       "source_id": "MAN-SXR-0-01-14",

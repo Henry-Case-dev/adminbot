@@ -3,6 +3,21 @@
   "epic": "SMART-EXECUTION-RELIABILITY-01",
   "created": "2026-11-14",
   "source": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
+  "amendment": {
+    "id": "FACTCHECK-REQUEST-INTEGRITY v2",
+    "owner_input": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md",
+    "map": "plans/features/smart-execution-reliability-01/requirements-map-fc-amendment.json",
+    "source_lines": "plans/current_task.md:13311-14702",
+    "order": "после core-этапов SMART (S1-S7); один общий релизный поезд с S12 (owner §10.1/§14.2/§14.3)",
+    "slices": [
+      "S13-FC-REQUEST",
+      "S14-FC-RESOURCES",
+      "S15-FC-EVIDENCE",
+      "S16-FC-FINALIZE",
+      "S17-FC-ACCEPT"
+    ],
+    "separate_map_reason": "strict_evidence-карта проверяет ровно один authoritative source; у дополнения собственный owner-input файл (1401 строка, sha256 767baf0a…). Срезы и план общие с родительским эпиком, отдельной задачи/очереди не создаётся."
+  },
   "queue_position": "P0, queue 1 (registered by Orchestrator; this graph does not dispatch)",
   "baseline": "production 2.58.199 @ d20a7f730715ba9e9cba7673c0557794979be339 (release/2.58.199); schema 47; identity verified_deployed",
   "baseline_evidence": [
@@ -41,7 +56,7 @@
       "part2 H: уже выкаченные journal/manifest/identity исправления 2.58.199 не переимплементируются; S8 доказывает остаток H1-H5."
     ]
   },
-  "dependency_order": "S0 -> S1 -> S2; S2 -> {S3, S4, S7}; S3 -> S5 -> S6; S4 -> {S7, S11}; {S3,S5,S7} -> S8; {S0} -> {S9,S10}; все -> S12. Параллельные писатели: (S0 read-only + S9 + S10), затем S1, затем S2, затем (S3 | S4), затем (S5 | S7 | S11), затем (S6 | S8), затем S12.",
+  "dependency_order": "S0 -> S1 -> S2; S2 -> {S3, S4, S7}; S3 -> S5 -> S6; S4 -> {S7, S11}; {S3,S5,S7} -> S8; {S0} -> {S9,S10}; все -> S12. Дополнение FACTCHECK-REQUEST-INTEGRITY v2: S7 -> S13 -> S14 -> {S15 (также S3, S4)} -> S16 (также S7) -> S17; релиз один (S12 + S17). Параллельные писатели: (S0 read-only + S9 + S10), затем S1, затем S2, затем (S3 | S4), затем (S5 | S7 | S11), затем (S6 | S8), затем (S12 | S13), затем S14, S15, S16, S17.",
   "lanes": {
     "wave0": "S0 (read-only baseline/contract) + S9 и S10 (независимые production-дефекты, разные файлы); F2-диагностика сети выполняется как read-only evidence внутри S0.",
     "wave1": "S1 (master-бюджеты + карта ограничителей) при продолжающихся S9/S10.",
@@ -49,7 +64,12 @@
     "wave3": "S3 (evidence/SourceReader/сериализация) | S4 (capacity; после S2 из-за direct_execution.py).",
     "wave4": "S5 (local-first, после S3) | S7 (finalization, после S2+S4) | S11 (memory/correction, после S4).",
     "wave5": "S6 (GitHub, после S5) | S8 (SELF-DIAG, после S3+S5+S7).",
-    "wave6": "S12 независимая приёмка L1-L8, инварианты J/K, единый релиз, production smoke."
+    "wave6": "S12 независимая приёмка L1-L8, инварианты J/K, единый релиз, production smoke.",
+    "wave7": "S13 (FACTCHECK-REQUEST: один предмет проверки, уточнения, cache identity) — после S7; параллельно может идти S8/S12 (разные файлы).",
+    "wave8": "S14 (бюджеты/дефолты/retrieval/декомпозиция фактчека) — после S13 и S1.",
+    "wave9": "S15 (evidence-объём, capacity, сквозные потери, поисковые дефекты) — после S14, S3, S4.",
+    "wave10": "S16 (финализация фактчека без нового жанра) — после S15 и S7.",
+    "wave11": "S17 (независимая приёмка 12.1-12.8, наблюдаемость, DoD дополнения) — после S16; релиз совместно с S12."
   },
   "serialized_files": [
     "config/settings.py - S1 -> S4 (S4 зависит от S1); иных писателей нет",
@@ -61,13 +81,26 @@
     "services/direct_chat_service.py - S4 -> S11",
     "services/summary_memory.py - только S11 (KNN/correction path)",
     "services/deploy_identity.py - S5 -> S8",
+    "handlers/factcheck.py - только S13 (разбор команды, сохранение запроса, cache identity)",
+    "services/factcheck_planner.py - S13 -> S14 (claim units/план -> бюджеты, retrieval, страница 20)",
+    "services/temporal_factcheck.py - S13 -> S14 (envelope/предмет -> декомпозиция 32 без потери хвоста)",
+    "services/factcheck_suitability.py, services/factcheck_orchestrator.py, services/factcheck_context.py - только S13",
+    "services/factcheck_service.py - S15 -> S16 (analyst/validator -> verbalize/частичный результат)",
+    "services/factcheck_attribution.py - только S15",
+    "services/factcheck_renderer.py, services/factcheck_prompts.py - только S16",
+    "services/param_catalog.py - только S14 (если аудит найдёт там объявление factcheck-параметров)",
     "plans/features/smart-execution-reliability-01/** - S0 владеет map/plan/graph; evidence-подкаталоги разделены по слайсам; architecture-contract-part*.md пишет Architect"
   ],
   "join_barriers": [
     "S3 не считается готовым, пока S2 не заморозил единый execution-контракт: иначе evidence-window и per-tool caps правятся под старую семантику.",
     "S6 проверяется end-to-end только после S5: GitHub-маршрут использует тот же SourceReader, что и local-first.",
     "S8 требует S3+S5+S7: чекап использует полный SourceReader, локальный источник и финализацию.",
-    "S12 не может быть Approved при незакрытых S1-S11; REVIEW-статусы зависимостей не допускаются к релизу."
+    "S12 не может быть Approved при незакрытых S1-S11; REVIEW-статусы зависимостей не допускаются к релизу.",
+    "S13 проверяется на уже исправленном общем execution/finalization контракте (S2/S7): иначе потеря уточнения маскируется старой семантикой цикла и финализации.",
+    "S15 требует S3+S4: полнота evidence и окно фактической модели проверяются по контрактам C/D, а не локальным потолком фактчека.",
+    "S16 требует S15+S7: финализация использует общий механизм G и уже доставленное аналитику evidence.",
+    "S17 не может быть Approved при незакрытых S13-S16; релиз S12+S17 — один поезд: промоушен только после обоих вердиктов, postdeploy-строки обоих срезов связываются на одном deployed SHA.",
+    "S13 -> S14 -> S15 -> S16 — одновременно требование владельца (§14.2 порядок работ) и сериализация общих файлов factcheck_planner.py / factcheck_service.py."
   ],
   "invariants": [
     "При OFF бюджеты не ограничивают инструменты, контекст и evidence.",
@@ -81,7 +114,13 @@
     "Нет новых хардкодов фраз, словарей намерений и лексических fallback.",
     "Production-ошибки I1-I6 закрыты по причине, а не порогами/заглушками/отключением.",
     "Права, безопасность, платёжные контракты и целостность данных сохранены.",
-    "Исправления активны после релиза без ручного включения владельцем."
+    "Исправления активны после релиза без ручного включения владельцем.",
+    "Обычный фактчек без уточнения остаётся полноценным основным сценарием; уточнение - дополнительная возможность, а не обязательный этап.",
+    "Один согласованный предмет проверки на всех стадиях; авторство, даты и provenance не смешиваются; cache identity различает предметы.",
+    "При budgets OFF новые заводские значения фактчека не являются hard cap; при budgets ON действует политика 120/600 с и 24/64 запроса с сохранением пользовательских настроек.",
+    "100 000 символов, 20 результатов и 32 claim units - размеры порций, а не уничтожение остатка и не обязательный минимум исследования.",
+    "Никаких новых лексических правил, словарей и классификаторов для уточнений; смысл определяет LLM, код исполняет структурированное решение.",
+    "Не создаются второй фактчек, второй кэш, второй поисковый движок, отдельная система бюджетов и новый жанр ответа."
   ],
   "conflict_guards": {
     "SELF-DIAG-01": "Этап H продолжает SELF-DIAG; ранее подготовленные corrective-2 не реализуются отдельно, их требования входят сюда. Карта self-diag-01 не переписывается этим эпиком.",
@@ -91,7 +130,10 @@
     "source_reader": "Не создавать второй SourceReader, новый индекс кода или хранилище на запрос.",
     "architecture": "Решения владельца уже приняты: Architect фиксирует контракт и инварианты, но не открывает новые Human Gate и альтернативные архитектуры.",
     "payments": "Монетизация, YooMoney, начисления и баланс вне scope.",
-    "owner_manual": "Ни один пункт не требует ручного включения/настройки владельцем после деплоя."
+    "owner_manual": "Ни один пункт не требует ручного включения/настройки владельцем после деплоя.",
+    "FACTCHECK-REQUEST-INTEGRITY": "Отдельная конкурирующая задача не создаётся (owner §0/§10.1); карта дополнения - requirements-map-fc-amendment.json, план и граф общие с родительским эпиком.",
+    "FC-TRUST-01 / WEB-SEARCH-QUALITY-01 / VISION-CONTEXT-UNIFY-01": "Границы §10.3-10.5: trust scoring, общая поисковая архитектура и мультимодальный слой не переписываются; новые заводские значения и OFF-контракт передаются в WEB-SEARCH-QUALITY-01 как входные инварианты.",
+    "EVOL-REPLY-CONTEXT-INTEGRITY-01": "Reply resolver и каноническая цель сохраняются; исправляется только потеря уточнения после разрешения цели и рассогласование предмета между стадиями."
   },
   "external_dependencies": [
     {
@@ -543,6 +585,211 @@
         "SXR-M3-01",
         "SXR-M4-01",
         "SXR-M4-02"
+      ]
+    },
+    {
+      "id": "S13-FC-REQUEST",
+      "title": "FACTCHECK-REQUEST-INTEGRITY: три сущности, семантика уточнений и один предмет на всех стадиях",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S7-FINALIZE"
+      ],
+      "write_scope": [
+        "handlers/factcheck.py",
+        "services/factcheck_suitability.py",
+        "services/factcheck_orchestrator.py",
+        "services/factcheck_planner.py",
+        "services/temporal_factcheck.py",
+        "services/factcheck_context.py",
+        "tests/test_factcheck_subject_contract.py",
+        "plans/features/smart-execution-reliability-01/evidence/fc-request/**"
+      ],
+      "acceptance": "Обычный вызов «фактчек» без уточнения сохраняет прежний путь, цель и предмет; содержательное уточнение сохраняется и определяет предмет на всех стадиях (suitability → envelope → декомпозиция → retrieval plan → запросы → coverage → attribution → analyst → validator → verbalizer → renderer → cache); `_claim_units` не отбрасывает семантически корректный предмет и не теряет provenance; даты, авторство и структурные связи не смешиваются и не теряются; cache identity различает разные предметы и переиспользует подходящее evidence; сценарии A-G работают как приёмочные случаи без лексических правил и классификатора.",
+      "risk": "R3",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один контракт «запрос → предмет → все стадии»; отдельная правка любой стадии без остальных оставляет рассогласование, которое и породило production-дефект.",
+      "waves": "wave7",
+      "requirements": [
+        "SFC-0-01",
+        "SFC-0-02",
+        "SFC-0-03",
+        "SFC-0-04",
+        "SFC-0-05",
+        "SFC-1-01",
+        "SFC-1-02",
+        "SFC-1-03",
+        "SFC-1-04",
+        "SFC-2-01",
+        "SFC-2-02",
+        "SFC-2-03",
+        "SFC-2-04",
+        "SFC-2-05",
+        "SFC-3-01",
+        "SFC-3-02",
+        "SFC-3-03",
+        "SFC-3-04",
+        "SFC-3-05",
+        "SFC-3-06",
+        "SFC-3-07",
+        "SFC-3-08",
+        "SFC-3-09",
+        "SFC-4-01",
+        "SFC-4-02",
+        "SFC-4-03",
+        "SFC-4-04",
+        "SFC-4-05",
+        "SFC-4-06",
+        "SFC-4-07",
+        "SFC-4-08",
+        "SFC-10-02",
+        "SFC-10-05",
+        "SFC-11-01",
+        "SFC-11-02",
+        "SFC-11-03",
+        "SFC-11-04",
+        "SFC-11-05"
+      ]
+    },
+    {
+      "id": "S14-FC-RESOURCES",
+      "title": "FACTCHECK-REQUEST-INTEGRITY: новые заводские ресурсы, master бюджетов и гибкий retrieval",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S13-FC-REQUEST",
+        "S1-BUDGET-MASTER"
+      ],
+      "write_scope": [
+        "services/factcheck_planner.py",
+        "services/temporal_factcheck.py",
+        "services/param_catalog.py",
+        "tests/test_factcheck_resources.py",
+        "plans/features/smart-execution-reliability-01/evidence/fc-resources/**"
+      ],
+      "acceptance": "Заводские значения 120/600 с, 24 уточняющих и 64 общих запроса, 100 000 символов, 20 результатов и 32 claim units применяются на штатном пути; при effective budgets OFF бюджетные значения не ограничивают исследование, при ON действует политика с новыми значениями и сохранёнными пользовательскими настройками; старые потолки не ограничивают effective-значения (аудит constants/catalog/hot/env/legacy/clamps); значения не становятся обязательным минимумом; поиск завершается по содержательным состояниям, а не по счётчику; декомпозиция 32 обрабатывает хвост без скрытой потери; скрытого enforcement и нового master-выключателя нет.",
+      "risk": "R3",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один ресурсный контракт фактчека: политика бюджетов, реальные заводские значения и порционная обработка без потерь; по отдельности константы или порции дают ложную картину «лимит увеличен».",
+      "waves": "wave8",
+      "requirements": [
+        "SFC-5-01",
+        "SFC-5-02",
+        "SFC-5-03",
+        "SFC-5-04",
+        "SFC-5-05",
+        "SFC-5-06",
+        "SFC-5-07",
+        "SFC-5-08",
+        "SFC-5-09",
+        "SFC-5-10",
+        "SFC-6-01",
+        "SFC-6-02",
+        "SFC-6-03",
+        "SFC-6-04",
+        "SFC-6-05",
+        "SFC-6-06",
+        "SFC-10-04",
+        "SFC-13-03"
+      ]
+    },
+    {
+      "id": "S15-FC-EVIDENCE",
+      "title": "FACTCHECK-REQUEST-INTEGRITY: объём evidence, capacity resolver и сквозной контроль потерь",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S14-FC-RESOURCES",
+        "S3-EVIDENCE",
+        "S4-CAPACITY"
+      ],
+      "write_scope": [
+        "services/factcheck_service.py",
+        "services/factcheck_attribution.py",
+        "tests/test_factcheck_evidence_delivery.py",
+        "plans/features/smart-execution-reliability-01/evidence/fc-evidence/**"
+      ],
+      "acceptance": "Evidence объёмом выше прежнего предела 8000 символов доходит до analyst/validator/verbalizer без скрытой потери; используется единый capacity resolver родительского эпика без отдельного окна 16384; при превышении физической ёмкости применяется существующая порционная обработка с сохранением provenance и coverage; сквозной аудит по восьми звеньям (поиск → кандидаты → открытые страницы → извлечённый материал → EvidenceMap → coverage → analyst payload → validator → verbalizer → ответ) выполнен на фактах; причина неполноценного Facebook-источника установлена и подтверждённые дефекты исправлены без новых blacklist/allowlist и без изменения trust-контракта.",
+      "risk": "R3",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Одна сквозная цепочка доставки доказательств до модели и до вердикта; проверка только объёма или только окна не доказывает, что аналитик реально получил материал.",
+      "waves": "wave9",
+      "requirements": [
+        "SFC-7-01",
+        "SFC-7-02",
+        "SFC-7-03",
+        "SFC-7-04",
+        "SFC-7-05",
+        "SFC-7-06",
+        "SFC-8-01",
+        "SFC-8-02",
+        "SFC-8-03",
+        "SFC-10-03"
+      ]
+    },
+    {
+      "id": "S16-FC-FINALIZE",
+      "title": "FACTCHECK-REQUEST-INTEGRITY: финализация по предмету без нового жанра",
+      "owner_role": "Builder + Reviewer",
+      "depends_on": [
+        "S15-FC-EVIDENCE",
+        "S7-FINALIZE"
+      ],
+      "write_scope": [
+        "services/factcheck_renderer.py",
+        "services/factcheck_prompts.py",
+        "services/factcheck_service.py",
+        "tests/test_factcheck_finalization.py",
+        "plans/features/smart-execution-reliability-01/evidence/fc-finalize/**"
+      ],
+      "acceptance": "Контракт L1 Analyst → L2 Verbalizer → Renderer сохранён без третьей обязательной LLM-стадии, отдельного редактора, нового жанра, отдельного формата для уточнённого фактчека и нового Markdown-шаблона; ответ непосредственно соответствует предмету проверки, оговорка не заменяет ответ; частичный результат честно разделяет подтверждённое/опровергнутое/недостаточное/технически непроверенное и не подменяется заглушкой; объём ответа пропорционален задаче; служебные enum, OCR-дампы и технические идентификаторы не попадают в пользовательскую речь.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "mode": "writer",
+      "coherence": "Один пользовательский результат «ответ по предмету проверки»: содержательность, честный частичный результат и пропорциональность нельзя принять по отдельности.",
+      "waves": "wave10",
+      "requirements": [
+        "SFC-9-01",
+        "SFC-9-02",
+        "SFC-9-03",
+        "SFC-9-04",
+        "SFC-10-06"
+      ]
+    },
+    {
+      "id": "S17-FC-ACCEPT",
+      "title": "FACTCHECK-REQUEST-INTEGRITY: независимая приёмка 12.1-12.8, наблюдаемость и DoD",
+      "owner_role": "Reviewer (independent) + DevOps + Orchestrator",
+      "depends_on": [
+        "S16-FC-FINALIZE"
+      ],
+      "write_scope": [
+        "tests/factcheck_acceptance/**",
+        "plans/features/smart-execution-reliability-01/evidence/fc-accept/**"
+      ],
+      "acceptance": "На фактическом кандидате и production выполнены 12.1-12.8: обычная регрессия без уточнения (включая многосоставное сообщение и контекстную короткую реплику), восемь независимых типов уточнений с собственными формулировками Reviewer, сквозная целостность предмета, кэш при разных уточнениях, медиа, сценарии бюджетов A-J, недоступность источника и финализация, исходная production-регрессия; поля наблюдаемости §13 зафиксированы; подтверждено отсутствие деградации обычного фактчека и отсутствие новых лексических маршрутов; релиз согласован с S12 одним поездом.",
+      "risk": "R3",
+      "next_role": "DevOps",
+      "mode": "reviewer + release evidence",
+      "coherence": "Один независимый вердикт по пользовательскому сценарию дополнения; дробление на отдельные «зелёные» проверки констант и helper-тестов запрещено владельцем (§14.3).",
+      "waves": "wave11",
+      "requirements": [
+        "SFC-10-01",
+        "SFC-10-07",
+        "SFC-12-01",
+        "SFC-12-02",
+        "SFC-12-03",
+        "SFC-12-04",
+        "SFC-12-05",
+        "SFC-12-06",
+        "SFC-12-07",
+        "SFC-12-08",
+        "SFC-12-09",
+        "SFC-13-01",
+        "SFC-13-02",
+        "SFC-14-01",
+        "SFC-14-02",
+        "SFC-14-03"
       ]
     }
   ]
