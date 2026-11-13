@@ -90,19 +90,20 @@ REASON_ADAPTIVE_NO_TOOLS = "adaptive_no_tools"
 #: требует read-only проверку — mode переопределён (не молчаливо).
 REASON_EVIDENCE_REQUIRED = "evidence_required_overrides_plan"
 
-# ── Границы adaptive-цепочки (§18C.7: max steps/tokens/cost) ───────────────
-# BGS-05 (контракт behavior-gates-simplification §4): числа ниже — НЕ общий
-# потолок интеллекта, а НИЖНИЙ FALLBACK на случай недоступного резолвера
-# (`resolve_orchestrator_budget`: окно модели из существующего Model Capacity
-# Resolver — тот же вызов, что у Direct primary). Финансовые/технические
-# границы не мигрируют: `ORCHESTRATOR_MAX_METERED_CALLS` — денежный
-# анти-абьюз потолок (retained_as_technical), env-оверрайды
-# `DIRECT_ORCHESTRATOR_*` — жёсткие потолки (см. ниже). При добавлении
-# ClassVar в config.Settings getattr-приоритет у Settings.
-# ER-08: отдельной оси «время» у оркестратора больше нет — используется общий
-# дедлайн tool-цепочки (см. `orchestrator_max_time_seconds`).
+# ── Границы adaptive-цепочки (§18C.7) ───────────────────────────────────────
+# SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §B1/B3): 4 шага / 6000
+# токенов / 4 платных вызова больше НЕ заводские пределы исследования.
+# Числа ниже остаются только как нижние fallback'и ДЕРИВАЦИИ payload-срезов
+# (окно модели → сколько символов запроса/сниппета реально влезает) и как
+# наблюдаемая мета: enforcement объёма — явная операторская политика
+# (`DIRECT_ORCHESTRATOR_MAX_*`, `MCA_TOOL_MAX_*`) ТОЛЬКО при effective
+# `flags.budgets_enabled=true`; незаданная политика = ограничения нет.
 ORCHESTRATOR_MAX_STEPS = 4
 ORCHESTRATOR_MAX_TOTAL_TOKENS = 6000
+
+#: Legacy-число «денежного» потолка. Дефолтом политики НЕ является:
+#: незаданный `DIRECT_ORCHESTRATOR_MAX_METERED_CALLS` = ограничения нет
+#: (owner 2026-11-14 §B1/B3). Оставлено как историческая ссылка/метаданные.
 ORCHESTRATOR_MAX_METERED_CALLS = 4
 ORCHESTRATOR_QUERY_CHARS = 800
 ORCHESTRATOR_TOOL_DESC_CHARS = 140
@@ -145,22 +146,12 @@ def adaptive_orchestrator_enabled() -> bool:
     return _env_flag("DIRECT_ADAPTIVE_ORCHESTRATOR_ENABLED", True)
 
 
-def _limit(name: str, default: int, minimum: int = 1) -> int:
-    try:
-        declared = getattr(settings, name, None)
-        value = int(declared) if declared is not None \
-            else int(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        value = default
-    return value if value >= minimum else minimum
-
-
 def _explicit_ceiling(name: str, minimum: int = 1) -> int:
     """BGS-05: env/settings ``DIRECT_ORCHESTRATOR_*`` как ЖЁСТКИЙ потолок.
 
     Возвращает явное значение оператора или ``0`` («потолок не задан»).
-    В отличие от прежнего ``_limit`` НИКОГДА не подставляет legacy-дефолт —
-    иначе динамическое значение из окна модели было бы мёртвым ножом.
+    НИКОГДА не подставляет legacy-дефолт — иначе динамическое значение из
+    окна модели было бы мёртвым ножом, а заводское число — скрытым потолком.
     settings-ClassVar приоритетен (см. комментарий у констант)."""
     try:
         declared = getattr(settings, name, None)
@@ -192,15 +183,15 @@ def orchestrator_max_steps() -> int:
 
 
 def orchestrator_max_time_seconds() -> float:
-    """Дедлайн adaptive-цепочки.
+    """Аварийный fuse adaptive-цепочки: секунды (``0.0`` = fuse не задан).
 
-    ER-08 (02.11.2026): аудит дедлайнов показал рассогласование — прежние 90 с
-    обрывали adaptive-цепочку РАНЬШЕ, чем tool-цепочку (360 с) и собственные
-    per-tool таймауты (search 25 + article 45 = 70 с на один шаг evidence):
-    легитимный план из 3–4 read-only шагов не успевал. Теперь дефолт — тот же
-    резолв, что у tool-цепочки (`MCA_TOOL_CHAIN_TIMEOUT_SECONDS`, иначе
-    `TOOL_CHAIN_TIMEOUT_SECONDS`); SLA хода не увеличен. Явный операторский
-    override `DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS` (settings/env) сохранён."""
+    SMART-EXECUTION-RELIABILITY-01 (§B1): универсального продуктового
+    дедлайна исследования нет. Явный операторский
+    `DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS` (settings/env) сохранён как
+    emergency-страховка; иначе используется тот же fuse, что у общего
+    tool-loop (`MCA_TOOL_CHAIN_TIMEOUT_SECONDS`, заводское значение `0`).
+    Per-tool таймауты (search/article/summarize) и отмена — действуют
+    всегда и от этого значения не зависят."""
     try:
         declared = getattr(settings, "DIRECT_ORCHESTRATOR_MAX_TIME_SECONDS", None)
         if declared is not None:
@@ -217,15 +208,8 @@ def orchestrator_max_time_seconds() -> float:
                 return value
     except (TypeError, ValueError):
         pass
-    try:
-        resolved = float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 0)
-                         or 0)
-        if resolved > 0:
-            return resolved
-    except (TypeError, ValueError):
-        pass
-    from services.tool_loop import TOOL_CHAIN_TIMEOUT_SECONDS
-    return float(TOOL_CHAIN_TIMEOUT_SECONDS)
+    from services.tool_loop import _chain_fuse_seconds
+    return float(_chain_fuse_seconds())
 
 
 def orchestrator_max_total_tokens() -> int:
@@ -340,12 +324,14 @@ async def _orchestrator_window(llm) -> tuple[int, str]:
 
 
 async def resolve_orchestrator_budget(*, llm) -> OrchestratorBudget:
-    """Границы adaptive-цепочки: окно модели + env-потолки сверху.
+    """Деривация bounds из окна модели для payload-срезов и наблюдаемости.
 
-    Финансовые/временные границы здесь НЕ пересчитываются: metered-вызовы
-    (`orchestrator_max_metered_calls` — денежный потолок) и дедлайн
-    (`orchestrator_max_time_seconds`) остаются прежними защитами (контракт
-    §4 «остаётся жёсткой защитой»). Никогда не бросает."""
+    SMART-EXECUTION-RELIABILITY-01 §B1: ``max_steps``/``max_total_tokens``
+    здесь — ПЛАНИРОВОЧНЫЕ/наблюдаемые числа (окно модели → доли), а не
+    enforcement: объём исследования ограничивает только явная операторская
+    политика при budgets ON (см. ``run_adaptive_chain``). Реальные
+    ``query_chars``/``snippet_chars`` — физический размер payload под окно.
+    Никогда не бросает."""
     window, source = await _orchestrator_window(llm)
     limits = orchestrator_budget_for_window(window)
     if source:
@@ -359,8 +345,12 @@ async def resolve_orchestrator_budget(*, llm) -> OrchestratorBudget:
 
 
 def orchestrator_max_metered_calls() -> int:
-    return _limit("DIRECT_ORCHESTRATOR_MAX_METERED_CALLS",
-                  ORCHESTRATOR_MAX_METERED_CALLS)
+    """Явный «денежный» потолок оператора (0 = политика не задана).
+
+    Заводского значения 4 больше нет (owner §B1/B3): обычное read-only
+    исследование не режется счётчиком; metered/usage остаются
+    наблюдательными осями."""
+    return _explicit_ceiling("DIRECT_ORCHESTRATOR_MAX_METERED_CALLS")
 
 
 def resolve_execution_mode(plan, tool_schemas, *,
@@ -541,7 +531,10 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
             if not cap:
                 continue
             if cap == "fetch_url":
-                targets = urls[:max(1, int(max_fetch_steps))]
+                # SMART-EXECUTION-RELIABILITY-01 §B1: нужные URLs не
+                # обрезаются (прежний `urls[:max_fetch_steps]` удалён);
+                # дедуп ссылок уже выполнен при извлечении, порядок сохранён.
+                targets = urls
                 if not targets:
                     limitations.append(
                         f"{cap}: нет ссылки в запросе/реплае — не исполнено")
@@ -706,27 +699,46 @@ def _plan_stub():
 
 
 class ChainBudget:
-    """Общие границы исполнения цепочки: total/metered/deadline/дедуп/
-    side-effect. Семантика как в tool_loop (§17): дедуп по fingerprint,
-    слепой повтор неидемпотентной операции после успеха запрещён."""
+    """Эффективная политика исполнения цепочки (общий контракт с tool_loop).
 
-    def __init__(self, *, timeout_seconds: float | None = None,
+    SMART-EXECUTION-RELIABILITY-01 §A/B: объёмные потолки — ТОЛЬКО явная
+    операторская политика (`MCA_TOOL_MAX_*`; `0` = не задана) при effective
+    `flags.budgets_enabled=true`. Дедуп по нормализованным аргументам,
+    safety-гард side effects и аварийный fuse (``>0``) действуют независимо
+    от бюджетов; metered/usage — наблюдательные счётчики."""
+
+    def __init__(self, *, budgets_enabled: bool | None = None,
+                 timeout_seconds: float | None = None,
                  max_total: int | None = None,
-                 max_metered: int | None = None):
-        from services.tool_loop import (
-            _chain_timeout_seconds, _max_metered_calls, _max_total_calls,
-            _chain_limits_enabled,
-        )
-        self.limits_on = _chain_limits_enabled()
-        # ER-08: тот же резолв, что у tool-цепочки (`MCA_TOOL_CHAIN_TIMEOUT_
-        # SECONDS` → 360 с), иначе смена настройки действовала только на одном
-        # из двух путей исполнения. Значение SLA не меняется.
-        self.deadline = (time.monotonic() + float(
-            timeout_seconds if timeout_seconds and timeout_seconds > 0
-            else _chain_timeout_seconds())
-            if self.limits_on else None)
-        self.max_total = int(max_total or _max_total_calls())
-        self.max_metered = int(max_metered or _max_metered_calls())
+                 max_metered: int | None = None,
+                 max_same: int | None = None):
+        from services.tool_loop import resolve_chain_limits
+        self.limits = resolve_chain_limits(budgets_enabled=budgets_enabled)
+        self.budgets_enabled = bool(self.limits.budgets_enabled)
+        #: Совместимое имя: применяется ли явная политика объёма.
+        self.limits_on = bool(self.limits.enforce)
+        fuse = 0.0
+        if timeout_seconds is not None:
+            try:
+                fuse = float(timeout_seconds)
+            except (TypeError, ValueError):
+                fuse = 0.0
+        if fuse <= 0:
+            fuse = self.limits.fuse_seconds
+        self.fuse_seconds = fuse if fuse > 0 else 0.0
+        self.deadline = (time.monotonic() + self.fuse_seconds
+                         if self.fuse_seconds > 0 else None)
+
+        def _pick(explicit, effective) -> int:
+            value = effective if explicit is None else explicit
+            try:
+                return max(0, int(value or 0))
+            except (TypeError, ValueError):
+                return 0
+
+        self.max_total = _pick(max_total, self.limits.max_total_calls)
+        self.max_metered = _pick(max_metered, self.limits.max_metered_calls)
+        self.max_same = _pick(max_same, self.limits.max_same_call)
         self.total_calls = 0
         self.metered_calls = 0
         # ER-08: «денежный» счётчик (лимит применяется только к нему;
@@ -737,33 +749,45 @@ class ChainBudget:
         self.last_info_by_fp: dict[str, dict] = {}
 
     def limit_skip(self, *, metered: bool) -> str:
-        """§17-причина мягкого пропуска ("" — лимитов нет).
+        """Причина мягкого пропуска ("" — ограничений нет).
 
+        Fuse проверяется всегда (техническая страховка оператора); объёмные
+        потолки — только при ``limits_on`` и заданном явном значении.
         ``metered`` — «денежный» класс вызова (:func:`tool_loop.
         cost_limited_tool`), а не факт метричности инструмента."""
+        if self.deadline is not None and time.monotonic() > self.deadline:
+            return CHAIN_TIMEOUT_REASON
         if not self.limits_on:
             return ""
-        now = time.monotonic()
-        if self.deadline is not None and now > self.deadline:
-            return CHAIN_TIMEOUT_REASON
-        if self.total_calls >= self.max_total:
+        if self.max_total and self.total_calls >= self.max_total:
             return CHAIN_CALL_LIMIT_REASON
-        if metered and self.cost_calls >= self.max_metered:
+        if metered and self.max_metered and self.cost_calls >= self.max_metered:
             return CHAIN_COST_LIMIT_REASON
         return ""
 
     def dedup_skip(self, name: str, fp: str) -> str:
-        """Дедуп + side-effect гвард (MCA-11 D3)."""
-        if not self.limits_on or fp not in self.last_by_fp:
+        """Дедуп по нормализованным аргументам + safety-гард side effects.
+
+        Повтор без изменения условий не диспетчится (терминальный отказ,
+        успех/`delivery_unknown` неидемпотентной операции); retryable-отказ
+        повторяется в пределах ``MCA_TOOL_TRANSIENT_RETRIES_MAX``."""
+        from services.tool_loop import _guard_on, _reuse_reason
+        if fp not in self.last_by_fp:
             return ""
-        if self.same_calls.get(fp, 0) >= 2:      # _TOOL_MAX_SAME_CALL
-            return "dedup"
-        if (_guard_on() and not tool_result.is_idempotent(name)
-                and str((self.last_info_by_fp.get(fp) or {}).get("status"))
-                in (tool_result.STATUS_OK,
-                    tool_result.STATUS_DELIVERY_UNKNOWN)):
-            return "side_effect"
-        return ""
+        return _reuse_reason(
+            name, fp, same_calls=self.same_calls, last_by_fp=self.last_by_fp,
+            last_info_by_fp=self.last_info_by_fp, limits=self.limits,
+            guard_on=_guard_on())
+
+    def as_meta(self) -> dict:
+        """R17-safe наблюдаемая политика цепочки."""
+        return {
+            "budgets_enabled": self.budgets_enabled,
+            "limits_enforced": bool(self.limits_on),
+            "max_total_calls": int(self.max_total),
+            "max_metered_calls": int(self.max_metered),
+            "fuse_seconds": float(self.fuse_seconds),
+        }
 
 
 async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
@@ -888,7 +912,9 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
                        status=(str(info.get("status") or "ok")
                                if _contract_on() else "ok"),
                        out_chars=len(output or ""))
-    tool_trace.append({"round": round_index, "tool": name, "ok": True,
+    tool_trace.append({"round": round_index, "tool": name,
+                       "ok": str(info.get("status")) in (tool_result.STATUS_OK,
+                                                         tool_result.STATUS_EMPTY),
                        "out_chars": len(output or "")})
     evidence_sources.append(EvidenceSource(
         tool=name, status=str(info.get("status") or "ok"),
@@ -899,6 +925,19 @@ async def _dispatch_step(step: dict, *, router, ctx, budget: ChainBudget,
     logger.info(
         "[direct-exec] duplicate skipped | tool=%s | reason=%s", name,
         cached_reason)
+
+
+#: Технический предел РЕАЛЬНОЙ параллельной нагрузки simple-цепочки: сколько
+#: готовых шагов выполняются одновременно. Это не квота объёма —
+#: не поместившиеся шаги идут следующими волнами и не теряются
+#: (owner §B1: «concurrency throttles parallelism, not cardinality»).
+_SIMPLE_WAVE_CONCURRENCY = 4
+
+
+async def resolve_chain_limits_for(chat_id):
+    """Effective-политика цепочки для чата (единая точка, не бросает)."""
+    from services.tool_loop import _resolve_chain_limits
+    return await _resolve_chain_limits(chat_id)
 
 
 async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
@@ -932,7 +971,9 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
                 logger.info("[direct-exec] simple skip | %s", line)
             return None
         steps = normalize_tool_plan(steps, announced=None) or steps
-        budget = ChainBudget()
+        # Effective-политика: мастер-рубильник бюджетов этого чата.
+        _limits = await resolve_chain_limits_for(chat_id)
+        budget = ChainBudget(budgets_enabled=_limits.budgets_enabled)
         tool_results: list = []
         tool_trace: list = []
         evidence_sources: list[EvidenceSource] = []
@@ -946,28 +987,25 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
                 if not ready:
                     limitations.append("chain_dependency_cycle")
                     break
-                # §17-бюджеты: резервируем слоты ДО gather (строго bounded).
-                if budget.limits_on:
-                    slots = max(0, budget.max_total - budget.total_calls)
-                else:
-                    slots = len(ready)
-                wave_steps = ready[:slots]
-                if not wave_steps:
-                    limitations.append(CHAIN_CALL_LIMIT_REASON)
-                    break
-                await asyncio.gather(*[
-                    _dispatch_step(step, router=router, ctx=ctx,
-                                   budget=budget, tool_results=tool_results,
-                                   tool_trace=tool_trace,
-                                   evidence_sources=evidence_sources,
-                                   limitations=limitations, chat_id=chat_id,
-                                   correlation_id=correlation_id,
-                                   round_index=1)
-                    for step in wave_steps])
-                for step in wave_steps:
-                    done.add(step["step_id"])
-                    pending.remove(step)
-                wave += 1
+                # Кардинальность не теряется: ВСЕ готовые шаги исполняются,
+                # реальная параллельная нагрузка ограничена техническим
+                # окном `_SIMPLE_WAVE_CONCURRENCY` (не квотой объёма).
+                for start in range(0, len(ready), _SIMPLE_WAVE_CONCURRENCY):
+                    wave_steps = ready[start:start + _SIMPLE_WAVE_CONCURRENCY]
+                    await asyncio.gather(*[
+                        _dispatch_step(step, router=router, ctx=ctx,
+                                       budget=budget,
+                                       tool_results=tool_results,
+                                       tool_trace=tool_trace,
+                                       evidence_sources=evidence_sources,
+                                       limitations=limitations, chat_id=chat_id,
+                                       correlation_id=correlation_id,
+                                       round_index=1)
+                        for step in wave_steps])
+                    for step in wave_steps:
+                        done.add(step["step_id"])
+                        pending.remove(step)
+                    wave += 1
         except asyncio.CancelledError:
             logger.warning(
                 "[direct-exec] simple chain cancelled | chat=%s | tools=%s",
@@ -985,6 +1023,9 @@ async def run_simple_tools(*, plan, router, ctx, query: str, chat_id,
             # ER-08: «денежный» счётчик отдельно — отказ chain_cost_limit
             # объясняется числами, а не догадкой (read-only его не тратит).
             "cost_calls": budget.cost_calls,
+            # SMART-EXECUTION-RELIABILITY-01: наблюдаемая политика цепочки
+            # (budgets ON/OFF + явные потолки), а не молчаливые числа.
+            "limits": budget.as_meta(),
         }
         context = "\n".join(s.content for s in evidence_sources if s.content)
         logger.info(
@@ -1128,10 +1169,19 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                              tool_schemas, chat_id, correlation_id,
                              reply_text: str = "",
                              time_context: str = "") -> ChainResult | None:
-    """adaptive_tool_chain (§18C.7): bounded orchestrator ↔ allowlisted
-    tools → evidence sources. Границы: steps/time/tokens/metered; cycle-
-    защита; tool output untrusted; orchestrator никогда не пишет прозу
-    (L2 — единственный Writer). CancelledError — проброс.
+    """adaptive_tool_chain (§18C.7): orchestrator ↔ allowlisted tools →
+    evidence sources (существующий путь, не второй tool-loop).
+
+    SMART-EXECUTION-RELIABILITY-01 (§A/B): завершение — по прогрессу, а не по
+    числу шагов. Явная операторская политика (`DIRECT_ORCHESTRATOR_MAX_STEPS`
+    / `_MAX_TOTAL_TOKENS` / `_MAX_METERED_CALLS`, `MCA_TOOL_*`) применяется
+    ТОЛЬКО при effective `flags.budgets_enabled=true`; незаданная политика =
+    ограничения нет (заводские 4/6000/4 больше не пределы). Окно модели
+    определяет только размер payload-срезов (query/snippet). Cycle-защита
+    (повтор того же tool+args), invalid output, отказ LLM, `finish`,
+    отсутствие прогресса (`step_skipped`) и аварийный fuse (`>0`) — остаются.
+    tool output untrusted; orchestrator никогда не пишет прозу (L2 — Writer).
+    CancelledError — проброс.
 
     UR-C-CLOCK: ``time_context`` — блок ChatClock (phase="plan") во всех
     orchestrator-payload'ах цепочки (reuse снапшота L1, UR-26.2)."""
@@ -1146,19 +1196,24 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
             allow_names.add(name)
     if not allow_names:
         return None
-    # BGS-05: границы из реального окна модели (Model Capacity Resolver,
-    # тот же слот, что у Direct primary). env DIRECT_ORCHESTRATOR_* —
-    # жёсткие потолки внутри резолва; metered/дедлайн — прежние защиты.
+    # Окно модели → размеры payload-срезов (физическая ёмкость), НЕ квоты.
     limits = await resolve_orchestrator_budget(llm=llm)
-    budget = ChainBudget(timeout_seconds=orchestrator_max_time_seconds(),
+    chain_limits = await resolve_chain_limits_for(chat_id)
+    budget = ChainBudget(budgets_enabled=chain_limits.budgets_enabled,
+                         timeout_seconds=orchestrator_max_time_seconds(),
                          max_metered=orchestrator_max_metered_calls())
-    max_steps = limits.max_steps
-    max_tokens = limits.max_total_tokens
+    # Объёмные потолки — только явная политика оператора при budgets ON.
+    max_steps = (orchestrator_max_steps() or None) \
+        if budget.limits_on else None
+    max_tokens = (orchestrator_max_total_tokens() or None) \
+        if budget.limits_on else None
     logger.info(
         "[direct-exec] adaptive chain budget | chat=%s | window=%d | "
-        "source=%s | max_steps=%d | max_tokens=%d", chat_id,
-        limits.window_tokens, limits.window_source or "unknown",
-        max_steps, max_tokens)
+        "source=%s | budgets_on=%s | max_steps=%s | max_tokens=%s | "
+        "fuse=%s", chat_id, limits.window_tokens,
+        limits.window_source or "unknown", budget.budgets_enabled,
+        max_steps or "none", max_tokens or "none",
+        budget.fuse_seconds or "none")
     spent_tokens = 0
     tool_results: list = []
     tool_trace: list = []
@@ -1166,14 +1221,20 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
     limitations: list[str] = []
     steps_done: list[dict] = []
     seen_fps: set[str] = set()
-    stop_reason = "max_steps"
+    stop_reason = "finish"
+    step_index = 0
     try:
-        for step_index in range(1, max_steps + 1):
+        while True:
+            if max_steps is not None and step_index >= max_steps:
+                stop_reason = "max_steps"
+                limitations.append(stop_reason)
+                break
             skip = budget.limit_skip(metered=False)
             if skip:
                 stop_reason = skip
                 limitations.append(f"orchestrator_{skip}")
                 break
+            step_index += 1
             messages = _orchestrator_messages(
                 query=query, allowlist=tool_schemas,
                 evidence_sources=evidence_sources, steps_done=steps_done,
@@ -1195,14 +1256,14 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                     "error=%s", chat_id, _exc_brief(exc))
                 break
             spent_tokens += _safe_count_tokens(str(raw_decision or ""))
-            if spent_tokens > max_tokens:
+            if max_tokens is not None and spent_tokens > max_tokens:
                 stop_reason = "token_budget_exceeded"
                 limitations.append(stop_reason)
                 break
             decision = _parse_orchestrator_decision(raw_decision)
             if not decision:
                 # Матрица §18C.9 «Tool Orchestrator invalid output» →
-                # bounded stop, честная деградация (без repair-циклов).
+                # честный stop, без repair-циклов.
                 stop_reason = "orchestrator_invalid_output"
                 limitations.append(stop_reason)
                 break
@@ -1222,7 +1283,7 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                 break
             fp = _args_fingerprint(tool, decision["arguments"])
             if fp in seen_fps:
-                # Повтор того же шага (loop attempt) → bounded stop.
+                # Повтор того же шага (loop attempt) → stop (safety).
                 stop_reason = "cycle_detected"
                 limitations.append(stop_reason)
                 logger.warning(
@@ -1242,20 +1303,25 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                                  correlation_id=correlation_id,
                                  round_index=step_index)
             steps_done.append({"tool": tool, "reason": reason})
-            if len(evidence_sources) == before:
-                # Шаг не исполнился (лимит) — продолжать цикл бессмысленно.
+            new_sources = evidence_sources[before:]
+            if not new_sources:
+                # Шаг не дал результата (повтор) — прогресса нет.
                 stop_reason = "step_skipped"
                 break
-            spent_tokens += sum(
-                _safe_count_tokens(s.content) for s in
-                evidence_sources[before:])
-            if spent_tokens > max_tokens:
+            denied = [s for s in new_sources
+                      if s.status == tool_result.STATUS_DENIED]
+            if denied:
+                # Явный потолок/fuse: следующий шаг снова упрётся — честный
+                # stop с причиной из единого словаря, без пустого цикла.
+                stop_reason = str(denied[-1].error_code or "step_skipped")
+                limitations.append(stop_reason)
+                break
+            spent_tokens += sum(_safe_count_tokens(s.content)
+                                for s in new_sources)
+            if max_tokens is not None and spent_tokens > max_tokens:
                 stop_reason = "token_budget_exceeded"
                 limitations.append(stop_reason)
                 break
-        else:
-            stop_reason = "max_steps"
-            limitations.append(stop_reason)
     except asyncio.CancelledError:
         logger.warning(
             "[direct-exec] adaptive chain cancelled | chat=%s | steps=%d",
@@ -1279,10 +1345,10 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
             "metered": budget.metered_calls,
             "cost_calls": budget.cost_calls,
             "tokens_spent": spent_tokens}
-    # BGS-05.1: границы цепочки наблюдаемы (воспроизводимый расчёт из окна
-    # модели + env-потолки), а не молчаливые числа.
+    # Наблюдаемость: окно модели (payload-срезы) + явная политика цепочки.
     meta.update(limits.as_meta())
-    meta["max_metered"] = int(orchestrator_max_metered_calls())
+    meta["limits"] = budget.as_meta()
+    meta["max_metered"] = int(budget.max_metered)
     return ChainResult("", rounds_used=len(steps_done), degraded=degraded,
                        reason=stop_reason, tool_trace=tool_trace,
                        tool_context=context, tool_results=tool_results,

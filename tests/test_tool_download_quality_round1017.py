@@ -19,11 +19,7 @@ from services import hot_config as hot
 from services import tool_router as tr
 from services.llm_client import LLMChatResult, LLMToolCall
 from services.smartmodule_throttling import CooldownTracker
-from services.tool_loop import (
-    TOOL_MAX_ROUNDS,
-    _TOOL_CALLS_PER_ROUND_MAX,
-    chat_with_tools,
-)
+from services.tool_loop import chat_with_tools
 from services.tool_router import (
     ToolContext,
     ToolDeps,
@@ -425,5 +421,3 @@ class TestToolLoopNeedsQuality:
         tool = [m for m in llm.last_messages if m.get("role") == "tool"][0]
         assert json.loads(tool["content"])["status"] == "needs_quality"
         dl.download.assert_not_awaited()
-        assert TOOL_MAX_ROUNDS == 4
-        assert _TOOL_CALLS_PER_ROUND_MAX == 2

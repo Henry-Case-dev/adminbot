@@ -530,7 +530,8 @@ class _OverflowLLM:
         self.calls += 1
         if self.calls == 1:
             calls = [LLMToolCall(id=f"c{i}", name="query_chat_memory",
-                                 arguments='{"query":"x"}') for i in range(3)]
+                                 arguments='{"query":"x%d"}' % i)
+                     for i in range(3)]
             return LLMChatResult(content=None, tool_calls=calls,
                                  finish_reason="tool_calls")
         return LLMChatResult(content="ответ", tool_calls=None,
@@ -539,12 +540,14 @@ class _OverflowLLM:
 
 class TestToolLoopLimits:
     @pytest.mark.asyncio
-    async def test_more_than_two_calls_truncated(self):
+    async def test_more_than_two_calls_dispatched(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: список вызовов хода больше НЕ
+        обрезается до двух — все три исполнены."""
         router = _CountingRouter()
         await chat_with_tools(_OverflowLLM(), [{"role": "user", "content": "x"}],
                               tools=TOOL_CALLING_TOOLS, router=router,
                               ctx=_ctx())
-        assert len(router.calls) == 2
+        assert len(router.calls) == 3
 
     @pytest.mark.asyncio
     async def test_provider_without_tools_plain_answer(self):
@@ -567,24 +570,33 @@ class TestToolLoopLimits:
         assert out == "обычный ответ" and llm.plain == 1
 
     @pytest.mark.asyncio
-    async def test_round_limit_degrades(self):
+    async def test_identical_repeat_stops_by_no_progress(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1/B4: предела 4 раунда нет;
+        одинаковый вызов без изменения условий не даёт новых данных →
+        честный stop `no_progress` (не квота объёма)."""
         from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE
 
         class _AlwaysToolLLM:
+            def __init__(self):
+                self.calls = 0
+
             async def generate_chat(self, *a, **k):
+                self.calls += 1
                 return LLMChatResult(
                     content=None,
                     tool_calls=[LLMToolCall(id="c", name="query_chat_memory",
                                             arguments='{"query":"x"}')],
                     finish_reason="tool_calls")
 
-        out = await chat_with_tools(_AlwaysToolLLM(),
+        llm = _AlwaysToolLLM()
+        out = await chat_with_tools(llm,
                                     [{"role": "user", "content": "x"}],
                                     tools=TOOL_CALLING_TOOLS,
                                     router=_CountingRouter(), ctx=_ctx())
         assert out.degraded is True
-        assert out.reason == "round_limit"
+        assert out.reason == "no_progress"
         assert out == TOOL_LOOP_FALLBACK_PHRASE
+        assert llm.calls == 3
 
 
 # ── 8. R17 ───────────────────────────────────────────────────────────────

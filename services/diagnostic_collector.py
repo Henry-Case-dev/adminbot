@@ -48,15 +48,19 @@ logger = logging.getLogger(__name__)
 #: Ключ подписи cursor: process-local, как у history-cursor (tool_router).
 _CURSOR_KEY = secrets.token_bytes(32)
 
+#: Срок жизни evidence-курсора (секунды). Это НЕ продуктовый дедлайн
+#: исследования (SMART-EXECUTION-RELIABILITY-01 §B1 убрал общий 360-секундный
+#: лимит цепочки); значение осталось прежним для совместимости поведения.
+_CURSOR_TTL_SECONDS = 360.0
+
 
 def _cursor_ttl() -> float:
     try:
-        from services.tool_loop import TOOL_CHAIN_TIMEOUT_SECONDS
-        value = float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
-                              TOOL_CHAIN_TIMEOUT_SECONDS))
-        return value if value > 0 else TOOL_CHAIN_TIMEOUT_SECONDS
-    except Exception:
-        return 360.0
+        value = float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 0)
+                      or 0)
+    except (TypeError, ValueError):
+        return _CURSOR_TTL_SECONDS
+    return value if value > 0 else _CURSOR_TTL_SECONDS
 
 
 def encode_cursor(payload: dict) -> str:

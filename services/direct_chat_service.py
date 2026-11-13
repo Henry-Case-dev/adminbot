@@ -8569,7 +8569,9 @@ class DirectChatService:
         if has_next and not self._history_tail_reader_ready():
             return None              # хвост недочитываем → паритет волны 2
 
-        deadline = time.monotonic() + _chain_timeout_seconds()
+        _fuse_seconds = float(_chain_timeout_seconds())
+        deadline = (time.monotonic() + _fuse_seconds
+                    if _fuse_seconds > 0 else None)
         segments: list = []          # готовые состояния сегментов
         owner_of: dict = {}          # item_id -> (seg_no, event_index)
         llm_calls = 0
@@ -8625,8 +8627,9 @@ class DirectChatService:
                              + "\n</next_context>")
             prompt = (_HISTORY_SEGMENT_SYSTEM_PROMPT + "\n\n"
                       + "\n".join(parts))
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            remaining = (deadline - time.monotonic()
+                         if deadline is not None else None)
+            if remaining is not None and remaining <= 0:
                 raise _Deadline()
             llm_calls += 1
             try:

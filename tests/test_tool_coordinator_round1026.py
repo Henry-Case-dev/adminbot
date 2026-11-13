@@ -58,7 +58,6 @@ from services.llm_client import LLMChatResult, LLMError, LLMToolCall
 from services.system2_handoff import parse_direct_synthesis, stage2_payload
 from services.tool_loop import (
     TOOL_LOOP_FALLBACK_PHRASE,
-    TOOL_MAX_ROUNDS,
     ToolLoopResult,
     chat_with_tools,
 )
@@ -319,7 +318,8 @@ class TestChainMechanism:
                    and m.get("content") == "out:tool_b" for m in third)
 
     @pytest.mark.asyncio
-    async def test_calls_per_round_truncated(self):
+    async def test_calls_per_round_not_truncated(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: все вызовы хода исполнены."""
         llm = _FakeToolLLM([
             _chat(tool_calls=[_tc("a"), _tc("b"), _tc("c")]),
             _chat(content="финал"),
@@ -329,13 +329,15 @@ class TestChainMechanism:
             llm, [{"role": "user", "content": "hi"}],
             tools=[{"type": "function", "function": {"name": "a"}}],
             router=router, ctx=object())
-        assert [c[0] for c in router.calls] == ["a", "b"]
-        assert len(result.tool_trace) == 2
+        assert [c[0] for c in router.calls] == ["a", "b", "c"]
+        assert len(result.tool_trace) == 3
 
     @pytest.mark.asyncio
-    async def test_round_limit_degraded(self):
+    async def test_identical_repeats_stop_by_no_progress(self):
+        """Фиксированного предела раундов нет; повтор того же вызова без
+        изменения условий даёт честный stop `no_progress`."""
         llm = _FakeToolLLM([
-            _chat(tool_calls=[_tc("a")]) for _ in range(TOOL_MAX_ROUNDS)
+            _chat(tool_calls=[_tc("a")]) for _ in range(6)
         ])
         router = _FakeRouter()
         result = await chat_with_tools(
@@ -343,8 +345,9 @@ class TestChainMechanism:
             tools=[{"type": "function", "function": {"name": "a"}}],
             router=router, ctx=object())
         assert result.degraded is True
-        assert result.reason == "round_limit"
+        assert result.reason == "no_progress"
         assert str(result) == TOOL_LOOP_FALLBACK_PHRASE
+        assert len(llm.calls) == 3
 
     @pytest.mark.asyncio
     async def test_late_llm_error_fail_open(self):
