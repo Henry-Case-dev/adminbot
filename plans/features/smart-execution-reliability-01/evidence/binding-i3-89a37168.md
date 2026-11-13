@@ -131,7 +131,8 @@ contour-pair контроль → **1 failed, 6 passed** (`ignore.rules` про�
 локальная БД): оба applicability `user:<id> pref:memory.details_ignore` и
 `user:<id> pref:communication.ignore_unread` → `valid=true`, `active=true`,
 `selected=true`, `rejected_events=0`; `true_effects_still_rejected` =
-recommendation / mixed applicability / machine pair / free text → все `true`.
+recommendation / mixed applicability / machine pair forward+reverse / free
+text → все `true`.
 
 ## 6. Pre-existing падения (проверены на базе `d20a7f73`)
 
@@ -175,9 +176,10 @@ recommendation / mixed applicability / machine pair / free text → все `true
   миграции или деплоя. Из вывода в evidence перенесены только коды/токены/
   числа; user/chat/message id обезличены, сырой текст сообщений не
   выгружался.
-* Логи и probe: `WorkspaceData/runs/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b/probe-dd05e85577/`
-  (red-base, green suite, mutation, post-fix probe). Числа перенесены в этот
-  файл; каталог закрывается после handoff (Reviewer сырые логи не требует —
-  RED/GREEN воспроизводится тестом).
+* Логи и probe: финальный probe запускался на HEAD с кодом `89a37168`
+  в `WorkspaceData/runs/.../probe-b554bef8dd/`; числа перенесены в этот файл,
+  каталог закрыт через `run-close`. Предыдущий прогонный каталог закрыт так
+  же; сырые production-выгрузки удалены (содержали id). Reviewer сырые логи
+  не требует — RED/GREEN и probe воспроизводятся тестом и скриптом.
 * Worktree ветки `smart/i3-lessons` (кодовый/тестовый коммиты выше + evidence)
   сохраняется для Reviewer; удалять его до завершения ревью нельзя.
