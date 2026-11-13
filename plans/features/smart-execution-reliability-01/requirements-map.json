@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
   "source_sha256": "32ef8c8289cf3f66e8949048a449178223cc0f058c3701e60cda72f8a60ecaf1",
-  "candidate_commit": "",
+  "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
   "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -22,8 +22,19 @@
       "acceptance": "Зарегистрирован ровно один эпик с конечными этапами A-M; конкурирующих эпиков того же содержания в queue/plans нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: всего 54 задачи; 13 записей без queue_position — закрытые VERIFIED; активная очередь 40/40 зарегистрирована и позиционирована, валидатор дал execution_queue.complete=true, issues=[]; SMART зарегистрирован ровно один раз на позиции 1 (этапы A–M), SELF-DIAG — предшественник/продолжение stage-H, конкурирующего эпика нет. Итог SXR-0-01 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-01-16",
@@ -37,8 +48,19 @@
       "acceptance": "Зарегистрирован ровно один эпик с конечными этапами A-M; конкурирующих эпиков того же содержания в queue/plans нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: всего 54 задачи; 13 записей без queue_position — закрытые VERIFIED; активная очередь 40/40 зарегистрирована и позиционирована, валидатор дал execution_queue.complete=true, issues=[]; SMART зарегистрирован ровно один раз на позиции 1 (этапы A–M), SELF-DIAG — предшественник/продолжение stage-H, конкурирующего эпика нет. Итог SXR-0-01 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-01-18",
@@ -52,8 +74,19 @@
       "acceptance": "Зарегистрирован ровно один эпик с конечными этапами A-M; конкурирующих эпиков того же содержания в queue/plans нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: всего 54 задачи; 13 записей без queue_position — закрытые VERIFIED; активная очередь 40/40 зарегистрирована и позиционирована, валидатор дал execution_queue.complete=true, issues=[]; SMART зарегистрирован ровно один раз на позиции 1 (этапы A–M), SELF-DIAG — предшественник/продолжение stage-H, конкурирующего эпика нет. Итог SXR-0-01 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-02-22",
@@ -67,8 +100,19 @@
       "acceptance": "План и приёмка покрывают обязательный результат: инструменты, реальное окно модели, собственный production-код и внешние источники используются без скрытых ограничений; проверяется по L1-L7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: покрытие плана включает инструменты, реальное окно модели, production-код, внешние источники и L1–L7; скрытых ограничений не найдено. Итог SXR-0-02 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-02-1568",
@@ -82,8 +126,19 @@
       "acceptance": "План и приёмка покрывают обязательный результат: инструменты, реальное окно модели, собственный production-код и внешние источники используются без скрытых ограничений; проверяется по L1-L7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: покрытие плана включает инструменты, реальное окно модели, production-код, внешние источники и L1–L7; скрытых ограничений не найдено. Итог SXR-0-02 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-03-24",
@@ -97,8 +152,19 @@
       "acceptance": "Требования распространены на весь Smart-модуль (L1/Writer, ToolRouter, retrieval, поиск, фактчек), а не только на чекап; отдельного tool-loop для чекапа в диффе нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: область всего Smart-модуля сохранена; в C1/D/G нет checkup_tools_budget и отдельного checkup-loop. Итог SXR-0-03 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-03-26",
@@ -112,8 +178,19 @@
       "acceptance": "Требования распространены на весь Smart-модуль (L1/Writer, ToolRouter, retrieval, поиск, фактчек), а не только на чекап; отдельного tool-loop для чекапа в диффе нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: область всего Smart-модуля сохранена; в C1/D/G нет checkup_tools_budget и отдельного checkup-loop. Итог SXR-0-03 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-0-04-28",
@@ -127,8 +204,19 @@
       "acceptance": "Нет нового исследовательского/архитектурного проекта: решения владельца зафиксированы, план не содержит альтернативных архитектур и новых Human Gate.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил: нового архитектурного проекта, альтернативной архитектуры и нового Human Gate нет. Итог SXR-0-04 VERIFIED.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-1-01-40",
@@ -142,8 +230,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -174,8 +272,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -206,8 +314,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -238,8 +356,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -270,8 +398,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -302,8 +440,18 @@
       "acceptance": "До изменений зафиксирован фактический deployed SHA и effective configuration production; 2.58.199 трактуется как отправная точка, а не как текущее состояние.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил deployed-факты: SHA d20a7f73, версия 2.58.199, healthz 200, budgets=false, runtime 16384. Итог SXR-1-02 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -7931,8 +8079,35 @@
       "acceptance": "Четвёртый fallback/новый журнал/дополнительное хранилище не созданы; spool и старые записи не очищены ради исчезновения warning; вероятность автоматической инициативы на production не увеличена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-02-76d60678.md — независимое ревью запретов I1 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..76d60678: четвёртого fallback/нового журнала/хранилища нет (существующие DatabaseService.serialized, meme_initiative_attempt и durable spool; DDL/схема не менялись); spool и старые записи не очищаются (нет DELETE/TRUNCATE/unlink; INSERT OR IGNORE сохраняет старые строки); вероятность инициативы не увеличена (random draw, eligibility, quota и настройки не тронуты). Остаточный postdeploy-риск контеншна — вне этого вердикта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-02-76d60678.md",
+          "artifact_sha256": "b44173b8ea77a72cf0be0be8ccda6e0a3e5f0c30c6b1228a8781fc0190ee1222"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате 76d60678",
+          "observation": "Кандидатная реализация: область — services/meme_initiative.py и tests/test_evol014_meme_initiative.py; схема/DDL/спул-формат/новые таблицы не менялись; 7 новых тестов, 44 passed диагностики, 1 pre-existing падение то же на базе; мутации sync5000 / обход serialized / INSERT без OR IGNORE — red с восстановлением.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — таблица запретов, точки изменения, acceptance",
+          "observation": "Запреты из таблицы binding: не создавать новый fallback/журнал/хранилище, не чистить spool/старые записи, не увеличивать вероятность инициативы. Артефакт относится к a3841613; дифф a3841613..76d60678 подтверждён addendum'ом и ревью как не затрагивающий эти запреты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I1-02-1046",
@@ -7946,8 +8121,35 @@
       "acceptance": "Четвёртый fallback/новый журнал/дополнительное хранилище не созданы; spool и старые записи не очищены ради исчезновения warning; вероятность автоматической инициативы на production не увеличена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-02-76d60678.md — независимое ревью запретов I1 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..76d60678: четвёртого fallback/нового журнала/хранилища нет (существующие DatabaseService.serialized, meme_initiative_attempt и durable spool; DDL/схема не менялись); spool и старые записи не очищаются (нет DELETE/TRUNCATE/unlink; INSERT OR IGNORE сохраняет старые строки); вероятность инициативы не увеличена (random draw, eligibility, quota и настройки не тронуты). Остаточный postdeploy-риск контеншна — вне этого вердикта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-02-76d60678.md",
+          "artifact_sha256": "b44173b8ea77a72cf0be0be8ccda6e0a3e5f0c30c6b1228a8781fc0190ee1222"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате 76d60678",
+          "observation": "Кандидатная реализация: область — services/meme_initiative.py и tests/test_evol014_meme_initiative.py; схема/DDL/спул-формат/новые таблицы не менялись; 7 новых тестов, 44 passed диагностики, 1 pre-existing падение то же на базе; мутации sync5000 / обход serialized / INSERT без OR IGNORE — red с восстановлением.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — таблица запретов, точки изменения, acceptance",
+          "observation": "Запреты из таблицы binding: не создавать новый fallback/журнал/хранилище, не чистить spool/старые записи, не увеличивать вероятность инициативы. Артефакт относится к a3841613; дифф a3841613..76d60678 подтверждён addendum'ом и ревью как не затрагивающий эти запреты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I1-02-1048",
@@ -7961,8 +8163,35 @@
       "acceptance": "Четвёртый fallback/новый журнал/дополнительное хранилище не созданы; spool и старые записи не очищены ради исчезновения warning; вероятность автоматической инициативы на production не увеличена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-02-76d60678.md — независимое ревью запретов I1 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..76d60678: четвёртого fallback/нового журнала/хранилища нет (существующие DatabaseService.serialized, meme_initiative_attempt и durable spool; DDL/схема не менялись); spool и старые записи не очищаются (нет DELETE/TRUNCATE/unlink; INSERT OR IGNORE сохраняет старые строки); вероятность инициативы не увеличена (random draw, eligibility, quota и настройки не тронуты). Остаточный postdeploy-риск контеншна — вне этого вердикта.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-02-76d60678.md",
+          "artifact_sha256": "b44173b8ea77a72cf0be0be8ccda6e0a3e5f0c30c6b1228a8781fc0190ee1222"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате 76d60678",
+          "observation": "Кандидатная реализация: область — services/meme_initiative.py и tests/test_evol014_meme_initiative.py; схема/DDL/спул-формат/новые таблицы не менялись; 7 новых тестов, 44 passed диагностики, 1 pre-existing падение то же на базе; мутации sync5000 / обход serialized / INSERT без OR IGNORE — red с восстановлением.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — таблица запретов, точки изменения, acceptance",
+          "observation": "Запреты из таблицы binding: не создавать новый fallback/журнал/хранилище, не чистить spool/старые записи, не увеличивать вероятность инициативы. Артефакт относится к a3841613; дифф a3841613..76d60678 подтверждён addendum'ом и ревью как не затрагивающий эти запреты.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I2-01-1063",
@@ -8126,8 +8355,27 @@
       "acceptance": "Порог warning не увеличен; курсор не перемотан к последней строке без обработки; массовая повторная обработка корпуса и пересоздание истории не выполнены; использован существующий механизм восстановления потока.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "review-i2-02-9be4227e.md — независимое ревью запретов I2 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..9be4227e: warning threshold остался 500 (изменено измерение lag, не порог); курсор не перематывается без обработки (durable cursor, id > cursor, checkpoint); массовой переобработки/пересоздания истории нет (батчевый дренаж, нет DELETE/TRUNCATE); используется существующий механизм восстановления. Продолжение дренажа 2 059 418 строк остаётся postdeploy READY_FOR_LIVE в SXR-I2-01.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i2-02-9be4227e.md",
+          "artifact_sha256": "3d633a278616b8f6ddc5ff356805dc08a32dff9b79eca18acd67e9a78577cce4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "binding-i2-c5e63d9c.md §8, §10.6, §11.3 — измерение lag, курсор, дефолты",
+          "observation": "Реализация I2 на том же кандидате: per-chat durable semantic_cursor, id > cursor, multi-batch дренаж; warning threshold 500 не поднят; нет массового репроцессинга. Артефакт исторически привязан к c5e63d9c; последующие правки 637c7f31..9be4227e (5 файлов) проверены ревью и запреты не затрагивают.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i2-c5e63d9c.md",
+          "artifact_sha256": "9ea5e5478b47d291d4c6a945c217608dcbc2dc95141f76dd8f4edf85f26732af"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I2-02-1079",
@@ -8141,8 +8389,27 @@
       "acceptance": "Порог warning не увеличен; курсор не перемотан к последней строке без обработки; массовая повторная обработка корпуса и пересоздание истории не выполнены; использован существующий механизм восстановления потока.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "review-i2-02-9be4227e.md — независимое ревью запретов I2 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..9be4227e: warning threshold остался 500 (изменено измерение lag, не порог); курсор не перематывается без обработки (durable cursor, id > cursor, checkpoint); массовой переобработки/пересоздания истории нет (батчевый дренаж, нет DELETE/TRUNCATE); используется существующий механизм восстановления. Продолжение дренажа 2 059 418 строк остаётся postdeploy READY_FOR_LIVE в SXR-I2-01.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i2-02-9be4227e.md",
+          "artifact_sha256": "3d633a278616b8f6ddc5ff356805dc08a32dff9b79eca18acd67e9a78577cce4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "binding-i2-c5e63d9c.md §8, §10.6, §11.3 — измерение lag, курсор, дефолты",
+          "observation": "Реализация I2 на том же кандидате: per-chat durable semantic_cursor, id > cursor, multi-batch дренаж; warning threshold 500 не поднят; нет массового репроцессинга. Артефакт исторически привязан к c5e63d9c; последующие правки 637c7f31..9be4227e (5 файлов) проверены ревью и запреты не затрагивают.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i2-c5e63d9c.md",
+          "artifact_sha256": "9ea5e5478b47d291d4c6a945c217608dcbc2dc95141f76dd8f4edf85f26732af"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I2-02-1081",
@@ -8156,8 +8423,27 @@
       "acceptance": "Порог warning не увеличен; курсор не перемотан к последней строке без обработки; массовая повторная обработка корпуса и пересоздание истории не выполнены; использован существующий механизм восстановления потока.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "review-i2-02-9be4227e.md — независимое ревью запретов I2 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..9be4227e: warning threshold остался 500 (изменено измерение lag, не порог); курсор не перематывается без обработки (durable cursor, id > cursor, checkpoint); массовой переобработки/пересоздания истории нет (батчевый дренаж, нет DELETE/TRUNCATE); используется существующий механизм восстановления. Продолжение дренажа 2 059 418 строк остаётся postdeploy READY_FOR_LIVE в SXR-I2-01.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i2-02-9be4227e.md",
+          "artifact_sha256": "3d633a278616b8f6ddc5ff356805dc08a32dff9b79eca18acd67e9a78577cce4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "binding-i2-c5e63d9c.md §8, §10.6, §11.3 — измерение lag, курсор, дефолты",
+          "observation": "Реализация I2 на том же кандидате: per-chat durable semantic_cursor, id > cursor, multi-batch дренаж; warning threshold 500 не поднят; нет массового репроцессинга. Артефакт исторически привязан к c5e63d9c; последующие правки 637c7f31..9be4227e (5 файлов) проверены ревью и запреты не затрагивают.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i2-c5e63d9c.md",
+          "artifact_sha256": "9ea5e5478b47d291d4c6a945c217608dcbc2dc95141f76dd8f4edf85f26732af"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I2-02-1083",
@@ -8171,8 +8457,27 @@
       "acceptance": "Порог warning не увеличен; курсор не перемотан к последней строке без обработки; массовая повторная обработка корпуса и пересоздание истории не выполнены; использован существующий механизм восстановления потока.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "review-i2-02-9be4227e.md — независимое ревью запретов I2 (Approved for this prohibition review; deployment not performed)",
+          "observation": "Проверены запреты на диффе d20a7f73..9be4227e: warning threshold остался 500 (изменено измерение lag, не порог); курсор не перематывается без обработки (durable cursor, id > cursor, checkpoint); массовой переобработки/пересоздания истории нет (батчевый дренаж, нет DELETE/TRUNCATE); используется существующий механизм восстановления. Продолжение дренажа 2 059 418 строк остаётся postdeploy READY_FOR_LIVE в SXR-I2-01.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i2-02-9be4227e.md",
+          "artifact_sha256": "3d633a278616b8f6ddc5ff356805dc08a32dff9b79eca18acd67e9a78577cce4"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "9be4227eb12faa2c59a0a2ca4d1ee7384ec171d6",
+          "ref": "binding-i2-c5e63d9c.md §8, §10.6, §11.3 — измерение lag, курсор, дефолты",
+          "observation": "Реализация I2 на том же кандидате: per-chat durable semantic_cursor, id > cursor, multi-batch дренаж; warning threshold 500 не поднят; нет массового репроцессинга. Артефакт исторически привязан к c5e63d9c; последующие правки 637c7f31..9be4227e (5 файлов) проверены ревью и запреты не затрагивают.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i2-c5e63d9c.md",
+          "artifact_sha256": "9ea5e5478b47d291d4c6a945c217608dcbc2dc95141f76dd8f4edf85f26732af"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-I4-01-1132",
@@ -10112,8 +10417,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10144,8 +10459,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10176,8 +10501,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10208,8 +10543,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10240,8 +10585,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10272,8 +10627,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10304,8 +10669,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -10336,8 +10711,18 @@
       "acceptance": "Originating failure сохранён как воспроизводимая база: trace checkup:3f9bd22a..., chain_call_limit 6/4, tool_step_limit, partial_chars=87, заглушка, destination_blocked, unknown window 16384 - все семь фактов в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "ref": "review-s0-d20a7f73.md — независимое ревью S0 BASELINE (Approved; read-only, deployment not implied)",
+          "observation": "Reviewer подтвердил baseline-факты исходного отказа: trace 3f9bd22a, chain 6/4, partial_chars=87, два destination_blocked, window 16384. Итог SXR-1-01 VERIFIED. Ревью read-only: деплой не подразумевается, postdeploy-обязательства у строки нет.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+          "artifact_sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+        },
         {
           "type": "production",
           "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
@@ -23649,7 +24034,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9).",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -24233,11 +24618,46 @@
       "pending": "Повторный Reviewer-проход по gate/binding для Approved; поведение уже проверено.",
       "postdeploy_open": "Восстановление уже лежащих в production candidate-строк (binding §8) — только после деплоя.",
       "review_status": "approved_binding"
+    },
+    "S0-BASELINE": {
+      "slice": "S0-BASELINE",
+      "lane": "S0",
+      "covers_req_ids": [
+        "SXR-0-01",
+        "SXR-0-02",
+        "SXR-0-03",
+        "SXR-0-04",
+        "SXR-1-01",
+        "SXR-1-02"
+      ],
+      "scope_note": "read-only production baseline; verified on the already-deployed release, no new deployment required",
+      "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "code": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "release/2.58.199",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-s0-d20a7f73.md",
+        "sha256": "cd93c602f99e60e66621e100870697568398c71c7b678020b828b685b6451f2a"
+      },
+      "verification": "read-only production baseline; verified on the already-deployed release, no new deployment required",
+      "deployment": "candidate IS the deployed production release 2.58.199 (identity verified_deployed, deployed_sha == checkout_sha)",
+      "covered": [
+        "один эпик SMART (позиция 1, этапы A–M), конкурирующих эпиков нет; SELF-DIAG — продолжение stage-H",
+        "план/приёмка покрывают обязательный результат L1–L7 без скрытых ограничений",
+        "требования распространены на весь Smart-модуль, отдельного checkup-loop нет",
+        "нет нового архитектурного проекта / альтернативной архитектуры / Human Gate",
+        "факты исходного отказа и deployed/effective база подтверждены на d20a7f73"
+      ],
+      "partial": [],
+      "not_covered": [
+        "поведение после будущих изменений (S1–S17) — предмет соответствующих срезов, не S0"
+      ],
+      "deployed": true
     }
   },
   "deployment_state": {
     "epic_deployed": false,
     "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
-    "note": "deployed_commit остаётся базой 2.58.199 (d20a7f73). C1, F и A+B приняты на review-уровне; кандидаты 36dd6b23, 2382cc92 и 8fc8b534 не выкатывались, production-верификация не заявляется. I1 (76d60678) также не выкатывался: SXR-I1-01 остаётся READY_FOR_LIVE. D (f55fdc6e) и I2 (9be4227e) также не выкатывались; приняты на review-уровне (I2 — READY_FOR_LIVE по postdeploy, остальное — REVIEW)."
+    "note": "deployed_commit = база 2.58.199 (d20a7f73). map-level candidate_commit=d20a7f73 относится ТОЛЬКО к VERIFIED S0-BASELINE (read-only проверка уже развёрнутой базы): это единственный полностью принятый кандидат карты. S1-S17 кандидаты живут в slice_candidate_bindings (review/deploy-уровень) и не выкатывались; epic_deployed=false, production-верификация исправлений не заявляется. I1 (76d60678) и I2 (9be4227e) не выкатывались: их postdeploy-строки остаются READY_FOR_LIVE; D (f55fdc6e), C1 (36dd6b23), F (2382cc92), G (cffc9fb2), I4 (4bf11400), A+B (8fc8b534) приняты на review-уровне."
   }
 }
