@@ -39,3 +39,21 @@ Integration-required: combined-candidate audit for tool_router/search_aggregator
 2. BLOCKER Builder/Reviewer integration owner: provide candidate-bound integrated audit for untouched families and direct_chat/payload seams; keep affected rows UNVERIFIED.
 
 Next action for Orchestrator: route finding 1 to Builder, schedule combined-candidate audit, then independently re-review corrected exact candidate.
+
+## Pillar 2: Test validity
+
+Проверены assertions в tests/test_smart_exec_evidence.py и обновленных legacy-тестах: конкретные payload/status/ranges, tool_call_id, byte-identical content, final answer, counts, provenance и continuation. Запуски: focused 106 passed; C1 set 159 passed; impacted broad set 455 passed, 1 warning.
+
+Ограничение: untouched system-wide families C2-01/C3-02 остаются integration-required.
+
+## Pillar 3: Independent challenge
+
+Временная мутация max_frames=120 в stack_summary дала реальный FAIL: shown_frames 120 вместо 150; файл восстановлен. Default/explicit-cap/paging tests проверяют no silent loss, continuation и omitted IDs; focused suite green.
+
+## Итоговая матрица
+
+SXR-C1-01 VERIFIED proven-here (159 C1 tests). SXR-C1-02 VERIFIED proven-here (oversized ranges, continuation, safety). SXR-C1-03 VERIFIED proven-here (counter/state reset). SXR-C2-02 VERIFIED proven-here (selection, no drops, continuation, provenance). SXR-C3-01 VERIFIED proven-here (tool result -> ToolResult/evidence -> loop/context -> payload/final; 106 tests). SXR-C2-01 UNVERIFIED integration-required: residual factory caps and untouched families. SXR-C3-02 UNVERIFIED integration-required for same reason.
+
+## Verdict
+
+Needs Fixes. git diff --check remains FAILED due to candidate trailing whitespace in services/direct_context_composer.py. Builder: remove only whitespace and rerun diff check. Orchestrator: integrated audit for C2-01/C3-02. No application code changed by Reviewer.
