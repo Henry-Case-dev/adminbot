@@ -20,7 +20,6 @@ TEST-LIFECYCLE: CONTRACT owner=S15-FC-EVIDENCE (SFC-7-01..7-05, SFC-8-02/8-03).
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 
 import pytest
