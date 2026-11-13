@@ -91,7 +91,11 @@ from services.youtube_transcript_engine import YouTubeTranscriptEngine
 from services.youtube_summarizer_service import YoutubeSummarizerService
 from services.video_cascade_client import OpenRouterVideoClient
 from services.web_summarizer_service import WebSummarizerService
-from handlers.checkup import checkup_router, setup_checkup
+from handlers.checkup import (
+    checkup_router,
+    setup_checkup,
+    setup_checkup_tool_router,
+)
 from services.checkup_service import CheckupService
 from services.system_logs_fetcher import CheckupLogsFetcher
 from handlers.direct_chat import direct_chat_router, setup_direct_chat
@@ -613,6 +617,9 @@ async def on_startup():
         # (reuse WebContentExtractor — тот же инстанс, что у web-модуля,
         # без дубля сервиса).
         extractor=_web_extractor))
+    # SELF-DIAG-01 corrective (§3): тот же ToolRouter обслуживает
+    # исследовательский цикл explicit-чекапа (второго роутера/loop нет).
+    setup_checkup_tool_router(_tool_router)
     # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): тот же ToolRouter получает
     # фактчекер (Full Tool Access: dig_into_lore/compile_lore_story/веб).
     # DI-kwarg, порядок роутеров и setup-последовательность не меняются.

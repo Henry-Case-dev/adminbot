@@ -4029,6 +4029,36 @@ def _reply_total_chars(message, alias_resolver=None, nickname_fn=None) -> int:
     return len((head + text).strip())
 
 
+async def _recent_checkup_report_text(db, chat_id: int) -> str:
+    """Последний ДОСТАВЛЕННЫЙ отчёт чекапа (SELF-DIAG-01 §4).
+
+    Модульная функция (не метод) — частичные DI-объекты тестов не обязаны
+    реализовывать новый метод. Источник — существующий durable ledger
+    (``mca_bot_outputs``, ``output_kind='checkup_report'``): структурная
+    запись фактически отправленного сообщения, а не разбор слов запроса.
+    Окно — существующий ``CHAT_BOT_REPLIED_RECENTLY_SECONDS``; reply на
+    конкретный отчёт старше окна приходит обычной reply-цепочкой
+    (`bot_replies`). Fail-open → ""."""
+    try:
+        window_s = int(bot_replied_recently_window_seconds() or 0)
+    except Exception:      # pragma: no cover - защитная ветка
+        window_s = 0
+    if window_s <= 0:
+        return ""
+    try:
+        rows = await _ledger.list_bot_output_history(
+            db, int(chat_id),
+            since_ts=int(time.time()) - window_s, limit=3,
+            kinds=("checkup_report",))
+    except Exception:
+        logger.debug("[l1] recent checkup report read failed", exc_info=True)
+        return ""
+    texts = [str(row.get("content_text") or "").strip()
+             for row in rows or () if isinstance(row, dict)]
+    texts = [text for text in texts if text]
+    return texts[-1] if texts else ""
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # EVOL-REPLY-CONTEXT-INTEGRITY-01 v5 §12.2 (DIRECT-SELF-CORRECTION-01):
 # рамка возражения на СОБСТВЕННЫЙ прошлый ответ.
@@ -4600,6 +4630,10 @@ class DirectChatService:
         texts = [t for t in texts if t]
         texts.reverse()                      # старое → свежее
         return tuple(texts)
+
+    async def _recent_checkup_report(self, chat_id: int) -> str:
+        """Совместимый делегат модульного резолвера (см. выше)."""
+        return await _recent_checkup_report_text(self.db, chat_id)
 
     async def _decision_context(self, chat_id: int, message,
                                 query: str) -> DecisionContext:
@@ -5620,12 +5654,25 @@ class DirectChatService:
                         _fb_reply_text = ""
                     _fb_caps = _l1.infer_fallback_capabilities(
                         query, _fb_reply_text, announced=announced_l1_tools)
+                    # SELF-DIAG-01 corrective (§5): НЕ терять уже
+                    # установленное структурированное решение, если текущий
+                    # ход структурно продолжает ответ бота. Это только
+                    # объявление инструментов/контекста — автоматического
+                    # чтения репозитория здесь нет (его решение остаётся за
+                    # моделью в tool-фазе). Без структуры продолжения —
+                    # честная деградация unknown/not_checked.
+                    _preserved_diag = _l1.preserved_diagnostic_research(
+                        l1_meta.get("previous_diagnostic_research"),
+                        reply_to_bot=bool(_reply_bot))
                     l1_plan = _l1.fallback_plan(
                         query, action=("reply" if pre_action == ACTION_REPLY
                                        else ("react" if pre_action ==
                                              ACTION_REACT else "silent")),
                         allowed_actions=_decision_allowed_actions,
-                        capabilities_needed=_fb_caps)
+                        capabilities_needed=_fb_caps,
+                        diagnostic_research=_preserved_diag)
+                    l1_meta["diagnostic_research_preserved"] = (
+                        "1" if _preserved_diag is not None else "0")
                     l1_meta["fallback"] = "deterministic"
                     l1_meta["planner_fallback_reason"] = "planner_outage"
                     if _fb_caps:
@@ -6009,6 +6056,22 @@ class DirectChatService:
             # смысла запроса — новых списков слов/года нет.
             tool_ctx.memory_scope = str(
                 getattr(l1_plan, "memory_scope", "") or "")
+            # SELF-DIAG-01 corrective (§3/§4): только структурированное
+            # решение `target=self` разрешает каноническую repo identity.
+            # Обычный разговор её не получает; внешний объект — обычный
+            # SourceReader flow по identity, установленной моделью.
+            _diag_decision = getattr(l1_plan, "diagnostic_research", None)
+            if (_diag_decision is not None
+                    and bool(getattr(_diag_decision, "needed", False))
+                    and str(getattr(_diag_decision, "target", "")) == "self"):
+                try:
+                    from services import source_reader as _sr_mod
+                    tool_ctx.diagnostic_research = await asyncio.to_thread(
+                        _sr_mod.resolve_self_repo_identity)
+                except Exception:
+                    logger.warning(
+                        "[direct] self repo identity unavailable | chat=%s",
+                        chat_id, exc_info=True)
             if history_sample is not None:
                 # P0-HA SEGMENTS (архконтракт §0): выборка хода на tool_ctx
                 # (setattr, не новый обязательный аргумент __init__) —
@@ -7375,6 +7438,10 @@ class DirectChatService:
         """
         policy = _tt.turn_policy(req.trigger_type)
         _l1.record_turn_trace(req, policy=policy)
+        # SELF-DIAG-01 corrective (§5): предыдущее УСТАНОВЛЕННОЕ решение —
+        # только для сохранения контекста при детерминированном fallback.
+        # Читается до перезаписи диагностики текущего прогона.
+        _prev_diag = _l1.get_l1_diagnostics(getattr(req, "chat_id", None))
         meta = meta if meta is not None else {}
         meta.setdefault("source", "main")
         meta.setdefault("inherited", True)
@@ -7541,6 +7608,9 @@ class DirectChatService:
                 "[direct] l1 planner outage — deterministic fallback | "
                 "chat=%s | trigger=%s | last_error=%s",
                 chat_id, req.turn_type, last_error or "invalid")
+            # Только для вызывающего: он решает применимость по СТРУКТУРЕ
+            # (ответ на сообщение бота), не по словам текущего запроса.
+            meta["previous_diagnostic_research"] = dict(_prev_diag or {})
         try:
             resolved_caps, _rejected_caps = _caps.resolve_capabilities(
                 (plan.capabilities_needed if plan is not None else ()),
@@ -7570,6 +7640,7 @@ class DirectChatService:
             "repair_policy": policy.repair_policy,
             "available_capabilities": int(len(req.capabilities)),
         })
+        diag.update(_l1.diagnostic_decision_fields(plan))
         _l1.record_l1_diagnostics(chat_id, **diag)
         # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
         # (reply/silent/react) идут через этот единственный вызов, строка
@@ -7624,6 +7695,8 @@ class DirectChatService:
         system_prompt_l1 = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        # SELF-DIAG-01 corrective: typed diagnostic decision приходит как
+        # ДАННЫЕ контекста (`build_l1_context`), системный канон байт-в-байт.
         # ── UR-A (UR-02.1): один резолв слота/ключа/бюджета на оба триггера.
         # D03 (§18C.1): permission-политика — ПЕРЕД платными попытками
         # (NoApiKeyForChat пробрасывается: тот же sandbox-путь).
@@ -7693,6 +7766,14 @@ class DirectChatService:
                 trigger="direct"),
             time_snapshot=snap_plan)
         available_caps = list(_turn_req.tool_state.capabilities)
+        # §4: доставленный отчёт чекапа — полноценный контекст продолжения
+        # (структурный output_kind ledger'а, не разбор слов текущего запроса).
+        # Запрос только в существующем окне «бот недавно отвечал» — без
+        # дополнительного чтения БД на каждый обычный ход.
+        _diagnostic_report = ""
+        if bot_replied_recently:
+            _diagnostic_report = await _recent_checkup_report_text(
+                self.db, chat_id)
         # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
         # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
         _l1_gates = await _composer_resolve_gates(chat_id)
@@ -7747,6 +7828,7 @@ class DirectChatService:
             force_line="; ".join(p for p in _l1_condition_parts if p),
             decision_profile=_decision_profile,
             bot_replies=tuple(bot_replies or ()),
+            diagnostic_report=_diagnostic_report,
             history_partial=history_partial,
             alias_resolver=self.aliases,
             budget_tokens=_l1_budget,
@@ -8218,7 +8300,15 @@ class DirectChatService:
                              if str(c or "").strip().lower() not in required_set)
             # §1.5: effective_readonly = allowed(L1_requested ∪ runtime_required);
             # union вычислен здесь, разрешение уже применено политикой.
-            requested = tuple(plan.capabilities_needed or ()) + required
+            # SELF-DIAG-01 corrective: структурированное решение
+            # `diagnostic_research.needed=true` исполняется как набор
+            # capability; низкая уверенность его не снимает (это явное
+            # решение, а не догадка в списке), но ACL/активность проверяет
+            # тот же resolve_capabilities.
+            _diagnostic_caps = _l1.diagnostic_source_capabilities(plan)
+            required_set |= {str(c).lower() for c in _diagnostic_caps}
+            requested = (tuple(plan.capabilities_needed or ())
+                         + _diagnostic_caps + required)
             resolved, rejected = _caps.resolve_capabilities(
                 requested, announced, skip_capabilities=skip)
             denied_caps = {str(c or "").strip().lower()
@@ -8308,6 +8398,26 @@ class DirectChatService:
             return None
         if getattr(plan, "needs_clarification", False) or not tool_schemas:
             return None
+        # SELF-DIAG-01 corrective (§1/§3): структурированное решение
+        # `diagnostic_research.needed=true` исполняется адаптивным
+        # оркестратором — только он даёт модели выбрать существующие
+        # read-only инструменты по фактическим данным. Это НЕ новый цикл:
+        # тот же `run_tool_phase`/adaptive-контур и те же лимиты. Инструмент
+        # без решения модели не вызывается.
+        _diag_caps = _l1.diagnostic_source_capabilities(plan)
+        _required_caps = tuple(required_caps or ())
+        if _diag_caps:
+            try:
+                from dataclasses import replace as _dc_replace
+                _caps = tuple(plan.capabilities_needed or ())
+                _caps = _caps + tuple(
+                    c for c in _diag_caps if c not in _caps)
+                plan = _dc_replace(
+                    plan, capabilities_needed=_caps,
+                    execution_mode="adaptive")
+            except Exception:      # pragma: no cover - защитная ветка
+                pass
+            _required_caps = _required_caps + tuple(_diag_caps)
         # UR-20.8 (UR-F шаг 1): tool-фаза реально получает TimeContext —
         # стадия `tool` отмечается на фактической доставке, не «на всякий».
         if str(time_line or "").strip():
@@ -8316,7 +8426,7 @@ class DirectChatService:
             plan=plan, router=self.tool_router, ctx=tool_ctx, query=query,
             chat_id=chat_id, correlation_id=correlation_id,
             tool_schemas=tool_schemas, llm=self.llm,
-            required_caps=tuple(required_caps or ()),
+            required_caps=_required_caps,
             explicit_request=bool(explicit_request),
             # UR-C-CLOCK (UR-26.2/26.3): блок времени чата (phase="plan")
             # доезжает до orchestrator-payload tool-фазы обоих триггеров.
@@ -15397,6 +15507,8 @@ class DirectChatService:
         _init_prompt = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        # SELF-DIAG-01 corrective: та же схема/данные контекста; системный
+        # канон L1 не переписывается.
         try:
             _slot_meta, slot = await self._resolve_turn_slot_meta(
                 chat_id, prompt_text=_init_prompt)

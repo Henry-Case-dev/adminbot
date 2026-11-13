@@ -274,6 +274,121 @@ def derive_execution_mode(capabilities_needed) -> str:
 FUTURE_INTENT_KINDS = ("follow_up", "open_dispute")
 FUTURE_INTENT_GOAL_MAX = 200
 
+# ── SELF-DIAG-01 corrective (13.11.2026, owner input §1/§3/§4) ───────────────
+# Единственный смысловой авторитет — L1. Здесь только ЗАКРЫТЫЕ множества и
+# нормализация уже принятого моделью решения: код не выводит намерение из слов.
+# ``target=self`` разрешает серверный канонический repo identity; ``unknown``/
+# отсутствие поля — «не установлено» и не запускает инструмент.
+DIAGNOSTIC_TARGETS = ("self", "external", "other", "unknown")
+DIAGNOSTIC_SOURCES = ("runtime", "journal", "source_code", "memory")
+#: Источник решения → существующая capability (`direct_capabilities`). Это
+#: исполнение структурированного решения модели, не лексический маппинг.
+DIAGNOSTIC_SOURCE_CAPABILITY: dict[str, str] = {
+    "runtime": "deep_diagnostics",
+    "journal": "deep_diagnostics",
+    "source_code": "source_code",
+    "memory": "chat_memory",
+}
+
+
+@dataclass(frozen=True)
+class DiagnosticResearch:
+    """Структурированное решение L1 о необходимости исследования (optional).
+
+    ``needed=False`` — не запускать ничего. ``target`` — объект исследования;
+    ``sources`` — разрешённые источники (закрытый список). Невалидные значения
+    нормализуются (target→unknown, источник отбрасывается), план не падает.
+    """
+
+    needed: bool = False
+    target: str = "unknown"
+    sources: tuple[str, ...] = ()
+
+
+def normalize_diagnostic_research(raw) -> "DiagnosticResearch | None":
+    """Разбор optional-поля ``diagnostic_research`` (никогда не бросает).
+
+    Отсутствие/не-объект → ``None`` («не установлено»). Строгий boolean по
+    прецеденту ``needs_clarification``/``recheck``: только реальный ``True``
+    означает запрос. Неизвестный target → ``unknown``; неизвестный источник
+    отбрасывается (никаких догадок по словам)."""
+    if not isinstance(raw, dict):
+        return None
+    source_values = raw.get("sources")
+    sources: list[str] = []
+    if isinstance(source_values, (list, tuple)):
+        for item in source_values:
+            if not isinstance(item, str):
+                continue
+            name = _clip_word(item, 32, "")
+            if name and name in DIAGNOSTIC_SOURCES and name not in sources:
+                sources.append(name)
+    return DiagnosticResearch(
+        needed=raw.get("needed") is True,
+        target=_closed(raw.get("target"), DIAGNOSTIC_TARGETS, "unknown"),
+        sources=tuple(sources))
+
+
+def diagnostic_source_capabilities(plan) -> tuple[str, ...]:
+    """Capability, которые РАЗРЕШАЕТ структурированное решение (needed=true).
+
+    Ничего не включает при needed=false/None: значение — только исполнение уже
+    принятого моделью решения. Неизвестное имя источника игнорируется."""
+    decision = getattr(plan, "diagnostic_research", None)
+    if decision is None or not bool(decision.needed):
+        return ()
+    # `unknown`/`other` — объект исследования не установлен как реализация:
+    # инструмент НЕ объявляется/не запускается (owner §2). Только self/external.
+    if str(decision.target or "") not in ("self", "external"):
+        return ()
+    caps: list[str] = []
+    for source in tuple(decision.sources or ()):
+        cap = DIAGNOSTIC_SOURCE_CAPABILITY.get(str(source or "").strip().lower())
+        if cap and cap not in caps:
+            caps.append(cap)
+    if not caps:
+        # needed=true без конкретных источников = «нужно исследовать, чем
+        # доступно»: объявляются оба существующих read-only диагностических
+        # инструмента. Это не вызов — инструмент выбирает/вызывает модель.
+        caps = ["deep_diagnostics", "source_code"]
+    return tuple(caps)
+
+
+def diagnostic_decision_fields(plan) -> dict:
+    """R17-safe оси решения для существующей L1-диагностики (без текстов)."""
+    decision = getattr(plan, "diagnostic_research", None)
+    if decision is None:
+        return {"diagnostic_needed": False,
+                "diagnostic_target": "unknown",
+                "diagnostic_sources": ""}
+    return {
+        "diagnostic_needed": bool(decision.needed),
+        "diagnostic_target": str(decision.target or "unknown"),
+        "diagnostic_sources": ",".join(
+            str(s) for s in (decision.sources or ())),
+    }
+
+
+def preserved_diagnostic_research(previous, *, reply_to_bot: bool = False):
+    """Сохранение УЖЕ установленного решения при детерминированном fallback.
+
+    Применимость подтверждается только структурой разговора: текущий ход —
+    ответ на сообщение бота (продолжение его отчёта). Обычная последующая
+    реплика не наследует исследование (owner §4: не всё после чекапа —
+    диагностика). Возвращённое решение лишь объявляет инструменты; вызов
+    инструмента по-прежнему делает модель в tool-фазе. Никогда не бросает."""
+    if not reply_to_bot or not isinstance(previous, dict):
+        return None
+    if previous.get("diagnostic_needed") is not True:
+        return None
+    target = str(previous.get("diagnostic_target") or "").strip().lower()
+    if target not in ("self", "external"):
+        return None
+    raw_sources = str(previous.get("diagnostic_sources") or "")
+    sources = tuple(s for s in raw_sources.split(",")
+                    if s in DIAGNOSTIC_SOURCES)
+    return DiagnosticResearch(needed=True, target=target, sources=sources)
+
 
 @dataclass
 class FutureIntent:
@@ -300,6 +415,11 @@ AUTONOMOUS_LINE = ("автономный контекст (ответ на со�
 # FIX-CORRECTIVE-R1 (P2): заголовок секции недавних ответов бота в L1-контексте
 # (тексты берутся из существующей таблицы bot_replies, вызывающий передаёт).
 BOT_REPLIES_SECTION = "ОТВЕТЫ БОТА (недавние)"
+
+#: SELF-DIAG-01 corrective (§4 owner input): доставленный отчёт чекапа — такая
+#: же часть разговора, как любое сообщение бота. Секция адресуется структурно
+#: (output_kind доставленного отчёта), не по словам текущего запроса.
+DIAGNOSTIC_REPORT_SECTION = "ПОСЛЕДНИЙ ЧЕКАП (доставленный отчёт)"
 
 # L1D (22.10.2026, директива владельца plans/features/owner-corrective-
 # initreply-2026-10-22.md §1-2): условия ИНИЦИАТИВНОГО L1. Формы участия
@@ -393,6 +513,11 @@ class L1Plan:
     # `auto` — решение по существу без словарных триггеров года.
     # Нормализуется `resolve_memory_scope`; явный `historical` не понижается.
     memory_scope: str = MEMORY_SCOPE_AUTO
+    # ── SELF-DIAG-01 corrective (13.11.2026): optional typed решение об
+    # исследовании (self|external|other|unknown + закрытые источники). Это
+    # намерение-план: сервер валидирует и исполняет, инструменты вызывает
+    # модель. None/needed=false — ничего не запускается.
+    diagnostic_research: "DiagnosticResearch | None" = None
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -745,6 +870,12 @@ def normalize_l1_plan(data) -> L1Plan | None:
         data.get("memory_scope"), action=action,
         knowledge_origin=plan.knowledge_origin,
         search_intent=plan.search_intent)
+    # ── SELF-DIAG-01 corrective (13.11.2026, §1/§2 owner input): optional
+    # typed решение об исследовании. Аддитивное allowlisted-поле: невалидное/
+    # отсутствующее → None, план остаётся валидным. Код не выводит решение из
+    # текста запроса — оно приходит только от модели.
+    plan.diagnostic_research = normalize_diagnostic_research(
+        data.get("diagnostic_research"))
     # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
     # "" (обычное сообщение); id — только положительные целые.
     plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")
@@ -1666,6 +1797,7 @@ def build_l1_context(*, query, current_question: str = "",
                      capabilities=(), force_line: str = "",
                      decision_profile: str = "",
                      bot_replies: tuple[str, ...] = (),
+                     diagnostic_report: str = "",
                      budget_tokens: int | None = None,
                      with_ids: bool = False,
                      alias_resolver=None,
@@ -1686,7 +1818,10 @@ def build_l1_context(*, query, current_question: str = "",
     ASAP-FC-VOICE-01 / B: ``decision_profile`` — секция
     ``[ПРОФИЛЬ РЕШЕНИЙ]`` (собирается один раз в
     ``bot_persona.build_decision_profile_block``); она защищена в
-    ``_cap_context`` и никогда не подаётся как срез прозы."""
+    ``_cap_context`` и никогда не подаётся как срез прозы.
+    SELF-DIAG-01 corrective: ``diagnostic_report`` — текст доставленного
+    отчёта чекапа (структурный output_kind ledger'а, не угаданный по словам);
+    даёт продолжению разговора полноценный контекст отчёта и его фактов."""
     try:
         sections: list[tuple[str, str]] = []
         budget = int(budget_tokens) if budget_tokens is not None \
@@ -1703,6 +1838,14 @@ def build_l1_context(*, query, current_question: str = "",
         bot_lines = [line for line in bot_lines if line][:3]
         if bot_lines:
             sections.append((BOT_REPLIES_SECTION, "\n".join(bot_lines)))
+        # SELF-DIAG-01 corrective (§4): доставленный чек-ап — полноценное
+        # сообщение разговора для продолжения, а не набор угаданных слов.
+        # Источник секции — структурный output_kind ledger'а (передаёт
+        # вызывающий); размер — существующий кап сообщения этого бюджета.
+        if str(diagnostic_report or "").strip():
+            sections.append((DIAGNOSTIC_REPORT_SECTION,
+                             clip_body(str(diagnostic_report).strip(),
+                                       message_cap_chars(budget))))
         window_lines = render_window_lines(window, L1_WINDOW_MESSAGES,
                                            with_ids=with_ids,
                                            alias_resolver=alias_resolver,
@@ -1735,6 +1878,19 @@ def build_l1_context(*, query, current_question: str = "",
         caps = [str(c) for c in (capabilities or ()) if str(c).strip()]
         sections.append(("ДОСТУПНЫЕ ВОЗМОЖНОСТИ",
                          ", ".join(caps) if caps else "нет"))
+        # SELF-DIAG-01 corrective (§1/§3/§4): optional typed решение об
+        # исследовании описывается Л1 как ДАННЫЕ контекста, только когда
+        # существующие диагностические инструменты активны. Базовый канон/
+        # системный промпт байт-в-байт не переписывается.
+        if {"source_code", "deep_diagnostics"} & set(caps):
+            try:
+                from services.chat_prompts import (
+                    DIRECT_L1_DIAGNOSTIC_RESEARCH_ADDENDUM)
+                sections.append((
+                    "ДИАГНОСТИЧЕСКОЕ РЕШЕНИЕ",
+                    DIRECT_L1_DIAGNOSTIC_RESEARCH_ADDENDUM.strip()))
+            except Exception:      # pragma: no cover - защитная ветка
+                pass
         if str(force_line or "").strip():
             sections.append(("УСЛОВИЯ", str(force_line).strip()))
         if str(decision_profile or "").strip():
@@ -2410,7 +2566,9 @@ def infer_fallback_capabilities(query: str, reply_text: str = "",
 
 def fallback_plan(query, *, action: str = "reply",
                   allowed_actions=("REPLY",),
-                  capabilities_needed: tuple[str, ...] = ()) -> L1Plan:
+                  capabilities_needed: tuple[str, ...] = (),
+                  diagnostic_research: "DiagnosticResearch | None" = None,
+                  ) -> L1Plan:
     """Deterministic safe fallback (§1.6 + §18C.3 + P1): classify_request +
     прежняя demote-матрица (action задаёт вызывающий из pre_action).
     L1Plan с ``source="fallback"``; capabilities — только структурный
@@ -2447,6 +2605,11 @@ def fallback_plan(query, *, action: str = "reply",
         source="fallback")
     plan.execution_mode = derive_execution_mode(caps)
     plan.execution_mode_source = "derived"
+    # SELF-DIAG-01 corrective (§5): уже установленное структурированное
+    # решение может быть СОХРАНЕНО вызывающим как контекст (объявление
+    # инструментов), но само по себе инструмент не запускает — вызов делает
+    # модель в tool-фазе.
+    plan.diagnostic_research = diagnostic_research
     return plan
 
 
@@ -2639,6 +2802,10 @@ __all__ = [
     "emit_l1_plan_event", "build_l2_plan_block",
     "analysis_directive_needed", "rejected_note",
     "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
+    "DiagnosticResearch", "DIAGNOSTIC_TARGETS", "DIAGNOSTIC_SOURCES",
+    "normalize_diagnostic_research", "diagnostic_source_capabilities",
+    "diagnostic_decision_fields", "preserved_diagnostic_research",
+    "DIAGNOSTIC_REPORT_SECTION",
     "TurnTraceEntry", "record_turn_trace", "get_turn_trace",
     "last_turn_request", "reset_turn_trace",
     "KNOWLEDGE_ORIGINS", "SEARCH_INTENTS", "OPEN_WORLD_ORIGINS",
