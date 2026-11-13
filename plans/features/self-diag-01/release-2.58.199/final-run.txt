@@ -1,0 +1,117 @@
+FINAL_UTC=2026-11-13T08:42:04Z
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+ACTIVE=active
+HTTP=200
+BODY={"status":"ok","version":"2.58.199"}
+SCHEMA=47
+MANIFEST_READ_ADMINBOT=1
+=== JOURNAL_AS_SERVICE_USER ===
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,263 - apscheduler.executors.default - INFO - Running job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:42:21 UTC)" (scheduled at 2026-11-13 08:41:21.262737+00:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,300 - services.summary_scheduler - INFO - summary: cron skip (disabled, source=chat) | chat_id=-100<redacted>
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,301 - apscheduler.executors.default - INFO - Job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:42:21 UTC)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,305 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-11-13 13:46:21 +05)" (scheduled at 2026-11-13 13:41:21.304124+05:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,305 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-11-13 13:46:21 +05)" (scheduled at 2026-11-13 13:41:21.304420+05:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,306 - services.memory_maintenance - INFO - [mca09] intent heartbeat tick ran | due=0 expired=0 archived=0
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,306 - apscheduler.executors.default - INFO - Running job "NostalgiaWorker._tick (trigger: interval[0:01:00], next run at: 2026-11-13 13:42:21 +05)" (scheduled at 2026-11-13 13:41:21.306503+05:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,306 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1794559281 | event_name=nostalgia_run | outcome=start | level=INFO | component=nostalgia.run
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,307 - apscheduler.executors.default - INFO - Running job "AntiClicheWorker.tick (trigger: interval[7 days, 0:00:00], next run at: 2026-11-20 14:07:19 +05)" (scheduled at 2026-11-13 08:41:21.306913+00:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,307 - services.mca_events - INFO - mca_event=anticliche_run | ts=1794559281 | event_name=anticliche_run | outcome=start | level=INFO | component=anticliche.run
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,307 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-11-13 13:46:21 +05)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,327 - services.mca_events - INFO - mca_event=anticliche_source_checked | ts=1794559281 | event_name=anticliche_source_checked | outcome=success | level=INFO | component=anticliche | stage=source_check | status=available | operation_id=f85412bd5b134041 | attempt=1 | entity_ids=["local/manual"] | source_ref_json={"source_id": "local/manual", "transport": "local", "http": null, "revision": "", "changed": true, "unchanged": false, "content_status": "not_applicable", "docs_fetched": 0, "docs_parsed": 0, "bytes": 0, "chars": 0, "error_code": "", "manual": false} | duration_ms=0
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,328 - services.anticliche_worker - WARNING - [anticliche] no usable source | problems=0
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,329 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,331 - services.mca_events - INFO - mca_event=anticliche_run | ts=1794559281 | event_name=anticliche_run | outcome=failed | level=INFO | component=anticliche.run | reason_code=provider_unavailable | duration_ms=23
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,331 - services.anticliche_worker - INFO - [anticliche] refresh | status=fetch_error | count=0 | source=wikipedia
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,331 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-11-20 14:07:19.304311+05:00
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,333 - apscheduler.executors.default - INFO - Job "AntiClicheWorker.tick (trigger: interval[7 days, 0:00:00], next run at: 2026-11-20 14:07:19 +05)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:26 +05)" (scheduled at 2026-11-13 13:41:21.374842+05:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:26 +05)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,376 - apscheduler.executors.default - INFO - Running job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:42:21 UTC)" (scheduled at 2026-11-13 08:41:21.375487+00:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,377 - services.goodmorning_scheduler - INFO - Goodmorning tick skipped (slot=skip_quiet) | chat_id=-100<redacted>
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,378 - services.mca_events - INFO - mca_event=goodmorning_run | ts=1794559281 | event_name=goodmorning_run | outcome=silent | level=INFO | component=goodmorning | usage_json={"targets": 1, "sent": 0, "skipped": 1, "failed": 0} | duration_ms=1
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,378 - apscheduler.executors.default - INFO - Job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:42:21 UTC)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,532 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1794559281 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,545 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559281 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "nostalgia", "chat_id": -100<redacted>, "planned_at": 1794572003, "executed_at": 1794559281, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "settings_rescaled"} | stage=nostalgia | reason_code=settings_rescaled
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,545 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1794559281 | event_name=nostalgia_run | outcome=skipped | level=INFO | component=nostalgia.run | reason_code=no_relevant_memory | duration_ms=238
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,545 - apscheduler.executors.default - INFO - Job "NostalgiaWorker._tick (trigger: interval[0:01:00], next run at: 2026-11-13 13:42:21 +05)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,545 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559281 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794566321, "executed_at": 1794559281, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "settings_rescaled"} | stage=initiative | reason_code=settings_rescaled
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,546 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559281 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794559281, "executed_at": 1794559281, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "lease_held"} | stage=initiative | reason_code=lease_held
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,547 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-13 08:42:21 UTC)" (scheduled at 2026-11-13 08:41:21.547224+00:00)
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,551 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-13 08:42:21 UTC)" executed successfully
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,986 - services.memory_maintenance - INFO - [b01] initiative observer tick | status=completed observed=0 opportunities=0
+Nov 13 08:41:21 vps159032-gqg python[454989]: 2026-11-13 08:41:21,986 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-11-13 13:46:21 +05)" executed successfully
+Nov 13 08:41:26 vps159032-gqg python[454989]: 2026-11-13 08:41:26,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:31 +05)" (scheduled at 2026-11-13 13:41:26.374842+05:00)
+Nov 13 08:41:26 vps159032-gqg python[454989]: 2026-11-13 08:41:26,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:31 +05)" executed successfully
+Nov 13 08:41:31 vps159032-gqg python[454989]: 2026-11-13 08:41:31,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:36 +05)" (scheduled at 2026-11-13 13:41:31.374842+05:00)
+Nov 13 08:41:31 vps159032-gqg python[454989]: 2026-11-13 08:41:31,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:36 +05)" executed successfully
+Nov 13 08:41:36 vps159032-gqg python[454989]: 2026-11-13 08:41:36,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:41 +05)" (scheduled at 2026-11-13 13:41:36.374842+05:00)
+Nov 13 08:41:36 vps159032-gqg python[454989]: 2026-11-13 08:41:36,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:41 +05)" executed successfully
+Nov 13 08:41:41 vps159032-gqg python[454989]: 2026-11-13 08:41:41,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:46 +05)" (scheduled at 2026-11-13 13:41:41.374842+05:00)
+Nov 13 08:41:41 vps159032-gqg python[454989]: 2026-11-13 08:41:41,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:46 +05)" executed successfully
+Nov 13 08:41:46 vps159032-gqg python[454989]: 2026-11-13 08:41:46,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:51 +05)" (scheduled at 2026-11-13 13:41:46.374842+05:00)
+Nov 13 08:41:46 vps159032-gqg python[454989]: 2026-11-13 08:41:46,377 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:51 +05)" executed successfully
+Nov 13 08:41:51 vps159032-gqg python[454989]: 2026-11-13 08:41:51,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:56 +05)" (scheduled at 2026-11-13 13:41:51.374842+05:00)
+Nov 13 08:41:51 vps159032-gqg python[454989]: 2026-11-13 08:41:51,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:41:56 +05)" executed successfully
+Nov 13 08:41:56 vps159032-gqg python[454989]: 2026-11-13 08:41:56,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:42:01 +05)" (scheduled at 2026-11-13 13:41:56.374842+05:00)
+Nov 13 08:41:56 vps159032-gqg python[454989]: 2026-11-13 08:41:56,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:42:01 +05)" executed successfully
+Nov 13 08:42:01 vps159032-gqg python[454989]: 2026-11-13 08:42:01,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:42:06 +05)" (scheduled at 2026-11-13 13:42:01.374842+05:00)
+Nov 13 08:42:01 vps159032-gqg python[454989]: 2026-11-13 08:42:01,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:42:06 +05)" executed successfully
+JOURNAL_AS_SERVICE_RC=0
+TRACE_15M=0
+LOST_15M=0
+=== IDENTITY_CHECK ===
+MAINPID=454989
+PROCESS_STARTED=2026-11-13T08:36:17.830000+00:00
+IDENTITY_RECORD={"checkout_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "code": "verified_deployed", "conflict": [], "deployed_at": "2026-11-13T08:36:16.759775Z", "deployed_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "dirty": false, "local_source_verification": "verified_deployed", "process_started_at": "2026-11-13T08:36:17.830000Z", "reason": "", "sources": ["release_manifest", "git_head", "git_cli", "runtime_app_version", "process_start"], "version_provenance": {"consistent": true, "manifest": "2.58.199", "runtime": "2.58.199"}}
+IDENTITY_RC=0
+=== SMOKE ===
+VERSION=2.58.199
+TOKEN_SET=1
+ADMIN_SET=1
+PORT=8000 BOUND=1
+CASE_MISSING=401
+CASE_BAD_SIG=401
+CASE_NONADMIN=200 available=True restricted=None reason=None
+CASE_ADMIN=200 ms=1
+TOP_KEYS=analytics,available,chat_id,code_check,generated_at,integrations,jobs,missing_evidence,resources,runtime,sources,storage_text,window
+AVAILABLE=True
+RUNTIME_VERSION=2.58.199
+RUNTIME_PID=454989
+RUNTIME_STARTED=2026-11-13T08:36:20.863314+00:00
+DEPLOYED_SHA=d20a7f730715ba9e9cba7673c0557794979be339
+CHECKOUT_SHA=d20a7f730715ba9e9cba7673c0557794979be339
+VERSION_PROVENANCE=null
+IDENTITY={"facts": {}, "healthy": null, "reason_code": null, "status": "not_checked", "verified": null}
+COUNTER logs.errors status=not_checked reason=None facts=null
+COUNTER media.stt status=not_checked reason=None facts=null
+COUNTER telegram.delivery status=not_checked reason=None facts=null
+NOT_CHECKED=null
+TTL_FAST_MS=1 same_top_keys=True
+TTL_AFTER_31S_MS=116 status=200
+SECRET_HITS=[]
+Traceback (most recent call last):
+  File "/tmp/smoke_258199.py", line 178, in <module>
+    asyncio.run(readback(ADMIN, "ADMIN"))
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/tmp/smoke_258199.py", line 158, in readback
+    cache = hot.get_config_cache()
+            ^^^
+NameError: name 'hot' is not defined
+SMOKE_RC=1
+=== PG_PARITY ===
+Traceback (most recent call last):
+  File "/tmp/remote_pg_hash.py", line 8, in <module>
+    import config.settings  # noqa: F401 - loads .env
+    ^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'config'
+PG_RC=1
+GIT_STATUS_AFTER=1
+FINAL_DONE=1

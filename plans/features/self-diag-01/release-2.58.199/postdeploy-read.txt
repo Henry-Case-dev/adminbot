@@ -1,0 +1,48 @@
+POSTDEPLOY READ-ONLY — 2.58.199 / d20a7f73 (2026-11-13)
+
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+BRANCH=release/2.58.199
+APP_VERSION=2.58.199
+SERVICE=active  MAINPID=454989  STARTED=2026-11-13 08:36:18 UTC
+HEALTH=200 {"status":"ok","version":"2.58.199"}
+SCHEMA=47
+MANIFEST=present readable_by_adminbot=1
+MANIFEST_SHA=d20a7f730715ba9e9cba7673c0557794979be339
+MANIFEST_VERSION=2.58.199 EFFECT=deploy
+MANIFEST_DEPLOYED_AT=2026-11-13T08:36:16.759775Z
+IDENTITY=verified_deployed deployed_sha=checkout_sha=d20a7f73 dirty=false
+VERSION_PROVENANCE={runtime:2.58.199, manifest:2.58.199, consistent:true}
+JOURNAL_AS_ADMINBOT_RC=0
+TRACEBACK_15M=0  ATTEMPT_LOST_15M=0
+
+API /api/status/self-diagnosis (loopback:8000)
+  missing initData -> 401
+  invalid signature -> 401
+  authorized admin -> 200 (runtime 2.58.199, pid 454989, deployed/checkout d20a7f73)
+  TTL: 1 ms cached vs 116 ms after 31 s
+  secret scan: no token/Bearer/api_key/bot_token/Authorization
+  counters: logs.errors / media.stt / telegram.delivery = not_checked, facts=null
+  RBAC: bot_server_state is PUBLIC_TECH; regular user gets public snapshot by design
+
+DEPLOYED-BUILD TESTS
+  test_checkup_contract.py + test_selfdiag_corrective_research.py + test_self_diag_golden.py
+  -> 108 passed
+  test_self_diag_golden.py alone -> 39 passed
+
+SETTINGS
+  bot_settings rows=547 sha=8a4fed50adfc8908 max_updated=2026-11-11T12:33:23Z
+  chat_profiles rows=3 sha=7daacc2d543876b1 max_updated=2026-11-12T11:04:00Z
+  SQLite meme tables: before/after hashes identical
+  no DDL/migrations; deploy before settings timestamps
+
+RELEASE GATE
+  exit=1 inventory=183 manual=53 scoped=189 errors=429
+  map: 114 VERIFIED / 47 PENDING / 22 READY_FOR_LIVE
+  map deployed_commit still 23477658 -> PM reconciliation required
+  full output: release-gate.log
+
+ROLLBACK
+  not executed; documented target 25876167 (2.58.197)
+  immediate pre-state 23477658 (2.58.198)
+  backup backups/pre_deploy_258199_20261113T083507Z.db
+  integrity=ok uv=47 sha256=6c1a7fac1c984c6b0f00478a9501a5f63ea76caebe7c1255d906aa84afce246b

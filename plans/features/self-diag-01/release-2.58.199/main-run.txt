@@ -1,0 +1,130 @@
+=== PHASE_A_PRE ===
+2026-11-13T08:35:06Z
+BRANCH_BEFORE=release/2.58.198
+HEAD_BEFORE=234776589c934024ed0e8dceba189fb9d70d3215
+STATUS_BEGIN
+?? .cache/
+STATUS_END
+TRACKED_DIRTY=0 STAGED_DIRTY=0
+APP_BEFORE=APP_VERSION = "2.58.198"   # (13.11.2026): 2.
+SERVICE_BEFORE=active
+UNIT_USER=adminbot UNIT_GROUP=root
+HTTP_BEFORE=200
+BODY_BEFORE={"status":"ok","version":"2.58.198"}
+SCHEMA_BEFORE=47
+MANIFEST_BEFORE=absent
+J_TRACE_BEFORE=1
+J_LOST_BEFORE=0
+CONFIG_BEFORE_BEGIN
+TABLES=meme_initiative_attempt,meme_initiative_reservation
+CFG meme_initiative_attempt rows=27284 sha=07e595fff82a71cb
+CFG meme_initiative_reservation rows=64 sha=f5a4892a03e5470e
+CONFIG_BEFORE_END
+=== PHASE_B_BACKUP ===
+BACKUP=backups/pre_deploy_258199_20261113T083507Z.db
+BACKUP_UV=47
+BACKUP_INTEGRITY=ok
+BACKUP_BYTES=2632986624
+BACKUP_SHA256=6c1a7fac1c984c6b0f00478a9501a5f63ea76caebe7c1255d906aa84afce246b
+=== PHASE_C_CHECKOUT ===
+From https://github.com/Henry-Case-dev/adminbot
+ * [new branch]        release/2.58.199 -> origin/release/2.58.199
+REMOTE=d20a7f730715ba9e9cba7673c0557794979be339
+Switched to a new branch 'release/2.58.199'
+branch 'release/2.58.199' set up to track 'origin/release/2.58.199'.
+From https://github.com/Henry-Case-dev/adminbot
+ * branch              release/2.58.199 -> FETCH_HEAD
+Already up to date.
+HEAD_AFTER=d20a7f730715ba9e9cba7673c0557794979be339
+APP_AFTER=APP_VERSION = "2.58.199"   # (13.11.2026): 2.
+TRACKED_AFTER=0 STAGED_AFTER=0
+=== PHASE_D_MANIFEST ===
+[release-manifest] wrote .deploy/release.json | sha=d20a7f730715ba9e9cba7673c0557794979be339 version=2.58.199 effect=deploy deployed_at=2026-11-13T08:36:16.759775Z
+MANIFEST_DEPLOYED_SHA=d20a7f730715ba9e9cba7673c0557794979be339
+MANIFEST_VERSION=2.58.199
+MANIFEST_EFFECT=deploy
+MANIFEST_PREVIOUS_SHA=None
+MANIFEST_PREVIOUS_VERSION=None
+MANIFEST_DEPLOYED_AT=2026-11-13T08:36:16.759775Z
+MANIFEST_READ_OK=1
+=== PHASE_E_RESTART ===
+POLL=1 CODE=502 BODY=
+POLL=2 CODE=200 BODY={"status":"ok","version":"2.58.199"}
+HEALTH_OK=1
+SERVICE_AFTER=active
+MAINPID=454989
+STARTED=Fri 2026-11-13 08:36:18 UTC
+HEAD_NOW=d20a7f730715ba9e9cba7673c0557794979be339
+SCHEMA_AFTER=47
+=== PHASE_F_JOURNAL ===
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - services.dream_worker - INFO - DeepSleep job registered (enabled resolved per-tick) | tick_minutes=60 (applies on restart)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Added job "DreamWorker._tick" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Added job "DreamWorker._deep_tick" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Scheduler started
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - __main__ - INFO - DreamWorker (раунд 9) initialized
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Added job "NostalgiaWorker._tick" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Scheduler started
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - services.nostalgia_worker - INFO - NostalgiaWorker started (heartbeat=60s, silence=45min, max_per_day=3, aggressiveness=0.3, flag=on)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - __main__ - INFO - NostalgiaWorker (раунд 9) initialized
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,306 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,307 - apscheduler.scheduler - INFO - Added job "AntiClicheWorker.tick" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,307 - apscheduler.scheduler - INFO - Scheduler started
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,307 - services.anticliche_worker - INFO - AntiClicheWorker started | interval_days=7 | first_run_delay_min=5 | next_run_time=2026-11-13 08:41:21.306913+00:00
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,307 - services.anticliche_worker - INFO - [pipeline] event=pipeline_step component=anticliche step=schedule status=ok reason=started interval_days=7 first_run_delay_min=5 next_run_time=2026-11-13 08:41:21.306913+00:00
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,307 - __main__ - INFO - AntiClicheWorker (раунд 10.23 F4) initialized
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,307 - __main__ - INFO - RelationsService + db + dream/nostalgia workers (раунд 9) initialized
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,365 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1794558981 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,365 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1794558981 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,374 - __main__ - INFO - [mca-17a] observability runtime initialized
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,374 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - apscheduler.scheduler - INFO - Added job "VisionMediaWorker._tick" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - apscheduler.scheduler - INFO - Scheduler started
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - services.mca_vision - INFO - [vision] media worker started | tick=5s
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - __main__ - INFO - [mca-19] vision media worker initialized
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - apscheduler.scheduler - INFO - Added job "GoodmorningSchedulerService._tick" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - apscheduler.scheduler - INFO - Scheduler started
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,375 - services.goodmorning_scheduler - INFO - Goodmorning scheduler started (07:00 chat-local via ChatClock, 1 chats, ticker 60s)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,376 - __main__ - INFO - InfoService (Epic 43) initialized | file=info_text.md
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,394 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=superseded | gen_fp=2d0efab0e817 new_fp=2d0efab0e817 — FTS-only (A06) | build pending — source empty (nothing to vectorize)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,394 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1794558981 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,546 - services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,546 - __main__ - INFO - Olya service disabled (OLYA_ENABLED=False)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,546 - __main__ - INFO - VideoDownloader enabled (cobalt=http://localhost:9000)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,546 - __main__ - INFO - All routers registered (v2.4.0)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - __main__ - INFO - Relay channel media group tracker registered (Epic 14)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - __main__ - INFO - Bot started, listening for messages...
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._heartbeat" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._cleanup" to job store "default"
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - apscheduler.scheduler - INFO - Scheduler started
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,547 - services.uptime_heartbeat - INFO - [uptime] heartbeat started: interval=60s retention=72h
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,887 - web.app - INFO - [webapp] WEBAPP_URL | scheme=https | host=admin-bot.duckdns.org | path=/web/
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,888 - web.app - INFO - [webapp] MEDIA_PUBLIC_BASE_URL | scheme=https | host=admin-bot.duckdns.org | path=-
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,889 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,892 - aiogram.dispatcher - INFO - Start polling
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,892 - web.app - INFO - [webapp] lifespan started | pg_available=True
+Nov 13 08:36:21 vps159032-gqg python[454989]: 2026-11-13 08:36:21,894 - aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+JOURNAL_RC=0
+J_TRACE_AFTER=0
+J_LOST_AFTER=0
+=== PHASE_G_CONFIG_AFTER ===
+TABLES=meme_initiative_attempt,meme_initiative_reservation
+CFG meme_initiative_attempt rows=27284 sha=07e595fff82a71cb
+CFG meme_initiative_reservation rows=64 sha=f5a4892a03e5470e
+=== PHASE_H_SMOKE ===
+Traceback (most recent call last):
+  File "/tmp/smoke_258199.py", line 15, in <module>
+    from config.settings import APP_VERSION, settings  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'config'
+SMOKE_RC=1
+=== PHASE_I_TESTS ===
+........................................................................ [ 66%]
+....................................                                     [100%]
+108 passed in 7.56s
+TESTS_RC=0
+GIT_STATUS_AFTER_TESTS=1
+=== DONE ===

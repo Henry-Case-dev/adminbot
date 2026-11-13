@@ -1,0 +1,23 @@
+LAST_UTC=2026-11-13T08:43:26Z
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+ACTIVE=active
+HTTP=200
+BODY={"status":"ok","version":"2.58.199"}
+=== READBACK ===
+ADMIN_SET=1
+POLICY_ADMIN allowed=False effect=deny reason=denied_prompt_content_member
+READBACK_ADMIN status=denied reason=denied_prompt_content_member messages=0 chars=0 machine_len=157
+POLICY_NONADMIN allowed=False effect=deny reason=denied_prompt_content_member
+READBACK_NONADMIN status=denied reason=denied_prompt_content_member messages=0 chars=0 machine_len=157
+READBACK_RC=0
+=== PG_PARITY ===
+PG_DSN_SET=1
+PG bot_settings rows=547 sha=8a4fed50adfc8908
+PG bot_settings max_updated_at=2026-11-11 12:33:23.729247+00:00 count=547
+PG bot_roles rows=4 sha=0bcbd0d6f56e07d3
+PG bot_admins rows=3 sha=7ad396e507e017ed
+PG chat_profiles rows=3 sha=7daacc2d543876b1
+PG chat_profiles max_updated_at=2026-11-12 11:04:00.617050+00:00 count=3
+PG chat_admins rows=1 sha=ff30a61c99b8c712
+PG_RC=0
+LAST_DONE=1

@@ -1,0 +1,77 @@
+.............................................FF...........               [100%]
+================================== FAILURES ===================================
+____________ test_previous_release_is_taken_from_existing_manifest ____________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2262/test_previous_release_is_taken0')
+
+    @requires_git
+    def test_previous_release_is_taken_from_existing_manifest(tmp_path):
+        root, first_sha = _repo(tmp_path)
+        rm.write_manifest(root, rm.build_manifest(root))
+    
+>       second_sha = _commit(root, version="2.58.199", message="deploy two")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_release_manifest.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_release_manifest.py:72: in _commit
+    _git(root, "commit", "-q", "-m", message)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+root = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2262/test_previous_release_is_taken0/repo')
+args = ('commit', '-q', '-m', 'deploy two')
+
+    def _git(root, *args) -> subprocess.CompletedProcess:
+        proc = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc.returncode != 0:
+>           raise AssertionError(
+                f"git {' '.join(args)} rc={proc.returncode}: "
+                f"{(proc.stderr or proc.stdout).strip()}")
+E           AssertionError: git commit -q -m deploy two rc=1: On branch main
+E           nothing to commit, working tree clean
+
+tests\test_release_manifest.py:35: AssertionError
+__________ test_rollback_manifest_points_to_previous_running_version __________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2262/test_rollback_manifest_points_0')
+
+    @requires_git
+    def test_rollback_manifest_points_to_previous_running_version(tmp_path):
+        root, first_sha = _repo(tmp_path)
+        rm.write_manifest(root, rm.build_manifest(root))
+>       second_sha = _commit(root, version="2.58.199", message="deploy two")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_release_manifest.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_release_manifest.py:72: in _commit
+    _git(root, "commit", "-q", "-m", message)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+root = WindowsPath('C:/Users/main/.config/opencode/WorkspaceData/temp/intelligence/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2262/test_rollback_manifest_points_0/repo')
+args = ('commit', '-q', '-m', 'deploy two')
+
+    def _git(root, *args) -> subprocess.CompletedProcess:
+        proc = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc.returncode != 0:
+>           raise AssertionError(
+                f"git {' '.join(args)} rc={proc.returncode}: "
+                f"{(proc.stderr or proc.stdout).strip()}")
+E           AssertionError: git commit -q -m deploy two rc=1: On branch main
+E           nothing to commit, working tree clean
+
+tests\test_release_manifest.py:35: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_release_manifest.py::test_previous_release_is_taken_from_existing_manifest
+FAILED tests/test_release_manifest.py::test_rollback_manifest_points_to_previous_running_version
+2 failed, 56 passed in 19.05s

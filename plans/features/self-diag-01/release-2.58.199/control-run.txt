@@ -1,0 +1,104 @@
+CONTROL_UTC=2026-11-13T08:38:43Z
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+BRANCH=release/2.58.199
+ACTIVE=active
+MAINPID=454989
+STARTED=Fri 2026-11-13 08:36:18 UTC
+HTTP=200
+BODY={"status":"ok","version":"2.58.199"}
+SCHEMA=47
+APP=APP_VERSION = "2.58.199"   # (13.11.2026): 2.
+MANIFEST_PRESENT=1
+MANIFEST_READ_ADMINBOT=1
+MANIFEST_JSON_BEGIN
+{"deployed_at": "2026-11-13T08:36:16.759775Z", "deployed_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "effect": "deploy", "previous_sha": null, "previous_version": null, "version": "2.58.199"}
+MANIFEST_JSON_END
+TRACE_10M=0
+LOST_10M=0
+JOURNAL_50_BEGIN
+Nov 13 08:37:52 vps159032-gqg python[454989]: 2026-11-13 08:37:52,969 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559072 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794559072, "executed_at": 1794559072, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "lease_held"} | stage=initiative | reason_code=lease_held
+Nov 13 08:37:53 vps159032-gqg python[454989]: 2026-11-13 08:37:53,381 - services.mca_events - INFO - mca_event=initiative_event_signal | ts=1794559073 | event_name=initiative_event_signal | outcome=success | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"chat_id": -100<redacted>, "reason": "live_message", "mechanism": "initiative", "decision": "dispatched"}
+Nov 13 08:37:53 vps159032-gqg python[454989]: 2026-11-13 08:37:53,383 - handlers.alan - INFO - F7v2: silence threshold not reached | chat=-100<redacted> | elapsed=0.2h | threshold=2.0h — timer reset without greeting
+Nov 13 08:37:56 vps159032-gqg python[454989]: 2026-11-13 08:37:56,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:01 +05)" (scheduled at 2026-11-13 13:37:56.374842+05:00)
+Nov 13 08:37:56 vps159032-gqg python[454989]: 2026-11-13 08:37:56,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:01 +05)" executed successfully
+Nov 13 08:38:01 vps159032-gqg python[454989]: 2026-11-13 08:38:01,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:06 +05)" (scheduled at 2026-11-13 13:38:01.374842+05:00)
+Nov 13 08:38:01 vps159032-gqg python[454989]: 2026-11-13 08:38:01,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:06 +05)" executed successfully
+Nov 13 08:38:04 vps159032-gqg python[454989]: 2026-11-13 08:38:04,237 - services.mca_events - INFO - mca_event=ingestion_live | ts=1794559084 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-100<redacted> | message_id=1213158 | duration_ms=2
+Nov 13 08:38:04 vps159032-gqg python[454989]: 2026-11-13 08:38:04,240 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559084 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794559084, "executed_at": 1794559084, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "settings_rescaled"} | stage=initiative | reason_code=settings_rescaled
+Nov 13 08:38:04 vps159032-gqg python[454989]: 2026-11-13 08:38:04,443 - services.mca_events - INFO - mca_event=initiative_observer_scan | ts=1794559084 | event_name=initiative_observer_scan | outcome=success | level=INFO | component=initiative | stage=observed
+Nov 13 08:38:04 vps159032-gqg python[454989]: 2026-11-13 08:38:04,446 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559084 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794559084, "executed_at": 1794559084, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "lease_held"} | stage=initiative | reason_code=lease_held
+Nov 13 08:38:04 vps159032-gqg python[454989]: 2026-11-13 08:38:04,874 - services.mca_events - INFO - mca_event=initiative_event_signal | ts=1794559084 | event_name=initiative_event_signal | outcome=success | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"chat_id": -100<redacted>, "reason": "live_message", "mechanism": "initiative", "decision": "dispatched"}
+Nov 13 08:38:04 vps159032-gqg python[454989]: 2026-11-13 08:38:04,876 - handlers.alan - INFO - F7v2: silence threshold not reached | chat=-100<redacted> | elapsed=0.0h | threshold=2.0h — timer reset without greeting
+Nov 13 08:38:06 vps159032-gqg python[454989]: 2026-11-13 08:38:06,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:11 +05)" (scheduled at 2026-11-13 13:38:06.374842+05:00)
+Nov 13 08:38:06 vps159032-gqg python[454989]: 2026-11-13 08:38:06,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:11 +05)" executed successfully
+Nov 13 08:38:11 vps159032-gqg python[454989]: 2026-11-13 08:38:11,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:16 +05)" (scheduled at 2026-11-13 13:38:11.374842+05:00)
+Nov 13 08:38:11 vps159032-gqg python[454989]: 2026-11-13 08:38:11,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:16 +05)" executed successfully
+Nov 13 08:38:16 vps159032-gqg python[454989]: 2026-11-13 08:38:16,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:21 +05)" (scheduled at 2026-11-13 13:38:16.374842+05:00)
+Nov 13 08:38:16 vps159032-gqg python[454989]: 2026-11-13 08:38:16,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:21 +05)" executed successfully
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,263 - apscheduler.executors.default - INFO - Running job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:39:21 UTC)" (scheduled at 2026-11-13 08:38:21.262737+00:00)
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,307 - services.summary_scheduler - INFO - summary: cron skip (disabled, source=chat) | chat_id=-100<redacted>
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,308 - apscheduler.executors.default - INFO - Job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:39:21 UTC)" executed successfully
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,309 - apscheduler.executors.default - INFO - Running job "NostalgiaWorker._tick (trigger: interval[0:01:00], next run at: 2026-11-13 13:39:21 +05)" (scheduled at 2026-11-13 13:38:21.306503+05:00)
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,309 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1794559101 | event_name=nostalgia_run | outcome=start | level=INFO | component=nostalgia.run
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,311 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559101 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "nostalgia", "chat_id": -100<redacted>, "planned_at": 1794572003, "executed_at": 1794559101, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "settings_rescaled"} | stage=nostalgia | reason_code=settings_rescaled
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,312 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1794559101 | event_name=nostalgia_run | outcome=skipped | level=INFO | component=nostalgia.run | reason_code=no_relevant_memory | duration_ms=2
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,312 - apscheduler.executors.default - INFO - Job "NostalgiaWorker._tick (trigger: interval[0:01:00], next run at: 2026-11-13 13:39:21 +05)" executed successfully
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:26 +05)" (scheduled at 2026-11-13 13:38:21.374842+05:00)
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:26 +05)" executed successfully
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,376 - apscheduler.executors.default - INFO - Running job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:39:21 UTC)" (scheduled at 2026-11-13 08:38:21.375487+00:00)
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,377 - services.goodmorning_scheduler - INFO - Goodmorning tick skipped (slot=skip_quiet) | chat_id=-100<redacted>
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,377 - services.mca_events - INFO - mca_event=goodmorning_run | ts=1794559101 | event_name=goodmorning_run | outcome=silent | level=INFO | component=goodmorning | usage_json={"targets": 1, "sent": 0, "skipped": 1, "failed": 0} | duration_ms=1
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,377 - apscheduler.executors.default - INFO - Job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-13 08:39:21 UTC)" executed successfully
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,389 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1794559101 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,548 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-13 08:39:21 UTC)" (scheduled at 2026-11-13 08:38:21.547224+00:00)
+Nov 13 08:38:21 vps159032-gqg python[454989]: 2026-11-13 08:38:21,553 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-13 08:39:21 UTC)" executed successfully
+Nov 13 08:38:26 vps159032-gqg python[454989]: 2026-11-13 08:38:26,376 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:31 +05)" (scheduled at 2026-11-13 13:38:26.374842+05:00)
+Nov 13 08:38:26 vps159032-gqg python[454989]: 2026-11-13 08:38:26,376 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:31 +05)" executed successfully
+Nov 13 08:38:31 vps159032-gqg python[454989]: 2026-11-13 08:38:31,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:36 +05)" (scheduled at 2026-11-13 13:38:31.374842+05:00)
+Nov 13 08:38:31 vps159032-gqg python[454989]: 2026-11-13 08:38:31,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:36 +05)" executed successfully
+Nov 13 08:38:36 vps159032-gqg python[454989]: 2026-11-13 08:38:36,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:41 +05)" (scheduled at 2026-11-13 13:38:36.374842+05:00)
+Nov 13 08:38:36 vps159032-gqg python[454989]: 2026-11-13 08:38:36,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:41 +05)" executed successfully
+Nov 13 08:38:41 vps159032-gqg python[454989]: 2026-11-13 08:38:41,375 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:46 +05)" (scheduled at 2026-11-13 13:38:41.374842+05:00)
+Nov 13 08:38:41 vps159032-gqg python[454989]: 2026-11-13 08:38:41,375 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-13 13:38:46 +05)" executed successfully
+Nov 13 08:38:41 vps159032-gqg python[454989]: 2026-11-13 08:38:41,453 - services.mca_events - INFO - mca_event=ingestion_live | ts=1794559121 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-100<redacted> | message_id=1213159 | duration_ms=0
+Nov 13 08:38:41 vps159032-gqg python[454989]: 2026-11-13 08:38:41,455 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559121 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794559098, "executed_at": 1794559121, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "settings_rescaled"} | stage=initiative | reason_code=settings_rescaled
+Nov 13 08:38:41 vps159032-gqg python[454989]: 2026-11-13 08:38:41,662 - services.mca_events - INFO - mca_event=initiative_observer_scan | ts=1794559121 | event_name=initiative_observer_scan | outcome=success | level=INFO | component=initiative | stage=observed
+Nov 13 08:38:41 vps159032-gqg python[454989]: 2026-11-13 08:38:41,664 - services.mca_events - INFO - mca_event=quantum_schedule_due | ts=1794559121 | event_name=quantum_schedule_due | outcome=skipped | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"mechanism": "initiative", "chat_id": -100<redacted>, "planned_at": 1794559121, "executed_at": 1794559121, "lateness_seconds": 0, "missed_count": 0, "executed": false, "trigger": "schedule", "reason_code": "lease_held"} | stage=initiative | reason_code=lease_held
+Nov 13 08:38:42 vps159032-gqg python[454989]: 2026-11-13 08:38:42,083 - services.mca_events - INFO - mca_event=initiative_event_signal | ts=1794559122 | event_name=initiative_event_signal | outcome=success | level=INFO | component=qnd | chat_id=-100<redacted> | usage_json={"chat_id": -100<redacted>, "reason": "live_message", "mechanism": "initiative", "decision": "dispatched"}
+Nov 13 08:38:42 vps159032-gqg python[454989]: 2026-11-13 08:38:42,085 - handlers.alan - INFO - F7v2: silence threshold not reached | chat=-100<redacted> | elapsed=0.0h | threshold=2.0h — timer reset without greeting
+JOURNAL_RC=0
+JOURNAL_50_END
+=== SMOKE ===
+VERSION=2.58.199
+TOKEN_SET=1
+ADMIN_SET=1
+PORT=8000 BOUND=1
+CASE_MISSING=401
+CASE_BAD_SIG=401
+CASE_NONADMIN=200 available=True restricted=None reason=None
+CASE_ADMIN=200 ms=2
+TOP_KEYS=analytics,available,chat_id,code_check,generated_at,integrations,jobs,missing_evidence,resources,runtime,sources,storage_text,window
+AVAILABLE=True
+RUNTIME_VERSION=2.58.199
+RUNTIME_PID=454989
+RUNTIME_STARTED=2026-11-13T08:36:20.863314+00:00
+DEPLOYED_SHA=d20a7f730715ba9e9cba7673c0557794979be339
+CHECKOUT_SHA=d20a7f730715ba9e9cba7673c0557794979be339
+VERSION_PROVENANCE=null
+IDENTITY={"facts": {}, "healthy": null, "reason_code": null, "status": "not_checked", "verified": null}
+COUNTER logs.errors status=not_checked reason=None facts=null
+COUNTER media.stt status=not_checked reason=None facts=null
+COUNTER telegram.delivery status=not_checked reason=None facts=null
+NOT_CHECKED=null
+TTL_FAST_MS=2 same_top_keys=True
+TTL_AFTER_31S_MS=105 status=200
+SECRET_HITS=[]
+SMOKE_RC=1
+=== PG_PARITY ===
+PG_RC=1
+=== GOLDEN_DEPLOYED ===
+.......................................                                  [100%]
+39 passed in 5.67s
+GOLDEN_RC=0
+GIT_STATUS_AFTER=1
+CONTROL_DONE=1

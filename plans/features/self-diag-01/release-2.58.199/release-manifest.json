@@ -1,0 +1,9 @@
+{
+  "note": "observed subset of .deploy/release.json; full file remains on the server",
+  "deployed_at": "2026-11-13T08:36:16.759775Z",
+  "deployed_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+  "effect": "deploy",
+  "previous_sha": null,
+  "previous_version": null,
+  "version": "2.58.199"
+}

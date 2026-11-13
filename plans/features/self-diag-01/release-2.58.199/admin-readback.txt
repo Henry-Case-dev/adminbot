@@ -1,0 +1,10 @@
+ADM_UTC=2026-11-13T08:44:51Z
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+HTTP=200
+GLOBAL_ADMIN_CANDIDATES=1
+NO_GLOBAL_ADMIN_FOUND
+ACCESS_NONADMIN global_admin=False role=user
+POLICY_NONADMIN allowed=False effect=unverified reason=denied_auth_unverified
+READBACK_NONADMIN status=unverified reason=denied_auth_unverified messages=0 chars=0 machine_len=294
+ADM_RC=0
+ADM_DONE=1
