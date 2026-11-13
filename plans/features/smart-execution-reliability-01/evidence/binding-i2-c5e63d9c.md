@@ -157,3 +157,79 @@ Worktree сохраняется до ревью (нужен Reviewer и инте
 откаты кода выполнялись скриптами с `finally`-восстановлением; после каждого
 прогона дерево проверено чистым (`git status` пуст). Секреты не печатались,
 production не затрагивался.
+
+## 10. Rework после ревью I2 (F1/F2)
+
+Ревью I2: **F1** (in-scope, low) — при сбое `MAX(id)`/`COUNT(*)` замер отдавал
+`available=True, lag_rows=0` с `lag_source=cursor_distance`, хотя binding
+обещал `available=False`. **F2** — `lag_seconds` оставался pending-based и мог
+быть 0 при `lag_rows>0`. **F3/F5** — backlog, в этом rework не трогались.
+
+* Новый кодовый коммит (CODE_SHA): **`08838eacd0b7105a772975ee611b76ce0517d351`**
+  (`services/mca_experience_jobs.py` +84/−11, `services/experience_diagnostics.py`
+  +3, `web/api/memory_overview.py` +6).
+* Тестовый коммит / кандидат для ревью:
+  **`fa1bdb233d87d68a641b8e2d8c0cfd794765bfa1`**
+  (`tests/test_sxr_i2_fresh_stream_drain.py` +134).
+* Предыдущий кандидат `e43fea22` остаётся базой RED-доказательства; §1–§9
+  описывают исходный объём I2 и остаются в силе, кроме семантики lag ниже.
+
+### 10.1. F1 — сбой замера не выдаётся за ноль
+
+`_measure_semantic_lag`: если `behind` непуст, но `measured == 0` (все COUNT
+упали), результат остаётся `available=False`, дополнительно
+`chats=len(behind)`, `measured_chats=0`, `failed_chats`, `partial=True`.
+Снимок уходит на честный pending-fallback (`lag_source="pending"`), а не
+заявляет `cursor_distance` с нулём. Частичный сбой (измерена часть чатов)
+по-прежнему `available=True` с `partial=True` и `failed_chats` — число
+не выдаётся за полное.
+
+### 10.2. F2 — `lag_seconds` из того же измеренного источника
+
+`_chat_rows_after` теперь одним проходом отдаёт `(COUNT(*), MIN(timestamp))`
+строк после курсора; `age_seconds` = возраст самой старой необработанной
+реплики. В снимке:
+
+| Ситуация | `lag_seconds` | `lag_seconds_source` |
+|---|---|---|
+| Замер удался, строки после курсора есть | `now − oldest_ts` | `cursor_distance` |
+| Замер удался, строк после курсора нет | `0` (измеренный ноль) | `cursor_distance` |
+| Замер удался, строки есть, timestamp неизвестен | `None` | `unknown` |
+| Замер недоступен, pending знает возраст | `now − pending_since` | `pending` |
+| Замер недоступен, возраст неизвестен | `None` | `unknown` |
+
+Ноль больше не подставляется при неизвестности; поле `lag_seconds_source`
+отдают снимок, `experience_diagnostics` и оба места `memory_overview` API.
+Потребители, ожидающие число (`int(x or 0)`), сохраняют прежний контракт.
+
+### 10.3. RED → GREEN
+
+RED: код откачен к `e43fea22`, новые тесты на месте —
+`4 failed, 11 passed` (падают ровно `test_all_lag_counts_failed_is_unavailable_not_zero`,
+`test_lag_seconds_measured_from_cursor_distance`,
+`test_lag_seconds_unknown_is_none_not_zero`,
+`test_lag_seconds_pending_fallback_marks_source`).
+GREEN на `fa1bdb23`: `15 passed` в контрактном наборе.
+
+### 10.4. Мутация (ложный 0)
+
+Отключение F1-guard (`if False and behind and measured == 0:`, т.е. возврат
+прежнего `available=True, rows=0`) даёт `3 failed, 12 passed` — падают F1 и
+оба сценария неизвестности. После восстановления дерево чистое.
+
+### 10.5. Прогоны на `fa1bdb23`
+
+| Прогон | Результат |
+|---|---|
+| `pytest tests/test_sxr_i2_fresh_stream_drain.py` | **15 passed** |
+| `+ test_lesson_strategy_contract.py test_mod_acl_ux01_exp_fix_semantic_checkpoint.py test_webapp_memory_overview_api.py` | **55 passed** |
+| Широкий набор 14 файлов опыта/MCA (тот же, что в §5) | **219 passed, 1 предсуществующий провал** (mca16, см. §7) |
+| `git diff e43fea22..HEAD --check` | чисто |
+
+### 10.6. Что осталось непроверенным
+
+Пункт `live_required/postdeploy` не изменился: поведение на production-объёме
+(2 059 418 строк после курсора) проверяется только после контролируемого
+выката. Стоимость `COUNT(*)`+`MIN(timestamp)` — один проход по PK-диапазону,
+на синтетике тестов измерена; на реальном файле 2.8 ГБ — после выката.
+
