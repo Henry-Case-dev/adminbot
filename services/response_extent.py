@@ -78,15 +78,19 @@ RICH_MIN_ANSWER_CHARS = 400
 # Env-дефолт max_output_tokens для longform-планов (§Model slots).
 DEFAULT_LONGFORM_MAX_OUTPUT_TOKENS = 4096
 
-# ── MCA-23 фаза 2 (§17/§39): multi-tool план ────────────────────────────────
+# ── MCA-23 фаза 2 (§17/§39): multi-tool план ───────────────────────────────
 # Потолки developer-level (§39). Числа код-константы; исполнение —
 # services/tool_loop (поверх существующего цикла, НЕ второй агент).
-PLAN_MAX_STEPS = 6            # шагов в плане не больше суммарного cap вызовов
-PLAN_MAX_REPLANS = 2          # §39 ceiling; фаза 2: re-plan не выполняется
+# SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §B1): прежние
+# ``PLAN_MAX_STEPS = 6`` / ``PLAN_MAX_REPLANS = 2`` удалены — нормализованный
+# план больше не обрезается по числу шагов, а re-plan не выполнялся вовсе
+# (мёртвая конфигурация). Число шагов ограничивает сам план и явная
+# операторская политика при effective ``flags.budgets_enabled=true``.
 # SXR-C2-01/C3-02 (SMART-EXECUTION-RELIABILITY-01 C2/C3): заводского потолка
 # ссылок нет. Явная политика оператора — env `DIRECT_TOOL_PLAN_MAX_FETCH_STEPS`;
 # `0` = план строится по всем ссылкам запроса (семантический отбор запроса
-# сохранён: нужны 2+ ссылки И маркер сравнения).
+# сохранён: нужны 2+ ссылки И маркер сравнения). Константа — справочное
+# заводское значение политики, реальный резолв в ``_fetch_steps_policy``.
 PLAN_MAX_FETCH_STEPS = 0
 
 # §14: предпочтительные capability names → реальные tools. Шаги с именем,

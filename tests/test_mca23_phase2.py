@@ -223,10 +223,14 @@ class TestNormalizeToolPlan:
               "arguments": {"query": "q"}, "depends_on": ["ghost"]}])
         assert _topo_order(solo)[0]["step_id"] == "c"
 
-    def test_step_cap(self):
+    def test_no_step_cap(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: нормализованный план больше НЕ
+        обрезается по числу шагов (прежний PLAN_MAX_STEPS=6 удалён)."""
         raw = [{"step_id": f"s{i}", "tool": "execute_web_search",
                 "arguments": {"query": str(i)}} for i in range(9)]
-        assert len(normalize_tool_plan(raw)) == 6   # PLAN_MAX_STEPS
+        steps = normalize_tool_plan(raw)
+        assert len(steps) == 9
+        assert [s["step_id"] for s in steps] == [f"s{i}" for i in range(9)]
 
     def test_bad_policy_defaults_optional(self):
         steps = normalize_tool_plan(
@@ -404,8 +408,9 @@ class TestToolPlanExecution:
 
     @pytest.mark.asyncio
     async def test_golden_i_media_repeat_bounded(self):
-        """Golden I: media-вызовы ограничены §17-дедупом (≤2 одинаковых
-        dispatch), третий — из кэша; цикла нет, side effect не спамится."""
+        """Golden I: media-вызовы дедуплицируются по идентичности операции —
+        один dispatch, остальные получают прежний результат; повтор неидемпо-
+        тентной доставки (side effect) не спамится (SMART §B1-05)."""
         step = {"step_id": "dl", "tool": "download_media",
                 "arguments": {"url": "https://v.example/1"},
                 "depends_on": [], "failure_policy": "required"}
@@ -417,9 +422,10 @@ class TestToolPlanExecution:
         out = await chat_with_tools(llm, MESSAGES, tools=_SCHEMAS,
                                     router=router, ctx=MagicMock(),
                                     tool_plan=steps)
-        assert len(router.calls) == 2          # 2 dispatch + 1 dedup
+        assert len(router.calls) == 1          # 1 dispatch + 2 dedup
         dupes = [env for env in out.tool_results if env.get("duplicate")]
-        assert len(dupes) == 1 and dupes[0]["round"] == 0
+        assert len(dupes) == 2
+        assert all(env["round"] == 0 for env in dupes)
         # media доставлен → Writer-ветка не нужна (§18-I)
         assert media_delivered(out) is True
 

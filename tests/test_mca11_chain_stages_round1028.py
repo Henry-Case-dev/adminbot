@@ -25,6 +25,18 @@ MESSAGES = [{"role": "user", "content": "вопрос"}]
 TOOLS = [{"type": "function"}]
 
 
+class _ExpiredFuseClock:
+    """Детерминированная граница fuse: первый monotonic — старт цепочки,
+    дальше время «ушло вперёд» (не зависит от разрешения Windows-таймера)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def monotonic(self) -> float:
+        self.calls += 1
+        return 0.0 if self.calls == 1 else 1000.0
+
+
 class FakeLLM:
     def __init__(self, answers):
         self._answers = list(answers)
@@ -214,7 +226,11 @@ class TestStageEvents:
     @pytest.mark.asyncio
     async def test_chain_timeout_maps_deadline_exceeded(self, events,
                                                         monkeypatch):
-        monkeypatch.setattr(Settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", -1.0)
+        from services import tool_loop
+
+        # Fuse — явная операторская страховка (`>0`); 0 = не задан (§B1).
+        monkeypatch.setattr(Settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 30.0)
+        monkeypatch.setattr(tool_loop, "time", _ExpiredFuseClock())
         await _run(FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
                             _text("финал")]), FakeRouter())
         ev = [e for e in events if e["event_name"] == "tool_call"][0]

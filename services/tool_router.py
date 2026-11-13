@@ -437,15 +437,19 @@ def _history_sample_id(chat_id: int, anchor_ts: int, anchor_id: int,
 
 
 def _history_cursor_ttl() -> float:
-    """Срок жизни cursor — существующий wall-clock цепочки инструментов
-    (TOOL_CHAIN_TIMEOUT_SECONDS = 360, tool_loop.py). Новый TTL НЕ вводится
-    (архконтракт §1 Cursor)."""
-    from services.tool_loop import TOOL_CHAIN_TIMEOUT_SECONDS
+    """Срок жизни cursor — существующая техническая константа цепочки.
+
+    SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §B1): 360 c больше НЕ
+    продуктовый дедлайн исследования; для cursor это просто срок жизни
+    подписанного состояния (тот же, что у `diagnostic_collector`). Новый TTL
+    не вводится (архконтракт §1 Cursor), значение не изменилось."""
+    from services.diagnostic_collector import _CURSOR_TTL_SECONDS
     try:
-        return float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
-                             TOOL_CHAIN_TIMEOUT_SECONDS))
+        value = float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 0)
+                      or 0)
     except (TypeError, ValueError):
-        return TOOL_CHAIN_TIMEOUT_SECONDS
+        return _CURSOR_TTL_SECONDS
+    return value if value > 0 else _CURSOR_TTL_SECONDS
 
 
 def _history_cursor_encode(bound: dict, after_ts: int, after_id: int,

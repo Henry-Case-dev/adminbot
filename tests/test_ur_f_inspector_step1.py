@@ -1429,6 +1429,12 @@ OUTBOUND_CONTEXT_CALLS = {
      "llm.generate_chat", None): "covered:tools",
     ("services/tool_loop.py", "chat_with_tools",
      "llm.generate", "single"): "covered:tools",
+    # §G: финальный Writer-вызов по накопленным tool-данным. Ответ этого
+    # вызова возвращается через `chat_with_tools` и учитывается его receipt'ом
+    # (`covered:tools`); без metadata-варианта sent_body недоступен → снимок
+    # доставки не строится (консервативно, без ложного доказательства).
+    ("services/tool_loop.py", "_finalize_from_evidence",
+     "llm.generate", None): "covered:tools",
 }
 
 

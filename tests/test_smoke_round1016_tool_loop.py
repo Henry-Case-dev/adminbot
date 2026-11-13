@@ -24,7 +24,7 @@ from services.llm_client import (
     LLMToolCall,
 )
 from services.smartmodule_throttling import CooldownTracker
-from services.tool_loop import TOOL_MAX_ROUNDS, chat_with_tools
+from services.tool_loop import chat_with_tools
 from services.tool_router import ToolContext, ToolDeps, ToolRouter
 from services.tool_schemas import TOOL_CALLING_TOOLS
 
@@ -146,44 +146,50 @@ class TestToolLoopFullCycle:
         assert "ОШИБКА" in _tool_msg(llm)[0]["content"]
 
 
-# ── 2. лимиты 4/2 ────────────────────────────────────────────────────────
+# ── 2. границы исполнения (SMART-EXECUTION-RELIABILITY-01 §B1) ───────────
 
 
 class TestToolLoopLimits:
     @pytest.mark.asyncio
-    async def test_per_round_truncated_to_two(self, monkeypatch, caplog):
+    async def test_all_round_calls_dispatched(self, monkeypatch):
+        """Прежняя обрезка «3 → 2» удалена: каждый запрошенный вызов получил
+        собственный tool-результат."""
         router = ToolRouter(_deps())
-        calls = [_tc(f"c{i}", "no_such_tool", {}) for i in range(3)]
+        calls = [_tc(f"c{i}", "no_such_tool", {"n": i}) for i in range(3)]
         llm = _ScriptedLLM([
             LLMChatResult(content=None, tool_calls=calls,
                           finish_reason="tool_calls"),
             LLMChatResult(content="финал", tool_calls=None, finish_reason="stop"),
         ])
-        import logging
-        with caplog.at_level(logging.WARNING):
-            await chat_with_tools(llm, [{"role": "user", "content": "x"}],
-                                  tools=TOOL_CALLING_TOOLS, router=router,
-                                  ctx=_ctx(bot=_FakeBot()))
-        assert len(_tool_msg(llm)) == 2         # 3 → 2
-        assert any("tool_calls truncated" in r.getMessage()
-                   for r in caplog.records)
+        out = await chat_with_tools(llm, [{"role": "user", "content": "x"}],
+                                    tools=TOOL_CALLING_TOOLS, router=router,
+                                    ctx=_ctx(bot=_FakeBot()))
+        assert len(_tool_msg(llm)) == 3
+        assert [e.get("tool_call_id") for e in out.tool_results] == \
+            ["c0", "c1", "c2"]
 
     @pytest.mark.asyncio
-    async def test_round_limit_degrades(self, monkeypatch):
+    async def test_identical_repeat_stops_by_no_progress(self, monkeypatch):
+        """Предела 4 раунда больше нет: повтор одного и того же вызова без
+        изменения условий не даёт новых данных → честный stop `no_progress`.
+        §G: при накопленных результатах ответ формирует финальная фаза, а не
+        саркастичная заглушка."""
         from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE
         router = ToolRouter(_deps())
         always = [LLMChatResult(content=None,
-                                tool_calls=[_tc(f"c{i}", "no_such_tool", {})],
+                                tool_calls=[_tc("same", "no_such_tool", {})],
                                 finish_reason="tool_calls")
-                  for i in range(TOOL_MAX_ROUNDS)]
+                  for _ in range(6)]
         llm = _ScriptedLLM(always)
         out = await chat_with_tools(llm, [{"role": "user", "content": "x"}],
                                     tools=TOOL_CALLING_TOOLS, router=router,
                                     ctx=_ctx(bot=_FakeBot()))
         assert out.degraded is True
-        assert out.reason == "round_limit"
-        assert out == TOOL_LOOP_FALLBACK_PHRASE
-        assert llm.calls == TOOL_MAX_ROUNDS
+        assert out.reason == "no_progress"
+        assert out != TOOL_LOOP_FALLBACK_PHRASE
+        assert out.finalize_mode == "llm"
+        assert out.tool_results                 # результаты сохранены
+        assert llm.calls == 3          # раунд исполнения + 2 без прогресса
 
 
 # ── 3. деградация провайдера ─────────────────────────────────────────────

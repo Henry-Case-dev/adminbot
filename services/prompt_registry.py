@@ -377,6 +377,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # появился отдельный блок этапа B.
     "initiative.meme.summary": "meme-summary-nolimit-01",
     "initiative.meme.joke": "meme-joke-evol014",
+    # SMART-EXECUTION-RELIABILITY-01 §G: финальная фаза инструментального
+    # исследования (ответ по накопленным данным, отказы/непроверенное).
+    "direct.tool_finalize": "tool-finalize-g1",
 }
 
 
@@ -538,6 +541,8 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     # MEME-PIPELINE-REFactor-01: текст выжимки больше не ограничивает длину.
     "initiative.meme.summary": ("meme-summary-nolimit-01", "175781ddfd7e"),
     "initiative.meme.joke": ("meme-joke-evol014", "2f30ca1f9a6b"),
+    # SMART-EXECUTION-RELIABILITY-01 §G: заводская редакция финальной фазы.
+    "direct.tool_finalize": ("tool-finalize-g1", "8edac2662468"),
 }
 
 #: Явные исключения grep-аудита EVOL-018 (контракт §1.7 п.4): имя константы
@@ -1968,6 +1973,20 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         composition_point="initiative/meme_summary",
         migration="factory", owner_lane="W1-MEME-P01", speech=False,
         ui="catalog_pending"),
+    # SMART-EXECUTION-RELIABILITY-01 §G (owner 2026-11-14): финальная фаза
+    # инструментального исследования — существующий LLM собирает ответ по
+    # накопленным tool-результатам, отделяя подтверждённое от гипотез и
+    # называя отказы/непроверенное (единый контракт всех потребителей цикла).
+    declare_prompt(
+        block_id="direct.tool_finalize",
+        purpose="Финальная фаза инструментального исследования: ответ по уже "
+                "полученным данным, подтверждённое отделено от гипотез, "
+                "названы отказавшие источники и непроверенные области.",
+        family="direct", scope="code",
+        code_source="services.tool_loop.TOOL_FINALIZE_PROMPT",
+        consumers=("tool_loop.py:_finalize_from_evidence",),
+        composition_point="direct/tool_finalize",
+        migration="factory", owner_lane="SMART-G", speech=False),
     # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): блок
     # ``factcheck.critique.directive`` больше НЕ объявляется здесь — он стал
     # PG-управляемым промптом каталога (``prompts.factcheck_critique_directive``)
@@ -2938,7 +2957,7 @@ def factory_set_fingerprint() -> str:
 #: абзац его контракта (метка ``l1-planner-memory-scope``, печать
 #: ``619290834387``); прочие каноны, включая тексты владельца, байт-в-байт.
 #: Было ``011c83dfac95``, стало ``ae40ca11c77b``.
-FACTORY_SET_SHA256_12 = "ae40ca11c77b"
+FACTORY_SET_SHA256_12 = "5c9b8200b681"
 
 
 

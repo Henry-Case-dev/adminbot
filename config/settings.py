@@ -1520,9 +1520,13 @@ class Settings:
     #   * MCA_COST_ACCOUNTING_ENABLED (K3, default ON) — ON: новые точки
     #     записи расходов (embeddings) + usage-детализация; OFF → без новых
     #     точек записи/usage_json (существующая аналитика как есть).
-    #   * Числа §3 D2 — env-only, текущие значения = дефолты (байт-паритет
-    #     при дефолтах); enforcement остаётся в tool_loop, master
+    #   * Числа §3 D2 — env-only; enforcement остаётся в tool_loop, master
     #     TOOL_CHAIN_LIMITS_ENABLED не дублируется.
+    # SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §A2/B3): числа 4/2/6/4
+    # больше НЕ заводские пределы исследования. `0` (заводское значение) =
+    # «политика не задана» → ограничений нет; явное `>0` — операторская
+    # политика и применяется ТОЛЬКО при effective `flags.budgets_enabled=true`.
+    # При budgets OFF значения не действуют (см. services/tool_loop.py).
     MCA_TOOL_RESULT_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_TOOL_RESULT_ENABLED", True)
     MCA_TOOL_DELIVERY_GUARD_ENABLED: ClassVar[bool] = _env_bool(
@@ -1530,13 +1534,17 @@ class Settings:
     MCA_COST_ACCOUNTING_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_COST_ACCOUNTING_ENABLED", True)
     MCA_TOOL_MAX_TOTAL_CALLS: ClassVar[int] = _env_int(
-        "MCA_TOOL_MAX_TOTAL_CALLS", 6)
+        "MCA_TOOL_MAX_TOTAL_CALLS", 0)
     MCA_TOOL_MAX_METERED_CALLS: ClassVar[int] = _env_int(
-        "MCA_TOOL_MAX_METERED_CALLS", 4)
+        "MCA_TOOL_MAX_METERED_CALLS", 0)
     MCA_TOOL_MAX_SAME_CALL: ClassVar[int] = _env_int(
-        "MCA_TOOL_MAX_SAME_CALL", 2)
+        "MCA_TOOL_MAX_SAME_CALL", 0)
+    # SMART-EXECUTION-RELIABILITY-01 (§B1): 0.0 = аварийный предохранитель НЕ
+    # задан (заводское значение). Универсального продуктового дедлайна 360 c
+    # больше нет; `>0` — явный операторский fuse (проверка на границах
+    # раундов, in-flight не отменяется, накопленное evidence сохраняется).
     MCA_TOOL_CHAIN_TIMEOUT_SECONDS: ClassVar[float] = _env_float(
-        "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 360.0)
+        "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 0.0)
     MCA_TOOL_TRANSIENT_RETRIES_MAX: ClassVar[int] = _env_int(
         "MCA_TOOL_TRANSIENT_RETRIES_MAX", 2)
     #   * MCA_TOOL_CHAIN_STAGES_ENABLED (K4, default ON) — ON: стадийные
