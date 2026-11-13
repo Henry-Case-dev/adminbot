@@ -21,7 +21,7 @@ WARNING: closed 7 leaked aiosqlite connection(s)
 =================================== ERRORS ====================================
 _ ERROR at setup of TestScenario1ForwardedClaimWithLink.test_pipeline_runs_and_no_claim_pool_not_used _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002151490C9E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000283C9176AE0>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -37,7 +37,7 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 tests\test_evol_fc_admission.py:171: AttributeError
 _ ERROR at setup of TestScenario5EmptyTarget.test_handler_honest_unavailable_without_invented_verdict _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021514922AE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000283C9176390>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -53,7 +53,7 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 tests\test_evol_fc_admission.py:171: AttributeError
 _ ERROR at setup of TestScenario8CooldownAndSingleFlight.test_retry_after_early_refusal_not_blocked _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002151091C620>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000283C8F6D520>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -69,7 +69,7 @@ E       AttributeError: 'PersistentCooldownTracker' object has no attribute '_la
 tests\test_evol_fc_admission.py:171: AttributeError
 _ ERROR at setup of TestScenario8CooldownAndSingleFlight.test_single_flight_and_antispam_preserved _
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000215148A3620>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000283C8F6CE90>
 
     @pytest.fixture
     def handler_env(monkeypatch):
@@ -86,7 +86,7 @@ tests\test_evol_fc_admission.py:171: AttributeError
 ================================== FAILURES ===================================
 ___ TestValidatorStage.test_evidence_injection_stays_data_not_instructions ____
 
-self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000002150E8EEBA0>
+self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x00000283C2FE9A00>
 
     @pytest.mark.asyncio
     async def test_evidence_injection_stays_data_not_instructions(self):
@@ -106,7 +106,7 @@ self = <tests.test_mca20_rework1_f1_f2.TestValidatorStage object at 0x000002150E
         assert v_user.count("<evidence>") == 1
         assert v_user.count("</evidence>") == 1
 >       assert "&lt;/evidence&gt;" in v_user
-E       assert '&lt;/evidence&gt;' in '<claim>╨▓ 2022 ╨│╨╛╨┤╤Г ╨▓╨▓╨╡╨╗╨╕ ╨╜╨╛╨▓╤Л╨╣ ╨╜╨░╨╗╨╛╨│</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 14.11.2026 03:02, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T22:02:39+00:00\n</Chat_Time_Context>'
+E       assert '&lt;/evidence&gt;' in '<claim>╨▓ 2022 ╨│╨╛╨┤╤Г ╨▓╨▓╨╡╨╗╨╕ ╨╜╨╛╨▓╤Л╨╣ ╨╜╨░╨╗╨╛╨│</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_publis... 14.11.2026 03:07, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-13T22:07:11+00:00\n</Chat_Time_Context>'
 
 tests\test_mca20_rework1_f1_f2.py:253: AssertionError
 ============================== warnings summary ===============================
@@ -123,4 +123,4 @@ ERROR tests/test_evol_fc_admission.py::TestScenario1ForwardedClaimWithLink::test
 ERROR tests/test_evol_fc_admission.py::TestScenario5EmptyTarget::test_handler_honest_unavailable_without_invented_verdict
 ERROR tests/test_evol_fc_admission.py::TestScenario8CooldownAndSingleFlight::test_retry_after_early_refusal_not_blocked
 ERROR tests/test_evol_fc_admission.py::TestScenario8CooldownAndSingleFlight::test_single_flight_and_antispam_preserved
-1 failed, 821 passed, 3 warnings, 4 errors in 43.61s
+1 failed, 821 passed, 3 warnings, 4 errors in 43.99s

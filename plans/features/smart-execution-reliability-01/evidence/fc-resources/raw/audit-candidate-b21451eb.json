@@ -2,7 +2,7 @@
  "rev": "HEAD",
  "files": {
   "services/factcheck_planner.py": {
-   "lines": 2385,
+   "lines": 2389,
    "constants": [
     {
      "line": 62,
@@ -255,47 +255,47 @@
      "value": "600"
     },
     {
-     "line": 1902,
+     "line": 1906,
      "name": "STOP_SUFFICIENT_EVIDENCE",
      "value": "\"sufficient_evidence\""
     },
     {
-     "line": 1903,
+     "line": 1907,
      "name": "STOP_NO_PROGRESS",
      "value": "\"no_progress\""
     },
     {
-     "line": 1904,
+     "line": 1908,
      "name": "STOP_PROVIDERS_UNAVAILABLE",
      "value": "\"providers_unavailable\""
     },
     {
-     "line": 1905,
+     "line": 1909,
      "name": "STOP_BUDGET_EXHAUSTED",
      "value": "\"budget_exhausted\""
     },
     {
-     "line": 1906,
+     "line": 1910,
      "name": "STOP_TECHNICAL_LIMIT",
      "value": "\"technical_limit\""
     },
     {
-     "line": 1907,
+     "line": 1911,
      "name": "STOP_PATHS_EXHAUSTED",
      "value": "\"paths_exhausted\""
     },
     {
-     "line": 1908,
+     "line": 1912,
      "name": "STOP_CANCELLED",
      "value": "\"cancelled\""
     },
     {
-     "line": 1909,
+     "line": 1913,
      "name": "STOP_UNEXPLAINED",
      "value": "\"unexplained_stop\""
     },
     {
-     "line": 1910,
+     "line": 1914,
      "name": "STOP_NOT_STARTED",
      "value": "\"not_started\""
     }
@@ -459,22 +459,22 @@
      "text": "key = re.sub(r\"\\W+\", \"\", support.lower())[:100]"
     },
     {
-     "line": 1720,
+     "line": 1724,
      "slice": 100,
      "text": "else re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100])"
     },
     {
-     "line": 2274,
+     "line": 2278,
      "slice": 100,
      "text": "re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]"
     },
     {
-     "line": 2294,
+     "line": 2298,
      "slice": 100,
      "text": "r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]] = \\"
     },
     {
-     "line": 2300,
+     "line": 2304,
      "slice": 100,
      "text": "key = ref.url or re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]"
     }
@@ -501,7 +501,7 @@
      "args": "chat_id=None"
     },
     {
-     "line": 1797,
+     "line": 1801,
      "func": "_normalized_title",
      "args": "support: str, *, limit: int = 200"
     }
@@ -553,54 +553,54 @@
      "value": "refine"
     },
     {
-     "line": 1616,
+     "line": 1620,
      "name": "refine_calls",
      "value": "int = 0"
     },
     {
-     "line": 1617,
+     "line": 1621,
      "name": "budget_seconds",
      "value": "float | None = 0.0"
     },
     {
-     "line": 1927,
+     "line": 1931,
      "name": "max_rows_per_query",
      "value": "int | None = None"
     },
     {
-     "line": 1928,
+     "line": 1932,
      "name": "budget_seconds",
      "value": "float | None = None"
     },
     {
-     "line": 1929,
+     "line": 1933,
      "name": "refine_calls",
      "value": "int | None = None"
     },
     {
-     "line": 1978,
+     "line": 1982,
      "name": "budget_seconds",
      "value": "budget"
     },
     {
-     "line": 2096,
+     "line": 2100,
      "name": "max_rows",
      "value": "page_limit"
     },
     {
-     "line": 2360,
+     "line": 2364,
      "name": "refine_calls",
      "value": "counters[\"refine\"]"
     },
     {
-     "line": 2361,
+     "line": 2365,
      "name": "budget_seconds",
      "value": "budget"
     }
    ]
   },
   "services/temporal_factcheck.py": {
-   "lines": 1543,
+   "lines": 1545,
    "constants": [
     {
      "line": 58,
@@ -643,17 +643,17 @@
      "value": "(\"command\", \"reply\", \"tool\", \"ui\", \"auto\")"
     },
     {
-     "line": 1139,
+     "line": 1141,
      "name": "ANALYST_DIRECTIVE",
      "value": "("
     },
     {
-     "line": 1152,
+     "line": 1154,
      "name": "TEMPORAL_ANALYST_SYSTEM",
      "value": "("
     },
     {
-     "line": 1223,
+     "line": 1225,
      "name": "TEMPORAL_VALIDATOR_SYSTEM",
      "value": "("
     }
@@ -671,37 +671,37 @@
      "text": "chunk.encode(\"utf-8\")).hexdigest()[:12],"
     },
     {
-     "line": 1111,
+     "line": 1113,
      "slice": 3,
      "text": "years_str = \" OR \".join(str(y) for y in years[:3]) if years else \"\""
     },
     {
-     "line": 1126,
+     "line": 1128,
      "slice": 200,
      "text": "envelope.claim_text))[:200])"
     },
     {
-     "line": 1429,
+     "line": 1431,
      "slice": 100,
      "text": "key = re.sub(r\"\\W+\", \"\", block.lower())[:100]"
     },
     {
-     "line": 1437,
+     "line": 1439,
      "slice": 512,
      "text": "\"url\": url_m.group(0)[:512] if url_m else None,"
     },
     {
-     "line": 1438,
+     "line": 1440,
      "slice": 1200,
      "text": "\"support\": block[:1200],"
     },
     {
-     "line": 1471,
+     "line": 1473,
      "slice": 1200,
      "text": "\"support\": support[:1200],"
     },
     {
-     "line": 1495,
+     "line": 1497,
      "slice": 16,
      "text": "run_id = \"tfr-\" + uuid.uuid4().hex[:16]"
     }
@@ -718,12 +718,12 @@
      "args": "text: str, *, limit: int = 200"
     },
     {
-     "line": 1323,
+     "line": 1325,
      "func": "parse_publication_date",
      "args": "html_text, url=None"
     },
     {
-     "line": 1378,
+     "line": 1380,
      "func": "fetch_text",
      "args": "url, _f=_fetcher"
     }
@@ -740,27 +740,27 @@
      "value": "None`"
     },
     {
-     "line": 1413,
+     "line": 1415,
      "name": "max_rows",
      "value": "int = 20"
     },
     {
-     "line": 1452,
+     "line": 1454,
      "name": "max_rows",
      "value": "int = 20"
     },
     {
-     "line": 1483,
+     "line": 1485,
      "name": "max_rows",
      "value": "max_rows"
     },
     {
-     "line": 1490,
+     "line": 1492,
      "name": "max_evidence",
      "value": "int = 20"
     },
     {
-     "line": 1539,
+     "line": 1541,
      "name": "max_rows",
      "value": "max_evidence"
     }
