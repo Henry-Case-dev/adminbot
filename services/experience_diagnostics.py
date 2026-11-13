@@ -187,6 +187,16 @@ def _int(value) -> int:
         return 0
 
 
+def _opt_int(value) -> int | None:
+    """int | None: ``None`` = неизвестно и НЕ подменяется нулём (SXR-I2 B1)."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _opt_ts(value):
     """0/мусор → None (честное «нет данных» вместо 1970)."""
     ts = _int(value)
@@ -1328,8 +1338,9 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
                 "backlog_rows"))),
             "lag_source": str(progress.get("lag_source") or "pending"),
             "actionable_rows": _int(progress.get("actionable_rows")),
-            # F2: источник возраста тот же, что у lag_rows; None = неизвестно.
-            "lag_seconds": _int(progress.get("lag_seconds")),
+            # F2/B1: источник возраста тот же, что у lag_rows; None = неизвестно
+            # (не превращается в 0 — иначе «неизвестно» выглядит как «нет лага»).
+            "lag_seconds": _opt_int(progress.get("lag_seconds")),
             "lag_seconds_source": str(
                 progress.get("lag_seconds_source") or "unknown"),
             "max_observed_rows": _int(durable.get("fresh_stream_lag_rows")),
