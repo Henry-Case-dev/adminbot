@@ -49,6 +49,12 @@ CONTENT_BACKFILL_MAX = 20
 # direct-пути; код-константа, Δ каталога = 0).
 _DIRECT_PRIORITY_YIELD_SECONDS = 2.0
 
+# VMQ-M1 (M-03): жёсткие границы explicit bounded rebuild — работа одного
+# вызова конечна (≤ 20 порций × gate-лимит сообщений, ≤ 20 recheck-записей);
+# полный архивный проход автоматически не запускается.
+REBUILD_RANGE_MAX_BATCHES = 20
+REBUILD_RECHECK_MAX = 20
+
 
 def backfill_coalesce_key(chat_id: int) -> str:
     """Unique key durable-задачи (без дублей/параллельного старта)."""
@@ -164,14 +170,21 @@ class EpisodesBackfillRunner:
     # ── порции архива (keyset (timestamp, id), без OFFSET) ────────────────
 
     async def _fetch_portion(self, chat_id: int, cursor_ts: int,
-                             cursor_id: int, limit: int) -> list[dict]:
-        cursor = await self._db.db.execute(
-            "SELECT id, chat_id, user_id, text, reply_to_id, timestamp, "
-            "tg_message_id FROM smart_messages WHERE chat_id = ? AND "
-            "(timestamp > ? OR (timestamp = ? AND id > ?)) "
-            "ORDER BY timestamp ASC, id ASC LIMIT ?",
-            (int(chat_id), int(cursor_ts), int(cursor_ts), int(cursor_id),
-             max(1, int(limit))))
+                             cursor_id: int, limit: int,
+                             *, until_ts: int | None = None) -> list[dict]:
+        """Keyset-порция `(timestamp, id)`; `until_ts` — верхняя граница
+        bounded rebuild-диапазона. OFFSET-сканов архива нет."""
+        sql = ("SELECT id, chat_id, user_id, text, reply_to_id, timestamp, "
+               "tg_message_id FROM smart_messages WHERE chat_id = ? AND "
+               "(timestamp > ? OR (timestamp = ? AND id > ?)) ")
+        params: list = [int(chat_id), int(cursor_ts), int(cursor_ts),
+                        int(cursor_id)]
+        if until_ts is not None:
+            sql += "AND timestamp <= ? "
+            params.append(int(until_ts))
+        sql += "ORDER BY timestamp ASC, id ASC LIMIT ?"
+        params.append(max(1, int(limit)))
+        cursor = await self._db.db.execute(sql, tuple(params))
         return [dict(r) for r in await cursor.fetchall()]
 
     # ── главный цикл ──────────────────────────────────────────────────────
@@ -238,6 +251,16 @@ class EpisodesBackfillRunner:
                                    payload=payload)
                 return JOB_PAUSED
             agg = payload["counters"]
+            if int(counters.get("errors") or 0) > 0:
+                # Ошибка операции в порции → честная пауза с причиной.
+                # Watermark НЕ продвигается через незавершённую порцию
+                # (M-03): рестарт перечитает её; дедуп по
+                # `segment_key`/overlap делает повтор идемпотентным, а
+                # ложный `completed`/coverage не выдаётся.
+                await self._finish(job_id, status=JOB_PAUSED,
+                                   reason_code="model_unavailable",
+                                   payload=payload)
+                return JOB_PAUSED
             for key in ("processed", "linked", "unresolved", "errors"):
                 agg[key] = int(agg.get(key) or 0) + int(
                     counters.get(key) or 0)
@@ -246,16 +269,101 @@ class EpisodesBackfillRunner:
             payload["cursor_ts"] = int(last.get("timestamp") or 0)
             payload["cursor_id"] = int(last.get("id") or 0)
             await self._checkpoint(job_id, payload)
-            if int(counters.get("errors") or 0) > 0:
-                # Ошибка операции в batch (LLM-сбой) → честная пауза с
-                # причиной; рестарт продолжит с checkpoint (никогда
-                # ложный `completed`, D10/прецедент mca-04b D3).
-                await self._finish(job_id, status=JOB_PAUSED,
-                                   reason_code="model_unavailable",
-                                   payload=payload)
-                return JOB_PAUSED
 
     # ── перепроверка по revision (D10; без рекурсивного каскада) ──────────
+
+    async def rebuild_range(self, chat_id: int, *, since_ts: int = 0,
+                            until_ts: int | None = None,
+                            max_messages: int | None = None,
+                            max_batches: int = REBUILD_RANGE_MAX_BATCHES,
+                            ) -> dict:
+        """Explicit bounded rebuild эпизодов/историй по диапазону источников
+        (M-03, архитектурный контракт VMQ-M1).
+
+        Проход keyset-порциями `(timestamp, id)` в `[since_ts, until_ts]`
+        через тот же `process_batch` (дедуп `segment_key`/overlap делает
+        повтор идемпотентным), затем bounded recheck-очередь. Работа
+        конечна: ≤ ``max_batches`` порций ≥1 и ≤ gate-лимита сообщений на
+        порцию; полный архив не запускается автоматически. Ошибка
+        операции → `complete=False` с причиной и НЕ двигает курсор через
+        незавершённую порцию. Этот путь НЕ пишет векторы/кэш эмбеддингов —
+        только источники/derived-таблицы mca-05."""
+        result = {
+            "enabled": True, "chat_id": int(chat_id),
+            "since_ts": int(since_ts or 0),
+            "until_ts": (int(until_ts) if until_ts is not None else None),
+            "processed": 0, "batches": 0, "errors": 0, "unresolved": 0,
+            "linked": 0, "rechecked": 0, "episodes_before": 0,
+            "episodes_after": 0, "episodes_created": 0,
+            "complete": False, "reason": None,
+        }
+        if not mca_gates.episodes_enabled():
+            result.update({"enabled": False, "reason": "episodes_disabled"})
+            return result
+        gate = mca_gates.episodes_batch_max_messages()
+        batch = max(1, min(int(max_messages or gate), gate))
+        cap = max(1, int(max_batches))
+        result["episodes_before"] = await self._count_episodes(chat_id)
+        cursor_ts = int(since_ts or 0)
+        cursor_id = 0
+        complete = True
+        reason = "range_exhausted"
+        for _ in range(cap):
+            portion = await self._fetch_portion(
+                chat_id, cursor_ts, cursor_id, batch, until_ts=until_ts)
+            if not portion:
+                break
+            try:
+                counters = await self._service.process_batch(chat_id, portion)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                result["errors"] += 1
+                complete = False
+                reason = "model_unavailable"
+                break
+            result["processed"] += len(portion)
+            result["batches"] += 1
+            for key in ("linked", "unresolved", "errors"):
+                result[key] += int(counters.get(key) or 0)
+            if int(counters.get("errors") or 0) > 0:
+                # Незавершённая порция: курсор остаётся на её начале,
+                # coverage не объявляется завершённым.
+                complete = False
+                reason = "model_unavailable"
+                break
+            last = portion[-1]
+            cursor_ts = int(last.get("timestamp") or 0)
+            cursor_id = int(last.get("id") or 0)
+        else:
+            # Cap исчерпан: проверяем, остались ли ещё источники в диапазоне
+            # (один bounded SELECT, без полного скана).
+            probe = await self._fetch_portion(chat_id, cursor_ts, cursor_id, 1,
+                                              until_ts=until_ts)
+            if probe:
+                complete = False
+                reason = "batch_cap_reached"
+        if complete:
+            try:
+                result["rechecked"] = await self.process_rechecks(
+                    int(chat_id), limit=REBUILD_RECHECK_MAX)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                result["errors"] += 1
+        result["episodes_after"] = await self._count_episodes(chat_id)
+        result["episodes_created"] = max(
+            0, result["episodes_after"] - result["episodes_before"])
+        result["complete"] = bool(complete)
+        result["reason"] = "completed" if complete else reason
+        return result
+
+    async def _count_episodes(self, chat_id: int) -> int:
+        cursor = await self._db.db.execute(
+            "SELECT COUNT(*) FROM mca_episodes WHERE chat_id = ?",
+            (int(chat_id),))
+        row = await cursor.fetchone()
+        return int(row[0]) if row else 0
 
     async def process_rechecks(self, chat_id: int, *, limit: int = 20) -> int:
         """Перепроверить эпизоды с `recheck_pending=1`: повторное извлечение
@@ -283,6 +391,19 @@ class EpisodesBackfillRunner:
                                exc_info=True)
                 await repo.set_episode_recheck(
                     episode["episode_id"], pending=True)
+        if processed:
+            # Контент эпизодов изменился → проекция историй пересобирается
+            # (bounded; no-op при отсутствии изменений, override не
+            # затирается). Иначе читатель видел бы устаревшую историю до
+            # следующей порции backfill (M-03: одинаковая projection).
+            try:
+                await self._service.assemble_stories(
+                    int(chat_id), int(time.time()))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning("[mca05] recheck assemble failed",
+                               exc_info=True)
         return processed
 
     async def _episode_source_messages(self, chat_id: int,
