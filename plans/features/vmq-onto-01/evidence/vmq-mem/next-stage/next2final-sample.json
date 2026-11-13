@@ -1,0 +1,1311 @@
+{
+ "meta": {
+  "chat": -1002661910336,
+  "corpus_confirmed_facts": 19802,
+  "corpus_year_composition": {
+   "2022": 96,
+   "2023": 1419,
+   "2024": 1762,
+   "2025": 3891,
+   "2026": 12634
+  },
+  "corpus_note": "year = product `_rag_row_year` semantics (message_timestamp or created_at); 9550 confirmed rows have NULL message_timestamp and therefore fall back to created_at (2026)",
+  "n": {
+   "old": 20,
+   "multi": 20,
+   "recent": 20
+  },
+  "subject_ref_cross_year_linkage": 0,
+  "names_spanning_3plus_years": 215,
+  "unique_anchors": 56,
+  "rules": {
+   "old": "anchor fact 2022-2024 with its own message_timestamp, evenly spaced per year; mandatory = anchor; required_years = anchor year",
+   "multi": "participant name in facts of >=3 distinct years; mandatory = earliest + latest pre-2026 row; required_years = those two years",
+   "recent": "newest 2026 rows (own message_timestamp, chat-origin); mandatory = anchor; required_years = [2026]",
+   "query_template": "что известно про <topic phrase из факта>? / что известно про <name> за всё время?",
+   "relevance_rule": "old/recent: row shares >=2 distinct content stems (len>=4) with the query; multi: row text contains the participant name"
+  }
+ },
+ "queries": [
+  {
+   "stratum": "old",
+   "anchor": 1709,
+   "anchor_year": 2022,
+   "topics": "швайнокарась",
+   "question": "что известно про Швайнокарась?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1709,
+     "year": 2022,
+     "fact": "газировака предлагает отправить мем брату Швайнокарась Швайнокарась",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O01"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1722,
+   "anchor_year": 2022,
+   "topics": "покупка жилья",
+   "question": "что известно про покупка жилья?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1722,
+     "year": 2022,
+     "fact": "Лиза❤️ отмечает финансовую поддержку семьи родителями себя (покупка жилья)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O02"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1748,
+   "anchor_year": 2022,
+   "topics": "адвоката марины",
+   "question": "что известно про адвоката Марины?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1748,
+     "year": 2022,
+     "fact": "сотрудники спалили адвоката Марины Д.",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O03"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1761,
+   "anchor_year": 2022,
+   "topics": "дороге александр",
+   "question": "что известно про дороге Александр?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1761,
+     "year": 2022,
+     "fact": "Лиля Борисова попросила купить машину по дороге Александр",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O04"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1787,
+   "anchor_year": 2022,
+   "topics": "первого брака",
+   "question": "что известно про первого брака?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1787,
+     "year": 2022,
+     "fact": "Вася (Vasek) был отцом сына в первом браке, которого забрала жена сын из первого брака",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O05"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1710,
+   "anchor_year": 2022,
+   "topics": "людьми вдовина",
+   "question": "что известно про людьми Вдовина?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1710,
+     "year": 2022,
+     "fact": "Vasek выражает ненависть к человеку по причине её поведения с людьми Вдовина",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O06"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1713,
+   "anchor_year": 2022,
+   "topics": "неизвестно контекст",
+   "question": "что известно про неизвестно контекст?",
+   "required_years": [
+    2022
+   ],
+   "mandatory": [
+    {
+     "id": 1713,
+     "year": 2022,
+     "fact": "Светка планирует ремонт ванной комнаты неизвестно (контекст)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O07"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1805,
+   "anchor_year": 2023,
+   "topics": "внучку-либераха",
+   "question": "что известно про внучку-либераха?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 1805,
+     "year": 2023,
+     "fact": "Труъ альфач считает внучку-либераха",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O08"
+  },
+  {
+   "stratum": "old",
+   "anchor": 2008,
+   "anchor_year": 2023,
+   "topics": "пидорашье хручево",
+   "question": "что известно про пидорашье хручево?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 2008,
+     "year": 2023,
+     "fact": "Лиза❤️ характеризует место проживания как пидорашье хручево",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O09"
+  },
+  {
+   "stratum": "old",
+   "anchor": 2210,
+   "anchor_year": 2023,
+   "topics": "ребенка возрасте",
+   "question": "что известно про ребенка возрасте?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 2210,
+     "year": 2023,
+     "fact": "Рсп родила ребенка в возрасте 14 лет",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O10"
+  },
+  {
+   "stratum": "old",
+   "anchor": 2415,
+   "anchor_year": 2023,
+   "topics": "обмана сигареты",
+   "question": "что известно про обмана сигареты?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 2415,
+     "year": 2023,
+     "fact": "Александр утверждал о наличии эффекта обмана сигареты/вейп",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O11"
+  },
+  {
+   "stratum": "old",
+   "anchor": 2615,
+   "anchor_year": 2023,
+   "topics": "оружие стрелу",
+   "question": "что известно про оружие стрелу?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 2615,
+     "year": 2023,
+     "fact": "Серега хочет купить оружие стрелу (для страйкбола)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O12"
+  },
+  {
+   "stratum": "old",
+   "anchor": 3018,
+   "anchor_year": 2023,
+   "topics": "тестостерон мулянка",
+   "question": "что известно про тестостерон мулянка?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 3018,
+     "year": 2023,
+     "fact": "Alina не ест пальму, чтобы не терять тестостерон мулянка",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O13"
+  },
+  {
+   "stratum": "old",
+   "anchor": 1807,
+   "anchor_year": 2023,
+   "topics": "человека чмошником",
+   "question": "что известно про человека чмошником?",
+   "required_years": [
+    2023
+   ],
+   "mandatory": [
+    {
+     "id": 1807,
+     "year": 2023,
+     "fact": "Труъ альфач считает человека чмошником",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O14"
+  },
+  {
+   "stratum": "old",
+   "anchor": 3516,
+   "anchor_year": 2024,
+   "topics": "наушники слушай",
+   "question": "что известно про наушники Слушай?",
+   "required_years": [
+    2024
+   ],
+   "mandatory": [
+    {
+     "id": 3516,
+     "year": 2024,
+     "fact": "Борь подарит наушники Слушай,",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O15"
+  },
+  {
+   "stratum": "old",
+   "anchor": 3810,
+   "anchor_year": 2024,
+   "topics": "функций конф-сообщества",
+   "question": "что известно про функций конф-сообщества?",
+   "required_years": [
+    2024
+   ],
+   "mandatory": [
+    {
+     "id": 3810,
+     "year": 2024,
+     "fact": "мулянка устанавливает условие активации функций конф-сообщества",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O16"
+  },
+  {
+   "stratum": "old",
+   "anchor": 4397,
+   "anchor_year": 2024,
+   "topics": "услугу ребёнка",
+   "question": "что известно про услугу ребёнка?",
+   "required_years": [
+    2024
+   ],
+   "mandatory": [
+    {
+     "id": 4397,
+     "year": 2024,
+     "fact": "{PiZd@4e_4eM_/eR$@4e} получает услугу ребёнка",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O17"
+  },
+  {
+   "stratum": "old",
+   "anchor": 3225,
+   "anchor_year": 2024,
+   "topics": "попадание салютом",
+   "question": "что известно про попадание салютом?",
+   "required_years": [
+    2024
+   ],
+   "mandatory": [
+    {
+     "id": 3225,
+     "year": 2024,
+     "fact": "Светка получила попадание салютом окно дома",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O18"
+  },
+  {
+   "stratum": "old",
+   "anchor": 3227,
+   "anchor_year": 2024,
+   "topics": "каждый кулич",
+   "question": "что известно про каждый кулич?",
+   "required_years": [
+    2024
+   ],
+   "mandatory": [
+    {
+     "id": 3227,
+     "year": 2024,
+     "fact": "{PiZd@4e_4eM_/eR$@4e} смотрит на каждый кулич епта",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O19"
+  },
+  {
+   "stratum": "old",
+   "anchor": 3228,
+   "anchor_year": 2024,
+   "topics": "друзьям падрушкам",
+   "question": "что известно про друзьям падрушкам?",
+   "required_years": [
+    2024
+   ],
+   "mandatory": [
+    {
+     "id": 3228,
+     "year": 2024,
+     "fact": "Иван выражает привязанность к группе друзьям/падрушкам",
+     "origin": "history_import"
+    }
+   ],
+   "key": "O20"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1787,
+   "anchor_year": 2022,
+   "topics": "вася",
+   "question": "что известно про Вася за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1787,
+     "year": 2022,
+     "fact": "Вася (Vasek) был отцом сына в первом браке, которого забрала жена сын из первого брака",
+     "origin": "history_import"
+    },
+    {
+     "id": 4990,
+     "year": 2025,
+     "fact": "Гений утверждает о пользе частоты тренировок Вася Поляна",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M01"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1712,
+   "anchor_year": 2022,
+   "topics": "олеяка",
+   "question": "что известно про Олеяка за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1712,
+     "year": 2022,
+     "fact": "Лиля Борисова обвиняют в изменах мужу и проживании за его счёт Олеяка",
+     "origin": "history_import"
+    },
+    {
+     "id": 5002,
+     "year": 2025,
+     "fact": "Сглыпа) понимает Олеяку в контексте её утверждения о количестве хороших отношений Олеяка",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M02"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1715,
+   "anchor_year": 2022,
+   "topics": "труъ",
+   "question": "что известно про Труъ за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1715,
+     "year": 2022,
+     "fact": "Труъ альфач жил в одной комнате с соседкой Лиза❤️ (Лиля Борисова)",
+     "origin": "history_import"
+    },
+    {
+     "id": 4991,
+     "year": 2025,
+     "fact": "Труъ альфач предлагает испытать предел выносливости Лёха",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M03"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1721,
+   "anchor_year": 2022,
+   "topics": "артём",
+   "question": "что известно про Артём за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1721,
+     "year": 2022,
+     "fact": "Артём утверждает статус региона как русского Крым",
+     "origin": "history_import"
+    },
+    {
+     "id": 5157,
+     "year": 2025,
+     "fact": "Артём выражает желание получить права категории А",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M04"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1735,
+   "anchor_year": 2022,
+   "topics": "alina",
+   "question": "что известно про Alina за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1735,
+     "year": 2022,
+     "fact": "Alina считает молочушку (15 лет)",
+     "origin": "history_import"
+    },
+    {
+     "id": 5048,
+     "year": 2025,
+     "fact": "Alina советует похудеть Гений",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M05"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1755,
+   "anchor_year": 2022,
+   "topics": "алина",
+   "question": "что известно про Алина за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1755,
+     "year": 2022,
+     "fact": "мулянка нашла друга Алина",
+     "origin": "history_import"
+    },
+    {
+     "id": 5013,
+     "year": 2025,
+     "fact": "Алина обожает Барбоскиных",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M06"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1713,
+   "anchor_year": 2022,
+   "topics": "светка",
+   "question": "что известно про Светка за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1713,
+     "year": 2022,
+     "fact": "Светка планирует ремонт ванной комнаты неизвестно (контекст)",
+     "origin": "history_import"
+    },
+    {
+     "id": 5000,
+     "year": 2025,
+     "fact": "Светка готовит котлеты из индейки для ребенка ребенок",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M07"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1772,
+   "anchor_year": 2022,
+   "topics": "леха",
+   "question": "что известно про Леха за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1772,
+     "year": 2022,
+     "fact": "Vasek критикует советы Лехи как бесполезные и ведущие к потере экспертизы во всех сферах (аниме, редакторство, игры) Леха",
+     "origin": "history_import"
+    },
+    {
+     "id": 5081,
+     "year": 2025,
+     "fact": "сглыпа) предлагает договорённость по невыходу из дома Леха и Седов",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M08"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1711,
+   "anchor_year": 2022,
+   "topics": "лиза",
+   "question": "что известно про Лиза за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1711,
+     "year": 2022,
+     "fact": "Михаил рекомендует диету для набора мышечной массы без химии Лиза❤️",
+     "origin": "history_import"
+    },
+    {
+     "id": 5140,
+     "year": 2025,
+     "fact": "Алина является лучшей подружкой Лиза и Оля",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M09"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1767,
+   "anchor_year": 2022,
+   "topics": "диана",
+   "question": "что известно про Диана за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1767,
+     "year": 2022,
+     "fact": "Диана везет своего парня за пивом другим участникам чата",
+     "origin": "history_import"
+    },
+    {
+     "id": 5086,
+     "year": 2025,
+     "fact": "Диана определяет статус отношений с Vasek как неясный (друзья или приятели) Vasek",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M10"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1727,
+   "anchor_year": 2022,
+   "topics": "кавасаки",
+   "question": "что известно про Кавасаки за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1727,
+     "year": 2022,
+     "fact": "Трой Кавасаки отмечает высокую смертность среди заманух для кладменов всех оптовых минеров и мусоров",
+     "origin": "history_import"
+    },
+    {
+     "id": 5014,
+     "year": 2025,
+     "fact": "Трой Кавасаки купил м50xbt2 в оранжевом цвете",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M11"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1798,
+   "anchor_year": 2022,
+   "topics": "перми",
+   "question": "что известно про Перми за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1798,
+     "year": 2022,
+     "fact": "Швайнокарась выражает мнение о населении Перми Пермь",
+     "origin": "history_import"
+    },
+    {
+     "id": 5402,
+     "year": 2025,
+     "fact": "мужчина из Перми попытался задушить подругу из-за ревности",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M12"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1760,
+   "anchor_year": 2022,
+   "topics": "silens",
+   "question": "что известно про Silens за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1760,
+     "year": 2022,
+     "fact": "Camera Silens открывает крафтовый бар бомжист",
+     "origin": "history_import"
+    },
+    {
+     "id": 5041,
+     "year": 2025,
+     "fact": "Camera Silens предлагает роль 3-й жены Диане",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M13"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1770,
+   "anchor_year": 2022,
+   "topics": "gamma",
+   "question": "что известно про Gamma за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1770,
+     "year": 2022,
+     "fact": "Gamma Gamma живёт у тянки",
+     "origin": "history_import"
+    },
+    {
+     "id": 5235,
+     "year": 2025,
+     "fact": "Gamma Gamma имеет кореша-гирьевика -",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M14"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1758,
+   "anchor_year": 2022,
+   "topics": "алину",
+   "question": "что известно про Алину за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1758,
+     "year": 2022,
+     "fact": "S∆VΣL¥ понимает Алину и не с кем общаться кроме девки своей Алина; девушка S∆VΣL¥",
+     "origin": "history_import"
+    },
+    {
+     "id": 5462,
+     "year": 2025,
+     "fact": "Лия легко манипулировать Алину",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M15"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1710,
+   "anchor_year": 2022,
+   "topics": "вдовина",
+   "question": "что известно про Вдовина за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1710,
+     "year": 2022,
+     "fact": "Vasek выражает ненависть к человеку по причине её поведения с людьми Вдовина",
+     "origin": "history_import"
+    },
+    {
+     "id": 5498,
+     "year": 2025,
+     "fact": "Трой Кавасаки молится Богу о даровании ума у Лехи Вдовина Леха из интернета (Вдовин)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M16"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1709,
+   "anchor_year": 2022,
+   "topics": "швайнокарась",
+   "question": "что известно про Швайнокарась за всё время?",
+   "required_years": [
+    2022,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1709,
+     "year": 2022,
+     "fact": "газировака предлагает отправить мем брату Швайнокарась Швайнокарась",
+     "origin": "history_import"
+    },
+    {
+     "id": 4986,
+     "year": 2025,
+     "fact": "Швайнокарась пятилетним участником встреч Нового года с Дашей Даша",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M17"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 1968,
+   "anchor_year": 2023,
+   "topics": "kawasaki",
+   "question": "что известно про Kawasaki за всё время?",
+   "required_years": [
+    2023,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 1968,
+     "year": 2023,
+     "fact": "Troy Kawasaki называет @mulyanka пидором",
+     "origin": "history_import"
+    },
+    {
+     "id": 5203,
+     "year": 2025,
+     "fact": "Гений переоценил людей и проебался в ситуации с ответственностью Вася Поляна, Troy Kawasaki, Eugene",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M18"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 3166,
+   "anchor_year": 2023,
+   "topics": "гоша",
+   "question": "что известно про Гоша за всё время?",
+   "required_years": [
+    2023,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 3166,
+     "year": 2023,
+     "fact": "Гоша общается уже 8 лет Алиной (или девушкой А. MarsiWer)",
+     "origin": "history_import"
+    },
+    {
+     "id": 5388,
+     "year": 2025,
+     "fact": "Гоша приезжал часто с Настей",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M19"
+  },
+  {
+   "stratum": "multi",
+   "anchor": 3129,
+   "anchor_year": 2023,
+   "topics": "мистер",
+   "question": "что известно про Мистер за всё время?",
+   "required_years": [
+    2023,
+    2025
+   ],
+   "mandatory": [
+    {
+     "id": 3129,
+     "year": 2023,
+     "fact": "Name Surname предлагает работу на постоянной основе бесплатно Мистер Мазохисту",
+     "origin": "history_import"
+    },
+    {
+     "id": 5955,
+     "year": 2025,
+     "fact": "Мистер Служба удалил из канала Вася Поляна",
+     "origin": "history_import"
+    }
+   ],
+   "key": "M20"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1679,
+   "anchor_year": 2026,
+   "topics": "диана время",
+   "question": "что известно про Диана время?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1679,
+     "year": 2026,
+     "fact": "Диана сообщила в видео-сообщении что некая группа лиц („они“) начнёт раздеваться (отправитель: Диана; время: 2026-09-04T17:21:19.910537+00:00)",
+     "origin": "voice_transcript"
+    }
+   ],
+   "key": "R01"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1628,
+   "anchor_year": 2026,
+   "topics": "продолжения сохранив",
+   "question": "что известно про продолжения сохранив?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1628,
+     "year": 2026,
+     "fact": "агрессор в видео прекратил бы конфликт при угрозе поражения эскалация (он ушёл бы без продолжения, сохранив лицо)",
+     "origin": "voice_transcript"
+    }
+   ],
+   "key": "R02"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10638,
+   "anchor_year": 2026,
+   "topics": "брутальной бородой",
+   "question": "что известно про брутальной бородой?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10638,
+     "year": 2026,
+     "fact": "ᚦᛯᛜᚹᚦᛯ ᛄᚳᛜᛋᚦ ᛈᚢᚤᛈᛋ࿕ᛜ ℥ᚤ ᚦᛊᛠᛈᛠᛒᛜ, ᚳᛊᛚᛊᚺᚦᚤ утверждает о себе высокий и симпатичный человек с брутальной бородой",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R03"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10639,
+   "anchor_year": 2026,
+   "topics": "милкерсов сиськи",
+   "question": "что известно про милкерсов сиськи?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10639,
+     "year": 2026,
+     "fact": "Vasek отмечает нормальных милкерсов (сиськи)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R04"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10636,
+   "anchor_year": 2026,
+   "topics": "трапам имплантам",
+   "question": "что известно про трапам имплантам?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10636,
+     "year": 2026,
+     "fact": "PiZd@4e_4eM_/eR$@4e выражает отвращение к трапам (имплантам)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R05"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10637,
+   "anchor_year": 2026,
+   "topics": "спелое яблочко",
+   "question": "что известно про спелое яблочко?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10637,
+     "year": 2026,
+     "fact": "Vasek утверждает о базовом стандарте груди большой наливной как спелое яблочко",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R06"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10634,
+   "anchor_year": 2026,
+   "topics": "прошлом десятилетии",
+   "question": "что известно про прошлом десятилетии?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10634,
+     "year": 2026,
+     "fact": "Олеяка нашла информацию о человеке по фотографии человек, вел в прошлом десятилетии",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R07"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10635,
+   "anchor_year": 2026,
+   "topics": "тагир маджулов",
+   "question": "что известно про Тагир Маджулов?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10635,
+     "year": 2026,
+     "fact": "🎀 {PiZd@4e_4eM_/eR$@4e} 🎀 сравнивают с черной вдовой Тагир Маджулов",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R08"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10629,
+   "anchor_year": 2026,
+   "topics": "диспуте дашей",
+   "question": "что известно про диспуте Дашей?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10629,
+     "year": 2026,
+     "fact": "Толян заявил о готовности съесть медведя или мужика в лесу в философском диспуте с Дашей",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R09"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1494,
+   "anchor_year": 2026,
+   "topics": "привезти бензин",
+   "question": "что известно про привезти бензин?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1494,
+     "year": 2026,
+     "fact": "мошенники берут 100% предоплату от 30 тысяч рублей (обещают привезти бензин, но не привозят и пропадают)",
+     "origin": "chat_history"
+    }
+   ],
+   "key": "R10"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1490,
+   "anchor_year": 2026,
+   "topics": "автомобилям очереди",
+   "question": "что известно про автомобилям очереди?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1490,
+     "year": 2026,
+     "fact": "спекулянты на азс предлагают купить 40 литров бензина 95-го за 6 тысяч рублей (подходят к автомобилям в очереди)",
+     "origin": "chat_history"
+    }
+   ],
+   "key": "R11"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10627,
+   "anchor_year": 2026,
+   "topics": "шизам толян",
+   "question": "что известно про шизам толян?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10627,
+     "year": 2026,
+     "fact": "PERMsoc обвинил в сборе статистики по шизам толян",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R12"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10628,
+   "anchor_year": 2026,
+   "topics": "самсунг эксинос",
+   "question": "что известно про Самсунг эксинос?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10628,
+     "year": 2026,
+     "fact": "💎✨рин118✨💎 сравнил систему с запорожцем и теслой Самсунг (эксинос)",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R13"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10625,
+   "anchor_year": 2026,
+   "topics": "бренду алендвик",
+   "question": "что известно про бренду алендвик?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10625,
+     "year": 2026,
+     "fact": "S∆VΣL¥ предлагает план действий по бренду алендвик",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R14"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10626,
+   "anchor_year": 2026,
+   "topics": "яичными какао",
+   "question": "что известно про яичными какао?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10626,
+     "year": 2026,
+     "fact": "Максим рекомендует рецепт творожной запеканки с белками яичными и какао",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R15"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 10622,
+   "anchor_year": 2026,
+   "topics": "эфиопы толян",
+   "question": "что известно про эфиопы Толян?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 10622,
+     "year": 2026,
+     "fact": "Леха Крейсер записал в эфиопы Толян",
+     "origin": "history_import"
+    }
+   ],
+   "key": "R16"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1420,
+   "anchor_year": 2026,
+   "topics": "другим отправлениям",
+   "question": "что известно про другим отправлениям?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1420,
+     "year": 2026,
+     "fact": "Толян вывез также кедровые шишки и орешки из приморья (в дополнение к другим отправлениям, отправил через СДЭК)",
+     "origin": "chat_history"
+    }
+   ],
+   "key": "R17"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1419,
+   "anchor_year": 2026,
+   "topics": "репосте meduza",
+   "question": "что известно про репосте Meduza?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1419,
+     "year": 2026,
+     "fact": "путин приехал во владивосток для участия в восточном экономическом форуме (упоминается в репосте Meduza)",
+     "origin": "chat_history"
+    }
+   ],
+   "key": "R18"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1418,
+   "anchor_year": 2026,
+   "topics": "мужчин женщин",
+   "question": "что известно про мужчин женщин?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1418,
+     "year": 2026,
+     "fact": "бразильские учёные выяснили маленькая грудь привлекательнее большой (большинство участников исследования предпочитали небольшую грудь; важнее симметрия и пропорции; мнения мужчин и",
+     "origin": "chat_history"
+    }
+   ],
+   "key": "R19"
+  },
+  {
+   "stratum": "recent",
+   "anchor": 1417,
+   "anchor_year": 2026,
+   "topics": "топор экономика",
+   "question": "что известно про Топор Экономика?",
+   "required_years": [
+    2026
+   ],
+   "mandatory": [
+    {
+     "id": 1417,
+     "year": 2026,
+     "fact": "росстат опубликовал данные почти каждая третья организация в россии убыточна в первом полугодии 2026 года (согласно репосту из «Топор. Экономика»)",
+     "origin": "chat_history"
+    }
+   ],
+   "key": "R20"
+  }
+ ]
+}

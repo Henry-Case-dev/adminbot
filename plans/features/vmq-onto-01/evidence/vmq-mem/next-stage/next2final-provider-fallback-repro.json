@@ -1,0 +1,159 @@
+{
+ "why": "first baseline run embedded the query through the fallback provider (primary DNS failure) -> different vector space; two clean runs of the SAME side are identical, so this is an environment effect, not a candidate effect",
+ "query": "O19 historical (что известно про каждый кулич?)",
+ "runs": [
+  {
+   "file": "next2final-raw-base-r1.contaminated.json",
+   "git_head": "234776589c934024ed0e8dceba189fb9d70d3215",
+   "tag": "base-det",
+   "frozen": null,
+   "base_slice": [
+    "1624",
+    "1623",
+    "21155",
+    "21141",
+    "14202",
+    "12729",
+    "11777",
+    "13064",
+    "13063",
+    "8852"
+   ],
+   "period_pool": [
+    "3227",
+    "4795",
+    "2327",
+    "4859",
+    "3880",
+    "2486",
+    "3220",
+    "2613",
+    "1719",
+    "3427",
+    "4550",
+    "4086",
+    "3277",
+    "4584",
+    "4772",
+    "3768",
+    "4236",
+    "4494",
+    "4965"
+   ],
+   "label": "contaminated first baseline run (real rerank, no frozen vectors)"
+  },
+  {
+   "file": "next2final-raw-base-det.json",
+   "git_head": "234776589c934024ed0e8dceba189fb9d70d3215",
+   "tag": "base-det",
+   "frozen": "eeca9f267db0923056b5bdb402feea0eb82e104a14aabe5bc99d1caa56d003e4",
+   "base_slice": [
+    "15141",
+    "21300",
+    "16658",
+    "6242",
+    "5739",
+    "5180",
+    "19727",
+    "2486",
+    "4973",
+    "15630"
+   ],
+   "period_pool": [
+    "1719",
+    "1759",
+    "1775",
+    "1750",
+    "1740",
+    "1723",
+    "1712",
+    "1774",
+    "1773"
+   ],
+   "label": "clean baseline run (frozen vectors, identity rerank)"
+  },
+  {
+   "file": "next2final-raw-base-probeA.json",
+   "git_head": "234776589c934024ed0e8dceba189fb9d70d3215",
+   "tag": "base-probeA",
+   "frozen": null,
+   "base_slice": [
+    "15630",
+    "15141",
+    "21300",
+    "16658",
+    "6242",
+    "5739",
+    "5180",
+    "19727",
+    "2486",
+    "4973"
+   ],
+   "period_pool": [
+    "1719",
+    "1759",
+    "1775",
+    "1750",
+    "1740",
+    "1723",
+    "1712",
+    "1774",
+    "1773"
+   ],
+   "label": "clean baseline repeat A (single query, frozen vectors)"
+  },
+  {
+   "file": "next2final-raw-base-probeB.json",
+   "git_head": "234776589c934024ed0e8dceba189fb9d70d3215",
+   "tag": "base-probeB",
+   "frozen": null,
+   "base_slice": [
+    "15630",
+    "15141",
+    "21300",
+    "16658",
+    "6242",
+    "5739",
+    "5180",
+    "19727",
+    "2486",
+    "4973"
+   ],
+   "period_pool": [
+    "1719",
+    "1759",
+    "1775",
+    "1750",
+    "1740",
+    "1723",
+    "1712",
+    "1774",
+    "1773"
+   ],
+   "label": "clean baseline repeat B (single query, frozen vectors)"
+  },
+  {
+   "file": "next2final-raw-cand-det.json",
+   "git_head": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+   "tag": "cand-det",
+   "frozen": "eeca9f267db0923056b5bdb402feea0eb82e104a14aabe5bc99d1caa56d003e4",
+   "base_slice": [
+    "15141",
+    "21300",
+    "16658",
+    "6242",
+    "5739",
+    "5180",
+    "19727",
+    "2486",
+    "4973",
+    "15630"
+   ],
+   "period_pool": [
+    "1719"
+   ],
+   "label": "clean candidate run (frozen vectors, identity rerank)"
+  }
+ ],
+ "note": "probe A/B ran on a single-query sample: same question, so the vectors/corpus are the same object; the first row of the pool is ordered by score, hence the rotated order"
+}

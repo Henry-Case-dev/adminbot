@@ -10,7 +10,7 @@
     "join": "VMQ-Q1 (нужны VMQ-M2 + VMQ-Q0-IBM) -> VMQ-O -> VMQ-U -> VMQ-R"
   },
   "serialized_files": [
-    "services/database.py — миграции/индексы: только VMQ-M1, затем VMQ-M2 (зависимость M2->M1 обязательна)",
+    "services/database.py — миграции/индексы: три владельца последовательно — VMQ-M1 не пишет его вовсе (diff cfec9a1a его не содержит), затем VMQ-M2 (зависимость M2->M1), затем VMQ-MEM-NEXT (зависимость MEM-NEXT->MEM-TIME->MEM->M2). Параллельная запись запрещена; порядок задан зависимостями графа, а не календарём",
     "services/mca_random_source.py — VMQ-Q0, затем VMQ-Q0-IBM (зависимость Q0-IBM->Q0)",
     "services/direct_context_composer.py — VMQ-V, затем VMQ-M2 (зависимость M2->V)",
     "web/app.js, web/index.html, handlers/web.py — VMQ-Q0 (настройки провайдеров), затем VMQ-U (Статус/Аналитика)",
@@ -18,6 +18,7 @@
     "plans/features/vmq-onto-01/* — VMQ-A владеет map/graph/plan/audit-head, VMQ-R владеет evidence/ и reports/",
     "plans/features/vmq-onto-01/evidence/vmq-mem/time/ — только VMQ-MEM-TIME (реестр дефекта, по-блочная видимость годов, повторное измерение); VMQ-MEM пишет в evidence/vmq-mem/ вне вложенного time/, файлы исправления переходят в write_scope VMQ-MEM-TIME только после подтверждённой первопричины"
   ],
+  "note_2026_11_13": "Bookkeeping-правки PM (код и прод не менялись): (1) VMQ-M1.write_scope переписан с несуществующих services/memory_episodes.py и tests/test_memory_episodes.py на фактические файлы кандидата cfec9a1a, прежний список сохранён в write_scope_history; (2) в serialized_files для services/database.py назван третий владелец VMQ-MEM-NEXT, который и так присутствовал в его write_scope; (3) VMQ-M1.next_role = DevOps (release handoff) вместо устаревшего Builder. depends_on, статусы строк и остальные write_scope не менялись.",
   "external_blockers": [
     {
       "id": "EXT-IBM-QPU",
@@ -104,16 +105,31 @@
       "owner_role": "Builder",
       "depends_on": [],
       "write_scope": [
-        "services/memory_episodes.py",
-        "services/memory_maintenance.py",
-        "services/dossier_rebuild_jobs.py",
-        "services/database.py",
-        "tests/test_memory_episodes.py"
+        "services/mca_episodes.py",
+        "services/mca_episode_jobs.py",
+        "tests/test_vmq_m1_episode_contract.py",
+        "plans/features/vmq-onto-01/evidence/vmq-m/"
+      ],
+      "write_scope_history": [
+        {
+          "changed_at": "2026-11-13",
+          "previous": [
+            "services/memory_episodes.py",
+            "services/memory_maintenance.py",
+            "services/dossier_rebuild_jobs.py",
+            "services/database.py",
+            "tests/test_memory_episodes.py"
+          ],
+          "why": "прежний write_scope был предположением планирования 09.11.2026 и указывал на несуществующие файлы: services/memory_episodes.py и tests/test_memory_episodes.py отсутствуют во всех ветках (git ls-tree 23477658 и 96c8bc72 — нет, git log --all пуст). Фактический кандидат cfec9a1a правит services/mca_episodes.py, services/mca_episode_jobs.py и tests/test_vmq_m1_episode_contract.py; services/database.py, memory_maintenance.py и dossier_rebuild_jobs.py в diff не входят.",
+          "evidence": "git diff --name-only 23477658..cfec9a1a -> services/mca_episodes.py, services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py, evidence/vmq-m/engineering.md, evidence/vmq-m/binding-m1-80726249.md; slice_candidate_bindings.m1.code_scope и ddl_evidence",
+          "consequence": "пересечение с services/database.py у M1 снято: миграции/индексы для линии памяти пишут VMQ-M2 и VMQ-MEM-NEXT (см. serialized_files), M1 их не касается"
+        }
       ],
       "requirements": ["M-01", "M-02", "M-03"],
       "acceptance": "Эпизоды строятся по связной Reply-ветке и хронологии, тематические линии покрывают годы с контрпримерами, а продольное представление инкрементально, версионируемо и корректно инвалидируется.",
       "risk": "R2",
-      "next_role": "Builder",
+      "next_role": "DevOps (release handoff)",
+      "next_role_note_2026_11_13": "Прежний next_role=Builder устарел: кандидат cfec9a1a реализован, независимо одобрен Reviewer (review-m1-cfec9a1a.md) и переведён в REVIEW по строкам M-01..M-03. Следующий реальный шаг — выкладка одобренного кандидата через release-линию и postdeploy-наблюдение; scoped deploy-гейт после снятия ложного ребра M1 -> ONTO-A больше не держится замыканием графа. Решение о выпуске — за Orchestrator/DevOps.",
       "coherence": "Одна evidence-линия памяти: derived-эпизоды и их продольная агрегация с ревизиями; без второго graph store.",
       "note_history": "13.11.2026: ребро VMQ-M1 -> VMQ-ONTO-A снято как ошибочное (стояло с первого коммита графа 5e0fbc28 от 09.11.2026). Замороженный контракт plans/features/vmq-onto-01/architecture-m1-episodes.md прямо запрещает эту зависимость: строка 84 «M1 не должен блокироваться наличием ONTO-A/B… не делать M1 зависимым от нового semantic module», строка 48 «ONTO-A/B typed meaning | M1 logic PARALLEL_SAFE», строка 85 «ONTO-A/B contract can be integrated independently; (3) M2 объединяет episode/semantic refs». По контракту связь M1 с ONTO односторонняя и через M2 (строка 49 «M1 output contract prerequisite; M1 не зависит от M2»), что совпадает с полосой L2 в шапке графа («VMQ-M1 -> VMQ-M2»). Ребро держало scoped deploy-гейт VMQ-M1 красным на O-01/O-02/VMQ-A-01 при фактически независимом слайсе. Зависимостей-узлов внутри эпика у M1 не осталось; внешняя опора — контракты MEMORY-06/07/08 в plans/features/memory-cognitive-02, но это не узел данного графа. Другие рёбра, write_scope и статусы строк не менялись."
     },

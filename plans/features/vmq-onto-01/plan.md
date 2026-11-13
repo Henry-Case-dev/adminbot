@@ -10,8 +10,8 @@
 
 Машинные артефакты:
 
-- `plans/features/vmq-onto-01/requirements-map.json` — 380 классифицированных строк исходника + 46 ручных требований (`strict_evidence: true`, `slice_graph_path: slice-graph.json`);
-- `plans/features/vmq-onto-01/slice-graph.json` — 12 срезов, зависимости, write-scope, внешний блокер.
+- `plans/features/vmq-onto-01/requirements-map.json` — 380 классифицированных строк исходника + 69 ручных требований на 13.11.2026 (`strict_evidence: true`, `slice_graph_path: slice-graph.json`; прежние счётчики 46/54/55 были верны на свои даты);
+- `plans/features/vmq-onto-01/slice-graph.json` — 16 срезов на 13.11.2026 (прежнее «12» верно на 09.11.2026), зависимости, write-scope, внешний блокер.
 
 ## 1. Место в очереди
 
@@ -25,14 +25,17 @@ VMQ-ONTO-01 — **один новый эпик в конце исходной о
 
 ```
 VMQ-A (mapping, done)
- ├─ VMQ-V  (P0 corrective voice)
- ├─ VMQ-ONTO-A ─ VMQ-ONTO-B ─┐
- │      └─ VMQ-M1 ───────────┴─ VMQ-M2 (unified retrieval, ONTO-C/D внутри) ─ VMQ-MEM (parity 5 формулировок)
+ ├─ VMQ-V  (P0 corrective voice) ────────────────┐
+ ├─ VMQ-ONTO-A ─ VMQ-ONTO-B ─────────────────────┤
+ ├─ VMQ-M1  (независимый старт полосы памяти) ───┤
+ │                                               └─ VMQ-M2 (unified retrieval, ONTO-C/D внутри) ─ VMQ-MEM (parity 5 формулировок)
  └─ VMQ-Q0 ─ VMQ-Q0-IBM ─────────────┐
                                      └─ VMQ-Q1 (шесть consumer-интеграций)
 VMQ-Q0-IBM ─ VMQ-O ─ VMQ-U ─ VMQ-R (release gate)
-VMQ-V, VMQ-M2, VMQ-MEM, VMQ-Q1, VMQ-O, VMQ-U ─ VMQ-R
+VMQ-V, VMQ-M1, VMQ-M2, VMQ-MEM, VMQ-MEM-TIME, VMQ-MEM-NEXT, VMQ-GROUNDS, VMQ-Q1, VMQ-O, VMQ-U ─ VMQ-R
 ```
+
+> **13.11.2026 — поправка к дереву (bookkeeping):** в прежней редакции `VMQ-M1` висел под `VMQ-ONTO-A`. Это было неверно и противоречило графу после снятия ложного ребра (`eb6c5ef2`): у `VMQ-M1` `depends_on = []`, связь с ONTO односторонняя и только через `VMQ-M2` (замороженный контракт `architecture-m1-episodes.md`, строки 48–49, 84–85). Дерево приведено к фактическим зависимостям `slice-graph.json`; остальные рёбра не менялись.
 
 Явно зафиксированные serial-join’ы (это зависимости, а не пожелания):
 
@@ -64,7 +67,7 @@ VMQ-V, VMQ-M2, VMQ-MEM, VMQ-Q1, VMQ-O, VMQ-U ─ VMQ-R
 | VMQ-U | Builder + UI acceptance | U-01, U-02 | R2 | «Статус»/«Аналитика» на живых данных, desktop/mobile |
 | VMQ-R | Reviewer + DevOps + PM | R-01..R-04 | R1 | default-ON effective, baseline vs new, DevOps-манифест, честное закрытие |
 
-Всего: **55 обязательных строк** (37 из реестра §14 + 9 поправки о провайдерах + 8 поправки о многолетней памяти + VMQ-A-01), 13 срезов, 380 строк исходника классифицированы, 54 ручные строки.
+Всего на 13.11.2026: **70 обязательных строк** (69 ручных + `VMQ-A-01` из инвентаря; прежние 55/62/68 верны на свои даты), **16 срезов** в `slice-graph.json`, 380 строк исходника классифицированы, **69 ручных строк**. Счётчики, записанные 09.11.2026 («13 срезов», «54 ручные строки», «12 срезов» во введении), были верны на ту дату и заменены фактическими по гейту (`stage=plan inventory=380 manual=69`).
 
 Список `slices` в графе содержит ровно те срезы, что владеют строками карты; каждая строка имеет одного владельца.
 
@@ -260,16 +263,18 @@ stage=plan inventory=380 manual=69 scoped=0 errors=0
 | Статус | Кол-во | Что это |
 |---|---|---|
 | VERIFIED | 1 | `VMQ-GROUNDS-01` (2.58.190 @ `7c3c01b2`) |
-| REVIEW | 2 | `VMQ-NEXT-03` (только controlled-кейс), `VMQ-NEXT-05` (тайминги) |
-| FAILED | 1 | `VMQ-NEXT-02` (доля 2026 61,63/61,84 % против ≤ 58,1 %) |
-| PENDING | 66 | остальные, включая `VMQ-NEXT-01`, `VMQ-NEXT-04`, `V-01..V-04` |
+| REVIEW | 6 | `M-01`, `M-02`, `M-03` (кандидат `cfec9a1a`, ветка `vmq/m1`), `VMQ-NEXT-03` (только controlled-кейс), `VMQ-NEXT-05` (тайминги, кандидат `96c8bc72`), `VMQ-NEXT-02` (качество, кандидат `96c8bc72`) |
+| FAILED | 0 | `VMQ-NEXT-02` вышел из FAILED: провал относился к снятому контракту 58,1 %; запись о провале сохранена в строке (`failure_2026_11_13`, `status_history`) |
+| PENDING | 63 | остальные, включая `VMQ-NEXT-01`, `VMQ-NEXT-04`, `V-01..V-04` |
+
+Пересчёт счётчиков 13.11.2026 (после привязки `M-01..M-03` и `NEXT-02/05`): VERIFIED 1 + REVIEW 6 + PENDING 63 = 70. Прежняя таблица (REVIEW 2 / FAILED 1 / PENDING 66) не учитывала привязку `M-01..M-03` к `cfec9a1a` и была записана до одобрения `96c8bc72`.
 
 Правила учёта, применённые здесь:
 
-- **REVIEW ≠ одобрено.** Обе строки REVIEW имеют candidate-bound evidence и независимый разбор, но не имеют per-row `Approved`: artifact'ы несут вердикт `Needs Fixes` (по 03 — из-за непокрытых 17 вопросов, по 05 — из-за общего вердикта NEXT-02). VERIFIED не выставлялся.
+- **REVIEW ≠ одобрено.** Каждая REVIEW-строка обязана иметь candidate-bound evidence и независимый разбор. На 13.11.2026 `VMQ-NEXT-03` остаётся REVIEW **без** per-row `Approved` (его artifact несёт `Needs Fixes` из-за непокрытых 17 вопросов); `VMQ-NEXT-05` и `VMQ-NEXT-02` получили per-row `Approved` на exact candidate `96c8bc72`; `M-01..M-03` — на `cfec9a1a`. Ни одна из них не `VERIFIED`: кандидаты не выложены.
 - **Контролируемый кейс 03 не равен исходному набору.** `fact:2242` (2023, `stems_shared=2`) — реальная строка, но вопрос контрольный; в A1–A15 положительного случая нет.
 - **Синтетика не равна архиву.** Для 04 фикстура подтверждает механизм и не закрывает строку.
-- **Провал 02 не «ждёт замера».** Клауза измерена и провалена; исправление идёт по `architecture-next2-corrected.md` без изменения порога.
+- **Провал 02 не «ждёт замера».** Провал был измерен по контракту с порогом 58,1 % и сохранён в строке; 13.11.2026 владелец заменил метрический контракт (`architecture-next2-quality.md`, `plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md`), а не понизил порог. Строка перешла в REVIEW по новому контракту на кандидате `96c8bc72`, запись о провале и старый указатель `architecture-next2-corrected.md` остались историей.
 - **`strict = policy != "historical"` соответствует §4 дизайна**, правка кода не требуется; выровнена только формулировка §2 и чтение клаузы C2 (`metrics_semantics_2026_11_12.strict_reading_2026_11_13`).
 - **Владелец не QA.** `V-01`/`V-03` переклассифицированы: `owner_action_required=false`, естественные голосовые события снимают агенты; строки остаются PENDING из-за отсутствия артефактов `evidence/vmq-v/`.
 
@@ -297,7 +302,52 @@ review (--slice VMQ-MEM-NEXT --candidate 234776589c934024ed0e8dceba189fb9d70d321
 
 Красные строки объяснимы и **не чинились** подгонкой: срез несёт два разных кандидата (03/04 измерены на базе `23477658`, 02/05 — на `c0de0c2b`), поэтому один вызов гейта всегда видит «чужой» кандидат у половины строк и `candidate mismatch` против верхнеуровневого `candidate_commit` (он принадлежит замороженному слайсу `VMQ-MEM-TIME`). Это bookkeeping-факт многоступенчатой карты, а не доказательство приёмки или провала.
 
-## 14. Сверка 66 PENDING-строк на проде 2.58.198 (13.11.2026)
+### Гейты после привязки `96c8bc72` (13.11.2026, точный вывод)
+
+Привязка `slice_candidate_bindings.next2` снимает `candidate mismatch` для `--slice VMQ-MEM-NEXT`; остаются только реально открытые строки среза.
+
+```
+plan:
+  stage=plan inventory=380 manual=69 scoped=0 errors=0
+
+review --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence:
+  stage=review inventory=380 manual=69 scoped=3 errors=0
+
+review --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence:
+  FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate
+  FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+  stage=review inventory=380 manual=69 scoped=5 errors=3
+```
+
+`NEXT-02` и `NEXT-05` из списка ошибок ушли — их candidate-bound evidence и независимый approval на `96c8bc72` приняты гейтом. Три остатка настоящие: `NEXT-01` — postrelease-наблюдение, `NEXT-03` — нет approval именно на этом кандидате, `NEXT-04` — нет положительного архивного случая. Срез `VMQ-MEM-NEXT` поэтому **не** объявлен готовым целиком; готовы две строки.
+
+```
+deploy --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence:
+  stage=deploy inventory=380 manual=69 scoped=3 errors=0
+
+deploy --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence:
+  FAIL: 31 строка замыкания не evidenced VERIFIED: VMQ-A-01; M-01..M-05; O-01..O-04; VMQ-MEM-01..08; VMQ-TIME-01..09; V-01..V-04
+  FAIL: VMQ-NEXT-01 / VMQ-NEXT-03 / VMQ-NEXT-04 (те же три остатка)
+  stage=deploy inventory=380 manual=69 scoped=5 errors=34
+
+deploy --slice "VMQ-M1,VMQ-MEM-NEXT" --candidate cfec9a1a… :
+  FAIL: deploy scope has no requirements: VMQ-M1,VMQ-MEM-NEXT
+  FAIL: scoped release slice missing from graph: VMQ-M1,VMQ-MEM-NEXT
+  stage=deploy inventory=380 manual=69 scoped=0 errors=2
+```
+
+Как это читать: scoped deploy проверяет **замыкание зависимостей** графа, поэтому `VMQ-M1` (зависимостей нет) проходит, а `VMQ-MEM-NEXT` (стоит в конце памяти) не может быть выпущен отдельно от незавершённых `M-01..M-05`, `O-01..O-04`, `VMQ-MEM-*`, `VMQ-TIME-*`, `VMQ-V` — это свойство графа, а не вердикт по качеству NEXT-02/05. Совмещённый гейт `M1+NEXT-02` инструмент не поддерживает: `--slice` принимает ровно один id (вывод выше), поэтому совмещённый прогон не выполнялся и не имитируется.
+
+### Привязка `96c8bc72` и перенос доказательств (13.11.2026)
+
+- `VMQ-NEXT-02` переведён `FAILED → REVIEW`: провал по старому порогу 58,1 % сохранён (`failure_2026_11_13`, `status_history`), контракт заменён решением владельца (`plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md`, sha256 `d7300453…`), действующий контракт — `architecture-next2-quality.md` (`cfef9d05…`). Cap/квоты/вытеснение отсутствуют, порог не понижался — снят как gate.
+- `VMQ-NEXT-05` — `REVIEW` на том же кандидате с таймингами (`knn_ms`/`fts_ms` 115/115, медианы 208,5/1,7 мс, p95 ног 220,5 мс).
+- `VMQ-NEXT-04` — без изменений: `PENDING` (нет положительного архивного лексического случая; синтетика не засчитывается).
+- `slice_candidate_bindings.next2`: код `96c8bc72`, docs `a3492925`, база `23477658`, ветка `vmq/next2-final`, review/binding + sha256, тесты и quality-артефакты, covered/partial/not-covered, DDL = 0, §B = excluded, ссылка на решение владельца, точные выводы гейтов.
+- **Lineage-факт:** binding и 24 файла замера (`next2final-*`) существовали только на docs-линии `vmq/next2-final`; они перенесены побайтово (`git checkout a3492925 -- …`), код не менялся. Без переноса `artifact_path` не существует в checkout интеграционной линии и strict-гейт не может проверить evidence. Ревьюер в своей сессии достоверно записал, что `requirements-map.json` в его ветке нет — карта живёт только на интеграционной линии, и гейты здесь прогоняет PM.
+
+## 14. Сверка 66 PENDING-строк на проде 2.58.198 (снимок 13.11.2026, до привязки `96c8bc72`)
 
 Основание: решение владельца `plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md` и контракт `architecture-next2-quality.md`. Метод: код и тесты проверены **на `23477658`** (`git show`/`git grep`/`git ls-tree`); рабочее дерево `master` @ `1a7c491e` — другая линия (merge-base `3193b657`), файлов релизной линии в checkout нет. Это lineage-факт, а не отсутствие реализации. Статусы не подменялись: классификация записана в поле `reconciliation_2_58_198_2026_11_13` каждой строки карты; `target_status` — предложение.
 
@@ -326,6 +376,8 @@ REAL_GAP по группам (все — обязательные строки �
 
 **13.11.2026 — уточнение по `M-01..M-03` (bookkeeping, не DONE и не выкладка):** на ветке `vmq/m1` появился кандидат `cfec9a1a` (docs `d2c95ca2`, база `23477658`): `services/mca_episodes.py` + `services/mca_episode_jobs.py` + `tests/test_vmq_m1_episode_contract.py`; независимое ревью — `evidence/vmq-m/review-m1-cfec9a1a.md` (M-03 исправлен и проверен на failure path, M-01/M-02 перенесены с `80726249` по ограниченному diff). Строки переведены в `REVIEW` с привязкой `slice_candidate_bindings.m1`, поэтому REAL_GAP-классификация выше верна для базы `23477658`, но не для ветки. Это **не** `VERIFIED`: кандидат не выложен, `topic_refs` остаются ONTO, потребление в retrieval — M2 (`services/mca_retrieval_context.py` не менялся). Scoped review-гейт: `stage=review inventory=380 manual=69 scoped=3 errors=0`; scoped deploy-гейт красный только на замыкании зависимостей графа (`VMQ-M1 → VMQ-ONTO-A → VMQ-A`: `O-01`, `O-02`, `VMQ-A-01` остаются PENDING). Флаг `live_required` снят по замороженному контракту `architecture-m1-episodes.md` (строки 62–69, 75–77: fixtures/source-lineage достаточно, live/production probes вне приёмки); реальное качество production-архива не доказано и не заявляется. Условие DONE №5 не меняется — нужна выкладка.
 
+> **13.11.2026 — поправка к предыдущему абзацу (историческая запись выше не переписана).** Утверждение «scoped deploy-гейт красный только на замыкании `VMQ-M1 → VMQ-ONTO-A → VMQ-A`» было верно до снятия ложного ребра: ребро удалено коммитом `eb6c5ef2` по замороженному контракту `architecture-m1-episodes.md` (строки 84–85), у `VMQ-M1` `depends_on = []`. После этого замыкание зависимостей пусто, и scoped deploy-гейт по `VMQ-M1` больше не держится за `O-01`/`O-02`/`VMQ-A-01` (точный вывод — в блоке гейтов ниже). Второй остаток из той же записи остаётся в силе: кандидат `cfec9a1a` не влит в release-линию и не выложен, поэтому строки `M-01..M-03` — `REVIEW`, а не `VERIFIED`.
+
 **Конечное условие DONE для `vmq-onto-01`** (всё сразу, иначе эпик остаётся открытым):
 
 1. `VMQ-NEXT-02` — финальный кандидат §A+NEXT-05 проходит paired quality set (60 запросов, 20/страта) и обязательные инварианты; независимое ревью exact candidate — Approved; 58,1% не gate.
@@ -340,7 +392,7 @@ REAL_GAP по группам (все — обязательные строки �
 Минимальные назначения REAL_GAP (write scope и acceptance — в `reconciliation_2_58_198_2026_11_13.assignments`):
 
 1. `VMQ-ONTO-A/B` — Architect (freeze) → Builder → Reviewer; `services/semantic_contracts.py`, `graphrag_provenance.py`, `tests/test_semantic_contracts.py`.
-2. `VMQ-M1` — Builder → Reviewer; `services/memory_episodes.py` (+ `mca_episodes.py`, `dossier_rebuild_jobs.py`, `database.py`), `tests/test_memory_episodes.py`.
+2. `VMQ-M1` — DevOps (release handoff; кандидат уже одобрен Reviewer) → postdeploy-наблюдение; фактические файлы — `services/mca_episodes.py`, `services/mca_episode_jobs.py`, `tests/test_vmq_m1_episode_contract.py` (+ `evidence/vmq-m/`). Прежний перечень `services/memory_episodes.py`/`tests/test_memory_episodes.py` был предположением планирования и указывал на несуществующие файлы; история — в `slice-graph.json` `VMQ-M1.write_scope_history`.
 3. `VMQ-M2` — Builder → Reviewer; `services/mca_retrieval_context.py` (`person_overview`/`temporal_change`, coverage/evidence expansion), `tests/test_memory_unified_retrieval.py`.
 4. `VMQ-Q0` — Builder → Reviewer; `services/mca_random_source.py`, `handlers/web.py`, `web/app.js|index.html`, `tests/test_qan_provider_settings.py`, `tests/test_qan_failover.py`.
 5. `VMQ-Q0-IBM` — Builder → Reviewer; `services/ibm_quantum_driver.py`, `services/qan_pool.py`, `tests/test_qan_ibm_driver.py`; `Q-04`/`QM-08` остаются внешними.

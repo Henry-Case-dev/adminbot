@@ -4013,10 +4013,10 @@
       "acceptance": "На тех же 15 исторических вопросах A1–A15 и двух контрольных C1/C2, что в time/independent-sample-709865f6.md (та же копия прод-БД, чат -1002661910336, путь _rag_unified_rows → _build_rag_block), якорь доходит до финального блока не реже 6/15 при эффективном реранке True (значение флага печатается в отчёте), доля 2026 на этих 15 не выше, чем на 709865f6, «по теме» не хуже 8/18, а явно нерелевантных строк строго меньше 28 % нового набора; хотя бы один из A6, A9, A13, A15 доходит векторной ногой либо в трассе стоит честный vector_pool_miss. Провал: рост явно нерелевантных строк при формальном временнóм разнообразии или засчитывание доставки без векторной ноги.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "REVIEW",
       "deployment_state": "implemented_and_deployed",
-      "acceptance_state": "FAILED_MEASURED_ON_c0de0c2b",
-      "unverified_reason": "измерение требует прогона 15+2 вопросов на копии прод-БД; такого прогона на 2.58.187 не выполнялось, а единственный реальный ход с исполненной векторной ногой (11:16:50Z) вернул 0 строк, поэтому ни доставки, ни векторной трассы для A6/A9/A13/A15 не наблюдалось. Допуск индекса открыт (ADMITTED_COMPATIBLE), но это допуск, а не замер.",
+      "acceptance_state": "REVIEW_APPROVED_PREDEPLOY_96c8bc72",
+      "unverified_reason": "Кандидат 96c8bc72 одобрен независимым Reviewer на predeploy-стадии REVIEW, но не выложен: прод-поведение (реальный трафик, effective config прода) не наблюдалось, а прямой повтор A1–A15 на этом кандидате не выполнялся. VERIFIED не выставляется до выкладки и postdeploy-наблюдения.",
       "measurement_class_2026_11_11": {
         "class": "a",
         "closable_by_read_only_copy_measurement": true,
@@ -4068,6 +4068,29 @@
           "candidate_commit": "c0de0c2b6a5f7b117c40e26c17bce94652cd5a6a",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-c0de0c2b.md",
           "artifact_sha256": "d4018262026b01e535c7c70cae62a89ca15cd358389e727f127042bf134a44ae"
+        },
+        {
+          "type": "live",
+          "ref": "Парное качество на кандидате 96c8bc72 (binding §0–§4): 60 зафиксированных запросов × 2 политики × 2 стороны, один корпус (prod-DB copy sha 5310e91e…), одни замороженные векторы",
+          "observation": "447 passed (30 + 38 + 90 + 51 + 12 + 181 + 45); 5 предсуществующих падений test_direct_fallback_recompose_asap32 воспроизводятся и на базе 23477658. Потерь обязательных фактов/свидетельств baseline: 0; возвращённые строки идентичны в 115/120 парах; состав блока по годам 120/120; принятых периодных строк 89/89. Эффект §A: периодный лексический пул 1374 → 897 (−35 %), KNN 498 → 498, 5 латеральных замен строки того же года. Детерминированный срез: recall/precision/coverage идентичны во всех стратах, Δ-CI [0,0; 0,0]. Доля 2026: блок 52,8 %, корпус 63,8 % — диагностика, порог 58,1 % не применялся. §B исключён: direct_chat_service.py и test_mem_time_policy.py побайтно равны базе.",
+          "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/binding-next2-final-96c8bc72.md",
+          "artifact_sha256": "5ef9911bfd9fd9f868229c0603f3a66e12f30250cbd82115f1580ce4d35970ca",
+          "measurement_environment": "prod_db_copy_read_only",
+          "not_production": true,
+          "covers_row_acceptance": true,
+          "coverage_scope": "качество по контракту architecture-next2-quality.md (парные инварианты на 60 запросах); A1–A15 (6/15, 8/18) на этом кандидате напрямую не перемерялись — regression seed; абсолютное качество ограничено выборкой и правилом gold-v2 (binding §5)"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "review-next2-final-96c8bc72.md — независимое ревью exact candidate 96c8bc72 (docs a3492925)",
+          "observation": "Три столпа. Реализация: period-only FTS-токенизация согласована с §2 (_period_fts_keywords, та же морфология), фильтр живёт только в retrieve при period_fill, канал сообщений сохраняет полный match, пустой §2-match пропускает только лексическую периодную ногу, год-предикат остаётся до LIMIT; diff от базы — ровно 2 файла. Валидность тестов: 447 passed в делегированном наборе и 275 в unified/GraphRAG/lookup; проверки коротких токенов, изоляции пустого match, изоляции FTS-сбоя, non-period сохранения, причин таймингов, года до LIMIT. Независимый контрпример: мутация _period_fts_keywords (возврат всех токенов) поймана красным и восстановлена; граничные случаи прошли. §B (пул/приоритет/счётчики/pin) — N/A_WITH_REASON, исключён.",
+          "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
+          "artifact_sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
+          "not_production": true
         }
       ],
       "expected_evidence": [
@@ -4154,8 +4177,71 @@
         "owner": "Builder -> Reviewer",
         "trigger": "финальный кандидат §A+NEXT-05 на базе 23477658",
         "needs_code": true,
-        "unit": "VMQ-MEM-NEXT (final candidate)"
-      }
+        "unit": "VMQ-MEM-NEXT (final candidate)",
+        "reached_2026_11_13": "target_status=REVIEW достигнут: точный кандидат 96c8bc72 одобрен независимым Reviewer по architecture-next2-quality.md. Снимок классификации (WAITING_FINAL_CANDIDATE, needs_code=true) оставлен как датированная запись 13.11.2026 и более не описывает текущее состояние."
+      },
+      "acceptance_amendment_2026_11_13": {
+        "amended_by": "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md",
+        "sha256": "d730045387fe77cddb12d8f185a91206b9f1577d8826c0cb2111ef4b06a0a2f1",
+        "kind": "decision: метрический контракт заменён владельцем",
+        "what_changed": "Клауза «доля 2026 на этих 15 не выше, чем на 709865f6» больше НЕ является gate: владелец 13.11.2026 постановил использовать долю по годам как диагностику и прямо запретил cap на 2026, квоты по годам и принудительное вытеснение свежих релевантных сообщений ради 58,1 %. Остальные клаузы строки (доставка якоря ≥ 6/15, «по теме» ≥ 8/18, явно нерелевантных < 28 %, хотя бы один из A6/A9/A13/A15 векторной ногой либо честный vector_pool_miss) остаются обязательными.",
+        "original_text_kept": true,
+        "threshold_lowered": false,
+        "how_replaced": "architecture-next2-quality.md: парное сравнение baseline и кандидата на 60 зафиксированных запросах (20/страта old/multi/recent), одном корпусе и одних замороженных векторах; метрики recall/precision/coverage/временной охват/свежая нерелевантность; доля 2026 только диагностика."
+      },
+      "status_history": [
+        {
+          "at": "2026-11-13",
+          "from": "PENDING",
+          "to": "FAILED",
+          "event": "измеренный провал старого контракта: доля 2026 61,63 % / 61,84 % против порога ≤ 58,1 %; Reviewer пересчитал долю по сырым трассам и подтвердил, что это не артефакт знаменателя",
+          "evidence": [
+            "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/binding-next2-c0de0c2b.md",
+            "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-c0de0c2b.md"
+          ],
+          "kept_on_purpose": "запись о провале не удаляется и не переписывается"
+        },
+        {
+          "at": "2026-11-13",
+          "from": "FAILED",
+          "to": "FAILED",
+          "event": "владелец заменил метрический контракт: естественный retrieval + качественная метрика вместо жёсткого 58,1 %; запрещены cap/квоты/принудительное вытеснение; порог не понижался, а снят как gate",
+          "owner_input": "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md",
+          "owner_input_sha256": "d730045387fe77cddb12d8f185a91206b9f1577d8826c0cb2111ef4b06a0a2f1",
+          "contract": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+          "contract_sha256": "cfef9d0572189c5ff17d9e57a99b1f3f0f45390faed845ff262bdada9f691cb6"
+        },
+        {
+          "at": "2026-11-13",
+          "from": "FAILED",
+          "to": "REVIEW",
+          "event": "качественное ревью exact candidate 96c8bc72 (docs a3492925) вернуло Approved по NEXT-02; §B исключён, 0 потерь обязательных фактов, 115/120 идентичных строк, 120/120 состав блока по годам",
+          "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "review": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
+          "review_sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
+          "why_not_verified": "кандидат не выложен в production; REVIEW — predeploy-одобрение, а не приёмка прод-поведения"
+        }
+      ],
+      "review_scope_2026_11_13": "REVIEW (не VERIFIED): exact candidate 96c8bc72 прошёл независимое ревью качества по контракту architecture-next2-quality.md — реализация, валидность тестов и независимый контрпример проверены. Остаток: (1) прямой повтор A1–A15 на этом кандидате не выполнялся — 17 вопросов оставлены regression seed, клаузы 6/15 и 8/18 измерены на c0de0c2b (8/15, 8/12) и на 96c8bc72 заменены парным инвариантом (0 потерь, 115/120 идентичных строк); (2) кандидат не выложен, прод-поведение не наблюдалось; (3) абсолютное качество ограничено выборкой и механическим правилом gold-v2, что и записано в binding §5.",
+      "no_cap_no_weakening_2026_11_13": {
+        "cap_2026": "отсутствует: §B (пул 33, slot-priority) исключён, services/direct_chat_service.py побайтно равен 23477658",
+        "year_quotas": "отсутствуют",
+        "forced_displacement": "отсутствует: порядок обхода снова vector_rows + lexical_rows; test_vector_row_bypasses_threshold_and_goes_first восстановлен ([2, 1])",
+        "threshold_weakening": "отсутствует: порог 58,1 % не понижался — он снят владельцем как универсальный gate; пороги §2 (≥ 2 основы), KNN-политика, reranker и config не тронуты",
+        "metric_replaced": "парное сравнение на 60 запросах против baseline на одном корпусе с замороженными векторами и paired bootstrap; доля 2026 — только диагностика",
+        "verified_by": "binding-next2-final-96c8bc72.md §1–§2 (состав и diff) + review-next2-final-96c8bc72.md (три столпа)"
+      },
+      "corrected_contract_2026_11_13": {
+        "state": "reached: исправление выполнено и одобрено на 96c8bc72",
+        "contract": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+        "contract_sha256": "cfef9d0572189c5ff17d9e57a99b1f3f0f45390faed845ff262bdada9f691cb6",
+        "previous_contract": "plans/features/vmq-onto-01/architecture-next2-corrected.md",
+        "previous_contract_sha256": "82998a726fc9826b2f13a712022a8630e33278c85ef3344b08ebbf019593b4c8",
+        "decision_line": "plans/features/vmq-onto-01/architecture-next2-mechanism.md",
+        "decision_line_sha256": "e0a63c1162683db7ba01bd592df32da34f19687e21b7900fcc407b61a8ba3c7a",
+        "history_note": "прежний указатель corrective_contract в failure_2026_11_13 вёл на architecture-next2-corrected.md; он сохранён как историческая запись, действующий контракт — architecture-next2-quality.md"
+      },
+      "unverified_reason_history": "измерение требует прогона 15+2 вопросов на копии прод-БД; такого прогона на 2.58.187 не выполнялось, а единственный реальный ход с исполненной векторной ногой (11:16:50Z) вернул 0 строк, поэтому ни доставки, ни векторной трассы для A6/A9/A13/A15 не наблюдалось. Допуск индекса открыт (ADMITTED_COMPATIBLE), но это допуск, а не замер."
     },
     {
       "source_id": "MAN-NEXT-03",
@@ -4508,7 +4594,7 @@
       "live_when": "preprod",
       "status": "REVIEW",
       "deployment_state": "implemented_and_deployed",
-      "acceptance_state": "PREDEPLOY_EVIDENCE_COMPLETE_PENDING_PER_ROW_APPROVAL",
+      "acceptance_state": "REVIEW_APPROVED_PREDEPLOY_96c8bc72",
       "review_scope_2026_11_13": "REVIEW: измерение и аддитивные поля есть на кандидате c0de0c2b, p95 проходит; отдельного Approved именно по этой строке нет (artifact несёт общий вердикт Needs Fixes по NEXT-02 и прямо разрешает NEXT-05 пройти ревью отдельно). Поэтому REVIEW, а не VERIFIED.",
       "unverified_reason": "векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false), но замер прод-пути вектора не снят: живого хода с вектором не было (единственный ход с ногой вернул 0 строк) и прогон на копии прод-БД не выполнялся; подставлять оценку вместо измерения запрещено контрактом ступени.",
       "measurement_class_2026_11_11": {
@@ -4550,6 +4636,29 @@
           "candidate_commit": "c0de0c2b6a5f7b117c40e26c17bce94652cd5a6a",
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-c0de0c2b.md",
           "artifact_sha256": "d4018262026b01e535c7c70cae62a89ca15cd358389e727f127042bf134a44ae"
+        },
+        {
+          "type": "live",
+          "ref": "NEXT-05 аддитивные тайминги на кандидате 96c8bc72 (binding §NEXT-05; next2final-summary.json)",
+          "observation": "usage_json.period_fill.knn_ms заполнен на 115/115 периодных вызовов (медиана 208,5 мс, max 265,7), fts_ms — 115/115 (медиана 1,7 мс, max 54,0), p95 суммы ног 220,5 мс; фиктивных *_ms_reason при выполненном вызове 0; при отсутствующей ноге или упавшем FTS поле None + причина, а не 0 мс. Замер на read-only копии прод-БД, эффективный флаг rerank в обоих режимах печатается в отчёте.",
+          "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/binding-next2-final-96c8bc72.md",
+          "artifact_sha256": "5ef9911bfd9fd9f868229c0603f3a66e12f30250cbd82115f1580ce4d35970ca",
+          "measurement_environment": "prod_db_copy_read_only",
+          "not_production": true,
+          "covers_row_acceptance": true,
+          "coverage_scope": "поля и их отсутствие измерены на копии; потолок +400 мс зачтён по замеру c0de0c2b (§B из кандидата исключён, нагрузка периода не росла)"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "review-next2-final-96c8bc72.md — независимый вердикт по NEXT-05 на exact candidate 96c8bc72",
+          "observation": "Reviewer: NEXT-05 проходит на кандидате — аддитивные knn_ms/fts_ms заполнены на всех выполненных периодных вызовах, отсутствие вызова даёт None с причиной, p95 проходит потолок контракта; реализация проверена в том же diff (только services/mca_retrieval_context.py и tests/test_memory_period_vector_leg.py). VERIFIED не выставляется: кандидат не выложен.",
+          "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
+          "artifact_sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
+          "not_production": true
         }
       ],
       "expected_evidence": [
@@ -4583,6 +4692,22 @@
         "block_whole_latency_note": "p95 блока целиком (base 5657/5827 мс, cand 7406/5250 мс) — стохастика провайдера реранка; порог контракта относится к period call, поэтому в приёмку не входит",
         "review_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-c0de0c2b.md",
         "status_effect": "строка переведена в REVIEW; VERIFIED не выставлен без per-row approval"
+      },
+      "review_scope_final_2026_11_13": "REVIEW по exact candidate 96c8bc72: аддитивные knn_ms/fts_ms заполнены на 115/115 периодных вызовов (оба режима), p95 ног 220,5 мс, фиктивных причин 0. Отдельный Approved именно по этой строке теперь есть — в review-next2-final-96c8bc72.md («NEXT-05 timings: REVIEW»). VERIFIED не выставляется: кандидат не выложен, прод-телеметрия полей не читалась.",
+      "measure_final_2026_11_13": {
+        "measured_at": "2026-11-13",
+        "base": "23477658 (2.58.198), кандидат 96c8bc72, read-only копия прод-БД (sha256 5310e91e…), оба режима",
+        "fields": {
+          "knn_ms": "115/115 периодных вызовов, медиана 208,5 мс, max 265,7 мс",
+          "fts_ms": "115/115, медиана 1,7 мс, max 54,0 мс",
+          "p95_knn_plus_fts": "220,5 мс",
+          "absent_semantics": "*_ms_reason при выполненном вызове — 0; при отсутствии вызова None + причина, никогда 0 мс"
+        },
+        "ceiling": "клауза «p95 периодного вызова ≤ +400 мс» на этом кандидате отдельно не переснималась: зачтён замер c0de0c2b (1172/1156 мс против разрешённых 1618 мс) и p95 ног 220,5 мс на 96c8bc72; §B, повышавший нагрузку периода, из кандидата исключён",
+        "tests": "447 passed (30 там же + 38 + 90 + 51 + 12 + 181 + 45); 5 падений asap32 предсуществующие (base 23477658)",
+        "not_measured": "прод-телеметрия knn_ms/fts_ms не читалась: полей нет в проде 23477658",
+        "artifact": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-summary.json",
+        "status_effect": "REVIEW сохраняется и подтверждён одобрением на 96c8bc72; VERIFIED — только после выкладки"
       }
     },
     {
@@ -11587,9 +11712,297 @@
           "scoping": "гейт ограничен --slice VMQ-M1/strict; других ошибок, кроме замыкания зависимостей графа, нет",
           "why_red": "slice-graph задаёт VMQ-M1 -> VMQ-ONTO-A -> VMQ-A, а строки O-01, O-02, VMQ-A-01 остаются PENDING (контракт ONTO не реализован). Контракт architecture-m1-episodes.md (строки 84-85) называет зависимость M1 от ONTO API-level, а не на физическое завершение O-строк; ребро графа этим заданием не менялось.",
           "not_done": true
+        },
+        "deploy_after_edge_fix_2026_11_13": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence",
+          "output": "stage=deploy inventory=380 manual=69 scoped=3 errors=0",
+          "exit": 0,
+          "checked_at": "2026-11-13",
+          "why_changed": "прежний прогон (см. gate.deploy выше) был красным только на замыкании VMQ-M1 -> VMQ-ONTO-A -> VMQ-A; ложное ребро снято коммитом eb6c5ef2, depends_on у M1 стал пустым, и замыкание зависимостей больше не проверяется. Запись о прежнем прогоне сохранена как история.",
+          "what_it_does_not_mean": "гейт подтверждает допуск к выкладке по структуре и доказательствам, а не факт выкладки: кандидат cfec9a1a не влит в release-линию, production-поведение не наблюдалось, поэтому строки остаются REVIEW."
         }
       },
-      "deploy_readiness": "Не готов к выкладке по двум независимым причинам: (1) scoped deploy-гейт красный на замыкании VMQ-ONTO-A/VMQ-A; (2) кандидат cfec9a1a не влит в release-линию. REVIEW не равен допуску к деплою."
+      "deploy_readiness": "Не готов к выкладке по двум независимым причинам: (1) scoped deploy-гейт красный на замыкании VMQ-ONTO-A/VMQ-A; (2) кандидат cfec9a1a не влит в release-линию. REVIEW не равен допуску к деплою.",
+      "deploy_readiness_2026_11_13": {
+        "structural": "PASS — scoped deploy-гейт VMQ-M1 зелёный (errors=0) после снятия ложного ребра",
+        "still_missing": "(1) кандидат не влит в release-линию; (2) выкладки и postdeploy-наблюдения не было",
+        "previous_note": "прежнее поле deploy_readiness (13.11.2026, до eb6c5ef2) называло блокером замыкание VMQ-ONTO-A/VMQ-A; это утверждение устарело и оставлено только как история в gate.deploy",
+        "verdict": "готов к release handoff, не готов считаться VERIFIED"
+      }
+    },
+    "next2": {
+      "slice": "VMQ-MEM-NEXT",
+      "rows": [
+        "VMQ-NEXT-02",
+        "VMQ-NEXT-05"
+      ],
+      "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+      "candidate_short": "96c8bc72",
+      "docs_commit": "a34929250798f149dbbfe0c7806cd1792d4721d",
+      "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
+      "base_version": "2.58.198",
+      "branch": "vmq/next2-final",
+      "deployed": false,
+      "status": "REVIEW",
+      "recorded_at": "2026-11-13",
+      "why_review_not_verified": "Кандидат не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки остаются REVIEW с candidate-bound независимым ревью и привязкой к 96c8bc72.",
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
+        "sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
+        "verdict": "Approved",
+        "scope": "NEXT-02 quality REVIEW; NEXT-05 REVIEW; §B N/A_WITH_REASON (исключён)",
+        "reviewer": "независимая сессия Reviewer (artifact review-next2-final-96c8bc72.md)",
+        "recorded_at": "2026-11-13"
+      },
+      "binding": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/binding-next2-final-96c8bc72.md",
+        "sha256": "5ef9911bfd9fd9f868229c0603f3a66e12f30250cbd82115f1580ce4d35970ca",
+        "bytes": 36837
+      },
+      "source_docs": [
+        {
+          "path": "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md",
+          "sha256": "d730045387fe77cddb12d8f185a91206b9f1577d8826c0cb2111ef4b06a0a2f1",
+          "role": "решение владельца (verbatim): естественный retrieval, отказ от 58,1 % как gate"
+        },
+        {
+          "path": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+          "sha256": "cfef9d0572189c5ff17d9e57a99b1f3f0f45390faed845ff262bdada9f691cb6",
+          "role": "действующий quality-контракт (binding): состав §A+NEXT-05, страты, метрики, pass/fail"
+        },
+        {
+          "path": "plans/features/vmq-onto-01/architecture-next2-corrected.md",
+          "sha256": "82998a726fc9826b2f13a712022a8630e33278c85ef3344b08ebbf019593b4c8",
+          "role": "предыдущий контракт, на который ссылается quality; сохранён для прослеживаемости"
+        },
+        {
+          "path": "plans/features/vmq-onto-01/architecture-next2-mechanism.md",
+          "sha256": "e0a63c1162683db7ba01bd592df32da34f19687e21b7900fcc407b61a8ba3c7a",
+          "role": "линия решения Architect по переклассификации 58,1 % — только прослеживаемость"
+        }
+      ],
+      "covered_rows": [
+        "VMQ-NEXT-02",
+        "VMQ-NEXT-05"
+      ],
+      "partial_rows": {
+        "VMQ-NEXT-02": "качественные инварианты нового контракта доказаны; прямой повтор A1–A15 (6/15, 8/18) на этом кандидате не выполнялся — regression seed"
+      },
+      "not_covered": [
+        "production: кандидат не выложен, реальный трафик и effective config прода не наблюдались",
+        "прод-телеметрия knn_ms/fts_ms не читалась: полей нет в проде 23477658",
+        "абсолютное качество памяти: выборка 60 запросов, механическое правило gold-v2, precision 0,08/0,00/0,11 — это сравнение реализаций, а не оценка «абсолютной памяти»",
+        "страта multi связана по имени участника в тексте факта (в корпусе 0 строк со сквозным subject_ref_id → годы)",
+        "провайдер замера не production-equivalent (локальные chat/embeddings endpoint'ы)",
+        "живой прод-трафик, UI/Mini App и другие поверхности памяти не проверялись",
+        "17 исходных вопросов A1–A15/C1/C2 в 60 запросов не входят (regression seed)"
+      ],
+      "tests": {
+        "delegated": "447 passed: test_memory_period_vector_leg 30, test_mem_time_policy 38, test_memory_unified_retrieval_06 + test_mca07_retrieval_context_round1027 90, test_memory_core_round1020 51, test_asap8_v63_b03_memory 12, test_graphrag_memory 181, test_memory_lookup_round1026 45",
+        "extra_subsets": "275 passed в unified/GraphRAG/lookup-подмножествах (review §Test validity)",
+        "pre_existing_failures": "5 failed / 3 passed в tests/test_direct_fallback_recompose_asap32.py — тот же набор на базе 23477658, BACKLOG_ONLY",
+        "falsification": "мутация _period_fts_keywords поймана независимой section-2 проверкой (красный), затем восстановлена; граничные случаи (только короткие токены, пустой §2-match, исключение года, period_fill=False) прошли",
+        "source": "binding §3 + review §Three pillars; PM батареи не перезапускал (нового аудита не заказывали)"
+      },
+      "quality_artifacts": {
+        "sample": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-sample.json",
+          "sha256": "f9b869635ac35b11979e49364fbf01d433801f5c7ba16af29c21082d178ad67d",
+          "what": "60 зафиксированных запросов, 20/страта, anchor-факты и обязательные годы"
+        },
+        "gold": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-gold-v2.json",
+          "sha256": "76c8d21c89ca516aeb4dd3ea39e85edebe2ee94c5e2e635e8182d65890f966bf",
+          "what": "наборы допустимых свидетельств (gold v2, построены по корпусу после первого скоринга — ограничение записано)"
+        },
+        "embeddings": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-embeddings.json",
+          "sha256": "eeca9f267db0923056b5bdb402feea0eb82e104a14aabe5bc99d1caa56d003e4",
+          "what": "замороженные векторы запросов (60 × 3072), hits=235"
+        },
+        "harness": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-harness.py",
+          "sha256": "88b9d28bcd29e3130f051145b9575f9498838c95e8e7a82d19da3d52356da6f1"
+        },
+        "scorer": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-score.py",
+          "sha256": "3dee3fc82f875d1043184a8a7fdd57889dc9547a65ffcfff783e221c45ddb839"
+        },
+        "summary": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-summary.json",
+          "sha256": "9e31bb2f9202a4f4b0c331ee3662aa9ee88af20bbb940639af80b29c4b99fc91",
+          "what": "сводка 5 скорингов, мета прогонов, sha всех артефактов"
+        },
+        "per_query_scores": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-score-det.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-score-r1.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-score-r2.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-score-noise-base.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-score-noise-cand.json"
+        ],
+        "paired_rows": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-trimmed-base-det.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-trimmed-cand-det.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-trimmed-base-r1.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-trimmed-cand-r1.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-trimmed-base-r2.json",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-trimmed-cand-r2.json"
+        ],
+        "backlog_repro": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-provider-fallback-repro.json",
+          "sha256": "7d0663cebb27b0cc6671cc4aa4f4df925ef4cb2147745b592af740e58476479d",
+          "what": "доказательство M1/B1: fallback-провайдер embeddings меняет KNN-выдачу"
+        }
+      },
+      "quality": {
+        "mode": "два режима: детерминированный retrieval-срез (identity-вердикт реарнка) и штатный LLM-реарнк (effective config), каждый с двумя повторами",
+        "pairs": "60 запросов × 2 политики × 2 стороны × 2 повтора",
+        "mandatory_fact_losses": 0,
+        "identical_rows": "115/120 в каждом режиме",
+        "identical_year_composition_block": "120/120 (дет.), 87–97/120 при реарнке — в коридоре шума того же кода",
+        "period_pool": "лексический 1374 → 897 (−35 %), KNN 498 → 498, принято 89 → 89",
+        "year_share_diagnostic_only": "блок 2026 = 52,8 % (дет.) / 63,8 % = состав корпуса; порог 58,1 % не применялся",
+        "statistics": "paired bootstrap по кластерам-запросам, 2000 ресэмплов; Δ recall/precision CI [0,0; 0,0]"
+      },
+      "ddl": 0,
+      "ddl_evidence": "git diff --name-only 23477658..96c8bc72 = только services/mca_retrieval_context.py и tests/test_memory_period_vector_leg.py; миграций, services/database.py и PRAGMA user_version изменений нет",
+      "embeddings": 0,
+      "embeddings_evidence": "продукт не добавляет и не пересчитывает embeddings (no mass reembedding); замороженные векторы — fixture замера, а не изменение продукта",
+      "section_b": "excluded",
+      "section_b_detail": "§B (пул периода 33, slot priority lexical-before-vector, pool_rows/pool_years, тесты слотов/пула/год-доли, пин пула 33) исключён; services/direct_chat_service.py и tests/test_mem_time_policy.py побайтно равны 23477658. Reviewer: §B = N/A_WITH_REASON.",
+      "no_cap_no_weakening": {
+        "cap_2026": "отсутствует: §B (пул 33, slot-priority) исключён, services/direct_chat_service.py побайтно равен 23477658",
+        "year_quotas": "отсутствуют",
+        "forced_displacement": "отсутствует: порядок обхода снова vector_rows + lexical_rows; test_vector_row_bypasses_threshold_and_goes_first восстановлен ([2, 1])",
+        "threshold_weakening": "отсутствует: порог 58,1 % не понижался — он снят владельцем как универсальный gate; пороги §2 (≥ 2 основы), KNN-политика, reranker и config не тронуты",
+        "metric_replaced": "парное сравнение на 60 запросах против baseline на одном корпусе с замороженными векторами и paired bootstrap; доля 2026 — только диагностика",
+        "verified_by": "binding-next2-final-96c8bc72.md §1–§2 (состав и diff) + review-next2-final-96c8bc72.md (три столпа)"
+      },
+      "owner_decision": {
+        "path": "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md",
+        "sha256": "d730045387fe77cddb12d8f185a91206b9f1577d8826c0cb2111ef4b06a0a2f1",
+        "kind": "decision",
+        "target_task": "vmq-onto-01",
+        "effect": "заменяет метрический контракт NEXT-02: доля по годам — диагностика, cap/квоты/принудительное вытеснение запрещены, 58,1 % не gate",
+        "recorded_in": [
+          "plans/features/vmq-onto-01/architecture-next2-quality.md",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md"
+        ],
+        "owner_action_required": false
+      },
+      "lineage_note": "Доказательные документы и файлы замера существовали только на docs-линии vmq/next2-final (docs a3492925): binding, next2final-harness/sample/gold/embeddings/summary/scores/trimmed. На интеграционную линию они перенесены побайтовыми копиями (git checkout a3492925 -- …), код не менялся. Без переноса artifact_path не существует в checkout, и strict-гейт не может проверить evidence — это bookkeeping-пробел линии, а не повторное ревью. Ревьюер в своей сессии справедливо записал, что requirements-map.json в его ветке отсутствует (map есть только на интеграционной линии), поэтому он не мог прогнать scoped-гейт; гейты прогоняет PM на этой линии.",
+      "rollback": "код: возврат к 23477658 (ветка не мержится до релиза); схемы/DDL/migrations не затрагивались; §A и NEXT-05 откатываются независимо",
+      "gates": {
+        "plan": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage plan --repo . --strict-evidence",
+          "output": "stage=plan inventory=380 manual=69 scoped=0 errors=0",
+          "exit": 0,
+          "checked_at": "2026-11-13"
+        },
+        "review": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate",
+            "FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "stage=review inventory=380 manual=69 scoped=5 errors=3"
+          ],
+          "exit": 1,
+          "checked_at": "2026-11-13",
+          "reading": "NEXT-02 и NEXT-05 проверки прошли (у них есть candidate-bound implementation evidence и независимый approval на 96c8bc72); красные три строки — реальные остатки среза, а не дефект привязки",
+          "green_part": "эти же проверки на прежнем прогоне (--candidate c0de0c2b) давали 6 ошибок, включая NEXT-02 и NEXT-05; после привязки осталось 3"
+        },
+        "deploy": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence",
+          "output_summary": "stage=deploy inventory=380 manual=69 scoped=5 errors=34",
+          "exit": 1,
+          "checked_at": "2026-11-13",
+          "why_red": "scoped deploy проверяет замыкание зависимостей графа: VMQ-MEM-NEXT зависит от VMQ-MEM-TIME → VMQ-MEM → VMQ-M2 → {VMQ-M1, VMQ-ONTO-B, VMQ-V} → VMQ-ONTO-A → VMQ-A, и все эти строки должны быть VERIFIED с evidence. Ни одна из них не VERIFIED, поэтому гейт красный независимо от кандидата. Плюс те же три строки-остатка внутри среза.",
+          "not_a_quality_verdict": "красный deploy-гейт здесь означает «срез не может быть выпущен отдельно от незавершённых зависимостей», а не провал качества NEXT-02/05"
+        },
+        "combined_m1_plus_next02": {
+          "supported": false,
+          "attempt": "python requirements_gate.py check --stage deploy --slice \"VMQ-M1,VMQ-MEM-NEXT\" --candidate cfec9a1a… --repo . --strict-evidence",
+          "output": [
+            "FAIL: deploy scope has no requirements: VMQ-M1,VMQ-MEM-NEXT",
+            "FAIL: scoped release slice missing from graph: VMQ-M1,VMQ-MEM-NEXT",
+            "stage=deploy inventory=380 manual=69 scoped=0 errors=2"
+          ],
+          "conclusion": "Требования покрытия и граф ищутся по одному id среза; множественный --slice не поддерживается. Совмещённый гейт не проводился и не имитируется: M1 и NEXT-02 проверены по отдельности (M1 deploy зелёный, NEXT-02 review-часть зелёная внутри среза)."
+        }
+      }
     }
+  },
+  "metric_contract_2026_11_13": {
+    "recorded_at": "2026-11-13",
+    "owner_decision": {
+      "path": "plans/owner_inputs/2026-11-13-vmq-next02-natural-retrieval-metric.md",
+      "sha256": "d730045387fe77cddb12d8f185a91206b9f1577d8826c0cb2111ef4b06a0a2f1",
+      "kind": "decision"
+    },
+    "contract": {
+      "path": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+      "sha256": "cfef9d0572189c5ff17d9e57a99b1f3f0f45390faed845ff262bdada9f691cb6"
+    },
+    "supersedes": "жёсткий порог 58,1 % как универсальный gate NEXT-02 (не понижение порога, а замена метрики решением владельца)",
+    "kept_mandatory": "доставка якоря ≥ 6/15, «по теме» ≥ 8/18, явно нерелевантных < 28 %, хотя бы один A6/A9/A13/A15 векторной ногой либо честный vector_pool_miss, knn_ms/fts_ms раздельно и потолок p95 периодного вызова +400 мс",
+    "forbidden": [
+      "cap на 2026",
+      "квоты по годам",
+      "принудительное вытеснение свежих релевантных сообщений",
+      "подмена качества снижением числового порога",
+      "новый масштабный рефакторинг retrieval ради метрики"
+    ],
+    "diagnostic_only": "доля сообщений по годам (и блок, и корпус)",
+    "status_effect": "NEXT-02 — REVIEW на 96c8bc72; эпик не закрыт, 54 обязательные строки без покрытия остаются"
+  },
+  "next_executable_2026_11_13_after_next2": {
+    "slice": "VMQ-M1 + VMQ-MEM-NEXT (два одобренных, но не выложенных кандидата)",
+    "owner": "Orchestrator -> DevOps (release handoff) при независимом подтверждении Reviewer уже записано",
+    "action": "Предложение PM: отдать в release-линию два готовых кандидата — VMQ-M1 cfec9a1a (M-01..M-03 REVIEW, scoped deploy-гейт зелёный после снятия ложного ребра M1 → ONTO-A) и VMQ-MEM-NEXT 96c8bc72 (NEXT-02/05 REVIEW). Остальные строки среза VMQ-MEM-NEXT остаются открытыми: NEXT-01 (postrelease-наблюдение), NEXT-03 (нет candidate-bound approval на 96c8bc72), NEXT-04 (нет положительного архивного случая).",
+    "why": "Оба кандидата прошли независимое ревью и не имеют обязательных блокеров; дальнейшее ожидание не добавляет доказательств. Решение о выпуске и его порядок — за Orchestrator/DevOps; PM задачу не диспетчеризует.",
+    "not_this": "не DONE эпика и не закрытие 54 REAL_GAP-строк",
+    "previous_field": "next_executable_2026_11_13 оставлен без изменений как историческая запись"
+  },
+  "bookkeeping_corrections_2026_11_13": {
+    "date": "2026-11-13",
+    "scope": "map/graph/plan, код и прод не менялись",
+    "items": [
+      {
+        "what": "VMQ-M1 write_scope указывал на несуществующие services/memory_episodes.py и tests/test_memory_episodes.py",
+        "fix": "заменён на фактические services/mca_episodes.py, services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py (+ evidence/vmq-m/); прежний список сохранён в slice-graph write_scope_history",
+        "evidence": "git diff --name-only 23477658..cfec9a1a: services/mca_episodes.py, services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py; memory_episodes.py отсутствует во всех ветках (git ls-tree 23477658/96c8bc72: нет)"
+      },
+      {
+        "what": "plan.md §Введение/§3/§1 counts: «12 срезов» и «13 срезов, 54 ручные строки», «46 ручных требований»",
+        "fix": "фактические 16 срезов в slice-graph.json и inventory=380 / manual=69 по гейту; старые числа оставлены как исторические с датой",
+        "evidence": "requirements_gate.py check --stage plan -> stage=plan inventory=380 manual=69 scoped=0 errors=0"
+      },
+      {
+        "what": "plan.md ASCII-дерево ставило VMQ-M1 под VMQ-ONTO-A",
+        "fix": "дерево исправлено: VMQ-M1 — независимый старт полосы памяти; ребро M1 → ONTO-A снято ранее (eb6c5ef2)",
+        "evidence": "slice-graph.json VMQ-M1.depends_on = []"
+      },
+      {
+        "what": "VMQ-M1.next_role = Builder",
+        "fix": "next_role = DevOps (release handoff): кандидат cfec9a1a уже одобрен Reviewer и не выложен",
+        "evidence": "slice_candidate_bindings.m1"
+      },
+      {
+        "what": "plan.md §13 (13.11.2026) утверждал, что scoped deploy-гейт красный из-за VMQ-M1 → VMQ-ONTO-A",
+        "fix": "добавлена датированная поправка, историческая запись сохранена",
+        "evidence": "гейт перепрогнан после eb6c5ef2"
+      },
+      {
+        "what": "slice-graph serialized_files описывал services/database.py как двухвладельческий (M1, затем M2)",
+        "fix": "назван третий владелец VMQ-MEM-NEXT, как он и есть в write_scope",
+        "evidence": "slice-graph.json serialized_files + VMQ-MEM-NEXT.write_scope"
+      },
+      {
+        "what": "docs/evidence файлы кандидата 96c8bc72 существовали только на ветке vmq/next2-final",
+        "fix": "перенесены побайтово (binding + 24 файла замера), код не менялся",
+        "evidence": "git checkout a3492925 -- plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-*"
+      }
+    ]
   }
-}
+}
