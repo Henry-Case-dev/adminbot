@@ -239,6 +239,83 @@ class TestBudgetsOffContract:
                 limits.max_same_call, limits.fuse_seconds) == (0, 0, 0, 0.0)
         assert limits.enforce is True            # политика есть — квот нет
 
+    @pytest.mark.asyncio
+    async def test_simple_chain_off_ignores_explicit_ceiling(
+            self, monkeypatch):
+        """OFF важнее явной политики: simple-цепочка исполняет все шаги."""
+        from services import direct_execution as de
+
+        real_budget = de.ChainBudget
+
+        def _steps(*a, **kw):
+            return ([{"step_id": f"s{i}", "tool": "execute_web_search",
+                      "arguments": {"query": f"q{i}"}, "depends_on": [],
+                      "failure_policy": "optional"} for i in range(5)], [])
+
+        class _Router:
+            def __init__(self):
+                self.dispatched = []
+
+            async def dispatch(self, name, arguments, ctx):
+                self.dispatched.append(name)
+                return f"data:{arguments['query']}"
+
+        monkeypatch.setattr(de, "derive_simple_steps", _steps)
+        monkeypatch.setattr(
+            de, "ChainBudget",
+            lambda **kw: real_budget(budgets_enabled=False, max_total=2,
+                                     max_metered=1, timeout_seconds=0.001))
+        router = _Router()
+        result = await de.run_simple_tools(
+            plan=None, router=router, ctx=None, query="x", chat_id=CHAT_ID,
+            correlation_id="corr", announced={"execute_web_search"})
+        assert len(router.dispatched) == 5
+        assert result.chain_meta["limits"]["limits_enforced"] is False
+        assert all(s.status == "ok" for s in result.evidence_sources)
+
+
+class TestAdaptiveChainBudgets:
+    @pytest.mark.asyncio
+    async def test_env_step_ceiling_ignored_when_off(self, monkeypatch):
+        """OFF важнее `DIRECT_ORCHESTRATOR_MAX_STEPS`: цепочка не режется."""
+        from services import direct_execution as de
+
+        class _Orch:
+            def __init__(self, decisions):
+                self._decisions = list(decisions)
+
+            async def generate(self, messages, temperature=None, chat_id=None,
+                               module=None, step=None, correlation_id=None,
+                               **kw):
+                decision = (self._decisions.pop(0) if self._decisions
+                            else {"action": "finish", "reason": "done"})
+                return json.dumps(decision, ensure_ascii=False)
+
+        class _Router:
+            def __init__(self):
+                self.dispatched = []
+
+            async def dispatch(self, name, arguments, ctx):
+                self.dispatched.append(name)
+                return "результат"
+
+        decisions = [{"action": "call_tool", "tool": "execute_web_search",
+                      "arguments": {"query": f"q{i}"}, "reason": f"r{i}"}
+                     for i in range(3)]
+        plan = type("P", (), {"execution_mode": "adaptive_tool_chain"})()
+        monkeypatch.setenv("DIRECT_ORCHESTRATOR_MAX_STEPS", "1")
+        monkeypatch.setenv("DIRECT_ORCHESTRATOR_MAX_TOTAL_TOKENS", "1")
+        _patch_budgets(monkeypatch, False)
+        router = _Router()
+        result = await de.run_adaptive_chain(
+            llm=_Orch(decisions), router=router, ctx=None, plan=plan,
+            query="q", tool_schemas=[{"function": {
+                "name": "execute_web_search", "description": "d"}}],
+            chat_id=CHAT_ID, correlation_id="corr-off")
+        assert len(router.dispatched) == 3       # env-потолок не действует
+        assert result.reason == "finish"
+        assert result.chain_meta["limits"]["limits_enforced"] is False
+
 
 # ── B: L1-контроль единой политики ─────────────────────────────────────────
 
