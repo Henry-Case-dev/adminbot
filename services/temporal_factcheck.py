@@ -563,8 +563,7 @@ async def build_envelope(
             period_origin = "request"
     if period_from is None and subject_origin != "request":
         mat_from, mat_to, mat_precision, mat_notes = \
-            _extract_claimed_period(material_part or claim_text,
-                                    material_published_at)
+            _extract_claimed_period(claim_text, material_published_at)
         if mat_from is not None:
             period_from, period_to = mat_from, mat_to
             period_precision = mat_precision

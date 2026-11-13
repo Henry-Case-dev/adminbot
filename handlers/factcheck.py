@@ -676,10 +676,15 @@ async def _resolve_subject(message: types.Message, target: types.Message,
     except Exception:          # pragma: no cover — fail-open как в сервисе
         logger.warning("[factcheck] subject resolve wrapper failed",
                        exc_info=True)
-        return orchestrator.CheckSubject(
-            text=str(target_text or ""), request_text=user_hint,
-            material_text=str(target_text or ""),
-            material_part=str(target_text or ""),
+        return orchestrator._material_subject(
+            material_text=str(target_text or ""), request_text=user_hint,
+            material_author=_material_author_name(target, publication),
+            request_author=str(getattr(getattr(message, "from_user", None),
+                                       "first_name", "") or ""),
+            material_tg_message_id=(
+                getattr(publication, "target_tg_message_id", None)
+                or getattr(target, "message_id", None)),
+            request_tg_message_id=getattr(message, "message_id", None),
             resolved_by="fallback", note="wrapper_error")
 
 

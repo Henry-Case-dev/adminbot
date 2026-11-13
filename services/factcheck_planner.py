@@ -491,6 +491,7 @@ def build_retrieval_plan(decision, *,
                          subject_fingerprint: str = "",
                          subject_anchor_tg_message_id: int | None = None,
                          subject_author: str = "",
+                         subject_request_text: str = "",
                          ) -> RetrievalPlan | None:
     """SuitabilityDecision/ClaimItem → план поисковых действий.
 
@@ -518,7 +519,8 @@ def build_retrieval_plan(decision, *,
                                  subject_fingerprint=subject_fingerprint,
                                  subject_anchor_tg_message_id=(
                                      subject_anchor_tg_message_id),
-                                 subject_author=subject_author)
+                                 subject_author=subject_author,
+                                 subject_request_text=subject_request_text)
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
         return None
@@ -813,7 +815,8 @@ def build_claim_units(items, claim: str, *,
 
 def _claim_anchor_map(items, units, *, subject_origin: str = "",
                       subject_anchor_tg_message_id: int | None = None,
-                      subject_author: str = "") -> tuple[dict, ...]:
+                      subject_author: str = "",
+                      subject_request_text: str = "") -> tuple[dict, ...]:
     """M6: claim_id → анкор/автор исходного фрагмента (без догадок).
 
     Часть плана сопоставляется с claim-item по совпадению текста (пункт может
@@ -823,8 +826,11 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
     S13: часть самостоятельного вопроса пользователя (``subject_origin ==
     "request"``) без item-совпадения принадлежит СООБЩЕНИЮ ЗАПРОСА, а не
     материалу: пользовательский вопрос не становится цитатой исходного автора.
-    Для material/mixed анкор не угадывается."""
+    Для mixed-предмета так же структурно определяется часть, дословно взятая
+    из request_part. Для material/mixed без такого совпадения анкор не
+    угадывается."""
     rows: list[dict] = []
+    request_low = str(subject_request_text or "").strip().lower()
     by_text = {}
     for item in items or ():
         text = str(getattr(item, "text", "") or "").strip().lower()
@@ -849,12 +855,18 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
         }
         if item is not None and row["source"] == "user_request":
             row["origin"] = "user_request"
-        elif (item is None and subject_origin == "request"
-              and subject_anchor_tg_message_id not in (None, "", 0)):
-            row["anchor_tg_message_id"] = int(subject_anchor_tg_message_id)
-            row["author"] = str(subject_author or "")
-            row["source"] = "user_request"
-            row["origin"] = "user_request"
+        elif item is None and subject_anchor_tg_message_id not in (None, "", 0):
+            unit_low = str(getattr(unit, "text", "") or "").strip().lower()
+            from_request = bool(
+                request_low and unit_low
+                and (unit_low in request_low or request_low in unit_low))
+            if subject_origin == "request" or from_request:
+                row["anchor_tg_message_id"] = int(subject_anchor_tg_message_id)
+                row["author"] = str(subject_author or "")
+                row["source"] = "user_request"
+                row["origin"] = "user_request"
+            else:
+                row["origin"] = ""
         else:
             row["origin"] = "material" if row["anchor_tg_message_id"] else ""
         rows.append(row)
@@ -934,7 +946,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
                       subject_origin: str = "",
                       subject_fingerprint: str = "",
                       subject_anchor_tg_message_id: int | None = None,
-                      subject_author: str = "") -> RetrievalPlan | None:
+                      subject_author: str = "",
+                      subject_request_text: str = "") -> RetrievalPlan | None:
     if decision is None:
         return None
     scope = str(getattr(decision, "scope", "") or "")
@@ -1080,7 +1093,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
         claim_anchors=_claim_anchor_map(
             items, units, subject_origin=subject_origin,
             subject_anchor_tg_message_id=subject_anchor_tg_message_id,
-            subject_author=subject_author),
+            subject_author=subject_author,
+            subject_request_text=subject_request_text),
         subject_origin=subject_origin,
         subject_fingerprint=subject_fingerprint)
 

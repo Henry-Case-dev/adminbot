@@ -437,10 +437,19 @@ def _subject_from_decision(*, material_text: str, request_text: str,
             return None
     if material_part and not request_part:
         origin = SUBJECT_ORIGIN_MATERIAL
-        # Без изменения предмета возвращаем материал БАЙТ-В-БАЙТ: обычный
-        # фактчек и разговорный комментарий не должны менять проверяемый текст.
-        text = material_text
-        material_part = material_text
+        if _subject_norm(material_part) == _subject_norm(material_text):
+            # Без изменения предмета возвращаем материал БАЙТ-В-БАЙТ:
+            # обычный фактчек и разговорный комментарий не меняют проверяемый
+            # текст.
+            text = material_text
+            material_part = material_text
+        else:
+            # S13 §3.3 C: уточнение выбрало ЧАСТЬ материала (число/дата/
+            # цитата/утверждение). Сужение исполняется, а не откатывается к
+            # полному материалу; дословная часть сохраняется в provenance.
+            text = subject
+            if _subject_norm(material_part) not in _subject_norm(text):
+                text = f"{material_part} {text}".strip()
     elif request_part and not material_part:
         origin = SUBJECT_ORIGIN_REQUEST
         text = subject
@@ -522,7 +531,7 @@ async def resolve_check_subject(service, *, material_text: str,
         messages = [{"role": "system", "content": system},
                     {"role": "user", "content": user}]
         raw = await llm.generate(messages, module="factcheck",
-                                 step="subject_resolve")
+                                 step="subject_resolve", chat_id=chat_id)
         from services.system2_handoff import parse_json_object
         decision = parse_json_object(str(raw))
         if not isinstance(decision, dict):
@@ -1801,7 +1810,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             or getattr(subject, "fingerprint", "") or ""),
         subject_anchor_tg_message_id=getattr(
             subject, "request_tg_message_id", None),
-        subject_author=str(getattr(subject, "request_author", "") or ""))
+        subject_author=str(getattr(subject, "request_author", "") or ""),
+        subject_request_text=str(
+            getattr(subject, "request_part", "") or ""))
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s", req.chat_id,
