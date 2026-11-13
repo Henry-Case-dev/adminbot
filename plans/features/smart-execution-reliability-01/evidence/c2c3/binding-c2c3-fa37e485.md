@@ -3,6 +3,7 @@
 - Ветка: `smart/c-source`
 - Base (утверждённая линия C1): `36dd6b232bf2705cc470764a7ab71451c5c49fdf`
 - Кандидат: `fa37e48522ce3522943442a6e378cc2dc36eb139`
+- Evidence HEAD: `26d258b3` (binding + логи; код-кандидат не менялся)
 - Worktree: `...\WorkspaceData\worktrees\...\SMART-EXECUTION-RELIABILITY-01-92d1db8aefb1-1754cefe`
 - Требования: SXR-C2-01, SXR-C2-02, SXR-C3-01, SXR-C3-02 (C1 не регрессирован).
 - Статус: реализация + собственные проверки. **Не** Reviewer approval и **не** DONE эпика.
@@ -82,7 +83,7 @@
 python -m pytest tests/test_smart_exec_evidence.py -q
 24 passed in 3.07s                         # evidence/c2c3/pytest-focused-fa37e485.txt
 
-# combined (кандидат fa37e485; 27 файлов, включая C1 и потребителей)
+# combined (кандидат fa37e485; 26 файлов, включая C1 и потребителей)
 python -m pytest tests/test_smart_exec_evidence.py tests/test_smart_c1_source_reader_limits.py \
   tests/test_evidence_bundle.py tests/test_direct_context_composer_asap3.py \
   tests/test_context_policy_asap31.py tests/test_ur_context_selection.py \
