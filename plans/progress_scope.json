@@ -826,7 +826,7 @@
     },
     {
       "id": "vmq-onto-01",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
       "source_sha256": "11FD732FED30E5EA2B78B1951D2E8DF8B483FF55FEA92285F6DA57FCC7637CD0",
       "maps": [
@@ -834,15 +834,15 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); next executable slice is VMQ-MEM-NEXT; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T17:09:25+12:00",
+      "updated": "2026-11-14T08:05:00+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
-      "execution_state": "active_assignment",
+      "execution_state": "queued",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate.",
+      "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate. | 2026-11-14 re-entry: no live lane since 2026-11-13 16:46; approved candidates M1 cfec9a1a and NEXT-02/05 96c8bc72 await release batching decision inside the current release line; worktrees preserved.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -934,7 +934,7 @@
     },
     {
       "id": "self-diag-01",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
       "source_sha256": "BA12833AEBC259039C7C198F596346880639618D9EAFDB2E76D8EDE17D0EB400",
       "maps": [
@@ -942,15 +942,15 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-14T00:16:56+12:00",
+      "updated": "2026-11-14T08:05:00+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
-      "execution_state": "active_assignment",
+      "execution_state": "queued",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13 corrective (owner, P0): core 76fcb829 + identity ea9e9f2a Approved; journal env fix verified; PM bound 23 corrective rows (147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING). Scoped deploy red only on dependency closure -> one epic-level release train, then release smoke (journal, Telegram E2E, deployed manifest), then corrective closeout. Epic not DONE. | 2026-11-14: remaining SELF-DIAG obligations (stage H) are consolidated into the owner's single priority epic SMART-EXECUTION-RELIABILITY-01; 2.58.199 deployed evidence and 147 VERIFIED rows preserved; no competing epic.",
+      "queue_note": "2026-11-13 corrective (owner, P0): core 76fcb829 + identity ea9e9f2a Approved; journal env fix verified; PM bound 23 corrective rows (147 VERIFIED / 41 READY / 16 REVIEW / 2 PENDING). Scoped deploy red only on dependency closure -> one epic-level release train, then release smoke (journal, Telegram E2E, deployed manifest), then corrective closeout. Epic not DONE. | 2026-11-14: remaining SELF-DIAG obligations (stage H) are consolidated into the owner's single priority epic SMART-EXECUTION-RELIABILITY-01; 2.58.199 deployed evidence and 147 VERIFIED rows preserved; no competing epic. | 2026-11-14 re-entry: no live lane; remaining stage-H obligations execute inside SMART S8 (owner consolidation), 2.58.199 deployed evidence (1747 records with bound_from_candidate) preserved; 41 READY_FOR_LIVE rows + CL-02 release-gate leftovers await their own postdeploy evidence, epic not DONE.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -1479,7 +1479,7 @@
     },
     {
       "id": "unified-reply",
-      "status": "BUILDING",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-05-unified-reply.md",
       "source_sha256": "68EF29BE4AC838B80ADE0507E76C94EB1EC8046FB9B3BCA99D293AEFC121F25A",
       "maps": [
@@ -1487,15 +1487,15 @@
       ],
       "coverage_complete": true,
       "source_note": "Карта PM f21644b4: 261 обязательная строка (UR-01..UR-30 + подтребования, §11 чеклисты A-Д как UR-ACC-*, §12 запреты UR-BAN-*), 9 срезов UR-A..UR-G + подпакеты времени UR-C-CLOCK (UR-24..27) и UR-C-SCHED (UR-28), 3 live-строки (UR-ACC-E9/UR-30.7 postdeploy, UR-08.2 preprod). План-гейт 0 ошибок. ARCHITECT_REQUIRED до Builder на UR-A/C/C-CLOCK/C-SCHED/D/F (контракт 4359b966). Размещение: UR-B и контекстная часть UR-C стартуют сейчас параллельно CMV-D/E (свободные backend-файлы); UR-A — после освобождения direct_chat_service.py остатком RC v5; UR-F — только после мержа CMV-D+E (один писатель на web/app.js, web/index.html, web/static/app.css). Статус: UR-18 (метаданные генерации) принят и влит (3ad5036e); UR-B в работе.",
-      "updated": "2026-11-14T00:16:56+12:00",
+      "updated": "2026-11-14T08:05:00+12:00",
       "queue_position": 41,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "active",
       "blocker_sources": {},
-      "execution_state": "active_assignment",
+      "execution_state": "queued",
       "position_basis": "owner decision",
-      "queue_note": "inspector step 3 under review; do not interrupt | 2026-11-14: stale record (last update 2026-11-05, no live lane, no session); position moved from 1 to 41 to preserve unique queue positions after the owner's priority epic insertion. History preserved.",
+      "queue_note": "inspector step 3 under review; do not interrupt | 2026-11-14: stale record (last update 2026-11-05, no live lane, no session); position moved from 1 to 41 to preserve unique queue positions after the owner's priority epic insertion. History preserved. | 2026-11-14 re-entry: stale BUILDING cleared; no live session or worktree activity since 2026-11-05.",
       "release_state": "inspector slice released as 2.58.185 @ 40d52954; product healthy, no errors, DDL 0; two live items await the first ordinary turn (a real direct_turn_selection row and populated selection/style/clock sections) — a read-only script is ready and the check repeats on that event",
       "postdeploy_monitoring": {
         "blocking": false,
