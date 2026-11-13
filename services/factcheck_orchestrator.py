@@ -1812,7 +1812,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             subject, "request_tg_message_id", None),
         subject_author=str(getattr(subject, "request_author", "") or ""),
         subject_request_text=str(
-            getattr(subject, "request_part", "") or ""))
+            getattr(subject, "request_part", "") or ""),
+        subject_material_text=str(
+            getattr(subject, "material_part", "") or ""))
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s", req.chat_id,

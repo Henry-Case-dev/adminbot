@@ -465,6 +465,18 @@ class TestClaimUnits:
         assert units
         assert "страны без западного влияния" in " ".join(units)
 
+    def test_material_phrase_shared_with_request_is_not_anchored_to_user(self):
+        """§4.4: фраза материала, совпавшая со словами запроса, не становится
+        цитатой пользователя (анкор не угадывается)."""
+        unit = fsp.ClaimUnit(claim_id="c1",
+                             text="Франция влияла на традицию.")
+        rows = fsp._claim_anchor_map(
+            [], [unit], subject_origin="mixed",
+            subject_anchor_tg_message_id=TRIGGER_TG, subject_author="Аня",
+            subject_request_text="Франция",
+            subject_material_text="Франция влияла на традицию.")
+        assert rows[0]["anchor_tg_message_id"] is None
+
 
 # ── Cache identity: разные предметы не делят готовый результат ──────────────
 
@@ -550,6 +562,22 @@ class TestProvenance:
         assert env.original_published_at is None
         assert env.material_published_at == 1700000000
         assert env.repost_received_at == SENT_AT
+
+    def test_user_hint_claim_item_has_user_request_provenance(self):
+        """§4.4: собственный текст пользователя не помечается как цитата
+        материала и анкорится к сообщению запроса."""
+        decision = fsg.evaluate_suitability(
+            "ну", REQUEST_ONLY, None, explicit_request=True,
+            target_ref={"chat_id": CHAT_ID,
+                        "target_tg_message_id": TARGET_TG,
+                        "trigger_tg_message_id": TRIGGER_TG})
+        request_items = [item for item in decision.claim_items
+                         if item.source == "user_request"]
+        assert request_items, decision.claim_items
+        assert request_items[0].text == REQUEST_ONLY.strip()
+        assert request_items[0].anchor_tg_message_id == TRIGGER_TG
+        assert all(item.anchor_tg_message_id != TARGET_TG
+                   for item in request_items)
 
     def test_handler_wrapper_passes_full_hint_to_semantic_stage(self):
         hint = "  Полный текст уточнения: " + ("деталь " * 90).strip()

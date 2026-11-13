@@ -492,6 +492,7 @@ def build_retrieval_plan(decision, *,
                          subject_anchor_tg_message_id: int | None = None,
                          subject_author: str = "",
                          subject_request_text: str = "",
+                         subject_material_text: str = "",
                          ) -> RetrievalPlan | None:
     """SuitabilityDecision/ClaimItem → план поисковых действий.
 
@@ -520,7 +521,8 @@ def build_retrieval_plan(decision, *,
                                  subject_anchor_tg_message_id=(
                                      subject_anchor_tg_message_id),
                                  subject_author=subject_author,
-                                 subject_request_text=subject_request_text)
+                                 subject_request_text=subject_request_text,
+                                 subject_material_text=subject_material_text)
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
         return None
@@ -832,7 +834,8 @@ def build_claim_units(items, claim: str, *,
 def _claim_anchor_map(items, units, *, subject_origin: str = "",
                       subject_anchor_tg_message_id: int | None = None,
                       subject_author: str = "",
-                      subject_request_text: str = "") -> tuple[dict, ...]:
+                      subject_request_text: str = "",
+                      subject_material_text: str = "") -> tuple[dict, ...]:
     """M6: claim_id → анкор/автор исходного фрагмента (без догадок).
 
     Часть плана сопоставляется с claim-item по совпадению текста (пункт может
@@ -847,6 +850,7 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
     угадывается."""
     rows: list[dict] = []
     request_low = str(subject_request_text or "").strip().lower()
+    material_low = str(subject_material_text or "").strip().lower()
     by_text = {}
     for item in items or ():
         text = str(getattr(item, "text", "") or "").strip().lower()
@@ -873,10 +877,14 @@ def _claim_anchor_map(items, units, *, subject_origin: str = "",
             row["origin"] = "user_request"
         elif item is None and subject_anchor_tg_message_id not in (None, "", 0):
             unit_low = str(getattr(unit, "text", "") or "").strip().lower()
+            in_material = bool(
+                material_low and unit_low
+                and (unit_low in material_low or material_low in unit_low))
             from_request = bool(
                 request_low and unit_low
                 and (unit_low in request_low or request_low in unit_low))
-            if subject_origin == "request" or from_request:
+            if (subject_origin == "request" and not in_material) or \
+                    (from_request and not in_material):
                 row["anchor_tg_message_id"] = int(subject_anchor_tg_message_id)
                 row["author"] = str(subject_author or "")
                 row["source"] = "user_request"
@@ -963,7 +971,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
                       subject_fingerprint: str = "",
                       subject_anchor_tg_message_id: int | None = None,
                       subject_author: str = "",
-                      subject_request_text: str = "") -> RetrievalPlan | None:
+                      subject_request_text: str = "",
+                      subject_material_text: str = "") -> RetrievalPlan | None:
     if decision is None:
         return None
     scope = str(getattr(decision, "scope", "") or "")
@@ -1110,7 +1119,8 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
             items, units, subject_origin=subject_origin,
             subject_anchor_tg_message_id=subject_anchor_tg_message_id,
             subject_author=subject_author,
-            subject_request_text=subject_request_text),
+            subject_request_text=subject_request_text,
+            subject_material_text=subject_material_text),
         subject_origin=subject_origin,
         subject_fingerprint=subject_fingerprint)
 
