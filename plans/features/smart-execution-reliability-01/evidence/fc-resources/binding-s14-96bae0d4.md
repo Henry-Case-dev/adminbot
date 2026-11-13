@@ -151,19 +151,21 @@ SMART-EXECUTION-RELIABILITY-01, wave8).
 pytest tests/test_factcheck_resources.py -q
 → 19 passed in 2.99s
 
-pytest <39 factcheck-related files> -q
-→ 819 passed, 2 failed, 4 errors in 49.96s
+pytest <40 factcheck-related files> -q
+→ 821 passed, 1 failed, 4 errors in 43.61s
 ```
 
-Те же 39 файлов на базе `c00caf62` (без S14-кода):
+Те же 39 factcheck-файлов базы (без нового файла) на `c00caf62`:
 ```
 → 801 passed, 2 failed, 4 errors in 45.21s
 ```
-Разница ровно +18 новых тестов; 2 failed + 4 errors идентичны на базе
-(см. `raw/pytest-focused-base-c00caf62.txt` и
-`raw/pytest-focused-factcheck.txt`):
+Разница ровно новым durable-набором (19 тестов) плюс один сетевой flaky;
+2 failed + 4 errors идентичны на базе (см.
+`raw/pytest-focused-base-c00caf62.txt` и
+`raw/pytest-focused-final-96bae0d4.txt`):
 - `test_factcheck_fc_r1_fix.py::...test_all_irrelevant_is_honest_failure` —
   сетевой DuckDuckGo-fallback: тест ожидает отказ, живой провайдер отвечает;
+  на финальном прогоне прошёл (flaky от сети), на базе падал;
 - `test_mca20_rework1_f1_f2.py::...test_evidence_injection...` — pre-existing
   на базе (экранирование `</evidence>`);
 - 4 setup-error `test_evol_fc_admission.py` — `PersistentCooldownTracker`
@@ -179,7 +181,7 @@ S1-регрессии после merge: `tests/test_smart_exec_ab_round1114.py` 
 `raw/s14_resource_probe.py` (14 наблюдаемых проверок, без новых API):
 - база `c00caf62`: **0/14** — 10 c/45 c/3/12/8000/16 refs, temporal 8,
   скрытый cap 2, нет OFF-контракта (`raw/red-base-c00caf62.json`);
-- кандидат `21a1c169`: **14/14** (`raw/green-candidate-21a1c169.json`).
+- кандидат `96bae0d4`: **14/14** (`raw/green-candidate-96bae0d4.json`).
 
 Покрытие RED: константы, hard cap claim units, temporal tail, temporal queries,
 `FactcheckLimits`, OFF-caps, page>4, OFF query cap, OFF char budget.

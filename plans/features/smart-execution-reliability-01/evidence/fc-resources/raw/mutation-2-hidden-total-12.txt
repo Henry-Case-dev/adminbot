@@ -9,7 +9,7 @@ ________________ test_on_deadline_and_query_budget_are_applied ________________
         # ╨░╨┤╨░╨┐╤В╨╕╨▓: +50% ╨▒╨░╨╖╨╛╨▓╨╛╨│╨╛ ╨╖╨░ ╨║╨░╨╢╨┤╤Г╤О ╨┤╨╛╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М╨╜╤Г╤О ╤З╨░╤Б╤В╤М, cap 600
         assert fsp._budget_seconds(2, limits) == 180.0
         assert fsp._budget_seconds(40, limits) == 600.0
-    
+
         # 40 ╤З╨░╤Б╤В╨╡╨╣, ╨▓╤Б╨╡ ╨╖╨░╨┐╤А╨╛╤Б╤Л ╨╜╨╡ ╨┤╨░╤О╤В ╨┐╨╛╨║╤А╤Л╤В╨╕╤П тЖТ 40 ╨▒╨░╨╖╨╛╨▓╤Л╤Е + 24 ╤Г╤В╨╛╤З╨╜╤П╤О╤Й╨╕╤Е,
         # ╨╛╨▒╤Й╨╕╨╣ ╨▒╤О╨┤╨╢╨╡╤В 64 (╤Г╤В╨╛╤З╨╜╤П╤О╤Й╨╕╨╡ ╨Э╨Х ╤Б╤Г╨╝╨╝╨╕╤А╤Г╤О╤В╤Б╤П ╤Б╨▓╨╡╤А╤Е ╨╜╨╡╨│╨╛).
         plan = _plan(40)
@@ -54,15 +54,15 @@ monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D611E53290>
                 "limits.factcheck_primary_fetches": (2, "chat"),
                 "limits.factcheck_excerpt_chars": (600, "chat"),
             }[key]
-    
+
         async def fake_budgets(chat_id=None):
             return budget_gate.BudgetState(
                 enabled=False, source="chat", chat_id=chat_id, known=True)
-    
+
         monkeypatch.setattr(
             "services.worker_settings.resolve_setting_with_source", fake_read)
         monkeypatch.setattr(budget_gate, "resolve_budgets", fake_budgets)
-    
+
         limits = await fsp.resolve_factcheck_limits(CHAT)
         outcome = await fsp.run_retrieval(
             _plan(40), aggregator=_Agg("╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В\nhttps://t.example/1"),

@@ -9,13 +9,13 @@
 ........................................................................ [ 80%]
 .....E.....E...........EE............................................... [ 89%]
 ...................................................F.................... [ 98%]
-python.exe : 
+python.exe :
 строка:1 знак:304
 + ... PATH=$base; & "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -X u ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 WARNING: closed 7 leaked aiosqlite connection(s)
 ...............                                                          [100%]
 =================================== ERRORS ====================================
