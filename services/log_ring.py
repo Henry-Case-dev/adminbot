@@ -132,6 +132,12 @@ class LogRingHandler(logging.Handler):
         self._buffer: deque[dict] = deque(maxlen=max(1, maxlen))
         self._lock = threading.Lock()
         self.errors_total = 0
+        # Наблюдаемость ring-buffer: сколько записей вообще прошло через
+        # обработчик с момента старта процесса и когда он создан. Без этого
+        # пустой буфер неотличим от «ошибок нет» (SELF-DIAG-01 corrective).
+        self.records_total = 0
+        self.started_at = datetime.datetime.now(
+            datetime.timezone.utc).isoformat()
         self.addFilter(_LogtailFilter())
 
     @property
@@ -159,6 +165,7 @@ class LogRingHandler(logging.Handler):
             }
             with self._lock:
                 self._buffer.append(entry)
+                self.records_total += 1
                 if record.levelno >= logging.ERROR:
                     self.errors_total += 1
         except Exception:  # pragma: no cover
@@ -206,6 +213,11 @@ class LogRingHandler(logging.Handler):
 
     def get_errors_total(self) -> int:
         return self.errors_total
+
+    def get_records_total(self) -> int:
+        """Сколько записей прошло через handler с момента старта процесса."""
+        with self._lock:
+            return self.records_total
 
 
 log_ring = LogRingHandler()

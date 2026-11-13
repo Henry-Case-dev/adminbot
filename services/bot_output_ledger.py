@@ -280,7 +280,8 @@ def _normalize_history_record(record: dict) -> dict:
 async def list_bot_output_history(db, chat_id: int, *, since_ts: int = 0,
                                   until_ts: int = 0, limit: int = 200,
                                   kinds: tuple[str, ...] | None = None,
-                                  include_undated: bool = True) -> list[dict]:
+                                  include_undated: bool = True,
+                                  raise_on_error: bool = False) -> list[dict]:
     """Собственные доставленные сообщения чата в хронологическом порядке.
 
     Единый read-path UR-23 для ContextSelection/thread_chain:
@@ -293,7 +294,12 @@ async def list_bot_output_history(db, chat_id: int, *, since_ts: int = 0,
     * media-only/пустые строки не отбрасываются и не получают текст из
       воздуха (`media_only=True`);
     * gate `MCA_BOT_OUTPUT_LEDGER_ENABLED` OFF, отсутствие метода/БД или
-      ошибка → пустой список (бот не притворяется, что помнит)."""
+      ошибка → пустой список (бот не притворяется, что помнит).
+    * ``raise_on_error=True`` — для диагностического чтения: ошибка чтения
+      поднимается, чтобы отсутствие наблюдения не выдавалось за 0 записей;
+      gate/absent-reader по-прежнему возвращают пустой список (их вызывающий
+      проверяет отдельно через ``ledger_enabled``).
+    """
     if not ledger_enabled():
         return []
     reader = getattr(db, "list_bot_outputs_between", None)
@@ -305,6 +311,8 @@ async def list_bot_output_history(db, chat_id: int, *, since_ts: int = 0,
             until_ts=int(until_ts or 0), limit=max(1, int(limit or 1)),
             kinds=kinds)
     except Exception:
+        if raise_on_error:
+            raise
         logger.warning("[mca22] bot output history read failed | chat=%s",
                        chat_id, exc_info=True)
         return []

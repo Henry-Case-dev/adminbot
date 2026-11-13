@@ -1052,6 +1052,200 @@ class TestCacheInvalidation:
             rp.unregister_probe("media.invalidate")
 
 
+class TestCounterHonesty:
+    """SELF-DIAG-01 corrective §6: отсутствие наблюдений ≠ доказанный ноль."""
+
+    @pytest.mark.asyncio
+    async def test_logs_errors_without_ring_records_is_not_checked(self, db):
+        class EmptyRing:
+            records_total = 0
+            started_at = "2026-11-13T00:00:00+00:00"
+
+            def get_entries(self, level="INFO", limit=200):
+                return []
+
+            def level_counts(self):
+                return {}
+
+            def get_errors_total(self):
+                return 0
+
+            def get_records_total(self):
+                return self.records_total
+
+        collector = _collector(db, log_ring_getter=lambda: EmptyRing())
+        _, page = await _collect(collector, "logs.errors")
+
+        source = page["sources"][0]
+        assert source["status"] == "not_checked"
+        assert source["reason_code"] == "no_observations"
+        assert source["facts"]["error_entries"] is None
+        assert source["facts"]["errors_total"] is None
+        assert "error_entries" in page["not_checked"]
+        assert "no_error_entries" not in json.dumps(page, ensure_ascii=False)
+
+    @pytest.mark.asyncio
+    async def test_logs_errors_observed_zero_is_ok(self, db):
+        class ObservedRing:
+            records_total = 4
+            started_at = "2026-11-13T00:00:00+00:00"
+
+            def get_entries(self, level="INFO", limit=200):
+                return []
+
+            def level_counts(self):
+                return {"INFO": 4}
+
+            def get_errors_total(self):
+                return 0
+
+            def get_records_total(self):
+                return self.records_total
+
+        collector = _collector(db, log_ring_getter=lambda: ObservedRing())
+        _, page = await _collect(collector, "logs.errors")
+
+        source = page["sources"][0]
+        assert source["status"] == "ok"
+        assert source["reason_code"] == "no_error_entries"
+        assert source["facts"]["error_entries"] == 0
+        assert source["facts"]["records_observed"] == 4
+
+    @pytest.mark.asyncio
+    async def test_logs_errors_read_failure_is_unavailable_not_zero(self, db):
+        class BrokenRing:
+            def get_entries(self, level="INFO", limit=200):
+                raise RuntimeError("ring read failed")
+
+            def level_counts(self):
+                return {}
+
+            def get_errors_total(self):
+                return 0
+
+        collector = _collector(db, log_ring_getter=lambda: BrokenRing())
+        _, page = await _collect(collector, "logs.errors")
+
+        source = page["sources"][0]
+        assert source["status"] == "unavailable"
+        assert source["reason_code"] == "log_ring_read_failed"
+        assert source["facts"]["error_entries"] is None
+
+    @pytest.mark.asyncio
+    async def test_telegram_delivery_ledger_disabled_is_not_configured(
+            self, db, monkeypatch):
+        from services import bot_output_ledger
+
+        monkeypatch.setattr(bot_output_ledger, "ledger_enabled",
+                            lambda: False)
+        collector = _collector(db)
+        _, page = await _collect(collector, "telegram.delivery", chat_id=-100)
+
+        source = page["sources"][0]
+        assert source["status"] == "not_configured"
+        assert source["reason_code"] == "ledger_disabled"
+        assert source["facts"]["delivered"] is None
+        assert "delivered" in page["not_checked"]
+
+    @pytest.mark.asyncio
+    async def test_telegram_delivery_reader_absent_is_not_configured(self):
+        collector = _collector(object())
+        _, page = await _collect(collector, "telegram.delivery", chat_id=-100)
+
+        source = page["sources"][0]
+        assert source["status"] == "not_configured"
+        assert source["reason_code"] == "ledger_reader_absent"
+        assert source["facts"]["delivered"] is None
+
+    @pytest.mark.asyncio
+    async def test_telegram_delivery_read_failure_is_unavailable(
+            self, db, monkeypatch):
+        from services import bot_output_ledger
+
+        async def broken(*args, **kwargs):
+            raise RuntimeError("ledger read failed")
+
+        monkeypatch.setattr(bot_output_ledger,
+                            "list_bot_output_history", broken)
+        collector = _collector(db)
+        _, page = await _collect(collector, "telegram.delivery", chat_id=-100)
+
+        source = page["sources"][0]
+        assert source["status"] == "unavailable"
+        assert source["reason_code"] == "ledger_read_failed"
+        assert source["facts"]["delivered"] is None
+
+    @pytest.mark.asyncio
+    async def test_telegram_delivery_empty_successful_window_is_labelled(
+            self, db):
+        collector = _collector(db)
+        _, page = await _collect(collector, "telegram.delivery", chat_id=-100)
+
+        source = page["sources"][0]
+        assert source["status"] == "ok"
+        assert source["facts"]["delivered"] == 0
+        assert source["facts"]["basis"] == "bot_output_ledger_rows"
+        assert source["facts"]["observations"] == 0
+
+    @pytest.mark.asyncio
+    async def test_stt_without_voice_rows_is_not_checked(self, db):
+        collector = _collector(db)
+        _, page = await _collect(collector, "media.stt", chat_id=-100)
+
+        source = page["sources"][0]
+        assert source["status"] == "not_checked"
+        assert source["reason_code"] == "no_voice_rows"
+        assert source["facts"]["failed"] is None
+        assert source["facts"]["pending"] is None
+        assert source["facts"]["voice_rows"] == 0
+        assert "voice_transcripts" in page["not_checked"]
+
+    @pytest.mark.asyncio
+    async def test_identity_mismatch_is_degraded_and_unverified(self, db):
+        def identity(root, *, process_started_at=None):
+            return {
+                "code": "mismatch", "reason": "sha_conflict",
+                "deployed_sha": "a" * 40, "checkout_sha": "b" * 40,
+                "local_identity": {"branch": "main", "dirty": False},
+                "conflict": ["release_manifest", "git_head"],
+            }
+
+        collector = _collector(db, identity_collector=identity)
+        _, page = await _collect(collector, "deploy.identity")
+
+        source = page["sources"][0]
+        assert page["status"] == "degraded"
+        assert source["status"] == "degraded"
+        assert source["reason_code"] == "sha_conflict"
+        assert source["healthy"] is False
+        assert source["verified"] is False
+        assert source["facts"]["deployed_sha"] == "a" * 40
+        assert source["facts"]["checkout_sha"] == "b" * 40
+
+    @pytest.mark.asyncio
+    async def test_verified_identity_is_healthy(self, db):
+        def identity(root, *, process_started_at=None):
+            return {
+                "code": "verified_deployed", "reason": "",
+                "deployed_sha": "a" * 40, "checkout_sha": "a" * 40,
+                "deployed_at": "2026-11-13T00:00:00+00:00",
+                "process_started_at": "2026-11-13T00:00:05+00:00",
+                "local_identity": {"branch": "release/2.58.198",
+                                   "dirty": False},
+                "conflict": [],
+            }
+
+        collector = _collector(db, identity_collector=identity)
+        _, page = await _collect(collector, "deploy.identity")
+
+        source = page["sources"][0]
+        assert source["status"] == "ok"
+        assert source["verified"] is True
+        assert source["healthy"] is True
+        assert source["facts"]["process_started_at"] == (
+            "2026-11-13T00:00:05+00:00")
+
+
 class TestCheckupAliases:
     def test_historical_checkup_aliases_are_pinned(self):
         from services import command_registry
