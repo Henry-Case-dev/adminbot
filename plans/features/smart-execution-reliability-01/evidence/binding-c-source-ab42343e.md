@@ -6,12 +6,36 @@
 * База: `d20a7f730715ba9e9cba7673c0557794979be339` (2.58.199), ancestor HEAD = да.
 * Ветка: `smart/c-source`; worktree:
   `WorkspaceData/worktrees/c742e4de9e92c489/SMART-EXECUTION-RELIABILITY-01-92d1db8aefb1-1754cefe`.
-* Кодовый коммит (CODE_SHA): **`ab42343eadc2e1e69def2d80ddd0cf820a087ec2`**.
-* Diff vs база: `services/source_reader.py` (+211/−64), `tests/test_evol_source_reader.py`,
-  новый `tests/test_smart_c1_source_reader_limits.py` (476 строк); итого 712/75.
+* Кодовый коммит (CODE_SHA): **`36dd6b232bf2705cc470764a7ab71451c5c49fdf`**
+  (rework после Reviewer blocker; предыдущий кандидат `ab42343e`/`7c113d61`).
+* Diff vs база: `services/source_reader.py` (+278/−11), новый
+  `tests/test_smart_c1_source_reader_limits.py` (26 тестов),
+  правки `tests/test_evol_source_reader.py`.
 * Границы записи соблюдены: изменены ТОЛЬКО `services/source_reader.py` и его тесты.
   `tool_loop.py`, `direct_execution.py`, композер/сериализатор, `budget_gate.py`,
   `config/settings.py`, `tool_router.py` не менялись. Деплой не выполнялся.
+
+## 0. Rework после Reviewer (blocker SXR-C1-02)
+
+Reviewer (`review-c1-ab42343e.md`) признал SXR-C1-01/03 Verified, а SXR-C1-02 —
+FAILED: `LocalSnapshotProvider.read_file` отклонял ЛЮБОЙ файл >2 МБ как
+`file_too_large` ДО применения `line_start`/`line_end`, т.е. большой текст был
+недоступен целиком.
+
+Исправлено в `services/source_reader.py`:
+
+| Точка | Изменение |
+|---|---|
+| `LocalSnapshotProvider.supports_ranges = True` | провайдер явно объявляет возможность постраничного чтения; прочие провайдеры (GitHub: transport-лимит) получают прежний вызов |
+| `LocalSnapshotProvider.read_file(..., line_start, line_end, page_ok=True)` | oversized-файл не отклоняется: отдаётся запрошенная порция строк |
+| `LocalSnapshotProvider._read_page()` | потоковое чтение (память ≤ порции); абсолютные номера строк; CRLF-совместимый срез; `page-truncated` + `next_line_start`; бинарь по всему файлу (`_control_bytes`, тот же порог, что у `decode_source_bytes`); `file_too_large` — только если первая строка порции физически больше предела; диапазон за EOF → `range_empty` |
+| `SourceFile.page` | явные метаданные порции (`line_start/line_end/total_lines/portion_bytes/budget_bytes/truncated/next_line_start`) |
+| `SourceReader._range_hints()` | диапазон уходит только провайдеру с `supports_ranges`; служебные чтения цепочки (`_service_read_hints`) идут с `page_ok=False` |
+| `SourceReader._page_payload()` | payload порции: `line_range` — абсолютные строки файла, `truncation.why="over_portion"`, `limit_source="file_bytes_page"`, `retrievable_remainder_lines`, `next_line_start`, `provenance.page`; `verified` — те же инварианты (commit-pinned байты, `source_kind=file`) |
+
+RED→GREEN блокера (те же тесты, код откачен к `ab42343e`): `7 failed, 1 passed` —
+падают все oversized-сценарии (`unsupported/file_too_large` вместо `ok`), а
+path-traversal/ADS-негатив зелёный и на базе. После фикса: **26 passed** в C1-наборе.
 
 ## 1. Обязательные требования
 
@@ -58,18 +82,38 @@ RED снят на базе `d20a7f73` с теми же тестами (код о
 | `test_predicate_read_through_budget_gate` | API отсутствует | OFF/ON/ошибка резолва → OFF, `chat_id` доходит |
 | `test_factory_constants_are_gone` | константы есть | констант нет, `max_*()==0` |
 
-Safety-тесты (path traversal, denied paths/ADS, binary, `file_too_large`, чужой хост,
-provenance) зелёные и на базе, и на кандидате — они фиксируют, что удаление потолков
-не ослабило безопасность.
+Oversized-текст (§C1 440, blocker Reviewer):
+
+| Тест | `ab42343e` (RED) | `36dd6b23` (GREEN) |
+|---|---|---|
+| `test_initial_range_of_oversized_text_is_readable` (3 МБ, lines 1–200) | `unsupported/file_too_large` | `ok`, `line_range=[1,200]`, точный текст, `next_line_start=201`, `file_total_lines=35000` |
+| `test_next_range_of_oversized_text_is_readable` (201–400) | `unsupported` | `ok`, `line_range=[201,400]`, `next_line_start=401` |
+| `test_tail_range_of_oversized_text_reaches_eof` | `unsupported` | `ok`, `line_range=[34991,35000]`, `truncated=false` |
+| `test_oversized_without_range_returns_first_portion` | `unsupported` | `ok`, первая порция ≤2 МБ, `next_line_start>1`, `file_total_lines=35000` |
+| `test_range_beyond_eof_is_honest_not_found` | `unsupported` | `not_found/line_range_beyond_eof` |
+| `test_oversized_binary_stays_binary` (3.6 МБ NUL) | `file_too_large` | `unsupported/binary_content` |
+| `test_oversized_traversal_and_ads_still_denied` | denied ✅ | denied ✅ (safety не зависела от фикса) |
+| `test_followup_does_not_pull_oversized_page` | — | oversized sibling цепочки пропущен, ответ <20 КБ |
+| `test_portion_limit_pages_text_and_refuses_oversized_line` | `file_too_large` для любого oversized | текст страницами; `file_too_large` только для одной строки > порции |
+
+Safety-тесты (path traversal, denied paths/ADS, binary, чужой хост,
+provenance) зелёные и на базе, и на кандидате — они фиксируют, что удаление
+потолков и пейджинг не ослабили безопасность.
 
 ## 4. Прогоны (venv `C:\Code\Python\adminbot\.venv`)
 
+Прогоны на `36dd6b23`:
+
 | Прогон | Результат |
 |---|---|
-| `pytest tests/test_smart_c1_source_reader_limits.py` | **18 passed** |
-| `pytest tests/test_evol_source_reader.py tests/test_deploy_identity_d4b.py tests/test_smart_c1_source_reader_limits.py` | **151 passed** |
-| `pytest tests/test_evol_source_reader.py tests/test_deploy_identity_d4b.py tests/test_evol_evidence_window.py tests/test_evol_evidence_routing.py tests/test_diagnostic_policy.py tests/test_tool_router.py tests/test_smart_c1_source_reader_limits.py` | **438 passed** |
-| `pytest tests/test_checkup_contract.py tests/test_checkup_handlers.py tests/test_checkup_logs_fetcher.py tests/test_checkup_prompts.py tests/test_checkup_service.py tests/test_p0_checkup_core_contract.py` | **168 passed** |
+| `pytest tests/test_smart_c1_source_reader_limits.py` | **26 passed** |
+| `pytest tests/test_evol_source_reader.py tests/test_deploy_identity_d4b.py tests/test_smart_c1_source_reader_limits.py` | **159 passed** |
+| `pytest tests/test_evol_source_reader.py tests/test_deploy_identity_d4b.py tests/test_evol_evidence_window.py tests/test_evol_evidence_routing.py tests/test_diagnostic_policy.py tests/test_tool_router.py tests/test_smart_c1_source_reader_limits.py tests/test_checkup_service.py tests/test_p0_checkup_core_contract.py` | **486 passed** |
+| `... + tests/test_checkup_contract.py tests/test_checkup_handlers.py tests/test_checkup_logs_fetcher.py tests/test_checkup_prompts.py` | **614 passed** |
+
+RED на предыдущем кандидате (`ab42343e`, тесты новые): `7 failed, 1 passed` по
+oversized-сценариям; RED на базе `d20a7f73` для потолков 6/2/16 — `12 failed, 6 passed`
+(см. §3 выше).
 
 Предсуществующих падений в этих наборах на базе не выявлено → BACKLOG-записей нет.
 Обновлены три легаси-теста, которые утверждали старые заводские потолки:
@@ -79,14 +123,17 @@ provenance) зелёные и на базе, и на кандидате — он
 
 ## 5. Безопасность, которая сохранена
 
-* `max_file_bytes` (2 МБ) на одну порцию файла; при превышении — честный
-  `unsupported/file_too_large`, а малый файл читается (проверено).
+* `max_file_bytes` (2 МБ) — предел ОДНОЙ ПОРЦИИ; oversized-текст читается
+  диапазонами/страницами с `next_line_start`. `unsupported/file_too_large` —
+  только когда неделимая первая строка порции больше предела.
 * `path_is_denied`, `_local_target` (repo-relative, отказ на `..`, symlink, ADS),
-  `decode_source_bytes` (UTF-8 strict, NUL/бинарь → `binary_content`).
+  `decode_source_bytes` (UTF-8 strict, NUL/бинарь → `binary_content`);
+  для oversized-файла бинарь определяется по ВСЕМУ файлу (тот же порог).
 * `SafeFetcher` (SSRF/редиректы/таймаут/байты) и `_classify_http_status`
   (401/403/429 → rate_limit/auth_failed) — без изменений.
 * Один ответ не превращается в выгрузку репозитория: цепочка ≤ одной порции
-  текста, остаток — `untried_paths`/`next_line_start`.
+  текста, остаток — `untried_paths`/`next_line_start`; служебные чтения
+  цепочки (`page_ok=False`) не тянут мегабайтную порцию.
 
 ## 6. Счётчики: где живут и как сбрасываются
 
@@ -140,11 +187,18 @@ env=2:     ok files=2  limits={files:2, depth:0, requests:0, ...} reason=budget
 4. `config/settings.py:1484-1498`: комментарии про «3, потолок 6 / 1, потолок 2 /
    8» и сами заводские значения теперь вводят в заблуждение (SourceReader их
    игнорирует). Правка вне C1 (общий файл настроек).
-5. Локальный файл > `max_file_bytes` (2 МБ): `file_too_large` — сохранённый
-   safety. Постраничное чтение сверхлимитных локальных файлов (stream + диапазон)
-   не реализовано; если Reviewer/Architect сочтут требование шире — это отдельная
-   задача с явным дизайном, не тихая замена потолка.
-6. `tool_router.py:3691` (путь reuse) пишет `not_checked.depth_left = 0`, тогда
+5. Локальный oversized-текст теперь читается диапазонами (см. §0), но каждая
+   порция делает один последовательный проход по файлу для точного
+   `file_total_lines`/остатка (память постоянна). Для исходников это дёшево;
+   если на реальном checkout с очень большими логами стоимость окажется
+   заметной — отдельная оптимизация, не смена контракта.
+6. GitHub-провайдер по-прежнему упирается в transport-лимит на удалённый
+   oversized-файл (Range-запросов `SafeFetcher` не делает) — это категория 2,
+   локальный production-путь (LocalSnapshot) покрыт.
+7. Поиск `symbol` внутри oversized-файла ограничен доставленной порцией:
+   если символа в ней нет, `not_checked.reason="symbol_not_in_page"` и модель
+   продолжает диапазонами; полнофайлового поиска символа в oversized-файле нет.
+8. `tool_router.py:3691` (путь reuse) пишет `not_checked.depth_left = 0`, тогда
    как свежее чтение отдаёт `None` — косметическая несогласованность вне C1
    (BACKLOG_ONLY).
 
@@ -161,6 +215,6 @@ env=2:     ok files=2  limits={files:2, depth:0, requests:0, ...} reason=budget
 
 ## 10. Housekeeping
 
-Расходники проверок: `WorkspaceData/runs/.../SMART-EXECUTION-RELIABILITY-01-92d1db8aefb1/temp-dc55cc7c15`
-(скрипт перезаписи, патч, probe) — закрываются после сдачи вместе с unit C1.
-Worktree сохраняется до ревью (нужен Reviewer/интеграции).
+Расходники проверок закрыты (`run-close`) для прошлого кандидата; каталог
+`temp-206a9ce1b3` (патч/сообщения) закрывается после сдачи. Worktree
+сохраняется до ревью (нужен Reviewer/интеграции).
