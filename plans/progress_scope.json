@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T01:15:01+12:00",
+  "updated": "2026-11-14T01:19:21+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1865,9 +1865,9 @@
       "blocker_sources": {},
       "owner_input": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
       "source_note": "plans/current_task.md lines 11750-13308 (owner-authored). Stages A-M: budgets/tool-loop/evidence, model capacity, local-first own code, GitHub SafeFetch, finalization, SELF-DIAG H, production defects I1-I6, anti-hardcode J, acceptance L, order/DoD M. One epic; no duplicate correctives.",
-      "queue_note": "2026-11-14: map/plan/slice-graph committed (99 reqs, 13 slices); contract parts 1-2 frozen; production recon committed (budgets OFF everywhere but tool-chain limits active; capacity 16384 vs catalog 1048576; SafeFetch single-DNS-snapshot cause; I2 backlog; I4 unmapped codes). Wave 1 building: A+B budgets/tool-loop, D capacity, C1 SourceReader, F SafeFetch. Baseline = production d20a7f73.",
+      "queue_note": "2026-11-14: map/plan/slice-graph committed (99 reqs, 13 slices); contract parts 1-2 frozen; production recon committed (budgets OFF everywhere but tool-chain limits active; capacity 16384 vs catalog 1048576; SafeFetch single-DNS-snapshot cause; I2 backlog; I4 unmapped codes). Wave 1 building: A+B budgets/tool-loop, D capacity, C1 SourceReader, F SafeFetch. Baseline = production d20a7f73. | 2026-11-14: FACTCHECK-REQUEST-INTEGRITY v2 FULL amendment captured; it is part of this epic (not a separate task) and is executed after the core stages; PM mapping pending.",
       "created": "2026-11-14T00:16:56+12:00",
-      "updated": "2026-11-14T00:50:20+12:00",
+      "updated": "2026-11-14T01:19:21+12:00",
       "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
       "source_sha256": "32ef8c8289cf3f66e8949048a449178223cc0f058c3701e60cda72f8a60ecaf1",
       "source_line": "plans/current_task.md:11750-13308",
@@ -1881,23 +1881,14 @@
       "maps": [
         "plans/features/smart-execution-reliability-01/requirements-map.json",
         "plans/features/smart-execution-reliability-01/slice-graph.json"
-      ]
-    },
-    {
-      "id": "factcheck-request-integrity",
-      "queue_position": 2,
-      "priority": "P0",
-      "status": "PENDING",
-      "execution_state": "queued",
-      "blocked_by": [],
-      "blocker_sources": {},
-      "source_path": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2.md",
-      "source_sha256": "A35EED9F3864E470517AC1BA7231AD1DB2617F997DC93ADCD929FDFF6B61E5B6",
-      "source_line": "plans/current_task.md:13311-13724",
-      "source_note": "Amendment v2 to SMART-EXECUTION-RELIABILITY-01; owner order: execute immediately after the SMART epic. Source ends mid-sentence at line 13724 (section 4.5); no later clauses present in current_task.md.",
-      "queue_note": "2026-11-14: registered at position 2 (after SMART position 1) per owner. No work started; mapping pending until SMART wave 1 is through. Production base 2.58.199 @ d20a7f73.",
-      "created": "2026-11-14T01:15:01+12:00",
-      "updated": "2026-11-14T01:15:01+12:00"
+      ],
+      "amendment_factcheck": {
+        "source": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md",
+        "source_sha256": "767baf0af9c336736b43cd89a811a26d0792c562b5a7fe9bdfc9c9f129b0dc7a",
+        "source_line": "plans/current_task.md:13311-14702",
+        "status": "pending_mapping",
+        "order": "after the SMART core stages (owner chat instruction)"
+      }
     }
   ],
   "owner_inputs": [
@@ -4681,14 +4672,15 @@
     },
     {
       "id": "OI-2026-11-14-FACTCHECK-REQUEST-INTEGRITY",
-      "source_path": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2.md",
-      "source_sha256": "A35EED9F3864E470517AC1BA7231AD1DB2617F997DC93ADCD929FDFF6B61E5B6",
-      "kind": "new_task",
+      "source_path": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md",
+      "source_sha256": "767baf0af9c336736b43cd89a811a26d0792c562b5a7fe9bdfc9c9f129b0dc7a",
+      "kind": "amendment",
       "target_task_ids": [
-        "factcheck-request-integrity"
+        "smart-execution-reliability-01"
       ],
       "reconciled": false,
-      "note": "Amendment FACTCHECK-REQUEST-INTEGRITY v2 to SMART-EXECUTION-RELIABILITY-01: preserve normal factcheck behavior; user clarification after 'фактчек' is part of the request and must not be lost (scenarios A-G, no lexical hardcode); keep source material/request/subject distinct across suitability, temporal envelope, decomposition, retrieval plan, coverage, attribution, analyst, validator, verbalizer, renderer, cache; fix claim_text vs claim_items literal check; temporal/cache/provenance integrity. Source file ends mid-sentence at line 13724; execute after the SMART epic."
+      "note": "FULL FACTCHECK-REQUEST-INTEGRITY v2 (current_task.md 13311-14702) — amendment to SMART-EXECUTION-RELIABILITY-01, executed after the SMART core stages. NOT a separate competing task (source §0/§10.1). Key: normal 'фактчек' without clarification stays a complete request; clarification is part of the request (scenarios A-G, no lexical rules); one consistent subject across suitability/temporal/decomposition/retrieval/coverage/attribution/analyst/validator/verbalizer/renderer/cache; fix claim_text vs claim_items literal check; cache identity by subject; new factory defaults 120s/600s/24/64 queries, 100000 chars evidence, 20 results, 32 claim units (policy at budgets ON, not hard caps; budgets OFF disables enforcement); no new factcheck/search engine/budget system/lexical routing; acceptance 12.1-12.8; DoD 14-15.",
+      "supersedes": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2.md"
     }
   ],
   "source_inventory": {
