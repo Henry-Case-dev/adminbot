@@ -1,19 +1,26 @@
 """BGS-05-BUDGET — бюджеты отражают реальность (owner 2026-11-05 §6,
 контракт behavior-gates-simplification §4).
 
+SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §B1/B3) обновил контракт:
+числа из окна модели остаются ДЕРИВАЦИЕЙ payload-срезов и наблюдаемой метой,
+но НЕ потолком числа шагов; заводских 4/6000/4 больше нет, как и общего
+дедлайна 360 с. Enforcement объёма — только явная операторская политика
+(`DIRECT_ORCHESTRATOR_MAX_*`, `MCA_TOOL_MAX_*`, fuse `>0`) при effective
+`flags.budgets_enabled=true`.
+
 Проверяем наблюдаемый контракт, а не текст исходников:
 
-* (a) динамическое окно модели реально течёт в границы adaptive-цепочки
+* (a) динамическое окно модели реально течёт в деривацию границ
   (Model Capacity Resolver — тот же вызов, что у Direct primary);
   legacy-числа (4 шага / 6000 токенов / 800 символов запроса / 400 сниппет)
   — только нижний fallback при недоступном резолвере;
 * (b) env ``DIRECT_ORCHESTRATOR_MAX_STEPS``/``_MAX_TOTAL_TOKENS`` — ЖЁСТКИЙ
-  потолок: связывает динамическое значение сверху, а без env динамическое
-  значение не обрезается (иначе нож был бы мёртвым);
+  потолок при budgets ON: связывает цепочку сверху; без env цепочка не
+  обрывается расчётным числом;
 * (c) срез не вводит новых редактируемых ключей каталога: env-ножи
   остаются env-only (читаемы/живы), в каталоге их нет;
-* (d) денежные/технические границы не мигрируют: metered-потолок и дедлайн
-  не выводятся из окна, анти-цикл и METERED_TOOLS не тронуты;
+* (d) денежные/технические границы: заводского metered-потолка 4 нет
+  (0 = политика не задана), анти-цикл и METERED_TOOLS не тронуты;
 * (e) мутация «в вернуть захардкоженный дефолт как основной источник»
   роняет (a): пробы (a) ведут себя по-разному при разном окне.
 """
@@ -150,39 +157,40 @@ class TestDynamicWindowResolution:
         assert limits.snippet_chars == 512      # 16384//32
 
     @pytest.mark.asyncio
-    async def test_chain_uses_window_derived_steps(self, monkeypatch):
-        """Цепочка на окне 128k делает 8 шагов (не legacy 4); metered
-        потолок поднят отдельно — шаги связывает именно max_steps.
-        §17-потолок total-calls (TOOL_MAX_TOTAL_CALLS=6, техническая
-        защита вне среза) поднят патчем, чтобы связывала деривация шагов:
-        в проде эффективное число шагов = min(деривация, §17-потолки)."""
+    async def test_chain_not_capped_by_window_derived_steps(self, monkeypatch):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: число шагов больше не берётся
+        из «окна модели» как потолок — все 9 решений оркестратора исполнены,
+        остановка по `finish`. Деривация остаётся наблюдаемой метой
+        (payload-срезы + `max_steps` как расчётное число), а не enforcement."""
         async def _fake_stage_window(base_url, model, *, slot=None):
             return 131072, "runtime"
 
         monkeypatch.setattr(mc, "resolve_stage_window", _fake_stage_window)
-        monkeypatch.setattr(dx, "orchestrator_max_metered_calls", lambda: 999)
-        monkeypatch.setattr(tool_loop, "_max_total_calls", lambda: 99)
+        monkeypatch.setattr(dx, "orchestrator_max_metered_calls", lambda: 0)
         llm = _OrchLLM(_tool_decisions(9), chat_model="big-model",
                        base_url="http://llm.example")
         result = await _run_chain(llm)
-        assert len(result.tool_trace) == 8                  # 131072//16384
-        assert result.chain_meta["reason"] == "max_steps"
+        assert len(result.tool_trace) == 9                  # ни один не срезан
+        assert result.chain_meta["reason"] == "finish"
         assert result.chain_meta["window_tokens"] == 131072
         assert result.chain_meta["window_source"] == "runtime"
-        assert result.chain_meta["max_steps"] == 8
+        assert result.chain_meta["max_steps"] == 8           # деривация, не cap
+        assert result.chain_meta["limits"]["limits_enforced"] is True
+        assert result.chain_meta["limits"]["max_total_calls"] == 0
 
     @pytest.mark.asyncio
-    async def test_chain_without_window_keeps_legacy_steps(self, monkeypatch):
-        """Резолвер недоступен → legacy-фолбэк: 4 шага, честный source."""
+    async def test_chain_without_window_not_capped_to_legacy(self, monkeypatch):
+        """Резолвер недоступен → честный source, но legacy-число 4 больше не
+        обрывает цепочку: исполняются все 9 решений до `finish`."""
         def _no_window(model=None):
             return 0, "fallback_default"
 
         monkeypatch.setattr(mc, "resolve_evidence_window_tokens", _no_window)
-        monkeypatch.setattr(dx, "orchestrator_max_metered_calls", lambda: 999)
+        monkeypatch.setattr(dx, "orchestrator_max_metered_calls", lambda: 0)
         llm = _OrchLLM(_tool_decisions(9))                  # без _base_url
         result = await _run_chain(llm)
-        assert len(result.tool_trace) == 4
-        assert result.chain_meta["reason"] == "max_steps"
+        assert len(result.tool_trace) == 9
+        assert result.chain_meta["reason"] == "finish"
         assert result.chain_meta["window_tokens"] == 0
         assert result.chain_meta["window_source"] == "fallback_default"
 
@@ -267,11 +275,13 @@ class TestCatalogClassification:
             assert name not in editable
 
     def test_metered_knob_stays_readable_value_semantics(self, monkeypatch):
-        """Денежный нож читаем и жив: env задан → значение; не задан →
-        legacy-фолбэк 4 (не 0 и не окно-производное)."""
+        """Денежный нож читаем и жив: не задан → 0 = политика не задана
+        (заводского потолка 4 больше нет, §B1/B3); задан → значение."""
         monkeypatch.delenv("DIRECT_ORCHESTRATOR_MAX_METERED_CALLS",
                            raising=False)
-        assert dx.orchestrator_max_metered_calls() == 4
+        monkeypatch.delattr(Settings, "DIRECT_ORCHESTRATOR_MAX_METERED_CALLS",
+                            raising=False)
+        assert dx.orchestrator_max_metered_calls() == 0
         monkeypatch.setenv("DIRECT_ORCHESTRATOR_MAX_METERED_CALLS", "7")
         assert dx.orchestrator_max_metered_calls() == 7
 
@@ -288,23 +298,24 @@ class TestCatalogClassification:
 
 class TestHardProtectionsUntouched:
     @pytest.mark.asyncio
-    async def test_chain_keeps_metered_fallback_on_big_window(
+    async def test_chain_keeps_metered_observational_by_default(
             self, monkeypatch):
-        """Окно 128k НЕ поднимает денежный потолок (ANC-10, финансовая
-        граница сохранена): max_metered в chain_meta — env или фолбэк 4."""
+        """Окно 128k не вводит денежный потолок (§B1/B3): `max_metered`
+        по умолчанию 0 = политика не задана; счётчик metered — наблюдаемый.
+        Деривация окна остаётся в мете, enforcement — только явная политика."""
         async def _fake_stage_window(base_url, model, *, slot=None):
             return 131072, "runtime"
 
         monkeypatch.setattr(mc, "resolve_stage_window", _fake_stage_window)
         monkeypatch.delenv("DIRECT_ORCHESTRATOR_MAX_METERED_CALLS",
                            raising=False)
+        monkeypatch.delattr(Settings, "DIRECT_ORCHESTRATOR_MAX_METERED_CALLS",
+                            raising=False)
         llm = _OrchLLM([{"action": "finish", "reason": "done"}],
                        chat_model="big-model", base_url="http://llm.example")
         result = await _run_chain(llm)
-        assert result.chain_meta["max_metered"] == 4
+        assert result.chain_meta["max_metered"] == 0
         assert result.chain_meta["metered"] == 0
-        # Окно при этом работает на шагах/токенах — мигрирована именно
-        # «интеллектуальная» часть границ.
         assert result.chain_meta["window_tokens"] == 131072
         assert result.chain_meta["max_steps"] == 8
 

@@ -19,7 +19,6 @@ from services.llm_client import (
 )
 from services.tool_loop import (
     TOOL_LOOP_FALLBACK_PHRASE,
-    TOOL_MAX_ROUNDS,
     ToolLoopResult,
     chat_with_tools,
 )
@@ -119,24 +118,49 @@ class TestChatWithTools:
         assert roles == ["user", "assistant", "tool", "tool"]
 
     @pytest.mark.asyncio
-    async def test_round_limit_degrades_to_fallback(self):
-        """AC-2.3 + БЛОК 7.1 (T-1919): лимит раундов — не более TOOL_MAX_ROUNDS
-        вызовов LLM; graceful degradation вместо LLMBadResponseError."""
-        answers = []
-        for i in range(TOOL_MAX_ROUNDS):
-            answers.append(_tool_result(f"call_{i}", "execute_web_search", f"q{i}"))
+    async def test_more_than_four_rounds_continue_until_model_finishes(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: фиксированного лимита раундов
+        (4) больше нет — модель доводит исследование до своего финала; все
+        вызовы исполняются и не теряются."""
+        answers = [
+            _tool_result(f"call_{i}", "execute_web_search", f"q{i}")
+            for i in range(6)
+        ] + [_text("содержательный финал после шести раундов")]
         llm = FakeLLM(answers)
         router = FakeRouter({"execute_web_search": "данные"})
         out = await chat_with_tools(llm, MESSAGES, tools=[], router=router,
                                     ctx=MagicMock())
-        assert not isinstance(out, BaseException)
-        assert out == TOOL_LOOP_FALLBACK_PHRASE
-        assert out.degraded is True
-        assert out.reason == "round_limit"
-        assert out.rounds_used == TOOL_MAX_ROUNDS
-        assert len(out.tool_trace) == TOOL_MAX_ROUNDS
-        assert len(llm.all_messages) == TOOL_MAX_ROUNDS  # ровно 4 вызова LLM
-        assert len(router.calls) == TOOL_MAX_ROUNDS
+        assert out == "содержательный финал после шести раундов"
+        assert out.degraded is False and out.reason == "ok"
+        assert out.rounds_used == 7                     # 6 tool-раундов + финал
+        assert len(router.calls) == 6                   # ни один не потерян
+        assert len(out.tool_results) == 6
+        # Валидная последовательность провайдера на КАЖДОМ раунде.
+        for snapshot in llm.all_messages[1:]:
+            roles = [m["role"] for m in snapshot]
+            assert roles.count("assistant") == roles.count("tool")
+
+    @pytest.mark.asyncio
+    async def test_identical_repeat_rounds_stop_by_no_progress(self):
+        """§B4 п.2: если модель повторяет тот же вызов без изменения условий,
+        новые данные не прибавляются — честный stop `no_progress` с частичным
+        результатом (не квота объёма, а отсутствие прогресса)."""
+        answers = [_tool_result("call_same", "execute_web_search", "same")
+                   for _ in range(4)]
+        llm = FakeLLM(answers)
+        router = FakeRouter({"execute_web_search": "данные"})
+        out = await chat_with_tools(llm, MESSAGES, tools=[], router=router,
+                                    ctx=MagicMock())
+        assert out.degraded is True and out.reason == "no_progress"
+        assert len(router.calls) == 1                   # повтор из кэша
+        assert out.tool_results[1]["duplicate"] is True
+        # Каждый запрошенный tool_call_id получил сообщение role:"tool"
+        # (кумулятивно по payload: ни один id не потерян).
+        for snapshot in llm.all_messages[1:]:
+            assistants = [m for m in snapshot if m["role"] == "assistant"]
+            tool_msgs = [m for m in snapshot if m["role"] == "tool"]
+            assert len(tool_msgs) == sum(
+                len(a["tool_calls"]) for a in assistants)
 
     @pytest.mark.asyncio
     async def test_tool_error_returned_as_tool_message(self):
@@ -209,8 +233,9 @@ class TestChatWithTools:
         assert len(llm.all_messages) == 1
 
     @pytest.mark.asyncio
-    async def test_more_than_two_tool_calls_truncated(self):
-        """Защита от спама: >2 tool_calls одним ходом → обрезка до 2."""
+    async def test_all_tool_calls_in_one_round_are_dispatched(self):
+        """§B1: список вызовов одного хода больше НЕ обрезается до 2 — все
+        корректно запрошенные вызовы исполняются, каждый со своим id."""
         llm = FakeLLM([
             LLMChatResult(content=None, tool_calls=[
                 LLMToolCall(id="c1", name="execute_web_search", arguments='{"query": "a"}'),
@@ -220,11 +245,17 @@ class TestChatWithTools:
             _text("финал"),
         ])
         router = FakeRouter({"execute_web_search": "A", "query_chat_memory": "B"})
-        await chat_with_tools(llm, MESSAGES, tools=[], router=router, ctx=MagicMock())
+        out = await chat_with_tools(llm, MESSAGES, tools=[], router=router,
+                                    ctx=MagicMock())
         assert [c[0] for c in router.calls] == ["execute_web_search",
-                                                "query_chat_memory"]
+                                                "query_chat_memory",
+                                                "execute_web_search"]
         assistant = llm.all_messages[1][1]
-        assert len(assistant["tool_calls"]) == 2
+        assert len(assistant["tool_calls"]) == 3
+        tool_ids = [m["tool_call_id"] for m in llm.all_messages[1]
+                    if m["role"] == "tool"]
+        assert tool_ids == ["c1", "c2", "c3"]
+        assert out.degraded is False and len(out.tool_results) == 3
 
     @pytest.mark.asyncio
     async def test_crushed_arguments_wrapped_by_loop(self):

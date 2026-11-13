@@ -828,14 +828,23 @@ class TestMeteredIsToolCounterNotMoney:
                      "transcribe_video", "recognize_image"):
             assert tool_loop.cost_limited_tool(name) is True
 
-    def test_anti_loop_guards_still_present(self):
-        """Защита сохранена: общий cap вызовов, раунды, один вызов ≤2 раза."""
+    def test_anti_loop_guards_present_without_fixed_quotas(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: фиксированных квот 4/2/6/2
+        больше нет; anti-loop защита — структурированный дедуп по
+        нормализованным аргументам, safety-гард side effects и резолв политики
+        (0 = политика не задана)."""
         from services import tool_loop
 
-        assert tool_loop.TOOL_MAX_TOTAL_CALLS == 6
-        assert tool_loop._TOOL_MAX_SAME_CALL == 2
-        assert tool_loop.TOOL_MAX_ROUNDS == 4
-        assert tool_loop._TOOL_CALLS_PER_ROUND_MAX == 2
+        assert not hasattr(tool_loop, "TOOL_MAX_TOTAL_CALLS")
+        assert not hasattr(tool_loop, "_TOOL_MAX_SAME_CALL")
+        assert not hasattr(tool_loop, "TOOL_MAX_ROUNDS")
+        assert not hasattr(tool_loop, "_TOOL_CALLS_PER_ROUND_MAX")
+        limits = tool_loop.resolve_chain_limits()
+        assert (limits.max_total_calls, limits.max_metered_calls,
+                limits.max_same_call, limits.fuse_seconds) == (0, 0, 0, 0.0)
+        assert callable(tool_loop._reuse_reason)
+        assert tool_loop._args_fingerprint("x", {"a": 1}) == \
+            tool_loop._args_fingerprint("x", {"a": 1})
 
     @pytest.mark.asyncio
     async def test_chain_meta_reports_cost_calls_separately(self, monkeypatch):
@@ -916,15 +925,16 @@ class TestOrchestratorEvidenceHeader:
 class TestDeadlines:
 
     def test_orchestrator_deadline_matches_tool_chain(self):
-        """Аудит: оркестратор больше не обрывает работу на 90 с при tool-цепочке
-        360 с (per-tool: поиск 25 + статья 45 = 70 с на шаг)."""
+        """SMART-EXECUTION-RELIABILITY-01 §B1: универсального продуктового
+        дедлайна 360 с больше нет (0.0 = fuse не задан); обе цепочки читают
+        одно и то же значение и сохраняют реальный per-tool таймаут."""
         from config.settings import Settings
         from services import direct_execution as de
         from services import tool_loop
 
         assert de.orchestrator_max_time_seconds() == \
-            tool_loop._chain_timeout_seconds() == 360.0
-        assert Settings.MCA_TOOL_CHAIN_TIMEOUT_SECONDS == 360.0
+            tool_loop._chain_timeout_seconds() == 0.0
+        assert Settings.MCA_TOOL_CHAIN_TIMEOUT_SECONDS == 0.0
 
     def test_orchestrator_follows_chain_timeout_setting(self, monkeypatch):
         from config.settings import Settings

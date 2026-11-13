@@ -311,7 +311,11 @@ class TestCanonicalEnvelope:
         env = out.tool_results[0]
         assert set(env) == LEGACY_KEYS | {
             "category", "retryable", "duration_ms", "usage",
-            "external_operation_id", "evidence_refs", "partial"}
+            "external_operation_id", "evidence_refs", "partial",
+            # SMART-EXECUTION-RELIABILITY-01 §B1: исходный id вызова —
+            # аддитивное поле канонического envelope (K1 ON).
+            "tool_call_id"}
+        assert env["tool_call_id"] == "c1"
         assert env["category"] == "memory_read"
         assert env["retryable"] is False
         assert isinstance(env["duration_ms"], int)
@@ -387,10 +391,12 @@ class TestSafeFetchMapping:
 
 class TestLimits:
     def test_env_numbers_visible_with_current_defaults(self):
-        assert settings.MCA_TOOL_MAX_TOTAL_CALLS == 6
-        assert settings.MCA_TOOL_MAX_METERED_CALLS == 4
-        assert settings.MCA_TOOL_MAX_SAME_CALL == 2
-        assert settings.MCA_TOOL_CHAIN_TIMEOUT_SECONDS == 360.0
+        """SMART-EXECUTION-RELIABILITY-01 §A2/B3: заводские значения
+        `MCA_TOOL_MAX_*=0` и fuse `0.0` = политика не задана (не потолок)."""
+        assert settings.MCA_TOOL_MAX_TOTAL_CALLS == 0
+        assert settings.MCA_TOOL_MAX_METERED_CALLS == 0
+        assert settings.MCA_TOOL_MAX_SAME_CALL == 0
+        assert settings.MCA_TOOL_CHAIN_TIMEOUT_SECONDS == 0.0
         assert settings.MCA_TOOL_TRANSIENT_RETRIES_MAX == 2
         assert tool_result.transient_retries_max() == 2
 
@@ -426,7 +432,11 @@ class TestLimits:
         assert windows.total_deadline != 999.0
 
     @pytest.mark.asyncio
-    async def test_limit_result_explicit_reason_no_infinite_loop(self):
+    async def test_limit_result_explicit_reason_no_infinite_loop(self,
+                                                                 monkeypatch):
+        """Явная политика оператора (6) при budgets ON: причина честная,
+        зависания нет, каждый запрошенный id получил envelope."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_TOTAL_CALLS", 6)
         answers = [
             _tc2(f"r{r}", [("query_chat_memory", {"query": f"q{r}a"}),
                            ("query_chat_memory", {"query": f"q{r}b"})])
@@ -434,7 +444,8 @@ class TestLimits:
         out = await _run(FakeLLM(answers), FakeRouter())
         assert out.degraded is True
         assert out.reason == "chain_call_limit"
-        assert len(out.tool_results) == 7           # 6 исполнено + 1 denied
+        assert len(out.tool_results) == 8          # 6 исполнено + 2 denied
+        assert sum(e["status"] == "ok" for e in out.tool_results) == 6
 
 
 # ── T-4947: idempotency key / delivery_unknown (A21) ─────────────────────────
@@ -520,11 +531,17 @@ class TestDeliveryUnknown:
                        _tc("c2", "generate_image", {"prompt": "кот"}),
                        _text("финал")])
         out = await _run(llm, router)
-        # K2 OFF → прежняя деривация/поведение: error/send_failed, ≤2 вызова.
-        assert send.await_count == 2
+        # K2 OFF → маркировки delivery_unknown и side-effect-гарда нет, но
+        # SMART-EXECUTION-RELIABILITY-01 §B1-05: терминальный отказ
+        # (`send_failed`, retryable=false) не повторяется слепо даже для
+        # неидемпотентной операции — второй идентичный вызов получает
+        # прежний структурный результат.
+        assert send.await_count == 1
         envs = [e for e in out.tool_results if e["tool"] == "generate_image"]
         assert envs[0]["status"] == "error"
         assert envs[0]["error_code"] == "send_failed"
+        assert envs[1]["duplicate"] is True
+        assert envs[1]["status"] == "error"
 
     def test_idempotency_key_passed_to_durable_media_job(self):
         import inspect
@@ -534,6 +551,21 @@ class TestDeliveryUnknown:
 
 
 # ── OFF-паритет K1 ───────────────────────────────────────────────────────────
+
+
+class _ExpiredFuseClock:
+    """Первый ``monotonic()`` — начало цепочки, дальше время «ушло вперёд».
+
+    Детерминированная проверка границы fuse: не зависит от разрешения
+    ``time.monotonic`` на Windows (~15.6 мс).
+    """
+
+    def __init__(self):
+        self.calls = 0
+
+    def monotonic(self) -> float:
+        self.calls += 1
+        return 0.0 if self.calls == 1 else 1000.0
 
 
 class TestK1OffParity:
@@ -553,9 +585,13 @@ class TestK1OffParity:
 
     @pytest.mark.asyncio
     async def test_legacy_ok_error_and_skipped(self, monkeypatch):
+        from services import tool_loop
+
         monkeypatch.setattr(type(settings), "MCA_TOOL_RESULT_ENABLED", False)
+        # Fuse — явная операторская страховка (`>0`); 0 = не задан (§B1).
         monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
-                            -1.0)
+                            30.0)
+        monkeypatch.setattr(tool_loop, "time", _ExpiredFuseClock())
         llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
                        _text("финал")])
         out = await _run(llm, FakeRouter())

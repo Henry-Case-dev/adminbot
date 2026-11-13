@@ -1,0 +1,69 @@
+﻿{
+ "root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b-ece97955",
+ "multiround": {
+  "llm_calls": 6,
+  "tool_msgs_per_request": [
+   0,
+   3,
+   6,
+   9,
+   12,
+   15
+  ],
+  "router_calls": 15,
+  "reason": "ok",
+  "degraded": false,
+  "rounds_used": 6,
+  "tool_results": 15,
+  "text": "╤Д╨╕╨╜╨░╨╗"
+ },
+ "identical_repeats": {
+  "llm_calls": 3,
+  "tool_msgs_per_request": [
+   0,
+   1,
+   2
+  ],
+  "router_calls": 1,
+  "reason": "no_progress",
+  "degraded": true,
+  "rounds_used": 3,
+  "tool_results": 3,
+  "text": "╨з╨╡╤В ╨┤╨╛╨╗╨│╨╛ ╨┤╤Г╨╝╨░╨╗, ╨░╨╢ ╨┐╨╡╤А╨╡╨│╤А╨╡╨╗╤Б╤П тАФ ╨╕ ╨▓╤Б╤С ╤А╨░╨▓╨╜╨╛ ╨╜╨╕ ╨║ ╤З╨╡╨╝╤Г ╨╜╨╡ ╨┐╤А"
+ },
+ "constants": {
+  "legacy_constants_present": [],
+  "chain_fuse_seconds": 0.0,
+  "settings_defaults": {
+   "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+   "MCA_TOOL_MAX_METERED_CALLS": 0,
+   "MCA_TOOL_MAX_SAME_CALL": 0,
+   "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0
+  }
+ },
+ "plan": {
+  "normalized_steps": 9
+ },
+ "budgets_read_error": {
+  "budgets_enabled_on_read_error": true,
+  "state": {
+   "enabled": true,
+   "source": "unknown",
+   "known": false,
+   "stale": true
+  }
+ },
+ "budget_off_policy": {
+  "llm_calls": 2,
+  "tool_msgs_per_request": [
+   0,
+   3
+  ],
+  "router_calls": 3,
+  "reason": "ok",
+  "degraded": false,
+  "rounds_used": 2,
+  "tool_results": 3,
+  "text": "╤Д╨╕╨╜╨░╨╗"
+ }
+}

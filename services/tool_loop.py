@@ -1,10 +1,30 @@
 """Эпик 04.09.2026 (3.3, Часть 2) — цикл обработки tool_calls (Tool Calling).
 
 Формат ролей OpenAI: assistant с tool_calls → роль "tool" по каждому
-tool_call_id → повторный вызов generate_chat. Жёсткий лимит раундов
-TOOL_MAX_ROUNDS (≤4 вызова LLM суммарно) — защита от бесконечного цикла
-(FR-13/AC-2.3). При невозможности tool-режима провайдера (детерминированный
-не-2xx на 1-м вызове) — один повтор БЕЗ tools и обычный ответ (FR-15).
+tool_call_id → повторный вызов generate_chat. При невозможности tool-режима
+провайдера (детерминированный не-2xx на 1-м вызове) — один повтор БЕЗ tools
+и обычный ответ (FR-15).
+
+SMART-EXECUTION-RELIABILITY-01 (owner input 2026-11-14, этап B) — единая
+политика исполнения для всех потребителей (Direct, L1-план, checkup,
+inspect_runtime, SourceReader, поиск/fetch, фактчек, retrieval/memory):
+
+* НЕТ фиксированных пределов исследования (4 раунда / 2 вызова за раунд /
+  6 суммарных / 2 одинаковых / 4 «платных»): числа 4/2/6/4 больше не
+  продуктовые потолки. Все корректно запрошенные вызовы исполняются и
+  получают структурный результат; обрезки `tool_calls[:2]` нет.
+* Завершение — по прогрессу/модели/реальному лимиту/отмене/безопасности:
+  модель не просит инструментов (финальный ответ); два раунда подряд без
+  ни одного нового исполнения (`no_progress`); подтверждённый технический
+  отказ; явная операторская политика при `flags.budgets_enabled=true`;
+  аварийный операторский fuse (`MCA_TOOL_CHAIN_TIMEOUT_SECONDS>0`).
+* Дедуп — по нормализованным аргументам/идентичности операции: терминальный
+  (`retryable=false`) повтор без изменения условий не исполняется, retryable
+  повторяется в пределах `MCA_TOOL_TRANSIENT_RETRIES_MAX`, неидемпотентная
+  операция после успеха/`delivery_unknown` не повторяется (safety).
+* Каждый вызов даёт envelope с исходным `tool_call_id` и валидной
+  последовательностью провайдера: `assistant(tool_calls)` → `tool` на
+  КАЖДЫЙ id → `assistant`. Metered/usage — наблюдательные оси.
 
 Все логи — с префиксом [tools]; WARNING на деградацию/лимит; INFO на раунд.
 
@@ -28,6 +48,8 @@ import logging
 import re
 import time
 
+from dataclasses import dataclass
+
 from config.settings import settings
 from services import tool_result
 from services.llm_client import (
@@ -41,16 +63,20 @@ from services.agentic_events import emit_agentic_event
 
 logger = logging.getLogger(__name__)
 
-TOOL_MAX_ROUNDS = 4      # 1 стартовый вызов + до 3 раундов инструментов
-_TOOL_CALLS_PER_ROUND_MAX = 2   # защита от спама вызовов одним ходом (3.3)
+# ── SMART-EXECUTION-RELIABILITY-01 (owner 2026-11-14 §B1) ───────────────────
+# Фиксированных пределов исследования больше нет: 4 раунда / 2 вызова за
+# раунд / 6 суммарных / 2 одинаковых / 4 «платных» были продуктовыми
+# потолками и обрывали полезное исследование. Завершение — по прогрессу:
+# финальный ответ модели, отсутствие новых исполнений (`no_progress`),
+# подтверждённый технический предел, отмена, safety-гвард. Явная
+# операторская политика (`MCA_TOOL_MAX_*`) действует ТОЛЬКО при effective
+# `flags.budgets_enabled=true`; `0` = политика не задана. Аварийный fuse —
+# `MCA_TOOL_CHAIN_TIMEOUT_SECONDS>0` (тоже operator-declared; 0 = нет).
 
-# A2 (раунд 10.26, ADR-1026-15 D3/D5): §17-лимиты цепочки — аддитивные
-# код-константы ПОВЕРХ существующих 4 раундов / ≤2 за раунд / per-tool
-# тайм-аутов. Все гейтятся env-only `TOOL_CHAIN_LIMITS_ENABLED` (Δ каталога=0).
-TOOL_MAX_TOTAL_CALLS = 6                 # суммарный cap вызовов (§17)
-TOOL_CHAIN_TIMEOUT_SECONDS = 360.0       # мягкий wall-clock (max per-tool 300 + 60)
-_TOOL_MAX_SAME_CALL = 2                  # одинаковый вызов (имя+арг.) ≤2 раз
-TOOL_CHAIN_MAX_METERED_CALLS = 4         # лимит «платных»/внешних вызовов
+#: Сколько раундов подряд без единого нового исполнения считаются
+#: отсутствием прогресса (§B4 п.2: «дальнейшие вызовы не дают новых данных»).
+#: Это НЕ квота объёма: раунд с новыми вызовами всегда прогресс.
+_NO_PROGRESS_ROUNDS = 2
 
 # Метка «платного»/внешнего вызова (ADR-1026-15 D3). `worker_budget.image_calls`
 # внутри `generate_image` НЕ дублируется. Free/local: memory/dig/history/health.
@@ -70,14 +96,15 @@ METERED_TOOLS = frozenset({
 #: ER-08 (решение владельца 02.11.2026): read-only проверка фактов — счётчик
 #: `metered_calls` есть счётчик ИНСТРУМЕНТОВ, а не долларов. Поиск, чтение
 #: статьи и фактчек обязаны доезжать до ответа; ограничивать их «финансовой
-#: экономией» в счётчике платных операций запрещено. Их по-прежнему держат
-#: анти-петлевые гварды (TOOL_MAX_TOTAL_CALLS/раунды/дедуп/один и тот же
-#: вызов ≤2), реальные квоты и перегрузка провайдера (tool_router/quota).
+#: экономией» в счётчике платных операций запрещено. Исследование держат
+#: структурированный дедуп/retry-политика, реальные квоты и перегрузка
+#: провайдера (tool_router/quota). Счётчики metered/cost — наблюдательные
+#: оси (SMART-EXECUTION-RELIABILITY-01 §B1 «Metered calls»).
 METERED_EVIDENCE_READ_ONLY = frozenset({
     "execute_web_search", "fetch_article", "fact_check",
     # EVOL-SRC-READER (W6): чтение исходника — такая же read-only проверка
     # (HTTP к source-эндпоинту, 0 LLM-токенов на само чтение): «денежный»
-    # счётчик её не режет, анти-петлевые гварды и SOURCE_READ_MAX_REQUESTS
+    # счётчик её не режет, anti-loop гварды и SOURCE_READ_MAX_REQUESTS
     # остаются (ER-08).
     "read_source_code",
 })
@@ -93,22 +120,27 @@ def cost_limited_tool(name: str) -> bool:
     key = str(name or "")
     return key in METERED_TOOLS and key not in METERED_EVIDENCE_READ_ONLY
 
-# §17-причины деградации, аддитивные к существующим ok/round_limit/llm_error
-# (ADR-1020-7 §1 effective AMEND; существующие ветки не меняются).
+# Причины мягкой деградации. ``chain_*`` — срабатывание ЯВНОЙ операторской
+# политики (или аварийного fuse) при budgets ON; ``no_progress`` — раунды без
+# новых исполнений (§B4 п.2); ``round_limit``/``llm_error`` — прежние ветки
+# (``round_limit`` больше НЕ производится: лимита раундов нет).
 CHAIN_TIMEOUT_REASON = "chain_timeout"
 CHAIN_CALL_LIMIT_REASON = "chain_call_limit"
 CHAIN_COST_LIMIT_REASON = "chain_cost_limit"
+NO_PROGRESS_REASON = "no_progress"
 
-# ── MCA-23 фаза 2 (§17/§39): bounded multi-tool DAG ─────────────────────────
+# ── MCA-23 фаза 2 (§17/§39): multi-tool DAG плана ───────────────────────────
 # План строит ResponsePlanner (services/response_extent, 0 LLM); здесь —
-# исполнение ПОВЕРХ существующего цикла (НЕ второй агент): шаги в
-# топологическом порядке через существующий router.dispatch + ToolResult
+# исполнение ПОВЕРХ существующего цикла (НЕ второй агент): все валидные шаги
+# в топологическом порядке через существующий router.dispatch + ToolResult
 # envelope; затем ОДИН модельный контур (Stage-1 видит результаты блоком
-# <tool_plan_results> и синтезирует; может вызвать дополнительные tools —
-# общие §17-бюджеты). Обычные сценарии (micro/chat/один tool) идут прежним
-# путём байт-в-байт: tool_plan=None → планирование не активируется.
-PLAN_MAX_STEPS = 6        # шагов не больше суммарного cap вызовов (§39)
-PLAN_MAX_REPLANS = 2      # §39 ceiling re-plan; фаза 2: re-plan = 0 (bounded)
+# <tool_plan_results> и синтезирует; может вызвать дополнительные tools).
+# Обычные сценарии (micro/chat/один tool) идут прежним путём: tool_plan=None
+# → планирование не активируется.
+# SMART-EXECUTION-RELIABILITY-01 §B1: нормализованный план больше НЕ
+# обрезается (было `PLAN_MAX_STEPS=6`); количество шагов ограничивает только
+# сам план и явная операторская политика при budgets ON. Re-plan в этой фазе
+# не выполняется — второго планировочного цикла нет.
 
 # §18-I: tools, доставляющие медиа сами (файл уходит пользователю из тулa,
 # Writer-регенерация результата бесполезна). Статусы — только канонические.
@@ -234,25 +266,202 @@ class ToolLoopResult(str):
 
 
 def _log_degraded(reason: str, rounds_used: int, tool_trace: list,
-                  text: str) -> None:
+                  text: str, *, limits=None) -> None:
     """R17: только причина/числа/длины/имена тулов — без текстов и аргументов."""
-    lost_rounds = max(0, TOOL_MAX_ROUNDS - int(rounds_used))
     tools = ",".join(
         sorted({str(entry.get("tool") or "") for entry in tool_trace
                 if entry.get("tool")})) or "-"
     logger.warning(
-        "[tools] degraded | reason=%s | rounds_used=%d | lost_rounds=%d | "
-        "tools=%s | partial_chars=%d",
-        reason, int(rounds_used), lost_rounds, tools, len(text or ""))
+        "[tools] degraded | reason=%s | rounds_used=%d | calls=%d | "
+        "budgets_on=%s | tools=%s | partial_chars=%d",
+        reason, int(rounds_used), len(tool_trace or ()),
+        (getattr(limits, "budgets_enabled", True) if limits is not None
+         else "unknown"), tools, len(text or ""))
 
 
 def _chain_limits_enabled() -> bool:
     """env-only kill-switch ``TOOL_CHAIN_LIMITS_ENABLED`` (A2; default ON).
 
-    OFF → §17-лимиты (cap/тайм-аут/дедуп/расходы) НЕ применяются; поведение
-    цикла = baseline. Envelope остаётся out-of-band (модельно-видимый контур
-    не затрагивается)."""
+    OFF → явная операторская политика объёма (cap/расходы/same-call) НЕ
+    применяется. Safety/дедуп/точные отказы от него не зависят, envelope
+    остаётся out-of-band. При effective budgets OFF политика не действует
+    независимо от этого флага (OFF нельзя вернуть внутренним переключателем)."""
     return bool(getattr(settings, "TOOL_CHAIN_LIMITS_ENABLED", True))
+
+
+def _int_setting(name: str, default: int = 0) -> int:
+    """Явная операторская политика: ``0``/отсутствие = политика не задана."""
+    try:
+        value = int(getattr(settings, name, default))
+    except (TypeError, ValueError):
+        return default
+    return value if value >= 0 else 0
+
+
+def _max_total_calls() -> int:
+    """``MCA_TOOL_MAX_TOTAL_CALLS`` (0 = политика не задана, cap отсутствует)."""
+    return _int_setting("MCA_TOOL_MAX_TOTAL_CALLS")
+
+
+def _max_metered_calls() -> int:
+    """``MCA_TOOL_MAX_METERED_CALLS`` (0 = политика не задана)."""
+    return _int_setting("MCA_TOOL_MAX_METERED_CALLS")
+
+
+def _max_same_call() -> int:
+    """``MCA_TOOL_MAX_SAME_CALL`` (0 = политика не задана: дедуп по условиям)."""
+    return _int_setting("MCA_TOOL_MAX_SAME_CALL")
+
+
+def _chain_fuse_seconds() -> float:
+    """Аварийный операторский fuse (``MCA_TOOL_CHAIN_TIMEOUT_SECONDS``).
+
+    ``0`` (заводское значение) = fuse не задан: универсального продуктового
+    дедлайна исследования нет. ``>0`` — явная техническая страховка
+    оператора: проверяется на границах раундов (in-flight не отменяется),
+    накопленные результаты сохраняются, причина остановки честная."""
+    try:
+        value = float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS", 0.0)
+                      or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    return value if value > 0 else 0.0
+
+
+def _chain_timeout_seconds() -> float:
+    """Совместимое имя: секунды аварийного fuse (``0`` = fuse выключен).
+
+    Используется историческими потребителями (история-сегменты, оркестратор);
+    это НЕ продуктовый дедлайн исследования."""
+    return _chain_fuse_seconds()
+
+
+@dataclass(frozen=True)
+class ChainLimits:
+    """Эффективная политика исполнения цепочки (одна точка для всех путей).
+
+    ``budgets_enabled`` — master `flags.budgets_enabled` (effective, chat→
+    global→factory); ``kill_switch`` — env ``TOOL_CHAIN_LIMITS_ENABLED``.
+    Объёмные потолки применяются только при ``enforce``; fuse — независимая
+    техническая страховка оператора (``0`` = нет)."""
+
+    budgets_enabled: bool = True
+    kill_switch: bool = True
+    max_total_calls: int = 0
+    max_metered_calls: int = 0
+    max_same_call: int = 0
+    fuse_seconds: float = 0.0
+
+    @property
+    def enforce(self) -> bool:
+        """Применяется ли явная операторская политика объёма."""
+        return bool(self.budgets_enabled and self.kill_switch)
+
+    def as_meta(self) -> dict:
+        """R17-safe наблюдаемые оси политики (для chain_meta/логов)."""
+        return {
+            "budgets_enabled": bool(self.budgets_enabled),
+            "limits_enforced": bool(self.enforce),
+            "max_total_calls": int(self.max_total_calls),
+            "max_metered_calls": int(self.max_metered_calls),
+            "max_same_call": int(self.max_same_call),
+            "fuse_seconds": float(self.fuse_seconds),
+        }
+
+
+def resolve_chain_limits(*, budgets_enabled: bool | None = None) -> ChainLimits:
+    """Собрать политику. ``budgets_enabled=None`` — достоверного значения нет
+    (вызывающий не резолвил): считаем бюджеты включёнными, но объёмных квот
+    нет по заводским значениям ``MCA_TOOL_MAX_*=0``; fuse тоже 0."""
+    budgets_on = True if budgets_enabled is None else bool(budgets_enabled)
+    return ChainLimits(
+        budgets_enabled=budgets_on,
+        kill_switch=_chain_limits_enabled(),
+        max_total_calls=_max_total_calls(),
+        max_metered_calls=_max_metered_calls(),
+        max_same_call=_max_same_call(),
+        fuse_seconds=_chain_fuse_seconds())
+
+
+async def _resolve_chain_limits(chat_id: int | None) -> ChainLimits:
+    """Effective-политика для конкретного чата (никогда не бросает).
+
+    Единственная точка чтения master-рубильника в tool-loop: ошибка резолва
+    не превращается в enforcement — бюджеты считаются выключенными."""
+    from services import budget_gate
+    try:
+        budgets_on = bool(await budget_gate.budgets_enabled(chat_id))
+    except Exception:       # pragma: no cover - защитная ветка
+        logger.warning("[tools] budget gate resolve failed — enforcement off | "
+                       "chat=%s", chat_id, exc_info=True)
+        budgets_on = False
+    return resolve_chain_limits(budgets_enabled=budgets_on)
+
+
+def _reuse_reason(name: str, fp: str, *, same_calls: dict,
+                  last_by_fp: dict, last_info_by_fp: dict,
+                  limits: ChainLimits, guard_on: bool = True) -> str:
+    """Причина НЕ диспетчить повтор ('' = исполняем).
+
+    * ``side_effect`` — неидемпотентная операция уже дала ok/delivery_unknown:
+      слепой повтор запрещён (safety/idempotency, не бюджет; K2-gated);
+    * ``same_call`` — явная операторская политика ``MCA_TOOL_MAX_SAME_CALL>0``
+      при budgets ON;
+    * ``terminal_repeat`` — та же операция уже вернула терминальный
+      (``retryable=false``) отказ: повтор без изменения условий запрещён;
+    * ``retry_exhausted`` — retryable-отказ повторился
+      ``MCA_TOOL_TRANSIENT_RETRIES_MAX`` раз: дальше без изменения условий
+      повтор бессмысленен (политика ретраев, а не квота объёма).
+    """
+    info = last_info_by_fp.get(fp)
+    if not isinstance(info, dict):
+        return ""
+    attempts = int(same_calls.get(fp, 0) or 0)
+    if limits.enforce and limits.max_same_call > 0 \
+            and attempts >= limits.max_same_call:
+        return "same_call"
+    status = str(info.get("status") or "")
+    if not info.get("retryable"):
+        if (guard_on and not tool_result.is_idempotent(name)
+                and status in (tool_result.STATUS_OK,
+                               tool_result.STATUS_DELIVERY_UNKNOWN)):
+            return "side_effect"
+        return "terminal_repeat"
+    if attempts >= tool_result.transient_retries_max() + 1:
+        return "retry_exhausted"
+    return ""
+
+
+def _volume_skip(limits: ChainLimits, *, total_calls: int, cost_calls: int,
+                 cost_limited: bool) -> tuple[str, str, int | None]:
+    """Явная операторская политика объёма (только при ``limits.enforce``).
+
+    → ``(reason, limit_kind, limit_value)``; пустая причина = не ограничено."""
+    if not limits.enforce:
+        return "", "", None
+    if limits.max_total_calls and total_calls >= limits.max_total_calls:
+        return (CHAIN_CALL_LIMIT_REASON, "tool_calls", total_calls)
+    if (cost_limited and limits.max_metered_calls
+            and cost_calls >= limits.max_metered_calls):
+        return (CHAIN_COST_LIMIT_REASON, "tool_metered_calls", cost_calls)
+    return "", "", None
+
+
+def _denied_result_content(name: str, reason: str, limit: dict | None) -> str:
+    """Модельно-видимый структурный отказ (валидная последовательность + смысл).
+
+    JSON-конверт распознаётся существующим ``tool_result.classify_output``
+    (``status:denied`` → канонический статус ``denied``); модель видит
+    честную причину вместо потерянного ``tool_call_id``."""
+    payload: dict = {
+        "status": "denied",
+        "tool": str(name or ""),
+        "reason": str(reason or "denied"),
+        "note": "вызов не исполнен: ограничение политики исполнения",
+    }
+    if isinstance(limit, dict) and limit:
+        payload["limit"] = limit
+    return json.dumps(payload, ensure_ascii=False)
 
 
 # ── MCA-23 фаза 2 (§17/§38): нормализация и исполнение плана ────────────────
@@ -274,19 +483,21 @@ def _plan_announced_tools(tools) -> set:
 
 
 def normalize_tool_plan(raw_plan, *, announced=None) -> list:
-    """Валидация плана (§38; никог는 не бросает).
+    """Валидация плана (§38; никогда не бросает).
 
     * шаг = dict с непустым ``tool``; неизвестный/неанонсированный tool →
       шаг ВЫБРАСЫВАЕТСЯ (не исполняется);
     * ``arguments`` — dict (иначе {});
     * ``depends_on`` — только id валидных шагов (неизвестные отбрасываются);
     * ``failure_policy`` — ``required`` | ``optional`` (иное → ``optional``);
-    * больше PLAN_MAX_STEPS шагов → первые PLAN_MAX_STEPS (§39)."""
+    * SMART-EXECUTION-RELIABILITY-01 §B1: нормализованный план НЕ обрезается
+      по числу шагов (прежний ``PLAN_MAX_STEPS=6`` удалён); каждый валидный
+      шаг исполняется, объём ограничивает явная политика при budgets ON."""
     if not isinstance(raw_plan, (list, tuple)):
         return []
     seen: set = set()
     steps: list = []
-    for item in list(raw_plan)[:PLAN_MAX_STEPS]:
+    for item in list(raw_plan):
         if not isinstance(item, dict):
             continue
         tool = str(item.get("tool") or "").strip()
@@ -386,36 +597,9 @@ def _append_plan_block(payload_messages: list, block: str) -> None:
     payload_messages.append({"role": "user", "content": block})
 
 
-# ── MCA-11 (ADR-1028-13 D2): env-only числа лимитов поверх существующих cap'ов.
-# Дефолты = текущие код-константы (байт-паритет); enforcement остаётся здесь.
-def _max_total_calls() -> int:
-    return _int_setting("MCA_TOOL_MAX_TOTAL_CALLS", TOOL_MAX_TOTAL_CALLS)
-
-
-def _max_metered_calls() -> int:
-    return _int_setting("MCA_TOOL_MAX_METERED_CALLS",
-                        TOOL_CHAIN_MAX_METERED_CALLS)
-
-
-def _max_same_call() -> int:
-    return _int_setting("MCA_TOOL_MAX_SAME_CALL", _TOOL_MAX_SAME_CALL)
-
-
-def _chain_timeout_seconds() -> float:
-    try:
-        return float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
-                             TOOL_CHAIN_TIMEOUT_SECONDS))
-    except (TypeError, ValueError):
-        return TOOL_CHAIN_TIMEOUT_SECONDS
-
-
-def _int_setting(name: str, default: int) -> int:
-    try:
-        return max(1, int(getattr(settings, name, default)))
-    except (TypeError, ValueError):
-        return default
-
-
+# ── MCA-11 (ADR-1028-13 D2): env-only числа политики (см. resolve_chain_limits).
+# Заводские значения `MCA_TOOL_MAX_*=0` = политика не задана; enforcement —
+# только при effective budgets ON (SMART-EXECUTION-RELIABILITY-01 §A/B).
 def _contract_on() -> bool:
     """K1 ``MCA_TOOL_RESULT_ENABLED``: канонический envelope либо legacy."""
     return tool_result.enabled()
@@ -505,11 +689,19 @@ def _classify_output(name: str, output) -> dict:
     return info
 
 
-def _record(ctx, tool_results: list, envelope: dict) -> None:
+def _record(ctx, tool_results: list, envelope: dict,
+            tool_call_id: str | None = None) -> None:
     """Записать envelope в журнал прогона (локальный + ``ctx.tool_results``).
 
     ``ctx`` может быть произвольным объектом (тесты передают MagicMock/object)
-    → запись в контекст best-effort, сбой не роняет цикл."""
+    → запись в контекст best-effort, сбой не роняет цикл.
+    SMART-EXECUTION-RELIABILITY-01 §B1: в КАНОНИЧЕСКИЙ envelope добавляется
+    исходный ``tool_call_id`` — структурный результат каждого запрошенного
+    вызова однозначно сопоставим с провайдерским сообщением (K1 OFF —
+    legacy-набор ключей байт-в-байт, без аддитивного поля)."""
+    if (tool_call_id and isinstance(envelope, dict)
+            and tool_result.enabled()):
+        envelope["tool_call_id"] = str(tool_call_id)
     tool_results.append(envelope)
     try:
         bucket = getattr(ctx, "tool_results", None)
@@ -554,19 +746,23 @@ async def chat_with_tools(llm, messages: list[dict], *,
                           ) -> "ToolLoopResult":
     """→ ``ToolLoopResult`` (str) — финальный текст + телеметрия.
 
-    При исчерпании ``TOOL_MAX_ROUNDS`` или ``LLMError`` на ``round_index > 0``
-    возвращается частичный ответ либо ``TOOL_LOOP_FALLBACK_PHRASE``
-    (``degraded=True``) — НЕ тишина и НЕ исключение (ADR-1020-7 §1).
-    Провайдер-reject на 1-м раунде — plain-фолбэк без tools (FR-15);
-    ``NoApiKeyForChat`` — проброс; пустой финал — прежний
-    ``LLMBadResponseError`` (FR-14/65.1).
+    Единая политика исполнения (SMART-EXECUTION-RELIABILITY-01 §B): все
+    корректно запрошенные вызовы исполняются и получают структурный
+    результат; фиксированных пределов раундов/вызовов/«платных» нет.
+    Завершение: финальный ответ модели; ``no_progress`` (два раунда подряд
+    без единого нового исполнения); подтверждённый технический отказ;
+    отмена; явная операторская политика при effective
+    ``flags.budgets_enabled=true`` (``MCA_TOOL_MAX_*``); аварийный fuse
+    (``MCA_TOOL_CHAIN_TIMEOUT_SECONDS>0``). Деградация возвращает частичный
+    текст либо ``TOOL_LOOP_FALLBACK_PHRASE`` (``degraded=True``), НЕ
+    исключение (ADR-1020-7 §1). Провайдер-reject на 1-м раунде —
+    plain-фолбэк без tools (FR-15); ``NoApiKeyForChat`` — проброс; пустой
+    финал — прежний ``LLMBadResponseError`` (FR-14/65.1).
 
     A2 (ADR-1026-15 D1/D3): на каждый вызов строится out-of-band envelope
     (``tool_results`` + ``ctx.tool_results``); модельно-видимый канал
-    (``role:"tool"`` / ``tool_context``) не меняется (гибрид D1). При ON
-    действуют §17-лимиты (cap 6 / мягкий тайм-аут 360 c / дедуп ≤2 / платные
-    4) с аддитивными причинами деградации ``chain_*`` (in-flight не
-    отменяется).
+    (``role:"tool"`` / ``tool_context``) не меняется (гибрид D1).
+    ``metered``/``usage`` — наблюдательные оси, enforcement — отдельно.
 
     ASAP-3.2 (ADR-1028-5 D10, §44): ``fallback_payload_adapter`` — тот же
     контракт, что у ``generate()``/``generate_chat()``; прокидывается в
@@ -581,25 +777,25 @@ async def chat_with_tools(llm, messages: list[dict], *,
 
     MCA-23 фаза 2 (§17): ``tool_plan`` — ЯВНЫЙ мульти-шаговый план
     (ResponsePlanner, services/response_extent). None/пустой → обычный
-    model-driven путь байт-в-байт. Непустой план: шаги исполняются ДО
+    model-driven путь. Непустой план: ВСЕ валидные шаги исполняются ДО
     модельных раундов в топологическом порядке через существующий
-    ``router.dispatch`` (ToolResult envelope, §17-бюджеты ОБЩИЕ с циклом:
-    cap/тайм-аут/дедуп/side-effect-гард), результаты — одним аддитивным
+    ``router.dispatch`` (ToolResult envelope); результаты — одним аддитивным
     user-блоком ``<tool_plan_results>`` в Stage-1 (синтез + limitations);
     failure_policy=optional → limitation, required → честная деградация
     (§19); ``round=0`` в trace/envelope отличает плановые шаги от
-    модельных раундов. Re-plan в фазе 2 не выполняется (≤2, §39).
+    модельных раундов. Re-plan в этой фазе не выполняется.
     """
-    limits_on = _chain_limits_enabled()
+    limits = await _resolve_chain_limits(chat_id)
     payload_messages = copy.deepcopy(messages)
     tool_trace: list[dict] = []
     tool_results: list[dict] = []
     tool_context_parts: list[str] = []
     partial_text = ""
-    # §17-состояние прогона (in-memory; OFF → не используется).
-    # MCA-11 D2: числа — env-only (дефолты = прежние код-константы).
-    deadline = (time.monotonic() + _chain_timeout_seconds()
-                if limits_on else None)
+    # Аварийный операторский fuse (0 = не задан): проверка ТОЛЬКО на
+    # границах раундов/перед диспетчем — in-flight вызов не отменяется,
+    # накопленные результаты не уничтожаются.
+    deadline = (time.monotonic() + limits.fuse_seconds
+                if limits.fuse_seconds > 0 else None)
     total_calls = 0
     metered_calls = 0
     # ER-08: отдельный счётчик «денежных» операций (лимит применяется ТОЛЬКО
@@ -637,69 +833,52 @@ async def chat_with_tools(llm, messages: list[dict], *,
             arguments = step["arguments"]
             metered = name in METERED_TOOLS
             fp = _args_fingerprint(name, arguments)
-            # (а) §17-дедуп + MCA-11 D3-гард side effects — тот же контракт,
-            # что в модельных раундах (слепой повтор запрещён).
-            cached_reason = ""
-            if limits_on and fp in last_by_fp:
-                if same_calls.get(fp, 0) >= _max_same_call():
-                    cached_reason = "dedup"
-                elif (_guard_on() and not tool_result.is_idempotent(name)
-                      and str((last_info_by_fp.get(fp) or {}).get("status"))
-                      in (tool_result.STATUS_OK,
-                          tool_result.STATUS_DELIVERY_UNKNOWN)):
-                    cached_reason = "side_effect"
+            # (а) дедуп по нормализованным аргументам + safety-гард side
+            # effects — тот же контракт, что в модельных раундах.
+            cached_reason = _reuse_reason(
+                name, fp, same_calls=same_calls, last_by_fp=last_by_fp,
+                last_info_by_fp=last_info_by_fp, limits=limits,
+                guard_on=_guard_on())
             if not cached_reason:
-                # (б) §17-лимиты ПЕРЕД диспетчем (мягкие: как в раундах).
-                if limits_on:
-                    skip_code = ""
-                    limit_kind = ""
+                # (б) явная операторская политика объёма / аварийный fuse.
+                skip_code, limit_kind, limit_value = _volume_skip(
+                    limits, total_calls=total_calls, cost_calls=cost_calls,
+                    cost_limited=cost_limited_tool(name))
+                if deadline is not None and time.monotonic() > deadline:
+                    skip_code = CHAIN_TIMEOUT_REASON
+                    limit_kind = "tool_chain_deadline"
                     limit_value = None
-                    now_mono = time.monotonic()
-                    if deadline is not None and now_mono > deadline:
-                        skip_code = CHAIN_TIMEOUT_REASON
-                        limit_kind = "tool_chain_deadline"
-                        limit_value = round(
-                            max(0.0, now_mono - deadline), 1)
-                    elif total_calls >= _max_total_calls():
-                        skip_code = CHAIN_CALL_LIMIT_REASON
-                        limit_kind = "tool_calls"
-                        limit_value = total_calls
-                    elif cost_limited_tool(name) \
-                            and cost_calls >= _max_metered_calls():
-                        skip_code = CHAIN_COST_LIMIT_REASON
-                        limit_kind = "tool_metered_calls"
-                        limit_value = cost_calls
-                    if skip_code:
-                        # §19: partial failure не роняет run — шаг в honest
-                        # limitation, исполнение плана/цикла продолжается.
-                        limit = tool_result.limit_record(
-                            limit_kind, limit_value, skip_code)
-                        info = {"status": ("denied" if _contract_on()
-                                           else "skipped"),
-                                "error_code": skip_code, "error_type": "",
-                                "data": (limit if _contract_on() else None),
-                                "truncated": False, "retryable": False,
-                                "partial": False, "usage": {},
-                                "evidence_refs": [],
-                                "external_operation_id": None}
-                        _record(ctx, tool_results, _envelope(
-                            -1, name, fp, info, metered=metered,
-                            duplicate=False, attempt=same_calls.get(fp, 0),
-                            out_chars=0))
-                        tool_result.emit_tool_chain_events(
-                            tool=name, status="denied", chat_id=chat_id,
-                            correlation_id=correlation_id,
-                            args_fingerprint=fp,
-                            attempt=same_calls.get(fp, 0),
-                            chain_limit_code=skip_code)
-                        emit_agentic_event(
-                            "TOOL_CALL_FAILED", run_id=correlation_id,
-                            chat_id=chat_id, tool=name, round=0,
-                            status="denied", error_code=skip_code)
-                        plan_limitations.append(
-                            f"шаг {step['step_id']} не выполнен "
-                            f"({skip_code})")
-                        continue
+                if skip_code:
+                    # §19: partial failure не роняет run — шаг в honest
+                    # limitation, остальные шаги/цикл продолжаются.
+                    limit = tool_result.limit_record(
+                        limit_kind, limit_value, skip_code)
+                    info = {"status": ("denied" if _contract_on()
+                                       else "skipped"),
+                            "error_code": skip_code, "error_type": "",
+                            "data": (limit if _contract_on() else None),
+                            "truncated": False, "retryable": False,
+                            "partial": False, "usage": {},
+                            "evidence_refs": [],
+                            "external_operation_id": None}
+                    _record(ctx, tool_results, _envelope(
+                        -1, name, fp, info, metered=metered,
+                        duplicate=False, attempt=same_calls.get(fp, 0),
+                        out_chars=0))
+                    tool_result.emit_tool_chain_events(
+                        tool=name, status="denied", chat_id=chat_id,
+                        correlation_id=correlation_id,
+                        args_fingerprint=fp,
+                        attempt=same_calls.get(fp, 0),
+                        chain_limit_code=skip_code)
+                    emit_agentic_event(
+                        "TOOL_CALL_FAILED", run_id=correlation_id,
+                        chat_id=chat_id, tool=name, round=0,
+                        status="denied", error_code=skip_code)
+                    plan_limitations.append(
+                        f"шаг {step['step_id']} не выполнен "
+                        f"({skip_code})")
+                    continue
                 # (в) исполнение (существующий механизм; ошибка — структурный
                 # текст; R17: только класс исключения).
                 emit_agentic_event(
@@ -786,7 +965,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     "[tools] plan duplicate skipped | tool=%s | step=%s | "
                     "reason=%s", name, step["step_id"], cached_reason)
             tool_trace.append({"round": 0, "tool": name,
-                               "ok": (True if cached_reason == "dedup"
+                               "ok": (True if cached_reason
                                       else status in (tool_result.STATUS_OK,
                                                       tool_result.STATUS_EMPTY)),
                                "out_chars": len(output or "")})
@@ -803,15 +982,19 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 sum(1 for entry in tool_trace if entry.get("round") == 0
                     and entry.get("ok")),
                 len(plan_limitations), total_calls)
-    for round_index in range(TOOL_MAX_ROUNDS):
-        # §17: граница раунда — мягкий wall-clock (in-flight не отменяем;
-        # уже полученный результат не рушим).
-        if (limits_on and deadline is not None and round_index > 0
+    round_index = 0
+    llm_rounds = 0
+    no_progress_rounds = 0
+    while True:
+        # Аварийный операторский fuse: только граница раунда (in-flight не
+        # отменяем; уже полученный результат не рушим).
+        if (deadline is not None and round_index > 0
                 and time.monotonic() > deadline):
             text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-            _log_degraded(CHAIN_TIMEOUT_REASON, round_index, tool_trace, text)
+            _log_degraded(CHAIN_TIMEOUT_REASON, llm_rounds, tool_trace, text,
+                          limits=limits)
             return ToolLoopResult(
-                text, rounds_used=round_index, degraded=True,
+                text, rounds_used=llm_rounds, degraded=True,
                 reason=CHAIN_TIMEOUT_REASON, tool_trace=tool_trace,
                 tool_context="\n".join(tool_context_parts),
                 tool_results=tool_results)
@@ -866,12 +1049,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
                                       tool_results=tool_results)
             # БЛОК 7.1: поздний раунд — не пробрасываем (не теряем ответ).
             text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-            _log_degraded("llm_error", round_index, tool_trace, text)
-            return ToolLoopResult(text, rounds_used=round_index,
+            _log_degraded("llm_error", llm_rounds, tool_trace, text,
+                          limits=limits)
+            return ToolLoopResult(text, rounds_used=llm_rounds,
                                   degraded=True, reason="llm_error",
                                   tool_trace=tool_trace,
                                   tool_context="\n".join(tool_context_parts),
                                   tool_results=tool_results)
+        llm_rounds += 1
         if result.content and str(result.content).strip():
             partial_text = str(result.content).strip()
         if not result.tool_calls:
@@ -882,19 +1067,16 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     round_index + 1, len(text))
                 # БЛОК 7.2b (T-1921): страховка tool-пути (idempotent).
                 return ToolLoopResult(strip_reasoning_tags(text),
-                                      rounds_used=round_index + 1,
+                                      rounds_used=llm_rounds,
                                       tool_trace=tool_trace,
                                       tool_context="\n".join(tool_context_parts),
                                       tool_results=tool_results,
                                       sent_body=getattr(result, "sent_body",
                                                         None))
             raise LLMBadResponseError("tool loop: empty final answer")
-        tool_calls: list[LLMToolCall] = result.tool_calls
-        if len(tool_calls) > _TOOL_CALLS_PER_ROUND_MAX:   # защита от спама
-            logger.warning("[tools] tool_calls truncated | %d -> %d | round=%d",
-                           len(tool_calls), _TOOL_CALLS_PER_ROUND_MAX,
-                           round_index + 1)
-            tool_calls = tool_calls[:_TOOL_CALLS_PER_ROUND_MAX]
+        # SMART-EXECUTION-RELIABILITY-01 §B1: список вызовов НЕ обрезается —
+        # все корректно запрошенные вызовы исполняются и получают результат.
+        tool_calls: list[LLMToolCall] = list(result.tool_calls)
         # Имена фактически запрошенных тулов — станут `tool_name` события
         # СЛЕДУЮЩЕГО (tool-)раунда.
         pending_tool_name = ",".join(
@@ -910,6 +1092,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                                             for tc in tool_calls]}
         payload_messages.append(assistant_message)
         limit_hit = False
+        dispatched_this_round = 0
         for tc in tool_calls:
             metered = tc.name in METERED_TOOLS
             # (а) аргументы: кривой JSON/тип → структурный tool-error (как было).
@@ -937,7 +1120,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 last_info_by_fp[fp] = info
                 _record(ctx, tool_results, _envelope(
                     round_index, tc.name, fp, info, metered=metered,
-                    duplicate=False, attempt=attempt, out_chars=len(output)))
+                    duplicate=False, attempt=attempt, out_chars=len(output)),
+                    tc.id)
                 # D6: notable-терминал стадии execute (invalid-args → error).
                 tool_result.emit_tool_chain_events(
                     tool=tc.name, status=str(info.get("status") or ""),
@@ -955,19 +1139,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 continue
             fp = _args_fingerprint(tc.name, arguments)
 
-            # (б) §17-дедуп одинакового вызова + MCA-11 D3-гард side effects:
-            # сверх лимита ЛИБО повтор неидемпотентной операции после
-            # успеха/`delivery_unknown` — НЕ диспетчим, возвращаем прежний
-            # результат (слепой повтор запрещён; exactly-once не обещается).
-            cached_reason = ""
-            if limits_on and fp in last_by_fp:
-                if same_calls.get(fp, 0) >= _max_same_call():
-                    cached_reason = "dedup"
-                elif (_guard_on() and not tool_result.is_idempotent(tc.name)
-                      and str((last_info_by_fp.get(fp) or {}).get("status"))
-                      in (tool_result.STATUS_OK,
-                          tool_result.STATUS_DELIVERY_UNKNOWN)):
-                    cached_reason = "side_effect"
+            # (б) дедуп по нормализованным аргументам/идентичности операции +
+            # safety-гард side effects. Повтор без изменения условий не
+            # диспетчится и получает прежний структурный результат; retryable
+            # отказ повторяется в пределах MCA_TOOL_TRANSIENT_RETRIES_MAX.
+            cached_reason = _reuse_reason(
+                tc.name, fp, same_calls=same_calls, last_by_fp=last_by_fp,
+                last_info_by_fp=last_info_by_fp, limits=limits,
+                guard_on=_guard_on())
             if cached_reason:
                 output = last_by_fp[fp]
                 attempt = same_calls[fp] + 1
@@ -976,13 +1155,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
                             or _classify(tc.name, output))
                 _record(ctx, tool_results, _envelope(
                     round_index, tc.name, fp, info, metered=metered,
-                    duplicate=True, attempt=attempt, out_chars=len(output)))
+                    duplicate=True, attempt=attempt, out_chars=len(output)),
+                    tc.id)
                 payload_messages.append({"role": "tool",
                                          "tool_call_id": tc.id,
                                          "content": output})
                 tool_context_parts.append(output)
-                cached_ok = (True if cached_reason == "dedup"
-                             else str(info.get("status")) == "ok")
+                cached_ok = str(info.get("status")) in (tool_result.STATUS_OK,
+                                                        tool_result.STATUS_EMPTY)
                 tool_trace.append({"round": round_index + 1, "tool": tc.name,
                                    "ok": cached_ok, "out_chars": len(output or "")})
                 logger.info(
@@ -998,75 +1178,74 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     out_chars=len(output or ""))
                 continue
 
-            # (в) §17-лимиты ПЕРЕД диспетчем (мягкие: in-flight не отменяем).
-            if limits_on:
-                skip_code = ""
-                limit_kind = ""
+            # (в) явная операторская политика объёма / аварийный fuse.
+            skip_code, limit_kind, limit_value = _volume_skip(
+                limits, total_calls=total_calls, cost_calls=cost_calls,
+                cost_limited=cost_limited_tool(tc.name))
+            if deadline is not None and time.monotonic() > deadline:
+                skip_code = CHAIN_TIMEOUT_REASON
+                limit_kind = "tool_chain_deadline"
                 limit_value = None
-                now_mono = time.monotonic()
-                if deadline is not None and now_mono > deadline:
-                    skip_code = CHAIN_TIMEOUT_REASON
-                    limit_kind = "tool_chain_deadline"
-                    limit_value = round(max(0.0, now_mono - deadline), 1)
-                elif total_calls >= _max_total_calls():
-                    skip_code = CHAIN_CALL_LIMIT_REASON
-                    limit_kind = "tool_calls"
-                    limit_value = total_calls
-                elif cost_limited_tool(tc.name) \
-                        and cost_calls >= _max_metered_calls():
-                    skip_code = CHAIN_COST_LIMIT_REASON
-                    limit_kind = "tool_metered_calls"
-                    limit_value = cost_calls
-                if skip_code:
-                    # MCA-11 D1/D4: legacy `skipped` → канонический `denied`;
-                    # единицы/область/значение/причина — в data (K1 ON).
-                    limit = tool_result.limit_record(limit_kind, limit_value,
-                                                     skip_code)
-                    info = {"status": ("denied" if _contract_on()
-                                       else "skipped"),
-                            "error_code": skip_code, "error_type": "",
-                            "data": (limit if _contract_on() else None),
-                            "truncated": False, "retryable": False,
-                            "partial": False, "usage": {},
-                            "evidence_refs": [],
-                            "external_operation_id": None}
-                    _record(ctx, tool_results, _envelope(
-                        round_index, tc.name, fp, info, metered=metered,
-                        duplicate=False, attempt=same_calls.get(fp, 0),
-                        out_chars=0))
-                    # D6: notable-отказ стадии execute (chain-лимит) — код из
-                    # единого словаря (chain_* → существующий mapped-код);
-                    # событие — канонический статус `denied` независимо от K1.
-                    tool_result.emit_tool_chain_events(
-                        tool=tc.name, status="denied",
-                        chat_id=chat_id, correlation_id=correlation_id,
-                        args_fingerprint=fp,
-                        attempt=same_calls.get(fp, 0),
-                        chain_limit_code=skip_code)
-                    if _contract_on():
-                        logger.warning(
-                            "[tools] chain limit | reason=%s | unit=%s | "
-                            "scope=%s | value=%s | tool=%s | round=%d | "
-                            "total_calls=%d | metered_calls=%d",
-                            skip_code, limit["unit"], limit["scope"],
-                            limit.get("value"), tc.name, round_index + 1,
-                            total_calls, metered_calls)
-                    else:
-                        logger.warning(
-                            "[tools] chain limit | reason=%s | tool=%s | round=%d "
-                            "| total_calls=%d | metered_calls=%d",
-                            skip_code, tc.name, round_index + 1, total_calls,
-                            metered_calls)
-                    # A9 (D5): chain-skip (timeout/call-limit/cost-limit).
-                    emit_agentic_event(
-                        "TOOL_CALL_FAILED", run_id=correlation_id,
-                        chat_id=chat_id, tool=tc.name,
-                        round=round_index + 1,
-                        status=("denied" if _contract_on() else "skipped"),
-                        error_code=skip_code)
-                    degrade_reason = skip_code
-                    limit_hit = True
-                    break
+            if skip_code:
+                # MCA-11 D1/D4: legacy `skipped` → канонический `denied`;
+                # единицы/область/значение/причина — в data (K1 ON).
+                limit = tool_result.limit_record(limit_kind, limit_value,
+                                                 skip_code)
+                info = {"status": ("denied" if _contract_on()
+                                   else "skipped"),
+                        "error_code": skip_code, "error_type": "",
+                        "data": (limit if _contract_on() else None),
+                        "truncated": False, "retryable": False,
+                        "partial": False, "usage": {},
+                        "evidence_refs": [],
+                        "external_operation_id": None}
+                _record(ctx, tool_results, _envelope(
+                    round_index, tc.name, fp, info, metered=metered,
+                    duplicate=False, attempt=same_calls.get(fp, 0),
+                    out_chars=0), tc.id)
+                # D6: notable-отказ стадии execute (chain-лимит) — код из
+                # единого словаря (chain_* → существующий mapped-код);
+                # событие — канонический статус `denied` независимо от K1.
+                tool_result.emit_tool_chain_events(
+                    tool=tc.name, status="denied",
+                    chat_id=chat_id, correlation_id=correlation_id,
+                    args_fingerprint=fp,
+                    attempt=same_calls.get(fp, 0),
+                    chain_limit_code=skip_code)
+                if _contract_on():
+                    logger.warning(
+                        "[tools] chain limit | reason=%s | unit=%s | "
+                        "scope=%s | value=%s | tool=%s | round=%d | "
+                        "total_calls=%d | metered_calls=%d",
+                        skip_code, limit["unit"], limit["scope"],
+                        limit.get("value"), tc.name, round_index + 1,
+                        total_calls, metered_calls)
+                else:
+                    logger.warning(
+                        "[tools] chain limit | reason=%s | tool=%s | round=%d "
+                        "| total_calls=%d | metered_calls=%d",
+                        skip_code, tc.name, round_index + 1, total_calls,
+                        metered_calls)
+                # A9 (D5): chain-skip (fuse/call-limit/cost-limit).
+                emit_agentic_event(
+                    "TOOL_CALL_FAILED", run_id=correlation_id,
+                    chat_id=chat_id, tool=tc.name,
+                    round=round_index + 1,
+                    status=("denied" if _contract_on() else "skipped"),
+                    error_code=skip_code)
+                # Отказ получает СВОБОДНЫЙ tool-результат с исходным id:
+                # последовательность assistant(tool_calls) → tool(each id)
+                # остаётся валидной, tool_call_id не теряется (§B1).
+                denied = _denied_result_content(tc.name, skip_code, limit)
+                payload_messages.append({"role": "tool",
+                                         "tool_call_id": tc.id,
+                                         "content": denied})
+                tool_context_parts.append(denied)
+                tool_trace.append({"round": round_index + 1, "tool": tc.name,
+                                   "ok": False, "out_chars": len(denied)})
+                degrade_reason = skip_code
+                limit_hit = True
+                continue
 
             # (г) исполнение (существующий путь; ошибка — структурный текст).
             ok = True
@@ -1083,6 +1262,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                                tc.name, f"{type(exc).__name__}: {exc}")
                 output = f"ОШИБКА {tc.name}: {type(exc).__name__}"
             duration_ms = int((time.monotonic() - started) * 1000)
+            dispatched_this_round += 1
             # MCA-11 D1/D3: out-of-band сигнал обвязки (SafeFetcher stage/
             # delivery_unknown) — одноразово, в модельный ввод не попадает.
             signal = tool_result.take_signal(ctx)
@@ -1104,7 +1284,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
             _record(ctx, tool_results, _envelope(
                 round_index, tc.name, fp, info, metered=metered,
                 duplicate=False, attempt=attempt, out_chars=len(output),
-                duration_ms=duration_ms))
+                duration_ms=duration_ms), tc.id)
             # D6: стадии tools.chain v2 — execute (notable-терминал),
             # deliver (`delivery_unknown`), account (usage/unknown ≠ 0).
             tool_result.emit_tool_chain_events(
@@ -1134,19 +1314,30 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     error_code=str(info.get("error_code") or "tool_error"))
         if limit_hit:
             break
-    # §17-лимит цепочки — graceful degradation (частичный результат, при ON).
+        round_index += 1
+        # §B4 п.2: раунд без единого нового исполнения — данные не прибавились.
+        if dispatched_this_round:
+            no_progress_rounds = 0
+        else:
+            no_progress_rounds += 1
+            if no_progress_rounds >= _NO_PROGRESS_ROUNDS:
+                degrade_reason = NO_PROGRESS_REASON
+                break
+    # Мягкая деградация (частичный результат + сохранённые tool_results).
     if degrade_reason:
         text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-        rounds_used = round_index + 1
-        _log_degraded(degrade_reason, rounds_used, tool_trace, text)
+        rounds_used = llm_rounds
+        _log_degraded(degrade_reason, rounds_used, tool_trace, text,
+                      limits=limits)
         return ToolLoopResult(text, rounds_used=rounds_used, degraded=True,
                               reason=degrade_reason, tool_trace=tool_trace,
                               tool_context="\n".join(tool_context_parts),
                               tool_results=tool_results)
-    # лимит раундов исчерпан — graceful degradation (НЕ исключение).
+    # Недостижимо: цикл завершается только возвратом/деградацией выше.
     text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-    _log_degraded("round_limit", TOOL_MAX_ROUNDS, tool_trace, text)
-    return ToolLoopResult(text, rounds_used=TOOL_MAX_ROUNDS, degraded=True,
-                          reason="round_limit", tool_trace=tool_trace,
+    _log_degraded("loop_exhausted", llm_rounds, tool_trace, text,
+                  limits=limits)
+    return ToolLoopResult(text, rounds_used=llm_rounds, degraded=True,
+                          reason=NO_PROGRESS_REASON, tool_trace=tool_trace,
                           tool_context="\n".join(tool_context_parts),
                           tool_results=tool_results)

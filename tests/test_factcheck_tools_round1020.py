@@ -161,10 +161,17 @@ class TestFactcheckFullToolAccess:
         llm.generate.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_round_limit_same_four(self):
-        """Лимит раундов — общий TOOL_MAX_ROUNDS=4 (spec §7.1)."""
-        from services.tool_loop import TOOL_MAX_ROUNDS
-        assert TOOL_MAX_ROUNDS == 4
+    async def test_no_fixed_round_limit_contract(self):
+        """SMART-EXECUTION-RELIABILITY-01 §B1: фиксированного лимита раундов
+        (4) больше нет — общий tool-loop завершается по прогрессу."""
+        from services import tool_loop
+        assert not hasattr(tool_loop, "TOOL_MAX_ROUNDS")
+        assert not hasattr(tool_loop, "_TOOL_CALLS_PER_ROUND_MAX")
+        limits = tool_loop.resolve_chain_limits()
+        assert limits.max_total_calls == 0        # политика не задана
+        assert limits.max_metered_calls == 0
+        assert limits.max_same_call == 0
+        assert limits.fuse_seconds == 0.0
 
     @pytest.mark.asyncio
     async def test_per_chat_flag_on_overrides_global_off(self, monkeypatch):

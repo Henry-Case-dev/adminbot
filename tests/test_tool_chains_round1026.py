@@ -24,11 +24,7 @@ from services.tool_loop import (
     CHAIN_CALL_LIMIT_REASON,
     CHAIN_COST_LIMIT_REASON,
     CHAIN_TIMEOUT_REASON,
-    TOOL_CHAIN_MAX_METERED_CALLS,
-    TOOL_CHAIN_TIMEOUT_SECONDS,
-    TOOL_MAX_TOTAL_CALLS,
     ToolLoopResult,
-    _TOOL_MAX_SAME_CALL,
     chat_with_tools,
 )
 from services.tool_router import ToolContext, ToolDeps, ToolRouter
@@ -292,9 +288,57 @@ class TestChains:
 
 
 class TestLimits:
+    """SMART-EXECUTION-RELIABILITY-01 §A/B: пределов 4/2/6/4 больше нет.
+
+    Заводская политика объёма не задана (`MCA_TOOL_MAX_*=0`) → обычное
+    исследование не обрезается. Явная операторская политика применяется
+    ТОЛЬКО при effective `flags.budgets_enabled=true`; при OFF — не может
+    вернуть enforcement. Safety-дедуп/retry и fuse — отдельные механизмы.
+    """
+
     @pytest.mark.asyncio
-    async def test_total_call_cap_six(self):
-        # 2 free-вызова/раунд × 4 раунда = 8 запрошено; cap 6 → 6 исполнено.
+    async def test_no_call_cap_by_default(self):
+        """2 вызова/раунд × 4 раунда = 8 — все исполнены (прежний cap был 6)."""
+        answers = [
+            _tc2(f"r{r}", [("query_chat_memory", {"query": f"q{r}a"}),
+                           ("query_chat_memory", {"query": f"q{r}b"})])
+            for r in range(4)] + [_text("финал после восьми вызовов")]
+        llm = FakeLLM(answers)
+        router = FakeRouter()
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
+                                    ctx=ToolContext(-100, "q"))
+        assert len(router.calls) == 8
+        assert out.degraded is False and out.reason == "ok"
+        assert len(out.tool_results) == 8
+        assert all(e["status"] == "ok" for e in out.tool_results)
+
+    @pytest.mark.asyncio
+    async def test_all_calls_of_one_round_dispatched(self):
+        """Прежняя обрезка `tool_calls[:2]` удалена: 3+ вызова хода исполнены."""
+        llm = FakeLLM([
+            _tc2("r0", [("query_chat_memory", {"query": "a"}),
+                        ("query_chat_memory", {"query": "b"}),
+                        ("execute_web_search", {"query": "c"})]),
+            _text("финал")])
+        router = FakeRouter()
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
+                                    ctx=ToolContext(-100, "q"))
+        assert [c[0] for c in router.calls] == ["query_chat_memory",
+                                                "query_chat_memory",
+                                                "execute_web_search"]
+        assistant = llm.all_messages[1][1]
+        assert len(assistant["tool_calls"]) == 3
+        tool_ids = [m["tool_call_id"] for m in llm.all_messages[1]
+                    if m["role"] == "tool"]
+        assert tool_ids == ["r0_0", "r0_1", "r0_2"]
+        assert out.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_explicit_total_call_policy_applies_with_budgets_on(
+            self, monkeypatch):
+        """Явная политика оператора (6) при budgets ON: сверх — структурный
+        denied на КАЖДЫЙ id, затем мягкая деградация `chain_call_limit`."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_TOTAL_CALLS", 6)
         answers = [
             _tc2(f"r{r}", [("query_chat_memory", {"query": f"q{r}a"}),
                            ("query_chat_memory", {"query": f"q{r}b"})])
@@ -303,26 +347,32 @@ class TestLimits:
         router = FakeRouter()
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == TOOL_MAX_TOTAL_CALLS == 6
+        assert len(router.calls) == 6
         assert out.degraded is True
         assert out.reason == CHAIN_CALL_LIMIT_REASON
-        # MCA-11 D1: K1 ON — legacy `skipped` канонизирован в `denied`.
         denied = [e for e in out.tool_results if e["status"] == "denied"]
-        assert denied and denied[-1]["error_code"] == CHAIN_CALL_LIMIT_REASON
-        assert denied[-1]["retryable"] is False
-        # D4/T-4951: единицы/область/значение/причина лимита.
+        assert len(denied) == 2
+        assert all(e["error_code"] == CHAIN_CALL_LIMIT_REASON
+                   for e in denied)
         limit = denied[-1]["data"]
         assert limit["unit"] == "calls" and limit["scope"] == "chain"
-        assert limit["value"] == 6 and limit["reason"] == CHAIN_CALL_LIMIT_REASON
+        assert limit["value"] == 6
+        assert denied[-1]["retryable"] is False
+        # Ни один запрошенный вызов не потерян: у каждого свой envelope с
+        # исходным tool_call_id (структурный результат на каждый id).
+        assert len(out.tool_results) == 8
+        assert [e.get("tool_call_id") for e in out.tool_results] == [
+            "r0_0", "r0_1", "r1_0", "r1_1", "r2_0", "r2_1", "r3_0", "r3_1"]
 
     @pytest.mark.asyncio
-    async def test_total_call_cap_k1_off_legacy_skipped(self, monkeypatch):
+    async def test_explicit_policy_k1_off_legacy_skipped(self, monkeypatch):
         """OFF-паритет K1: envelope 2.58.56 байт-в-байт (skipped/прежние ключи)."""
         monkeypatch.setattr(type(settings), "MCA_TOOL_RESULT_ENABLED", False)
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_TOTAL_CALLS", 2)
         answers = [
             _tc2(f"r{r}", [("query_chat_memory", {"query": f"q{r}a"}),
                            ("query_chat_memory", {"query": f"q{r}b"})])
-            for r in range(4)]
+            for r in range(2)]
         out = await chat_with_tools(FakeLLM(answers), MESSAGES, tools=TOOLS,
                                     router=FakeRouter(),
                                     ctx=ToolContext(-100, "q"))
@@ -334,9 +384,10 @@ class TestLimits:
         assert all(set(e) == legacy_keys for e in out.tool_results)
 
     @pytest.mark.asyncio
-    async def test_metered_call_limit_four_paid_tools(self):
-        """ER-08: «денежный» счётчик держит ПЛАТНЫЕ операции производства.
-        4 таких вызова исполняются, 5-й — structural skip + cost degrade."""
+    async def test_metered_policy_applies_to_paid_operations(self, monkeypatch):
+        """ER-08 сохранён: явный «денежный» потолок (4) держит ПЛАТНЫЕ
+        операции производства; счётчик остаётся наблюдательной осью."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_METERED_CALLS", 4)
         answers = [
             _tc2(f"r{r}", [("summarize_video", {"url": f"https://youtu.be/q{r}0"}),
                            ("summarize_video", {"url": f"https://youtu.be/q{r}1"})])
@@ -345,88 +396,56 @@ class TestLimits:
         router = FakeRouter()
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == TOOL_CHAIN_MAX_METERED_CALLS == 4
+        assert len(router.calls) == 4
         assert out.reason == CHAIN_COST_LIMIT_REASON
         assert [e["metered"] for e in out.tool_results
                 if e["status"] == "ok"] == [True] * 4
 
     @pytest.mark.asyncio
-    async def test_read_only_evidence_not_cost_limited(self):
+    async def test_read_only_evidence_not_cost_limited(self, monkeypatch):
         """ER-08 (решение владельца 02.11.2026): read-only проверка фактов НЕ
-        режется «денежным» счётчиком — 6 поисков исполняются, а упор даёт
-        анти-петлевой cap общего числа вызовов (не финансовая экономия)."""
+        режется «денежным» счётчиком даже при явном потолке — поиск и чтение
+        доезжают до модели."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_METERED_CALLS", 2)
         answers = [
             _tc2(f"r{r}", [("execute_web_search", {"query": f"q{r}0"}),
                            ("execute_web_search", {"query": f"q{r}1"})])
-            for r in range(3)] + [
-            _tc2("r3", [("execute_web_search", {"query": "q30"})]),
-            _text("финал")]
+            for r in range(3)] + [_text("финал")]
         llm = FakeLLM(answers)
         router = FakeRouter()
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == TOOL_MAX_TOTAL_CALLS == 6
-        assert out.reason == CHAIN_CALL_LIMIT_REASON
-        denied = [e for e in out.tool_results if e["status"] == "denied"]
-        assert denied and denied[-1]["error_code"] == CHAIN_CALL_LIMIT_REASON
-        # Метричность вызова остаётся фактом (MCA-20), но она не тормоз.
-        assert all(e["metered"] is True for e in out.tool_results
-                   if e["status"] == "ok")
+        assert len(router.calls) == 6
+        assert out.reason == "ok"
+        assert all(e["metered"] is True for e in out.tool_results)
 
     @pytest.mark.asyncio
-    async def test_read_only_evidence_same_call_still_deduped(self):
-        """Анти-петлевая защита сохранена: один и тот же вызов (имя+аргументы)
-        третий раз НЕ исполняется — дедуп, а не «деньги»."""
-        answers = [
-            _tc2("r0", [("execute_web_search", {"query": "same"}),
-                        ("execute_web_search", {"query": "same"})]),
-            _tc2("r1", [("execute_web_search", {"query": "same"})]),
-            _text("финал")]
-        llm = FakeLLM(answers)
-        router = FakeRouter()
-        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
-                                    ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == 2
-        assert any(e["duplicate"] for e in out.tool_results)
-
-    @pytest.mark.asyncio
-    async def test_free_calls_not_cost_limited(self):
-        # 5 разных free-вызовов не упираются в лимит расходов (2+2+1 за раунд).
-        answers = [
-            _tc2("r0", [("query_chat_memory", {"query": "q0"}),
-                        ("query_chat_memory", {"query": "q1"})]),
-            _tc2("r1", [("query_chat_memory", {"query": "q2"}),
-                        ("query_chat_memory", {"query": "q3"})]),
-            _tc("r2", "query_chat_memory", {"query": "q4"}),
-            _text("финал"),
-        ]
-        llm = FakeLLM(answers)
-        router = FakeRouter()
-        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
-                                    ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == 5
-        assert out.degraded is False and out.reason == "ok"
-        assert all(e["metered"] is False for e in out.tool_results)
-
-    @pytest.mark.asyncio
-    async def test_dedup_same_call_max_two(self):
-        # Одинаковый вызов (имя+канон.аргументы) исполняется ≤2 раз.
-        llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "same"}),
-                       _tc("c2", "execute_web_search", {"query": "same"}),
-                       _tc("c3", "execute_web_search", {"query": "same"}),
-                       _text("финал")])
+    async def test_identical_call_reused_not_redispatched(self):
+        """Дедуп по нормализованным аргументам: повтор без изменения условий
+        не исполняется повторно, модельно-видимый результат прежний."""
+        llm = FakeLLM([
+            LLMChatResult(content=None, tool_calls=[
+                LLMToolCall(id="c1", name="execute_web_search",
+                            arguments='{"query": "same"}'),
+                LLMToolCall(id="c2", name="execute_web_search",
+                            arguments='{"query": "same"}'),
+                LLMToolCall(id="c3", name="execute_web_search",
+                            arguments='{"query": "same"}')],
+                finish_reason="tool_calls"),
+            _text("финал")])
         router = FakeRouter({"execute_web_search": "RES"})
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == _TOOL_MAX_SAME_CALL == 2
+        assert len(router.calls) == 1
         dup = [e for e in out.tool_results if e["duplicate"]]
-        assert len(dup) == 1 and dup[0]["attempt"] == 3
-        # Модельно-видимый content повтора — прежний результат (идемпотентно).
+        assert len(dup) == 2 and dup[-1]["attempt"] == 3
         assert _tool_contents(llm) == ["RES", "RES", "RES"]
+        assert out.degraded is False and out.reason == "ok"
 
     @pytest.mark.asyncio
-    async def test_adversarial_duplicate_storm(self):
-        # «Шторм»: 2 одинаковых/раунд × 4 раунда → исполняется только 2.
+    async def test_duplicate_storm_stops_by_no_progress(self):
+        """«Шторм» одинаковых вызовов не крутит цикл вечно: новые данные не
+        прибавляются → честный stop `no_progress` (§B4 п.2)."""
         answers = [_tc2(f"r{r}", [("execute_web_search", {"query": "s"}),
                                   ("execute_web_search", {"query": "s"})])
                    for r in range(4)]
@@ -434,12 +453,38 @@ class TestLimits:
         router = FakeRouter({"execute_web_search": "S"})
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == 2
-        assert len([e for e in out.tool_results if e["duplicate"]]) == 6
-        assert out.reason == "round_limit"      # завершилось, не зависло
+        assert len(router.calls) == 1
+        assert out.reason == "no_progress"
+        assert len([e for e in out.tool_results if e["duplicate"]]) >= 2
 
     @pytest.mark.asyncio
-    async def test_soft_timeout_does_not_cancel_inflight(self, monkeypatch):
+    async def test_retryable_failure_retried(self, monkeypatch):
+        """Retryable-отказ повторяется (в пределах
+        MCA_TOOL_TRANSIENT_RETRIES_MAX), терминальный — нет."""
+        from services import tool_result as _tr
+
+        state = {"n": 0}
+
+        async def _flaky(name, arguments, ctx):
+            state["n"] += 1
+            if state["n"] == 1:
+                _tr.set_signal(ctx, {"status": "timeout", "retryable": True})
+                return '{"status":"error","error":"timeout"}'
+            return "второй раз получилось"
+
+        llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
+                       _tc("c2", "execute_web_search", {"query": "x"}),
+                       _text("финал")])
+        router = FakeRouter(fn=_flaky)
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
+                                    ctx=ToolContext(-100, "q"))
+        assert state["n"] == 2                       # retryable повторён
+        assert out.degraded is False and out.reason == "ok"
+
+    @pytest.mark.asyncio
+    async def test_fuse_does_not_cancel_inflight(self, monkeypatch):
+        """Fuse — операторская страховка (0 = нет): проверяется на границе
+        раунда, in-flight вызов не отменяется, результат сохраняется."""
         monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
                             0.05)
 
@@ -457,19 +502,26 @@ class TestLimits:
         router = SlowRouter()
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        # In-flight вызов не отменён: результат получен (round0) и сохранён.
         assert router.completed is True
         assert out.tool_results[0]["status"] == "ok"
         assert "долгий результат" in out.tool_context
-        # Добор новых ограничен → мягкая деградация (round1 boundary).
         assert out.degraded is True and out.reason == CHAIN_TIMEOUT_REASON
 
     @pytest.mark.asyncio
-    async def test_timeout_skips_new_calls(self, monkeypatch):
+    async def test_fuse_denies_new_calls_after_deadline(self, monkeypatch):
         monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
-                            -1.0)
-        llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
-                       _text("финал")])
+                            0.01)
+
+        class SlowThinkLLM(FakeLLM):
+            async def generate_chat(self, messages, *, temperature=None,
+                                    tools=None, tool_choice="auto",
+                                    chat_id=None, **kwargs):
+                await asyncio.sleep(0.02)
+                return await super().generate_chat(
+                    messages, temperature=temperature, tools=tools,
+                    tool_choice=tool_choice, chat_id=chat_id, **kwargs)
+
+        llm = SlowThinkLLM([_tc("c1", "execute_web_search", {"query": "x"})])
         router = FakeRouter()
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
@@ -478,14 +530,25 @@ class TestLimits:
         assert out.tool_results[0]["status"] == "denied"
         assert out.tool_results[0]["data"]["unit"] == "seconds"
         assert out.tool_results[0]["data"]["scope"] == "chain"
+        # id не потерян: структурный результат содержит исходный tool_call_id.
+        assert out.tool_results[0]["tool_call_id"] == "c1"
 
     @pytest.mark.asyncio
-    async def test_timeout_k1_off_legacy_skipped(self, monkeypatch):
+    async def test_fuse_k1_off_legacy_skipped(self, monkeypatch):
         monkeypatch.setattr(type(settings), "MCA_TOOL_RESULT_ENABLED", False)
         monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
-                            -1.0)
-        llm = FakeLLM([_tc("c1", "execute_web_search", {"query": "x"}),
-                       _text("финал")])
+                            0.01)
+
+        class SlowThinkLLM(FakeLLM):
+            async def generate_chat(self, messages, *, temperature=None,
+                                    tools=None, tool_choice="auto",
+                                    chat_id=None, **kwargs):
+                await asyncio.sleep(0.02)
+                return await super().generate_chat(
+                    messages, temperature=temperature, tools=tools,
+                    tool_choice=tool_choice, chat_id=chat_id, **kwargs)
+
+        llm = SlowThinkLLM([_tc("c1", "execute_web_search", {"query": "x"})])
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
                                     router=FakeRouter(),
                                     ctx=ToolContext(-100, "q"))
@@ -499,16 +562,17 @@ class TestLimits:
     @pytest.mark.asyncio
     async def test_limits_off_no_cap(self, monkeypatch):
         monkeypatch.setattr(type(settings), "TOOL_CHAIN_LIMITS_ENABLED", False)
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_TOTAL_CALLS", 2)
         answers = [
             _tc2(f"r{r}", [("execute_web_search", {"query": f"a{r}"}),
                            ("execute_web_search", {"query": f"b{r}"})])
-            for r in range(4)]
+            for r in range(4)] + [_text("финал")]
         llm = FakeLLM(answers)
         router = FakeRouter()
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS, router=router,
                                     ctx=ToolContext(-100, "q"))
-        assert len(router.calls) == 8           # cap не применяется
-        assert out.reason == "round_limit"      # прежняя причина
+        assert len(router.calls) == 8           # kill-switch снимает политику
+        assert out.reason == "ok"
         assert all(e["status"] == "ok" for e in out.tool_results)
 
     @pytest.mark.asyncio
@@ -559,7 +623,6 @@ class TestLimits:
         env = out.tool_results[0]
         assert env["truncated"] is True
         assert env["out_chars"] == len(big)
-
 
 # ── A2: fetch_article (атомарность / reuse / JSON) ───────────────────────
 
@@ -746,8 +809,11 @@ class TestR17AndBoundaries:
             assert secret not in record.getMessage()
 
     @pytest.mark.asyncio
-    async def test_degraded_log_r17_safe(self, caplog):
+    async def test_degraded_log_r17_safe(self, caplog, monkeypatch):
         import logging
+        # Явная политика оператора (6) при budgets ON — причина деградации
+        # `chain_call_limit` наблюдаема; при её отсутствии ограничения нет.
+        monkeypatch.setattr(type(settings), "MCA_TOOL_MAX_TOTAL_CALLS", 6)
         answers = [
             _tc2(f"r{r}", [("query_chat_memory", {"query": f"a{r}"}),
                            ("query_chat_memory", {"query": f"b{r}"})])
