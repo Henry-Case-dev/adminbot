@@ -2024,7 +2024,14 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
     else:
         run = await service.check_claim_envelope(
             envelope, chat_context=feed or None, **run_kwargs)
-    await tf.record_temporal_run(db, run, scope=scope, cache_hit=False)
+    # S15-FC-EVIDENCE (owner §7.4, «расхождение evidence в БД и отправленным
+    # модели»): порция evidence уже ограничена ёмкостью фактического маршрута
+    # в сервисе; durable-запись обязана сохранить РОВНО доставленные строки, а
+    # не прежний скрытый лимит 20 (иначе БД и prompt расходятся). Пустой run →
+    # прежний default.
+    await tf.record_temporal_run(
+        db, run, scope=scope, cache_hit=False,
+        max_evidence=max(len(run.evidence_rows or ()), 1))
     refs = tuple(
         EvidenceRef(evidence_id=str(r.get("evidence_id") or ""),
                     url=r.get("url"), support=str(r.get("support") or ""),
