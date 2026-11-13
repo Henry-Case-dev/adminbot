@@ -28,6 +28,23 @@ inspect_runtime, SourceReader, поиск/fetch, фактчек, retrieval/memor
 
 Все логи — с префиксом [tools]; WARNING на деградацию/лимит; INFO на раунд.
 
+SMART-EXECUTION-RELIABILITY-01 §G (owner 2026-11-14, этап G) — обязательная
+финализация исследования в ЭТОМ ЖЕ цикле (не новый агент/клиент/пайплайн):
+
+* два логических состояния: сбор evidence (tool-раунды) и финальный ответ;
+* штатный финальный ответ модели — без лишнего повторного LLM-вызова
+  (`finalize_mode=""`);
+* если исследование остановлено до ответа, но evidence накоплено, ответ
+  формирует существующий LLM (`llm.generate`, без tools) по уже собранным
+  результатам; остановка по лимитам исследования этому НЕ мешает;
+* недоступен финальный LLM-вызов/пустой ответ → детерминированный
+  структурный partial из tool-результатов (подтверждённое/отказы/
+  непроверенное/provenance/причина остановки); саркастичная заглушка при
+  наличии данных не публикуется;
+* `retryable=false` терминален для маршрута: идентичный вызов не повторяется
+  (дедуп), а разные вызовы к тому же структурно недоступному маршруту
+  (host/provider из результата) получают честный `denied` без диспетча.
+
 Раунд 10.20 (БЛОК 1, ADR-1020-6 п.2, T-1887): цикл НЕ меняется — сигнал
 режима доставки «Летописца» несёт сам `ctx` (поле ``ToolContext.lore_compiled``,
 ставится инструментом compile_lore_story и читается DirectChat после возврата).
@@ -35,11 +52,12 @@ inspect_runtime, SourceReader, поиск/fetch, фактчек, retrieval/memor
 
 Раунд 10.20 (БЛОК 7.1, ADR-1020-7 §1, T-1919): graceful degradation —
 исчерпание раундов и `LLMError` на `round_index > 0` больше НЕ роняют ответ
-в тишину+🗿. Возвращается частичный текст, накопленный в раундах, либо
-саркастичная заглушка `TOOL_LOOP_FALLBACK_PHRASE`. Провайдер-reject на
-`round_index == 0` (plain-фолбэк, FR-15) и `NoApiKeyForChat` — без изменений;
-пустой финал (нет tool_calls и нет текста) — прежний `LLMBadResponseError`
-(FR-14/65.1, сохраняем контракт 🗿).
+в тишину+🗿. При накопленном evidence ответ формирует финальная фаза §G
+(существующий LLM/Writer либо детерминированный partial); прежний частичный
+текст/саркастичная заглушка `TOOL_LOOP_FALLBACK_PHRASE` остаются только
+когда данных нет вовсе. Провайдер-reject на `round_index == 0` (plain-фолбэк,
+FR-15) и `NoApiKeyForChat` — без изменений; пустой финал (нет tool_calls и
+нет текста) — прежний `LLMBadResponseError` (FR-14/65.1, сохраняем контракт 🗿).
 """
 import copy
 import hashlib
@@ -49,6 +67,7 @@ import re
 import time
 
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from config.settings import settings
 from services import tool_result
@@ -221,6 +240,83 @@ TOOL_LOOP_FALLBACK_PHRASE = (
     "Спроси проще, что ли.")
 
 
+# ── SMART-EXECUTION-RELIABILITY-01 §G: финальная фаза исследования ──────────
+#: Шаг существующего LLM-клиента для финального вызова (наблюдаемость; tools
+#: не передаются).
+FINALIZE_STEP = "finalize"
+
+#: Причина структурного отказа «маршрут уже терминально недоступен».
+ROUTE_TERMINAL_REASON = "route_terminal"
+
+#: Закрытый набор структурных кодов, означающих недоступность МАРШРУТА
+#: (провайдер/хост), а не конкретного ресурса: повтор с другими аргументами к
+#: тому же маршруту без изменения условий бессмыслен и не диспетчится
+#: (owner §G5). Ошибки конкретного ресурса (`source_missing`, `not_found`,
+#: `invalid_url`, `unsupported`, `path_denied`, `parse_error`,
+#: `extract_failed`) сюда НЕ входят: другой путь/файл на том же хосте может
+#: быть доступен.
+ROUTE_TERMINAL_CODES = frozenset({
+    "destination_blocked", "metadata_endpoint_blocked", "resolve_failed",
+    "egress_guard_unavailable", "auth_failed", "provider_unavailable",
+    "provider_unconfigured", "provider_stalled", "source_unavailable",
+    "disabled", "unknown_tool",
+})
+
+#: Инструменты с единственным провайдером: маршрут = сам инструмент (payload
+#: не несёт host/provider).
+ROUTE_SINGLE_PROVIDER_TOOLS = frozenset({"execute_web_search", "fact_check"})
+
+#: Коды, терминальные для ИНСТРУМЕНТА целиком (не для конкретного host):
+#: выключенный инструмент, неизвестное имя, не сконфигурированный провайдер
+#: не станут доступны от смены URL/аргументов в том же ходе.
+TOOL_SCOPED_TERMINAL_CODES = frozenset({
+    "disabled", "unknown_tool", "provider_unconfigured",
+})
+
+#: Финальная LLM-инструкция (EVOL-018: объявлена в `prompt_registry`).
+TOOL_FINALIZE_PROMPT = (
+    "Заверши инструментальное исследование по уже собранным данным.\n"
+    "Правила финального ответа:\n"
+    "- опирайся на исходный запрос и результаты инструментов в этом диалоге; "
+    "не выдумывай факты, которых в них нет;\n"
+    "- подтверждённое (есть результат инструмента) отделяй от предположений и "
+    "выводов;\n"
+    "- назови источники или инструменты, которые отказали или не дали данных, "
+    "и какие области остались непроверенными;\n"
+    "- дай максимально содержательный ответ по доступным данным; если данных "
+    "для ответа недостаточно, назови конкретную техническую причину;\n"
+    "- не заявляй, что что-то прочитано или проверено, без подтверждения в "
+    "результатах инструментов;\n"
+    "- не вызывай инструменты и не предлагай пользователю самому искать "
+    "данные, если они уже собраны;\n"
+    "- ответь на языке исходного запроса."
+)
+
+#: Человекочитаемая причина остановки для финальной фазы (машинные коды
+#: остаются в `reason`/телеметрии; это не анализ пользовательского текста).
+_STOP_REASON_TEXT = {
+    CHAIN_TIMEOUT_REASON: "остановлено по техническому предохранителю времени",
+    CHAIN_CALL_LIMIT_REASON: "достигнут явный лимит вызовов, заданный оператором",
+    CHAIN_COST_LIMIT_REASON: "достигнут явный лимит платных вызовов оператора",
+    NO_PROGRESS_REASON: "новые данные перестали поступать",
+    "llm_error": "провайдер модели прервал исследование технической ошибкой",
+    ROUTE_TERMINAL_REASON: "маршрут источника терминально недоступен",
+    "loop_exhausted": "исследование остановлено без новых данных",
+}
+
+#: Поля структурного payload'а, которые безопасно показывать как provenance
+#: в детерминированном partial (R17-safe: без URL с секретами/текстов ответа).
+_PARTIAL_PROVENANCE_KEYS = ("provider", "host", "commit", "path",
+                            "line_range", "verified_url", "source_id")
+
+
+def _stop_reason_text(reason: str) -> str:
+    """Человекочитаемая причина остановки (неизвестный код → сам код)."""
+    key = str(reason or "")
+    return _STOP_REASON_TEXT.get(key) or key or "причина не зафиксирована"
+
+
+
 class ToolLoopResult(str):
     """Финальный текст tool-цикла + телеметрия (ADR-1020-7 §1).
 
@@ -230,6 +326,11 @@ class ToolLoopResult(str):
     * ``rounds_used`` — сколько LLM-раундов реально израсходовано;
     * ``degraded`` — ответ получен деградацией (не штатный финал);
     * ``reason`` — ``"ok" | "round_limit" | "llm_error"``;
+    * ``finalize_mode`` — чем сформирован деградировавший ответ (§G):
+      ``""`` (штатный финал), ``"llm"`` (финальный LLM по evidence),
+      ``"structured_partial"`` (детерминированный partial),
+      ``"partial_text"`` (последний текст модели без данных) или
+      ``"fallback_phrase"`` (заглушка без данных);
     * ``tool_trace`` — ``[{"round", "tool", "ok", "out_chars"}, …]``;
     * ``tool_context`` — склеенный текст выводов инструментов (нужен F2 для
       допустимых grounding-якорей: id/даты, полученные ИЗ ТУЛОВ; в логи не
@@ -250,11 +351,12 @@ class ToolLoopResult(str):
 
     def __new__(cls, text, *, rounds_used=1, degraded=False, reason="ok",
                 tool_trace=None, tool_context=None, tool_results=None,
-                sent_body=None):
+                sent_body=None, finalize_mode=""):
         obj = super().__new__(cls, str(text or ""))
         obj.rounds_used = int(rounds_used)
         obj.degraded = bool(degraded)
         obj.reason = str(reason or "ok")
+        obj.finalize_mode = str(finalize_mode or "")
         obj.tool_trace = list(tool_trace) if tool_trace else []
         obj.tool_context = str(tool_context or "")
         obj.tool_results = list(tool_results) if tool_results else []
@@ -266,17 +368,18 @@ class ToolLoopResult(str):
 
 
 def _log_degraded(reason: str, rounds_used: int, tool_trace: list,
-                  text: str, *, limits=None) -> None:
+                  text: str, *, limits=None, finalize_mode: str = "") -> None:
     """R17: только причина/числа/длины/имена тулов — без текстов и аргументов."""
     tools = ",".join(
         sorted({str(entry.get("tool") or "") for entry in tool_trace
                 if entry.get("tool")})) or "-"
     logger.warning(
         "[tools] degraded | reason=%s | rounds_used=%d | calls=%d | "
-        "budgets_on=%s | tools=%s | partial_chars=%d",
+        "budgets_on=%s | tools=%s | partial_chars=%d | finalize=%s",
         reason, int(rounds_used), len(tool_trace or ()),
         (getattr(limits, "budgets_enabled", True) if limits is not None
-         else "unknown"), tools, len(text or ""))
+         else "unknown"), tools, len(text or ""),
+        finalize_mode or "-")
 
 
 def _chain_limits_enabled() -> bool:
@@ -462,6 +565,304 @@ def _denied_result_content(name: str, reason: str, limit: dict | None) -> str:
     if isinstance(limit, dict) and limit:
         payload["limit"] = limit
     return json.dumps(payload, ensure_ascii=False)
+
+
+# ── SMART-EXECUTION-RELIABILITY-01 §G: маршрут/финализация ──────────────────
+
+def _url_host(value) -> str:
+    """hostname из структурного URL-поля (никогда не бросает)."""
+    try:
+        return (urlsplit(str(value or "")).hostname or "").strip().lower()
+    except Exception:       # pragma: no cover - защитная ветка
+        return ""
+
+
+def _route_host_from_info(info) -> str:
+    """Маршрут из структурного payload результата (host → url/verified_url → provider)."""
+    data = info.get("data") if isinstance(info, dict) else None
+    if not isinstance(data, dict):
+        return ""
+    host = str(data.get("host") or "").strip().lower()
+    if host:
+        return host
+    host = _url_host(data.get("url")) or _url_host(data.get("verified_url"))
+    if host:
+        return host
+    return str(data.get("provider") or "").strip().lower()
+
+
+def _route_key(name: str, *, info=None, arguments=None) -> str:
+    """Идентичность МАРШРУТА вызова: ``tool|host`` ('' — маршрут неизвестен).
+
+    Host берётся из структурного результата, иначе из аргумента ``url``;
+    для инструментов с единственным провайдером маршрут = сам инструмент
+    (payload-поле ``provider`` не создаёт второй идентичности: запись и
+    подавление обязаны сойтись). Неизвестный маршрут НЕ подавляется (иначе
+    можно заблокировать альтернативный источник, например локальный snapshot
+    после GitHub-сбоя)."""
+    key = str(name or "")
+    if key in ROUTE_SINGLE_PROVIDER_TOOLS:
+        return f"{key}|-"
+    host = _route_host_from_info(info)
+    if not host and isinstance(arguments, dict):
+        host = _url_host(arguments.get("url"))
+    return f"{key}|{host}" if host else ""
+
+
+def _terminal_route_of(name: str, info) -> str:
+    """Маршрут терминально недоступен по СТРУКТУРНОМУ коду ('' = нет).
+
+    Ошибка ресурса (`source_missing`/`not_found`/`invalid_url`) маршрут не
+    закрывает: другой путь на том же хосте может быть доступен.
+    ``retryable=true`` (провайдер временно недоступен) маршрут НЕ закрывает:
+    транзиентный отказ повторяется в пределах политики ретраев (§G5)."""
+    if not isinstance(info, dict):
+        return ""
+    if info.get("retryable"):
+        return ""
+    status = str(info.get("status") or "")
+    if status not in (tool_result.STATUS_ERROR, tool_result.STATUS_TIMEOUT,
+                      tool_result.STATUS_DENIED):
+        return ""
+    code = str(info.get("error_code") or "").strip()
+    if code not in ROUTE_TERMINAL_CODES:
+        return ""
+    if code in TOOL_SCOPED_TERMINAL_CODES:
+        return f"{name}|-"
+    return _route_key(name, info=info)
+
+
+def _route_terminal_content(name: str, route: str, code: str) -> str:
+    """Модельно-видимый отказ «маршрут уже недоступен» (id не теряется)."""
+    return json.dumps({
+        "status": "denied",
+        "tool": str(name or ""),
+        "reason": ROUTE_TERMINAL_REASON,
+        "route": str(route or ""),
+        "code": str(code or ""),
+        "note": ("этот маршрут уже вернул терминальный инфраструктурный отказ; "
+                 "повтор без изменения условий не выполняется. Используй "
+                 "альтернативный источник, если он доступен, иначе опирайся "
+                 "на уже собранные данные."),
+    }, ensure_ascii=False)
+
+
+def _route_suppression(name: str, arguments, terminal_routes) -> tuple[str, str]:
+    """``(route, code)`` если маршрут уже терминально недоступен, иначе ``("", "")``.
+
+    Идентичные аргументы обрабатываются дедупом ``_reuse_reason``; здесь —
+    ДРУГИЕ аргументы к тому же структурно недоступному маршруту. Для
+    tool-scoped кодов (`disabled`/`unknown_tool`/`provider_unconfigured`)
+    проверяется ключ инструмента целиком."""
+    if not isinstance(terminal_routes, dict):
+        return "", ""
+    tool_route = f"{name}|-"
+    if tool_route in terminal_routes:
+        return tool_route, str(terminal_routes.get(tool_route) or "")
+    route = _route_key(name, arguments=arguments)
+    if route and route in terminal_routes:
+        return route, str(terminal_routes.get(route) or "")
+    return "", ""
+
+
+
+def _evidence_inventory(tool_results, outputs) -> list[dict]:
+    """Структурный инвентарь evidence прогона для финальной фазы.
+
+    Собирается ИЗ envelope-журнала (статусы/коды/provenance) и параллельного
+    списка фактических выводов инструментов (тот же порядок записи)."""
+    results = list(tool_results or ())
+    texts = list(outputs or ())
+    items: list[dict] = []
+    for index, env in enumerate(results):
+        if not isinstance(env, dict):
+            continue
+        # §G3: журнал прогона важнее выравнивания — envelope без текста
+        # (например отказ политики) не выпадает из финальной инвентаризации.
+        text = str(texts[index] or "") if index < len(texts) else ""
+        data = env.get("data") if isinstance(env.get("data"), dict) else {}
+        provenance: dict = {}
+        for key in _PARTIAL_PROVENANCE_KEYS:
+            value = data.get(key)
+            if value not in (None, "", [], {}):
+                provenance[key] = value
+        items.append({
+            "tool": str(env.get("tool") or ""),
+            "status": str(env.get("status") or ""),
+            "error_code": str(env.get("error_code") or ""),
+            "retryable": bool(env.get("retryable")),
+            "partial": bool(env.get("partial")),
+            "duplicate": bool(env.get("duplicate")),
+            "attempt": int(env.get("attempt") or 0),
+            "evidence_refs": [str(ref) for ref in
+                              (env.get("evidence_refs") or ())],
+            "provenance": provenance,
+            "output": text,
+            "out_chars": int(env.get("out_chars") or len(text)),
+        })
+    return items
+
+
+def _usable_evidence(items) -> list[dict]:
+    """Результаты с данными: ok/empty либо явная частичность."""
+    return [item for item in (items or ())
+            if item.get("status") in (tool_result.STATUS_OK,
+                                      tool_result.STATUS_EMPTY)
+            or item.get("partial")]
+
+
+def _failed_evidence(items) -> list[dict]:
+    """Структурные отказы (ошибки/таймауты/отказы policy/пустые без partial)."""
+    usable_ids = {id(item) for item in _usable_evidence(items)}
+    return [item for item in (items or ()) if id(item) not in usable_ids]
+
+
+def _failure_lines(items) -> list[str]:
+    """Компактные строки отказов (tool + структурный код/статус)."""
+    lines: list[str] = []
+    seen: set = set()
+    for item in items or ():
+        key = (item.get("tool"), item.get("status"), item.get("error_code"))
+        if key in seen:
+            continue
+        seen.add(key)
+        code = str(item.get("error_code") or item.get("status") or "error")
+        suffix = ", повторно" if item.get("duplicate") else ""
+        lines.append(f"- {item.get('tool') or 'tool'}: {code}{suffix}")
+    return lines
+
+
+def _unchecked_text(items, stop_reason: str) -> str:
+    """Непроверенные области по структурным отказам + причина остановки."""
+    failed = _failed_evidence(items)
+    if failed:
+        names = sorted({str(item.get("tool") or "tool")
+                        for item in failed})
+        return ("не получены данные от: " + ", ".join(names)
+                + f"; исследование остановлено: {_stop_reason_text(stop_reason)}")
+    return ("явных отказов источников нет; полнота ограничена причиной "
+            f"остановки: {_stop_reason_text(stop_reason)}")
+
+
+def _excerpt(text, limit: int) -> str:
+    """Короткая выдержка для детерминированного partial (не пустая)."""
+    value = " ".join(str(text or "").split())
+    if limit and len(value) > limit:
+        return value[:max(1, int(limit))].rstrip() + "…"
+    return value
+
+
+def _last_user_text(messages) -> str:
+    """Исходный запрос: последнее user-сообщение входа (без служебных блоков)."""
+    for message in reversed(list(messages or ())):
+        try:
+            if message.get("role") == "user" \
+                    and isinstance(message.get("content"), str):
+                return str(message["content"])
+        except Exception:
+            continue
+    return ""
+
+
+def _finalize_directive(stop_reason: str, items) -> str:
+    """User-сообщение финальной фазы: инструкция + структурный контекст."""
+    usable = _usable_evidence(items)
+    failed = _failed_evidence(items)
+    lines = [TOOL_FINALIZE_PROMPT, "", "<finalize_context>",
+             f"Причина остановки исследования: "
+             f"{_stop_reason_text(stop_reason)} ({stop_reason}).",
+             f"Результатов с данными: {len(usable)}; "
+             f"отказов/пустых: {len(failed)}."]
+    if failed:
+        lines.append("Отказавшие источники/инструменты:")
+        lines.extend(_failure_lines(failed))
+    lines.append("Непроверенные области: " + _unchecked_text(items, stop_reason))
+    lines.append("</finalize_context>")
+    return "\n".join(lines)
+
+
+def _structured_partial(stop_reason: str, items, messages,
+                        finalize_error: str) -> str:
+    """Детерминированный безопасный partial из структурированных фактов.
+
+    Используется только когда финальный LLM-вызов недоступен/пуст: ответ
+    строится по реальным tool-результатам, честно отделяет отказы и
+    непроверенное, не подменяется саркастичной заглушкой."""
+    try:
+        from services.system2_handoff import redact_secrets
+    except Exception:       # pragma: no cover - защитная ветка
+        def redact_secrets(value):      # type: ignore
+            return value
+
+    request = _excerpt(_last_user_text(messages), 500)
+    usable = _usable_evidence(items)
+    failed = _failed_evidence(items)
+    lines = ["Исследование остановлено: "
+             f"{_stop_reason_text(stop_reason)} ({stop_reason}).",
+             "Это частичный результат: финальный LLM-вызов недоступен "
+             f"({finalize_error or 'error'}), ниже собраны только фактически "
+             "полученные данные."]
+    if request:
+        lines.extend(["", f"Запрос: {redact_secrets(request)}"])
+    if usable:
+        lines.extend(["", "Подтверждённые данные (результаты инструментов):"])
+        for item in usable:
+            head = (f"- {item.get('tool')}: {item.get('status')}"
+                    + (" (частично)" if item.get("partial") else "")
+                    + f", {item.get('out_chars')} символов")
+            lines.append(head)
+            provenance = item.get("provenance") or {}
+            if provenance:
+                rendered = "; ".join(f"{key}={value}"
+                                     for key, value in provenance.items())
+                lines.append(f"  provenance: {redact_secrets(rendered)}")
+            refs = item.get("evidence_refs") or []
+            if refs:
+                lines.append("  источники: " + ", ".join(refs))
+            body = _excerpt(item.get("output"), 400)
+            if body:
+                lines.append("  " + redact_secrets(body))
+    failed_lines = _failure_lines(failed)
+    if failed_lines:
+        lines.extend(["", "Отказы источников/инструментов:"])
+        lines.extend(failed_lines)
+    lines.extend(["", "Непроверено: " + _unchecked_text(items, stop_reason),
+                  "", "Полные результаты вызовов сохранены в журнале прогона "
+                  f"({len(items)} вызовов)."])
+    return "\n".join(lines)
+
+
+async def _finalize_from_evidence(llm, payload_messages, *, stop_reason,
+                                  items, temperature, chat_id, module,
+                                  correlation_id, fallback_payload_adapter,
+                                  max_output_tokens) -> tuple[str, str]:
+    """Финальный LLM-вызов по накопленным данным (существующий Writer-путь).
+
+    → ``(text, error)``: пустой ``text`` = вызов недоступен/пуст, вызывающий
+    строит детерминированный partial. Инструменты не передаются."""
+    messages = copy.deepcopy(payload_messages)
+    messages.append({"role": "user",
+                     "content": _finalize_directive(stop_reason, items)})
+    try:
+        raw = await llm.generate(
+            messages, temperature=temperature, chat_id=chat_id,
+            module=module, step=FINALIZE_STEP, correlation_id=correlation_id,
+            fallback_payload_adapter=fallback_payload_adapter,
+            max_output_tokens=max_output_tokens)
+    except NoApiKeyForChat as exc:
+        logger.warning("[tools] finalize llm unavailable | reason=%s | "
+                       "error=%s", stop_reason, type(exc).__name__)
+        return "", type(exc).__name__
+    except Exception as exc:        # LLMError/транспорт/двойник без Writer
+        logger.warning("[tools] finalize llm failed | reason=%s | error=%s",
+                       stop_reason, type(exc).__name__)
+        return "", type(exc).__name__
+    text = strip_reasoning_tags(str(raw or "")).strip()
+    if not text:
+        logger.warning("[tools] finalize llm empty | reason=%s", stop_reason)
+        return "", "empty"
+    return text, ""
+
 
 
 # ── MCA-23 фаза 2 (§17/§38): нормализация и исполнение плана ────────────────
@@ -764,6 +1165,15 @@ async def chat_with_tools(llm, messages: list[dict], *,
     (``role:"tool"`` / ``tool_context``) не меняется (гибрид D1).
     ``metered``/``usage`` — наблюдательные оси, enforcement — отдельно.
 
+    SMART-EXECUTION-RELIABILITY-01 §G: остановка исследования до финального
+    ответа (no_progress/llm_error/fuse/явная политика) не возвращает
+    последний промежуточный текст или саркастичную заглушку при наличии
+    данных. Ответ формирует финальная фаза: существующий LLM-клиент
+    (``generate``, без tools) по накопленным результатам; недоступен —
+    детерминированный структурный partial. Штатный финальный ответ модели
+    повторного вызова не делает. ``ToolLoopResult.finalize_mode`` сообщает,
+    чем сформирован деградировавший ответ.
+
     ASAP-3.2 (ADR-1028-5 D10, §44): ``fallback_payload_adapter`` — тот же
     контракт, что у ``generate()``/``generate_chat()``; прокидывается в
     КАЖДЫЙ вызов цикла (Stage-1 и tool-раунды) и в FR-15 plain-фолбэк —
@@ -807,6 +1217,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
     # MCA-11 D3: последний канонический/legacy-результат по отпечатку —
     # запрет слепого повтора side effect после успеха/delivery_unknown.
     last_info_by_fp: dict[str, dict] = {}
+    # §G5: маршруты, уже вернувшие терминальный инфраструктурный отказ
+    # (`tool|host` → структурный код). Повтор ДРУГИХ запросов к тому же
+    # недоступному маршруту не диспетчится; успешный вызов маршрут снимает.
+    terminal_routes: dict[str, str] = {}
     degrade_reason = ""
     # F7 (ADR-1023-7 D4): имена инструментов, исполненных ПЕРЕД текущим
     # LLM-вызовом — для телеметрии `step='tool'` (`tool_name`). На первом
@@ -822,6 +1236,103 @@ async def chat_with_tools(llm, messages: list[dict], *,
         if tool_plan else []
     plan_parts: list[str] = []
     plan_limitations: list[str] = []
+
+    # ── SMART-EXECUTION-RELIABILITY-01 §G: общие помощники финализации ─────
+    def _remember_terminal(name: str, info: dict) -> None:
+        """Запомнить/снять терминальный маршрут по структурному результату.
+
+        ``retryable=true`` — транзиентный отказ: маршрут не закрывается (§G5),
+        повтор без изменения условий держит существующий retry/dedup.
+        Tool-scoped коды закрывают инструмент целиком, а не конкретный host."""
+        status = str((info or {}).get("status") or "")
+        if status in (tool_result.STATUS_OK, tool_result.STATUS_EMPTY):
+            route = _route_key(name, info=info)
+            if route:
+                terminal_routes.pop(route, None)
+            terminal_routes.pop(f"{name}|-", None)
+            return
+        terminal = _terminal_route_of(name, info)
+        if not terminal:
+            return
+        code = str((info or {}).get("error_code") or "")
+        terminal_routes[terminal] = code
+        logger.warning(
+            "[tools] route terminal | tool=%s | route=%s | code=%s",
+            name, terminal, code)
+
+    def _deny_route(name: str, fp: str, route: str, code: str, *,
+                    round_index: int, tool_call_id: str | None = None,
+                    metered: bool = False) -> str:
+        """Структурный отказ «маршрут уже недоступен» + envelope/trace."""
+        content = _route_terminal_content(name, route, code)
+        info = {"status": (tool_result.STATUS_DENIED if _contract_on()
+                           else "skipped"),
+                "error_code": ROUTE_TERMINAL_REASON, "error_type": "",
+                "data": ({"route": route, "code": code,
+                          "reason": ROUTE_TERMINAL_REASON}
+                         if _contract_on() else None),
+                "truncated": False, "retryable": False, "partial": False,
+                "usage": {}, "evidence_refs": [],
+                "external_operation_id": None}
+        _record(ctx, tool_results, _envelope(
+            round_index, name, fp, info, metered=metered, duplicate=False,
+            attempt=same_calls.get(fp, 0), out_chars=len(content)),
+            tool_call_id)
+        tool_result.emit_tool_chain_events(
+            tool=name, status="denied", chat_id=chat_id,
+            correlation_id=correlation_id, args_fingerprint=fp,
+            attempt=same_calls.get(fp, 0),
+            chain_limit_code=ROUTE_TERMINAL_REASON)
+        emit_agentic_event(
+            "TOOL_CALL_FAILED", run_id=correlation_id, chat_id=chat_id,
+            tool=name, round=round_index + 1,
+            status=("denied" if _contract_on() else "skipped"),
+            error_code=ROUTE_TERMINAL_REASON)
+        tool_context_parts.append(content)
+        tool_trace.append({"round": round_index + 1, "tool": name,
+                           "ok": False, "out_chars": len(content)})
+        return content
+
+    async def _finish_degraded(reason: str, *, allow_llm: bool = True
+                               ) -> "ToolLoopResult":
+        """Единый финал остановленного исследования (§G2–§G4).
+
+        Наличие данных → финальный LLM по evidence (существующий Writer-путь);
+        недоступен → детерминированный partial; данных нет вовсе → прежний
+        частичный текст/заглушка. Лимиты исследования сюда не применяются.
+        ``allow_llm=False`` — финальный LLM уже доказанно недоступен в этом
+        ходе (не делаем третью попытку), сразу строится partial."""
+        items = _evidence_inventory(tool_results, tool_context_parts)
+        text = ""
+        mode = ""
+        if items:
+            finalize_error = "llm_error"
+            if allow_llm:
+                text, finalize_error = await _finalize_from_evidence(
+                    llm, payload_messages, stop_reason=reason, items=items,
+                    temperature=temperature, chat_id=chat_id, module=module,
+                    correlation_id=correlation_id,
+                    fallback_payload_adapter=fallback_payload_adapter,
+                    max_output_tokens=max_output_tokens)
+            if text:
+                mode = "llm"
+            else:
+                text = _structured_partial(reason, items, messages,
+                                           finalize_error)
+                mode = "structured_partial"
+        if not text:
+            text = strip_reasoning_tags(partial_text)
+            mode = "partial_text" if text else "fallback_phrase"
+        if not text:
+            text = TOOL_LOOP_FALLBACK_PHRASE
+        _log_degraded(reason, llm_rounds, tool_trace, text, limits=limits,
+                      finalize_mode=mode)
+        return ToolLoopResult(
+            text, rounds_used=llm_rounds, degraded=True, reason=reason,
+            tool_trace=tool_trace,
+            tool_context="\n".join(tool_context_parts),
+            tool_results=tool_results, finalize_mode=mode)
+
     if plan_steps:
         # A9: план ДО исполнения (постфактум-сигнал модельных tool_calls
         # не дублируется: плановые шаги помечены round=0).
@@ -840,6 +1351,17 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 last_info_by_fp=last_info_by_fp, limits=limits,
                 guard_on=_guard_on())
             if not cached_reason:
+                # (а2) §G5: другие запросы к уже терминально недоступному
+                # маршруту не диспетчатся (альтернатива/накопленные данные).
+                route, route_code = _route_suppression(
+                    name, arguments, terminal_routes)
+                if route:
+                    _deny_route(name, fp, route, route_code, round_index=-1,
+                                metered=metered)
+                    plan_limitations.append(
+                        f"шаг {step['step_id']} не выполнен "
+                        f"({ROUTE_TERMINAL_REASON})")
+                    continue
                 # (б) явная операторская политика объёма / аварийный fuse.
                 skip_code, limit_kind, limit_value = _volume_skip(
                     limits, total_calls=total_calls, cost_calls=cost_calls,
@@ -861,10 +1383,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
                             "partial": False, "usage": {},
                             "evidence_refs": [],
                             "external_operation_id": None}
+                    # §G3: отказ политики тоже часть журнала прогона — его
+                    # текст попадает в tool_context (1:1 с envelope), иначе
+                    # финальная фаза теряет причину частичности плана.
+                    denied = _denied_result_content(name, skip_code, limit)
                     _record(ctx, tool_results, _envelope(
                         -1, name, fp, info, metered=metered,
                         duplicate=False, attempt=same_calls.get(fp, 0),
-                        out_chars=0))
+                        out_chars=len(denied)))
                     tool_result.emit_tool_chain_events(
                         tool=name, status="denied", chat_id=chat_id,
                         correlation_id=correlation_id,
@@ -875,6 +1401,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                         "TOOL_CALL_FAILED", run_id=correlation_id,
                         chat_id=chat_id, tool=name, round=0,
                         status="denied", error_code=skip_code)
+                    tool_context_parts.append(denied)
                     plan_limitations.append(
                         f"шаг {step['step_id']} не выполнен "
                         f"({skip_code})")
@@ -904,6 +1431,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 last_by_fp[fp] = output
                 info = _classify(name, output, signal)
                 last_info_by_fp[fp] = info
+                _remember_terminal(name, info)
                 # §19: успешный media-инструмент выветривает устаревший
                 # capability-notice из контекста (заявление = фактический
                 # результат; «не умею» после реальной отправки исключено).
@@ -990,14 +1518,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
         # отменяем; уже полученный результат не рушим).
         if (deadline is not None and round_index > 0
                 and time.monotonic() > deadline):
-            text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-            _log_degraded(CHAIN_TIMEOUT_REASON, llm_rounds, tool_trace, text,
-                          limits=limits)
-            return ToolLoopResult(
-                text, rounds_used=llm_rounds, degraded=True,
-                reason=CHAIN_TIMEOUT_REASON, tool_trace=tool_trace,
-                tool_context="\n".join(tool_context_parts),
-                tool_results=tool_results)
+            return await _finish_degraded(CHAIN_TIMEOUT_REASON)
         try:
             result = await llm.generate_chat(
                 payload_messages, temperature=temperature,
@@ -1027,35 +1548,42 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # UR-F шаг 1 (Q1): plain-фолбэк обязан вернуть receipt —
                 # у `generate()` его нет, поэтому идём metadata-вариантом.
                 _plain_meta = getattr(llm, "generate_with_metadata", None)
-                if callable(_plain_meta):
-                    _plain_completion = await _plain_meta(
+                try:
+                    if callable(_plain_meta):
+                        _plain_completion = await _plain_meta(
+                            payload_messages, temperature=temperature,
+                            chat_id=chat_id, module=module, step="single",
+                            correlation_id=correlation_id,
+                            fallback_payload_adapter=fallback_payload_adapter,
+                            max_output_tokens=max_output_tokens)
+                        return ToolLoopResult(
+                            str(getattr(_plain_completion, "text", "") or ""),
+                            rounds_used=1, tool_results=tool_results,
+                            sent_body=getattr(_plain_completion, "sent_body",
+                                              None))
+                    plain = await llm.generate(
                         payload_messages, temperature=temperature,
                         chat_id=chat_id, module=module, step="single",
                         correlation_id=correlation_id,
                         fallback_payload_adapter=fallback_payload_adapter,
                         max_output_tokens=max_output_tokens)
-                    return ToolLoopResult(
-                        str(getattr(_plain_completion, "text", "") or ""),
-                        rounds_used=1, tool_results=tool_results,
-                        sent_body=getattr(_plain_completion, "sent_body",
-                                          None))
-                plain = await llm.generate(
-                    payload_messages, temperature=temperature,
-                    chat_id=chat_id, module=module, step="single",
-                    correlation_id=correlation_id,
-                    fallback_payload_adapter=fallback_payload_adapter,
-                    max_output_tokens=max_output_tokens)
-                return ToolLoopResult(plain, rounds_used=1,
-                                      tool_results=tool_results)
+                    return ToolLoopResult(plain, rounds_used=1,
+                                          tool_results=tool_results)
+                except NoApiKeyForChat:
+                    raise
+                except LLMError as plain_exc:
+                    # §G4: финальный LLM недоступен, но шаги плана уже дали
+                    # данные → безопасный partial; без данных — прежний проброс
+                    # (не подменяем контракт ошибки провайдера).
+                    if not tool_results:
+                        raise
+                    logger.warning(
+                        "[tools] plain fallback failed with evidence | "
+                        "error=%s", type(plain_exc).__name__)
+                    return await _finish_degraded("llm_error",
+                                                  allow_llm=False)
             # БЛОК 7.1: поздний раунд — не пробрасываем (не теряем ответ).
-            text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-            _log_degraded("llm_error", llm_rounds, tool_trace, text,
-                          limits=limits)
-            return ToolLoopResult(text, rounds_used=llm_rounds,
-                                  degraded=True, reason="llm_error",
-                                  tool_trace=tool_trace,
-                                  tool_context="\n".join(tool_context_parts),
-                                  tool_results=tool_results)
+            return await _finish_degraded("llm_error")
         llm_rounds += 1
         if result.content and str(result.content).strip():
             partial_text = str(result.content).strip()
@@ -1178,6 +1706,19 @@ async def chat_with_tools(llm, messages: list[dict], *,
                     out_chars=len(output or ""))
                 continue
 
+            # (б2) §G5: та же операция/маршрут уже терминально недоступна —
+            # другие аргументы к тому же маршруту не диспетчатся.
+            route, route_code = _route_suppression(
+                tc.name, arguments, terminal_routes)
+            if route:
+                denied = _deny_route(tc.name, fp, route, route_code,
+                                     round_index=round_index,
+                                     tool_call_id=tc.id, metered=metered)
+                payload_messages.append({"role": "tool",
+                                         "tool_call_id": tc.id,
+                                         "content": denied})
+                continue
+
             # (в) явная операторская политика объёма / аварийный fuse.
             skip_code, limit_kind, limit_value = _volume_skip(
                 limits, total_calls=total_calls, cost_calls=cost_calls,
@@ -1199,10 +1740,11 @@ async def chat_with_tools(llm, messages: list[dict], *,
                         "partial": False, "usage": {},
                         "evidence_refs": [],
                         "external_operation_id": None}
+                denied = _denied_result_content(tc.name, skip_code, limit)
                 _record(ctx, tool_results, _envelope(
                     round_index, tc.name, fp, info, metered=metered,
                     duplicate=False, attempt=same_calls.get(fp, 0),
-                    out_chars=0), tc.id)
+                    out_chars=len(denied)), tc.id)
                 # D6: notable-отказ стадии execute (chain-лимит) — код из
                 # единого словаря (chain_* → существующий mapped-код);
                 # событие — канонический статус `denied` независимо от K1.
@@ -1276,6 +1818,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
             last_by_fp[fp] = output
             info = _classify(tc.name, output, signal)
             last_info_by_fp[fp] = info
+            _remember_terminal(tc.name, info)
             # §19: успешный media-инструмент выветривает устаревший
             # capability-notice из контекста (заявление = фактический
             # результат; «не умею» после реальной отправки исключено).
@@ -1323,21 +1866,9 @@ async def chat_with_tools(llm, messages: list[dict], *,
             if no_progress_rounds >= _NO_PROGRESS_ROUNDS:
                 degrade_reason = NO_PROGRESS_REASON
                 break
-    # Мягкая деградация (частичный результат + сохранённые tool_results).
+    # Мягкая деградация: ответ формирует финальная фаза §G по накопленным
+    # данным (а не последний промежуточный текст модели/заглушка).
     if degrade_reason:
-        text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-        rounds_used = llm_rounds
-        _log_degraded(degrade_reason, rounds_used, tool_trace, text,
-                      limits=limits)
-        return ToolLoopResult(text, rounds_used=rounds_used, degraded=True,
-                              reason=degrade_reason, tool_trace=tool_trace,
-                              tool_context="\n".join(tool_context_parts),
-                              tool_results=tool_results)
+        return await _finish_degraded(degrade_reason)
     # Недостижимо: цикл завершается только возвратом/деградацией выше.
-    text = strip_reasoning_tags(partial_text) or TOOL_LOOP_FALLBACK_PHRASE
-    _log_degraded("loop_exhausted", llm_rounds, tool_trace, text,
-                  limits=limits)
-    return ToolLoopResult(text, rounds_used=llm_rounds, degraded=True,
-                          reason=NO_PROGRESS_REASON, tool_trace=tool_trace,
-                          tool_context="\n".join(tool_context_parts),
-                          tool_results=tool_results)
+    return await _finish_degraded("loop_exhausted")

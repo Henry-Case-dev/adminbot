@@ -293,14 +293,14 @@ def test_registry_snapshot_counts_are_stable():
     """
     blocks = pr.all_blocks()
     with_text = [b for b in blocks if pr.factory_text(b.block_id)]
-    assert len(blocks) == 112, (
+    assert len(blocks) == 113, (
         f"блоков {len(blocks)}: обновите §2 контракта и этот пин")
-    assert len(with_text) == 111, len(with_text)
-    assert len(pr.FACTORY_REVISION_SEALS) == 111
-    assert len(pr.FACTORY_REVISION_LABELS) == 102, (
+    assert len(with_text) == 112, len(with_text)
+    assert len(pr.FACTORY_REVISION_SEALS) == 112
+    assert len(pr.FACTORY_REVISION_LABELS) == 103, (
         len(pr.FACTORY_REVISION_LABELS))
     assert len(_pg_blocks()) == 39
-    assert len([b for b in blocks if not b.pg_key]) == 73
+    assert len([b for b in blocks if not b.pg_key]) == 74
 
 
 # ═══════════════════════════════════════════════════════════════════════════

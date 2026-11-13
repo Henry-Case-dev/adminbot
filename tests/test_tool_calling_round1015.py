@@ -595,7 +595,13 @@ class TestToolLoopLimits:
                                     router=_CountingRouter(), ctx=_ctx())
         assert out.degraded is True
         assert out.reason == "no_progress"
-        assert out == TOOL_LOOP_FALLBACK_PHRASE
+        # §G2/§G4: при накопленных результатах финальный ответ строится по
+        # evidence (Writer недоступен у двойника → безопасный partial),
+        # саркастичная заглушка не публикуется.
+        assert out != TOOL_LOOP_FALLBACK_PHRASE
+        assert out.finalize_mode == "structured_partial"
+        assert "no_progress" in str(out)
+        assert out.tool_results
         assert llm.calls == 3
 
 

@@ -346,7 +346,12 @@ class TestChainMechanism:
             router=router, ctx=object())
         assert result.degraded is True
         assert result.reason == "no_progress"
-        assert str(result) == TOOL_LOOP_FALLBACK_PHRASE
+        # §G2/§G4: финальная фаза использует накопленные данные — ответ
+        # писателя вместо саркастичной заглушки.
+        assert str(result) != TOOL_LOOP_FALLBACK_PHRASE
+        assert result.finalize_mode == "llm"
+        assert str(result) == "PLAIN"
+        assert result.tool_results
         assert len(llm.calls) == 3
 
     @pytest.mark.asyncio

@@ -117,12 +117,17 @@ def test_grep_audit_counts_are_stable():
     # (`DIRECT_L1_PLANNER_SYSTEM_PROMPT` собирается второй раз, EVR5 → EVR6),
     # новых prompt-констант вне реестра не появилось: 74 → 75 (после
     # allowlist 73 → 74).
-    assert len(every) == 75, (
+    # SMART-G (§G, 14.11.2026): +1 зарегистрированная константа
+    # `services.tool_loop.TOOL_FINALIZE_PROMPT` (code_source блока
+    # `direct.tool_finalize`): 75 → 76 (после allowlist 74 → 75). Файловый
+    # пин ниже на ветке кандидата видит дрейф параллельных срезов (323 файла
+    # и ещё один нерегистрированный кандидат вне §G) — это не дельта G.
+    assert len(every) == 76, (
         f"кандидатов {len(every)}: обновите §5 контракта и этот пин")
     assert len(every) - len(after_allowlist) == 1, (
         "кандидатов в allowlist "
         f"{len(every) - len(after_allowlist)}: обновите §5 и этот пин")
-    assert len(after_allowlist) == 74, (
+    assert len(after_allowlist) == 75, (
         f"закрыто code_source {len(after_allowlist)}: обновите §5 и этот пин")
     assert outside == [], (
         "кандидаты вне реестра: " + repr(outside))
