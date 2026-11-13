@@ -187,12 +187,17 @@ def _decision_fields(decision) -> dict | None:
 
 
 async def _collect_checkup_facts(logs: str, used_fallback: bool,
-                                 chat_id: int, gate) -> tuple[dict, str, str]:
+                                 chat_id: int, gate, *,
+                                 log_state: str = "",
+                                 journal_state: str = "") -> tuple[dict, str, str]:
     """Факты того же collector'а для user-контента чекапа.
 
     Возвращает ``(bundle, facts_text, error)``. Любая ошибка collector'а —
     честный ``error`` и пустые facts: отчёт строится на логах, как раньше
     (`SD1-D6-09`/`SD1-D6-22`, чекап не выключается).
+
+    SXR-H5: ``log_state``/``journal_state`` — фактический исход уже
+    выполненного ``fetch()``. Collector не читает журнал второй раз.
     """
     try:
         collector = _diagnostics_collector()
@@ -200,7 +205,8 @@ async def _collect_checkup_facts(logs: str, used_fallback: bool,
             return {}, "", ""
         bundle, facts_text = await collector.collect_for_checkup(
             logs_text=logs, used_fallback=used_fallback, chat_id=chat_id,
-            permission=_decision_fields(getattr(gate, "decision", None)))
+            permission=_decision_fields(getattr(gate, "decision", None)),
+            log_state=log_state, journal_state=journal_state)
         return bundle.to_dict(), str(facts_text or ""), ""
     except asyncio.CancelledError:
         raise
@@ -483,6 +489,10 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         return
     try:
         logs, used_fallback = await _fetcher.fetch()
+        # SXR-H5: фактический исход этого чтения (не догадка). Fakes/старые
+        # fetcher'ы без свойства честно дают "" -> collector скажет unknown.
+        log_state = str(getattr(_fetcher, "last_state", "") or "")
+        journal_state = str(getattr(_fetcher, "last_journal_state", "") or "")
     except CheckupLogsUnavailableException as exc:
         # Epic 49 (D199): WARNING без traceback (ожидаемая ветка, D190-стиль)
         logger.warning("[checkup] all log sources failed | chat=%s | error=%s",
@@ -520,9 +530,14 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
             # памяти, job statuses, deployed identity и ограниченная попытка
             # commit metadata. Сбой collector'а — честный partial, не отказ.
             bundle, facts_text, facts_error = await _collect_checkup_facts(
-                logs, used_fallback, message.chat.id, gate)
+                logs, used_fallback, message.chat.id, gate,
+                log_state=log_state, journal_state=journal_state)
             if bundle:
                 logger.info(_identity_log_line(bundle))
+            # SXR-H5: исход чтения журнала виден в существующей телеметрии
+            # чекапа; текст логов сюда не попадает.
+            run_telemetry["log_state"] = log_state or "unknown"
+            run_telemetry["journal_state"] = journal_state or "unknown"
             payload = (facts_text + "\n" + logs) if facts_text else logs
             # SELF-DIAG-01 corrective (§3): исследовательский цикл на
             # СУЩЕСТВУЮЩЕМ ToolRouter; модель решает, читать ли код/runtime.

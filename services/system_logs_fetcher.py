@@ -114,6 +114,14 @@ def _path_exists(path: str) -> bool:
         return False
 
 
+def _process_uid() -> int | None:
+    """Фактический uid процесса (POSIX); None, если платформа не даёт его."""
+    try:
+        return int(os.geteuid())
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
 def _detect_container_marker(environ: dict, cgroup: str | None) -> str | None:
     """Явные признаки контейнера; env/cgroup — не догадка по имени юнита."""
     systemd_container = (_read_text_file(_SYSTEMD_CONTAINER_FILE) or "").strip()
@@ -210,10 +218,32 @@ class CheckupLogsFetcher:
         self._journal_runner = journal_runner
         self._ledger_reader = ledger_reader or self._default_ledger_reader
         self._stdout_tail_reader = stdout_tail_reader or self._default_stdout_tail
+        # SXR-H3/H5: последний фактический исход чтения для чекапа. Это не
+        # второй счётчик и не кэш логов: только состояние уже прочитанного
+        # окна, чтобы отчёт отличал проверенный ноль от недоступного журнала.
+        self._last_state = ""
+        self._last_journal_state = ""
+        self._last_used_fallback = False
 
     # — совместимость (D1-09): закрывать больше нечего —
     async def close(self) -> None:
         return None
+
+    @property
+    def last_state(self) -> str:
+        """Состояние последнего прочитанного окна (``ok|empty|info_only|
+        unreadable``); пусто — ещё не читали."""
+        return self._last_state
+
+    @property
+    def last_journal_state(self) -> str:
+        """Состояние основного журнала (``not_available``, если его нет)."""
+        return self._last_journal_state
+
+    @property
+    def last_used_fallback(self) -> bool:
+        """Отчёт последнего чтения построен на внутреннем потоке/ledger."""
+        return self._last_used_fallback
 
     def describe_source(self) -> str:
         """Человекочитаемый фактический источник (для стартового лога/отчёта)."""
@@ -237,16 +267,23 @@ class CheckupLogsFetcher:
         """
         identity = self._identity_probe()
         journal = await self._try_journal(identity)
+        journal_state = (journal.state if journal is not None
+                         else "not_available")
         if journal is not None and journal.state in ("ok", "empty", "info_only"):
+            self._last_state = journal.state
+            self._last_journal_state = journal_state
+            self._last_used_fallback = False
             return self._render(journal), False
         stream = self._read_own_stream(
             identity,
-            journal_state=journal.state if journal is not None
-            else "not_available",
+            journal_state=journal_state,
             journal_detail=journal.detail if journal is not None else None,
         )
         if journal is not None:
             stream.used_fallback = True
+        self._last_state = stream.state
+        self._last_journal_state = journal_state
+        self._last_used_fallback = bool(stream.used_fallback)
         return self._render(stream), stream.used_fallback
 
     # — systemd journal (фиксированный argv, без shell) —
@@ -475,6 +512,9 @@ class CheckupLogsFetcher:
         parts.append(f"read={outcome.read}")
         parts.append(f"matched={outcome.matched}")
         parts.append(f"state={outcome.state}")
+        uid = _process_uid()
+        if uid is not None:
+            parts.append(f"uid={uid}")
         header = "[log-source] " + " ".join(parts)
         blocks = [header]
         if outcome.journal:
@@ -483,6 +523,10 @@ class CheckupLogsFetcher:
                 "[log-source-note] основной журнал недоступен"
                 f"{detail}; ниже — события, прочитанные из собственного "
                 "потока/ledger этого процесса")
+        if uid == 0:
+            blocks.append(
+                "[log-source-note] процесс запущен с правами root: это не "
+                "штатное минимальное право сервисного пользователя")
         note = self._STATE_NOTES.get(outcome.state)
         if note:
             blocks.append("[log-source-note] " + note)

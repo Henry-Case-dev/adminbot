@@ -771,14 +771,32 @@ class DiagnosticCollector:
                                   used_fallback: bool,
                                   chat_id: int | None = None,
                                   permission: dict | None = None,
-                                  request_id: str = "") -> tuple[
+                                  request_id: str = "",
+                                  log_state: str = "",
+                                  journal_state: str = "") -> tuple[
                                       bundle.DiagnosticEvidenceBundle, str]:
         """Один collector для explicit-чекапа и tool-loop (ТЗ §2.1 п.1).
 
         Логи уже прочитаны хендлером (второй раз journal не читается), но
         остальные probes — тот же реестр и тот же bundle, что у
         ``inspect_runtime``. Возвращает (bundle, компактный facts-блок).
+
+        SXR-H5: ``log_state``/``journal_state`` — фактический исход уже
+        выполненного чтения (``ok|empty|info_only|unreadable``). Если
+        вызывающий их не передал, состояние берётся у того же fetcher'а,
+        который отдал логи (``last_state``), без второго чтения журнала.
+        Отчёт получает явное различие: проверенный ноль в прочитанном окне,
+        наблюдённые проблемы или неизвестность при недоступном журнале.
         """
+        log_state = str(log_state or "").strip().lower()
+        journal_state = str(journal_state or "").strip().lower()
+        if not log_state:
+            log_state = str(getattr(self.deps.logs_fetcher, "last_state", "")
+                            or "").strip().lower()
+        if not journal_state:
+            journal_state = str(
+                getattr(self.deps.logs_fetcher, "last_journal_state", "")
+                or "").strip().lower()
         started = self.deps.monotonic()
         now = float(self.deps.clock())
         request_id = request_id or uuid.uuid4().hex
@@ -811,20 +829,54 @@ class DiagnosticCollector:
                 observations.append(result)
         lines = [line for line in str(logs_text or "").splitlines()
                  if line.strip()]
-        observations.append({
+        if used_fallback or log_state == "unreadable":
+            errors_state = "unknown"
+            logs_status = bundle.STATUS_DEGRADED
+            logs_reason = "journal_unavailable"
+            logs_not_checked = ("journal_contents", "errors_total")
+        elif log_state == "ok":
+            errors_state = "observed"
+            logs_status = bundle.STATUS_OK
+            logs_reason = None
+            logs_not_checked = ("journal_contents",)
+        elif log_state in ("empty", "info_only"):
+            errors_state = "confirmed_zero"
+            logs_status = bundle.STATUS_OK
+            logs_reason = ("empty_log_window" if log_state == "empty"
+                           else "no_error_markers")
+            logs_not_checked = ("journal_contents",)
+        else:
+            errors_state = "unknown"
+            logs_status = bundle.STATUS_NOT_CHECKED
+            logs_reason = "log_state_unknown"
+            logs_not_checked = ("journal_contents", "errors_total")
+        log_facts = {
+            "backend": "provided_by_checkup_handler",
+            "window_lines": len(lines),
+            "used_fallback": bool(used_fallback),
+            "log_state": log_state or "unknown",
+            "journal_state": journal_state or "unknown",
+            "errors_state": errors_state,
+        }
+        if errors_state == "confirmed_zero":
+            log_facts["zero_basis"] = "journal_window_read_no_error_lines"
+        # SXR-H5: состояние журнала ставится ПЕРВЫМ в facts-блоке, чтобы
+        # honest unknown/confirmed_zero не вытеснялся бюджетом остальных
+        # фактов (это не второй счётчик, а тот же факт о прочитанном окне).
+        observations.insert(0, {
             "spec": None,
             "observation": probes.ProbeObservation(
-                status=bundle.STATUS_OK,
-                facts={"backend": "provided_by_checkup_handler",
-                       "window_lines": len(lines),
-                       "used_fallback": bool(used_fallback)},
+                status=logs_status,
+                facts=log_facts,
                 source_id="logs:checkup_input", owner="journal",
                 coverage=bundle.coverage(("local_logs",),
-                                         complete=not used_fallback,
+                                         complete=(not used_fallback and
+                                                   errors_state != "unknown"),
                                          truncated=bool(used_fallback),
                                          why=("fallback_source"
                                               if used_fallback else "")),
-                reason_code=None, not_checked=("journal_contents",)),
+                reason_code=logs_reason,
+                not_checked=logs_not_checked),
             "latency_ms": 0, "declared": True, "configured": True,
         })
         spec = probes.ProbeSpec(
@@ -840,4 +892,11 @@ class DiagnosticCollector:
                              identity=self._identity_record(now))
         facts_text = bundle.render_facts_text(
             result["bundle"], max_chars=int(self.limits.max_facts_chars))
+        # SXR-H1-02/H5: если явный бюджет фактов отсёк хвост, агрегат
+        # not_checked не должен исчезнуть вместе с ним: модель обязана
+        # видеть, что именно осталось непроверенным.
+        unchecked = tuple(result["bundle"].not_checked)
+        if unchecked and "[facts_budget_exceeded]" in facts_text:
+            facts_text = ("[facts_unknown] not_checked="
+                          + ",".join(unchecked)[:400] + "\n" + facts_text)
         return result["bundle"], facts_text
