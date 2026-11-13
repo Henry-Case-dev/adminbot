@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T01:50:50+12:00",
+  "updated": "2026-11-14T01:51:43+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -4427,14 +4427,10 @@
       "id": "OI-2026-11-12-EXIT-CORRECTIVE-CYCLE",
       "source_path": "plans/owner_inputs/2026-11-12-exit-corrective-cycle-initiative.md",
       "source_sha256": "7CA96E42CFC1628049887629D2DDDAB75072D3E799CDFA5FAF3F5750E69678EE",
-      "kind": "amendment",
-      "target_task_ids": [
-        "p0-init-meme-ux-diag",
-        "self-diag-01",
-        "vmq-onto-01"
-      ],
+      "kind": "decision",
+      "target_task_ids": [],
       "reconciled": true,
-      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01. | Reconciled 2026-11-12: 2.58.197 deployed; 111/114 rows verified; PB-LLM and AC-DONE remain WAITING_EXTERNAL for the first natural LLM attempt. Findings classified; backlog updated.",
+      "note": "Владелец завершает затянувшийся корректирующий цикл: зафиксировать конечный обязательный объём из существующей карты, один раз разобрать остаток строк по фактам, классифицировать находки IN_SCOPE/CRITICAL_OUT_OF_SCOPE/BACKLOG_ONLY, собрать один кандидат и один релиз, не удерживать очередь ожиданием естественных событий; далее self-diag-01, затем vmq-onto-01. | Reconciled 2026-11-12: 2.58.197 deployed; 111/114 rows verified; PB-LLM and AC-DONE remain WAITING_EXTERNAL for the first natural LLM attempt. Findings classified; backlog updated. | 2026-11-14: historical decision; task targets cleared (no per-task coverage claims), recorded_in its own preserved source.",
       "coverage_refs": [
         {
           "task_id": "p0-init-meme-ux-diag",
@@ -4455,7 +4451,8 @@
             "P0IM-AC-DONE"
           ]
         }
-      ]
+      ],
+      "recorded_in": "plans/owner_inputs/2026-11-12-exit-corrective-cycle-initiative.md"
     },
     {
       "id": "OI-2026-11-13-PBLLM-CLOSE-DONE",
@@ -5897,7 +5894,7 @@
       },
       {
         "id": "H1:efaa49f00141:1",
-        "sha256": "96648f0811957fb8eab1744dc8d88da82410942e03a533d70c18776aeadeff11",
+        "sha256": "da86a94f43101f3f87e73c51c73e75c2a5f76364544217fc6d5db4c46b8a1f81",
         "disposition": "mapped",
         "target_task_ids": [
           "vision-context-unify-01"
@@ -5905,7 +5902,7 @@
         "coverage_refs": [
           "plans/features/vision-context-unify-01/requirements-map.json"
         ],
-        "reason": "Раздел «VISION-CONTEXT-UNIFY-01 — единая мультимодальная история сообщений и изображений» (стр. 11555 и далее) зарегистрирован как плановый несрочный эпик на позиции 40, сразу после web-search-quality-01 и всех уже назначенных более приоритетных задач; приоритеты не менялись. Регистрационная карта: 18 требований по разделам A-I и владельческим запретам, 104 строки источника, сверка с 21 существующим эпиком (ни одно обязательство не реализовано целиком, дубля нет). Декомпозиция, write-scope и аудит кода — при подходе очереди. Реализация не начиналась.",
+        "reason": "Раздел «VISION-CONTEXT-UNIFY-01 — единая мультимодальная история сообщений и изображений» (стр. 11555 и далее) зарегистрирован как плановый несрочный эпик на позиции 40, сразу после web-search-quality-01 и всех уже назначенных более приоритетных задач; приоритеты не менялись. Регистрационная карта: 18 требований по разделам A-I и владельческим запретам, 104 строки источника, сверка с 21 существующим эпиком (ни одно обязательство не реализовано целиком, дубля нет). Декомпозиция, write-scope и аудит кода — при подходе очереди. Реализация не начиналась. | 2026-11-14: section re-hashed after owner edit; remains owned by vision-context-unify-01 (queue P3, not started).",
         "requirement_refs": [
           {
             "task_id": "vision-context-unify-01",
