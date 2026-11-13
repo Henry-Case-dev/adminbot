@@ -5653,8 +5653,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1019",
@@ -5668,8 +5711,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1021",
@@ -5683,8 +5769,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1030",
@@ -5698,8 +5827,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1034",
@@ -5713,8 +5885,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1036",
@@ -5728,8 +5943,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1038",
@@ -5743,8 +6001,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1042",
@@ -5758,8 +6059,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1044",
@@ -5773,8 +6117,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-01-1050",
@@ -5788,8 +6175,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "MAN-SXR-I1-02-1040",
@@ -15067,8 +15497,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01023",
@@ -15082,8 +15555,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01024",
@@ -15097,8 +15613,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01025",
@@ -15112,8 +15671,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01026",
@@ -15127,8 +15729,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01027",
@@ -15142,8 +15787,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01028",
@@ -15157,8 +15845,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01029",
@@ -15172,8 +15903,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01031",
@@ -15187,8 +15961,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01032",
@@ -15202,8 +16019,51 @@
       "acceptance": "Установлена реальная причина OperationalError в журнале инициативы/мемов (операция, таблица, путь БД, исключение, схема, соединение, блокировка, права, диск, writer/transaction path); запись попыток в основной журнал восстановлена, существующий spool опустошается идемпотентно без потерь и дублей, последняя попытка отображается корректно, накопленные записи сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "review-i1-76d60678.md — независимый вердикт Reviewer по кандидату 76d60678",
+          "observation": "Approved (REVIEW-ready): F1 rollback под serialized(), F2 честный busy_timeout_ms=5000 из соединения writer'а, F3 durable dedup-drain тест; 7 новых тестов passed, 44 passed diagnostics, 1 pre-existing failure; мутации ловят F1 и F3. Reviewer отдельно подтвердил, что postdeploy-подтверждение допустимо (READY_FOR_LIVE) и что эпик не DONE.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+          "artifact_sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+            "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+            "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+            "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+            "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+          }
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "addendum-i1-76d60678.md — F1/F2/F3 на кандидате, прогоны 7/44/1 pre-existing",
+          "observation": "Прогоны на 76d60678: 7 новых тестов passed, test_meme_init_diagnostics.py 44 passed, test_evol014_meme_initiative.py 1 failed / 67 passed (pre-existing test_factory_prompt_is_exact_literal_and_registered, то же на базе d20a7f73); probe ledger.reserve() 0.02 s без лока, probe чужого BEGIN IMMEDIATE — busy_timeout_ms=5000, elapsed_ms=5469, SQLITE_BUSY. Схема/DDL/спул-формат/новые таблицы не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+          "artifact_sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+        },
+        {
+          "type": "static",
+          "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+          "ref": "binding-i1-a3841613.md — причина, точки изменения, acceptance §I1, тесты",
+          "observation": "Документ фиксирует доказанную причину (своё соединение вне single-writer дисциплины, 3x5 s busy_timeout), матрицу реальных причин SQLite, минимальную правку в существующем writer/transaction path и acceptance по пунктам §I1; DDL, таблицы и спул-формат не менялись.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+          "artifact_sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+        }
+      ],
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "Реализация и тесты журнала попыток одобрены независимым Reviewer на кандидате 76d60678 (7 новых тестов passed, 44 passed в test_meme_init_diagnostics.py, F1/F2/F3 закрыты, мутации ловят F1 и F3); оставшееся доказательство — поведение журнала под реальным production-контеншном за единственным writer'ом — существует только после деплоя.",
+        "trigger": "Первый реальный контеншн за журнал инициативы/мемов после деплоя кандидата 76d60678 в production.",
+        "next_check": "В логе после деплоя нет 5-секундных заморозок вызывающего и повторов OperationalError; допустимый исход — успешная запись единым писателем либо строка attempt spooled с busy_timeout_ms=5000 и error=... [SQLITE_BUSY], после чего спул опустошается.",
+        "owner": "DevOps (postdeploy-наблюдение) + Reviewer (привязка доказательства)",
+        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md:1007-1050 (§I1 «Журнал инициативы и мемов: OperationalError»)"
+      }
     },
     {
       "source_id": "L01052",
@@ -17916,7 +18776,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался.",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md).",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -18151,11 +19011,76 @@
         "path": "plans/features/smart-execution-reliability-01/evidence/review-ab-8fc8b534-extra.md",
         "sha256": "e51ef291453bdd3707cb8a6f88e5b78e89301c6a4c005392bdea57139cd745c7"
       }
+    },
+    "S9-EVENT-PIPELINE": {
+      "slice": "S9-EVENT-PIPELINE",
+      "lane": "I1",
+      "covers_req_ids": [
+        "SXR-I1-01"
+      ],
+      "scope_note": "Кандидат привязан только к строкам I1 (SXR-I1-01). SXR-I1-02 (три запрета §I1) остаётся PENDING: отдельного candidate-bound вердикта по этим prose-строкам нет. SXR-I2-01/I2-02 принадлежат тому же срезу, но этим кандидатом не реализовывались; при ревью I2 binding нужно перепривязать на его собственный кандидат.",
+      "candidate_commit": "76d6067893238cb71e66cca73470e82c32762737",
+      "code": "76d6067893238cb71e66cca73470e82c32762737",
+      "docs": "87df150d8dce071eb67f1fec6251eac15bb0d368",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "smart/i1-journal",
+      "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-eef05388",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/review-i1-76d60678.md",
+        "sha256": "c4269347ab3058930de88bf1fd09668f020c41acb33b1ee96843b0203631fad7"
+      },
+      "binding": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/binding-i1-a3841613.md",
+        "sha256": "e249bad716d947522ca577c71f920baae5b011cca3c26d8608374aa1b1007390"
+      },
+      "addendum": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/addendum-i1-76d60678.md",
+        "sha256": "0c0ab8537f1d005a746ee654fbe63503d3e0c2ad08a88fc33fcc0d282a09a672"
+      },
+      "pm_reconcile": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/i1-pm-reconcile-2026-11-14.md",
+        "sha256": "910c150b2cbd959fd6b331d24b370fd7f55a1d75d01adfcd01a503bced9beb86"
+      },
+      "tests": {
+        "i1_new": 7,
+        "meme_init_diagnostics": 44,
+        "evol014_meme_initiative": "1 failed / 67 passed",
+        "i1_combined": "1 failed / 111 passed",
+        "pre_existing_failure": "tests/test_evol014_meme_initiative.py::test_factory_prompt_is_exact_literal_and_registered (RESOURCE_KIND_PROMPT); то же на базе d20a7f73",
+        "previous_candidate_a3841613": {
+          "13_files": "5 failed / 452 passed",
+          "9_more_files": "97 passed"
+        }
+      },
+      "covered": [
+        "причина OperationalError доказана: своё соединение и обход single-writer дисциплины, ожидание 3x5 s busy_timeout",
+        "запись попыток восстановлена через штатный DatabaseService.serialized()",
+        "существующий spool опустошается идемпотентно (INSERT OR IGNORE), накопленные строки не теряются и не дублируются",
+        "последняя попытка отображается, лог отказа несёт op/table/db/busy_timeout_ms/elapsed_ms без содержимого попытки",
+        "F1: отказ writer'а больше не оставляет открытую транзакцию на общем соединении",
+        "F2: busy_timeout_ms в логе отражает реальный таймаут соединения writer'а (5000)",
+        "F3: durable-тест на duplicate-drain ловит мутацию INSERT OR IGNORE -> INSERT",
+        "четвёртый fallback/новый журнал/новое хранилище не создавались (DDL 0)"
+      ],
+      "partial": [
+        "историческая атрибуция эпизодов 13.11 к конкретному держателю транзакции не восстановима задним числом; точную причину даст новая строка лога",
+        "record_run_interrupted (путь отмены) остаётся синхронным: худшее время около 0.85 s, затем durable-спул",
+        "record_attempt_async при чужом локе ждёт до busy_timeout приложения (5 s), но асинхронно; принято Reviewer как ожидаемое",
+        "_retry_unpersisted при обоих мёртвых носителях (до 200 строк x 250 мс) — pre-existing структура, кандидатом не расширялась (BACKLOG)"
+      ],
+      "not_covered": [
+        "реальный production-контеншн после деплоя (live-подтверждение причины) — READY_FOR_LIVE, postrelease_wait",
+        "SXR-I1-02: независимый вердикт по трём запретам §I1 не заявляется (PENDING)",
+        "эффективная конфигурация production-констант (ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS и др.) после деплоя не подтверждена",
+        "поведение журнала в реальном окружении под нагрузкой production-чатов не проверялось"
+      ],
+      "ddl_changes": 0,
+      "deployed": false
     }
   },
   "deployment_state": {
     "epic_deployed": false,
     "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
-    "note": "deployed_commit остаётся базой 2.58.199 (d20a7f73). C1, F и A+B приняты на review-уровне; кандидаты 36dd6b23, 2382cc92 и 8fc8b534 не выкатывались, production-верификация не заявляется."
+    "note": "deployed_commit остаётся базой 2.58.199 (d20a7f73). C1, F и A+B приняты на review-уровне; кандидаты 36dd6b23, 2382cc92 и 8fc8b534 не выкатывались, production-верификация не заявляется. I1 (76d60678) также не выкатывался: SXR-I1-01 остаётся READY_FOR_LIVE."
   }
 }
