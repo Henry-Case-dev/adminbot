@@ -247,3 +247,26 @@ D0 ─ D1 ─ D2 ─┬─ D3 ─┐
   дефект кандидата. D1-гейт остаётся `errors=0`.
 
 
+
+
+## Corrective 2026-11-13 (journal / own-code research / continuation / identity) — привязка
+
+Основание: `plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md`; контракт
+`corrective-2026-11-13/architecture-corrective.md`; handoff `corrective-2026-11-13/pm-binding-and-gates-2026-11-13.md`.
+
+**Срезы (тот же эпик, не новые задачи):**
+
+| Срез | Зависимости | Кандидат | Состояние |
+|---|---|---|---|
+| `SELFDIG-CORRECTIVE-2026-11-13` (core) | D6 (serial join: общие файлы D2/D3/D4/D6) | `76fcb829` / docs `e5a92eba` | 13 REVIEW, 2 READY_FOR_LIVE (A, prod-Telegram) |
+| `SELFDIG-CORRECTIVE-IDENTITY-2026-11-13` | D7 (serial join: runtime_probes/deploy_identity/golden) | `ea9e9f2a` / docs `6639baa3` | 3 REVIEW, 1 READY_FOR_LIVE (deployed manifest) |
+| `SELFDIG-CORRECTIVE-JOURNAL-ENV-2026-11-13` | — (repo-файлов нет) | env `1f2156ea` | 2 VERIFIED (DevOps production evidence) |
+| `SELFDIG-CORRECTIVE-CLOSEOUT-2026-11-13` | core + identity + journal | релизный поезд | 2 PENDING (§9 smoke/отчёт) |
+
+**Gates:** plan `errors=0`; review core `scoped=15 errors=0`; review identity `scoped=4 errors=0`; review journal-env
+`scoped=2 errors=0`; deploy по срезам **красный только по dependency-closure** (27/39) — открытые READY_FOR_LIVE
+строки D2–D7 не имеют live-доказательств до выкладки; ошибок по `SD1-COR-*` нет. Независимый scoped-релиз
+коррективы невозможен: только общий релизный поезд с epic-level gate, как 2.58.198.
+
+**Граница:** production journal end-to-end, Telegram E2E/continuation и deployed manifest остаются
+READY_FOR_LIVE; эпик SELF-DIAG-01 не DONE.

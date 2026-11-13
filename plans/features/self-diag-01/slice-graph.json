@@ -457,6 +457,74 @@
         "SD1-GRAL-01",
         "SD1-GRAL-04"
       ]
+    },
+    {
+      "id": "SELFDIG-CORRECTIVE-2026-11-13",
+      "depends_on": [
+        "D6"
+      ],
+      "write_scope": [
+        "bot.py",
+        "handlers/checkup.py",
+        "services/chat_prompts.py",
+        "services/checkup_prompts.py",
+        "services/checkup_service.py",
+        "services/database.py",
+        "services/direct_capabilities.py",
+        "services/direct_chat_service.py",
+        "services/direct_l1.py",
+        "services/source_reader.py",
+        "services/tool_router.py",
+        "tests/test_checkup_contract.py",
+        "tests/test_selfdiag_corrective_research.py",
+        "tests/test_soul1_composer_parity_off.py"
+      ],
+      "acceptance": "Штатный чекап исполняет существующий tool-loop с реальным bundle и tool schemas; продолжение отчёта доходит до Writer/send без запроса ссылки; пустой L1 деградирует честно; инвариант §1 подтверждён Reviewer; A–G имеют candidate-bound evidence, production-части помечены postdeploy.",
+      "candidate_commit": "76fcb82962592a8e099239cd11e6c34ff13cf407",
+      "serial_join_note": "depends_on D6 — намеренный serial join: corrective переписывает точки, которыми владеет D6 (checkup_service, tool_loop, handlers/checkup) и общие с D2/D3/D4 (tool_router, tool_schemas, source_reader, bot.py)."
+    },
+    {
+      "id": "SELFDIG-CORRECTIVE-IDENTITY-2026-11-13",
+      "depends_on": [
+        "D7"
+      ],
+      "write_scope": [
+        ".gitignore",
+        "README.md",
+        "services/bot_output_ledger.py",
+        "services/deploy_identity.py",
+        "services/log_ring.py",
+        "services/runtime_probes.py",
+        "tests/test_deploy_identity.py",
+        "tests/test_diagnostic_probes.py",
+        "tests/test_release_manifest.py",
+        "tests/test_self_diag_golden.py",
+        "tools/release_manifest.py"
+      ],
+      "acceptance": "Штатный deploy производит schema-манифест фактического SHA до рестарта; identity различает manifest/process/checkout и честно даёт unknown/mismatch; счётчики journal/Telegram/STT не подменяют отсутствие наблюдений нулём.",
+      "candidate_commit": "ea9e9f2a1dc8b04bb82607acf9939bdefa3c16be",
+      "serial_join_note": "depends_on D7 — намеренный serial join: правки касаются файлов D3/D4 (runtime_probes, deploy_identity) и golden-набора D7; параллельный писатель в них недопустим."
+    },
+    {
+      "id": "SELFDIG-CORRECTIVE-JOURNAL-ENV-2026-11-13",
+      "depends_on": [],
+      "write_scope": [],
+      "write_scope_note": "Репозиторные файлы не изменяются: фикс — членство сервисного пользователя в systemd-journal на production-VPS. Unit-файлы не менялись (хэши совпадают).",
+      "acceptance": "Сервисный пользователь читает реальный journald (rc=0, текущий invocation) с минимальными правами без root/sudo/sandbox; фикс переживает рестарт и деплой.",
+      "candidate_commit": "1f2156ea"
+    },
+    {
+      "id": "SELFDIG-CORRECTIVE-CLOSEOUT-2026-11-13",
+      "depends_on": [
+        "SELFDIG-CORRECTIVE-2026-11-13",
+        "SELFDIG-CORRECTIVE-IDENTITY-2026-11-13",
+        "SELFDIG-CORRECTIVE-JOURNAL-ENV-2026-11-13"
+      ],
+      "write_scope": [
+        "plans/features/self-diag-01/corrective-2026-11-13/"
+      ],
+      "acceptance": "Единый релизный кандидат с доступным production smoke; финальный отчёт по §9 с честной регистрацией остаточных реальных ожиданий; родительский эпик не переоткрывается.",
+      "candidate_commit": ""
     }
   ],
   "scope_boundaries": {
