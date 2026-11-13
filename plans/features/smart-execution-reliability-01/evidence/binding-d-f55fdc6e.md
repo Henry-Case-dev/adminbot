@@ -1,14 +1,14 @@
 # S4 (stage D) — единый capacity contract: привязка к кандидату
 
 - **Epic:** SMART-EXECUTION-RELIABILITY-01, slice **S4-CAPACITY** (stage D).
-- **Кандидат кода:** `1a991e7d` (ветка `smart/d-capacity`), база `d20a7f73`
+- **Кандидат кода:** `f55fdc6e` (ветка `smart/d-capacity`), база `d20a7f73`
   (production 2.58.199). Линия коммитов: `6fe1a708` → `e4be5f98` →
-  `4a2b4b34` → `8210eb7b` → `1a991e7d`.
+  `4a2b4b34` → `8210eb7b` → `1a991e7d` → `09b3435e` (B1) → `f55fdc6e` (N1).
 - **Предыдущие привязки:** `evidence/binding-d-4a2b4b34.md` (матрица строк/
-  тестов кандидата `4a2b4b34` сохранена ниже) и `evidence/binding-d-8210eb7b.md`.
-  `8210eb7b` добавляет уточнение контракта D2 (route в области кэшированного
-  значения) и его тест; `1a991e7d` — только удаление лишней пустой строки в
-  конце `services/model_capacity.py` (код не меняется, те же прогоны).
+  тестов кандидата `4a2b4b34` сохранена ниже), `evidence/binding-d-8210eb7b.md`,
+  `evidence/binding-d-1a991e7d.md`. Правки после `1a991e7d`: B1 (сохранён
+  прежний текст `LLM HTTP 400: <url>` при типизации context-overflow) и N1
+  (каноническое сравнение ID в инвалидации proven-limit).
 - **Контракт:** `architecture-contract-part2.md` §D (S4) → assignment п.1;
   owner input `plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md`
   (ЭТАП D).
@@ -16,8 +16,9 @@
   `SXR-D3-01`, `SXR-D4-01`, `SXR-D5-01`, `SXR-D6-01`.
 - **Docs-коммит:** этот файл (`git log -- plans/features/smart-execution-reliability-01/evidence`).
 - **Ре-верификация 14.11.2026 (сессия восстановления после перезапуска
-  backend OpenCode):** прогоны выполнены на деревьях `8210eb7b` и
-  `1a991e7d` из `C:\Code\Python\adminbot\.venv\Scripts\python.exe`
+  backend OpenCode):** прогоны выполнены на деревьях `8210eb7b`,
+  `1a991e7d` и `f55fdc6e` (правки ревью B1/N1) из
+  `C:\Code\Python\adminbot\.venv\Scripts\python.exe`
   (Python 3.12.0), `-p no:cacheprovider`, рабочая директория — этот
   worktree. Перезапуски backend'а случались во время сессии, но не меняли ни
   файлы worktree, ни результаты уже завершённых прогонов (повторные прогоны
@@ -35,6 +36,8 @@
 | D4 | Окно считается для фактически назначенной модели: tool-loop (`tool_router._evidence_window`), агрегатор поиска (`search_service`), orchestrator (`direct_execution`), Direct primary/fallback, L1, Summary L1/L2, slots. Primary не занижается окном fallback заранее; fallback получает свой бюджет и recompose при фактическом переходе. | `tool_router.py`, `search_service.py`, `auto_budget.py`, `direct_execution.py`, `direct_chat_service.py` |
 | D5 | Окно, token budget и `max_output` — разные величины (`output_reserve_tokens`, `compute_available_budget`, `capability_aware_output_reserve`, `recovery_budget_tokens`); при budgets OFF доступно окно минус protocol/output reserve. Бюджетные ключи `settings.py` не тронуты (в diff только capacity-ключ `CHAT_UNKNOWN_MODEL_WINDOW` и комментарии). | `model_capacity.py`, `auto_budget.py`, `config/settings.py` |
 | D6 | Структурированный разбор context-overflow (code/body/text) → запись `proven_limit` + инвалидация кэшей endpoint/model + план ограниченного восстановления (1 попытка). Summary supervisor обновляет ёмкость и эмитит честное событие. L2 Writer пересобирает payload под доказанный предел существующим L2-репаком (защищены запрос и tool evidence), отправляет ОДИН раз, обновляет prepared-вариант (receipt/инспектор видят реально отправленное тело). Нет миллионного probe, нет 16384, нет бесконечных платных повторов. | `llm_client.py`, `model_capacity.py`, `summary_llm_supervisor.py`, `direct_chat_service.py` |
+| B1 (09b3435e) | Context-overflow остаётся типизированной ошибкой (`LLMContextOverflowError` с `context_info`/`context_recovery`, ёмкость уже обновлена), но `str(exc)` — прежний диагностический `LLM HTTP 400: <url>`: лог и классификаторы не меняются. | `llm_client.py` (`_context_overflow_exc`) |
+| N1 (f55fdc6e) | `record_proven_limit`/`invalidate_runtime_capacity` сравнивают модель канонически (`_same_model_id`: lower/basename/без routing-суффикса), как `proven_limit_for`. Cache под полным ID (`z-ai/...`) сбрасывается пределом по короткому ID; планировочное окно (`_WINDOW_CACHE`) — тоже. | `model_capacity.py` |
 
 ## 2. RED на базе `d20a7f73`
 
@@ -73,14 +76,29 @@ RED для инкремента `8210eb7b` (проверено пробой на
 нечего ограничивать; на кандидате helper есть и сравнивает
 provider+host+model+route.
 
-## 3. Тесты (точные прогоны на `1a991e7d`)
+RED по ревью D (B1/N1), воспроизведён на линии до правок и мутацией после:
+
+```
+# B1, кандидат 1a991e7d: pre-existing тест падал
+FAILED tests/test_llm_client.py::TestEpic49DiagnosticLog::test_final_400_logs_diagnostics
+       получено 'LLM context overflow (400): LLM HTTP 400: <url>'
+# мутация B1 (вернуть прежнюю строку сообщения) на f55fdc6e:
+2 failed (test_final_400_logs_diagnostics + test_context_overflow_keeps_legacy_message_and_typing)
+# мутация N1 (сырое сравнение ID в invalidate_runtime_capacity) на f55fdc6e:
+FAILED test_proven_limit_invalidates_full_id_cache_for_short_id
+       cache-запись полного ID пережила инвалидацию по короткому ID
+# после восстановления кода: 10 passed / 1 passed соответственно
+```
+
+## 3. Тесты (точные прогоны на `f55fdc6e`)
 
 | Набор | Результат |
 |---|---|
-| `tests/test_capacity_stage_d_smart.py` | **34 passed** |
-| capacity/context/evidence (11 файлов: `test_capacity_resolver_asap31`, `test_capacity_nanogpt_asap32`, `test_direct_context_capacity_asap3`, `test_direct_context_composer_asap3`, `test_auto_budget_asap31`, `test_summary_capacity_asap41`, `test_summary_coverage_asap31`, `test_bgs05_budgets`, `test_evol_evidence_window`, `test_er08_limits_context`, `test_capacity_stage_d_smart`) | **280 passed** |
-| D6/Writer/инспектор + остальные Direct/инспекторские (14 файлов: `test_ur_d_writer`, `test_direct_chat`, `test_ur_f_inspector_step1`, `test_ur_f_inspector_step2`, `test_capacity_stage_d_smart`, `test_direct_chat_handlers`, `test_direct_chat_concurrency`, `test_direct_llm_decision_asap32`, `test_asap8_v6_wc_direct_d03`, `test_migrate_direct_chat_v2_script`, `test_rc_direct_self_correction`, `test_soul1_direct_prompt_reads`, `test_asap7_direct_settings`, `test_ur_ui_effective_config`) | **475 passed** |
-| те же две группы порознь (проверка привязки счётчиков к неизменному дереву `4a2b4b34`) | **293 passed** (5 файлов) и **181 passed** (9 файлов) |
+| `tests/test_llm_client.py` | **116 passed** (115 прежних + новый B1 e2e) |
+| `tests/test_capacity_stage_d_smart.py` | **35 passed** |
+| capacity/context/evidence (11 файлов: `test_capacity_resolver_asap31`, `test_capacity_nanogpt_asap32`, `test_direct_context_capacity_asap3`, `test_direct_context_composer_asap3`, `test_auto_budget_asap31`, `test_summary_capacity_asap41`, `test_summary_coverage_asap31`, `test_bgs05_budgets`, `test_evol_evidence_window`, `test_er08_limits_context`, `test_capacity_stage_d_smart`) | **281 passed** |
+| D6/Writer/инспектор + остальные Direct/инспекторские (14 файлов: `test_ur_d_writer`, `test_direct_chat`, `test_ur_f_inspector_step1`, `test_ur_f_inspector_step2`, `test_capacity_stage_d_smart`, `test_direct_chat_handlers`, `test_direct_chat_concurrency`, `test_direct_llm_decision_asap32`, `test_asap8_v6_wc_direct_d03`, `test_migrate_direct_chat_v2_script`, `test_rc_direct_self_correction`, `test_soul1_direct_prompt_reads`, `test_asap7_direct_settings`, `test_ur_ui_effective_config`) | **476 passed** |
+| те же две группы порознь на `1a991e7d` | **293 passed** (5 файлов) и **181 passed** (9 файлов) |
 | UR/Direct волна (17 файлов: `test_ur_context_selection`, `test_ur_b_live_wiring`, `test_ur_turn_engine`, `test_ur_g_acceptance`, `test_ur_e_speech`, `test_ur_c_clock`, `test_ur_bot_output_history`, `test_direct_context_scenarios_asap3`, `test_direct_decision_matrix_asap3`, `test_direct_l1_corrective_r1`, `test_direct_l1_l1d_contract`, `test_direct_chat_lore_inject`, `test_direct_chat_relations_inject`, `test_direct_chat_prompts`, `test_asap7_direct_l1`, `test_asap8_v6_wc_direct_d04`, `test_asap8_v6_wc_direct_matrix`) | **346 passed** |
 | `-k "capacity or context"` по всему `tests/` | **961 passed**, 3 failed (pre-existing, см. §5) |
 
@@ -89,7 +107,10 @@ provider+host+model+route.
 тест) — **34 / 280 / 475 passed** и отдельно повторённые **293 / 181**
 (совпали с прежними, новых падений нет). На финальном дереве `1a991e7d`
 (удалена только пустая строка в конце файла) наборы **280** и **475**
-повторены и совпали. Широкий `-k "capacity or context"` в сессии
+повторены и совпали. После правок ревью B1/N1 (`f55fdc6e`) прогнаны
+`test_llm_client.py` = **116**, stage-D = **35**, 11-файловый набор = **281**,
+14-файловый = **476** (прирост ровно на два новых теста). Широкий
+`-k "capacity or context"` в сессии
 восстановления дважды стартовал и оба раза был оборван перезапуском backend
 OpenCode до завершения, поэтому его повторный результат не заявляется: в силе
 остаётся первичный прогон из строки выше и разбор pre-existing падений в §5.
@@ -136,6 +157,14 @@ config/settings.py` содержит только ключ `CHAT_UNKNOWN_MODEL_W
   `test_context_overflow_recovery_is_bounded`, `test_recovery_budget_separates_window_and_output`,
   `test_llm_client_context_overflow_error_carries_recovery` — механика D6 в резолвере и клиенте.
 - `test_capacity_budget_keys_untouched` — бюджетные ключи настроек не переименованы/не удалены.
+- `test_llm_client.py::…::test_context_overflow_keeps_legacy_message_and_typing` (B1)
+  — реальный `_post`-путь с 400+structured body: `str(exc)` = `LLM HTTP 400: <url>`,
+  тип `LLMContextOverflowError` (наследник `LLMError`), `context_info.limit_tokens`
+  извлечён, `context_recovery` не None, `proven_limit` записан.
+- `test_proven_limit_invalidates_full_id_cache_for_short_id` (N1) — cache под
+  полным ID + proven limit по короткому ID: catalog-запись инвалидирована,
+  возвращается `proven_limit`; планировочное окно сброшено; обратное
+  направление (предел по полному ID) видно короткому написанию.
 
 Тесты, опиравшиеся на удалённый 16384-fallback, получили **подтверждённое**
 маленькое окно (runtime-metadata / exact-реестр / явный window-source), при
@@ -201,11 +230,10 @@ Production-значения (env/hot/каталог) не сверялись с 
 ## 8. Housekeeping (retained, не disposable)
 
 - Worktree `WorkspaceData/worktrees/c742e4de9e92c489/SMART-EXECUTION-RELIABILITY-01-92d1db8aefb1-7df1e82b`
-  (ветка `smart/d-capacity`, кандидат `1a991e7d`) **сохраняется**: он не
+  (ветка `smart/d-capacity`, кандидат `f55fdc6e`) **сохраняется**: он не
   интегрирован в релизную линию и является точным кандидатом независимого
   ревью. Owner — Builder S4-CAPACITY; потребитель — Reviewer/Orchestrator;
   следующее событие — после вердикта Reviewer и интеграции в релизный поезд
   SMART закрыть обычным `unit-close`.
-- Одноразовые артефакты сессии (лог прерванного широкого прогона) лежат вне
-  репозитория, в `WorkspaceData/runs/`, и закрываются `run-close`; в git они
-  не попадают.
+- Одноразовые артефакты сессии закрыты `unit-close`
+  (`cleanup_complete=true`, `remaining=[]`); в git они не попадают.
