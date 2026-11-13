@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T00:50:20+12:00",
+  "updated": "2026-11-14T01:15:01+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1882,6 +1882,22 @@
         "plans/features/smart-execution-reliability-01/requirements-map.json",
         "plans/features/smart-execution-reliability-01/slice-graph.json"
       ]
+    },
+    {
+      "id": "factcheck-request-integrity",
+      "queue_position": 2,
+      "priority": "P0",
+      "status": "PENDING",
+      "execution_state": "queued",
+      "blocked_by": [],
+      "blocker_sources": {},
+      "source_path": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2.md",
+      "source_sha256": "A35EED9F3864E470517AC1BA7231AD1DB2617F997DC93ADCD929FDFF6B61E5B6",
+      "source_line": "plans/current_task.md:13311-13724",
+      "source_note": "Amendment v2 to SMART-EXECUTION-RELIABILITY-01; owner order: execute immediately after the SMART epic. Source ends mid-sentence at line 13724 (section 4.5); no later clauses present in current_task.md.",
+      "queue_note": "2026-11-14: registered at position 2 (after SMART position 1) per owner. No work started; mapping pending until SMART wave 1 is through. Production base 2.58.199 @ d20a7f73.",
+      "created": "2026-11-14T01:15:01+12:00",
+      "updated": "2026-11-14T01:15:01+12:00"
     }
   ],
   "owner_inputs": [
@@ -4662,6 +4678,17 @@
           ]
         }
       ]
+    },
+    {
+      "id": "OI-2026-11-14-FACTCHECK-REQUEST-INTEGRITY",
+      "source_path": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2.md",
+      "source_sha256": "A35EED9F3864E470517AC1BA7231AD1DB2617F997DC93ADCD929FDFF6B61E5B6",
+      "kind": "new_task",
+      "target_task_ids": [
+        "factcheck-request-integrity"
+      ],
+      "reconciled": false,
+      "note": "Amendment FACTCHECK-REQUEST-INTEGRITY v2 to SMART-EXECUTION-RELIABILITY-01: preserve normal factcheck behavior; user clarification after 'фактчек' is part of the request and must not be lost (scenarios A-G, no lexical hardcode); keep source material/request/subject distinct across suitability, temporal envelope, decomposition, retrieval plan, coverage, attribution, analyst, validator, verbalizer, renderer, cache; fix claim_text vs claim_items literal check; temporal/cache/provenance integrity. Source file ends mid-sentence at line 13724; execute after the SMART epic."
     }
   ],
   "source_inventory": {
