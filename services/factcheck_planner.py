@@ -297,6 +297,10 @@ class ClaimCoverage:
     provider_status: tuple[str, ...] = ()
     evidence: tuple[ClaimEvidence, ...] = ()
     citation_ids: tuple[str, ...] = ()
+    #: S14 §13.3: часть остановлена продуктовым бюджетом (ON), а не
+    #: техническим дедлайном/отказом провайдера. Различает причины в
+    #: метриках, не меняя пользовательский enum-статус.
+    budget_exhausted: bool = False
 
     @property
     def displayable_evidence(self) -> tuple[ClaimEvidence, ...]:
@@ -318,6 +322,7 @@ class ClaimCoverage:
             "provider_status": list(self.provider_status),
             "evidence": [e.as_dict() for e in self.evidence],
             "citation_ids": list(self.citation_ids),
+            "budget_exhausted": bool(self.budget_exhausted),
         }
 
 
@@ -1666,6 +1671,8 @@ class RetrievalOutcome:
             "claims_unchecked_due_to_deadline": _n(
                 lambda c: c.search_status == CLAIM_SEARCH_DEADLINE
                 or c.status_detail == CLAIM_STATUS_DEADLINE),
+            "claims_unchecked_due_to_budget": _n(
+                lambda c: bool(c.budget_exhausted) and not c.displayable_evidence),
             "off_topic_sources_dropped": self.off_topic_sources_dropped,
             "stale_sources_dropped": self.stale_sources_dropped,
             "refine_calls": self.refine_calls,
@@ -1709,6 +1716,7 @@ class _ClaimRun:
         self.fetch_failed = 0
         self.provider_failed = 0
         self.deadline_hit = False
+        self.budget_hit = False
         self.empty = 0
         self.irrelevant = 0
         #: тексты уже выполненных запросов этой части (без повторов «того же»)
@@ -1896,7 +1904,8 @@ def _finalize_claim(run: _ClaimRun) -> ClaimCoverage:
         evidence=evidence_items,
         citation_ids=tuple(str(getattr(ref, "evidence_id", "") or "")
                            for ref, _role, _n in roles
-                           if str(getattr(ref, "evidence_id", "") or "")))
+                           if str(getattr(ref, "evidence_id", "") or "")),
+        budget_exhausted=bool(run.budget_hit))
 
 
 #: S14 §6.3: содержательные причины завершения retrieval. Значения —
@@ -2034,14 +2043,14 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         nonlocal product_budget_hit, technical_deadline
         if total_limit is not None and counters["attempted"] >= int(total_limit):
             product_budget_hit = True
-            run.deadline_hit = True
+            run.budget_hit = True
             return
         remaining = None
         if deadline is not None:
             remaining = deadline - loop.time()
             if remaining <= 0:
                 product_budget_hit = True
-                run.deadline_hit = True
+                run.budget_hit = True
                 return
         counters["attempted"] += 1
         run.attempts += 1
@@ -2085,7 +2094,7 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                         cause or "provider_error")
             if _deadline_now():
                 product_budget_hit = True
-                run.deadline_hit = True
+                run.budget_hit = True
             return
         if not chunk or not str(chunk).strip():
             counters["empty"] += 1
@@ -2098,7 +2107,7 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             # §3.2/§5.2: продуктовый бюджет ИСЧЕРПАН этим вызовом — честно
             # фиксируем, чтобы оставшиеся части не выдавались за проверенные.
             product_budget_hit = True
-            run.deadline_hit = True
+            run.budget_hit = True
         refs = evidence_refs_from_search(str(chunk), intent=query.intent,
                                         max_rows=page_limit)
         run.candidates += len(refs)
@@ -2135,7 +2144,7 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             # Запроса нет: при ON это упёршийся общий бюджет, при OFF —
             # структурная аномалия вызывающего (честно отмечаем, не прячем).
             if total_limit is not None:
-                run.deadline_hit = True
+                run.budget_hit = True
                 product_budget_hit = True
             continue
         for query in queries:
@@ -2143,12 +2152,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                 continue
             if _deadline_now():
                 product_budget_hit = True
-                run.deadline_hit = True
+                run.budget_hit = True
                 break
             if total_limit is not None and \
                     counters["attempted"] >= int(total_limit):
                 product_budget_hit = True
-                run.deadline_hit = True
+                run.budget_hit = True
                 break
             await _attempt(query, run)
     # Части, до которых общий бюджет не дошёл, честно помечаются лимитом
@@ -2156,7 +2165,7 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     if product_budget_hit:
         for run in runs:
             if run.attempts == 0 and not _claim_settled(run):
-                run.deadline_hit = True
+                run.budget_hit = True
 
     # Проход 2 (§3.2/§6.4): уточнения — только непокрытым частям; при ON
     # 24 уточняющих и общий 64 включают и базовые, и уточняющие запросы.
@@ -2191,6 +2200,10 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             refine_left -= 1
         counters["refine"] += 1
         await _attempt(query, run)
+    if product_budget_hit:
+        for run in runs:
+            if not _claim_settled(run):
+                run.budget_hit = True
 
     # §3.3: URL ≠ доказательство — содержимое достаётся только для строк,
     # привязанных к своей части; превышение бюджета больше не маскируется.

@@ -155,6 +155,10 @@ async def test_on_deadline_and_query_budget_are_applied():
     assert outcome.budget_exhausted is True
     assert outcome.stop_reason == fsp.STOP_BUDGET_EXHAUSTED
     assert len(agg.calls) == 64
+    summary = outcome.coverage_summary()
+    assert summary["claims_unchecked_due_to_budget"] > 0
+    # Продуктовый бюджет ON не выдаётся за технический deadline.
+    assert summary["claims_unchecked_due_to_deadline"] == 0
 
 
 @pytest.mark.asyncio
@@ -493,6 +497,9 @@ async def test_technical_provider_budget_is_not_product_budget():
     assert outcome.stop_reason == fsp.STOP_TECHNICAL_LIMIT
     assert outcome.provider_failures >= 1
     assert outcome.queries_used == 0
+    summary = outcome.coverage_summary()
+    assert summary["claims_unchecked_due_to_deadline"] > 0
+    assert summary["claims_unchecked_due_to_budget"] == 0
 
 
 # ── 5. Политика открытий: ON — нагрузка, OFF — без потолка ─────────────────
