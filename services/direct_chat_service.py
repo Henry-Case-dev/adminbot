@@ -9392,6 +9392,21 @@ class DirectChatService:
                 recovered = adapter({"messages": messages}) or {}
                 recovered_messages = recovered.get("messages") or messages
                 _info = getattr(exc, "context_info", None)
+                # Q6/UR-F: вариант payload'а обязан описывать ТЕЛО, которое
+                # реально ушло модели, — иначе receipt/инспектор показывали бы
+                # primary-текст вместо восстановленного.
+                try:
+                    _prep = _prepared_rebased(
+                        primary_prepared, _sent_user_text(recovered),
+                        budget={"slot": "direct.primary",
+                                "budget": int(budget),
+                                "policy_mode": "context_overflow_recovery"})
+                    if _prep is not None:
+                        _l2_binding["prepared"] = _prep
+                    _l2_binding["prepared_text"] = _sent_user_text(recovered)
+                except Exception:
+                    logger.debug("direct: recovery prepared rebase failed",
+                                 exc_info=True)
                 logger.warning(
                     "direct: L2 context-overflow recovery | chat=%s | "
                     "proven_limit=%s | budget=%d | attempt=1",
