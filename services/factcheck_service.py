@@ -471,6 +471,10 @@ def _pack_evidence(rows, *, budget_chars: int | None,
                                   "support_total_chars": len(support)})
                 used = budget
                 truncated.append(eid)
+            else:
+                # места не хватило даже на осмысленный обрывок — документ
+                # целиком остаётся в remainder (не исчезает).
+                remainder.append((eid, url))
             cutting = True
             continue
         remainder.append((eid, url))
