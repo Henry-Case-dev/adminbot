@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import copy
 import json
+import pathlib
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -126,6 +127,77 @@ def _allow_policy(monkeypatch):
                          role="project_owner", matrix_role="global_admin",
                          data_class="PUBLIC_TECH", source="default")
     monkeypatch.setattr(diag, "check_tool_call", _allow)
+
+
+def _candidate_bytes(path: str) -> bytes:
+    """Байты файла ИЗ ТЕКУЩЕГО КАНДИДАТА (worktree test file -> repo root)."""
+    root = pathlib.Path(__file__).resolve().parents[1]
+    return (root / path).read_bytes()
+
+
+def _snapshot_repo(tmp_path):
+    """Мини-снимок кандидата с РЕАЛЬНЫМ git-коммитом и manifest identity.
+
+    Fixture ТОЛЬКО для filesystem/identity границы: содержимое файла —
+    реальные байты кандидата; SourceReader/LocalSnapshotProvider/
+    deploy_identity исполняются настоящие, без моков.
+    """
+    import subprocess
+    root = pathlib.Path(tmp_path) / "repo"
+    (root / "services").mkdir(parents=True)
+    (root / "services" / "checkup_service.py").write_bytes(
+        _candidate_bytes("services/checkup_service.py"))
+    env = {"GIT_AUTHOR_NAME": "selfdiag", "GIT_AUTHOR_EMAIL": "s@d",
+           "GIT_COMMITTER_NAME": "selfdiag", "GIT_COMMITTER_EMAIL": "s@d"}
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "s@d"], cwd=root,
+                   check=True)
+    subprocess.run(["git", "config", "user.name", "selfdiag"], cwd=root,
+                   check=True)
+    subprocess.run(["git", "remote", "add", "origin",
+                    "https://github.com/Henry-Case-dev/adminbot.git"],
+                   cwd=root, check=True)
+    subprocess.run(["git", "add", "services/checkup_service.py"], cwd=root,
+                   check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "candidate snapshot"],
+                   cwd=root, check=True, env={**__import__("os").environ, **env})
+    sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root,
+                                  text=True).strip()
+    (root / ".deploy").mkdir()
+    (root / ".deploy" / "release.json").write_text(json.dumps({
+        "schema": 1, "deployed_sha": sha,
+        "deployed_at": "2026-11-13T00:00:00Z",
+        "version": "2.58.198", "effect": "deploy"}) + "\n",
+        encoding="utf-8")
+    return root, sha
+
+
+class _RealPathLLM:
+    """Provider-boundary fixture: два tool_calls и финальный синтез.
+
+    Реальный LLM-провайдер в тестах не вызывается; решение/инструменты/
+    результаты — настоящий код (`chat_with_tools` + ToolRouter + SourceReader
+    + DiagnosticCollector + policy)."""
+
+    def __init__(self, *, final_text=None):
+        self._results = [
+            LLMChatResult(content=None, tool_calls=[
+                _tc("real-read", "read_source_code", {
+                    "operation": "read",
+                    "path": "services/checkup_service.py",
+                    "line_start": 150, "line_end": 175}),
+                _tc("real-runtime", "inspect_runtime", {
+                    "area": "logs", "probe": "logs.window",
+                    "scope": "instance"}),
+            ], finish_reason="tool_calls"),
+            LLMChatResult(content=final_text or "Синтез по реальным данным.",
+                          tool_calls=None, finish_reason="stop"),
+        ]
+        self.messages = []
+
+    async def generate_chat(self, messages, *, tools=None, **kwargs):
+        self.messages = copy.deepcopy(messages)
+        return self._results.pop(0)
 
 
 # ── 1. Структурированное решение: разбор/валидация, без слов ────────────────
@@ -280,6 +352,82 @@ class TestCheckupResearchLoop:
         assert payload["reason"] == "no_url_no_repo_no_query"
         assert reader.calls == []
 
+    @pytest.mark.asyncio
+    async def test_real_router_reads_candidate_snapshot_and_results_reach_model(
+            self, tmp_path, monkeypatch):
+        """B/A real-path: настоящие ToolRouter, SourceReader, collector, policy.
+
+        Fixture — ТОЛЬКО filesystem-снимок кандидата и journal subprocess
+        (`FakeFetcher`); файл на диске — реальные байты кандидата, провайдер
+        читает его настоящим LocalSnapshotProvider. LLM — граница провайдера.
+        """
+        from config.settings import settings
+        from services import diagnostic_collector as dc
+        from services import hot_config as hot
+        from services import runtime_probes as rp
+        from tests.test_diagnostic_policy import (
+            ADMIN_ID, GROUP_A, FakeBot, FakeCache)
+        from tests.test_diagnostic_probes import FakeFetcher
+
+        root, sha = _snapshot_repo(tmp_path)
+        monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT",
+                            str(root))
+        monkeypatch.setattr(type(settings), "SOURCE_READ_ENABLED", True)
+        monkeypatch.setattr(type(settings), "SOURCE_READ_GITHUB_TOKEN", "")
+        cache = FakeCache({ADMIN_ID: "admin"})
+        hot.set_config_cache(cache)
+        try:
+            collector = dc.DiagnosticCollector(
+                deps=rp.ProbeDeps(
+                    logs_fetcher=FakeFetcher(
+                        "2026-11-13 05:00:00 ERROR fixture-journal-line\n")),
+                limits=rp.ProbeLimits(
+                    probe_timeout_seconds=3.0, max_output_chars=9000,
+                    snapshot_ttl_seconds=15.0))
+            router = ToolRouter(ToolDeps(
+                search=None, memory=None, aliases=None,
+                diagnostics=collector))
+            ctx = ToolContext(GROUP_A, "", user_id=ADMIN_ID,
+                              bot=FakeBot(), correlation_id="ag-B")
+            identity = sr.resolve_self_repo_identity()
+            assert identity["ref_source"] == "deployed_sha"
+            assert identity["deployed_sha"] == sha
+            assert identity["deployed_matches_checkout"] is True
+            ctx.diagnostic_research = identity
+            schemas = caps.schemas_for_names(
+                ["read_source_code", "inspect_runtime"],
+                tool_schemas.active_tools(False, False))
+            llm = _RealPathLLM()
+            telemetry: dict = {}
+            report = await CheckupService(llm).checkup(
+                "2026-11-13 ERROR fixture-journal-line", used_fallback=False,
+                telemetry=telemetry,
+                tool_runtime={"router": router, "ctx": ctx,
+                              "schemas": schemas,
+                              "correlation_id": "ag-B"})
+            assert report == "Синтез по реальным данным."
+            tool_messages = [m for m in llm.messages
+                             if m.get("role") == "tool"]
+            assert len(tool_messages) == 2
+            source_result = json.loads(tool_messages[0]["content"])
+            assert source_result["status"] == "ok", source_result
+            assert source_result["verified"] is True, source_result
+            assert source_result["commit"] == sha
+            assert source_result["path"] == "services/checkup_service.py"
+            assert source_result["line_range"] == [150, 175]
+            assert "if telemetry is not None" in source_result["snippet"]
+            identity_out = source_result["repo_identity"]
+            assert identity_out["ref_source"] == "deployed_sha"
+            assert identity_out["deployed_sha"] == sha
+            runtime_result = json.loads(tool_messages[1]["content"])
+            assert runtime_result["status"] == "ok"
+            assert runtime_result["probe"] == "logs.window"
+            assert runtime_result["sources"][0]["source_id"] == "logs:local"
+            assert telemetry["research_calls"] == 2
+        finally:
+            hot.set_config_cache(None)
+
+
 
 # ── 3. Продолжение разговора: отчёт чекапа — контекст, а не слова ───────────
 
@@ -315,9 +463,137 @@ class TestContinuationContext:
         report = await service._recent_checkup_report(CHAT_ID)
         assert report == "ОТЧЁТ ЧЕКАПА"
 
+    @pytest.mark.asyncio
+    async def test_continuation_plan_uses_real_ledger_report_and_reads_code(
+            self, tmp_path, monkeypatch):
+        """C: реальный DB/ledger -> `_plan_direct_l1` -> structured decision.
+
+        Отчёт выбирается по `output_kind='checkup_report'` (не по словам),
+        попадает в canonical L1-контекст; план содержит target=self, а
+        последующее чтение идёт без URL через реальный SourceReader на
+        fixture-снимке кандидата.
+        """
+        import time
+        from config.settings import settings
+        from services import bot_output_ledger as ledger
+        from services import hot_config as hot
+        from services.database import DatabaseService
+        from services.direct_chat_service import DirectChatService
+        from services.summary_aliases import AliasResolver
+        from tests.test_diagnostic_policy import ADMIN_ID, FakeBot, FakeCache
+
+        class _PlanLLM:
+            def __init__(self):
+                self.captured = []
+
+            async def generate(self, messages, **kwargs):
+                self.captured.append([dict(m) for m in messages])
+                return json.dumps({
+                    "action": "reply", "confidence": 0.9,
+                    "diagnostic_research": {
+                        "needed": True, "target": "self",
+                        "sources": ["source_code"]},
+                }, ensure_ascii=False)
+
+        class _Stub:
+            _render_current_question = DirectChatService._render_current_question
+            _l1_speech_hints = DirectChatService._l1_speech_hints
+            _build_speech_understanding = \
+                DirectChatService._build_speech_understanding
+            _attach_l1_plan_meta = DirectChatService._attach_l1_plan_meta
+            _compose_speech_system = DirectChatService._compose_speech_system
+            _resolve_turn_slot_meta = DirectChatService._resolve_turn_slot_meta
+            _resolve_turn_tool_state = \
+                DirectChatService._resolve_turn_tool_state
+            _turn_aliases_snapshot = DirectChatService._turn_aliases_snapshot
+            _build_reply_parent_ref = \
+                DirectChatService._build_reply_parent_ref
+            _build_turn_request = DirectChatService._build_turn_request
+            _execute_turn = DirectChatService._execute_turn
+
+            def _l1_reply_block(self, message, budget_tokens=None):
+                return DirectChatService._l1_reply_block(
+                    self, message, budget_tokens=budget_tokens)
+
+            async def _history_partial(self, chat_id, window):
+                return False
+
+            def __init__(self, llm, db):
+                self.llm = llm
+                self.db = db
+                self.memory = type("M", (), {
+                    "get_window_messages": staticmethod(
+                        lambda chat_id: _empty())})()
+                self.bot_id = 999
+                self.aliases = AliasResolver({})
+
+        async def _empty():
+            return []
+
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        try:
+            await ledger.record_delivered_output(
+                db, chat_id=CHAT_ID, tg_message_id=77,
+                text="ОТЧЁТ-МАРКЕР: код проверен, строка 7541.",
+                output_kind="checkup_report", sent_at=int(time.time()),
+                parent_message_ref="tg:2", correlation_id="checkup:c")
+            root, sha = _snapshot_repo(tmp_path)
+            monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT",
+                                str(root))
+            cache = FakeCache({ADMIN_ID: "admin"})
+            hot.set_config_cache(cache)
+            try:
+                message = type("M", (), {
+                    "text": "продолжай разбор", "caption": None,
+                    "message_id": 3,
+                    "chat": type("C", (), {"type": "supergroup"})(),
+                    "reply_to_message": None, "from_user": None})()
+                llm = _PlanLLM()
+                plan, meta = await DirectChatService._plan_direct_l1(
+                    _Stub(llm, db), CHAT_ID, message, "продолжай разбор",
+                    None, bundle=None, target_name="Аня", user_id=ADMIN_ID,
+                    character_block="", character_ctx=None,
+                    lore_enabled=False, image_enabled=False,
+                    force_required=False, reply_bot=True,
+                    bot_replied_recently=True)
+                assert plan is not None
+                assert plan.diagnostic_research.needed is True
+                assert plan.diagnostic_research.target == "self"
+                user_context = llm.captured[0][1]["content"]
+                assert "[ПОСЛЕДНИЙ ЧЕКАП" in user_context
+                assert "ОТЧЁТ-МАРКЕР" in user_context
+                schemas, _ = await DirectChatService._l1_tool_subset(
+                    _Stub(llm, db), CHAT_ID, "ag-C", False, False, plan)
+                assert {s["function"]["name"] for s in schemas} == {
+                    "read_source_code"}
+                # Чтение без URL: та же structured identity, реальный router.
+                identity = sr.resolve_self_repo_identity()
+                assert identity["deployed_sha"] == sha
+                reader_ctx = ToolContext(
+                    CHAT_ID, "", user_id=ADMIN_ID, bot=FakeBot(),
+                    diagnostic_research=identity)
+                router = ToolRouter(ToolDeps(
+                    search=None, memory=None, aliases=None))
+                out = await router.dispatch(
+                    "read_source_code",
+                    {"operation": "read",
+                     "path": "services/checkup_service.py",
+                     "line_start": 150, "line_end": 175}, reader_ctx)
+                payload = json.loads(out)
+                assert payload["status"] == "ok"
+                assert payload["path"] == "services/checkup_service.py"
+                assert payload["line_range"] == [150, 175]
+                assert payload["repo_identity"]["ref_source"] == "deployed_sha"
+            finally:
+                hot.set_config_cache(None)
+        finally:
+            await db.close()
+
     def test_stale_or_missing_report_is_not_injected(self):
         context = l1.build_l1_context(query="привет")
         assert l1.DIAGNOSTIC_REPORT_SECTION not in context
+
 
 
 # ── 4. L1 outage: сохранение установленного решения без автозапуска ────────
@@ -342,6 +618,44 @@ class TestL1OutageDegradation:
                                                reply_to_bot=False) is None
         plan = l1.fallback_plan("продолжай")
         assert l1.diagnostic_source_capabilities(plan) == ()
+
+    @pytest.mark.asyncio
+    async def test_preserved_decision_does_not_dispatch_tool_by_itself(
+            self, monkeypatch):
+        """D/no-auto: fallback plan объявляет tools, но инструмент вызывает
+        только модель. Orchestrator отвечает `finish` → reader не зван."""
+        from services import direct_chat_service as dcs
+
+        monkeypatch.setattr(
+            dcs._dx, "resolve_orchestrator_budget",
+            AsyncMock(return_value=SimpleNamespace(
+                max_steps=1, max_total_tokens=10000,
+                query_chars=1000, snippet_chars=1000)))
+        reader = _FakeReader()
+        router = ToolRouter(_deps(reader=reader))
+
+        class _FinishLLM:
+            async def generate(self, messages, **kwargs):
+                return json.dumps({"action": "finish", "reason": "enough"})
+
+        svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
+        svc.tool_router = router
+        svc.llm = _FinishLLM()
+        kept = l1.preserved_diagnostic_research(
+            {"diagnostic_needed": True, "diagnostic_target": "self",
+             "diagnostic_sources": "source_code"}, reply_to_bot=True)
+        plan = l1.fallback_plan("продолжай", diagnostic_research=kept)
+        schemas = caps.schemas_for_names(
+            ["read_source_code", "inspect_runtime"],
+            tool_schemas.active_tools(False, False))
+        ctx = ToolContext(CHAT_ID, "", user_id=1)
+        ctx.diagnostic_research = _diag_ctx()
+        await svc._l1_tool_phase(
+            None, ctx, query="продолжай", lore_enabled=False,
+            image_enabled=False, temperature=None, chat_id=CHAT_ID,
+            correlation_id="ag-D", l1_plan=plan, response_plan=None,
+            fallback_meta={}, time_line="", tool_schemas=schemas)
+        assert reader.calls == []
 
     def test_l1_empty_content_is_part_of_existing_ladder(self):
         """LLMBadResponseError наследует LLMError → ловит существующая
@@ -372,6 +686,94 @@ class TestRbacBeforeExecution:
             {"operation": "read", "path": "services/checkup_service.py"}, ctx)
         assert "нет прав" in out
         assert reader.calls == []                  # инструмент не выполнялся
+
+
+class TestJournalAndIdentityEvidence:
+    @pytest.mark.asyncio
+    async def test_real_collector_journal_available_and_unavailable(self):
+        """A/E: real DiagnosticCollector/probes; fixture only journal process.
+
+        Available: fresh window facts + error marker (no proven zero).
+        Unavailable: explicit `unavailable`/`not_checked`, never a zero fact.
+        """
+        from services import diagnostic_collector as dc
+        from services import runtime_probes as rp
+        from tests.test_diagnostic_probes import FakeFetcher
+
+        limits = rp.ProbeLimits(probe_timeout_seconds=3.0,
+                                max_output_chars=9000,
+                                snapshot_ttl_seconds=15.0)
+
+        async def _page(fetcher):
+            collector = dc.DiagnosticCollector(
+                deps=rp.ProbeDeps(logs_fetcher=fetcher), limits=limits)
+            return await collector.collect(dc.CollectionRequest(
+                probe="logs.window", chat_id=CHAT_ID, scope="instance",
+                request_id="ag-A"))
+
+        _, ok = await _page(FakeFetcher(
+            "2026-11-13 05:00:00 ERROR fixture-journal-line\nline2\n"))
+        assert ok["status"] == "ok"
+        assert ok["sources"][0]["facts"]["backend"].startswith("fake:journal")
+        assert ok["sources"][0]["facts"]["error_marker_count"] == 1
+        assert ok["not_checked"] == ["journal_contents"]
+
+        _, down = await _page(FakeFetcher(error=RuntimeError("journal down")))
+        assert down["status"] == "unavailable"
+        assert down["sources"][0]["status"] == "unavailable"
+        assert down["sources"][0]["reason_code"] == "logs_read_failed"
+        assert "journal_window" in down["not_checked"]
+        assert down["sources"][0]["facts"] == {}
+
+    def test_identity_distinguishes_manifest_from_checkout(
+            self, tmp_path, monkeypatch):
+        """G: real deploy_identity/Resolver reports manifest≠checkout honestly."""
+        from config.settings import settings
+
+        root, checkout = _snapshot_repo(tmp_path)
+        deployed = "f" * 40
+        assert deployed != checkout
+        (root / ".deploy" / "release.json").write_text(json.dumps({
+            "schema": 1, "deployed_sha": deployed,
+            "deployed_at": "2026-11-13T00:00:00Z",
+            "version": "2.58.199", "effect": "deploy"}) + "\n",
+            encoding="utf-8")
+        monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT",
+                            str(root))
+        identity = sr.resolve_self_repo_identity()
+        assert identity["deployed_sha"] == deployed
+        assert identity["checkout_sha"] == checkout
+        assert identity["deployed_matches_checkout"] is False
+        assert identity["ref_source"] == "local_checkout_unverified"
+        assert "не подтверждён" in identity["note"]
+
+    @pytest.mark.asyncio
+    async def test_real_policy_denies_member_before_prompt_handler(
+            self, monkeypatch):
+        """F: real diagnostic_policy + real ToolRouter dispatch; deny pre-handler."""
+        from services import hot_config as hot
+        from tests.test_diagnostic_policy import (
+            GROUP_A, MEMBER_ID, FakeBot, FakeCache)
+        import handlers.prompt_readback as prompt_readback
+
+        cache = FakeCache({MEMBER_ID: "user"})
+        hot.set_config_cache(cache)
+        called = {"n": 0}
+
+        async def _must_not_run(*args, **kwargs):
+            called["n"] += 1
+            return "LEAK"
+
+        monkeypatch.setattr(prompt_readback, "prompt_readback", _must_not_run)
+        try:
+            router = ToolRouter(ToolDeps(search=None, memory=None))
+            out = await router.dispatch(
+                "prompt_readback", {},
+                ToolContext(GROUP_A, "", user_id=MEMBER_ID, bot=FakeBot()))
+            assert called["n"] == 0
+            assert "участникам" in out and "LEAK" not in out
+        finally:
+            hot.set_config_cache(None)
 
 
 # ── 6. Схемы инструментов реально объявляются модельному циклу ─────────────
