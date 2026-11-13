@@ -1,6 +1,6 @@
 # VMQ-M1 — инженерия: эпизоды/периоды (M-01..M-03)
 
-Кандидат: `80726249b2e67aff53f803d5434e712d9aa09f7e` (ветка `vmq/m1`).
+Кандидат: `cfec9a1a5ef5f78599529e9ee9394d28355b34eb` (ветка `vmq/m1`).
 База: производственный `234776589c934024ed0e8dceba189fb9d70d3215`
 (2.58.198, schema 47). Worktree:
 `<GLOBAL_CONFIG>/WorkspaceData/worktrees/c742e4de9e92c489/vmq-onto-01-3689dd92710d-4b445a11`.
@@ -48,6 +48,10 @@ services/mca_episode_jobs.py
 services/mca_episodes.py
 tests/test_vmq_m1_episode_contract.py
 ```
+
+Правка ревью-блокера — коммит `cfec9a1a` (те же два файла:
+`services/mca_episode_jobs.py`, `tests/test_vmq_m1_episode_contract.py`;
+никаких новых файлов, DDL или настроек).
 
 ### M-01 — границы, source refs, качество
 
@@ -140,6 +144,31 @@ tests/test_vmq_m1_episode_contract.py
 `test_edit_recheck_revision_is_stable`,
 `test_old_archive_rebuild_dedups_beyond_500_episodes`).
 
+### D4 — ревью-блокер M-03: recheck успешен, пересборка истории упала
+
+Reviewer: `process_rechecks` подавлял ошибку `assemble_stories`, а
+`rebuild_range` всё равно мог вернуть `complete=True` при устаревшей
+истории. Репродукция (тот же скрипт, публичные API): эпизод + ручной
+override, `recheck_pending`, LLM-перепроверка меняет контент,
+`assemble_stories` падает на вызове из recheck.
+
+| Наблюдение | До фикса `80726249` | После фикса `cfec9a1a` |
+|---|---|---|
+| RUN1 `complete/reason` | `True` / `completed` | **`False` / `assemble_failed`** |
+| RUN1 `rechecked / errors` | `1 / 0` | `1` / **`1`** |
+| RUN1 story обновлена | `False` (устаревшая, но заявлен успех) | `False` (честный partial) |
+| RUN2 `complete/reason` | `True` / `completed` | `True` / `completed` |
+| RUN2 story/override/дубли | обновлена / сохранён / 1 эпизод | обновлена / сохранён / 1 эпизод, версий ≥2 |
+
+Долговременные регрессии:
+`test_rebuild_reports_assemble_failure_after_recheck`,
+`test_process_rechecks_surfaces_assembly_failure`.
+`process_rechecks` теперь честно поднимает `RecheckAssemblyError`
+(retryable, без текста источника), а `rebuild_range` возвращает точную
+причину `assemble_failed` (непредвиденный сбой recheck-стадии —
+`recheck_failed`). Assembly остаётся идемпотентной, поэтому повторный
+bounded rebuild доводит projection.
+
 ## 4. Тесты (точные команды и счётчики)
 
 Интерпретатор: `C:\Code\Python\adminbot\.venv\Scripts\python.exe`
@@ -148,8 +177,8 @@ tests/test_vmq_m1_episode_contract.py
 
 | Команда | Результат |
 |---|---|
-| `pytest tests/test_vmq_m1_episode_contract.py -q` | **32 passed** (7.0 c) |
-| `pytest tests/test_mca05_episodes_stories_round1027.py tests/test_evol021_episode_semantics.py tests/test_asap8_f7_stories.py tests/test_asap8_v63_b08_stories.py tests/test_mca12_stories_round1046.py tests/test_vmq_m1_episode_contract.py -q` | **159 passed** |
+| `pytest tests/test_vmq_m1_episode_contract.py -q` | **34 passed** (7.2 c) |
+| `pytest tests/test_mca05_episodes_stories_round1027.py tests/test_evol021_episode_semantics.py tests/test_asap8_f7_stories.py tests/test_asap8_v63_b08_stories.py tests/test_mca12_stories_round1046.py tests/test_vmq_m1_episode_contract.py -q` | **161 passed** |
 | `pytest tests/test_memory_contracts.py tests/test_graphrag_memory.py tests/test_mca17_sleep_memory_workers_round1050.py tests/test_memory_health.py -q` | **295 passed** |
 | `pytest tests/test_mca01_tx_task_supervisor... tests/test_mca10b_*a/b/c... tests/test_memory_communities_migration.py tests/test_asap8_v63_b09_migration.py -q` | 110 passed, **1 failed — предсуществующий** (см. §6) |
 | `pytest tests/test_nostalgia_history_rework.py tests/test_nostalgia_proactive_recall.py tests/test_p0_old_lore_quarantine.py tests/test_vmq_mem_retrieval_fixes.py tests/test_history_retention_toggle.py tests/test_asap7_module_completeness.py -q` | **101 passed** |
@@ -260,6 +289,12 @@ M1 не добавлял write-points в `database.py`/чужие модули; 
 8. `rebuild_range` ограничен chat + временным диапазоном; отдельного
    subject-scoped rebuild нет (subject view — read-only производная).
    Полный архивный проход автоматически не запускается.
+9. Сбой `assemble_stories` после recheck не ретраится автоматически
+   внутри одного вызова: `rebuild_range` возвращает
+   `complete=False/reason=assemble_failed`, а проекцию доводит явный
+   повторный bounded rebuild (проверено тестом). `process_rechecks` для
+   прямых вызывающих честно поднимает `RecheckAssemblyError`; глотания
+   ошибки больше нет.
 
 ## 9. Follow-up seam для M2
 

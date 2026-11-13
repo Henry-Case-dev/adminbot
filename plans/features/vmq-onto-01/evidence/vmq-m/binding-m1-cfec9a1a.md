@@ -1,9 +1,12 @@
-# VMQ-M1 — binding M-01..M-03 к кандидату `80726249`
+# VMQ-M1 — binding M-01..M-03 к кандидату `cfec9a1a`
 
 Срез: `vmq-onto-01` / M1 (эпизоды и продольный обзор).
-Кандидат: `80726249b2e67aff53f803d5434e712d9aa09f7e`, ветка `vmq/m1`,
+Кандидат: `cfec9a1a5ef5f78599529e9ee9394d28355b34eb`, ветка `vmq/m1`,
 база `234776589c934024ed0e8dceba189fb9d70d3215` (2.58.198).
 Статус: **REVIEW** (кандидат Builder; независимый вердикт — Reviewer).
+Ревью-блокер M-03 (recheck успешен + сбой `assemble_stories` давал
+`complete=True` при устаревшей истории) закрыт коммитом `cfec9a1a`;
+M-01/M-02 не менялись. Reviewer перепроверяет **только M-03**.
 
 Контракт: `plans/features/vmq-onto-01/architecture-m1-episodes.md`
 (строки ниже — по docs-версии `e92080e9`). Инженерные подробности,
@@ -24,7 +27,7 @@
 | неполное время → partial/unknown, без выдуманной даты | `episode_view_from_row` (`event_period_known`), `segment_times` | `test_unknown_timestamp_is_partial_unknown_not_invented` |
 | строгий chat scope, никаких cross-chat слияний | `get_episode_view` (chat check), `_source_states` (chat scope) | `test_chat_scope_is_strict` |
 | ordered source refs, event time, canonical participants | `EpisodeView.source_refs/event_*/participants` | `test_reply_thread_merges_and_orders_source_refs` |
-| provenance через существующие source refs/evidence | existing `record_episode_provenance`/`record_story_provenance` (не переписаны) | `tests/test_mca05_...::TestProvenance` (159-группа) |
+| provenance через существующие source refs/evidence | existing `record_episode_provenance`/`record_story_provenance` (не переписаны) | `tests/test_mca05_...::TestProvenance` (161-группа) |
 
 ### M-02 — периоды/coverage, support/counterexamples
 
@@ -53,6 +56,7 @@
 | delete: удалённый источник не выдаётся за актуальный | `_source_states` → integrity partial/missing, `stale` | `test_deleted_source_not_reported_verified` |
 | watermark не прыгает через paused/unfinished порцию | `run()`: errors>0 → paused без checkpoint курсора | `test_watermark_does_not_jump_over_failed_portion` (+ RED D1) |
 | persisted manual override не затирается | existing override-механика + `assemble_stories` (не переписаны) | `test_manual_override_survives_rebuild` |
+| recheck OK, но пересборка истории упала → НЕ `completed` | `process_rechecks_with_status` → `assemble=failed`; `rebuild_range` → `complete=False, reason=assemble_failed, errors+=1`; повторный rebuild доводит projection | `test_rebuild_reports_assemble_failure_after_recheck`, `test_process_rechecks_surfaces_assembly_failure` (RED D4: на `80726249` было `complete=True` при устаревшей истории) |
 | bounded job, без полного автоматического архива | `REBUILD_RANGE_MAX_BATCHES=20`, `max_messages` ≤ gate | `test_rebuild_range_is_bounded` |
 
 ### No mass reembedding / no DDL / security
@@ -64,7 +68,7 @@ delta), acceptance L69–L71; запрет L95.
 |---|---|
 | 0 вызовов embedding/upsert | spy на `LLMClient.embed/embed_once`, `EmbeddingExecutor.embed`, `EmbeddingProviderAdapter.embed_batch`; `test_no_embedding_writes_during_m1_flows` |
 | нет embedding-путей в коде M1 | static: `test_static_no_embedding_or_ddl_paths` |
-| **DDL: нет** (контракт L11/L13 — новая DDL не обоснована) | `git diff --name-only 23477658..80726249` = 2 services + 1 test; нет DDL-паттернов; `PRAGMA user_version` не меняется (`test_m1_flows_do_not_change_schema`) |
+| **DDL: нет** (контракт L11/L13 — новая DDL не обоснована) | `git diff --name-only 23477658..80726249` = 2 services + 1 test; фикс `cfec9a1a` — те же 2 файла; нет DDL-паттернов; `PRAGMA user_version` не меняется (`test_m1_flows_do_not_change_schema`) |
 | нет тел сообщений/секретов в логах | `test_failure_paths_do_not_log_message_bodies` (exception провайдера + все `services.*` records) |
 | logs/events без текста источников | story-события: `summary=f"episodes=<n>"`; изолированный secret-тест |
 | bounded работа | LIMIT/chunk-константы (`EPISODE_SOURCE_MAX`, `_SOURCE_QUERY_CHUNK`, `EPISODE_VIEW_LIMIT_MAX`, `LONGITUDINAL_MAX_EPISODES`, `REBUILD_RANGE_MAX_BATCHES`), `test_view_list_is_capped`, `test_rebuild_range_is_bounded` |
@@ -88,7 +92,7 @@ delta), acceptance L69–L71; запрет L95.
 
 Изменены только:
 `services/mca_episodes.py`, `services/mca_episode_jobs.py`,
-`tests/test_vmq_m1_episode_contract.py` (код-коммит `80726249`).
+`tests/test_vmq_m1_episode_contract.py` (код-коммит `cfec9a1a`).
 `services/database.py`, migrations, `services/mca_retrieval_context.py`,
 `services/memory_contracts.py`, `services/graphrag_provenance.py`,
 настройки/prompts — **не изменялись**.
