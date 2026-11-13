@@ -135,6 +135,8 @@ async def _latest_job_async(db, kind: str) -> dict | None:
                 "backlog_rows": int(progress.get("backlog_rows") or 0),
                 "backlog_chats": int(progress.get("backlog_chats") or 0),
                 "lag_seconds": int(progress.get("lag_seconds") or 0),
+                "lag_seconds_source": str(
+                    progress.get("lag_seconds_source") or "unknown"),
                 "deferred_chats": int(progress.get("deferred_chats") or 0),
                 # SXR-I2: измеренное расстояние курсора до данных отдельно от
                 # счётчика pending (иначе реальное отставание скрыто).
@@ -341,6 +343,10 @@ async def memory_intel_funnels(
                     "semantic_progress") or {}).get("backlog_chats") or 0),
                 "lag_seconds": int(((review_job or {}).get(
                     "semantic_progress") or {}).get("lag_seconds") or 0),
+                # F2: явный источник возраста (cursor_distance|pending|unknown).
+                "lag_seconds_source": str(((review_job or {}).get(
+                    "semantic_progress") or {}).get(
+                        "lag_seconds_source") or "unknown"),
                 "deferred_chats": int(((review_job or {}).get(
                     "semantic_progress") or {}).get("deferred_chats") or 0),
             },

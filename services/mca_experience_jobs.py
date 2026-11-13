@@ -989,8 +989,11 @@ def semantic_progress_snapshot(payload: dict, *,
     * ``lag_rows/lag_chats`` — измеренное расстояние курсоров до фактических
       данных (COUNT строк после курсора, `SEMANTIC_LAG_KEY`), только если
       замер удался; иначе ``lag_source="pending"`` и честный fallback.
-    ``lag_seconds`` — возраст самой старой необработанной реплики (по моменту
-    появления в индексе); deferred_chats — чаты на отложенном повторе.
+    ``lag_seconds`` — возраст самой старой необработанной реплики. Источник
+    указывается явно (SXR-I2 F2): ``lag_seconds_source="cursor_distance"`` —
+    измерено по данным после курсора; ``"pending"`` — честный fallback по
+    счётчику; ``"unknown"`` — неизвестно (``lag_seconds=None``, ноль не
+    подставляется); deferred_chats — чаты на отложенном повторе.
     Только числа/коды (R17): содержимое сообщений не отдаётся."""
     now = int(time.time()) if now is None else int(now)
     pending = payload.get(SEMANTIC_PENDING_KEY)
@@ -1039,12 +1042,22 @@ def semantic_progress_snapshot(payload: dict, *,
         # порождать пустые проходы каждые 15 минут.
         "actionable_rows": actionable_rows,
         "actionable_chats": actionable_chats,
-        "lag_seconds": (now - oldest) if oldest else 0,
+        # Временный возраст необработанного; ниже переопределяется измеренным
+        # источником (F2) и всегда сопровождается явным lag_seconds_source.
+        "lag_seconds": (now - oldest) if oldest else None,
+        "lag_seconds_source": "pending" if oldest else "unknown",
         "deferred_chats": deferred,
         "watermark": int(payload.get(SEMANTIC_WATERMARK_KEY) or 0),
     }
     lag = payload.get(SEMANTIC_LAG_KEY)
     if isinstance(lag, dict) and lag.get("available"):
+        age = lag.get("age_seconds")
+        if age is None:
+            # Строки отстают, но их метки времени неизвестны: ноль не выдаём.
+            lag_seconds, lag_seconds_source = None, "unknown"
+        else:
+            lag_seconds = max(0, int(age))
+            lag_seconds_source = "cursor_distance"
         snapshot.update({
             "lag_rows": max(0, int(lag.get("rows") or 0)),
             "lag_chats": max(0, int(lag.get("chats") or 0)),
@@ -1055,9 +1068,12 @@ def semantic_progress_snapshot(payload: dict, *,
             "lag_source": "cursor_distance",
             "lag_measured_at": int(lag.get("ts") or 0),
             "lag_partial": bool(lag.get("partial")),
+            "lag_seconds": lag_seconds,
+            "lag_seconds_source": lag_seconds_source,
         })
     else:
-        # Замер не удался: не выдаём ноль за истину — источник явно pending.
+        # Замер не удался: не выдаём ноль за истину — источник явно pending
+        # (или unknown, когда и счётчик не знает возраста).
         snapshot.update({
             "lag_rows": actionable_rows,
             "lag_chats": actionable_chats,
@@ -1066,6 +1082,8 @@ def semantic_progress_snapshot(payload: dict, *,
             "lag_source": "pending",
             "lag_measured_at": 0,
             "lag_partial": True,
+            "lag_seconds": (now - oldest) if oldest else None,
+            "lag_seconds_source": "pending" if oldest else "unknown",
         })
     return snapshot
 
@@ -2273,14 +2291,29 @@ class ExperienceReviewRunner:
             return 0
         return int(row["id"])
 
-    async def _chat_rows_after(self, chat_id: int, cursor_pos: int) -> int:
-        """Точное число строк чата после durable-курсора (для честного lag)."""
+    async def _chat_rows_after(self, chat_id: int,
+                               cursor_pos: int) -> tuple[int, int]:
+        """Строки чата после durable-курсора и метка самой старой из них.
+
+        Один проход по PK-диапазону `id > cursor` с фильтром `chat_id`:
+        ``COUNT(*)`` — измеренная дистанция (честный lag), ``MIN(timestamp)`` —
+        возраст самой старой необработанной реплики. Обе величины из одного
+        измеренного источника (SXR-I2 F2: `lag_seconds` не должен оставаться
+        pending-based и не должен превращаться в 0 при неизвестности).
+        Отсутствие строк → ``(0, 0)``; NULL/0 timestamp → возраст неизвестен.
+        """
         cursor = await self._db.db.execute(
-            "SELECT COUNT(*) AS c FROM smart_messages "
-            "WHERE chat_id = ? AND id > ?",
+            "SELECT COUNT(*) AS c, MIN(timestamp) AS oldest "
+            "FROM smart_messages WHERE chat_id = ? AND id > ?",
             (int(chat_id), int(cursor_pos)))
         row = await cursor.fetchone()
-        return int(row["c"] or 0) if row is not None else 0
+        if row is None:
+            return 0, 0
+        try:
+            oldest = int(row["oldest"] or 0)
+        except (TypeError, ValueError):
+            oldest = 0
+        return int(row["c"] or 0), oldest
 
     async def _semantic_chats_behind(self, payload: dict) -> dict[int, int]:
         """{chat: max_id} для чатов, чей курсор реально отстаёт от данных."""
@@ -2315,7 +2348,8 @@ class ExperienceReviewRunner:
             "available": False, "ts": now, "rows": 0, "chats": 0,
             "actionable_rows": 0, "actionable_chats": 0,
             "worst_chat": None, "worst_rows": 0, "worst_cursor": 0,
-            "worst_max_id": 0, "measured_chats": 0, "partial": False,
+            "worst_max_id": 0, "measured_chats": 0, "failed_chats": 0,
+            "partial": False, "oldest_ts": 0, "age_seconds": None,
         }
         try:
             behind = await self._semantic_chats_behind(payload)
@@ -2346,23 +2380,48 @@ class ExperienceReviewRunner:
         rows_total = 0
         actionable_rows = 0
         measured = 0
+        failed = 0
+        oldest_ts = 0
         worst: tuple[int, int, int, int] | None = None
         for chat_id, max_id in ordered[:int(SEMANTIC_LAG_MEASURE_MAX_CHATS)]:
             cursor_pos = _cursor_of(chat_id)
             try:
-                count = await self._chat_rows_after(chat_id, cursor_pos)
+                count, chat_oldest = await self._chat_rows_after(
+                    chat_id, cursor_pos)
             except Exception:
+                failed += 1
                 logger.warning(
                     "[mca16] semantic lag count failed | chat=%s", chat_id,
                     exc_info=True)
                 continue
             measured += 1
             rows_total += count
+            if chat_oldest > 0 and (not oldest_ts or chat_oldest < oldest_ts):
+                oldest_ts = int(chat_oldest)
             if worst is None or count > worst[1]:
                 worst = (int(chat_id), int(count), int(cursor_pos),
                          int(max_id))
             if not _deferred(chat_id):
                 actionable_rows += count
+        if behind and measured == 0:
+            # F1: ни один чат измерить не удалось. Ноль здесь означал бы
+            # «отставания нет», хотя фактически это неизвестность — замер
+            # честно недоступен, снимок уйдёт на pending-fallback.
+            result.update({
+                "chats": int(len(behind)),
+                "measured_chats": 0,
+                "failed_chats": int(failed),
+                "partial": True,
+            })
+            return result
+        # F2: возраст самой старой необработанной реплики из того же
+        # измеренного источника; None = неизвестно (не подставляем 0).
+        if rows_total <= 0:
+            age_seconds: int | None = 0
+        elif oldest_ts > 0:
+            age_seconds = max(0, int(now) - int(oldest_ts))
+        else:
+            age_seconds = None
         result.update({
             "available": True,
             "rows": int(rows_total),
@@ -2371,7 +2430,10 @@ class ExperienceReviewRunner:
             "actionable_chats": int(sum(
                 1 for chat_id in behind if not _deferred(chat_id))),
             "measured_chats": int(measured),
+            "failed_chats": int(failed),
             "partial": bool(len(behind) > measured),
+            "oldest_ts": int(oldest_ts),
+            "age_seconds": age_seconds,
         })
         if worst is not None:
             result.update({"worst_chat": worst[0], "worst_rows": worst[1],

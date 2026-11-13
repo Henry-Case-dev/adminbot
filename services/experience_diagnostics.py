@@ -1328,7 +1328,10 @@ async def _learning_analytics(db, *, chat_id: int | None = None) -> dict:
                 "backlog_rows"))),
             "lag_source": str(progress.get("lag_source") or "pending"),
             "actionable_rows": _int(progress.get("actionable_rows")),
+            # F2: источник возраста тот же, что у lag_rows; None = неизвестно.
             "lag_seconds": _int(progress.get("lag_seconds")),
+            "lag_seconds_source": str(
+                progress.get("lag_seconds_source") or "unknown"),
             "max_observed_rows": _int(durable.get("fresh_stream_lag_rows")),
         },
         "archive": {
