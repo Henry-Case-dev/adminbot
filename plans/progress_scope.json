@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T00:49:42+12:00",
+  "updated": "2026-11-14T00:50:20+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -1867,7 +1867,7 @@
       "source_note": "plans/current_task.md lines 11750-13308 (owner-authored). Stages A-M: budgets/tool-loop/evidence, model capacity, local-first own code, GitHub SafeFetch, finalization, SELF-DIAG H, production defects I1-I6, anti-hardcode J, acceptance L, order/DoD M. One epic; no duplicate correctives.",
       "queue_note": "2026-11-14: map/plan/slice-graph committed (99 reqs, 13 slices); contract parts 1-2 frozen; production recon committed (budgets OFF everywhere but tool-chain limits active; capacity 16384 vs catalog 1048576; SafeFetch single-DNS-snapshot cause; I2 backlog; I4 unmapped codes). Wave 1 building: A+B budgets/tool-loop, D capacity, C1 SourceReader, F SafeFetch. Baseline = production d20a7f73.",
       "created": "2026-11-14T00:16:56+12:00",
-      "updated": "2026-11-14T00:49:42+12:00",
+      "updated": "2026-11-14T00:50:20+12:00",
       "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
       "source_sha256": "32ef8c8289cf3f66e8949048a449178223cc0f058c3701e60cda72f8a60ecaf1",
       "source_line": "plans/current_task.md:11750-13308",
@@ -1876,7 +1876,12 @@
         "pending": 99,
         "verified": 0,
         "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339"
-      }
+      },
+      "coverage_complete": true,
+      "maps": [
+        "plans/features/smart-execution-reliability-01/requirements-map.json",
+        "plans/features/smart-execution-reliability-01/slice-graph.json"
+      ]
     }
   ],
   "owner_inputs": [
