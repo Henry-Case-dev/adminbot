@@ -1,18 +1,18 @@
 """v6 D06 — hard chat isolation в vector retrieval/dedup (§9A.3, §18F.4).
 
-Контракт: chat-scope ДО effective top-K/rank/dedup. vec0 0.1.9 не умеет
-фильтр auxiliary-колонки внутри KNN-запроса (проба: OperationalError «illegal
-WHERE constraint … auxiliary column»), DDL partition key — вне слайса →
-доказанная staged overfetch-стратегия: k растёт ×4 до жёсткого cap, пока
-после chat-фильтра не наберётся нужное число фактов СВОЕГО чата либо не
-исчерпается индекс; исчерпание — честное «в чате меньше фактов», cap при
-заполненном K — partial (телеметрия + WARNING, не пустой молча).
+Контракт: chat-scope ДО effective top-K/rank/dedup. SXR-I6-01: exact scope
+обеспечивает rowid-подзапрос источника внутри vec0-KNN (`rowid IN (SELECT id
+FROM graph_facts|smart_archive_facts WHERE chat_id = ?)`, rowid vec-строки ==
+id факта) — чужие чаты физически не входят в top-K и не занимают k. Staged
+добор остаётся только для post-KNN фильтров своего чата (TTL/origin).
+Историческая часть: staged overfetch ×4 до cap был промежуточным контрактом
+D06 (sqlite-vec 0.1.9 умеет rowid-prefilter без DDL/partition key).
 
 U13/§9A.5: два чата с одинаковым user_id и конфликтующими фактами
 («работает в X» vs «работает в Y») — чужие кандидаты не вытесняют свой чат
 ни в archive-KNN (float и int8), ни в dedup.
 
-TEST-LIFECYCLE: CONTRACT owner=D06 (v6 remediation §C)
+TEST-LIFECYCLE: CONTRACT owner=D06 (v6 remediation §C) + SXR-I6-01
 R17: только синтетические векторы/факты, никаких реальных переписок.
 """
 import asyncio
@@ -151,7 +151,9 @@ class TestArchiveKnnIsolation:
         assert tele["own"] == 2
         assert tele["want"] == 5
         assert tele["partial"] is False
-        assert tele["filtered_other_chat"] == 6
+        # SXR-I6-01: чужие отсечены rowid-подзапросом ДО KNN — в выдаче их нет
+        assert tele["filtered_other_chat"] == 0
+        assert tele["scope"] == "rowid"
 
         # публичный путь vector_search — тот же контракт
         facts = await memory.vector_search(CHAT_A, "где работает алекс", 5)
@@ -199,10 +201,11 @@ class TestArchiveKnnIsolation:
         assert tele["partial"] is False
 
     @pytest.mark.asyncio
-    async def test_overfetch_cap_marks_partial_not_silent(self, db, monkeypatch):
-        """Чужих больше cap: результат частичный и ПОМЕЧЕН (tele.partial +
-        WARNING), не пустой молча (§18F.4). 7 чужих ближе cap'а, свой факт
-        добирается 8-м — неполный (1 из 2), но не пустой и не тихий."""
+    async def test_small_cap_does_not_starve_chat(self, db, monkeypatch):
+        """SXR-I6-01: cap KNN НЕ определяет доступность своего чата. 7 чужих
+        ближе своего, cap=8 — на глобальном overfetch свой факт не попал бы в
+        k вовсе; exact rowid-scope возвращает его в одном запросе, partial
+        честно False (в чате всего 1 факт, want=2 → индекс исчерпан)."""
         monkeypatch.setattr("services.summary_memory._KNN_SCOPE_K_CAP", 8)
         memory = await _init_memory(db, VecLLM(), monkeypatch, int8=False)
         await _seed_archive(
@@ -213,19 +216,19 @@ class TestArchiveKnnIsolation:
 
         facts, tele = await memory._search_archive_knn_scoped(
             CHAT_A, _unit(0), 2)
-        assert facts == ["свой факт про дроны"]    # частичный, НЕ пустой
-        assert tele["partial"] is True
+        assert facts == ["свой факт про дроны"]
+        assert tele["partial"] is False
         assert tele["own"] == 1
         assert tele["want"] == 2
-        assert tele["exhausted"] is False
-        assert tele["attempts"] == 1               # k_first ужат cap'ом (8)
-        assert tele["filtered_other_chat"] == 7    # чужие рядом, добора нет
+        assert tele["exhausted"] is True           # свой чат дочитан
+        assert tele["attempts"] == 1               # cap и scope — один запрос
+        assert tele["filtered_other_chat"] == 0    # чужие не входят в выдачу
+        assert tele["scope"] == "rowid"
 
     @pytest.mark.asyncio
-    async def test_staged_refill_recovers_own_facts(self, db, monkeypatch):
-        """Стадийный добор (attempts > 1): чужие заполнили k_first, но индекс
-        НЕ исчерпан → k растёт ×4, свои факты добираются; overfetch_used=True
-        (телеметрия добора)."""
+    async def test_scoped_knn_recovers_own_without_refill(self, db, monkeypatch):
+        """12 чужих ближе своих не влияют: свои факты находятся первым же
+        scoped-запросом (attempts=1), добор не нужен; чужие не возвращаются."""
         memory = await _init_memory(db, VecLLM(), monkeypatch, int8=False)
         await _seed_archive(
             db, memory,
@@ -235,10 +238,10 @@ class TestArchiveKnnIsolation:
         facts, tele = await memory._search_archive_knn_scoped(
             CHAT_A, _unit(0), 2)
         assert set(facts) == {"свой факт #0", "свой факт #1"}
-        assert tele["attempts"] == 2               # 8 → 32 (индекс исчерпан)
-        assert tele["overfetch_used"] is True
-        assert tele["exhausted"] is True           # дочитали до конца — честно
+        assert tele["attempts"] == 1
+        assert tele["overfetch_used"] is False
         assert tele["partial"] is False
+        assert tele["scope"] == "rowid"
 
 
 # ── Dedup: chat-scope до top-K ───────────────────────────────────────────────
