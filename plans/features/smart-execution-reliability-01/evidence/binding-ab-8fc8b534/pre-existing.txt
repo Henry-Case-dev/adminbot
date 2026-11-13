@@ -1,0 +1,50 @@
+SMART-EXECUTION-RELIABILITY-01 — stages A+B, pre-existing failures on base
+===========================================================================
+Date: 2026-11-14
+Candidate: 8fc8b534ebb993fca29fc2f86b7aef2d95796660
+Base: d20a7f730715ba9e9cba7673c0557794979be339 (2.58.199)
+
+Method: git archive of base commit d20a7f73 extracted to a scratch dir
+(WorkspaceData/runs/.../probe-a3ffd061d6/base) and the same test files run
+with the project venv. Base archive has no .git, so the two tag-baseline
+"bounds" guards cannot fail there; they are proven separately below.
+
+1) Broad batch (25 files, same list on both):
+   base:      8 failed, 1092 passed, 2 skipped
+   candidate: 8 failed, 1091 passed (+2 pre-existing bounds failures listed
+              in 3), 0 skipped
+
+   Identical pre-existing failures on base and candidate:
+   - tests/test_addtr_tools_minifix.py::test_l1_seam_announce_then_execute_once
+     AttributeError: 'DirectChatService' object has no attribute 'llm'
+     (direct_chat_service.py:8428 `llm=self.llm` exists on base verbatim;
+     test builds the service via object.__new__ without `llm`).
+   - tests/test_direct_fallback_recompose_asap32.py (5 tests)
+     TypeError: ...fb_retries() got an unexpected keyword argument 'sent'
+     (llm_client.py:1694; llm_client.py is not touched by this diff).
+   - tests/test_mca16_experience_block_d_round1039.py::test_deep_sleep_not_mixed_with_lessons
+     asserts a substring absent from a source blob (prompt/doc drift; files
+     not touched by this diff).
+
+   test_mca07_retrieval_context_round1027.py: 41 passed in isolation and in
+   the 11-file prefix on the candidate; two failures appeared once inside the
+   25-file batch and did not reproduce (pytest 9.1.1, no pytest-randomly).
+   Recorded as pre-existing test-isolation flake, not candidate-caused.
+
+2) Focused A/B + adjacent suites on candidate (21 files):
+   638 passed, 2 failed — both failures are the tag-baseline guards in 3.
+
+3) Tag-baseline guards (pre-existing, stale `pre-round1026-a1` tag):
+   - tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools
+     TOOL_CALLING_TOOLS == 18, test still pins 17. services/tool_schemas.py is
+     NOT modified by this diff (git diff d20a7f73 -- services/tool_schemas.py
+     is empty), so the mismatch exists on base.
+   - TestBounds::test_forbidden_paths_out_of_diff and
+     tests/test_unified_image_request_round1026.py::TestBoundsA3
+     both diff the worktree against the very old tag `pre-round1026-a1`:
+       base:      8614 names, 36 under web/
+       candidate: 8617 names, 36 under web/ (the 3 new names are
+                  services/budget_gate.py, tests/test_smoke_round1016_tool_loop.py,
+                  tests/test_smart_exec_ab_round1114.py)
+     The set of offending web/ paths is identical (36) → the guard fails on
+     base too; this candidate adds no web/, plans/current_task.md or db/ path.
