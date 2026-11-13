@@ -42,6 +42,11 @@ def _iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _next_patch(version: str) -> str:
+    major, minor, patch = version.split(".")
+    return f"{major}.{minor}.{int(patch) + 1}"
+
+
 def _repo(tmp_path, *, version: str = APP_VERSION):
     """Настоящий локальный checkout: config/settings.py + один коммит."""
     root = tmp_path / "repo"
@@ -217,13 +222,14 @@ def test_previous_release_is_taken_from_existing_manifest(tmp_path):
     root, first_sha = _repo(tmp_path)
     rm.write_manifest(root, rm.build_manifest(root))
 
-    second_sha = _commit(root, version="2.58.199", message="deploy two")
+    second_version = _next_patch(APP_VERSION)
+    second_sha = _commit(root, version=second_version, message="deploy two")
     manifest = rm.build_manifest(root, effect="deploy")
     rm.write_manifest(root, manifest)
     data = _read_manifest(root)
 
     assert data["deployed_sha"] == second_sha
-    assert data["version"] == "2.58.199"
+    assert data["version"] == second_version
     assert data["previous_sha"] == first_sha
     assert data["previous_version"] == APP_VERSION
 
@@ -232,7 +238,8 @@ def test_previous_release_is_taken_from_existing_manifest(tmp_path):
 def test_rollback_manifest_points_to_previous_running_version(tmp_path):
     root, first_sha = _repo(tmp_path)
     rm.write_manifest(root, rm.build_manifest(root))
-    second_sha = _commit(root, version="2.58.199", message="deploy two")
+    second_version = _next_patch(APP_VERSION)
+    second_sha = _commit(root, version=second_version, message="deploy two")
     rm.write_manifest(root, rm.build_manifest(root))
 
     _git(root, "checkout", "-q", first_sha)
@@ -242,7 +249,7 @@ def test_rollback_manifest_points_to_previous_running_version(tmp_path):
     assert data["effect"] == "rollback"
     assert data["deployed_sha"] == first_sha
     assert data["previous_sha"] == second_sha
-    assert data["previous_version"] == "2.58.199"
+    assert data["previous_version"] == second_version
 
 
 @requires_git
