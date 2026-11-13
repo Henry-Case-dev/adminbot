@@ -5,10 +5,10 @@ Task source: plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md + p
 Status: in_progress
 Primary phase: build
 Active feature: smart-execution-reliability-01
-Active lanes: H Builder ses_e295e80f9ffeD3jctjEgSGwkdL (smart/h-selfdiag; merge of G conflict services/response_extent.py, then H); S13 Reviewer ses_e2949c259ffeKVPoCCp7d3qjLU (candidate bc2ac583, head 2d6b5a8d). PM idle.
+Active lanes: H Builder ses_e295e80f9ffeD3jctjEgSGwkdL (smart/h-selfdiag; merge of G conflict services/response_extent.py, then H); S13 Reviewer ses_e2949c259ffeKVPoCCp7d3qjLU (re-review of formatting fix ffe417d0, head 1c971c59). PM idle.
 Join barriers: H handoff -> H review; S13 review -> PM binding; then FC S14-S17; then integrated system-wide cap audit (C2-01/C3-01/C3-02) + S12 acceptance; one release train.
 Last verified: production 2.58.199 at d20a7f73 (schema 47, no DDL, rollback 25876167). Map: 56 REVIEW / 5 READY / 6 VERIFIED (S0) / 32 PENDING core; FC 87 PENDING. S3 approved at 5e87ed48 and bound (27cd2d39, 7e5f9d85): S3 review 35 errors = only integration-required rows (C2-01/C3-01/C3-02), deploy red is structural dependency closure. I56 approved at d43fa1fd (+tests 58a8f859) and bound (4bcc52ff, 3fd4d68a); S11 gate 0 errors.
-Candidates: H building on base A+B + C1/C2/C3 + E + G (conflict in response_extent.py must preserve both finalize and cap-removal intents); FC S13 candidate bc2ac583 (head 2d6b5a8d; 39 focused, 995 broad, RED 34/3, mutations M1-M4; media_readiness additive justified) under review.
+Candidates: H building on base A+B + C1/C2/C3 + E + G (conflict in response_extent.py must preserve both finalize and cap-removal intents); FC S13 candidate ffe417d0 (formatting-only fix of bc2ac583; head 1c971c59; 39 focused/28 context+planner/655 affected; diff-check clean; diff -w empty) under re-review; media_readiness additive justified.
 Next unlocks: H handoff -> H review; FC tests/evidence -> S13 review; then FC S14-S17; integrated audit + S12 acceptance L/J/K/M; single release train and postdeploy smoke.
 Next execution: awaiting_children
 Review: S0 approved+VERIFIED; S3/I56 approved+bound; I1-02/I2-02 approved+REVIEW; H/S13 pending
