@@ -432,6 +432,34 @@ class TestSourceOrder:
                                             ensure_ascii=False)
 
     @pytest.mark.asyncio
+    async def test_verification_is_not_lost_by_recollecting_identity(
+            self, tmp_path, monkeypatch):
+        """Одна запись идентичности: провайдер не пересобирает её заново.
+
+        Регрессия живой пробы: повторный `collect_identity` без
+        `process_started_at` понижал `verified_running` до
+        `running_unverified` в payload, хотя версия подтверждена.
+        """
+        tree = _tree(tmp_path)
+        record = _resolve(tree, _identity())
+        assert record["verification"] == (
+            sr.LOCAL_VERIFICATION_VERIFIED_RUNNING)
+        _patch_identity(monkeypatch,
+                        _identity(code="local_unverified", dirty=None))
+        reader = sr.SourceReader(provider=_StubGitHub(), local_source=record,
+                                 repo_origin=REPO)
+        payload = await reader.run(operation=sr.OPERATION_READ, repo=REPO,
+                                   path="services/source_reader.py",
+                                   follow=False, budget_chars=4000)
+        assert payload["status"] == sr.STATUS_OK
+        selection = payload["source_selection"]
+        assert selection["verification"] == (
+            sr.LOCAL_VERIFICATION_VERIFIED_RUNNING)
+        assert selection["version_verified"] is True
+        assert payload["provenance"]["source_verification"] == (
+            sr.LOCAL_VERIFICATION_VERIFIED_RUNNING)
+
+    @pytest.mark.asyncio
     async def test_provenance_keeps_repo_commit_path_range_and_status(
             self, tmp_path):
         tree = _tree(tmp_path,

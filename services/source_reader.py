@@ -2288,10 +2288,18 @@ class SourceReader:
                     repo_origin=self._repo_origin or None)
                 self._local_source = record
             if record.get("usable") and record.get("root"):
+                # Одна запись идентичности на процесс: провайдер не пересобирает
+                # её (иначе версия «деплой подтверждён» терялась бы вместе с
+                # process_start и payload показывал бы running_unverified).
+                collected = record.get("identity")
+                reader_for_record = (
+                    (lambda _root, _rec=collected: _rec)
+                    if isinstance(collected, dict) and collected else None)
                 local_provider = LocalSnapshotProvider(
                     record.get("root"),
                     repo_origin=(self._repo_origin
                                  or record.get("expected_origin")),
+                    identity_reader=reader_for_record,
                     source=record)
         elif self._local_source is None:
             reader = getattr(local_provider, "source_record", None)
