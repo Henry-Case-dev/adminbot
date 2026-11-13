@@ -318,6 +318,98 @@ def configured_repo_origin() -> str:
     return origin
 
 
+def resolve_self_repo_identity() -> dict:
+    """Каноническая идентичность СВОЕГО репозитория для исследования кода.
+
+    SELF-DIAG-01 corrective (§3/§4 owner input): вызывается ТОЛЬКО после
+    структурированного решения модели ``diagnostic_research.target == self``.
+    Собственный репозиторий — известная часть окружения, а не внешний адрес,
+    который пользователь обязан присылать каждый раз.
+
+    Приоритет ref (и честное различие identity):
+
+    1. ``deployed_sha`` и он совпадает с checkout (или локального snapshot
+       нет) — читается именно deployed commit;
+    2. deployed SHA не совпадает с checkout/не подтверждён — читается
+       доступный локальный checkout/snapshot (`ref=""` → HEAD провайдера) с
+       явной пометкой ``local_checkout_unverified`` и обоими SHA;
+    3. deployed SHA нет, но есть локальный snapshot — ``local_snapshot``;
+    4. иначе — удалённая ветка по умолчанию (``remote_default_branch``), НЕ
+       выдаваемая за работающую версию.
+
+    Ничего не исполняет и не бросает: ошибка identity → честные ``None``/
+    ``unknown`` + причина, не выдуманный SHA."""
+    repo = configured_repo_origin()
+    record: dict = {}
+    error = ""
+    try:
+        from services import deploy_identity as _di
+        started = None
+        try:
+            from services.status_service import status as _status
+            started = getattr(_status, "started_at", None)
+        except Exception:      # pragma: no cover - статус недоступен
+            started = None
+        # Существующий выбор корня (тот же, что у DiagnosticCollector):
+        # настроенный snapshot root, иначе фактический cwd процесса.
+        root = local_snapshot_root()
+        if not root:
+            try:
+                root = os.getcwd()
+            except OSError:      # pragma: no cover - защитная ветка
+                root = None
+        collected = _di.collect_identity(
+            root, process_started_at=started)
+        record = collected if isinstance(collected, dict) else {}
+    except Exception as exc:      # pragma: no cover - защитная ветка
+        error = type(exc).__name__
+    deployed_sha = str(record.get("deployed_sha") or "").strip().lower() or ""
+    checkout_sha = str(record.get("checkout_sha") or "").strip().lower() or ""
+    local_verification = str(
+        record.get("local_source_verification") or "unknown")
+    match = (bool(deployed_sha and checkout_sha
+                  and deployed_sha == checkout_sha)
+             if deployed_sha and checkout_sha else None)
+    local_root = local_snapshot_root()
+    if deployed_sha and (not local_root or match is True):
+        ref, ref_source = deployed_sha, "deployed_sha"
+    elif local_root:
+        ref = ""
+        ref_source = ("local_checkout_unverified"
+                      if deployed_sha else "local_snapshot")
+    elif deployed_sha:
+        ref, ref_source = deployed_sha, "deployed_sha"
+    else:
+        ref, ref_source = "", "remote_default_branch"
+    note = ""
+    if ref_source == "local_checkout_unverified":
+        note = ("deployed SHA не подтверждён локальным checkout; читается "
+                "локальная версия, соответствие работающему процессу не "
+                "доказано")
+    elif ref_source == "local_snapshot":
+        note = ("deployed SHA недоступен; читается локальный проверяемый "
+                "snapshot, это не доказательство версии работающего процесса")
+    elif ref_source == "remote_default_branch":
+        note = ("ни deployed SHA, ни локальный snapshot недоступны; будет "
+                "прочитана удалённая ветка по умолчанию — это не обязательно "
+                "работающая версия")
+    return {
+        "target": "self",
+        "repo": repo,
+        "ref": ref,
+        "ref_source": ref_source,
+        "deployed_sha": deployed_sha or None,
+        "checkout_sha": checkout_sha or None,
+        "deployed_matches_checkout": match,
+        "local_source_verification": local_verification,
+        "dirty": record.get("dirty"),
+        "conflict": list(record.get("conflict") or ()),
+        "local_snapshot": bool(local_root),
+        "identity_error": error,
+        "note": note,
+    }
+
+
 # ── отказ провайдера (структурный, без свободного текста наружу) ─────────────
 
 class SourceFetchError(Exception):
@@ -2651,6 +2743,7 @@ __all__ = [
     "max_depth", "max_requests", "max_file_bytes", "github_token",
     "decode_source_bytes", "DecodedSource", "local_snapshot_root",
     "normalize_repo_origin", "configured_repo_origin",
+    "resolve_self_repo_identity",
     "build_local_provider", "line_spans", "strip_line_ending",
     "ERR_EMPTY_CONTENT", "ERR_PATH_DENIED",
 ]

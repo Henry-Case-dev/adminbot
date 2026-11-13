@@ -48,6 +48,12 @@ CAPABILITY_TOOLS: dict[str, tuple[str, ...]] = {
     # Без этой строки L1-планировщик не видел capability и свободное «бот,
     # как состояние сервера?» до инструмента не доходило (resolved = ∅).
     "health": ("get_bot_health",),
+    # SELF-DIAG-01 corrective (13.11.2026, owner §1/§3): существующие
+    # диагностические инструменты становятся адресуемыми возможностями L1.
+    # Имена — из `diagnostic_policy.CAPABILITIES` (тот же ACL); второго
+    # реестра/агента нет.
+    "source_code": ("read_source_code",),
+    "deep_diagnostics": ("inspect_runtime",),
     # §1.4: тулa нет — дет. пре-блок MCA-15; честная пометка L2 (не error).
     "statistics": (),
 }
@@ -87,6 +93,8 @@ CAPABILITY_LABELS: dict[str, str] = {
     "image_generation": "генерация картинок",
     "image_edit": "редактирование картинок",
     "health": "здоровье сервера",
+    "source_code": "чтение исходного кода",
+    "deep_diagnostics": "глубокая диагностика",
     "statistics": "статистика чата",
 }
 

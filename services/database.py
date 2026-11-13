@@ -880,6 +880,10 @@ BOT_OUTPUT_KINDS = frozenset({
     # инициатива могла ответить сразу после мема. DDL не меняется: колонка
     # `output_kind` та же, расширяется только закрытый набор значений.
     "meme_initiative",
+    # SELF-DIAG-01 corrective (13.11.2026, owner §4): доставленный отчёт
+    # чекапа — структурный kind, по которому L1 получает полноценное
+    # сообщение разговора (не лексический разбор текста).
+    "checkup_report",
 })
 BOT_OUTPUT_DELIVERY_STATUSES = frozenset({"delivered", "failed", "unknown"})
 

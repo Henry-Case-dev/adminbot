@@ -17,7 +17,11 @@ import time
 
 from config.settings import settings
 from services import hot_config as hot
-from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PROMPT
+from services.checkup_prompts import (
+    CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM,
+    CHECKUP_FALLBACK_NOTICE,
+    CHECKUP_SYSTEM_PROMPT,
+)
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.memory_health import collect_metrics
 from services.prompt_composer import speech_owner_block
@@ -54,7 +58,8 @@ class CheckupService:
 
     async def checkup(self, logs_text: str, used_fallback: bool,
                       chat_id: int | None = None, *,
-                      telemetry: dict | None = None) -> str:
+                      telemetry: dict | None = None,
+                      tool_runtime: dict | None = None) -> str:
         """logs_text = результат fetcher.fetch(); used_fallback → скрытая
         приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4).
 
@@ -66,7 +71,15 @@ class CheckupService:
         SELF-DIAG-01 D6 B1 (`SD1-D6-05`): ``telemetry`` — per-run словарь
         вызывающего. Сервис заполняет ЕГО, а не общий mutable-атрибут:
         одновременные чекапы разных чатов не видят чужую телеметрию. Hash
-        считается по ФИНАЛЬНОМУ system (ровно те байты, что уходят в LLM)."""
+        считается по ФИНАЛЬНОМУ system (ровно те байты, что уходят в LLM).
+
+        SELF-DIAG-01 corrective (§3 owner input): ``tool_runtime`` —
+        СУЩЕСТВУЮЩИЙ tool-loop контур, подготовленный handler'ом
+        (``{"router","ctx","schemas","correlation_id"}``). Передан → чекап
+        идёт через ``tool_loop.chat_with_tools`` с объявленными read-only
+        диагностическими инструментами; модель сама решает, читать ли код и
+        runtime, а результаты возвращаются ей для синтеза. None/пустой набор
+        → прежний одиночный ``generate`` (паритет и офлайн-тесты)."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
         # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
         system_prompt = resolve_prompt("prompts.checkup_system_prompt",
@@ -90,6 +103,15 @@ class CheckupService:
         owner_block = await speech_owner_block(chat_id)
         if owner_block:
             system = f"{system}\n\n{owner_block}"
+        # SELF-DIAG-01 corrective (§3): функциональная операционная директива
+        # подключается только при реально переданном tool-loop; базовый
+        # owner-канон/характер остаются байт-в-байт. Стоит ДО служебной
+        # приписки — CHECKUP_FALLBACK_NOTICE остаётся последним абзацем.
+        _tool_schemas = ()
+        if isinstance(tool_runtime, dict):
+            _tool_schemas = tuple(tool_runtime.get("schemas") or ())
+        if _tool_schemas:
+            system += "\n\n" + CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM
         if used_fallback:
             system += "\n\n" + CHECKUP_FALLBACK_NOTICE     # R42-2: ровно 1 раз
         # Epic 49 (57.5, D196): scrub C0 (гипотеза (б) — невалидные управляющие
@@ -128,12 +150,44 @@ class CheckupService:
         if telemetry is not None:
             telemetry.update(prompt_telemetry)
         started = time.monotonic()
-        raw = await self.llm.generate(
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ]
-        )
+        _router = (tool_runtime or {}).get("router") \
+            if isinstance(tool_runtime, dict) else None
+        _tool_ctx = (tool_runtime or {}).get("ctx") \
+            if isinstance(tool_runtime, dict) else None
+        if _tool_schemas and _router is not None and _tool_ctx is not None:
+            # SELF-DIAG-01 corrective (§3): ОДИН существующий tool-loop.
+            # Рантайм-факты/логи уже в сообщениях; модель решает, какие
+            # инструменты вызвать; результаты возвращаются ей же.
+            from services.tool_loop import chat_with_tools
+            loop_result = await chat_with_tools(
+                self.llm,
+                [{"role": "system", "content": system},
+                 {"role": "user", "content": user}],
+                tools=list(_tool_schemas), router=_router, ctx=_tool_ctx,
+                chat_id=chat_id, module="checkup",
+                correlation_id=str(
+                    (tool_runtime or {}).get("correlation_id") or ""))
+            raw = str(loop_result)
+            if telemetry is not None:
+                research_tools = [
+                    str(entry.get("tool") or "")
+                    for entry in (loop_result.tool_results or ())
+                    if isinstance(entry, dict)]
+                telemetry.update({
+                    "research_rounds": int(loop_result.rounds_used or 0),
+                    "research_calls": len(loop_result.tool_results or ()),
+                    "research_tools": ",".join(
+                        sorted({name for name in research_tools if name})),
+                    "research_degraded": bool(loop_result.degraded),
+                    "research_reason": str(loop_result.reason or "ok"),
+                })
+        else:
+            raw = await self.llm.generate(
+                [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ]
+            )
         logger.info(
             "checkup LLM OK | out_chars=%d | latency_ms=%.0f | used_fallback=%s",
             len(raw), (time.monotonic() - started) * 1000.0, used_fallback,

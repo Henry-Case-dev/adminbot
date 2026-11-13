@@ -16,6 +16,7 @@ import logging
 import random
 import re
 import time
+import uuid
 
 from aiogram import Bot, Router, types
 from aiogram.dispatcher.event.bases import UNHANDLED
@@ -59,6 +60,7 @@ checkup_router = Router(name="checkup")
 _service = None                                   # CheckupService (DI)
 _fetcher = None                                   # CheckupLogsFetcher (DI)
 _diagnostics = None                               # DiagnosticCollector (DI)
+_tool_router = None                               # ToolRouter (DI, SELF-DIAG §3)
 _cooldown = CooldownTracker(settings.CHECKUP_COOLDOWN_SECONDS)
 _CHAT_SLOT = 0                                    # per-chat кулдаун (T-328-C)
 
@@ -110,6 +112,18 @@ def reset_checkup_diagnostics_for_tests() -> None:
     """Тестовая изоляция DI: сбросить общий collector (не влияет на прод)."""
     global _diagnostics
     _diagnostics = None
+
+
+def setup_checkup_tool_router(router) -> None:
+    """DI существующего ToolRouter для исследовательского цикла чекапа.
+
+    SELF-DIAG-01 corrective (§3): второго tool-loop/роутера нет — handler
+    передаёт CheckupService тот же экземпляр, что обслуживает Direct.
+    Вызывается из bot.py ПОСЛЕ сборки ToolRouter (порядок setup чекапа не
+    меняется); None → прежний одиночный LLM-вызов.
+    """
+    global _tool_router
+    _tool_router = router
 
 
 def checkup_probe_deps():
@@ -194,6 +208,88 @@ async def _collect_checkup_facts(logs: str, used_fallback: bool,
         logger.warning("[checkup] diagnostics collector failed | chat=%s | "
                        "error=%s", chat_id, type(exc).__name__)
         return {}, "", type(exc).__name__
+
+
+async def _build_checkup_tool_runtime(chat_id: int, actor_id, bot,
+                                      correlation_id: str):
+    """Существующий tool-loop для чекапа (SELF-DIAG-01 §3).
+
+    Возвращает ``{"router","ctx","schemas","correlation_id"}`` либо ``None``:
+    роутер не подключён (тест/изолированный стенд) — прежний одиночный
+    LLM-вызов. Схемы — только read-only диагностические инструменты,
+    объявленные СУЩЕСТВУЮЩИМ `active_tools` (env-гейты/порядок сохраняются).
+    """
+    if _tool_router is None:
+        return None
+    try:
+        from services import direct_capabilities as _caps
+        from services.tool_schemas import active_tools
+        from services.tool_router import ToolContext
+
+        names: list[str] = []
+        for capability in ("source_code", "deep_diagnostics"):
+            for tool_name in _caps.CAPABILITY_TOOLS.get(capability, ()):
+                if tool_name not in names:
+                    names.append(tool_name)
+        schemas = _caps.schemas_for_names(
+            names, active_tools(False, False))
+        if not schemas:
+            return None
+        ctx = ToolContext(chat_id, "", bot=bot, user_id=actor_id,
+                          correlation_id=correlation_id)
+        # Чекап — про собственный Adminbot: структурная identity разрешена
+        # заранее, но чтение кода выполняет ТОЛЬКО модель своим tool_call.
+        try:
+            from services import source_reader as _sr
+            ctx.diagnostic_research = await asyncio.to_thread(
+                _sr.resolve_self_repo_identity)
+        except Exception:
+            logger.warning("[checkup] self repo identity unavailable | "
+                           "chat=%s", chat_id, exc_info=True)
+        return {"router": _tool_router, "ctx": ctx, "schemas": schemas,
+                "correlation_id": correlation_id}
+    except Exception:
+        logger.warning("[checkup] tool runtime unavailable | chat=%s",
+                       chat_id, exc_info=True)
+        return None
+
+
+async def _persist_checkup_conversation(*, chat_id: int, sent_id,
+                                        report: str, parent_id,
+                                        correlation_id: str, bot) -> None:
+    """Отчёт чекапа — полноценное сообщение разговора (SELF-DIAG-01 §4).
+
+    Использует СУЩЕСТВУЮЩИЕ механизмы Direct: `bot_replies` (reply-цепочка)
+    и durable `mca_bot_outputs` (`output_kind='checkup_report'`), чтобы L1
+    продолжения видел фактически доставленный отчёт структурно, а не по
+    угаданным словам. Fail-open: сбой записи не влияет на отправку.
+    """
+    if sent_id is None:
+        return
+    db = getattr(_service, "db", None)
+    if db is None:
+        return
+    now = time.time()
+    try:
+        await db.upsert_bot_reply(int(chat_id), int(sent_id), str(report), now)
+        await db.set_bot_reply_parent(int(chat_id), int(sent_id),
+                                      parent_id, now)
+    except Exception:
+        logger.warning("[checkup] bot_replies persist failed | chat=%s",
+                       chat_id, exc_info=True)
+    try:
+        from services import bot_output_ledger as _ledger
+        await _ledger.record_delivered_output(
+            db, chat_id=int(chat_id), tg_message_id=int(sent_id),
+            text=str(report or ""),
+            bot_user_id=getattr(bot, "id", None),
+            output_kind="checkup_report", sent_at=int(now),
+            parent_message_ref=(f"tg:{int(parent_id)}"
+                                if parent_id is not None else None),
+            correlation_id=correlation_id, source_feature="checkup")
+    except Exception:
+        logger.warning("[checkup] output ledger persist failed | chat=%s",
+                       chat_id, exc_info=True)
 
 
 def _identity_log_line(bundle: dict) -> str:
@@ -428,11 +524,16 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
             if bundle:
                 logger.info(_identity_log_line(bundle))
             payload = (facts_text + "\n" + logs) if facts_text else logs
+            # SELF-DIAG-01 corrective (§3): исследовательский цикл на
+            # СУЩЕСТВУЮЩЕМ ToolRouter; модель решает, читать ли код/runtime.
+            correlation_id = f"checkup:{uuid.uuid4().hex}"
+            tool_runtime = await _build_checkup_tool_runtime(
+                message.chat.id, actor_id, bot, correlation_id)
             # UNIFIED-CORE (P0, 20.10.2026): chat_id → Core + Expression
             # владельца в канон чек-апа (пользовательский речевой маршрут).
-            report = await _service.checkup(payload, used_fallback,
-                                            chat_id=message.chat.id,
-                                            telemetry=run_telemetry)
+            report = await _service.checkup(
+                payload, used_fallback, chat_id=message.chat.id,
+                telemetry=run_telemetry, tool_runtime=tool_runtime)
         # SELF-DIAG-01 D2: перепроверка прав ПЕРЕД публикацией (отзыв
         # действует на уже запущенную проверку) + удаление секретов.
         try:
@@ -462,7 +563,17 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
         emit_checkup_validation_event(chat_id=message.chat.id,
                                       publication=publication)
         report = publication.text
-        await send_chunked_reply(bot, message.chat.id, report, message.message_id)
+        sent_ids: list = []
+        sent_id = await send_chunked_reply(
+            bot, message.chat.id, report, message.message_id,
+            sent_ids=sent_ids)
+        # SELF-DIAG-01 corrective (§4): доставленный отчёт становится
+        # сообщением разговора для продолжения (reply-цепочка + ledger).
+        await _persist_checkup_conversation(
+            chat_id=message.chat.id, sent_id=sent_id, report=report,
+            parent_id=message.message_id, correlation_id=correlation_id,
+            bot=bot)
+        run_telemetry["report_chunks"] = len(sent_ids)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
         _finish("success", "report_sent")
     except LLMBadResponseError as exc:

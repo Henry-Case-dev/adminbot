@@ -1281,7 +1281,8 @@ class ToolContext:
                  native_media=None,
                  resolved_url: str | None = None,
                  image_request_handled: bool = False,
-                 speech=None) -> None:
+                 speech=None,
+                 diagnostic_research: dict | None = None) -> None:
         self.chat_id = chat_id
         self.query = str(query or "")
         self.bot = bot
@@ -1375,6 +1376,13 @@ class ToolContext:
         # вызова (без секретов). Заполняется `_diagnostic_guard` ДО исполнения;
         # `inspect_runtime` кладёт его в bundle.access.permission_decision.
         self.diagnostic_decision: dict | None = None
+        # SELF-DIAG-01 corrective (13.11.2026): исполняемое структурированное
+        # решение L1 `diagnostic_research` (+ серверная identity своего repo).
+        # Заполняется вызывающим ТОЛЬКО после target=self; аргументы модели
+        # этот контекст не задают и прав не повышают. None — обычный вызов.
+        self.diagnostic_research: dict | None = (
+            dict(diagnostic_research)
+            if isinstance(diagnostic_research, dict) else None)
 
     def result_for(self, tool_name: str) -> dict | None:
         """A2 (ADR-1026-15 D1/D6): последний envelope-результат инструмента.
@@ -3336,13 +3344,34 @@ class ToolRouter:
         if not query:
             query = str(getattr(ctx, "query", "") or "").strip()
         repo = str(args.get("repo") or "").strip()
+        # SELF-DIAG-01 corrective (§3/§4): структурированное решение модели
+        # `target=self` разрешает серверную каноническую identity своего repo.
+        # Это исполнение решения, а не угадывание по словам/URL; аргументы
+        # модели (URL/repo внешнего проекта) имеют приоритет и не подменяются.
+        _diag = getattr(ctx, "diagnostic_research", None)
+        diag_ctx = _diag if isinstance(_diag, dict) \
+            and str(_diag.get("target") or "") == "self" else None
+        if diag_ctx is not None and not repo and not url:
+            repo = str(diag_ctx.get("repo") or "").strip()
+        ref = str(args.get("ref") or "").strip()
+        if (diag_ctx is not None and not ref and repo
+                and repo.casefold() == str(diag_ctx.get("repo") or "").casefold()):
+            ref = str(diag_ctx.get("ref") or "").strip()
+        if diag_ctx is not None and not ref and url:
+            try:
+                _parsed_diag = _sr.parse_source_url(url)
+                if (_parsed_diag is not None
+                        and str(_parsed_diag.repo or "").casefold()
+                        == str(diag_ctx.get("repo") or "").casefold()):
+                    ref = str(diag_ctx.get("ref") or "").strip()
+            except Exception:      # pragma: no cover - защитная ветка
+                pass
         if not url and not repo and not query:
             return json.dumps({"status": "error", "error": "invalid_url",
                                "reason": "no_url_no_repo_no_query",
                                "retryable": False,
                                "stage": _sr.STAGE_DISCOVER},
                               ensure_ascii=False)
-        ref = str(args.get("ref") or "").strip()
         path = str(args.get("path") or "").strip()
         symbol = str(args.get("symbol") or "").strip()
         line_start = args.get("line_start")
@@ -3459,6 +3488,33 @@ class ToolRouter:
                     bool(payload.get("verified")),
                     payload.get("line_range"), len(payload.get("files") or ()),
                     payload.get("network_calls"))
+        if diag_ctx is not None:
+            requested_repo = repo
+            if not requested_repo and url:
+                try:
+                    parsed = _sr.parse_source_url(url)
+                    requested_repo = str(getattr(parsed, "repo", "") or "")
+                except Exception:      # pragma: no cover - защитная ветка
+                    requested_repo = ""
+            origin = str(diag_ctx.get("repo") or "").casefold()
+            if not requested_repo or requested_repo.casefold() == origin:
+                payload["repo_identity"] = {
+                    "target": "self",
+                    "repo": diag_ctx.get("repo") or "",
+                    "requested_ref": str(diag_ctx.get("ref") or ""),
+                    "ref_source": str(diag_ctx.get("ref_source") or ""),
+                    "deployed_sha": diag_ctx.get("deployed_sha"),
+                    "checkout_sha": diag_ctx.get("checkout_sha"),
+                    "deployed_matches_checkout": diag_ctx.get(
+                        "deployed_matches_checkout"),
+                    "local_source_verification": diag_ctx.get(
+                        "local_source_verification"),
+                    "dirty": diag_ctx.get("dirty"),
+                    "conflict": list(diag_ctx.get("conflict") or ()),
+                    "identity_error": str(
+                        diag_ctx.get("identity_error") or ""),
+                    "note": str(diag_ctx.get("note") or ""),
+                }
         return json.dumps(payload, ensure_ascii=False)
 
     def _source_reader(self):
