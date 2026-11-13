@@ -290,10 +290,13 @@ class EvidenceDelivery:
     #: фактически вызванного fallback-маршрута (owner §7.4). Не попадают в
     #: payload сами по себе.
     all_rows: tuple[dict, ...] = ()
+    #: Ёмкость маршрута неизвестна (resolver упал) — доставка честно
+    #: деградировала к прежней порции gates AND говорит об этом в payload.
+    degraded: bool = False
 
     @property
     def limited(self) -> bool:
-        return bool(self.truncated_ids or self.remainder_ids)
+        return bool(self.truncated_ids or self.remainder_ids or self.degraded)
 
     def as_meta(self) -> dict:
         """R17-safe метаданные доставки (числа/enum/ID; без текстов чата)."""
@@ -304,6 +307,7 @@ class EvidenceDelivery:
             "delivered_chars": int(self.delivered_chars),
             "budget_chars": self.budget_chars,
             "limited": self.limited,
+            "degraded_capacity": bool(self.degraded),
             "truncated": len(self.truncated_ids),
             "remainder": len(self.remainder_ids),
         }
@@ -326,6 +330,7 @@ class EvidenceDelivery:
             "delivered_chars": int(self.delivered_chars),
             "total_chars": int(self.total_chars),
             "budget_chars": self.budget_chars,
+            "capacity_unknown": bool(self.degraded),
             "truncated_ids": list(self.truncated_ids),
             "remainder_ids": [rid for rid, _url in self.remainder_urls],
             "remainder_urls": [url for _rid, url in self.remainder_urls
@@ -416,7 +421,8 @@ def _evidence_opening_index(retrieval) -> dict[str, bool]:
 
 
 def _pack_evidence(rows, *, budget_chars: int | None,
-                   route: RouteCapacity | None = None) -> EvidenceDelivery:
+                   route: RouteCapacity | None = None,
+                   degrade_rows: int | None = None) -> EvidenceDelivery:
     """Упаковать evidence-строки в ёмкость маршрута БЕЗ скрытых caps.
 
     ``budget_chars=None`` — ёмкость неизвестна: отдаём строки как есть
@@ -428,10 +434,19 @@ def _pack_evidence(rows, *, budget_chars: int | None,
     rows = tuple(rows or ())
     total_chars = sum(len(str(r.get("support") or "")) for r in rows)
     if budget_chars is None:
+        limit = (max(1, int(degrade_rows)) if degrade_rows
+                 else len(rows))
+        delivered = rows[:limit]
+        remainder = [(str(r.get("evidence_id") or ""),
+                      str(r.get("url") or "")) for r in rows[limit:]]
         return EvidenceDelivery(
-            rows=rows, route=route, budget_chars=None,
+            rows=delivered, route=route, budget_chars=None,
             total_rows=len(rows), total_chars=total_chars,
-            delivered_chars=total_chars, all_rows=rows)
+            delivered_chars=sum(len(str(r.get("support") or ""))
+                                for r in delivered),
+            remainder_ids=tuple(rid for rid, _u in remainder if rid),
+            remainder_urls=tuple(remainder), all_rows=rows,
+            degraded=len(remainder) > 0)
     budget = max(0, int(budget_chars))
     delivered: list[dict] = []
     used = 0
@@ -459,11 +474,6 @@ def _pack_evidence(rows, *, budget_chars: int | None,
             cutting = True
         if cutting:
             remainder.append((eid, url))
-    if cutting and not remainder:
-        # последняя строка была усечена — её остаток тоже должен быть виден
-        remainder = [(str(delivered[-1].get("evidence_id") or ""),
-                      str(delivered[-1].get("url") or ""))] \
-            if delivered and delivered[-1].get("support_truncated") else []
     return EvidenceDelivery(
         rows=tuple(delivered), route=route, budget_chars=budget,
         total_rows=len(rows), total_chars=total_chars,
@@ -492,6 +502,10 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
     refs = tuple(getattr(getattr(retrieval, "evidence_map", None), "refs", ())
                  or ())
     budget = route.input_chars if route is not None else None
+    if budget is not None and budget <= 0:
+        # Нулевая/отрицательная оценка — это отсутствие данных о ёмкости,
+        # а не «evidence запрещён»: честная деградация к порции gates.
+        budget = None
     max_rows = len(refs) if refs else _temporal_max_evidence()
     if not refs and refs_only:
         # F2 (review r1): веб-прогон unified-контура даёт evidence ТОЛЬКО из
@@ -500,7 +514,8 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
     if not refs:
         rows = tf.evidence_rows_from_results(
             fallback_results or "", max_rows=max_rows)
-        return _pack_evidence(rows, budget_chars=budget, route=route)
+        return _pack_evidence(rows, budget_chars=budget, route=route,
+                              degrade_rows=_temporal_max_evidence())
     rows = tf.evidence_rows_from_refs(
         refs, fallback_results=fallback_results, max_rows=max_rows)
     full_support = {str(getattr(ref, "evidence_id", "")):
@@ -522,7 +537,8 @@ def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
             "opened": bool(opened.get(eid, False)),
             "strength": strength.get(eid, ""),
         })
-    return _pack_evidence(enriched, budget_chars=budget, route=route)
+    return _pack_evidence(enriched, budget_chars=budget, route=route,
+                          degrade_rows=_temporal_max_evidence())
 
 
 def _evidence_context_note(retrieval, evidence) -> str:
@@ -3447,10 +3463,10 @@ class FactCheckService:
                         r.get("strength") or "none")),
                     r["support"])
                 for r in evidence)) + "</evidence>")
-            if delivery is not None:
-                block = delivery.payload_block()
-                if block:
-                    sections.append(block)
+        if delivery is not None:
+            block = delivery.payload_block()
+            if block:
+                sections.append(block)
         coverage_section = _claim_coverage_payload(coverage)
         if coverage_section:
             sections.append(coverage_section)
