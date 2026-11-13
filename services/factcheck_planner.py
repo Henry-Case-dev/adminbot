@@ -1996,7 +1996,6 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     product_budget_hit = False
     technical_deadline = False
     stop_reason = ""
-    total_calls = (len(plan.queries) + (refine_limit or 0))
 
     def _deadline_now() -> bool:
         return deadline is not None and loop.time() >= deadline
@@ -2050,8 +2049,12 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         query_terms = _claim_terms(query.text, limit=10)
         per_query_budget = None
         if remaining is not None:
-            calls_left = max(1, total_calls - counters["attempted"] + 1)
-            per_query_budget = max(1.0, remaining / calls_left)
+            # Не делим бюджет на «среднюю долю» каждого запроса: это создавало
+            # искусственно короткий транспортный timeout при 40–64 запросах.
+            # Каждый вызов может использовать остаток продуктового бюджета;
+            # фактический сетевой timeout провайдера сохраняется внутри
+            # агрегатора, а дедлайн проверяется после вызова.
+            per_query_budget = max(1.0, remaining)
         trace: dict = {}
         started_at = loop.time()
         try:
