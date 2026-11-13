@@ -377,7 +377,7 @@ async def test_provenance_and_social_source_not_blocked(monkeypatch):
     other = _ref(2, support=_support(2, 400))
     _pin_resolver(monkeypatch, 1_000_000)
     llm = RecordingLLM()
-    await FactCheckService(None, llm).check_claim_envelope(
+    run = await FactCheckService(None, llm).check_claim_envelope(
         _env(), retrieval=_outcome(
             [facebook, other],
             claims=_coverage([facebook, other],
@@ -387,7 +387,7 @@ async def test_provenance_and_social_source_not_blocked(monkeypatch):
     assert "opened=yes" in analyst      # цитата прочитана
     assert "opened=no" in analyst       # сниппет не выдан за документ
     assert any(r["evidence_id"] == "ev-1"
-               and "facebook.com" in str(r["url"])
+               and "facebook.com" in str(r.get("url"))
                for r in run.evidence_rows)
     import inspect
     import services.factcheck_service as fcs
@@ -407,7 +407,7 @@ async def test_tiny_share_route_still_marks_remainder(monkeypatch):
         analyst.split("<evidence_delivery>")[1].split(
             "</evidence_delivery>")[0])
     assert meta["total"] == 3
-    assert meta["delivered"] + meta["remainder"] == 3
+    assert meta["delivered"] + len(meta["remainder_ids"]) == 3
     assert len(run.evidence_rows) == meta["delivered"]
 
 

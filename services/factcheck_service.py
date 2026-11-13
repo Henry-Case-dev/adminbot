@@ -472,8 +472,8 @@ def _pack_evidence(rows, *, budget_chars: int | None,
                 used = budget
                 truncated.append(eid)
             cutting = True
-        if cutting:
-            remainder.append((eid, url))
+            continue
+        remainder.append((eid, url))
     return EvidenceDelivery(
         rows=tuple(delivered), route=route, budget_chars=budget,
         total_rows=len(rows), total_chars=total_chars,
