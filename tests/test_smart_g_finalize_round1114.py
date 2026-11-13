@@ -255,6 +255,10 @@ class TestFinalizationContract:
         assert out == "ИТОГ: есть один результат, второй вызов ограничен"
         assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
         assert [env["status"] for env in out.tool_results] == ["ok", "denied"]
+        # §G3: у отказа политики есть реальный модельно-видимый текст, и он
+        # учтён в журнале (иначе финальная инвентаризация теряет причину).
+        assert out.tool_results[1]["out_chars"] > 0
+        assert "chain_call_limit" in out.tool_context
         assert len(router.calls) == 1
         directive = llm.finalize_messages[0][-1]["content"]
         assert "лимит вызовов" in directive
@@ -285,6 +289,138 @@ class TestTerminalRoutes:
         assert out.tool_results[1]["error_code"] == "auth_failed"
 
     @pytest.mark.asyncio
+    async def test_resource_extract_failure_keeps_host_alternatives(self):
+        """§G3/G5: `extract_failed` — отказ КОНКРЕТНОГО ресурса, а не всего
+        endpoint. Другой URL того же хоста обязан попробоваться: иначе отказ
+        одной статьи обнуляет альтернативные источники."""
+        calls: list[str] = []
+
+        async def _fn(name, arguments, ctx):
+            url = str((arguments or {}).get("url") or "")
+            calls.append(url)
+            if url.endswith("/bad"):
+                return _error_payload(error="extract_failed",
+                                      reason="source_unavailable",
+                                      retryable=False, host="news.example")
+            return "альтернативная статья доступна"
+
+        llm = FakeLLM([
+            _round("r0", [("fetch_article",
+                           {"url": "https://news.example/bad"})]),
+            _round("r1", [("fetch_article",
+                           {"url": "https://news.example/good"})]),
+            _text("финал по альтернативе")])
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(fn=_fn), ctx=_ctx(),
+                                    chat_id=CHAT_ID)
+        assert calls == ["https://news.example/bad",
+                         "https://news.example/good"]
+        assert [env["status"] for env in out.tool_results] == ["error", "ok"]
+        assert out.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_disabled_tool_is_terminal_tool_wide(self):
+        """§G5: `disabled`/`unknown_tool`/`provider_unconfigured` — свойство
+        ИНСТРУМЕНТА, а не URL. Смена аргументов не делает его доступным и не
+        должна снова уходить в сеть."""
+        calls: list[dict] = []
+
+        async def _fn(name, arguments, ctx):
+            calls.append(dict(arguments or {}))
+            return json.dumps({"status": "disabled", "error": "disabled",
+                               "retryable": False}, ensure_ascii=False)
+
+        llm = FakeLLM([
+            _round("r0", [("fetch_article", {"url": "https://a.example/1"})]),
+            _round("r1", [("fetch_article", {"url": "https://b.example/2"})]),
+            _text("финал")])
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(fn=_fn), ctx=_ctx(),
+                                    chat_id=CHAT_ID)
+        assert [call["url"] for call in calls] == ["https://a.example/1"]
+        assert [env["status"] for env in out.tool_results] == [
+            "denied", "denied"]
+        assert out.tool_results[1]["error_code"] == "route_terminal"
+
+    @pytest.mark.asyncio
+    async def test_route_host_from_verified_url(self):
+        """§G5: маршрут извлекается из структурного `verified_url`, если
+        payload не дублирует host/url. Иначе запись и подавление расходятся и
+        другой файл того же недоступного хоста снова уходит в сеть."""
+        calls: list[dict] = []
+
+        async def _fn(name, arguments, ctx):
+            calls.append(dict(arguments or {}))
+            return _error_payload(
+                error="auth_failed", retryable=False,
+                verified_url="https://github.com/o/r/blob/main/x.py")
+
+        llm = FakeLLM([
+            _round("r0", [("read_source_code", {
+                "url": "https://github.com/o/r/blob/main/x.py"})]),
+            _round("r1", [("read_source_code", {
+                "url": "https://github.com/o/r/blob/main/y.py"})]),
+            _text("финал")])
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(fn=_fn), ctx=_ctx(),
+                                    chat_id=CHAT_ID)
+        assert [call["url"] for call in calls] == [
+            "https://github.com/o/r/blob/main/x.py"]
+        assert [env["status"] for env in out.tool_results] == [
+            "error", "denied"]
+
+    @pytest.mark.asyncio
+    async def test_single_provider_route_is_tool_wide(self):
+        """§G5: у инструмента с единственным провайдером идентичность
+        маршрута — сам инструмент. Payload-поле `provider` не создаёт вторую
+        идентичность: иначе запись и подавление расходятся и отказ не
+        останавливает повторные запросы."""
+        calls: list[dict] = []
+
+        async def _fn(name, arguments, ctx):
+            calls.append(dict(arguments or {}))
+            return _error_payload(error="auth_failed", retryable=False,
+                                  provider="tavily")
+
+        llm = FakeLLM([
+            _round("r0", [("execute_web_search", {"query": "a"})]),
+            _round("r1", [("execute_web_search", {"query": "b"})]),
+            _text("финал")])
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(fn=_fn), ctx=_ctx(),
+                                    chat_id=CHAT_ID)
+        assert [call["query"] for call in calls] == ["a"]
+        assert [env["status"] for env in out.tool_results] == [
+            "error", "denied"]
+        assert out.tool_results[1]["error_code"] == "route_terminal"
+
+    @pytest.mark.asyncio
+    async def test_transient_provider_failure_does_not_close_route(self):
+        """§G5: `retryable=true` — временный отказ провайдера, а не
+        терминальный. Другой запрос к тому же инструменту обязан исполниться:
+        маршрут закрывает только `retryable=false`."""
+        calls: list[dict] = []
+
+        async def _fn(name, arguments, ctx):
+            calls.append(dict(arguments or {}))
+            if arguments.get("query") == "a":
+                return _error_payload(error="provider_unavailable",
+                                      retryable=True)
+            return "второй запрос дал данные"
+
+        llm = FakeLLM([
+            _round("r0", [("execute_web_search", {"query": "a"})]),
+            _round("r1", [("execute_web_search", {"query": "b"})]),
+            _text("финал по второму запросу")])
+        out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
+                                    router=FakeRouter(fn=_fn), ctx=_ctx(),
+                                    chat_id=CHAT_ID)
+        assert [call["query"] for call in calls] == ["a", "b"]
+        assert [env["status"] for env in out.tool_results] == ["error", "ok"]
+        assert out.degraded is False
+        assert out == "финал по второму запросу"
+
+    @pytest.mark.asyncio
     async def test_other_query_to_blocked_host_not_dispatched(self):
         llm = FakeLLM([
             _round("r0", [("fetch_article", {"url":
@@ -296,7 +432,7 @@ class TestTerminalRoutes:
             _text("финал")])
         router = FakeRouter({
             "fetch_article": _error_payload(
-                error="extract_failed", reason="destination_blocked",
+                error="destination_blocked", reason="destination_blocked",
                 retryable=False, host="blocked.example")})
         out = await chat_with_tools(llm, MESSAGES, tools=TOOLS,
                                     router=router, ctx=_ctx(),
@@ -309,7 +445,7 @@ class TestTerminalRoutes:
         assert out.tool_results[1]["error_code"] == "route_terminal"
         denied = json.loads(out.tool_context.splitlines()[1])
         assert denied["reason"] == "route_terminal"
-        assert denied["code"] == "extract_failed"
+        assert denied["code"] == "destination_blocked"
 
 
 # ── единый контракт потребителей (Direct/checkup/фактчек) ─────────────────
@@ -361,3 +497,49 @@ class TestConsumersShareContract:
         assert isinstance(raw, ToolLoopResult)
         assert raw.finalize_mode == "llm"
         assert llm.finalize_calls == 1
+
+
+# ── G3: план + отказ политики не выпадает из финального evidence ───────────
+
+SCHEMAS_TWO = [
+    {"type": "function", "function": {"name": "execute_web_search"}},
+    {"type": "function", "function": {"name": "fetch_article"}},
+]
+
+
+class TestPlanEvidenceCompleteness:
+    @pytest.mark.asyncio
+    async def test_policy_denied_plan_step_named_in_structured_partial(
+            self, monkeypatch):
+        """Явный лимит оператора обрывает шаг плана: его структурный отказ
+        обязан попасть в финальную инвентаризацию (G3/G4) вместе с уже
+        полученными данными. Без этого partial ложно заявляет, что отказов
+        не было, и теряет причину частичности."""
+        _patch_budgets(monkeypatch, True)
+        monkeypatch.setattr(Settings, "MCA_TOOL_MAX_TOTAL_CALLS", 1)
+        llm = FakeLLM([LLMError("research broke")],
+                      finalize_error=LLMError("writer down"))
+        router = FakeRouter({
+            "execute_web_search": "полезные данные поиска",
+            "fetch_article": "статья A",
+        })
+        plan = [
+            {"step_id": "search", "tool": "execute_web_search",
+             "arguments": {"query": "x"}},
+            {"step_id": "read", "tool": "fetch_article",
+             "arguments": {"url": "https://a.example/x"}},
+        ]
+        out = await chat_with_tools(
+            llm, MESSAGES, tools=SCHEMAS_TWO, router=router, ctx=_ctx(),
+            chat_id=CHAT_ID, tool_plan=plan)
+        text = str(out)
+        # второй шаг не исполнялся (явный лимит), но его отказ назван.
+        assert [call[0] for call in router.calls] == ["execute_web_search"]
+        assert out.finalize_mode == "structured_partial"
+        assert len(out.tool_results) == 2
+        assert [env["status"] for env in out.tool_results] == ["ok", "denied"]
+        assert "- fetch_article: chain_call_limit" in text
+        assert "не получены данные от: fetch_article" in text
+        # подтверждённые данные первого шага сохранены и не подменены.
+        assert "полезные данные поиска" in text
+        assert "явных отказов источников нет" not in text

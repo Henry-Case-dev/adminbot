@@ -252,18 +252,26 @@ ROUTE_TERMINAL_REASON = "route_terminal"
 #: (провайдер/хост), а не конкретного ресурса: повтор с другими аргументами к
 #: тому же маршруту без изменения условий бессмыслен и не диспетчится
 #: (owner §G5). Ошибки конкретного ресурса (`source_missing`, `not_found`,
-#: `invalid_url`, `unsupported`, `path_denied`, `parse_error`) сюда НЕ входят:
-#: другой путь/файл на том же хосте может быть доступен.
+#: `invalid_url`, `unsupported`, `path_denied`, `parse_error`,
+#: `extract_failed`) сюда НЕ входят: другой путь/файл на том же хосте может
+#: быть доступен.
 ROUTE_TERMINAL_CODES = frozenset({
     "destination_blocked", "metadata_endpoint_blocked", "resolve_failed",
     "egress_guard_unavailable", "auth_failed", "provider_unavailable",
     "provider_unconfigured", "provider_stalled", "source_unavailable",
-    "extract_failed", "disabled", "unknown_tool",
+    "disabled", "unknown_tool",
 })
 
 #: Инструменты с единственным провайдером: маршрут = сам инструмент (payload
 #: не несёт host/provider).
 ROUTE_SINGLE_PROVIDER_TOOLS = frozenset({"execute_web_search", "fact_check"})
+
+#: Коды, терминальные для ИНСТРУМЕНТА целиком (не для конкретного host):
+#: выключенный инструмент, неизвестное имя, не сконфигурированный провайдер
+#: не станут доступны от смены URL/аргументов в том же ходе.
+TOOL_SCOPED_TERMINAL_CODES = frozenset({
+    "disabled", "unknown_tool", "provider_unconfigured",
+})
 
 #: Финальная LLM-инструкция (EVOL-018: объявлена в `prompt_registry`).
 TOOL_FINALIZE_PROMPT = (
@@ -570,14 +578,14 @@ def _url_host(value) -> str:
 
 
 def _route_host_from_info(info) -> str:
-    """Маршрут из структурного payload результата (host → url.host → provider)."""
+    """Маршрут из структурного payload результата (host → url/verified_url → provider)."""
     data = info.get("data") if isinstance(info, dict) else None
     if not isinstance(data, dict):
         return ""
     host = str(data.get("host") or "").strip().lower()
     if host:
         return host
-    host = _url_host(data.get("url"))
+    host = _url_host(data.get("url")) or _url_host(data.get("verified_url"))
     if host:
         return host
     return str(data.get("provider") or "").strip().lower()
@@ -587,23 +595,30 @@ def _route_key(name: str, *, info=None, arguments=None) -> str:
     """Идентичность МАРШРУТА вызова: ``tool|host`` ('' — маршрут неизвестен).
 
     Host берётся из структурного результата, иначе из аргумента ``url``;
-    для инструментов с единственным провайдером маршрут = сам инструмент.
-    Неизвестный маршрут НЕ подавляется (иначе можно заблокировать
-    альтернативный источник, например локальный snapshot после GitHub-сбоя)."""
+    для инструментов с единственным провайдером маршрут = сам инструмент
+    (payload-поле ``provider`` не создаёт второй идентичности: запись и
+    подавление обязаны сойтись). Неизвестный маршрут НЕ подавляется (иначе
+    можно заблокировать альтернативный источник, например локальный snapshot
+    после GitHub-сбоя)."""
+    key = str(name or "")
+    if key in ROUTE_SINGLE_PROVIDER_TOOLS:
+        return f"{key}|-"
     host = _route_host_from_info(info)
     if not host and isinstance(arguments, dict):
         host = _url_host(arguments.get("url"))
-    if not host and str(name or "") in ROUTE_SINGLE_PROVIDER_TOOLS:
-        host = "-"
-    return f"{name}|{host}" if host else ""
+    return f"{key}|{host}" if host else ""
 
 
 def _terminal_route_of(name: str, info) -> str:
     """Маршрут терминально недоступен по СТРУКТУРНОМУ коду ('' = нет).
 
     Ошибка ресурса (`source_missing`/`not_found`/`invalid_url`) маршрут не
-    закрывает: другой путь на том же хосте может быть доступен."""
+    закрывает: другой путь на том же хосте может быть доступен.
+    ``retryable=true`` (провайдер временно недоступен) маршрут НЕ закрывает:
+    транзиентный отказ повторяется в пределах политики ретраев (§G5)."""
     if not isinstance(info, dict):
+        return ""
+    if info.get("retryable"):
         return ""
     status = str(info.get("status") or "")
     if status not in (tool_result.STATUS_ERROR, tool_result.STATUS_TIMEOUT,
@@ -612,6 +627,8 @@ def _terminal_route_of(name: str, info) -> str:
     code = str(info.get("error_code") or "").strip()
     if code not in ROUTE_TERMINAL_CODES:
         return ""
+    if code in TOOL_SCOPED_TERMINAL_CODES:
+        return f"{name}|-"
     return _route_key(name, info=info)
 
 
@@ -634,9 +651,16 @@ def _route_suppression(name: str, arguments, terminal_routes) -> tuple[str, str]
     """``(route, code)`` если маршрут уже терминально недоступен, иначе ``("", "")``.
 
     Идентичные аргументы обрабатываются дедупом ``_reuse_reason``; здесь —
-    ДРУГИЕ аргументы к тому же структурно недоступному маршруту."""
+    ДРУГИЕ аргументы к тому же структурно недоступному маршруту. Для
+    tool-scoped кодов (`disabled`/`unknown_tool`/`provider_unconfigured`)
+    проверяется ключ инструмента целиком."""
+    if not isinstance(terminal_routes, dict):
+        return "", ""
+    tool_route = f"{name}|-"
+    if tool_route in terminal_routes:
+        return tool_route, str(terminal_routes.get(tool_route) or "")
     route = _route_key(name, arguments=arguments)
-    if route and isinstance(terminal_routes, dict) and route in terminal_routes:
+    if route and route in terminal_routes:
         return route, str(terminal_routes.get(route) or "")
     return "", ""
 
@@ -650,10 +674,12 @@ def _evidence_inventory(tool_results, outputs) -> list[dict]:
     results = list(tool_results or ())
     texts = list(outputs or ())
     items: list[dict] = []
-    for index in range(min(len(results), len(texts))):
-        env = results[index]
+    for index, env in enumerate(results):
         if not isinstance(env, dict):
             continue
+        # §G3: журнал прогона важнее выравнивания — envelope без текста
+        # (например отказ политики) не выпадает из финальной инвентаризации.
+        text = str(texts[index] or "") if index < len(texts) else ""
         data = env.get("data") if isinstance(env.get("data"), dict) else {}
         provenance: dict = {}
         for key in _PARTIAL_PROVENANCE_KEYS:
@@ -671,8 +697,8 @@ def _evidence_inventory(tool_results, outputs) -> list[dict]:
             "evidence_refs": [str(ref) for ref in
                               (env.get("evidence_refs") or ())],
             "provenance": provenance,
-            "output": str(texts[index] or ""),
-            "out_chars": int(env.get("out_chars") or 0),
+            "output": text,
+            "out_chars": int(env.get("out_chars") or len(text)),
         })
     return items
 
@@ -1213,20 +1239,26 @@ async def chat_with_tools(llm, messages: list[dict], *,
 
     # ── SMART-EXECUTION-RELIABILITY-01 §G: общие помощники финализации ─────
     def _remember_terminal(name: str, info: dict) -> None:
-        """Запомнить/снять терминальный маршрут по структурному результату."""
-        route = _route_key(name, info=info)
-        if not route:
-            return
+        """Запомнить/снять терминальный маршрут по структурному результату.
+
+        ``retryable=true`` — транзиентный отказ: маршрут не закрывается (§G5),
+        повтор без изменения условий держит существующий retry/dedup.
+        Tool-scoped коды закрывают инструмент целиком, а не конкретный host."""
         status = str((info or {}).get("status") or "")
         if status in (tool_result.STATUS_OK, tool_result.STATUS_EMPTY):
-            terminal_routes.pop(route, None)
+            route = _route_key(name, info=info)
+            if route:
+                terminal_routes.pop(route, None)
+            terminal_routes.pop(f"{name}|-", None)
+            return
+        terminal = _terminal_route_of(name, info)
+        if not terminal:
             return
         code = str((info or {}).get("error_code") or "")
-        if code in ROUTE_TERMINAL_CODES:
-            terminal_routes[route] = code
-            logger.warning(
-                "[tools] route terminal | tool=%s | route=%s | code=%s",
-                name, route, code)
+        terminal_routes[terminal] = code
+        logger.warning(
+            "[tools] route terminal | tool=%s | route=%s | code=%s",
+            name, terminal, code)
 
     def _deny_route(name: str, fp: str, route: str, code: str, *,
                     round_index: int, tool_call_id: str | None = None,
@@ -1351,10 +1383,14 @@ async def chat_with_tools(llm, messages: list[dict], *,
                             "partial": False, "usage": {},
                             "evidence_refs": [],
                             "external_operation_id": None}
+                    # §G3: отказ политики тоже часть журнала прогона — его
+                    # текст попадает в tool_context (1:1 с envelope), иначе
+                    # финальная фаза теряет причину частичности плана.
+                    denied = _denied_result_content(name, skip_code, limit)
                     _record(ctx, tool_results, _envelope(
                         -1, name, fp, info, metered=metered,
                         duplicate=False, attempt=same_calls.get(fp, 0),
-                        out_chars=0))
+                        out_chars=len(denied)))
                     tool_result.emit_tool_chain_events(
                         tool=name, status="denied", chat_id=chat_id,
                         correlation_id=correlation_id,
@@ -1365,6 +1401,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                         "TOOL_CALL_FAILED", run_id=correlation_id,
                         chat_id=chat_id, tool=name, round=0,
                         status="denied", error_code=skip_code)
+                    tool_context_parts.append(denied)
                     plan_limitations.append(
                         f"шаг {step['step_id']} не выполнен "
                         f"({skip_code})")
@@ -1703,10 +1740,11 @@ async def chat_with_tools(llm, messages: list[dict], *,
                         "partial": False, "usage": {},
                         "evidence_refs": [],
                         "external_operation_id": None}
+                denied = _denied_result_content(tc.name, skip_code, limit)
                 _record(ctx, tool_results, _envelope(
                     round_index, tc.name, fp, info, metered=metered,
                     duplicate=False, attempt=same_calls.get(fp, 0),
-                    out_chars=0), tc.id)
+                    out_chars=len(denied)), tc.id)
                 # D6: notable-отказ стадии execute (chain-лимит) — код из
                 # единого словаря (chain_* → существующий mapped-код);
                 # событие — канонический статус `denied` независимо от K1.

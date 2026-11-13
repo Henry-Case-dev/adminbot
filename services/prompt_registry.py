@@ -1984,7 +1984,7 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
                 "названы отказавшие источники и непроверенные области.",
         family="direct", scope="code",
         code_source="services.tool_loop.TOOL_FINALIZE_PROMPT",
-        consumers=("tool_loop.py:chat_with_tools.finalize",),
+        consumers=("tool_loop.py:_finalize_from_evidence",),
         composition_point="direct/tool_finalize",
         migration="factory", owner_lane="SMART-G", speech=False),
     # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): блок
