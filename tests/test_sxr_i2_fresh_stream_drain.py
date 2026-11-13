@@ -679,3 +679,50 @@ async def test_lag_seconds_pending_fallback_marks_source(tmp_path, monkeypatch):
         assert snapshot["lag_seconds_source"] == "pending"
     finally:
         await db.close()
+
+
+# ═══ 12. B1: потребители сохраняют None (неизвестно ≠ ноль) ═════════════════
+
+async def _insert_review_progress(db, progress: dict) -> None:
+    """Durable review-job с заданным semantic_progress (как в проде)."""
+    payload = {"counters": {}, "semantic_progress": progress}
+    await db.db.execute(
+        "INSERT INTO task_jobs (job_id, owner, kind, payload, status, "
+        "attempt, max_attempts, created_at, updated_at, finished_at) "
+        "VALUES ('b1-review', 'mca16', ?, ?, 'completed', 1, 3, 100, 100, 100)",
+        (mj.REVIEW_JOB_KIND, json.dumps(payload)))
+    await db.db.commit()
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_lag_seconds_unknown_stays_none(tmp_path):
+    """`_learning_analytics` не подменяет неизвестность нулём (B1)."""
+    from services import experience_diagnostics as ed
+    db = await _db(tmp_path, "b1diag.db")
+    try:
+        await _insert_review_progress(db, {
+            "lag_seconds": None, "lag_seconds_source": "unknown",
+            "lag_rows": 5, "lag_source": "pending", "pending_rows": 5,
+        })
+        out = await ed._learning_analytics(db)
+        assert out["fresh_lag"]["lag_seconds"] is None
+        assert out["fresh_lag"]["lag_seconds_source"] == "unknown"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_measured_zero_stays_zero(tmp_path):
+    """Измеренный ноль при cursor_distance остаётся нулём (B1)."""
+    from services import experience_diagnostics as ed
+    db = await _db(tmp_path, "b1diagz.db")
+    try:
+        await _insert_review_progress(db, {
+            "lag_seconds": 0, "lag_seconds_source": "cursor_distance",
+            "lag_rows": 0, "lag_source": "cursor_distance",
+        })
+        out = await ed._learning_analytics(db)
+        assert out["fresh_lag"]["lag_seconds"] == 0
+        assert out["fresh_lag"]["lag_seconds_source"] == "cursor_distance"
+    finally:
+        await db.close()
