@@ -77,14 +77,17 @@ RICH_MIN_ANSWER_CHARS = 400
 
 # Env-дефолт max_output_tokens для longform-планов (§Model slots).
 DEFAULT_LONGFORM_MAX_OUTPUT_TOKENS = 4096
-_MAX_OUTPUT_TOKENS_CEILING = 16384
 
-# ── MCA-23 фаза 2 (§17/§39): bounded multi-tool план ────────────────────────
+# ── MCA-23 фаза 2 (§17/§39): multi-tool план ────────────────────────────────
 # Потолки developer-level (§39). Числа код-константы; исполнение —
 # services/tool_loop (поверх существующего цикла, НЕ второй агент).
 PLAN_MAX_STEPS = 6            # шагов в плане не больше суммарного cap вызовов
 PLAN_MAX_REPLANS = 2          # §39 ceiling; фаза 2: re-plan не выполняется
-PLAN_MAX_FETCH_STEPS = 3      # больше ссылок в запросе → план не строим
+# SXR-C2-01/C3-02 (SMART-EXECUTION-RELIABILITY-01 C2/C3): заводского потолка
+# ссылок нет. Явная политика оператора — env `DIRECT_TOOL_PLAN_MAX_FETCH_STEPS`;
+# `0` = план строится по всем ссылкам запроса (семантический отбор запроса
+# сохранён: нужны 2+ ссылки И маркер сравнения).
+PLAN_MAX_FETCH_STEPS = 0
 
 # §14: предпочтительные capability names → реальные tools. Шаги с именем,
 # отсутствующим в runtime-наборе (анонсированном LLM), не исполняются (§38).
@@ -196,7 +199,13 @@ def longform_max_output_tokens() -> int | None:
 
     Консервативный код-дефолт 4096 (env ``DIRECT_LONGFORM_MAX_OUTPUT_TOKENS``);
     model-aware clamp - фаза 2 (реестр max_output асинхронный, per-turn
-    сетевой вызов недопустим). Передаётся ТОЛЬКО для явно полных задач."""
+    сетевой вызов недопустим). Передаётся ТОЛЬКО для явно полных задач.
+
+    SXR-C3-02: искусственный ceiling ``16384`` больше не урезает ЯВНУЮ
+    операторскую политику (env больше 16384 возвращается как задан). Реальный
+    ``max_output`` модели и остаток окна считает
+    :func:`writer_max_output_tokens`; здесь подмены факта провайдера нет.
+    """
     try:
         from config.settings import settings
         value = int(getattr(settings, "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS",
@@ -207,7 +216,7 @@ def longform_max_output_tokens() -> int | None:
         return None
     if value <= 0:
         return None
-    return min(value, _MAX_OUTPUT_TOKENS_CEILING)
+    return value
 
 
 # ── UR-19/UR-19.1/UR-19.2 (UNIFIED-REPLY §7): динамический output Writer'а ───
@@ -718,8 +727,26 @@ def resolve_tool_name(name) -> str:
     return CAPABILITY_TOOLS.get(candidate, candidate)
 
 
+def _fetch_steps_policy() -> int:
+    """Явная политика оператора по числу fetch-шагов; ``0`` = потолка нет.
+
+    SXR-C2-01: заводского потолка 3 больше нет. Политика применяется лишь
+    если env реально задана; мусор/ноль/минус = все ссылки запроса получают
+    шаг (семантический отбор запроса сохранён, продолжение не теряется).
+    """
+    import os as _os
+    raw = _os.environ.get("DIRECT_TOOL_PLAN_MAX_FETCH_STEPS")
+    if raw is None:
+        return 0
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
 def build_tool_plan(query, *, available_tools=None,
-                    max_fetch_steps: int = PLAN_MAX_FETCH_STEPS) -> list[dict]:
+                    max_fetch_steps: int | None = None) -> list[dict]:
     """План инструментов для ЯВНЫХ мульти-данных запросов (§17, 0 LLM).
 
     ASAP 7 (§1.4/§1.8 demote): дет. fast-path ТОЛЬКО для объективного факта
@@ -739,6 +766,9 @@ def build_tool_plan(query, *, available_tools=None,
     §38); <2 исполняемых шага → ``[]`` (обычный model-driven путь, байт-
     паритет). failure_policy fetch-шагов = ``optional`` (§19: partial failure
     сохраняет успешные результаты), явный web-hint → optional web-шаг (§E).
+    SXR-C2-01: при ``max_fetch_steps=None``/``0`` шаг получает КАЖДАЯ ссылка
+    запроса — первая порция не выдаётся за исчерпывающую, продолжение не
+    отбрасывается; положительное значение остаётся явной политикой вызова.
     R17: текст запроса не логируется. Никогда не бросает.
     """
     try:
@@ -754,7 +784,11 @@ def build_tool_plan(query, *, available_tools=None,
         for url in extract_urls(stripped):
             if url not in urls:
                 urls.append(url)
-        if len(urls) < 2 or len(urls) > max(2, int(max_fetch_steps)):
+        policy = (max_fetch_steps if max_fetch_steps is not None
+                  else _fetch_steps_policy())
+        if len(urls) < 2:
+            return []
+        if policy > 0 and len(urls) > policy:
             return []
         steps: list[dict] = []
         for index, url in enumerate(urls, 1):
@@ -773,7 +807,7 @@ def build_tool_plan(query, *, available_tools=None,
                 steps.append({
                     "step_id": "web_1",
                     "tool": "execute_web_search",
-                    "arguments": {"query": search_query[:256]},
+                    "arguments": {"query": search_query},
                     "depends_on": [],
                     "failure_policy": "optional",
                 })

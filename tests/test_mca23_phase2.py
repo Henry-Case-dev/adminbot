@@ -140,10 +140,21 @@ class TestBuildToolPlan:
             "посмотри https://a.example/x и https://b.example/y",
             available_tools={"fetch_article"}) == []
 
-    def test_too_many_urls_no_plan(self):
+    def test_many_urls_all_get_steps(self):
+        """SXR-C2-01: заводского потолка 3 ссылки нет — каждая получает шаг.
+
+        Прежний тест фиксировал обратное («4 ссылки → плана нет») и тем самым
+        закреплял искусственный обрыв достаточного набора evidence.
+        """
         urls = " ".join(f"https://u{i}.example/" for i in range(4))
+        plan = rext.build_tool_plan(
+            f"сравни {urls}", available_tools={"fetch_article"})
+        assert [s["arguments"]["url"] for s in plan] == [
+            f"https://u{i}.example/" for i in range(4)]
+        # Явная политика вызова остаётся доступной.
         assert rext.build_tool_plan(
-            f"сравни {urls}", available_tools={"fetch_article"}) == []
+            f"сравни {urls}", available_tools={"fetch_article"},
+            max_fetch_steps=3) == []
 
     def test_unknown_tools_dropped_no_plan(self):
         """§38: шаги с именами вне runtime-набора не исполняются."""

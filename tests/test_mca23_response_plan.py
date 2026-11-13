@@ -335,13 +335,17 @@ class TestLongformMaxOutputTokens:
                             raising=False)
         assert rext.longform_max_output_tokens() is None
 
-    def test_env_override_clamped(self, monkeypatch):
-        # См. NOTE в test_env_zero_disables: целимся в type(инстанса).
+    def test_env_override_not_clamped_by_artificial_ceiling(self, monkeypatch):
+        """SXR-C3-02: явная операторская политика не урезается до 16384.
+
+        Реальный `max_output` модели/остаток окна считает
+        `writer_max_output_tokens`; здесь искусственного ceiling больше нет.
+        """
         from config import settings as settings_mod
         monkeypatch.setattr(type(settings_mod.settings),
                             "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS",
                             999999, raising=False)
-        assert rext.longform_max_output_tokens() == 16384
+        assert rext.longform_max_output_tokens() == 999999
 
     def test_kill_switches_default_on(self, monkeypatch):
         monkeypatch.delattr(Settings, "DIRECT_RESPONSE_PLAN_ENABLED",
