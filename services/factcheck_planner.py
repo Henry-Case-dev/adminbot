@@ -1502,7 +1502,11 @@ def resolve_factcheck_limits_sync(chat_id=None) -> FactcheckLimits:
             enabled, source = bool(value), "global"
     if enabled is None:
         enabled = bool(getattr(settings, "BUDGETS_ENABLED", True))
-        source, known = "default", False
+        source = "default"
+        # Для глобального скоупа заводской default — достоверная резолюция;
+        # для чата отсутствие прогретого слоя не позволяет исключить chat
+        # override, поэтому происхождение честно помечается unknown.
+        known = chat_id is None
 
     def _sync_value(key: str, default):
         if chat_id is not None:

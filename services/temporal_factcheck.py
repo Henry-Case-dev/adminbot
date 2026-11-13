@@ -1083,9 +1083,11 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
         from services import factcheck_planner as _fcp
         search_thesis_text = _fcp.search_thesis_text
     except Exception:          # pragma: no cover — модуль не рвёт поиск
+        _fcp = None
+
         def search_thesis_text(text: str) -> str:
             return str(text or "")
-    if max_queries is None and limits is None:
+    if max_queries is None and limits is None and _fcp is not None:
         try:
             limits = _fcp.resolve_factcheck_limits_sync(
                 getattr(envelope, "chat_id", None))
