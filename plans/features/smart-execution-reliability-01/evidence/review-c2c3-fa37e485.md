@@ -39,4 +39,3 @@ Integration-required: combined-candidate audit for tool_router/search_aggregator
 2. BLOCKER Builder/Reviewer integration owner: provide candidate-bound integrated audit for untouched families and direct_chat/payload seams; keep affected rows UNVERIFIED.
 
 Next action for Orchestrator: route finding 1 to Builder, schedule combined-candidate audit, then independently re-review corrected exact candidate.
-
