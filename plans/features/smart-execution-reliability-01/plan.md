@@ -7,7 +7,9 @@
 - Карта дополнения: `requirements-map-fc-amendment.json` (`strict_evidence: true`, тот же
   `slice-graph.json`) — 87 требований FACTCHECK-REQUEST-INTEGRITY v2 (см. §11).
 - Граф: `slice-graph.json` (`openworkflow-slices-v1`, 18 срезов: S0–S17).
-- Статус планирования: карты построены, все требования `PENDING`, реализация не начиналась.
+- Статус: карты построены, реализация идёт по волнам. Срез C1 (`SXR-C1-01…03`) и F (`SXR-F1-01`,
+  `SXR-F3-01`) — `REVIEW` с candidate-bound evidence; `SXR-F2-01`, `SXR-F4-01` — `READY_FOR_LIVE`;
+  остальные строки `PENDING`. Эпик не задеплоен, `VERIFIED`/`DONE` не заявлены.
 - Gate: `requirements_gate.py check --stage plan` →
   `stage=plan inventory=509 manual=359 scoped=0 errors=0` (SMART) и
   `stage=plan inventory=396 manual=380 scoped=0 errors=0` (дополнение).
@@ -198,16 +200,20 @@ S7/S11 — на следующей волне, S9/S10 — с wave0.
 - `deploy` — перед выкатом: candidate-bound approvals + implementation evidence по всем
   обязательным строкам объединённого кандидата и подтверждённая dependency closure.
 - `release` — после выката: реальные production-наблюдения (L1–L8), deployed SHA.
-- Никаких `REVIEW`/`VERIFIED` заранее: все 99 строк `PENDING`.
+- `REVIEW`/`READY_FOR_LIVE` ставится только при наличии candidate-bound review и implementation
+  evidence; `VERIFIED` — только после реального деплоя. На 14.11.2026: `REVIEW` — 31 строка
+  (C1 16, F 15), `READY_FOR_LIVE` — 29 строк (F2 18, F4 11), остальные `PENDING`.
 
 ### 6.2. Post-deploy (агент-исполняемые, не owner)
 
 `live_required=true`, `live_when=postdeploy`: SXR-H3-01, SXR-H4-01, SXR-I1-01, SXR-I2-01,
-SXR-K3-01, SXR-L1-01…L8-01 (13 строк). Это проверки, которые физически имеют смысл только на
+SXR-K3-01, SXR-L1-01…L8-01, а также SXR-F2-01 и SXR-F4-01 (после деплоя среза F) — 15 строк.
+Это проверки, которые физически имеют смысл только на
 работающем production: effective-конфигурация, реальный сетевой запрос, реальный журнал,
 реальный чекап, реальные записи журнала мемов и курсор потока.
 
-До релиза они остаются `PENDING`; после релиза либо получают production-evidence и становятся
+До релиза строки без review-приёмки остаются `PENDING`, а F2/F4 уже стоят `READY_FOR_LIVE` с
+`postrelease_wait`; после релиза либо получают production-evidence и становятся
 `VERIFIED`, либо остаются честно неподтверждёнными. Это не «ожидание владельца».
 
 ### 6.3. Отложенные owner_live_checks
