@@ -37,6 +37,8 @@ FactcheckPresentation. Полное описание —
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 import logging
 import random
 import re
@@ -237,6 +239,325 @@ def _egress_clean(text: str) -> str:
         out = _EGRESS_FORBIDDEN_RE.sub("", out)
         out = re.sub(r"\s{2,}", " ", out)
     return out.strip()
+
+
+# ── FACTCHECK-REQUEST-INTEGRITY: один предмет проверки (S13) ─────────────────
+#
+# Пользовательский запрос после команды «фактчек» — часть запроса, а не
+# служебный комментарий. Смысл запроса определяет LLM (существующий клиент и
+# реестр промптов); детерминированный код ниже ИСПОЛНЯЕТ уже принятое решение:
+# сохраняет исходный материал, запрос и предмет раздельно, не приписывает
+# пользовательский вопрос автору материала и не выбирает предмет по словам.
+# Сценарии A–G (owner §3.3) — приёмочные случаи, но НЕ лексические правила:
+# здесь нет ни одного regex/словаря для различения уточнений.
+SUBJECT_VERSION = "cs1"
+SUBJECT_ORIGIN_MATERIAL = "material"
+SUBJECT_ORIGIN_REQUEST = "request"
+SUBJECT_ORIGIN_MIXED = "mixed"
+
+#: Служебная семантическая стадия (не речевой канон): определяет предмет
+#: проверки. Код-дефолт; правка через существующий реестр промптов/hot-config.
+FACTCHECK_SUBJECT_SYSTEM_PROMPT = """\
+Ты — служебная стадия фактчека. Ты НЕ пишешь ответ пользователю и не
+оцениваешь правдивость. Твоя единственная задача — определить точный предмет
+проверки по исходному материалу и тексту, который пользователь написал после
+команды «фактчек».
+
+Пользователь ответил на сообщение и мог добавить собственный вопрос, условие
+или просьбу о форме ответа. Исходный материал — то, на что он ответил; запрос
+пользователя — его собственные слова. Не приписывай автору материала слова
+пользователя и не добавляй тезисы, которых нет ни в материале, ни в запросе.
+
+Верни СТРОГО один JSON-объект:
+{"subject": "...", "material_part": "...", "request_part": "...",
+ "form_request": "..."}
+
+Поля:
+- subject — то, что реально нужно проверить, одной-тремя фразами. Если
+  проверяется исходное утверждение целиком — это формулировка утверждения.
+  Если пользователь просит конкретный факт/ответ — это его вопрос. Если он
+  добавляет условие к исходному тезису — предмет включает тезис и условие.
+- material_part — ДОСЛОВНЫЙ фрагмент исходного материала, который входит в
+  предмет (точная подстрока материала). Пусто, если предмет не включает
+  утверждение автора.
+- request_part — собственный вопрос/условие/ограничение пользователя, которые
+  входят в предмет. Пусто, если запрос не добавляет предмет.
+- form_request — просьба о форме ответа (короче, подробнее, показать
+  основания, выделить часть вывода), которая НЕ меняет предмет. Пусто, если
+  её нет.
+
+Правила смысла:
+- сомнение, эмоция или просьба проверить внимательнее не создают новый тезис:
+  material_part — исходное утверждение (дословно), request_part пусто;
+- просьба о форме ответа не становится предметом проверки;
+- самостоятельный вопрос пользователя не требуется дословно искать в
+  материале: он сам становится предметом, если пользователь просит установить
+  факт, используя материал как контекст;
+- если пользователь просит проверить и исходный тезис, и дополнительный факт,
+  предмет включает оба;
+- не классифицируй запрос и не возвращай категории/типы — только предмет;
+- не отказывайся: если предмет — исходный материал, верни его же.
+
+JSON — единственный вывод, без markdown и пояснений."""
+
+_SUBJECT_MAX_CHARS = 20000
+
+
+@dataclasses.dataclass(frozen=True)
+class CheckSubject:
+    """Предмет проверки, отделённый от материала и запроса (owner §3.2).
+
+    ``text`` — единственный текст, который проверяют ВСЕ последующие стадии.
+    ``material_text``/``request_text`` — сохранённые без содержательной
+    обрезки исходный материал и запрос пользователя; ``material_part``/
+    ``request_part`` — их части, вошедшие в предмет; ``form_request`` —
+    пожелание к форме ответа (не предмет). ``origin`` — структурное
+    происхождение предмета, не категория уточнения.
+    """
+
+    text: str
+    request_text: str | None
+    material_text: str
+    material_part: str = ""
+    request_part: str = ""
+    form_request: str = ""
+    origin: str = SUBJECT_ORIGIN_MATERIAL
+    resolved_by: str = "material"      # material | llm | fallback
+    note: str = ""
+    material_author: str = ""
+    request_author: str = ""
+    material_tg_message_id: int | None = None
+    request_tg_message_id: int | None = None
+    fingerprint: str = ""
+    version: str = SUBJECT_VERSION
+
+    def as_dict(self) -> dict:
+        """Служебная диагностика (без текстов — R17/приватность)."""
+        return {
+            "version": self.version,
+            "origin": self.origin,
+            "resolved_by": self.resolved_by,
+            "note": self.note,
+            "fingerprint": self.fingerprint,
+            "material_tg_message_id": self.material_tg_message_id,
+            "request_tg_message_id": self.request_tg_message_id,
+            "has_request": bool(self.request_text),
+            "has_material_part": bool(self.material_part),
+            "has_request_part": bool(self.request_part),
+            "has_form_request": bool(self.form_request),
+        }
+
+
+def _subject_norm(text) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip().lower()
+
+
+def subject_fingerprint(*, text: str, request_text: str | None,
+                        material_text: str,
+                        material_tg_message_id: int | None) -> str:
+    """Идентичность предмета (не вердикта): разные предметы → разные ключи.
+
+    В отпечаток входят фактический предмет, запрос, применимый материал и его
+    сообщение. Временной режим и ревизии evidence добавляет envelope
+    (``subject_fingerprint``) — здесь их ещё нет."""
+    h = hashlib.sha256()
+    for chunk in (SUBJECT_VERSION, _subject_norm(text),
+                  _subject_norm(request_text),
+                  _subject_norm(material_text)[:2000],
+                  str(material_tg_message_id or "")):
+        h.update(chunk.encode("utf-8", "ignore"))
+        h.update(b"\x00")
+    return h.hexdigest()
+
+
+def _material_subject(*, material_text: str, request_text: str | None,
+                     material_author: str, request_author: str,
+                     material_tg_message_id, request_tg_message_id,
+                     resolved_by: str = "material", note: str = ""
+                     ) -> CheckSubject:
+    text = str(material_text or "").strip()
+    origin = SUBJECT_ORIGIN_MATERIAL
+    material_part = text
+    request_part = ""
+    if not text and request_text:
+        text = str(request_text).strip()
+        origin = SUBJECT_ORIGIN_REQUEST
+        material_part = ""
+        request_part = text
+    return CheckSubject(
+        text=text, request_text=request_text, material_text=material_text,
+        material_part=material_part, request_part=request_part,
+        origin=origin, resolved_by=resolved_by, note=note,
+        material_author=material_author, request_author=request_author,
+        material_tg_message_id=material_tg_message_id,
+        request_tg_message_id=request_tg_message_id,
+        fingerprint=subject_fingerprint(
+            text=text, request_text=request_text,
+            material_text=material_text,
+            material_tg_message_id=material_tg_message_id))
+
+
+def _subject_from_decision(*, material_text: str, request_text: str,
+                           material_author: str, request_author: str,
+                           material_tg_message_id, request_tg_message_id,
+                           decision: dict) -> CheckSubject | None:
+    """Структурная валидация LLM-решения; None — решение непригодно.
+
+    Поле ``material_part`` принимается только как ДОСЛОВНЫЙ фрагмент
+    материала: семантическая формулировка допустима в ``subject``, но чужие
+    слова нельзя подписать автору материала. Если ``subject`` не содержит
+    вошедшие части — они добавляются механически (сохранение provenance), без
+    смысловой переписки."""
+    subject = str(decision.get("subject") or "").strip()
+    material_part = str(decision.get("material_part") or "").strip()
+    request_part = str(decision.get("request_part") or "").strip()
+    form_request = str(decision.get("form_request") or "").strip()
+    material_text = str(material_text or "").strip()
+    request_text = str(request_text or "").strip()
+    note = ""
+    if len(subject) > _SUBJECT_MAX_CHARS:
+        subject = subject[:_SUBJECT_MAX_CHARS].strip()
+    if not subject:
+        return None
+    if material_part and _subject_norm(material_part) not in _subject_norm(
+            material_text):
+        # Модель подписала автору материала фразу, которой в материале нет.
+        material_part = ""
+        note = "ungrounded_material_part"
+    if not material_part and not request_part:
+        # Решение без разметки происхождения: принять можно только предмет,
+        # дословно выводимый из материала (иначе это новый тезис).
+        if material_text and _subject_norm(subject) in _subject_norm(
+                material_text):
+            material_part = subject
+        elif request_text and _subject_norm(subject) in _subject_norm(
+                request_text):
+            request_part = subject
+        else:
+            return None
+    if material_part and not request_part:
+        origin = SUBJECT_ORIGIN_MATERIAL
+        # Без изменения предмета возвращаем материал БАЙТ-В-БАЙТ: обычный
+        # фактчек и разговорный комментарий не должны менять проверяемый текст.
+        text = material_text
+        material_part = material_text
+    elif request_part and not material_part:
+        origin = SUBJECT_ORIGIN_REQUEST
+        text = subject
+    else:
+        origin = SUBJECT_ORIGIN_MIXED
+        text = subject
+        if _subject_norm(material_part) not in _subject_norm(text):
+            text = f"{material_part} {text}".strip()
+        if request_part and _subject_norm(request_part) not in _subject_norm(
+                text):
+            text = f"{text} {request_part}".strip()
+    return CheckSubject(
+        text=text, request_text=request_text or None,
+        material_text=material_text, material_part=material_part,
+        request_part=request_part, form_request=form_request, origin=origin,
+        resolved_by="llm", note=note, material_author=material_author,
+        request_author=request_author,
+        material_tg_message_id=material_tg_message_id,
+        request_tg_message_id=request_tg_message_id,
+        fingerprint=subject_fingerprint(
+            text=text, request_text=request_text or None,
+            material_text=material_text,
+            material_tg_message_id=material_tg_message_id))
+
+
+async def resolve_check_subject(service, *, material_text: str,
+                                request_text: str | None,
+                                material_author: str = "",
+                                request_author: str = "",
+                                material_tg_message_id: int | None = None,
+                                request_tg_message_id: int | None = None,
+                                chat_id: int | None = None) -> CheckSubject:
+    """Один предмет проверки для всех стадий (owner §3.2/§4.1).
+
+    Обычный вызов без текста после команды НЕ делает LLM-вызова: предмет —
+    исходный материал, байт-в-байт. Содержательный текст после команды
+    разрешается существующей LLM-стадией (тот же клиент/реестр промптов), а
+    детерминированный код исполняет структурированное решение. Любой сбой
+    решения → честный fallback на материал (запрос сохраняется целиком), а не
+    «тихая» подмена предмета.
+
+    Никогда не бросает."""
+    material_text = str(material_text or "").strip()
+    request_text = str(request_text or "").strip() or None
+    if not request_text:
+        return _material_subject(
+            material_text=material_text, request_text=None,
+            material_author=material_author, request_author=request_author,
+            material_tg_message_id=material_tg_message_id,
+            request_tg_message_id=request_tg_message_id)
+    if not material_text:
+        return _material_subject(
+            material_text="", request_text=request_text,
+            material_author=material_author, request_author=request_author,
+            material_tg_message_id=material_tg_message_id,
+            request_tg_message_id=request_tg_message_id,
+            note="request_without_material")
+    llm = getattr(service, "llm", None)
+    if llm is None or not hasattr(llm, "generate"):
+        return _material_subject(
+            material_text=material_text, request_text=request_text,
+            material_author=material_author, request_author=request_author,
+            material_tg_message_id=material_tg_message_id,
+            request_tg_message_id=request_tg_message_id,
+            resolved_by="fallback", note="llm_unavailable")
+    try:
+        from services.prompt_style_blocks import resolve_prompt
+        from services.summary_xml import escape_xml_text
+        system = resolve_prompt("prompts.factcheck_subject_system_prompt",
+                                FACTCHECK_SUBJECT_SYSTEM_PROMPT)
+        user = "\n".join((
+            "<original_material>" + escape_xml_text(material_text)
+            + "</original_material>",
+            "<material_author>" + escape_xml_text(material_author)
+            + "</material_author>",
+            "<user_request>" + escape_xml_text(str(request_text))
+            + "</user_request>",
+        ))
+        messages = [{"role": "system", "content": system},
+                    {"role": "user", "content": user}]
+        raw = await llm.generate(messages, module="factcheck",
+                                 step="subject_resolve")
+        from services.system2_handoff import parse_json_object
+        decision = parse_json_object(str(raw))
+        if not isinstance(decision, dict):
+            return _material_subject(
+                material_text=material_text, request_text=request_text,
+                material_author=material_author, request_author=request_author,
+                material_tg_message_id=material_tg_message_id,
+                request_tg_message_id=request_tg_message_id,
+                resolved_by="fallback", note="invalid_json")
+        subject = _subject_from_decision(
+            material_text=material_text, request_text=request_text,
+            material_author=material_author, request_author=request_author,
+            material_tg_message_id=material_tg_message_id,
+            request_tg_message_id=request_tg_message_id, decision=decision)
+        if subject is not None:
+            logger.info("[factcheck] subject resolved | chat=%s | origin=%s | "
+                        "material_part=%s | request_part=%s | form=%s",
+                        chat_id, subject.origin, bool(subject.material_part),
+                        bool(subject.request_part), bool(subject.form_request))
+            return subject
+        return _material_subject(
+            material_text=material_text, request_text=request_text,
+            material_author=material_author, request_author=request_author,
+            material_tg_message_id=material_tg_message_id,
+            request_tg_message_id=request_tg_message_id,
+            resolved_by="fallback", note="unusable_decision")
+    except Exception:
+        logger.warning("[factcheck] subject resolve failed — material subject",
+                       exc_info=True)
+        return _material_subject(
+            material_text=material_text, request_text=request_text,
+            material_author=material_author, request_author=request_author,
+            material_tg_message_id=material_tg_message_id,
+            request_tg_message_id=request_tg_message_id,
+            resolved_by="fallback", note="resolve_error")
 
 
 def build_presentation(verdict: CheckedVerdict, *,
@@ -792,6 +1113,10 @@ async def defer_factcheck_until_media_ready(db, req: FactcheckRequest, *,
         return await media_readiness.defer_until_ready(
             db, readiness, consumer=FACTCHECK_RESUME_CONSUMER,
             message_id=target_id, query=str(req.user_hint or ""),
+            # S13: полный текст уточнения не обрезается 400-символьным полем
+            # `question` (оно остаётся для связи с медиа); при возобновлении
+            # consumer получает запрос целиком.
+            context={"request_text": str(req.user_hint or "")},
             notify=False)
     except Exception:
         logger.warning("[factcheck_v2] defer registration failed | chat=%s",
@@ -902,7 +1227,10 @@ async def deliver_deferred_factcheck(intent, states, bot=None) -> bool:
         # «команды нет».
         trigger_tg_message_id=None,
         target_tg_message_id=target_id, target_text="",
-        user_hint=(str(intent.get("question") or "").strip() or None),
+        # S13: полный пользовательский запрос из durable-контекста (не
+        # 400-символьная связка с медиа); старые намерения — прежнее поле.
+        user_hint=(str((intent.get("context") or {}).get("request_text")
+                       or intent.get("question") or "").strip() or None),
         kind="reply",
         requester_user_id=(int(intent["user_id"])
                            if intent.get("user_id") else None))
@@ -920,7 +1248,8 @@ async def deliver_deferred_factcheck(intent, states, bot=None) -> bool:
 
 
 async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
-                        cache=None, publication=None) -> str:
+                        cache=None, publication=None,
+                        subject=None) -> str:
     """Единый вход W3 (06H.2): provenance → context+gate → план →
     внутренняя ветка → CheckedVerdict → Presentation → Delivery.
 
@@ -928,6 +1257,10 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
     разрешённая вызывающим публикация (handler объявил цель/источник/анкор и
     выполнил contextual-подмену). ``None`` — резолвим сами (tool/deferred/
     прямой вызов), поведение байт-в-байт прежнее.
+
+    ``subject`` (S13 FACTCHECK-REQUEST-INTEGRITY) — уже разрешённый вызывающим
+    предмет проверки (``CheckSubject``). ``None`` — резолвится здесь ровно
+    один раз; обычный вызов без уточнения не делает LLM-вызова.
 
     Ошибки поиска/LLM обрабатываются теми же семантиками фраз, что и
     legacy-путь (5.4b/5.5/🗿); кулдаун/пул — забота вызывающего handler'а
@@ -956,7 +1289,8 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
     try:
         async with typing_active(bot, chat_id):
             return await _run_inner(req, service=service, db=db, bot=bot,
-                                    cache=cache, publication=publication)
+                                    cache=cache, publication=publication,
+                                    subject=subject)
     except LLMBadResponseError:
         logger.warning("[factcheck_v2] empty answer — silence | chat=%s",
                        chat_id)
@@ -1003,7 +1337,7 @@ def _declared_target_tg(publication, req: "FactcheckRequest") -> int | None:
 
 
 async def _run_inner(req: FactcheckRequest, *, service, db, bot,
-                     cache, publication=None) -> str:
+                     cache, publication=None, subject=None) -> str:
     from services import mca_gates
     from services import temporal_factcheck as tf
     from services import factcheck_context as fcx
@@ -1059,14 +1393,32 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     #    поиск/план и вердикт обязаны читать один и тот же текст. Прежняя
     #    сборка ДО гейта давала вердикт по одному тексту, а поиск по другому.
 
+    # 1a. S13 FACTCHECK-REQUEST-INTEGRITY: единый предмет проверки ДО гейта,
+    #     плана и envelope. Без текста после команды LLM-вызова нет (предмет —
+    #     материал байт-в-байт); с уточнением — существующая семантическая
+    #     стадия, решение которой исполняет детерминированный код.
+    if subject is None:
+        subject = await resolve_check_subject(
+            service, material_text=claim_text or req.target_text,
+            request_text=req.user_hint,
+            material_author=str(getattr(publication, "claim_anchor_author", "")
+                                or req.forward_source or ""),
+            request_author=req.requester_name,
+            material_tg_message_id=declared_target_tg,
+            request_tg_message_id=req.trigger_tg_message_id,
+            chat_id=req.chat_id)
+
     # 2. Контекст + suitability (внутри v2 подразумеваются — консолидация).
     #    ASAP-FC-ADMISSION-01: явный запрос пользователя передаётся в гейт —
     #    сомнение классификатора не превращается в отказ (§2.1/§2.3).
+    #    S13: контекст/verbatim-выбор собирается ПОД ПРЕДМЕТ (кэш-идентичность
+    #    среза различает разные предметы), решение гейта — по материалу.
     decision, ctx = await fsg.evaluate_with_expansion(
         db, req.chat_id, claim_text=claim_text, user_hint=req.user_hint,
         target_tg_message_id=declared_target_tg,
         trigger_tg_message_id=req.trigger_tg_message_id, cache=cache,
-        explicit_request=explicit_request)
+        explicit_request=explicit_request,
+        subject_text=(subject.text or None))
     target_resolved = bool(str(claim_text or "").strip())
 
     # 2b. ASAP-FC-ADMISSION-01 §2.2: тезис может жить в связанном материале
@@ -1121,6 +1473,17 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                             "trigger_tg_message_id":
                                 req.trigger_tg_message_id},
                 explicit_request=explicit_request)
+            # S13: материал, на который ссылается запрос, изменился (законная
+            # contextual-подмена) — предмет пересобирается от НОВОГО материала,
+            # а не остаётся привязанным к пустой цели.
+            subject = await resolve_check_subject(
+                service, material_text=claim_text,
+                request_text=req.user_hint,
+                material_author=str(found.author or ""),
+                request_author=req.requester_name,
+                material_tg_message_id=found.tg_message_id,
+                request_tg_message_id=req.trigger_tg_message_id,
+                chat_id=req.chat_id)
 
     # 1b. Envelope — ПОСЛЕ разрешения цели/тезиса (M3/BD-2): вердикт,
     #     план и поиск читают один текст; анкор Claim передаётся отдельно.
@@ -1136,6 +1499,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                              target_tg_message_id=eff_target_tg,
                              trigger_tg_message_id=req.trigger_tg_message_id,
                              hint=req.user_hint,
+                             # S13: предмет проверки — единый для envelope,
+                             # декомпозиции, поиска, аналитика, validator,
+                             # verbalizer и renderer. Исходный материал остаётся
+                             # в material_claim_text/provenance.
+                             subject=subject,
                              # §3.3/I3: в claim идёт РОВНО текст публикации —
                              # тот же, что увидит вердикт (когда публикация
                              # собрала тезис сверх сохранённой строки).
@@ -1162,7 +1530,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         trigger_tg_message_id=req.trigger_tg_message_id,
         delivery_reply_to=delivery_reply_to,
         envelope=envelope, route="orchestrator_v2",
-        extra={"contextual_target": contextual_target})
+        extra={"contextual_target": contextual_target,
+               "subject_origin": str(getattr(subject, "origin", "") or ""),
+               "subject_resolved_by": str(
+                   getattr(subject, "resolved_by", "") or "")})
 
     feed = ""
     if ctx is not None:
@@ -1350,7 +1721,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # атрибуция идёт в EvidenceMap (source_kind=chat).
     attribution = None
     attribution_match = None
-    external_claim = claim_text
+    # S13: по существу проверяется ПРЕДМЕТ (не обязательно исходный текст);
+    # атрибуционная обвязка «X сказал» по-прежнему снимается ниже только для
+    # material-предмета — вопрос пользователя не переписывается.
+    external_claim = (str(getattr(subject, "text", "") or "").strip()
+                      or claim_text)
     try:
         from services import factcheck_attribution as fat
         attribution = fat.detect_attribution_claim(req.target_text)
@@ -1372,6 +1747,23 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                 return _finish(OUTCOME_NO_CLAIM, "v2_attribution:miss")
             external_claim = fat.attribution_thesis(req.target_text,
                                                     attribution)
+            # S13: для material-предмета (обычный фактчек/разговорный
+            # комментарий) сохраняется прежняя семантика BGS-01: проверяется
+            # тезис без обвязки «X сказал». Собственный вопрос/условие
+            # пользователя НЕ переписывается атрибуционным инструментом.
+            if str(getattr(subject, "origin", "") or "") in (
+                    "", SUBJECT_ORIGIN_MATERIAL):
+                subject = dataclasses.replace(
+                    subject, text=str(external_claim),
+                    fingerprint=subject_fingerprint(
+                        text=str(external_claim),
+                        request_text=getattr(subject, "request_text", None),
+                        material_text=getattr(subject, "material_text", ""),
+                        material_tg_message_id=getattr(
+                            subject, "material_tg_message_id", None)))
+            else:
+                external_claim = str(getattr(subject, "text", "")
+                                     or claim_text)
             logger.info("[factcheck_v2] attribution resolved | chat=%s",
                         req.chat_id)
     except Exception:
@@ -1379,7 +1771,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
                        exc_info=True)
         attribution = None
         attribution_match = None
-        external_claim = req.target_text
+        external_claim = (str(getattr(subject, "text", "") or "").strip()
+                          or claim_text)
 
     # 4. План: маршрут — внутренняя ветка (не продуктовая развилка).
     use_envelope = envelope is not None and mca_gates.temporal_factcheck_enabled()
@@ -1400,8 +1793,15 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
     # План строится от клейма, которое проверяется по существу: для
     # атрибуционного спора это тезис без обвязки «X сказал» (BGS-01: имена
     # внутри тезиса сохраняются); без спора — сам req.target_text (паритет).
-    retrieval_plan = fsp.build_retrieval_plan(decision,
-                                              claim_text=external_claim)
+    retrieval_plan = fsp.build_retrieval_plan(
+        decision, claim_text=external_claim,
+        subject_origin=str(getattr(subject, "origin", "") or ""),
+        subject_fingerprint=str(
+            getattr(envelope, "subject_fingerprint", "")
+            or getattr(subject, "fingerprint", "") or ""),
+        subject_anchor_tg_message_id=getattr(
+            subject, "request_tg_message_id", None),
+        subject_author=str(getattr(subject, "request_author", "") or ""))
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s", req.chat_id,

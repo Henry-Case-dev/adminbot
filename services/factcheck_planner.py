@@ -333,6 +333,12 @@ class RetrievalPlan:
     #: проверяемая часть. Часть без установленной принадлежности остаётся с
     #: пустым анкором (приписывать «наверное этому» запрещено).
     claim_anchors: tuple[dict, ...] = ()
+    #: S13 FACTCHECK-REQUEST-INTEGRITY: структурное происхождение предмета
+    #: (material | request | mixed) и его кэш-идентичность. План строится
+    #: ТОЛЬКО от уже установленного предмета; исходное сообщение повторно
+    #: приоритетным текстом не выбирается.
+    subject_origin: str = ""
+    subject_fingerprint: str = ""
 
     def queries_for(self, claim_id: str) -> tuple[SearchQuery, ...]:
         """Запросы КОНКРЕТНОЙ части; непомеченные — только когда часть одна
@@ -481,6 +487,10 @@ def _make_query(terms: list[str], intent: str, *, tail: str = "",
 def build_retrieval_plan(decision, *,
                          claim_text: str | None = None,
                          max_queries: int | None = None,
+                         subject_origin: str = "",
+                         subject_fingerprint: str = "",
+                         subject_anchor_tg_message_id: int | None = None,
+                         subject_author: str = "",
                          ) -> RetrievalPlan | None:
     """SuitabilityDecision/ClaimItem → план поисковых действий.
 
@@ -489,6 +499,13 @@ def build_retrieval_plan(decision, *,
     → адаптивный бюджет по числу частей (§3.2); явное число — потолок
     вызывающего. Никогда не бросает.
 
+    S13 FACTCHECK-REQUEST-INTEGRITY: ``claim_text`` — УЖЕ установленный
+    предмет проверки (CheckSubject), а не исходная публикация. Планировщик не
+    выбирает исходное сообщение повторно: без предмета план не строится.
+    ``subject_origin``/``subject_fingerprint`` — структурный провенанс и
+    кэш-идентичность; ``subject_anchor_tg_message_id``/``subject_author`` —
+    анкор частей, происходящих из запроса пользователя (не из материала).
+
     BGS-01: контекст чата (участники) планировщику больше НЕ передаётся —
     у него нет доступа к именам, поэтому обязательная деперсонализация
     запроса не может быть возвращена «по привычке»."""
@@ -496,7 +513,12 @@ def build_retrieval_plan(decision, *,
         return None
     try:
         return _build_plan_inner(decision, claim_text=claim_text,
-                                 max_queries=max_queries)
+                                 max_queries=max_queries,
+                                 subject_origin=subject_origin,
+                                 subject_fingerprint=subject_fingerprint,
+                                 subject_anchor_tg_message_id=(
+                                     subject_anchor_tg_message_id),
+                                 subject_author=subject_author)
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
         return None
@@ -508,9 +530,12 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     разбивается на предложения (как decompose_claim). Детерминированно.
 
     BGS-01: часть принимается только если она — фрагмент ПРОВЕРЯЕМОГО
-    клейма. Иначе план искал бы не тот текст, который проверяет вердикт
-    (например, атрибуционная обвязка «X сказал» осталась бы в запросе,
-    хотя проверяется тезис).
+    ПРЕДМЕТА (``claim``). S13 FACTCHECK-REQUEST-INTEGRITY: ``claim`` — это
+    установленный предмет (может быть вопросом пользователя или условием,
+    которых нет в исходной публикации); проверка принадлежности НЕ отключена,
+    но привязана к предмету, а не к исходному тексту. Части материала, не
+    вошедшие в предмет, не ищутся (не расширяют проверку); если ни одна часть
+    не подошла, ниже предмет декомпозируется сам.
 
     FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки материала
     изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути ДО
@@ -786,12 +811,19 @@ def build_claim_units(items, claim: str, *,
     return tuple(units)
 
 
-def _claim_anchor_map(items, units) -> tuple[dict, ...]:
+def _claim_anchor_map(items, units, *, subject_origin: str = "",
+                      subject_anchor_tg_message_id: int | None = None,
+                      subject_author: str = "") -> tuple[dict, ...]:
     """M6: claim_id → анкор/автор исходного фрагмента (без догадок).
 
     Часть плана сопоставляется с claim-item по совпадению текста (пункт может
     быть целым предложением части). Нет однозначного совпадения → анкор
-    пустой: приписывать часть «ближайшему» сообщению запрещено §4.3."""
+    пустой: приписывать часть «ближайшему» сообщению запрещено §4.3.
+
+    S13: часть самостоятельного вопроса пользователя (``subject_origin ==
+    "request"``) без item-совпадения принадлежит СООБЩЕНИЮ ЗАПРОСА, а не
+    материалу: пользовательский вопрос не становится цитатой исходного автора.
+    Для material/mixed анкор не угадывается."""
     rows: list[dict] = []
     by_text = {}
     for item in items or ():
@@ -806,7 +838,7 @@ def _claim_anchor_map(items, units) -> tuple[dict, ...]:
                 if unit_text and (unit_text in text or text in unit_text):
                     item = candidate
                     break
-        rows.append({
+        row = {
             "claim_id": str(getattr(unit, "claim_id", "") or ""),
             "anchor_tg_message_id": (getattr(item, "anchor_tg_message_id", None)
                                      if item is not None else None),
@@ -814,7 +846,18 @@ def _claim_anchor_map(items, units) -> tuple[dict, ...]:
                        if item is not None else ""),
             "source": (str(getattr(item, "source", "") or "")
                        if item is not None else ""),
-        })
+        }
+        if item is not None and row["source"] == "user_request":
+            row["origin"] = "user_request"
+        elif (item is None and subject_origin == "request"
+              and subject_anchor_tg_message_id not in (None, "", 0)):
+            row["anchor_tg_message_id"] = int(subject_anchor_tg_message_id)
+            row["author"] = str(subject_author or "")
+            row["source"] = "user_request"
+            row["origin"] = "user_request"
+        else:
+            row["origin"] = "material" if row["anchor_tg_message_id"] else ""
+        rows.append(row)
     return tuple(rows)
 
 
@@ -887,8 +930,11 @@ def refinement_query_for(claim: ClaimUnit) -> SearchQuery | None:
         return None
 
 
-def _build_plan_inner(decision, *, claim_text, max_queries
-                      ) -> RetrievalPlan | None:
+def _build_plan_inner(decision, *, claim_text, max_queries,
+                      subject_origin: str = "",
+                      subject_fingerprint: str = "",
+                      subject_anchor_tg_message_id: int | None = None,
+                      subject_author: str = "") -> RetrievalPlan | None:
     if decision is None:
         return None
     scope = str(getattr(decision, "scope", "") or "")
@@ -896,6 +942,10 @@ def _build_plan_inner(decision, *, claim_text, max_queries
     needs_chat = scope in ("chat_history", "web_and_chat")
     items = list(getattr(decision, "claim_items", ()) or ())
     claim = (str(claim_text) if claim_text else "").strip()
+    if not claim and subject_origin:
+        # S13: предмет уже установлен — planner НЕ выбирает исходное
+        # сообщение повторно в качестве более приоритетного текста.
+        return None
     if not claim:
         for item in items:
             if getattr(item, "source", "") == "literal":
@@ -1027,7 +1077,12 @@ def _build_plan_inner(decision, *, claim_text, max_queries
         needs_chat_history=needs_chat,
         needs_primary_fetch=True,
         claim_text=claim, claims=tuple(units), source_link=source_link,
-        claim_anchors=_claim_anchor_map(items, units))
+        claim_anchors=_claim_anchor_map(
+            items, units, subject_origin=subject_origin,
+            subject_anchor_tg_message_id=subject_anchor_tg_message_id,
+            subject_author=subject_author),
+        subject_origin=subject_origin,
+        subject_fingerprint=subject_fingerprint)
 
 
 

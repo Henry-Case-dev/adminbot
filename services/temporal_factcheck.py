@@ -187,6 +187,29 @@ class TemporalClaimEnvelope:
     #: Claim различаются (единственный законный случай — contextual-цель).
     #: None = Claim принадлежит самой цели.
     claim_anchor_tg_message_id: int | None = None
+    # ── S13 FACTCHECK-REQUEST-INTEGRITY: три сущности раздельно ────────────
+    #: Текст пользователя после команды (без содержательной обрезки); None —
+    #: уточнения не было. Не сливается с claim_text и материалом.
+    request_text: str | None = None
+    #: Автор запроса (пользователь) — отдельно от автора материала.
+    request_author: str | None = None
+    #: Исходный материал, сохранённый без изменения (claim_text — ПРЕДМЕТ).
+    material_claim_text: str | None = None
+    #: Автор исходного материала — отдельно от автора запроса.
+    material_author: str | None = None
+    #: Дата публикации исходного материала. Для самостоятельного вопроса
+    #: пользователя original_published_at = None (дата материала не
+    #: переносится на предмет), а дата материала остаётся здесь.
+    material_published_at: int | None = None
+    #: Структурное происхождение предмета: material | request | mixed.
+    subject_origin: str = "material"
+    #: Кэш-идентичность предмета: subject + mode + ревизия/content_hash
+    #: исходного evidence (разные предметы не делят готовый результат).
+    subject_fingerprint: str | None = None
+    #: Пожелание к форме ответа (не предмет проверки).
+    form_request: str = ""
+    #: Версия контракта предмета (диагностика совместимости).
+    subject_version: str = ""
 
     @property
     def origin_known(self) -> bool:
@@ -267,6 +290,11 @@ class InputRef:
     related_analysis_revision: int | None = None
     #: M3: сообщение, которому принадлежит claim_text. None = сама цель.
     claim_anchor_tg_message_id: int | None = None
+    #: S13 FACTCHECK-REQUEST-INTEGRITY: единый предмет проверки (CheckSubject
+    #: из factcheck_orchestrator; тип не импортируется, чтобы не создать цикл).
+    #: Есть предмет → claim_text/даты/provenance собираются из него; нет —
+    #: прежнее поведение (tool/Direct и старые вызывающие).
+    subject: object | None = None
 
     def __post_init__(self):
         if self.kind not in INPUT_KINDS:
@@ -419,7 +447,9 @@ async def build_envelope(
         mode = ref.explicit_mode
     else:
         mode, _explicit = resolve_requested_mode(ref.hint, default_mode)
-    claim_text = (ref.claim_text or "").strip()
+    subject = getattr(ref, "subject", None)
+    subject_text = str(getattr(subject, "text", "") or "").strip()
+    claim_text = subject_text or (ref.claim_text or "").strip()
 
     if ref.kind == "tool" and ref.target_tg_message_id is None:
         # Tool без цели → free_text + explicit unknown origin (`:1765`):
@@ -468,8 +498,10 @@ async def build_envelope(
     except TypeError:
         row = dict(row)
 
-    claim_text = claim_text or (row.get("text") or row.get("caption")
-                                or "").strip()
+    row_text = (row.get("text") or row.get("caption") or "").strip()
+    material_text = (str(getattr(subject, "material_text", "") or "").strip()
+                     or row_text)
+    claim_text = claim_text or row_text
     if not claim_text:
         return None, "temporal_envelope_rejected"
 
@@ -481,48 +513,125 @@ async def build_envelope(
     # hidden_user (скрытый автор ≠ неизвестная дата); (2) telegram_message —
     # дата сообщения; дату ЗАПРОСА не подставлять.
     if origin_type and origin_sent_at:
-        original_published_at = int(origin_sent_at)
+        material_published_at = int(origin_sent_at)
         date_source = "telegram_origin"
         date_precision = "day"
     elif sent_at:
-        original_published_at = int(sent_at)
+        material_published_at = int(sent_at)
         date_source = "telegram_message"
         date_precision = "day"
     else:
+        material_published_at = None
+        date_source = "unknown"
+        date_precision = "unknown"
+    original_published_at = material_published_at
+
+    subject_origin = (str(getattr(subject, "origin", "") or "")
+                      or "material")
+    request_text = (str(getattr(subject, "request_text", "") or "").strip()
+                    or None)
+    material_part = str(getattr(subject, "material_part", "") or "").strip()
+    request_part = str(getattr(subject, "request_part", "") or "").strip()
+    form_request = str(getattr(subject, "form_request", "") or "").strip()
+    material_author = (str(getattr(subject, "material_author", "") or "")
+                       .strip()
+                       or str((_attribution_from_row(row) or {}).get("author")
+                              or ""))
+    request_author = (str(getattr(subject, "request_author", "") or "")
+                      .strip() or None)
+
+    # SFC-4-06: дата исходной публикации не переносится на самостоятельный
+    # вопрос пользователя. Дата материала остаётся в material_published_at.
+    if subject_origin == "request":
         original_published_at = None
         date_source = "unknown"
         date_precision = "unknown"
 
     # Заявленный период текста — extracted_claimed; конфликт с Telegram-
     # метаданными сохраняется и показывается, не разрешается молча (D5).
-    period_from, period_to, period_precision, notes = \
-        _extract_claimed_period(claim_text, original_published_at)
+    # Условие пользователя — отдельная дата-семантика: оно проверяется первым
+    # и НЕ сравнивается с датой материала (это не дата публикации тезиса).
+    period_from = period_to = None
+    period_precision = None
+    period_origin = ""
+    notes: list = []
+    if request_part:
+        period_from, period_to, period_precision, req_notes = \
+            _extract_claimed_period(request_part, None)
+        notes = list(req_notes or ())
+        if period_from is not None:
+            period_origin = "request"
+    if period_from is None and subject_origin != "request":
+        mat_from, mat_to, mat_precision, mat_notes = \
+            _extract_claimed_period(material_part or claim_text,
+                                    material_published_at)
+        if mat_from is not None:
+            period_from, period_to = mat_from, mat_to
+            period_precision = mat_precision
+            period_origin = "material"
+        notes.extend(list(mat_notes or ()))
+    if period_from is None and subject_origin == "request" \
+            and not request_part:
+        period_from, period_to, period_precision, req_notes = \
+            _extract_claimed_period(claim_text, None)
+        notes = list(req_notes or ())
     conflicts: list[dict] = []
-    if period_from is not None and original_published_at is not None:
+    if (period_from is not None and period_origin == "material"
+            and material_published_at is not None):
         p_from, p_to = period_from, period_to or period_from
-        if not (p_from - 86400 <= original_published_at <= p_to + 86400):
+        if not (p_from - 86400 <= material_published_at <= p_to + 86400):
             conflicts.append({
                 "kind": "extracted_vs_telegram",
                 "extracted_period": [period_from, period_to],
-                "telegram_date": original_published_at})
+                "telegram_date": material_published_at})
     uncertainty: dict = {}
     if notes:
         uncertainty["notes"] = notes
     if conflicts:
         uncertainty["conflicts"] = conflicts
 
+    target_revision = (int(row["current_revision"])
+                       if row.get("current_revision") else None)
+    content_hash = row.get("content_hash") or None
+    subject_fp = None
+    if subject is not None:
+        base_fp = str(getattr(subject, "fingerprint", "") or "")
+        h = hashlib.sha256()
+        for chunk in (base_fp, str(mode), str(target_revision or ""),
+                      str(content_hash or "")):
+            h.update(chunk.encode("utf-8", "ignore"))
+            h.update(b"\x00")
+        subject_fp = h.hexdigest()
+
+    if subject is not None and subject_origin == "request":
+        # Автор самостоятельного вопроса — пользователь; чужой материал не
+        # становится цитатой автора вопроса и наоборот.
+        attribution = ({**(dict(ref.attribution) or {}),
+                        **({"author": request_author} if request_author else {})}
+                       if request_author else dict(ref.attribution))
+    else:
+        attribution = dict(ref.attribution) or _attribution_from_row(row)
+
+    anchor_tg = (int(ref.claim_anchor_tg_message_id)
+                 if ref.claim_anchor_tg_message_id not in (None, "", 0)
+                 else int(ref.target_tg_message_id))
+    if subject_origin == "request":
+        req_tg = getattr(subject, "request_tg_message_id", None)
+        anchor_tg = (int(req_tg) if req_tg not in (None, "", 0)
+                     else (int(ref.trigger_tg_message_id)
+                           if ref.trigger_tg_message_id else None))
+
     envelope = TemporalClaimEnvelope(
         claim_id=_new_claim_id(), chat_id=int(ref.chat_id),
         target_tg_message_id=int(ref.target_tg_message_id),
-        target_revision=(int(row["current_revision"])
-                         if row.get("current_revision") else None),
-        target_content_hash=row.get("content_hash") or None,
+        target_revision=target_revision,
+        target_content_hash=content_hash,
         trigger_tg_message_id=ref.trigger_tg_message_id,
         claim_text=claim_text,
         claim_span=None,
         source_type=ref.source_type if ref.source_type in SOURCE_TYPES
         else "text",
-        attribution=dict(ref.attribution) or _attribution_from_row(row),
+        attribution=attribution,
         origin_type=origin_type,
         origin_sender_user_id=row.get("origin_sender_user_id"),
         origin_chat_id=row.get("origin_chat_id"),
@@ -541,10 +650,16 @@ async def build_envelope(
         analysis_as_of=now,
         related_asset_id=ref.related_asset_id,
         related_analysis_revision=ref.related_analysis_revision,
-        claim_anchor_tg_message_id=(
-            int(ref.claim_anchor_tg_message_id)
-            if ref.claim_anchor_tg_message_id not in (None, "", 0)
-            else int(ref.target_tg_message_id)))
+        claim_anchor_tg_message_id=anchor_tg,
+        request_text=request_text,
+        request_author=request_author,
+        material_claim_text=material_text or None,
+        material_author=material_author or None,
+        material_published_at=material_published_at,
+        subject_origin=subject_origin,
+        subject_fingerprint=subject_fp,
+        form_request=form_request,
+        subject_version=str(getattr(subject, "version", "") or ""))
     return envelope, None
 
 
