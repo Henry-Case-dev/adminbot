@@ -286,15 +286,400 @@ def github_token() -> str:
 # ── SELF-DIAG-01 / D4-B: repo identity и локальный snapshot ─────────────────
 
 def local_snapshot_root() -> str:
-    """Корень локального snapshot (env-only ``SELF_DIAG_LOCAL_REPO_ROOT``).
+    """Явно настроенный корень snapshot (env ``SELF_DIAG_LOCAL_REPO_ROOT``).
 
-    Пусто (заводское значение) = локальный провайдер не активирован:
-    поведение ``read_source_code`` остаётся ровно прежним (GitHub).
+    Это ТОЛЬКО явная настройка оператора. Пустое значение не означает
+    «локального источника нет»: фактический корень приложения определяется
+    автоматически из runtime/deploy identity (``resolve_local_source``,
+    SXR-E2/E4). Путь хоста наружу не отдаётся.
     """
     try:
         return str(getattr(settings, "SELF_DIAG_LOCAL_REPO_ROOT", "") or "").strip()
     except Exception:      # pragma: no cover - защитная ветка
         return ""
+
+
+# ── SXR-E: автоматический local-first (собственный production-код) ──────────
+#
+# Порядок источников для собственного приложения (owner §E4):
+#   1. проверенный локальный источник фактически работающей версии;
+#   2. другой локальный snapshot с честной идентичностью;
+#   3. GitHub по точному deployed commit / обоснованному ref;
+#   4. честный partial result.
+#
+# Корень берётся из явной настройки ``SELF_DIAG_LOCAL_REPO_ROOT`` либо из
+# runtime identity (каталог фактически исполняемого приложения). Произвольный
+# cwd процесса как «подтверждённый корень» НЕ используется. Ничего не
+# клонируется и не индексируется: читаются существующие файлы.
+
+LOCAL_ROOT_CONFIGURED = "configured"
+LOCAL_ROOT_RUNTIME = "runtime_identity"
+LOCAL_ROOT_NONE = "none"
+
+#: Чем подтверждён локальный источник (различать, а не смешивать).
+LOCAL_VERIFICATION_VERIFIED_RUNNING = "verified_running"
+LOCAL_VERIFICATION_VERIFIED_SNAPSHOT = "verified_deployed_snapshot"
+LOCAL_VERIFICATION_DEPLOYED_FILES = "deployed_files"
+LOCAL_VERIFICATION_RUNNING_UNVERIFIED = "running_unverified"
+LOCAL_VERIFICATION_LOCAL_SNAPSHOT = "local_snapshot"
+LOCAL_VERIFICATION_ORIGIN_MISMATCH = "origin_mismatch"
+LOCAL_VERIFICATION_UNAVAILABLE = "unavailable"
+
+LOCAL_VERIFICATIONS = frozenset({
+    LOCAL_VERIFICATION_VERIFIED_RUNNING,
+    LOCAL_VERIFICATION_VERIFIED_SNAPSHOT,
+    LOCAL_VERIFICATION_DEPLOYED_FILES,
+    LOCAL_VERIFICATION_RUNNING_UNVERIFIED,
+    LOCAL_VERIFICATION_LOCAL_SNAPSHOT,
+    LOCAL_VERIFICATION_ORIGIN_MISMATCH,
+    LOCAL_VERIFICATION_UNAVAILABLE,
+})
+#: Источник можно читать (это код приложения), даже если версия не доказана.
+LOCAL_USABLE_VERIFICATIONS = frozenset({
+    LOCAL_VERIFICATION_VERIFIED_RUNNING,
+    LOCAL_VERIFICATION_VERIFIED_SNAPSHOT,
+    LOCAL_VERIFICATION_DEPLOYED_FILES,
+    LOCAL_VERIFICATION_RUNNING_UNVERIFIED,
+    LOCAL_VERIFICATION_LOCAL_SNAPSHOT,
+})
+#: Версия подтверждена (commit binding или сверка с манифестом деплоя).
+LOCAL_VERSION_VERIFIED = frozenset({
+    LOCAL_VERIFICATION_VERIFIED_RUNNING,
+    LOCAL_VERIFICATION_VERIFIED_SNAPSHOT,
+    LOCAL_VERIFICATION_DEPLOYED_FILES,
+})
+
+#: Revision-токен локального чтения: commit checkout, файлы деплоя или файлы
+#: процесса. Не-commit токены наружу выдаются как есть и НЕ маскируются под SHA.
+LOCAL_REVISION_CHECKOUT = "checkout"
+LOCAL_REVISION_DEPLOYED_FILES = "deployed_files"
+LOCAL_REVISION_FILES = "files"
+LOCAL_REVISION_NONE = "none"
+
+LOCAL_SOURCE_SCHEMA = 1
+
+#: Причины, при которых локальный источник просто НЕ МОЖЕТ отдать нужную
+#: ревизию/файл (доступность). Только для них допустим ровно один удалённый
+#: маршрут по deployed commit (owner §E4, пункт 3).
+#:
+#: Отказы безопасности/политики (`path_denied`, `path_is_directory`,
+#: `file_too_large`, `binary_content`) сюда НЕ входят: подмена их удалённым
+#: чтением обходила бы тот же запрет и выдавала бы отказ за успех.
+LOCAL_FALLBACK_DETAILS = frozenset({
+    "commit_not_available",
+    "no_revision",
+    "root_missing",
+    "read_error",
+})
+
+#: Файлы, которыми подтверждается «это дерево Adminbot и его можно читать
+#: сервисному пользователю». Только наличие/читаемость, без исполнения.
+_APP_ROOT_MARKERS = ("services/source_reader.py", "config/settings.py")
+
+
+def runtime_application_root() -> Path | None:
+    """Каталог фактически исполняемого приложения (runtime identity, не cwd)."""
+    try:
+        module = Path(__file__).resolve()
+    except (OSError, RuntimeError):      # pragma: no cover - защитная ветка
+        return None
+    package = module.parent
+    root = package.parent
+    try:
+        if not package.is_dir() or not root.is_dir():
+            return None
+    except OSError:      # pragma: no cover - защитная ветка
+        return None
+    return root
+
+
+def _runtime_process_started_at():
+    """Существующий источник ``status.started_at`` (без нового хранилища)."""
+    try:
+        from services.status_service import status as _status
+        return getattr(_status, "started_at", None)
+    except Exception:      # pragma: no cover - статус недоступен
+        return None
+
+
+def _probe_app_root(root: Path) -> tuple[bool, bool, str]:
+    """Права сервисного пользователя и наличие файлов приложения.
+
+    Возвращает ``(readable, files_present, reason)``. Проверяется фактическое
+    чтение каталога (а не только ``os.access``) и читаемость одного известного
+    файла приложения, если он есть. Секреты не запрашиваются; отсутствие
+    маркерного файла само по себе не отказ — конкретный файл проверяется при
+    чтении, а revision-токен без Git/манифеста не появляется.
+    """
+    entries = 0
+    try:
+        with os.scandir(root) as iterator:
+            for _entry in iterator:
+                entries += 1
+                if entries >= 1:
+                    break
+    except PermissionError:
+        return False, False, "permission_denied"
+    except (OSError, ValueError):
+        return False, False, "root_unreadable"
+    if entries <= 0:
+        return True, False, "root_empty"
+    for rel in _APP_ROOT_MARKERS:
+        candidate = root.joinpath(*rel.split("/"))
+        try:
+            if not candidate.is_file():
+                continue
+            with candidate.open("rb") as handle:
+                handle.read(1)
+            break
+        except PermissionError:
+            return False, False, "permission_denied"
+        except (OSError, ValueError):
+            continue
+    return True, True, ""
+
+
+def _local_revision(identity: dict) -> tuple[str, str]:
+    """Revision-токен локального чтения и его вид (без фабрикации SHA)."""
+    checkout = str(identity.get("checkout_sha") or "").strip().lower()
+    if re.fullmatch(r"[0-9a-f]{40}", checkout):
+        return checkout, LOCAL_REVISION_CHECKOUT
+    deployed = str(identity.get("deployed_sha") or "").strip().lower()
+    if re.fullmatch(r"[0-9a-f]{40}", deployed):
+        return deployed, LOCAL_REVISION_DEPLOYED_FILES
+    version = identity.get("version_provenance")
+    runtime_version = ""
+    if isinstance(version, dict):
+        runtime_version = str(version.get("runtime") or "").strip()
+    if runtime_version:
+        safe = re.sub(r"[^0-9A-Za-z_.-]", "-", runtime_version)[:40]
+        return f"files-{safe}", LOCAL_REVISION_FILES
+    return "", LOCAL_REVISION_NONE
+
+
+def _local_source_state(*, identity: dict, root_source: str,
+                        expected_origin: str, readable: bool,
+                        files_present: bool,
+                        probe_reason: str = "") -> dict:
+    """Единственное правило классификации локального источника.
+
+    Отвечает на «что это за локальный код и можно ли его читать», не подменяя
+    deployed SHA, checkout SHA, runtime identity и доступные файлы.
+    """
+    identity = identity if isinstance(identity, dict) else {}
+    provenance = identity.get("version_provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+    checkout_sha = str(identity.get("checkout_sha") or "").strip().lower()
+    deployed_sha = str(identity.get("deployed_sha") or "").strip().lower()
+    git_present = bool(re.fullmatch(r"[0-9a-f]{40}", checkout_sha))
+    observed_origin = normalize_repo_origin(identity.get("repo_origin"))
+    git_origin_match = None
+    if git_present and observed_origin:
+        git_origin_match = bool(
+            expected_origin
+            and observed_origin.casefold() == expected_origin.casefold())
+    is_runtime_root = root_source == LOCAL_ROOT_RUNTIME
+    identity_code = str(identity.get("code") or "unknown")
+    manifest_version = provenance.get("manifest")
+    version_consistent = provenance.get("consistent")
+    dirty = identity.get("dirty")
+    revision, revision_kind = _local_revision(identity)
+    reason = ""
+    note = ""
+    if not readable or not files_present:
+        verification = LOCAL_VERIFICATION_UNAVAILABLE
+        reason = probe_reason or "root_unreadable"
+    elif git_origin_match is False:
+        # Чужой репозиторий не может служить источником собственного кода.
+        verification = LOCAL_VERIFICATION_ORIGIN_MISMATCH
+        reason = "repo_origin_mismatch"
+    elif identity_code == "verified_deployed":
+        verification = (LOCAL_VERIFICATION_VERIFIED_RUNNING if is_runtime_root
+                        else LOCAL_VERIFICATION_VERIFIED_SNAPSHOT)
+    elif revision_kind == LOCAL_REVISION_CHECKOUT:
+        verification = (LOCAL_VERIFICATION_RUNNING_UNVERIFIED if is_runtime_root
+                        else LOCAL_VERIFICATION_LOCAL_SNAPSHOT)
+    elif revision_kind == LOCAL_REVISION_DEPLOYED_FILES:
+        # Выложенные файлы + манифест деплоя, Git-истории нет: SHA не
+        # доказывается, версия сверена только по метке манифеста.
+        if version_consistent is False:
+            verification = (LOCAL_VERIFICATION_RUNNING_UNVERIFIED
+                            if is_runtime_root
+                            else LOCAL_VERIFICATION_LOCAL_SNAPSHOT)
+            reason = "version_conflict"
+        else:
+            verification = LOCAL_VERIFICATION_DEPLOYED_FILES
+    elif is_runtime_root:
+        verification = LOCAL_VERIFICATION_RUNNING_UNVERIFIED
+    else:
+        verification = LOCAL_VERIFICATION_LOCAL_SNAPSHOT
+    if verification == LOCAL_VERIFICATION_VERIFIED_RUNNING:
+        note = ("локальный код работающей версии подтверждён: deployed SHA "
+                "совпадает с checkout, рабочее дерево чистое")
+    elif verification == LOCAL_VERIFICATION_VERIFIED_SNAPSHOT:
+        note = "подтверждённый локальный snapshot деплой-версии"
+    elif verification == LOCAL_VERIFICATION_DEPLOYED_FILES:
+        note = ("читаются выложенные файлы работающей версии без Git-истории: "
+                "SHA не подтверждён, сверена только метка версии манифеста")
+    elif verification == LOCAL_VERIFICATION_RUNNING_UNVERIFIED:
+        note = ("читаются исполняемые файлы процесса; соответствие "
+                "деплой-версии не подтверждено")
+    elif verification == LOCAL_VERIFICATION_LOCAL_SNAPSHOT:
+        note = ("читается локальный snapshot; это не доказательство версии "
+                "работающего процесса")
+    elif verification == LOCAL_VERIFICATION_ORIGIN_MISMATCH:
+        note = ("repo_origin локального дерева не совпадает с ожидаемым "
+                "источником собственного кода")
+    elif verification == LOCAL_VERIFICATION_UNAVAILABLE:
+        note = "локальный источник недоступен (права/файлы/корень)"
+    if git_present:
+        local_source_verification = (
+            "verified_deployed"
+            if verification in (LOCAL_VERIFICATION_VERIFIED_RUNNING,
+                               LOCAL_VERIFICATION_VERIFIED_SNAPSHOT)
+            else "local_unverified")
+    elif identity:
+        local_source_verification = "local_unverified"
+    else:
+        local_source_verification = "unknown"
+    return {
+        "schema": LOCAL_SOURCE_SCHEMA,
+        "root_source": root_source,
+        "is_runtime_root": is_runtime_root,
+        "readable": bool(readable),
+        "files_present": bool(files_present),
+        "expected_origin": expected_origin,
+        "repo_origin": observed_origin,
+        "repo_origin_match": git_origin_match,
+        "git_present": git_present,
+        "manifest_present": manifest_version is not None,
+        "identity_code": identity_code,
+        "identity_reason": str(identity.get("reason") or ""),
+        "deployed_sha": deployed_sha or None,
+        "checkout_sha": checkout_sha or None,
+        "dirty": dirty if isinstance(dirty, bool) else None,
+        "runtime_version": provenance.get("runtime"),
+        "manifest_version": manifest_version,
+        "version_consistent": (version_consistent
+                               if isinstance(version_consistent, bool)
+                               else None),
+        "revision": revision,
+        "revision_kind": revision_kind,
+        "verification": verification,
+        "version_verified": verification in LOCAL_VERSION_VERIFIED,
+        "commit_bound": bool(revision_kind == LOCAL_REVISION_CHECKOUT
+                             and dirty is False),
+        "usable": verification in LOCAL_USABLE_VERIFICATIONS and bool(revision),
+        "reason": reason,
+        "note": note,
+        "local_source_verification": local_source_verification,
+        "identity": identity,
+    }
+
+
+def _local_source_public(record: dict) -> dict:
+    """Наружная часть записи локального источника: без путей хоста."""
+    if not isinstance(record, dict):
+        return {}
+    keys = (
+        "schema", "root_source", "is_runtime_root", "repo_origin",
+        "repo_origin_match", "git_present", "manifest_present",
+        "identity_code", "identity_reason", "deployed_sha", "checkout_sha",
+        "dirty", "runtime_version", "manifest_version", "version_consistent",
+        "revision", "revision_kind", "verification", "version_verified",
+        "commit_bound", "usable", "reason", "note",
+        "local_source_verification",
+    )
+    return {key: record.get(key) for key in keys}
+
+
+def resolve_local_source(*, repo_origin=None, root=None, runtime_root=None,
+                         configured_root=None, identity_reader=None,
+                         process_started_at=None) -> dict:
+    """Автоматически определить доступный локальный production-источник.
+
+    Приоритет корня: явный ``root`` → ``SELF_DIAG_LOCAL_REPO_ROOT`` → каталог
+    фактически исполняемого приложения (runtime identity). Cwd процесса не
+    рассматривается как корень. Функция не бросает и не ходит в сеть.
+    """
+    expected_origin = (normalize_repo_origin(repo_origin)
+                       or configured_repo_origin())
+    if process_started_at is None:
+        process_started_at = _runtime_process_started_at()
+    configured = (str(configured_root).strip() if configured_root is not None
+                  else local_snapshot_root())
+    candidates: list[tuple[str, str]] = []
+    if root is not None and str(root).strip():
+        candidates.append((str(root).strip(), LOCAL_ROOT_CONFIGURED))
+    if configured:
+        candidates.append((configured, LOCAL_ROOT_CONFIGURED))
+    if runtime_root is None:
+        runtime_root = runtime_application_root()
+    if runtime_root is not None:
+        candidates.append((str(runtime_root), LOCAL_ROOT_RUNTIME))
+
+    attempts: list[dict] = []
+    seen: set[str] = set()
+    fallback_record: dict | None = None
+    for raw_root, root_source in candidates:
+        try:
+            candidate = Path(raw_root)
+            if not candidate.exists():
+                attempts.append({"root_source": root_source,
+                                 "verification": LOCAL_VERIFICATION_UNAVAILABLE,
+                                 "reason": "root_missing"})
+                continue
+            if not candidate.is_dir():
+                attempts.append({"root_source": root_source,
+                                 "verification": LOCAL_VERIFICATION_UNAVAILABLE,
+                                 "reason": "root_not_dir"})
+                continue
+            resolved = candidate.resolve()
+        except (OSError, RuntimeError, ValueError):
+            attempts.append({"root_source": root_source,
+                             "verification": LOCAL_VERIFICATION_UNAVAILABLE,
+                             "reason": "root_unreadable"})
+            continue
+        key = str(resolved)
+        if key in seen:
+            continue
+        seen.add(key)
+        readable, files_present, probe_reason = _probe_app_root(resolved)
+        identity: dict = {}
+        if readable:
+            try:
+                if identity_reader is not None:
+                    identity = identity_reader(resolved) or {}
+                else:
+                    from services import deploy_identity as _di
+                    identity = _di.collect_identity(
+                        resolved, process_started_at=process_started_at) or {}
+            except Exception:      # pragma: no cover - identity не рвёт выбор
+                identity = {}
+        state = _local_source_state(
+            identity=identity if isinstance(identity, dict) else {},
+            root_source=root_source, expected_origin=expected_origin,
+            readable=readable, files_present=files_present,
+            probe_reason=probe_reason)
+        state["root"] = str(resolved)
+        state["attempts"] = list(attempts)
+        if state["usable"]:
+            return state
+        attempts.append({"root_source": root_source,
+                         "verification": state["verification"],
+                         "reason": state["reason"]})
+        # Первый непустой кандидат остаётся в записи, даже если не подтверждён:
+        # наружу уходит честная причина, а не пустота.
+        if fallback_record is None or state.get("identity"):
+            fallback_record = state
+        continue
+    empty = _local_source_state(
+        identity={}, root_source=LOCAL_ROOT_NONE,
+        expected_origin=expected_origin, readable=False,
+        files_present=False, probe_reason="root_missing")
+    empty["root"] = None
+    empty["attempts"] = attempts
+    return fallback_record or empty
 
 
 def normalize_repo_origin(value: Any) -> str | None:
@@ -372,48 +757,28 @@ def configured_repo_origin() -> str:
 def resolve_self_repo_identity() -> dict:
     """Каноническая идентичность СВОЕГО репозитория для исследования кода.
 
-    SELF-DIAG-01 corrective (§3/§4 owner input): вызывается ТОЛЬКО после
+    SELF-DIAG-01 corrective (§3/§4) + SMART stage E: вызывается ТОЛЬКО после
     структурированного решения модели ``diagnostic_research.target == self``.
     Собственный репозиторий — известная часть окружения, а не внешний адрес,
     который пользователь обязан присылать каждый раз.
 
-    Приоритет ref (и честное различие identity):
-
-    1. ``deployed_sha`` и он совпадает с checkout (или локального snapshot
-       нет) — читается именно deployed commit;
-    2. deployed SHA не совпадает с checkout/не подтверждён — читается
-       доступный локальный checkout/snapshot (`ref=""` → HEAD провайдера) с
-       явной пометкой ``local_checkout_unverified`` и обоими SHA;
-    3. deployed SHA нет, но есть локальный snapshot — ``local_snapshot``;
-    4. иначе — удалённая ветка по умолчанию (``remote_default_branch``), НЕ
-       выдаваемая за работающую версию.
+    Local-first (owner §E1–§E4): сначала проверенный локальный источник
+    фактически работающей версии; затем другой локальный snapshot с честной
+    идентичностью; затем GitHub по точному deployed commit; иначе честный
+    partial (``unverified_revision``). ``master`` по умолчанию не читается.
 
     Ничего не исполняет и не бросает: ошибка identity → честные ``None``/
-    ``unknown`` + причина, не выдуманный SHA."""
+    ``unknown`` + причина, не выдуманный SHA. Путь хоста наружу не попадает.
+    """
     repo = configured_repo_origin()
-    record: dict = {}
+    local: dict = {}
     error = ""
     try:
-        from services import deploy_identity as _di
-        started = None
-        try:
-            from services.status_service import status as _status
-            started = getattr(_status, "started_at", None)
-        except Exception:      # pragma: no cover - статус недоступен
-            started = None
-        # Существующий выбор корня (тот же, что у DiagnosticCollector):
-        # настроенный snapshot root, иначе фактический cwd процесса.
-        root = local_snapshot_root()
-        if not root:
-            try:
-                root = os.getcwd()
-            except OSError:      # pragma: no cover - защитная ветка
-                root = None
-        collected = _di.collect_identity(
-            root, process_started_at=started)
-        record = collected if isinstance(collected, dict) else {}
+        local = resolve_local_source(repo_origin=repo)
     except Exception as exc:      # pragma: no cover - защитная ветка
         error = type(exc).__name__
+    record = local.get("identity") if isinstance(local.get("identity"), dict) \
+        else {}
     deployed_sha = str(record.get("deployed_sha") or "").strip().lower() or ""
     checkout_sha = str(record.get("checkout_sha") or "").strip().lower() or ""
     local_verification = str(
@@ -421,29 +786,55 @@ def resolve_self_repo_identity() -> dict:
     match = (bool(deployed_sha and checkout_sha
                   and deployed_sha == checkout_sha)
              if deployed_sha and checkout_sha else None)
-    local_root = local_snapshot_root()
-    if deployed_sha and (not local_root or match is True):
-        ref, ref_source = deployed_sha, "deployed_sha"
-    elif local_root:
+    verification = str(local.get("verification") or
+                       LOCAL_VERIFICATION_UNAVAILABLE)
+    revision_kind = str(local.get("revision_kind") or LOCAL_REVISION_NONE)
+    usable = bool(local.get("usable"))
+    if usable and revision_kind == LOCAL_REVISION_CHECKOUT:
         ref = ""
-        ref_source = ("local_checkout_unverified"
-                      if deployed_sha else "local_snapshot")
+        if deployed_sha and deployed_sha == checkout_sha:
+            ref_source = "deployed_sha"
+        elif deployed_sha:
+            ref_source = "local_checkout_unverified"
+        else:
+            ref_source = "local_snapshot"
+    elif usable and revision_kind == LOCAL_REVISION_DEPLOYED_FILES:
+        # Выложенные файлы без Git-истории: SHA не выдумывается, ref пуст —
+        # читается текущий revision-токен локального провайдера.
+        ref, ref_source = "", "deployed_files"
+    elif usable:
+        ref, ref_source = "", "local_snapshot"
     elif deployed_sha:
+        # Локальный источник недоступен: допустимый fallback — ровно
+        # deployed commit, без подстановки ветки по умолчанию.
         ref, ref_source = deployed_sha, "deployed_sha"
     else:
-        ref, ref_source = "", "remote_default_branch"
+        ref, ref_source = "", "unverified_revision"
     note = ""
-    if ref_source == "local_checkout_unverified":
+    if ref_source == "deployed_sha" and usable:
+        note = ("читается проверенный локальный код работающей версии: "
+                "deployed SHA совпадает с checkout")
+    elif ref_source == "deployed_sha":
+        note = ("локальный источник недоступен; читается удалённый commit "
+                "работающей версии (deployed SHA)")
+    elif ref_source == "local_checkout_unverified":
         note = ("deployed SHA не подтверждён локальным checkout; читается "
                 "локальная версия, соответствие работающему процессу не "
                 "доказано")
+    elif ref_source == "deployed_files":
+        note = ("читаются выложенные файлы работающей версии без "
+                "Git-истории: SHA не подтверждён, сверена только метка "
+                "версии манифеста")
     elif ref_source == "local_snapshot":
         note = ("deployed SHA недоступен; читается локальный проверяемый "
                 "snapshot, это не доказательство версии работающего процесса")
-    elif ref_source == "remote_default_branch":
-        note = ("ни deployed SHA, ни локальный snapshot недоступны; будет "
-                "прочитана удалённая ветка по умолчанию — это не обязательно "
-                "работающая версия")
+    elif ref_source == "unverified_revision":
+        note = ("точную версию подтвердить нельзя: локального источника и "
+                "deployed SHA нет; чтение ветки по умолчанию (master) вместо "
+                "рабочей версии не выполняется")
+    if ref_source == "local_checkout_unverified" and deployed_sha:
+        note += ("; точная deployed-версия доступна удалённо как commit "
+                 f"{deployed_sha[:12]}")
     return {
         "target": "self",
         "repo": repo,
@@ -455,9 +846,19 @@ def resolve_self_repo_identity() -> dict:
         "local_source_verification": local_verification,
         "dirty": record.get("dirty"),
         "conflict": list(record.get("conflict") or ()),
-        "local_snapshot": bool(local_root),
+        "local_snapshot": usable,
         "identity_error": error,
         "note": note,
+        # SXR-E6: выбранный источник и причина выбора — без пути хоста.
+        "source": ("local" if usable else ("remote" if deployed_sha else "none")),
+        "verification": verification,
+        "root_source": str(local.get("root_source") or LOCAL_ROOT_NONE),
+        "revision_kind": revision_kind,
+        "version_verified": bool(local.get("version_verified")),
+        "files_only": revision_kind != LOCAL_REVISION_CHECKOUT,
+        "exact_remote_commit": deployed_sha or None,
+        "selection_reason": str(local.get("reason") or ""),
+        "source_note": str(local.get("note") or ""),
     }
 
 
@@ -1067,7 +1468,7 @@ class GitHubProvider:
 
 
 class LocalSnapshotProvider:
-    """Read-only локальный checkout (SELF-DIAG-01 / D4-B, contract §3.1–§3.4).
+    """Read-only локальный checkout (SELF-DIAG-01 / D4-B + SXR-E).
 
     Реализует существующий ``Protocol SourceProvider``. Ограничения:
 
@@ -1075,8 +1476,9 @@ class LocalSnapshotProvider:
       ``..``/абсолютные пути/симлинки наружу → ``path_denied``;
     * единый denylist ``deploy_identity.path_is_denied`` применяется к
       каждому чтению/листингу (секреты, бэкапы, ``.git``, ``deploy_*.py``);
-    * чтение commit-pinned: отдаётся только текущий ``HEAD`` checkout;
-      другой commit/ref → честный отказ, без угадывания;
+    * чтение pin-ится к revision-токену локального дерева: checkout SHA, либо
+      выложенные файлы деплоя/процесса (не-commit токен не маскируется под
+      SHA); другой commit/ref → честный отказ, без угадывания;
     * никакой сети/shell/``import``/``exec`` файлов репозитория; байты
       уходят в существующий конвейер ``decode_source_bytes``/``build_snippet``;
     * наружу не попадают абсолютные пути хоста: только repo-relative пути.
@@ -1087,13 +1489,16 @@ class LocalSnapshotProvider:
     supports_ranges = True
 
     def __init__(self, repo_root, *, repo_origin=None, identity_reader=None,
-                 max_bytes: int | None = None) -> None:
+                 max_bytes: int | None = None,
+                 source: dict | None = None) -> None:
         raw_root = str(repo_root or "").strip()
         self._root = Path(raw_root) if raw_root else None
         self._explicit_origin = (normalize_repo_origin(repo_origin)
                                  if repo_origin else "")
         self._identity_reader = identity_reader
         self._max_bytes = int(max_bytes or max_file_bytes())
+        #: Запись выбора источника (SXR-E2): чем подтверждён корень.
+        self._source = dict(source) if isinstance(source, dict) else {}
         #: Локальный провайдер не делает сетевых вызовов (наблюдаемость).
         self.network_calls = 0
         self.last_endpoint = ENDPOINT_LOCAL
@@ -1101,7 +1506,13 @@ class LocalSnapshotProvider:
 
     # -- конфигурация/идентичность --------------------------------------
     def expected_origin(self) -> str:
-        return self._explicit_origin or configured_repo_origin()
+        return (self._explicit_origin
+                or str(self._source.get("expected_origin") or "")
+                or configured_repo_origin())
+
+    def source_record(self) -> dict:
+        """Наружная запись выбора источника (без пути хоста)."""
+        return _local_source_public(self._source) if self._source else {}
 
     def _matches(self, owner: str, repo: str) -> bool:
         origin = self.expected_origin()
@@ -1124,25 +1535,43 @@ class LocalSnapshotProvider:
             return None
         return resolved if resolved.is_dir() else None
 
+    def _empty_verification(self, code: str, reason: str) -> dict:
+        return {"code": code, "reason": reason,
+                "checkout_sha": None, "dirty": None, "branch": None,
+                "local_source_verification": "unknown",
+                "deployed_sha": None, "runtime_version": None,
+                "manifest_version": None, "version_consistent": None,
+                "revision": "", "revision_kind": LOCAL_REVISION_NONE,
+                "verification": LOCAL_VERIFICATION_UNAVAILABLE,
+                "version_verified": False, "commit_bound": False,
+                "root_source": str(self._source.get("root_source") or
+                                   LOCAL_ROOT_NONE),
+                "note": "", "repo_origin_match": None}
+
     def verification(self) -> dict:
         """Сжатый срез identity (§2.2) — только несекретные поля.
 
         Никогда не бросает: ``unknown``/``unavailable`` вместо исключения.
+        Добавляет SXR-E поля (revision/kind/verification), не меняя прежние.
         """
         root = self._root_dir()
         if root is None:
-            return {"code": "unavailable", "reason": "root_missing",
-                    "checkout_sha": None, "dirty": None, "branch": None,
-                    "local_source_verification": "unknown"}
+            return self._empty_verification("unavailable", "root_missing")
         reader = self._identity_reader or _default_identity_reader
         try:
             record = reader(root)
         except Exception:
             record = None
         if not isinstance(record, dict):
-            return {"code": "unavailable", "reason": "internal_error",
-                    "checkout_sha": None, "dirty": None, "branch": None,
-                    "local_source_verification": "unknown"}
+            return self._empty_verification("unavailable", "internal_error")
+        state = _local_source_state(
+            identity=record,
+            root_source=str(self._source.get("root_source")
+                            or LOCAL_ROOT_NONE),
+            expected_origin=self.expected_origin(),
+            readable=bool(self._source.get("readable", True)),
+            files_present=bool(self._source.get("files_present", True)),
+            probe_reason=str(self._source.get("reason") or ""))
         local_identity = record.get("local_identity")
         if not isinstance(local_identity, dict):
             local_identity = {}
@@ -1155,14 +1584,28 @@ class LocalSnapshotProvider:
             "branch": str(local_identity.get("branch") or "") or None,
             "local_source_verification": str(
                 record.get("local_source_verification") or "unknown"),
+            "deployed_sha": state.get("deployed_sha"),
+            "runtime_version": state.get("runtime_version"),
+            "manifest_version": state.get("manifest_version"),
+            "version_consistent": state.get("version_consistent"),
+            "revision": state.get("revision"),
+            "revision_kind": state.get("revision_kind"),
+            "verification": state.get("verification"),
+            "version_verified": bool(state.get("version_verified")),
+            "commit_bound": bool(state.get("commit_bound")),
+            "root_source": state.get("root_source"),
+            "repo_origin_match": state.get("repo_origin_match"),
+            "note": state.get("note") or "",
         }
 
-    def _head(self) -> tuple[str, dict]:
+    def _revision(self) -> tuple[str, dict]:
+        """Revision-токен текущего локального дерева (не выдуманный SHA)."""
         record = self.verification()
-        sha = str(record.get("checkout_sha") or "").strip().lower()
-        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        revision = str(record.get("revision") or "").strip()
+        if not revision:
             return "", record
-        return sha, record
+        return revision, record
+
 
     # -- SourceProvider -------------------------------------------------
     async def search_repos(self, query: str, *,
@@ -1196,27 +1639,31 @@ class LocalSnapshotProvider:
     async def resolve_commit(self, repo: str, ref: str) -> str | None:
         if not self._matches_full(repo):
             return None
-        head, record = self._head()
-        if not head:
+        revision, record = self._revision()
+        if not revision:
             return None
         text = str(ref or "").strip()
         if not text:
-            return head
+            return revision
         lowered = text.lower()
         if re.fullmatch(r"[0-9a-f]{40}", lowered):
-            return lowered if lowered == head else None
+            return lowered if lowered == revision else None
         branch = str(record.get("branch") or "")
         accepted = {"HEAD", "head"}
         if branch:
             accepted |= {branch, f"refs/heads/{branch}", f"origin/{branch}",
                          f"refs/remotes/origin/{branch}"}
-        return head if text in accepted else None
+        if text not in accepted:
+            return None
+        # Выложенные файлы без Git-истории: имя ветки не является их pin-ом,
+        # но явный HEAD/ветка означают «текущий revision этого дерева».
+        return revision
 
     async def list_tree(self, repo: str, commit: str) -> TreeListing | None:
         if not self._matches_full(repo):
             return None
-        head, _record = self._head()
-        if not head or str(commit or "").strip().lower() != head:
+        revision, _record = self._revision()
+        if not revision or str(commit or "").strip().lower() != revision:
             return None
         root = self._root_dir()
         if root is None:
@@ -1296,14 +1743,14 @@ class LocalSnapshotProvider:
         if root is None:
             raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
                                    retryable=False, detail="root_missing")
-        head, _record = self._head()
+        head, _record = self._revision()
         if not head:
             raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
-                                   retryable=False, detail="no_git")
+                                   retryable=False, detail="no_revision")
         wanted = str(commit or "").strip().lower()
         if wanted != head:
-            # Рабочий checkout отдаёт только собственный HEAD: другой commit
-            # локально не является commit-pinned чтением.
+            # Локальное дерево отдаёт только собственный revision-токен:
+            # другой commit локально не является commit-pinned чтением.
             raise SourceFetchError(ERR_PROVIDER_UNAVAILABLE, STAGE_FETCH,
                                    retryable=False,
                                    detail="commit_not_available")
@@ -1447,12 +1894,26 @@ def _local_target(root: Path, rel: str) -> Path | None:
     return resolved
 
 
-def build_local_provider(*, repo_origin=None) -> LocalSnapshotProvider | None:
-    """Сконфигурированный локальный провайдер; пусто = выключен (GitHub)."""
-    root = local_snapshot_root()
-    if not root:
+def build_local_provider(*, repo_origin=None, source=None,
+                         identity_reader=None,
+                         process_started_at=None) -> LocalSnapshotProvider | None:
+    """Локальный провайдер из автоматически определённого источника.
+
+    Пусто = читаемого кода приложения нет (тогда честно работает удалённый
+    маршрут). Явная настройка ``SELF_DIAG_LOCAL_REPO_ROOT`` больше не
+    обязательна: корень определяется из runtime/deploy identity (SXR-E2).
+    Новый репозиторий/клон/индекс не создаётся — читаются существующие файлы.
+    """
+    record = (source if isinstance(source, dict) and source else
+              resolve_local_source(repo_origin=repo_origin,
+                                   identity_reader=identity_reader,
+                                   process_started_at=process_started_at))
+    if not record.get("usable") or not record.get("root"):
         return None
-    return LocalSnapshotProvider(root, repo_origin=repo_origin)
+    return LocalSnapshotProvider(
+        record.get("root"),
+        repo_origin=(repo_origin or record.get("expected_origin")),
+        identity_reader=identity_reader, source=record)
 
 
 def _repo_from_api(payload) -> RepoInfo | None:
@@ -1789,18 +2250,45 @@ class SourceReader:
     ``fetcher`` — опциональный ``SafeFetcher`` (тесты передают клиент с
     ``MockTransport``); без него создаётся штатный. ``search`` — существующий
     поисковый каскад (``ToolDeps.search``) для discovery по описанию; None →
-    discovery идёт только через API репозиториев."""
+    discovery идёт только через API репозиториев.
+
+    SXR-E (local-first): собственный код читается из проверенного локального
+    источника, который определяется автоматически (``resolve_local_source``:
+    ``SELF_DIAG_LOCAL_REPO_ROOT`` либо runtime/deploy identity). GitHub остаётся
+    резервным маршрутом для внешних репозиториев и для точного deployed commit,
+    если локальный источник недоступен.
+    """
 
     def __init__(self, *, fetcher=None, provider=None, search=None,
-                 local_provider=None, repo_origin=None) -> None:
+                 local_provider=None, repo_origin=None,
+                 local_source=None) -> None:
         self._fetcher = fetcher
         self._provider = provider
         self._search = search
         self._repo_origin = (normalize_repo_origin(repo_origin)
                              if repo_origin else "")
-        if local_provider is None and local_snapshot_root():
-            local_provider = build_local_provider(
-                repo_origin=self._repo_origin or None)
+        self._local_source: dict | None = (
+            local_source if isinstance(local_source, dict) and local_source
+            else None)
+        if local_provider is None:
+            record = self._local_source
+            if record is None:
+                record = resolve_local_source(
+                    repo_origin=self._repo_origin or None)
+                self._local_source = record
+            if record.get("usable") and record.get("root"):
+                local_provider = LocalSnapshotProvider(
+                    record.get("root"),
+                    repo_origin=(self._repo_origin
+                                 or record.get("expected_origin")),
+                    source=record)
+        elif self._local_source is None:
+            reader = getattr(local_provider, "source_record", None)
+            if callable(reader):
+                try:
+                    self._local_source = reader() or None
+                except Exception:      # pragma: no cover - защитная ветка
+                    self._local_source = None
         self._local_provider = local_provider
 
     # -- провайдер/счётчики ---------------------------------------------
@@ -1820,6 +2308,89 @@ class SourceReader:
         if text and origin and text.casefold() == origin.casefold():
             return local
         return self.provider
+
+    # -- SXR-E: собственный код и точная deployed-версия -----------------
+    def _origin(self) -> str:
+        return self._repo_origin or configured_repo_origin()
+
+    def _is_self_repo(self, full_name: str) -> bool:
+        origin = self._origin()
+        text = str(full_name or "").strip()
+        return bool(text and origin and text.casefold() == origin.casefold())
+
+    def _local_version_verified(self) -> bool:
+        """Локальный источник подтверждён как работающая версия (owner §E3)."""
+        if isinstance(self._local_source, dict) and self._local_source:
+            return bool(self._local_source.get("version_verified"))
+        return False
+
+    def _deployed_sha_hint(self) -> str:
+        """Известный deployed SHA (manifest/env) без сетевого обращения."""
+        candidates = []
+        if isinstance(self._local_source, dict):
+            candidates.append(self._local_source.get("deployed_sha"))
+        if self._local_provider is not None:
+            reader = getattr(self._local_provider, "verification", None)
+            try:
+                record = reader() if callable(reader) else None
+            except Exception:      # pragma: no cover - защитная ветка
+                record = None
+            if isinstance(record, dict):
+                candidates.append(record.get("deployed_sha"))
+        for value in candidates:
+            text = str(value or "").strip().lower()
+            if re.fullmatch(r"[0-9a-f]{40}", text):
+                return text
+        return ""
+
+    def _self_repo_ref(self, state: "_RunState", info, ref_hint: str) -> str:
+        """Ref для собственного repo: никогда не «ветка по умолчанию».
+
+        Локальный источник читает свой revision-токен (ref пуст). Если
+        локального кода нет, допустим только точный deployed SHA; иначе —
+        честный отказ (owner §E3: `master` по умолчанию не подставлять).
+        """
+        if not self._is_self_repo(info.full_name):
+            return ref_hint
+        if str(ref_hint or "").strip():
+            return ref_hint
+        if getattr(state.provider, "name", "") == PROVIDER_LOCAL:
+            return ""
+        deployed = self._deployed_sha_hint()
+        if deployed:
+            return deployed
+        raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_DISCOVER,
+                               detail="deployed_revision_unknown")
+
+    def _maybe_switch_to_remote(self, state: "_RunState", info,
+                                *, reason: str) -> bool:
+        """Fallback ровно на точный deployed commit (owner §E3/§E4).
+
+        Только для собственного repo, только из локального провайдера и
+        только когда deployed SHA известен. Второй попытки нет.
+        """
+        if getattr(state.provider, "name", "") != PROVIDER_LOCAL:
+            return False
+        if state.remote_fallback is not None:
+            return False
+        if not self._is_self_repo(getattr(info, "full_name", "")):
+            return False
+        deployed = self._deployed_sha_hint()
+        if not deployed:
+            return False
+        remote = self.provider
+        if getattr(remote, "name", "") != PROVIDER_GITHUB:
+            return False
+        state.provider = remote
+        state.requested_ref = deployed
+        state.remote_fallback = {
+            "from": PROVIDER_LOCAL,
+            "reason": str(reason or "")[:60],
+            "commit": deployed,
+        }
+        _emit_stage(state.stage, "skipped", reason_code="provider_unavailable",
+                    extra={"remote_fallback": True})
+        return True
 
     def _provider_name(self, state: "_RunState") -> str:
         provider = state.provider or self.provider
@@ -1925,6 +2496,7 @@ class SourceReader:
         payload["network_calls"] = used
         payload["network_calls_total"] = self._network_calls()
         payload.setdefault("provenance", {})["network_calls"] = used
+        payload["source_selection"] = self._source_selection(state, payload)
         return payload
 
     # -- основная логика -------------------------------------------------
@@ -1971,6 +2543,7 @@ class SourceReader:
                             else "public")
         ref_hint = str(ref or "").strip() or (parsed.ref if parsed else "")
         path_hint = str(path or "").strip() or (parsed.path if parsed else "")
+        ref_hint = self._self_repo_ref(state, info, ref_hint)
         state.requested_ref = ref_hint
         if operation == OPERATION_DISCOVER:
             payload = self._payload(
@@ -2041,6 +2614,15 @@ class SourceReader:
             provider = self._provider_for(f"{owner}/{name}")
             state.provider = provider
             info = await provider.resolve_repo(owner, name)
+            if info is None and provider is self._local_provider:
+                # Локальный источник не подтвердил repo: допустим fallback
+                # ровно на deployed commit (owner §E3/§E4), не на ветку.
+                state.stage = STAGE_DISCOVER
+                if self._maybe_switch_to_remote(
+                        state, RepoInfo(owner=owner, name=name),
+                        reason="local_repo_unavailable"):
+                    provider = state.provider
+                    info = await provider.resolve_repo(owner, name)
             if info is None:
                 raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_DISCOVER,
                                        http=404, detail="repo_not_found")
@@ -2257,14 +2839,36 @@ class SourceReader:
                 state, info, parsed=parsed, ref_hint=ref_hint,
                 path_hint=path_hint)
         except SourceFetchError as exc:
-            if exc.code == ERR_UNSUPPORTED_KIND:
-                # Каталог/symlink/submodule вместо файла — честный «это не
-                # читаемый файл», а не «файла нет».
-                return self._not_source_payload(
-                    state, info=info, commit="", path=path_hint,
-                    source_file=None,
-                    reason=exc.detail or "unsupported_kind", stage=stage)
-            raise
+            # Только «локальный источник не может отдать эту ревизию/файл».
+            # Отказ безопасности остаётся отказом (owner §E3/E4).
+            if (str(exc.detail or "") in LOCAL_FALLBACK_DETAILS
+                    and self._maybe_switch_to_remote(
+                        state, info, reason=exc.detail or exc.code)):
+                identity = await self._resolve_identity(
+                    state, info, parsed=parsed,
+                    ref_hint=state.requested_ref or ref_hint,
+                    path_hint=path_hint)
+            else:
+                if exc.code == ERR_UNSUPPORTED_KIND:
+                    # Каталог/symlink/submodule вместо файла — честный «это не
+                    # читаемый файл», а не «файла нет».
+                    return self._not_source_payload(
+                        state, info=info, commit="", path=path_hint,
+                        source_file=None,
+                        reason=exc.detail or "unsupported_kind", stage=stage)
+                raise
+        if (identity is None
+                and not self._local_version_verified()
+                and self._maybe_switch_to_remote(
+                    state, info, reason="local_path_missing")):
+            # Локальное дерево не содержит запрошенный файл, и это дерево НЕ
+            # доказано как работающая версия: удалённый deployed commit —
+            # другой источник и может содержать файл. Для проверенной
+            # работающей версии «файла нет» — честный not found, без сети.
+            identity = await self._resolve_identity(
+                state, info, parsed=parsed,
+                ref_hint=state.requested_ref or ref_hint,
+                path_hint=path_hint)
         if identity is None:
             _emit_stage(stage, "failed",
                         reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
@@ -2842,6 +3446,63 @@ class SourceReader:
                         if value is not None})
         return payload
 
+    def _source_selection(self, state: "_RunState", payload: dict) -> dict:
+        """SXR-E6: выбранный источник и причина выбора (без пути хоста)."""
+        provider_name = self._provider_name(state)
+        repo = str(payload.get("repo") or "")
+        revision = str(payload.get("commit") or "")
+        local = self._local_verification(state)
+        deployed = self._deployed_sha_hint()
+        fallback = state.remote_fallback
+        if provider_name == PROVIDER_LOCAL:
+            record = local or self._local_source or {}
+            verification = str(record.get("verification")
+                               or LOCAL_VERIFICATION_LOCAL_SNAPSHOT)
+            revision_kind = str(record.get("revision_kind")
+                                or LOCAL_REVISION_NONE)
+            version_verified = bool(record.get("version_verified"))
+            note = str(record.get("note") or "")
+            root_source = str(record.get("root_source") or "")
+        elif self._is_self_repo(repo):
+            verification = ("remote_deployed_commit"
+                            if deployed and revision == deployed
+                            else "remote_ref")
+            revision_kind = ("commit" if re.fullmatch(r"[0-9a-f]{40}",
+                                                      revision or "")
+                             else ("branch" if revision else ""))
+            version_verified = bool(deployed and revision == deployed)
+            note = ("удалённое чтение по точному deployed commit"
+                    if version_verified else
+                    "удалённое чтение: локальный источник недоступен, "
+                    "версия процесса не подтверждена локально")
+            root_source = str((self._local_source or {}).get("root_source") or "")
+        else:
+            verification = "remote_external"
+            revision_kind = ("commit" if re.fullmatch(r"[0-9a-f]{40}",
+                                                      revision or "")
+                             else ("branch" if revision else ""))
+            version_verified = False
+            note = ""
+            root_source = ""
+        return {
+            "provider": provider_name,
+            "repo": repo,
+            "revision": revision,
+            "revision_kind": revision_kind,
+            "verification": verification,
+            "version_verified": version_verified,
+            "root_source": root_source,
+            "note": note,
+            "fallback": dict(fallback) if fallback else None,
+            "exact_remote_commit_available": (
+                deployed if (provider_name == PROVIDER_LOCAL
+                             and deployed
+                             and revision != deployed) else ""),
+            "path": str(payload.get("path") or ""),
+            "line_range": list(payload.get("line_range") or []),
+            "status": str(payload.get("status") or ""),
+        }
+
     def _local_verification(self, state: "_RunState") -> dict:
         """Срез identity локального snapshot (один раз на вызов, §3.1/§3.4)."""
         if state.provider is None or \
@@ -2913,6 +3574,8 @@ class _RunState:
     network_baseline: int = 0
     #: сколько символов цепочки follow-up уже доставлено в этом запросе.
     chain_chars: int = 0
+    #: SXR-E: однократный fallback local → точный deployed commit.
+    remote_fallback: dict | None = None
 
     def files_exhausted(self) -> bool:
         return bool(self.limit_files) and self.files_read >= self.limit_files
@@ -3071,20 +3734,40 @@ def _read_level(window: SnippetWindow, total_lines: int) -> str:
 
 
 def _local_bytes_verified(local: dict, commit: str) -> bool:
-    """Локальные байты commit-pinned: чистый checkout того же коммита."""
+    """Локальные байты commit-pinned: чистый checkout того же коммита.
+
+    Нереканонические revision-токены (выложенные файлы деплоя/процесса) НЕ
+    дают commit binding: такие байты не подтверждаются как эта ревизия.
+    Несовпадающий с deployed checkout тоже не является production proof
+    (owner §E3).
+    """
     if not isinstance(local, dict) or not local:
         return False
     if local.get("dirty") is not False:
         return False
-    return str(local.get("checkout_sha") or "") == str(commit or "")
+    revision_kind = str(local.get("revision_kind")
+                        or LOCAL_REVISION_CHECKOUT)
+    if revision_kind != LOCAL_REVISION_CHECKOUT:
+        return False
+    checkout = str(local.get("checkout_sha") or "")
+    if checkout != str(commit or ""):
+        return False
+    deployed = str(local.get("deployed_sha") or "")
+    if deployed and deployed != checkout:
+        return False
+    return True
 
 
 def _local_source_note(local: dict) -> str:
-    """Человекочитаемая пометка источника (§3.4), без путей хоста."""
+    """Человекочитаемая пометка источника (§3.4 + SXR-E3), без путей хоста."""
     verification = str(local.get("local_source_verification") or "unknown")
     sha = str(local.get("checkout_sha") or "")
     dirty = local.get("dirty")
-    prefix = f"локальная копия {sha}" if sha else "локальная копия"
+    revision_kind = str(local.get("revision_kind") or "")
+    if revision_kind in (LOCAL_REVISION_DEPLOYED_FILES, LOCAL_REVISION_FILES):
+        prefix = "локальные файлы работающей версии (без Git-истории)"
+    else:
+        prefix = f"локальная копия {sha}" if sha else "локальная копия"
     if verification == "verified_deployed":
         return f"{prefix}: подтверждённая ревизия"
     if dirty is True:
@@ -3105,6 +3788,13 @@ def _apply_local_provenance(payload: dict, local: dict) -> None:
         "local_source_verification": verification,
         "checkout_sha": local.get("checkout_sha"),
         "dirty": local.get("dirty"),
+        # SXR-E3/E6: различать deployed/checkout/runtime и вид revision.
+        "deployed_sha": local.get("deployed_sha"),
+        "revision_kind": local.get("revision_kind"),
+        "source_verification": local.get("verification"),
+        "version_verified": bool(local.get("version_verified")),
+        "root_source": local.get("root_source"),
+        "runtime_version": local.get("runtime_version"),
     })
 
 
@@ -3159,5 +3849,17 @@ __all__ = [
     "normalize_repo_origin", "configured_repo_origin",
     "resolve_self_repo_identity",
     "build_local_provider", "line_spans", "strip_line_ending",
+    "resolve_local_source", "runtime_application_root",
+    "LOCAL_ROOT_CONFIGURED", "LOCAL_ROOT_RUNTIME", "LOCAL_ROOT_NONE",
+    "LOCAL_VERIFICATIONS", "LOCAL_USABLE_VERIFICATIONS",
+    "LOCAL_VERIFICATION_VERIFIED_RUNNING",
+    "LOCAL_VERIFICATION_VERIFIED_SNAPSHOT",
+    "LOCAL_VERIFICATION_DEPLOYED_FILES",
+    "LOCAL_VERIFICATION_RUNNING_UNVERIFIED",
+    "LOCAL_VERIFICATION_LOCAL_SNAPSHOT",
+    "LOCAL_VERIFICATION_ORIGIN_MISMATCH",
+    "LOCAL_VERIFICATION_UNAVAILABLE",
+    "LOCAL_REVISION_CHECKOUT", "LOCAL_REVISION_DEPLOYED_FILES",
+    "LOCAL_REVISION_FILES", "LOCAL_REVISION_NONE",
     "ERR_EMPTY_CONTENT", "ERR_PATH_DENIED",
 ]

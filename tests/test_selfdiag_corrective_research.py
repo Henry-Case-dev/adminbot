@@ -45,6 +45,16 @@ DEPLOYED = "a" * 40
 CHECKOUT = "b" * 40
 
 
+@pytest.fixture(autouse=True)
+def _hermetic(monkeypatch):
+    """SXR-E: автоопределение runtime root выключено для герметичности.
+
+    Тесты, которым нужен локальный источник, задают
+    ``SELF_DIAG_LOCAL_REPO_ROOT`` явно (filesystem-снимок кандидата).
+    """
+    monkeypatch.setattr(sr, "runtime_application_root", lambda: None)
+
+
 class _ScriptedLLM:
     """По одному `LLMChatResult` на вызов `generate_chat`, последний — финал."""
 

@@ -37,6 +37,9 @@ def _isolated(monkeypatch):
     monkeypatch.setattr(type(settings), "SOURCE_READ_ENABLED", True)
     monkeypatch.setattr(type(settings), "SOURCE_READ_GITHUB_TOKEN", "")
     monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT", "")
+    # SXR-E: автоопределение runtime root выключено ТОЛЬКО для герметичности
+    # (иначе это дерево читалось бы как реальный локальный источник).
+    monkeypatch.setattr(sr, "runtime_application_root", lambda: None)
     monkeypatch.setattr(hot, "get", lambda key, default=None: default)
     monkeypatch.setattr(sr, "_REPO_ORIGIN_LAST", None)
     for name in ("SOURCE_READ_MAX_FILES", "SOURCE_READ_MAX_DEPTH",

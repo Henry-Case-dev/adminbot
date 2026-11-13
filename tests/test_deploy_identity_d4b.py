@@ -42,6 +42,9 @@ def _isolated(monkeypatch):
     monkeypatch.setattr(type(settings), "SOURCE_READ_ENABLED", True)
     monkeypatch.setattr(type(settings), "SOURCE_READ_GITHUB_TOKEN", "")
     monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT", "")
+    # SXR-E: автоматический local-first выключен только для герметичности
+    # этих тестов; продуктовое поведение — runtime root определяется сам.
+    monkeypatch.setattr(sr, "runtime_application_root", lambda: None)
     monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_FILES", 3)
     monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_DEPTH", 1)
     monkeypatch.setattr(type(settings), "SOURCE_READ_MAX_REQUESTS", 8)
@@ -237,12 +240,18 @@ class TestRepoOriginSetting:
         assert "new=Other/repo" in caplog.text
         assert SECRET not in caplog.text
 
-    def test_local_provider_disabled_by_default(self):
+    def test_local_provider_needs_a_verified_root(self):
+        # SXR-E2: явная настройка больше не обязательна, но без доступного
+        # корня (runtime root недоступен в этой фикстуре) локального
+        # провайдера нет — поведение остаётся удалённым.
         assert sr.local_snapshot_root() == ""
         assert sr.build_local_provider() is None
         assert sr.SourceReader()._local_provider is None
+        record = sr.resolve_local_source()
+        assert record["usable"] is False
+        assert record["verification"] == sr.LOCAL_VERIFICATION_UNAVAILABLE
 
-    def test_local_provider_auto_built_only_when_configured(self, tmp_path,
+    def test_local_provider_auto_built_from_configured_root(self, tmp_path,
                                                             monkeypatch):
         root = _make_repo(tmp_path)
         monkeypatch.setattr(type(settings), "SELF_DIAG_LOCAL_REPO_ROOT",
