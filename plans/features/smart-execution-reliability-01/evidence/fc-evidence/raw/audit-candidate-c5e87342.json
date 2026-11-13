@@ -72,7 +72,7 @@
     "search_text_leaked": false
    },
    "validator": {
-    "payload_chars": 1041,
+    "payload_chars": 1408,
     "evidence_rows": 1
    },
    "fallback": {
@@ -143,7 +143,7 @@
     "search_text_leaked": false
    },
    "validator": {
-    "payload_chars": 26847,
+    "payload_chars": 27363,
     "evidence_rows": 12
    },
    "fallback": {
@@ -393,7 +393,7 @@
     "search_text_leaked": false
    },
    "validator": {
-    "payload_chars": 5789,
+    "payload_chars": 5875,
     "evidence_rows": 2
    },
    "fallback": {
@@ -606,7 +606,7 @@
     "search_text_leaked": false
    },
    "validator": {
-    "payload_chars": 6089,
+    "payload_chars": 6433,
     "evidence_rows": 8
    },
    "fallback": {
