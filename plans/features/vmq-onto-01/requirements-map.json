@@ -753,6 +753,15 @@
         "owner": "Builder (VMQ-M1)",
         "needs_code": true,
         "unit": "VMQ-M1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9351",
+        "quote": "| `M-01` | scoped эпизоды по связной Reply-ветке, не случайным соседям | source verification |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
       }
     },
     {
@@ -791,6 +800,15 @@
         "owner": "Builder (VMQ-M1)",
         "needs_code": true,
         "unit": "VMQ-M1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9352",
+        "quote": "| `M-02` | temporal theme, coverage across years, evidence/counterexamples | золотые примеры |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
       }
     },
     {
@@ -826,6 +844,15 @@
         "owner": "Builder (VMQ-M1)",
         "needs_code": true,
         "unit": "VMQ-M1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9353",
+        "quote": "| `M-03` | longitudinal subject view инкрементален и версионируем | edit/delete/rebuild |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
       }
     },
     {
@@ -867,6 +894,15 @@
         "owner": "Builder + Architect (VMQ-M2)",
         "needs_code": true,
         "unit": "VMQ-M2"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9354",
+        "quote": "| `M-04` | unified retrieval person overview и temporal queries | Writer bundles & recall |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
       }
     },
     {
@@ -901,6 +937,15 @@
         "owner": "Builder + Architect (VMQ-M2)",
         "needs_code": true,
         "unit": "VMQ-M2"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9355",
+        "quote": "| `M-05` | нет массового reembedding, destructive rewrite, cross-chat | DB & resource check |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
       }
     },
     {
@@ -936,6 +981,15 @@
         "owner": "Builder (VMQ-ONTO-A/B) + Architect",
         "needs_code": true,
         "unit": "VMQ-ONTO-A/B"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9356",
+        "quote": "| `O-01` | ONTO семантика user/topic/event/fact, speaker/subject | typed checks |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
       }
     },
     {
@@ -971,6 +1025,15 @@
         "owner": "Builder (VMQ-ONTO-A/B) + Architect",
         "needs_code": true,
         "unit": "VMQ-ONTO-A/B"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9357",
+        "quote": "| `O-02` | alias vs common noun, distinct same names, ambiguity | negative examples |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
       }
     },
     {
@@ -1006,6 +1069,15 @@
         "owner": "Builder (VMQ-ONTO-A/B) + Architect",
         "needs_code": true,
         "unit": "VMQ-ONTO-A/B"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9358",
+        "quote": "| `O-03` | Typed relations typed + provenance/class/conflicts; legacy не verified | source-recon tests |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
       }
     },
     {
@@ -1045,6 +1117,15 @@
         "owner": "Builder (VMQ-ONTO-A/B) + Architect",
         "needs_code": true,
         "unit": "VMQ-ONTO-A/B"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9359",
+        "quote": "| `O-04` | один retrieval, feedback/corrections and versioning | code mapping + e2e |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
       }
     },
     {
@@ -1080,6 +1161,15 @@
         "owner": "Builder (VMQ-Q0)",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9360",
+        "quote": "| `Q-01` | один RandomSource, 4 provider adapters, registry/settings mapping | source audit |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1115,6 +1205,15 @@
         "owner": "Builder (VMQ-Q0)",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9361",
+        "quote": "| `Q-02` | selected/effective/fallback order persisted, PRNG last | failover matrix |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1149,6 +1248,15 @@
         "owner": "Builder (VMQ-Q0-IBM)",
         "needs_code": true,
         "unit": "VMQ-Q0-IBM"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9362",
+        "quote": "| `Q-03` | primary IBM demand-first decision + adaptive budget | real request events |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1219,6 +1327,15 @@
         "owner": "Builder (VMQ-Q0-IBM)",
         "needs_code": true,
         "unit": "VMQ-Q0-IBM"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9364",
+        "quote": "| `Q-05` | late results → IBM pool, atomic bit claims, restart/recovery | concurrency/race e2e |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1253,6 +1370,15 @@
         "owner": "Builder (VMQ-Q0-IBM)",
         "needs_code": true,
         "unit": "VMQ-Q0-IBM"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9365",
+        "quote": "| `Q-06` | IBM direct field has no PRNG/seed-expansion/mixed entropy | code-path audit + replay |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1288,6 +1414,15 @@
         "owner": "Builder (VMQ-Q0)",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9366",
+        "quote": "| `Q-07` | stable eligible map and calibrated attractor/void/power/blind | null tests |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1323,6 +1458,15 @@
         "owner": "Builder (VMQ-Q0)",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9367",
+        "quote": "| `Q-08` | one field/one effective provider, unbiased mapping, scoped focus | property/stat tests |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1357,6 +1501,15 @@
         "owner": "Builder (VMQ-Q1)",
         "needs_code": true,
         "unit": "VMQ-Q1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9369",
+        "quote": "| `I-01` | память/архивный exploration получает реальный QAN результат | used and validated refs |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §7, который прямо назван «обязательные точки интеграции (НЕ по желанию)»."
       }
     },
     {
@@ -1391,6 +1544,15 @@
         "owner": "Builder (VMQ-Q1)",
         "needs_code": true,
         "unit": "VMQ-Q1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9370",
+        "quote": "| `I-02` | ностальгия реально применяет QAN, не выдумывает годовщины | output/evidence |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §7, который прямо назван «обязательные точки интеграции (НЕ по желанию)»."
       }
     },
     {
@@ -1425,6 +1587,15 @@
         "owner": "Builder (VMQ-Q1)",
         "needs_code": true,
         "unit": "VMQ-Q1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9371",
+        "quote": "| `I-03` | обычный сон применяет QAN и сохраняет проверенную ревизию | persist revision |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §7, который прямо назван «обязательные точки интеграции (НЕ по желанию)»."
       }
     },
     {
@@ -1459,6 +1630,15 @@
         "owner": "Builder (VMQ-Q1)",
         "needs_code": true,
         "unit": "VMQ-Q1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9372",
+        "quote": "| `I-04` | глубокий сон применяет QAN, сохраняет watermark | sleep job & evidence |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §7, который прямо назван «обязательные точки интеграции (НЕ по желанию)»."
       }
     },
     {
@@ -1493,6 +1673,15 @@
         "owner": "Builder (VMQ-Q1)",
         "needs_code": true,
         "unit": "VMQ-Q1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9373",
+        "quote": "| `I-05` | обычная инициатива меняет содержательный фокус, сохраняет молчание | decision & Telegram ledger |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §7, который прямо назван «обязательные точки интеграции (НЕ по желанию)»."
       }
     },
     {
@@ -1527,6 +1716,15 @@
         "owner": "Builder (VMQ-Q1)",
         "needs_code": true,
         "unit": "VMQ-Q1"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9374",
+        "quote": "| `I-06` | мем-инициатива влияет на идею, не ломает joke/image промпты | meme pipeline e2e |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §7, который прямо назван «обязательные точки интеграции (НЕ по желанию)»."
       }
     },
     {
@@ -1562,6 +1760,15 @@
         "owner": "Builder (VMQ-Q0)",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9368",
+        "quote": "| `Q-09` | quantum selection реально влияет на пригодное решение, без forced publish | same-pool comparison |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §6 (один RandomSource, 4 провайдера, demand-first IBM, пул/claims, чистота, null-калибровка, честное влияние). Q-04 тоже в реестре, но он внешний (BLOCKED_EXTERNAL)."
       }
     },
     {
@@ -1595,6 +1802,15 @@
         "owner": "Builder (VMQ-O)",
         "needs_code": true,
         "unit": "VMQ-O"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9375",
+        "quote": "| `S-01` | каждый provider имеет честный measured health/sample age | real probe logs |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §8 (метрики и знаменатели, честный health, без фиктивных зелёных)."
       }
     },
     {
@@ -1628,6 +1844,15 @@
         "owner": "Builder (VMQ-O)",
         "needs_code": true,
         "unit": "VMQ-O"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9376",
+        "quote": "| `S-02` | IBM quota/jobs/queue/ready pool/fallback отделены | API + DB events |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §8 (метрики и знаменатели, честный health, без фиктивных зелёных)."
       }
     },
     {
@@ -1661,6 +1886,15 @@
         "owner": "Builder (VMQ-O)",
         "needs_code": true,
         "unit": "VMQ-O"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9377",
+        "quote": "| `S-03` | real run funnel, outcomes, denominators, historical aggregates | reconciliation queries |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §8 (метрики и знаменатели, честный health, без фиктивных зелёных)."
       }
     },
     {
@@ -1695,6 +1929,15 @@
         "owner": "Builder + UI acceptance (VMQ-U)",
         "needs_code": true,
         "unit": "VMQ-U"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9378",
+        "quote": "| `U-01` | «Статус» и «Аналитика» читают события, не моки | compare network ↔ DB |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §9 (живые виджеты, сравнение network↔DB, desktop/mobile)."
       }
     },
     {
@@ -1729,6 +1972,15 @@
         "owner": "Builder + UI acceptance (VMQ-U)",
         "needs_code": true,
         "unit": "VMQ-U"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9379",
+        "quote": "| `U-02` | clickable trace, period/chat filters, desktop/mobile/accessibility | browser tests |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §9 (живые виджеты, сравнение network↔DB, desktop/mobile)."
       }
     },
     {
@@ -1762,6 +2014,15 @@
         "owner": "Reviewer + DevOps + PM (VMQ-R)",
         "needs_code": false,
         "unit": "VMQ-R (после остальных)"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9380",
+        "quote": "| `R-01` | default ON effective in production; existing user values preserved | config dump masked + restart |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §11/§12 (default ON effective, baseline vs new, DevOps-манифест)."
       }
     },
     {
@@ -1799,6 +2060,15 @@
         "owner": "Reviewer + DevOps + PM (VMQ-R)",
         "needs_code": false,
         "unit": "VMQ-R (после остальных)"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9381",
+        "quote": "| `R-02` | baseline and new quality/latency on identical sources | reviewer report |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §11/§12 (default ON effective, baseline vs new, DevOps-манифест)."
       }
     },
     {
@@ -1832,6 +2102,15 @@
         "owner": "Reviewer + DevOps + PM (VMQ-R)",
         "needs_code": false,
         "unit": "VMQ-R (после остальных)"
+      },
+      "source_anchor": {
+        "file": "plans/current_task.md",
+        "section": "§14 Контрольный реестр требований (VMQ-ONTO-01)",
+        "lines": "line 9382",
+        "quote": "| `R-03` | deployment evidence health, crash/restart/recovery, no hidden missing scope | DevOps manifest |",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Реестр §14 + §11/§12 (default ON effective, baseline vs new, DevOps-манифест)."
       }
     },
     {
@@ -1902,6 +2181,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L9 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "При выборе ANU, Lizaonair, LfDR или IBM Quantum в селекторе динамически показывать все необходимые именно этому провайдеру поля: API-ключи, токены, и…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -1938,6 +2226,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L11 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "Сохранённый ключ должен отображаться в поле замаскированным (`••••••••`), с возможностью замены и удаления. … При повторном сохранении неизменённая м…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -1974,6 +2271,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L13 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "Любое изменение параметров через админку должно сохраняться и применяться к действующему сервису, переживать рестарт и корректно обновлять подключени…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -2010,6 +2316,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L15 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "Для каждого провайдера отображать фактический статус … кнопку \"Проверить подключение\" с реальным запросом и проверкой полученных данных.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -2046,6 +2361,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L17 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "агенты обязаны самостоятельно исследовать официальную документацию провайдеров с использованием доступных поисковых движков",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -2082,6 +2406,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L19 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "Если для реального подключения требуются реквизиты, которые нельзя получить самостоятельно, агенты должны запросить их у меня простым языком.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -2118,6 +2451,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L21 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "Все настроенные провайдеры должны реально получать случайные данные, а автоматическое переключение должно работать при отказах.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -2192,6 +2534,15 @@
         "owner": "Builder (VMQ-Q0) + Reviewer",
         "needs_code": true,
         "unit": "VMQ-Q0"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-09-vmq-qrng-provider-management.md",
+        "section": "поправка QRNG (2026-11-09), verbatim п.1-7",
+        "lines": "L23 (поправка вне блока current_task.md 8282-9482)",
+        "quote": "отсутствие ключа конкретного провайдера должно честно отображаться как `unconfigured`, не блокируя остальные источники.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Прямая owner-поправка 09.11.2026; в карте продублирована через amendment_ref."
       }
     },
     {
@@ -2241,6 +2592,15 @@
         "owner": "Builder (read-only harness) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+        "section": "owner-поправка о многолетней памяти (2026-11-10), Binding points",
+        "lines": "L26",
+        "quote": "Acceptance must compare the SAME historical data across at least five formulation classes: humorous story, plain retelling, participant profile, reco…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       }
     },
     {
@@ -2289,6 +2649,15 @@
         "owner": "Builder (read-only harness) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+        "section": "owner-поправка о многолетней памяти (2026-11-10), Binding points",
+        "lines": "L27",
+        "quote": "For each run, record which episodes were actually retrieved, from which periods, with which sources and relations",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       }
     },
     {
@@ -2337,6 +2706,15 @@
         "owner": "Builder (read-only harness) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+        "section": "owner-поправка о многолетней памяти (2026-11-10), Binding points",
+        "lines": "L27",
+        "quote": "compare coverage, chronological accuracy, relevance and the number of invented links",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       }
     },
     {
@@ -2384,6 +2762,15 @@
         "owner": "Builder (read-only harness) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+        "section": "owner-поправка о многолетней памяти (2026-11-10), Binding points",
+        "lines": "L28",
+        "quote": "Governing criterion: a plain factual question must receive an evidence base no worse than a creative story. Only form and style may differ, never the…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       }
     },
     {
@@ -2500,6 +2887,15 @@
         "owner": "Builder (read-only harness) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-multiyear-memory-regression.md",
+        "section": "owner-поправка о многолетней памяти (2026-11-10), Binding points",
+        "lines": "L30",
+        "quote": "Architect verifies the end-to-end retrieval path up to the Writer; Reviewer independently compares results on the real 2.07M-message history.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       }
     },
     {
@@ -2623,6 +3019,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L9-L11",
+        "quote": "Не исправлять проблему механическим повышением лимитов, удалением квот или простым добавлением архивных фактов с неизменным штрафом за возраст.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Существующий source_line (эпос L474) указывает на клаузу о многолетнем person overview и не является точной клаузой этой строки; источник требования — уточнение L9-L11."
       }
     },
     {
@@ -2709,6 +3114,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L17",
+        "quote": "Профиль участника должен уметь строиться из разных периодов его истории, а не только из десяти наиболее свежих фактов.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Конкретные участники/топ-автор в acceptance — инженерная конкретизация выборки."
       }
     },
     {
@@ -2795,6 +3209,14 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L13",
+        "quote": "Разделить историческую значимость, фактическую достоверность и актуальность на сегодняшний день. Старый факт не должен получать низкую историческую з…",
+        "mandatory": true,
+        "grounding": "owner_clause"
       }
     },
     {
@@ -2881,6 +3303,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": true,
         "unit": "VMQ-MEM-TIME (bounded code)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L23",
+        "quote": "В Статусе и Аналитике показывать покрытие выдачи по годам и причины исключения фактов: квота, статус, давность, релевантность, бюджет.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Суть (годы + причины) — owner-клауза L23; машинная per-block трасса — инженерная форма. Пересечение с VMQ-TIME-09 (та же клауза, другой потребитель): не дубль, проверять вместе."
       }
     },
     {
@@ -2967,6 +3398,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L15",
+        "quote": "Пересмотреть применение GRAPH_TIME_DECAY_HALF_LIFE_DAYS, GRAPH_TIME_DECAY_FLOOR и бонуса свежести в историческом и субъектном retrieval.",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "PARTIAL: обязательная часть (проверить квоту L11 и decay-параметры L15 до фикса) — owner-клауза; отдельный артефакт year-bias-root-cause.md с вердиктами по ветвям и контролем «фикс после первопричины» — инженерная форма, добавленная PM/Architect."
       }
     },
     {
@@ -3053,6 +3493,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L19",
+        "quote": "Контекстные бюджеты оставить как техническую защиту производительности, но сделать подбор доказательств адаптивным. Не устанавливать постоянную долю…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Запрет перестройки embeddings/повторного ingest дополнительно закреплён в эпосе L245."
       }
     },
     {
@@ -3139,6 +3588,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+        "section": "owner input 2026-11-11: freeze + независимая проверка",
+        "lines": "L14",
+        "quote": "По VMQ-TIME зафиксировать текущий кандидат и провести независимую проверку на разнообразных реальных исторических вопросах, включая события, не испол…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Матрица «до/после» — инженерная форма; owner-требование — независимая проверка на разнообразных реальных вопросах (L14) и системная оценка Reviewer (L22)."
       }
     },
     {
@@ -3207,6 +3665,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-TIME (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L21",
+        "quote": "Reviewer должен проверить на реальном архиве 2,07 млн сообщений, что обычные вопросы о людях и событиях без указания года действительно извлекают рел…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "source_line строки (эпос L464) — общая клауза ONTO-R о ревью; точная клауза — уточнение L21."
       }
     },
     {
@@ -3280,6 +3747,15 @@
         "owner": "Builder (read-only harness на копии прод-БД) -> Reviewer",
         "needs_code": true,
         "unit": "VMQ-MEM-TIME (bounded code)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-10-vmq-time-refinement.md",
+        "section": "уточнение VMQ-TIME (10.11.2026)",
+        "lines": "L23",
+        "quote": "В Статусе и Аналитике показывать покрытие выдачи по годам и причины исключения фактов: квота, статус, давность, релевантность, бюджет. Без фиктивной…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "Пересечение с VMQ-TIME-04 (та же owner-клауза: диагностика vs UI); не дубль."
       }
     },
     {
@@ -3854,6 +4330,15 @@
         "owner": "Builder (read-only harness) -> Reviewer",
         "needs_code": false,
         "unit": "VMQ-MEM-NEXT (evidence)"
+      },
+      "source_anchor": {
+        "file": "plans/owner_inputs/2026-11-11-vmq-time-freeze-and-scope.md",
+        "section": "owner input 2026-11-11: freeze + независимая проверка",
+        "lines": "L16",
+        "quote": "Проверить, не приводит ли защита исторических записей от фильтра релевантности к попаданию нерелевантного материала в контекст. Временное разнообрази…",
+        "mandatory": true,
+        "grounding": "owner_clause",
+        "note": "AMBIGUOUS ANCHOR: source_line (эпос L246) говорит о «не выдавать локально неактуальное за все годы» — обратная сторона той же проблемы. Точная клауза о попадании нерелевантного материала при защите исторических записей — L16; формулировка C1/C2 — инженерная."
       }
     },
     {
@@ -10822,6 +11307,22 @@
         ],
         "acceptance": "по-блочные годы и причины на каждый прогон в repo-артефакте; матрица до/после на копии прод-БД; контроль текущего состояния без исторических строк; независимое подтверждение Reviewer; embeddings не перестроены."
       }
+    },
+    "source_grounding_2026_11_13": {
+      "scope": "54 REAL_GAP строк; статусы и бакеты не менялись",
+      "mandatory_owner_clauses": 54,
+      "derived": [],
+      "partial_derived_form": [
+        "VMQ-TIME-05"
+      ],
+      "duplicates": [],
+      "ambiguous": {
+        "VMQ-TIME-04": "та же owner-клауза L23, что у VMQ-TIME-09; разные потребители (диагностика vs UI)",
+        "VMQ-TIME-09": "пересечение с VMQ-TIME-04",
+        "VMQ-NEXT-04": "точная клауза — freeze L16; source_line эпоса L246 близок, но не тождественен"
+      },
+      "registry_source": "plans/current_task.md §14, lines 9341-9389 (эпос 1060-1108 + offset 8281)",
+      "note": "Одна owner-клауза может обосновывать несколько строк (L23 -> TIME-04/TIME-09; §14 реестр -> 31 строка). Это не дубли: у строк разные потребители и доказательства."
     }
   },
   "next_executable_2026_11_13": {
