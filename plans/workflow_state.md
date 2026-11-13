@@ -5,12 +5,12 @@ Task source: plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md + p
 Status: in_progress
 Primary phase: review
 Active feature: smart-execution-reliability-01
-Active lanes: FC S13 Builder(s) active (worktree pytest cache + factcheck files updated <12 min; WIP 884249cf); C2/C3 whitespace-fix Builder ses_e298a3ae6ffe9S7doNmzaG80X2; PM binding ses_e298a3ae0ffeq6NB6uTcTburbZ. Duplicate reviewer sessions may still be alive (partial commit e473559f on smart/c-source) — read-only effect only.
+Active lanes: FC S13 Builder(s) active (commits 4bf344c6, 212028c8; tests/evidence pending); H Builder ses_e295e80f9ffeD3jctjEgSGwkdL (smart/h-selfdiag, merge of G in progress, conflict services/response_extent.py); PM binding ses_e298a3ae0ffeq6NB6uTcTburbZ (I56 + S3). Duplicate reviewer sessions finished; their artifacts preserved.
 Join barriers: FC S13 handoff -> review; C2/C3 whitespace fix -> same Reviewer re-review; PM I56 binding; then H build on fixed S3 candidate; then FC S14-S17; S12 acceptance last; one release train.
 Last verified: production 2.58.199 at d20a7f73 (schema 47, no DDL, rollback 25876167). I56 review Approved (artifact 6e1a5082 on master; code d43fa1fd, tests 58a8f859) — PM binding running. S3: three independent reviews agree (C1-01..03, C2-02, C3-01 proven for slice; C2-01/C3-02 integration-required; remaining factory caps thread_walk_max=40/episode_max_count=2 cross-slice); whitespace blocker fixed at 5e87ed48 (code diff-check clean; diff -w vs fa37e485 touches no services); focused re-review running. Full review artifact preserved on master (ee5a2e08).
 Candidates: S3 5e87ed48 (fix; re-review pending); I56 d43fa1fd (+tests 58a8f859) approved; FC S13 building (4bf344c6, 212028c8 after WIP 884249cf; tests/evidence pending).
-Next unlocks: FC S13 handoff -> S13 review; C2/C3 fixed SHA -> same Reviewer re-review; PM bind I56; then H build; then FC S14-S17.
-Next execution: runnable
+Next unlocks: H build (merge base = A+B + C1/C2/C3 + E + G) -> H review; FC S13 handoff -> S13 review; PM binds I56 and S3 (S3 approved at 5e87ed48, artifact e2886735); then FC S14-S17; then integrated system-wide cap audit + S12 acceptance; one release train.
+Next execution: awaiting_children
 Review: S0 approved+VERIFIED; I1-02/I2-02 approved+REVIEW; S3/I56 pending
 Deployment: verified 2.58.199 @ d20a7f73; rollback 25876167 (SMART epic not deployed)
 Human gate: none
