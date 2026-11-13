@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-13T15:18:53+12:00",
+  "updated": "2026-11-13T16:02:40+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -834,7 +834,7 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); next executable slice is VMQ-MEM-NEXT; IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-13T15:18:53+12:00",
+      "updated": "2026-11-13T16:02:40+12:00",
       "queue_position": 4,
       "priority": "P0",
       "blocked_by": [],
@@ -842,7 +842,7 @@
       "blocker_sources": {},
       "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: 66 PENDING classified on 2.58.198 - 54 REAL_GAP owner-mandated (ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U/MEM-TIME evidence/R), 9 covered -> REVIEW on binding, 1 postrelease (NEXT-01), 2 blocked_external (Q-04/QM-08). All 54 rows source-anchored to current_task.md owner clauses (0 derived). NEXT-02 corrective candidate (A FTS fix + NEXT-05 timings, no B) is building; M1 episodes building in parallel (disjoint files). Closing NEXT-02 does NOT finish the epic.",
+      "queue_note": "2026-11-13: 66 PENDING classified on 2.58.198 - 54 REAL_GAP owner-mandated (ONTO/M1/M2/Q0/Q0-IBM/Q1/O/U/MEM-TIME evidence/R), 9 covered -> REVIEW on binding, 1 postrelease (NEXT-01), 2 blocked_external (Q-04/QM-08). All 54 rows source-anchored to current_task.md owner clauses (0 derived). NEXT-02 corrective candidate (A FTS fix + NEXT-05 timings, no B) is building; M1 episodes building in parallel (disjoint files). Closing NEXT-02 does NOT finish the epic. | 2026-11-13: self-diag corrective (owner) added as P0; vmq M1 candidate 80726249 in independent review, NEXT-02 final candidate building; vmq continues in parallel on disjoint files.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -928,7 +928,7 @@
     },
     {
       "id": "self-diag-01",
-      "status": "WAITING_EXTERNAL",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-09-self-diag-01.md",
       "source_sha256": "BA12833AEBC259039C7C198F596346880639618D9EAFDB2E76D8EDE17D0EB400",
       "maps": [
@@ -936,15 +936,15 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic SELF-DIAG-01 FINAL v2.0 (09.11.2026), current_task.md lines 9484-10013, 530 lines, plus the access-matrix amendment. Reconciled into plans/features/self-diag-01/requirements-map.json: 182 requirements (137 required from source, 46 context, 53 manual rows: AC-01..AC-24 and AMX-01..AMX-09 plus prose obligations), 8 stages D0-D7, slice-graph and plan.md; plan gate PASS (inventory=183 manual=53 scoped=0 errors=0); D0 discovery artifact sha256 306c23e7…0831. Queue position: after VMQ-ONTO-01; D1 (portable local logs + checkup-only Better Stack removal) is an independent P0 corrective allowed earlier. Checkup prompt and character stay byte-identical; SECRET_VALUE never leaves; new functions ON by default.",
-      "updated": "2026-11-13T09:42:38+12:00",
+      "updated": "2026-11-13T16:02:40+12:00",
       "queue_position": 3,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
-      "execution_state": "delivered_awaiting_evidence",
+      "execution_state": "active_assignment",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: 2.58.198 deployed at 23477658; 150 VERIFIED / 39 READY / 0 REVIEW / 0 PENDING; delivery checkpoint PASS (engineering delivered, acceptance pending future evidence). 39 deferred live/UI/Telegram/VPS observations under approved waits. Queue continues vmq-onto-01.",
+      "queue_note": "2026-11-13 corrective (owner): 2.58.198 user-visible diagnostics incomplete. P0: real journal access; checkup research loop with existing SourceReader/read_source_code/inspect_runtime; diagnostic conversation continuation via LLM routing; L1 empty-content fallback preserving intent; deploy identity manifest; honest unknown/not_checked instead of zero. Anti-hardcode invariant: no lexical routing anywhere. Architect contract first, then Builder, independent Reviewer E2E, one release + smoke. Prior 150 VERIFIED rows are not revoked but the end-user scenario was not proven.",
       "queue_history": [
         {
           "at": "2026-11-12",
@@ -1017,7 +1017,12 @@
         "SD1-GRAL-06",
         "SD1-SEM-08"
       ],
-      "delivery_gate_ref": "plans/features/self-diag-01/release-258198/gate-delivery-23477658.txt"
+      "delivery_gate_ref": "plans/features/self-diag-01/release-258198/gate-delivery-23477658.txt",
+      "corrective_2026_11_13": {
+        "owner_input": "plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md",
+        "status": "scoping",
+        "blocks_epic_done": true
+      }
     },
     {
       "id": "smart-module-semantic-routing-p0",
@@ -4443,6 +4448,17 @@
       ],
       "reconciled": false,
       "note": "Owner chooses natural retrieval + quality metric: forbids an artificial 2026 cap, year quotas, forced displacement of fresh relevant facts; keeps the real FTS fix; no large retrieval refactor or new mechanisms for the metric; 17-question sample is too small; Architect revises the contract, Reviewer verifies quality, finish the epic if no real mandatory defects remain."
+    },
+    {
+      "id": "OI-2026-11-13-SELFDIG-CORRECTIVE",
+      "source_path": "plans/owner_inputs/2026-11-13-selfdiag-corrective-journal-code-identity.md",
+      "source_sha256": "C796C4C92E407C33FEF47A9EAFB7AFE9596E78F825023E7C69ECD9A62B822B9D",
+      "kind": "correction",
+      "target_task_ids": [
+        "self-diag-01"
+      ],
+      "reconciled": false,
+      "note": "Owner corrective after 2.58.198: real journal access (insufficient permissions), checkup must research its own code via existing SourceReader/read_source_code/inspect_runtime inside the standard checkup, diagnostic conversation continuation via existing LLM routing (no repository link required, repo_origin from flags.self_diag_repo_origin), L1 empty-content fallback must preserve intent/context, deploy identity no_manifest/deployed_sha=None/healthy=unknown, honest unknown instead of zero counters. Hard invariant: no lexical routing/hardcoded intents (no regex/word lists/substring matching in code, config, prompts, or a hidden fallback); LLM decides, code executes structured decisions. Architect scopes, Builder fixes, Reviewer independently verifies E2E + anti-hardcode audit, one release with smoke."
     }
   ],
   "source_inventory": {
