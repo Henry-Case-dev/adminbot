@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM bind M2 ses_e2466fc41ffe29CK1Vz4tDm4SW
-Join barriers: PM binds M-04/M-05/O-04 at REVIEW; then MEM/MEM-TIME evidence measurement and the VMQ release train
+Active lanes: Builder VMQ-MEM/TIME measurement ses_e23c52265ffeOiI89Q0kQXNfRH
+Join barriers: VMQ-MEM/TIME measurement -> Reviewer; then release-train readiness (VMQ-A-01/V/M-04/O-04 gate positions)
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T10:39:29+12:00
+Updated: 2026-11-15T10:50:00+12:00
 
 ## Facts
 
@@ -97,3 +97,7 @@ Builder completed the minimal delivery seam on vmq/m2: code f7a9c596, tip 8b56fc
 ## M2 review r1 Approved (2026-11-15)
 
 Reviewer r1 Approved for predeploy REVIEW of M-04/M-05/O-04 on code f7a9c596 (tip 8b56fc73): implementation path retrieve -> _rag_retrieve -> _rag_unified_rows -> _build_evidence_bundle(retrieval_result) -> _bundle_scoped_slice verified; one RetrievalResult/one bundle; 21 focused passed; affected 727 passed + 1 pre-existing speech style anchors failure + 2 pre-existing coordinator/chain failures + 1 deselected wall-clock flake; 4 module mutations + independent delivery mutation killed; ordinary path byte-identical; no DDL/archive writes/re-embedding/cross-chat leaks. Artifact evidence/m2/review-r1.md sha 4F392DA1.... PM is binding at REVIEW (expected 52 PENDING / 12 REVIEW / 6 VERIFIED) and running the gates; next is the MEM/MEM-TIME evidence measurement, then the VMQ release train.
+
+## M2 bound; MEM/TIME measurement started (2026-11-15)
+
+PM bound M-04/M-05/O-04 at REVIEW on code f7a9c596 (tip 8b56fc73, base 64dab0eb, not deployed). Counts: 52 PENDING / 12 REVIEW / 6 VERIFIED; top-level candidate/deployed stay c97c06e4. Review gate scoped=3 errors=2 (M-04/O-04 live_required) and deploy errors=10 (8 dependency closures + the same 2 live); no binding errors. PM explicitly keeps the live flags honest and adds no fake wait. MEM/TIME are not blocked: Builder is running the read-only evidence measurement on a production DB copy, baseline c97c06e4 and candidate f7a9c596, producing formulation-class-matrix/run-retrieval-trace/metrics-comparison and mapping MEM-01..04,07 and TIME-01..08; candidate probes are marked not-live. After that: release-train readiness for ONTO-A -> ONTO-B -> M2, with the three gate positions (VMQ-A-01, V-01..V-04, M-04/O-04) resolved by evidence or a Reviewer-approved deferral, not a fake wait.
