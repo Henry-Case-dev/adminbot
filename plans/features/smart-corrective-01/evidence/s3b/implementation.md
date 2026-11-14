@@ -118,7 +118,7 @@ RED (те же новые тесты на pre-fix `services/checkup_service.py`,
 `sc/corrective-s4` @ `7c1e1afb`, интерпретатор `.venv`):
 
 ```
-py -3 -m pytest tests/test_smart_corrective_input.py -q
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_smart_corrective_input.py -q
 => 15 failed, 1 passed
 ```
 
@@ -131,13 +131,13 @@ py -3 -m pytest tests/test_smart_corrective_input.py -q
 GREEN (кандидат `6d43e3c3`, `.venv`, offline fixtures, без production):
 
 ```
-py -3 -m pytest tests/test_smart_corrective_input.py -q        => 16 passed
-py -3 -m pytest tests/test_checkup_service.py -q              => 25 passed
-py -3 -m pytest tests/test_smart_corrective_input.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_smart_corrective_input.py -q        => 16 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_checkup_service.py -q              => 25 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_smart_corrective_input.py \
   tests/test_checkup_service.py tests/test_checkup_contract.py \
   tests/test_checkup_handlers.py tests/test_selfdiag_corrective_research.py \
   tests/test_smart_corrective_completion.py -q                => 158 passed
-py -3 -m pytest tests/test_smart_corrective_input.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_smart_corrective_input.py \
   tests/test_checkup_service.py tests/test_checkup_contract.py \
   tests/test_checkup_handlers.py tests/test_checkup_prompts.py \
   tests/test_p0_checkup_core_contract.py \
@@ -146,7 +146,7 @@ py -3 -m pytest tests/test_smart_corrective_input.py \
   tests/test_checkup_logs_fetcher.py tests/test_payload_builder.py \
   tests/test_self_diag_golden.py tests/test_soul1_direct_prompt_reads.py \
   tests/test_unified_core_route_coverage.py -q                => 312 passed
-py -3 -m pytest tests/test_mca11_tool_result_round1028.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_mca11_tool_result_round1028.py \
   tests/test_mca11_chain_stages_round1028.py tests/test_agentic_ai_round1020.py \
   tests/test_agentic_events_round1026.py tests/test_mca23_phase2.py \
   tests/test_smoke_round1016_tool_loop.py tests/test_factcheck_service.py \
@@ -156,16 +156,16 @@ py -3 -m pytest tests/test_mca11_tool_result_round1028.py \
   tests/test_asap7_direct_l1.py tests/test_decision_making_round1026.py \
   tests/test_settings_helpers.py tests/test_diagnostic_settings_adapter.py \
   tests/test_param_catalog.py -q                               => 751 passed
-py -3 -m pytest tests/test_webapp_api.py tests/test_tool_router.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_webapp_api.py tests/test_tool_router.py \
   tests/test_smart_corrective_budget_policy.py \
   tests/test_smart_corrective_source_reader.py \
   tests/test_evol_source_reader.py -q                          => 338 passed
-py -3 -m pytest tests/test_settings_helpers.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_settings_helpers.py \
   tests/test_diagnostic_settings_adapter.py tests/test_param_catalog.py \
   tests/test_self_diag_golden.py tests/test_soul1_direct_prompt_reads.py \
   tests/test_unified_core_route_coverage.py tests/test_payload_builder.py \
   tests/test_checkup_logs_fetcher.py -q                        => 211 passed
-py -3 -m py_compile services/checkup_service.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m py_compile services/checkup_service.py \
   config/settings.py tests/test_smart_corrective_input.py      => OK
 ```
 
@@ -212,18 +212,14 @@ tests/test_diagnostic_probes.py::TestValidation::test_time_window_is_bounded
 
 ## Ограничения / что осталось за границей среза
 
-1. **REQUIRED FOLLOW-UP (вне write-scope S3B).** `DiagnosticCollector.
-   collect_for_checkup` рендерит facts-блок с `max_chars=
-   ProbeLimits.max_facts_chars` (env `SELF_DIAG_PROBE_MAX_FACTS_CHARS`,
-   default 3000) и дописывает `[facts_budget_exceeded]`. Это отдельный
-   chunk-size потолок коллектора (вид 5), не старые чек-лимиты; маркер
-   честный, полный bundle доступен tool-loop через `inspect_runtime`.
-   При этом сам `render_facts_text` документирует `max_chars=0` как
-   «искусственного бюджета нет» — call-site расходится с этим контрактом.
-   Требуется решение PM: либо привести call-site к capacity/budgets-политике
-   (файл `services/diagnostic_collector.py`), либо зафиксировать 3000 как
-   осознанную операторскую политику. S3B это не исправляет (файл вне
-   write-scope), дефект не скрыт.
+1. **RESOLVED by F-S3B-01 (см. раздел ниже; прежний текст сохранён как
+   история).** `DiagnosticCollector.collect_for_checkup` рендерил facts-блок
+   с `max_chars=ProbeLimits.max_facts_chars` (env
+   `SELF_DIAG_PROBE_MAX_FACTS_CHARS`, default 3000) и дописывал
+   `[facts_budget_exceeded]`, хотя `render_facts_text` документирует
+   `max_chars=0` как «искусственного бюджета нет». Авторизованным
+   расширением write-scope (F-S3B-01) call-site приведён к политике
+   budgets/оператора чекапа.
 2. Потолки фетчера (`_MAX_LOG_SYMBOLS=20000`, `_MAX_LOG_LINES=300`) — вид 1/5
    у своего владельца (`services/system_logs_fetcher.py`); входной сборщик их
    не дублирует и не расширяет. Провенанс `window/read/matched/state`
@@ -256,3 +252,145 @@ tests/test_diagnostic_probes.py::TestValidation::test_time_window_is_bounded
 - Worktree сохранён для независимого ревью (retention:
   `evidence/s3b/cleanup-retention.json`); после ревью и переноса evidence
   может быть закрыт штатным `unit-close`.
+
+## F-S3B-01 diagnostic collector — facts-блок по политике бюджетов
+
+Статус: включено в тот же кандидат S3B (REVIEW).
+
+### Идентичность
+
+- Code candidate: `1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977`
+  (`fix(self-diag): facts block follows checkup budget policy (F-S3B-01)`).
+- Поверх предыдущего кандидата среза: `6d43e3c3` (код S3B) + `a1c19acd`
+  (evidence). База линии и worktree — те же, что выше.
+- Предыдущий evidence-раздел «Ограничения» п.1 закрыт этим исправлением.
+
+### Авторизованное расширение write-scope (PM должен отразить)
+
+`services/diagnostic_collector.py` не был закреплён ни за одним срезом
+`slice-graph.json`. По прямому указанию Orchestrator выполнено минимальное
+исправление shared-cause на этом call-site; **PM обязан** добавить файл в
+write-scope S3B-INPUT (slice-graph + карта) и учесть расширение в
+requirement-binding.
+
+### Исходный дефект (до `1bbe767d`)
+
+`DiagnosticCollector.collect_for_checkup` передавал в
+`bundle.render_facts_text(max_chars=int(self.limits.max_facts_chars))`, т.е.
+искусственные 3000 символов (`SELF_DIAG_PROBE_MAX_FACTS_CHARS`), независимо
+от operator-бюджетов и физической ёмкости. Это противоречило контракту
+самого `render_facts_text` (`max_chars=0` = «искусственного бюджета нет») и
+владельческому §7: полезные факты diagnostics collector не должны теряться
+при сборке payload. При budgets OFF хвост facts терялся даже при достаточной
+ёмкости модели.
+
+### Изменение (call-site, одна точка)
+
+- `json`-независимый helper `DiagnosticCollector._facts_budget_chars(chat_id)`:
+  тот же операторский резолв, что у входа чекапа —
+  `services.budget_gate.budgets_enabled(chat_id)` →
+  `limits.checkup_max_input_symbols` (`hot.get`, фолбек
+  `settings.CHECKUP_MAX_INPUT_SYMBOLS`).
+- `facts_text = render_facts_text(bundle, max_chars=await
+  self._facts_budget_chars(chat_id))`.
+- Новых числовых констант нет; probe-потолки (`ProbeLimits` per-probe caps,
+  max_output_chars, окно журнала) не менялись и остаются safety/physical
+  слоем; второй packing-логики в коллекторе нет — раскладку общего payload
+  выполняет `services/checkup_service` (S3B).
+- Ошибка резолвера бюджета → консервативная ON-семантика (существующий
+  fail-open `budget_gate`); ошибка чтения операторского значения → дефолт
+  `settings.CHECKUP_MAX_INPUT_SYMBOLS`.
+
+### Точное поведение
+
+| Effective config | facts-блок коллектора | Наблюдаемо |
+|---|---|---|
+| budgets **OFF** | `max_chars=0` — символьной обрезки фактов нет | все факты доходят до общего payload; `[facts_budget_exceeded]` отсутствует; физическое переполнение обрабатывает S3B-раскладка (приоритет фактов, честный `[checkup-input-truncated]`, `basis=physical`) |
+| budgets **ON** | `max_chars = сохранённый limits.checkup_max_input_symbols` (оператор; в проде по аудиту 40000) | при превышении — честные `[facts_budget_exceeded]` и `[facts_unknown] not_checked=...`; сохранённое значение владельца не перезаписывается |
+| budgets ON, оператор 40000 ≥ объём фактов | без обрезки | полный facts-блок |
+| резолвер бюджета недоступен | ON-семантика (операторский предел) | консервативно, без выдуманных констант |
+
+### Тесты (durable)
+
+`tests/test_smart_corrective_input.py::TestDiagnosticCollectorFactsBudget`
+(+4 теста; реальный `DiagnosticCollector` + `render_facts_text`, граница —
+только probe-реестр и `budget_gate`/capacity):
+
+- `test_facts_beyond_3000_survive_to_payload_when_budgets_off` — факты
+  20231 симв. (>3000, 40 ключей) доходят до user-payload целиком
+  (`cfg_fact_39`), `[facts_budget_exceeded]` нет;
+- `test_operator_budget_clips_facts_when_budgets_on` — оператор 1500 режет
+  facts с честными `[facts_budget_exceeded]` + `[facts_unknown]
+  not_checked=`;
+- `test_owner_operator_value_governs_facts` — оператор 40000: полный
+  facts-блок, маркера обрезки нет (сохранённое значение действует);
+- `test_facts_structure_and_order_under_physical_overflow` — при физическом
+  переполнении факты сохраняются целыми строками в исходном порядке,
+  `DIAGNOSTIC_EVIDENCE` остаётся первым, опущение помечено S3B-маркером.
+
+RED (pre-fix collector, тот же тест-файл):
+
+```
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest "tests/test_smart_corrective_input.py::TestDiagnosticCollectorFactsBudget" -q
+=> 3 failed, 1 passed
+```
+
+Падают ровно политические проверки (OFF-выживание, ON-оператор, owner-value);
+структурный тест инвариантен к источнику клипа и проходит на обеих версиях.
+GREEN на `1bbe767d`:
+
+```
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_smart_corrective_input.py -q       => 20 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_smart_corrective_input.py \
+  tests/test_checkup_service.py tests/test_checkup_contract.py \
+  tests/test_checkup_handlers.py tests/test_checkup_prompts.py \
+  tests/test_p0_checkup_core_contract.py \
+  tests/test_selfdiag_corrective_research.py \
+  tests/test_smart_corrective_completion.py tests/test_tool_loop.py \
+  tests/test_checkup_logs_fetcher.py tests/test_payload_builder.py \
+  tests/test_self_diag_golden.py tests/test_soul1_direct_prompt_reads.py \
+  tests/test_unified_core_route_coverage.py \
+  tests/test_smart_exec_selfdiag.py tests/test_deploy_identity_d4c.py \
+  tests/test_evidence_bundle.py -q                            => 385 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_mca11_tool_result_round1028.py \
+  tests/test_mca11_chain_stages_round1028.py tests/test_agentic_ai_round1020.py \
+  tests/test_agentic_events_round1026.py tests/test_mca23_phase2.py \
+  tests/test_smoke_round1016_tool_loop.py tests/test_factcheck_service.py \
+  tests/test_factcheck_tools_round1020.py tests/test_prompt_readback.py \
+  tests/test_tool_schemas.py tests/test_mca19_block_g_round1043.py \
+  tests/test_mca20_integration_round1045.py tests/test_direct_chat.py \
+  tests/test_asap7_direct_l1.py tests/test_decision_making_round1026.py -q
+=> 650 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_webapp_api.py tests/test_tool_router.py \
+  tests/test_smart_corrective_budget_policy.py \
+  tests/test_smart_corrective_source_reader.py \
+  tests/test_evol_source_reader.py -q                         => 338 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest tests/test_settings_helpers.py \
+  tests/test_diagnostic_settings_adapter.py tests/test_param_catalog.py \
+  tests/test_diagnostic_probes.py tests/test_tool_coordinator_round1026.py \
+  tests/test_er65_sent_segment_snapshot.py \
+  tests/test_direct_fallback_recompose_asap32.py -q
+=> 9 failed, 233 passed — ровно те же 9 pre-existing (см. выше), новых нет
+```
+
+### Ограничения F-S3B-01
+
+- `ProbeLimits.max_facts_chars` и env `SELF_DIAG_PROBE_MAX_FACTS_CHARS`
+  остаются объявленными (совместимость dataclass/env), но facts-блок чекапа
+  ими больше не управляется. Удаление поля/переменной — отдельная
+  совместимость-чистка, не влияет на поведение.
+- При budgets ON операторский предел режет facts раньше S3B-раскладки
+  (следуя прямому указанию «with budgets ON use the operator value»);
+  потеря хвоста честно помечена `[facts_budget_exceeded]`, агрегат
+  `not_checked` дописывается существующей логикой.
+- Per-probe caps/окно журнала (вид 5/1) не менялись — это safety/physical
+  слой владельцев probes/fetcher.
+- Production не затрагивался; effective-state не перечитывался.
+
+### Housekeeping F-S3B-01
+
+- Probe-прогон `WorkspaceData/runs/.../probe-1b98867ebe` (замеры facts
+  OFF/ON и физического overflow) закрыт штатным `run-close` после снятия
+  результатов.
+- Worktree всё ещё сохранён для независимого ревью (retention-файл без
+  изменений).
