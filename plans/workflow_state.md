@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer deployed delta ses_e245a7ee3ffei2b5jaEYh1SfB8; Architect ONTO-A contract ses_e245a5acbffeUiajBPxxUjnXcO
+Active lanes: Reviewer deployed delta ses_e245a7ee3ffei2b5jaEYh1SfB8; Architect ONTO-A contract ses_e245a5acbffeUiajBPxxUjnXcO; Reviewer VMQ-V evidence ses_e2458ffb8ffePCAmFsGKCEIUHk
 Join barriers: Reviewer deployed-delta verdict -> PM binds M1/NEXT2 VERIFIED on c97c06e4; Architect ONTO-A confirmation -> Builder ONTO-A
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
-Next unlocks: (1) Reviewer verdict on deployed M1/NEXT2; (2) PM binds M1/NEXT2 VERIFIED and sets deployed_commit=c97c06e4; (3) Builder ONTO-A (O-01/O-02) after Architect confirmation; serial ONTO-B then M2.
+Next unlocks: (1) Reviewer verdict on deployed M1/NEXT2 + PM binding; (2) Builder ONTO-A (O-01/O-02) after Architect confirmation; (3) VMQ-V evidence review -> PM binds V-01..V-04 if proven; serial ONTO-B then M2.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T08:40:00+12:00
+Updated: 2026-11-15T08:43:00+12:00
 
 ## Facts
 
