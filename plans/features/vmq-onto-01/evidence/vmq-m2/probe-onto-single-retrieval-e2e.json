@@ -1,0 +1,83 @@
+{
+ "artifact_kind": "candidate_probe_not_live",
+ "contract": "O-04 (single retrieval, definitions as hints, versions)",
+ "request": {
+  "chat_id": -889101,
+  "include_overview": true,
+  "subject_entity_ids": [
+   777
+  ],
+  "memory_scope": "historical"
+ },
+ "single_route": {
+  "retrieve_calls": 1,
+  "channels_used": [
+   "subject",
+   "episode"
+  ],
+  "vector_reads": 1,
+  "forbidden_memory_calls": [],
+  "fts_match_statements": 1,
+  "message_fts_statements": 1,
+  "episode_reads": 2,
+  "statements": [
+   "SELECT * FROM mca_stories WHERE chat_id = ? ORDER BY updated_at DESC, story_id LIMIT ?",
+   "SELECT old_id FROM mca_story_redirects WHERE old_kind = 'story'",
+   "SELECT l.* FROM lore_stories l LEFT JOIN mca_story_legacy_links g ON g.lore_story_id = l.id WHERE l.chat_id = ? AND COALESCE(g.mapping_status, 'unmapped') != 'mapped' AND COALESCE(excluded_from_retrieval, 0) = 0 AND COALESCE(status, '') != 'rejected' ORDER BY l.updated_at DESC LIMIT ?",
+   "SELECT source_ref_id FROM mca_source_refs WHERE store = 'telegram' AND entity_type = 'user' AND entity_id = ? AND COALESCE(chat_id, -1) = COALESCE(?, -1) LIMIT 1",
+   "WITH cand AS (SELECT id, fact, origin, created_at, target_user, weight, status, last_confirmed_at, tg_message_id, message_timestamp, kind, subject_ref_id, attribution_method, assertion_kind, speaker_author_id, provenance_channel, expires_at, CAST(strftime('%Y', COALESCE(NULLIF(message_timestamp,0),NULLIF(created_at,0)),'unixepoch') AS INT) AS yr, CASE WHEN status='confirmed' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END AS valid_now FROM graph_facts WHERE chat_id = ? AND (subject_ref_id = ? OR (subject_ref_id IS NULL AND target_user = ?)) AND COALESCE(attribution_method, '') != 'world_knowledge' AND COALESCE(assertion_kind, '') != 'world_knowledge' AND COALESCE(origin, '') != 'bot_self_reply' AND ((status='confirmed' AND (expires_at IS NULL OR expires_at > ?)) OR status='archived_fact')), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY COALESCE(yr,0) ORDER BY valid_now DESC, weight DESC, COALESCE(NULLIF(message_timestamp,0), created_at) DESC, id DESC) AS rn FROM cand) SELECT * FROM ranked ORDER BY CASE WHEN rn <= ? THEN 0 ELSE 1 END, valid_now DESC, COALESCE(yr,0) DESC, rn LIMIT ?",
+   "WITH cand AS (SELECT id, fact, origin, created_at, target_user, weight, status, last_confirmed_at, tg_message_id, message_timestamp, kind, subject_ref_id, attribution_method, assertion_kind, speaker_author_id, provenance_channel, expires_at, CAST(strftime('%Y', COALESCE(NULLIF(message_timestamp,0),NULLIF(created_at,0)),'unixepoch') AS INT) AS yr, CASE WHEN status='confirmed' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END AS valid_now FROM graph_facts WHERE chat_id = ? AND 1=1 AND COALESCE(attribution_method, '') != 'world_knowledge' AND COALESCE(assertion_kind, '') != 'world_knowledge' AND COALESCE(origin, '') != 'bot_self_reply' AND id NOT IN (?,?) AND ((status='confirmed' AND (expires_at IS NULL OR expires_at > ?)) OR status='archived_fact')), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY COALESCE(yr,0) ORDER BY valid_now DESC, weight DESC, COALESCE(NULLIF(message_timestamp,0), created_at) DESC, id DESC) AS rn FROM cand) SELECT * FROM ranked ORDER BY CASE WHEN rn <= ? THEN 0 ELSE 1 END, valid_now DESC, COALESCE(yr,0) DESC, rn LIMIT ?",
+   "SELECT m.id, m.user_id, m.chat_id, m.text, m.reply_to_id, m.timestamp, m.media_type, m.author_name, m.is_forward, m.forward_source, m.tg_message_id FROM smart_messages_fts JOIN smart_messages m ON m.id = smart_messages_fts.rowid WHERE smart_messages_fts MATCH ? AND m.chat_id = ? ORDER BY smart_messages_fts.rank LIMIT ?",
+   "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, f.weight, f.last_confirmed_at, f.message_timestamp, f.status, f.importance, f.tg_message_id, f.forward_from, f.expires_at, f.subject_ref_id, f.attribution_method, f.assertion_kind, f.speaker_author_id, f.provenance_channel, COALESCE(f.message_timestamp, f.created_at) AS rag_ts FROM graph_facts_fts JOIN graph_facts f ON f.id = graph_facts_fts.rowid WHERE graph_facts_fts MATCH ? AND f.chat_id = ? AND (f.expires_at IS NULL OR f.expires_at > ?) AND f.status IN ('confirmed') AND f.origin != 'bot_direct_reply' AND f.origin != 'bot_self_reply' ORDER BY graph_facts_fts.rank LIMIT ?",
+   "SELECT generation_id, index_name, generation, fingerprint, provider, model, dims, preprocessing_version, endpoint_fingerprint, namespace, config_revision, status, created_at, activated_at, superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations WHERE index_name = ? AND namespace = ? AND status = 'active'",
+   "SELECT * FROM mca_episodes WHERE chat_id = ? ORDER BY updated_at DESC, episode_id LIMIT ?",
+   "SELECT id, tg_message_id, timestamp, current_revision, content_hash FROM smart_messages WHERE chat_id = ? AND tg_message_id IN (?,?)",
+   "SELECT * FROM mca_episodes WHERE chat_id = ? ORDER BY updated_at DESC, episode_id LIMIT ?",
+   "SELECT id, tg_message_id, timestamp, current_revision, content_hash FROM smart_messages WHERE chat_id = ? AND tg_message_id IN (?,?)"
+  ]
+ },
+ "db_resource_check": {
+  "user_version_before": 47,
+  "user_version_after": 47,
+  "journal_mode": "wal",
+  "write_statements": [],
+  "counts_before": {
+   "smart_messages": 3,
+   "mca_episodes": 3,
+   "mca_story_versions": 3,
+   "graph_facts": 3,
+   "mca_source_refs": 10,
+   "mca_evidence_links": 6,
+   "mca_embedding_index_generations": 0
+  },
+  "counts_after": {
+   "smart_messages": 3,
+   "mca_episodes": 3,
+   "mca_story_versions": 3,
+   "graph_facts": 3,
+   "mca_source_refs": 10,
+   "mca_evidence_links": 6,
+   "mca_embedding_index_generations": 0
+  },
+  "wal_bytes_before": 4124152,
+  "wal_bytes_after": 4124152
+ },
+ "cross_chat": {
+  "foreign_episode_ids": [
+   "80f643c303be425abf212ddc4ac464cc"
+  ],
+  "overview_episode_refs": [
+   "f14a014b27b344ee81822e6109077633",
+   "fccd3b4ab21445068d00459ad80f1aaf"
+  ],
+  "foreign_episodes_in_overview": [],
+  "foreign_fact_ids": [
+   3
+  ],
+  "candidate_fact_ids": [
+   "1",
+   "2"
+  ],
+  "foreign_facts_in_candidates": []
+ }
+}

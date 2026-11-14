@@ -248,6 +248,16 @@ class EvidenceBundle:
     # а не изменение активных промптов: в Telegram не выводится, в логи — без
     # текста (R17). Пусто → байт-паритет прежнего bundle.
     summary_text: tuple[str, ...] = ()
+    # ── VMQ-M2 (M-04; ARCH_REUSE_CONFIRMED): bounded overview-слоты ЕДИНОГО
+    # bundle. Наполняет `apply_overview_to_bundle` из результата того же
+    # `retrieve()`; своего bundle/хранилища не появляется. Пусто = точный
+    # паритет прежнего bundle (schema_version не меняется).
+    coverage: tuple[str, ...] = ()            # что реально покрыто (периоды)
+    independent_periods: tuple[str, ...] = ()  # периоды с независимой опорой
+    counterexamples: tuple[str, ...] = ()      # контрпримеры (отдельно от опоры)
+    limitations: tuple[str, ...] = ()          # честные ограничения покрытия
+    episode_refs: tuple[str, ...] = ()         # эпизоды-опора (lineage-ссылки)
+    semantic_hints: tuple[str, ...] = ()       # типизированные определения-хинты
 
 
 # ── MEMORY-06 (§7.2, MEM-06.8): человеческий evidence summary ──────────────
@@ -584,6 +594,13 @@ class RetrievalRequest:
     #: Предикат добавляется только при непустом наборе; пустой набор
     #: `NOT IN ()` не строит. Действует только при `period_fill=True`.
     exclude_years: tuple[int, ...] = ()
+    #: VMQ-M2 (M-04/O-04; ARCH_REUSE_CONFIRMED): запросить bounded
+    #: overview-проекцию покрытия/периодов/контрпримеров/ограничений и
+    #: semantic-hints в ТОМ ЖЕ `retrieve()`. Default False — прочие
+    #: вызывающие получают прежний результат байт-в-байт (ноль новых чтений).
+    #: Проекция ничего не выбирает и не ранжирует: кандидаты/каналы/порядок
+    #: остаются прежними (semantic definitions — hint, не router).
+    include_overview: bool = False
 
 
 
@@ -749,6 +766,10 @@ class RetrievalResult:
     #: счётчики/коды, без текстов фактов: `{vector_leg, vector_rows,
     #: vector_pool, vector_pool_miss, subject_proxy}`. None — обычный запрос.
     period_fill: dict | None = None
+    #: VMQ-M2 (M-04/O-04): bounded overview покрытия/периодов/контрпримеров/
+    #: ограничений + semantic-hints ТОГО ЖЕ вызова (`include_overview`).
+    #: None — прежний результат байт-в-байт (прочие вызывающие не затронуты).
+    overview: "RetrievalOverview | None" = None
 
 
 def is_history_query(query: str) -> bool:
@@ -1441,6 +1462,433 @@ def _year_coverage(ordered: list, fact_rows: dict) -> dict:
     return dict(sorted(years.items()))
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# VMQ-M2 (M-04/M-05/O-04; ARCH_REUSE_CONFIRMED 15.11.2026): bounded overview
+# ЕДИНОГО retrieval — покрытие/периоды/контрпримеры/ограничения + semantic
+# hints. Контракт: evidence/m2-contract-confirmation-2026-11-15.md.
+#
+# Здесь нет ни второго поиска/маршрута/хранилища, ни записи, ни DDL, ни
+# LLM/embedding-вызова: проекция читает УЖЕ существующие владельцы
+# (`mca_episodes` EpisodeView/LongitudinalView из M1, `semantic_contracts`
+# typed meanings из ONTO-A) и только складывает bounded значения. Кандидаты,
+# каналы, порядок и top_k не меняются: семантическое определение — hint,
+# а не отбор (§13 контракта M2).
+# ═══════════════════════════════════════════════════════════════════════════
+
+OVERVIEW_VERSION = "vmq-m2/overview/v1"
+OVERVIEW_MAX_EPISODES = 200          # == mca_episodes.EPISODE_VIEW_LIMIT_MAX
+OVERVIEW_MAX_PERIODS = 24
+OVERVIEW_MAX_COUNTEREXAMPLES = 5
+OVERVIEW_MAX_LIMITATIONS = 12
+OVERVIEW_MAX_HINTS = 12
+OVERVIEW_MAX_REFS = 20
+OVERVIEW_TEXT_MAX = 200
+OVERVIEW_MAX_HINT_ROWS = 20
+
+#: Коды ограничений покрытия (bounded, R17-safe: без текстов/секретов).
+LIMIT_REPEATED_CLAIMS = "repeated_claims_present"
+LIMIT_SOURCE_INTEGRITY = "episode_source_integrity_partial"
+LIMIT_STALE_EPISODES = "episodes_stale"
+LIMIT_CROSS_CHAT_SCOPE = "cross_chat_acl_scope_overview_single_chat"
+LIMIT_SUBJECT_AMBIGUOUS = "subject_ambiguous_overview_unfiltered"
+LIMIT_SUBJECT_NAME_ONLY = "subject_identity_name_hint_only"
+
+
+def _overview_text(value) -> str:
+    """Bounded текст для bundle/диагностики (без служебных id-мусора)."""
+    text = " ".join(str(value or "").split())
+    return text[:OVERVIEW_TEXT_MAX]
+
+
+def _overview_refs(refs) -> tuple[str, ...]:
+    out: list[str] = []
+    for ref in refs or ():
+        text = str(ref or "").strip()
+        if text and text not in out:
+            out.append(text)
+        if len(out) >= OVERVIEW_MAX_REFS:
+            break
+    return tuple(out)
+
+
+@dataclasses.dataclass(frozen=True)
+class RetrievalOverview:
+    """Bounded overview ЕДИНОГО retrieval (M-04): покрытие, а не биография.
+
+    `coverage` — календарные bucket'ы по времени ИСХОДНЫХ сообщений;
+    пропущенный период означает «нет эпизодов», а НЕ «не было событий».
+    `independent_periods` — периоды, у которых есть РАЗЛИЧНАЯ опора с
+    собственными source refs: повтор одного мема/корня независимость не
+    повышает. `counterexamples` отделены от support; `limitations` —
+    честные коды. `semantic_hints` — типизированные определения уже
+    выбранных кандидатов (hint, не отбор). `coverage['complete']` всегда
+    False: границы архива не доказаны.
+    """
+
+    chat_id: int
+    subject_id: str | None
+    state: str
+    coverage: dict
+    independent_periods: tuple[str, ...]
+    period_support: tuple[dict, ...]
+    episode_refs: tuple[str, ...]
+    episode_versions: tuple[dict, ...]
+    support_source_refs: tuple[str, ...]
+    independent_support_count: int
+    repeated_claims: int
+    counterexamples: tuple[dict, ...]
+    limitations: tuple[str, ...]
+    semantic_hints: tuple[dict, ...]
+    derived_version: str = OVERVIEW_VERSION
+
+    def as_dict(self) -> dict:
+        """JSON-совместимая проекция (кортежи → списки): диагностика/bundle."""
+        def _plain(value):
+            if isinstance(value, dict):
+                return {key: _plain(item) for key, item in value.items()}
+            if isinstance(value, (tuple, list)):
+                return [_plain(item) for item in value]
+            return value
+
+        return _plain(dataclasses.asdict(self))
+
+
+def _overview_period_support(views, *, timezone: str) -> tuple[tuple[dict, ...],
+                                                              tuple[str, ...]]:
+    """Периоды с РАЗЛИЧНОЙ опорой (нормализованный текст) — повтор ≠ опора.
+
+    Использует ТОЛЬКО существующие примитивы M1 (`period_year`,
+    `normalize_claim_text`) и уже прочитанные `EpisodeView.claims`: своего
+    вывода независимости и второго чтения здесь нет."""
+    from services.mca_episodes import normalize_claim_text, period_year
+
+    seen_norm: dict[str, str] = {}
+    per_period: dict[str, dict] = {}
+    ordered = sorted(views or (),
+                     key=lambda v: (int(v.event_start_ts or 0), v.episode_ref))
+    for view in ordered:
+        period = period_year(view.event_end_ts or view.event_start_ts,
+                            timezone=timezone)
+        if period is None:
+            continue
+        period_key = str(period)
+        bucket = per_period.setdefault(
+            period_key, {"period": period_key, "independent": 0,
+                         "repeated": 0})
+        for claim in view.claims:
+            norm = normalize_claim_text(str(claim.get("text") or ""))
+            refs = tuple(str(r) for r in (claim.get("refs") or ()) if r)
+            if not norm or not refs:
+                continue
+            if norm in seen_norm:
+                bucket["repeated"] = int(bucket["repeated"]) + 1
+                continue
+            seen_norm[norm] = period_key
+            bucket["independent"] = int(bucket["independent"]) + 1
+    rows = tuple(per_period[key] for key in sorted(per_period))
+    independent = tuple(row["period"] for row in rows if row["independent"])
+    return rows, independent
+
+
+def overview_from_views(*, chat_id: int, subject_id: str | None, longitudinal,
+                        views, subject_ambiguous: bool = False,
+                        cross_chat_scope: bool = False,
+                        semantic_hints=()) -> RetrievalOverview:
+    """Собрать bounded overview из УЖЕ прочитанных M1 views (чистая функция).
+
+    Ошибки/неполнота не разворачиваются в «полное покрытие»: отсутствующее
+    значение остаётся пустым/unknown, а причина попадает в `limitations`."""
+    timezone = str(getattr(longitudinal, "timezone", "") or "UTC")
+    coverage_in = dict(getattr(longitudinal, "coverage", {}) or {})
+    present: list[dict] = []
+    for block in list(coverage_in.get("present_periods") or [])[:OVERVIEW_MAX_PERIODS]:
+        if not isinstance(block, dict):
+            continue
+        present.append({
+            "period": str(block.get("period") or ""),
+            "episodes": int(block.get("count") or 0),
+            "episode_refs": list(_overview_refs(block.get("episode_refs"))),
+        })
+    coverage = {
+        "period_grain": str(coverage_in.get("period_grain") or ""),
+        "present_periods": present,
+        "missing_periods": [
+            str(value) for value in
+            list(coverage_in.get("missing_periods") or [])[:OVERVIEW_MAX_PERIODS]],
+        "unknown_time_episode_refs": list(_overview_refs(
+            coverage_in.get("unknown_time_episode_refs"))),
+        "earliest_ts": coverage_in.get("earliest_ts"),
+        "latest_ts": coverage_in.get("latest_ts"),
+        # Покрытие НИКОГДА не объявляется полным: границы архива не доказаны.
+        "complete": False,
+        "complete_reason": str(coverage_in.get("complete_reason")
+                               or "archive_bounds_unknown"),
+        "timezone": timezone,
+    }
+    period_support, independent_periods = _overview_period_support(
+        views, timezone=timezone)
+
+    episode_versions: list[dict] = []
+    for view in list(views or ())[:OVERVIEW_MAX_EPISODES]:
+        episode_versions.append({
+            "episode_ref": str(view.episode_ref),
+            "source_fingerprint": str(view.source_fingerprint or ""),
+            "content_status": str(view.content_status or ""),
+            "stale": bool(view.stale),
+            "source_integrity": str(view.source_integrity or ""),
+        })
+
+    counterexamples: list[dict] = []
+    for pair in list(getattr(longitudinal, "counterexample_pairs", ()) or ())[
+            :OVERVIEW_MAX_COUNTEREXAMPLES]:
+        if not isinstance(pair, dict):
+            continue
+        counterexamples.append({
+            "left_text": _overview_text(pair.get("left_text")),
+            "left_refs": list(_overview_refs(pair.get("left_refs"))),
+            "right_text": _overview_text(pair.get("right_text")),
+            "right_refs": list(_overview_refs(pair.get("right_refs"))),
+        })
+
+    limitations: list[str] = []
+    for note in list(getattr(longitudinal, "notes", ()) or ()):
+        code = str(note or "").strip()
+        if code and code not in limitations:
+            limitations.append(code)
+    if any(row["repeated"] for row in period_support) or int(
+            getattr(longitudinal, "repeated_claims", 0) or 0):
+        if LIMIT_REPEATED_CLAIMS not in limitations:
+            limitations.append(LIMIT_REPEATED_CLAIMS)
+    if any(str(view.source_integrity or "") in ("partial", "missing")
+           for view in (views or ())):
+        limitations.append(LIMIT_SOURCE_INTEGRITY)
+    if any(bool(view.stale) for view in (views or ())):
+        limitations.append(LIMIT_STALE_EPISODES)
+    if cross_chat_scope:
+        # ACL-набор чатов не сливается: overview остаётся одного chat scope.
+        limitations.append(LIMIT_CROSS_CHAT_SCOPE)
+    if subject_ambiguous:
+        limitations.append(LIMIT_SUBJECT_AMBIGUOUS)
+    if subject_id is None and any(
+            hint.get("kind") == "subject_identity"
+            and not hint.get("entity_id") and hint.get("mention")
+            for hint in semantic_hints):
+        limitations.append(LIMIT_SUBJECT_NAME_ONLY)
+    limitations = list(dict.fromkeys(limitations))[:OVERVIEW_MAX_LIMITATIONS]
+
+    return RetrievalOverview(
+        chat_id=int(chat_id),
+        subject_id=(str(subject_id) if subject_id is not None else None),
+        state=str(getattr(longitudinal, "state", "") or ""),
+        coverage=coverage,
+        independent_periods=independent_periods,
+        period_support=period_support,
+        episode_refs=_overview_refs(getattr(longitudinal, "episode_refs", ())),
+        episode_versions=tuple(episode_versions),
+        support_source_refs=_overview_refs(
+            getattr(longitudinal, "support_source_refs", ())),
+        independent_support_count=int(
+            getattr(longitudinal, "independent_support_count", 0) or 0),
+        repeated_claims=int(getattr(longitudinal, "repeated_claims", 0) or 0),
+        counterexamples=tuple(counterexamples),
+        limitations=tuple(limitations),
+        semantic_hints=tuple(dict(hint) for hint in
+                             list(semantic_hints or ())[:OVERVIEW_MAX_HINTS]),
+    )
+
+
+def _semantic_hints(request: RetrievalRequest, fact_rows=()) -> tuple[dict, ...]:
+    """Typed definitions как HINTS (O-04): ничего не разрешает и не отбирает.
+
+    Значения берутся у существующего владельца `semantic_contracts`
+    (ONTO-A/B): `project_identity` — для определения субъекта запроса,
+    `project_fact_meaning` — для уже прочитанных строк `graph_facts`.
+    Ошибка/недоступность модуля → пусто (fail-open, базовая выдача не
+    деградирует), отсутствующее значение остаётся unknown/tentative."""
+    try:
+        from services import semantic_contracts as _sc
+    except Exception:                                     # pragma: no cover
+        return ()
+    hints: list[dict] = []
+    uids: list[int] = []
+    for value in request.subject_entity_ids or ():
+        try:
+            uid = int(value)
+        except (TypeError, ValueError):
+            continue
+        if uid not in uids:
+            uids.append(uid)
+    for uid in uids[:1]:                # один субъект: >1 — неоднозначно
+        try:
+            identity = _sc.project_identity(
+                chat_id=request.chat_id, entity_type="user",
+                participant_id=uid)
+        except Exception:
+            continue
+        hints.append({
+            "kind": "subject_identity", "entity_id": str(uid),
+            "basis": str(identity.basis), "status": str(identity.status),
+            "reason_code": str(identity.reason_code or ""),
+            "candidates": len(identity.candidates or ()),
+        })
+    if not uids:
+        names = _subject_names(request)
+        if names:
+            try:
+                identity = _sc.project_identity(
+                    chat_id=request.chat_id, entity_type="user",
+                    mention=names[0])
+                hints.append({
+                    "kind": "subject_identity", "entity_id": "",
+                    "mention": names[0], "basis": str(identity.basis),
+                    "status": str(identity.status),
+                    "reason_code": str(identity.reason_code or ""),
+                    "candidates": len(identity.candidates or ()),
+                })
+            except Exception:
+                pass
+    for row in list(fact_rows or ())[:OVERVIEW_MAX_HINT_ROWS]:
+        if not isinstance(row, dict):
+            continue
+        # Историческое multi-period чтение профиля не возвращает `chat_id`
+        # (оконный SELECT), но scope чтения — ровно чат запроса: подставляем
+        # фактический scope, а не выдуманное значение.
+        payload = dict(row)
+        if payload.get("chat_id") in (None, ""):
+            payload["chat_id"] = request.chat_id
+        try:
+            meaning = _sc.project_fact_meaning(payload)
+        except Exception:
+            continue
+        origin_class = meaning.origin_class
+        hints.append({
+            "kind": "fact_definition",
+            "fact_id": meaning.fact_id,
+            "entity_type": str(meaning.entity_type),
+            "verification": str(meaning.verification),
+            "type_status": str(meaning.type.status),
+            "provenance_class": meaning.provenance_class,
+            "origin_class": (origin_class.value
+                             if origin_class is not None else None),
+            "conflict_status": str(meaning.conflict_status),
+            "degraded": list(meaning.degraded),
+            "reason_code": str(meaning.reason_code or ""),
+        })
+        if len(hints) >= OVERVIEW_MAX_HINTS:
+            break
+    return tuple(hints[:OVERVIEW_MAX_HINTS])
+
+
+def _overview_subject(request: RetrievalRequest) -> tuple[str | None, bool]:
+    """(subject_id для scoped view, ambiguous). Имя — НЕ идентичность (§5.3).
+
+    Фильтр возможен только по устойчивому uid; отсутствие/несколько
+    кандидатов дают честное «не фильтруем» + код ограничения, а не выбор
+    «популярного» субъекта."""
+    if tuple(request.ambiguous_subjects or ()):
+        return None, True
+    uids: list[int] = []
+    for value in request.subject_entity_ids or ():
+        try:
+            uid = int(value)
+        except (TypeError, ValueError):
+            continue
+        if uid not in uids:
+            uids.append(uid)
+    if len(uids) == 1:
+        return str(uids[0]), False
+    return None, len(uids) > 1
+
+
+async def build_retrieval_overview(db, request: RetrievalRequest, *,
+                                   fact_rows=()) -> RetrievalOverview | None:
+    """Bounded overview для ТОГО ЖЕ `retrieve()` (M-04). Без второго поиска.
+
+    Читает существующие M1-проекции (`subject_longitudinal_view`,
+    `list_episode_views`) в строгом chat scope и типизирует уже прочитанные
+    строки фактов (`_semantic_hints`). Гейт — существующий
+    `MCA_EPISODES_ENABLED`; любая ошибка → `None` (базовая выдача не
+    блокируется, ложного покрытия не появляется)."""
+    try:
+        from services import mca_gates as _gates
+        if not _gates.episodes_enabled():
+            return None
+        from services.mca_episodes import (
+            list_episode_views, subject_longitudinal_view,
+        )
+        chat_id = int(request.chat_id)
+        subject_id, subject_ambiguous = _overview_subject(request)
+        longitudinal = await subject_longitudinal_view(
+            db, chat_id, subject_id=subject_id, limit=OVERVIEW_MAX_EPISODES)
+        views = await list_episode_views(
+            db, chat_id, limit=OVERVIEW_MAX_EPISODES)
+        return overview_from_views(
+            chat_id=chat_id, subject_id=subject_id,
+            longitudinal=longitudinal, views=views,
+            subject_ambiguous=subject_ambiguous,
+            cross_chat_scope=len(effective_chat_ids(request)) > 1,
+            semantic_hints=_semantic_hints(request, fact_rows))
+    except Exception:
+        logger.warning("[mca07] retrieval overview failed", exc_info=True)
+        return None
+
+
+def apply_overview_to_bundle(bundle, overview) -> "EvidenceBundle | None":
+    """Наполнить ЕДИНЫЙ `EvidenceBundle` overview-слотами M-04 (чистая).
+
+    Возвращает НОВЫЙ frozen-bundle через `dataclasses.replace`: второго
+    bundle не создаётся, `context_version`/`schema_version` и все прочие
+    слоты не меняются. `overview is None` → исходный bundle (паритет).
+    Тексты bounded и без служебных метрик; внутренние id не раскрываются
+    (только ссылки эпизодов, как и остальные refs bundle)."""
+    if bundle is None or overview is None:
+        return bundle
+    try:
+        coverage_lines: list[str] = []
+        for block in overview.coverage.get("present_periods") or ():
+            coverage_lines.append(
+                f"{block.get('period')}: эпизодов {int(block.get('episodes') or 0)}")
+        earliest = overview.coverage.get("earliest_ts")
+        latest = overview.coverage.get("latest_ts")
+        if earliest and latest:
+            coverage_lines.append(
+                "границы: " + summary_date(earliest) + " — "
+                + summary_date(latest))
+        missing = [str(value) for value in
+                   overview.coverage.get("missing_periods") or ()]
+        if missing:
+            coverage_lines.append("пропущены периоды: " + ", ".join(missing))
+        counterexample_lines = [
+            _overview_text(pair.get("left_text")) + " ↔ "
+            + _overview_text(pair.get("right_text"))
+            for pair in overview.counterexamples]
+        hint_lines = []
+        for hint in overview.semantic_hints:
+            if hint.get("kind") == "subject_identity":
+                hint_lines.append(
+                    "субъект: " + str(hint.get("basis"))
+                    + "/" + str(hint.get("status")))
+            elif hint.get("kind") == "fact_definition":
+                hint_lines.append(
+                    "определение: " + str(hint.get("verification")))
+        return dataclasses.replace(
+            bundle,
+            coverage=tuple(_overview_text(line) for line
+                           in coverage_lines[:OVERVIEW_MAX_PERIODS + 2]),
+            independent_periods=tuple(overview.independent_periods),
+            counterexamples=tuple(counterexample_lines[
+                :OVERVIEW_MAX_COUNTEREXAMPLES]),
+            limitations=tuple(overview.limitations),
+            episode_refs=tuple(overview.episode_refs),
+            semantic_hints=tuple(_overview_text(line) for line
+                                 in hint_lines[:OVERVIEW_MAX_HINTS]),
+        )
+    except Exception:                                     # pragma: no cover
+        logger.warning("[mca07] bundle overview enrichment failed",
+                       exc_info=True)
+        return bundle
+
+
 async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     """Единая точка retrieval-запроса, ОБОРАЧИВАЮЩАЯ существующие каналы.
 
@@ -1949,6 +2397,17 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # дублируется и в ранжирование кандидатов не вмешивается.
     relations = (await _relations_projection(db, request, limit)
                  if request.include_relations else ())
+    # ── VMQ-M2 (M-04/O-04): bounded overview ТОГО ЖЕ вызова. Никакого
+    # второго маршрута: кандидаты/каналы/порядок уже определены выше, а
+    # проекция только читает существующие episode-views/typed meanings.
+    # Include False (default) → ноль новых чтений (паритет прежних путей).
+    delivered_fact_rows = tuple(
+        fact_rows[_candidate_identity(cand)] for cand in ordered
+        if _candidate_identity(cand) in fact_rows)
+    overview = None
+    if request.include_overview:
+        overview = await build_retrieval_overview(
+            db, request, fact_rows=delivered_fact_rows)
     status = RETRIEVAL_OK if ordered else _EMPTY
     reason = None if ordered else "retrieval_empty"
     if mode in ("history", "episodic") and ordered and any(
@@ -2008,6 +2467,17 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         usage_json["period_fill"] = period_usage
         if period_usage.get("subject_proxy"):
             usage_json["subject_proxy"] = period_usage["subject_proxy"]
+    # VMQ-M2 (M-04): наблюдаемость overview — только коды/числа (R17): ни
+    # текстов утверждений, ни эпизодных refs. Путь default-off не меняется.
+    if overview is not None:
+        usage_json["overview"] = {
+            "state": str(overview.state),
+            "periods": len(overview.coverage.get("present_periods") or ()),
+            "independent_periods": len(overview.independent_periods),
+            "counterexamples": len(overview.counterexamples),
+            "limits": len(overview.limitations),
+            "hints": len(overview.semantic_hints),
+        }
     emit_stage_event(
         "retrieval", "success" if ordered else "silent",
         reason_code=reason, chat_id=request.chat_id,
@@ -2022,9 +2492,9 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         mode=mode, purpose=str(request.purpose or "reply"),
         chat_ids=chat_ids, ambiguity=ambiguity, relevance=relevance,
         relations=relations,
-        fact_rows=tuple(fact_rows[_candidate_identity(cand)] for cand in ordered
-                        if _candidate_identity(cand) in fact_rows),
-        period_fill=period_usage)
+        fact_rows=delivered_fact_rows,
+        period_fill=period_usage,
+        overview=overview)
 
 
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
@@ -2531,5 +3001,10 @@ __all__ = [
     "assess_relevance",
     "humanize_summary_text", "summary_date", "chat_timezone_name",
     "render_evidence_summary",
+    # VMQ-M2 (M-04/M-05/O-04): bounded overview ЕДИНОГО retrieval
+    "OVERVIEW_VERSION", "OVERVIEW_MAX_EPISODES", "OVERVIEW_MAX_PERIODS",
+    "OVERVIEW_MAX_COUNTEREXAMPLES", "OVERVIEW_MAX_LIMITATIONS",
+    "OVERVIEW_MAX_HINTS", "RetrievalOverview", "overview_from_views",
+    "build_retrieval_overview", "apply_overview_to_bundle",
 ]
 

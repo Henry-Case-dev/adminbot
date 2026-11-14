@@ -1,0 +1,207 @@
+{
+ "artifact_kind": "candidate_probe_not_live",
+ "contract": "M-04 (person overview / temporal change, Writer bundle)",
+ "fixture": {
+  "chat_id": -889101,
+  "subject_uid": 777,
+  "periods": [
+   "2021",
+   "2023"
+  ],
+  "gap": "2022",
+  "claims": [
+   "Папаха встретился в парке как договаривались",
+   "Папаха не встретился в парке как договаривались"
+  ]
+ },
+ "recall": {
+  "present_periods": [
+   "2021",
+   "2023"
+  ],
+  "missing_periods": [
+   "2022"
+  ],
+  "episode_refs_in_chat": 2,
+  "independent_support_count": 2,
+  "repeated_claims": 0,
+  "counterexamples": 1,
+  "limits": [
+   "periods_are_calendar_buckets_not_entities",
+   "missing_period_means_no_episode_not_no_event",
+   "summary_title_claims_are_derived",
+   "coverage_complete_unknown_until_archive_bounds_proven",
+   "topic_refs_empty_until_onto_contract"
+  ],
+  "candidates": 4,
+  "channels": [
+   "subject",
+   "episode"
+  ]
+ },
+ "bundle_slots": {
+  "coverage": [
+   "2021: эпизодов 1",
+   "2023: эпизодов 1",
+   "границы: 15.06.2021 — 15.06.2023",
+   "пропущены периоды: 2022"
+  ],
+  "independent_periods": [
+   "2021",
+   "2023"
+  ],
+  "counterexamples": [
+   "Папаха встретился в парке как договаривались ↔ Папаха не встретился в парке как договаривались"
+  ],
+  "limitations": [
+   "periods_are_calendar_buckets_not_entities",
+   "missing_period_means_no_episode_not_no_event",
+   "summary_title_claims_are_derived",
+   "coverage_complete_unknown_until_archive_bounds_proven",
+   "topic_refs_empty_until_onto_contract"
+  ],
+  "episode_refs": [
+   "f14a014b27b344ee81822e6109077633",
+   "fccd3b4ab21445068d00459ad80f1aaf"
+  ],
+  "semantic_hints": [
+   "субъект: participant_identity/verified",
+   "определение: tentative",
+   "определение: unknown"
+  ],
+  "context_version": "probe",
+  "schema_version": "mca07-bundle-1"
+ },
+ "overview": {
+  "chat_id": -889101,
+  "subject_id": "777",
+  "state": "ok",
+  "coverage": {
+   "period_grain": "year",
+   "present_periods": [
+    {
+     "period": "2021",
+     "episodes": 1,
+     "episode_refs": [
+      "f14a014b27b344ee81822e6109077633"
+     ]
+    },
+    {
+     "period": "2023",
+     "episodes": 1,
+     "episode_refs": [
+      "fccd3b4ab21445068d00459ad80f1aaf"
+     ]
+    }
+   ],
+   "missing_periods": [
+    "2022"
+   ],
+   "unknown_time_episode_refs": [],
+   "earliest_ts": 1623758400,
+   "latest_ts": 1686820800,
+   "complete": false,
+   "complete_reason": "archive_bounds_unknown",
+   "timezone": "Asia/Yekaterinburg"
+  },
+  "independent_periods": [
+   "2021",
+   "2023"
+  ],
+  "period_support": [
+   {
+    "period": "2021",
+    "independent": 1,
+    "repeated": 0
+   },
+   {
+    "period": "2023",
+    "independent": 1,
+    "repeated": 0
+   }
+  ],
+  "episode_refs": [
+   "f14a014b27b344ee81822e6109077633",
+   "fccd3b4ab21445068d00459ad80f1aaf"
+  ],
+  "episode_versions": [
+   {
+    "episode_ref": "f14a014b27b344ee81822e6109077633",
+    "source_fingerprint": "5c6040d47079106ebb66c8477cdffcd7",
+    "content_status": "ready",
+    "stale": false,
+    "source_integrity": "ok"
+   },
+   {
+    "episode_ref": "fccd3b4ab21445068d00459ad80f1aaf",
+    "source_fingerprint": "08e840a72b5e87be1efedd2676023532",
+    "content_status": "ready",
+    "stale": false,
+    "source_integrity": "ok"
+   }
+  ],
+  "support_source_refs": [
+   "-889101:tg:1",
+   "-889101:tg:2"
+  ],
+  "independent_support_count": 2,
+  "repeated_claims": 0,
+  "counterexamples": [
+   {
+    "left_text": "Папаха встретился в парке как договаривались",
+    "left_refs": [
+     "f14a014b27b344ee81822e6109077633"
+    ],
+    "right_text": "Папаха не встретился в парке как договаривались",
+    "right_refs": [
+     "fccd3b4ab21445068d00459ad80f1aaf"
+    ]
+   }
+  ],
+  "limitations": [
+   "periods_are_calendar_buckets_not_entities",
+   "missing_period_means_no_episode_not_no_event",
+   "summary_title_claims_are_derived",
+   "coverage_complete_unknown_until_archive_bounds_proven",
+   "topic_refs_empty_until_onto_contract"
+  ],
+  "semantic_hints": [
+   {
+    "kind": "subject_identity",
+    "entity_id": "777",
+    "basis": "participant_identity",
+    "status": "verified",
+    "reason_code": "participant_identity",
+    "candidates": 0
+   },
+   {
+    "kind": "fact_definition",
+    "fact_id": 1,
+    "entity_type": "fact",
+    "verification": "tentative",
+    "type_status": "verified",
+    "provenance_class": "confident",
+    "origin_class": "legacy_unknown",
+    "conflict_status": "unknown",
+    "degraded": [],
+    "reason_code": ""
+   },
+   {
+    "kind": "fact_definition",
+    "fact_id": 2,
+    "entity_type": "fact",
+    "verification": "unknown",
+    "type_status": "verified",
+    "provenance_class": "legacy_unverified",
+    "origin_class": "legacy_unknown",
+    "conflict_status": "unknown",
+    "degraded": [
+     "role_unresolved",
+     "provenance_not_confirmed"
+    ],
+    "reason_code": ""
+   }
+  ],
+  "derived_version": "vmq-m2/overview/v1"
+ }
+}
