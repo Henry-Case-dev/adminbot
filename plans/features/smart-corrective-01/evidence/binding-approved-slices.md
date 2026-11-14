@@ -254,3 +254,25 @@ Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector call-s
 Выводы: `evidence/gates/review-S3B-INPUT.txt`, `evidence/gates/plan-after-S3B.txt`.
 
 **Следующее действие:** Reviewer должен переиздать review-артефакт с итоговым `Approved` после подтверждения, что master lineage gate проходит (или явным addendum с approval), после чего PM повторно привяжет review-evidence и review-гейт станет `errors=0`. S3B-строки остаются `REVIEW`, не `VERIFIED`; `candidate_commit`/`deployed_commit` карты пусты.
+
+### R2 approval sync (2026-11-14, unit `pm-s3b-r2`)
+
+Reviewer переиздал approval: `evidence/s3b/review-r1.md` теперь содержит раздел «Re-review r2 (approval after master lineage fix)», итоговый verdict — **Approved for predeploy review of exact candidate** `1bbe767d…`. Новый sha256 артефакта: `adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e` (worktree copy совпадает).
+
+| Что синхронизировано | Значение |
+|---|---|
+| Required-строк S3B с обновлённым review-evidence | 25 (`SC-INP-*`) |
+| `verdict` в review-evidence | `Approved` |
+| `artifact_sha256` | `adb3189c…` |
+| Implementation evidence | не изменялось (digest до/после совпал) |
+| Статусы | 25 `REVIEW`; `VERIFIED` — 0 |
+| `candidate_commit`/`deployed_commit` карты | пусты |
+
+R2 подтвердил: R1 `Needs Fixes` был только candidate-worktree lineage (483 ошибки), поведенческого блокера нет; master lineage даёт 0, а 25 прежних approval-ошибок были следствием старой привязки. После обновления review-evidence:
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| review | `--stage review --slice S3B-INPUT --candidate 1bbe767d --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=25) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+
+Выводы: `evidence/gates/review-S3B-INPUT.txt` (R2, overwrite), `evidence/gates/plan-after-S3B.txt`. S3B остаётся REVIEW-уровнем; production/final VERIFIED не заявляется.

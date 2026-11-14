@@ -3488,12 +3488,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3523,12 +3523,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3558,12 +3558,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3593,12 +3593,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3628,12 +3628,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3663,12 +3663,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3698,12 +3698,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3733,12 +3733,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3768,12 +3768,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3803,12 +3803,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3838,12 +3838,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3873,12 +3873,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3908,12 +3908,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -3943,12 +3943,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9397,12 +9397,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9432,12 +9432,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9467,12 +9467,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9502,12 +9502,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9552,12 +9552,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9587,12 +9587,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9622,12 +9622,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9657,12 +9657,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9692,12 +9692,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9727,12 +9727,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -9762,12 +9762,12 @@
         {
           "type": "review",
           "reviewer_role": "Reviewer",
-          "verdict": "Needs Fixes",
+          "verdict": "Approved",
           "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
-          "ref": "S3B review-r1.md lines 2-13 (§Implementation, §Test validity, §Independent challenge, §Map ledger, §Accepted scope expansion, §BLOCKER). Formal verdict line 12 = Needs Fixes solely because the candidate-worktree gate had 483 lineage errors; master lineage gate is rerun separately.",
-          "observation": "Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, mutation probes not completed procedurally (tar/PowerShell), no behavioral failure found. Formal verdict remains Needs Fixes solely for the candidate-worktree lineage gate (483 errors); master gate rerun resolves lineage, but the artifact itself does not contain an Approved verdict. REVIEW status only; not VERIFIED.",
+          "ref": "S3B review-r1.md R1 lines 2-13 + R2 section «Re-review r2 (approval after master lineage fix)»: exact candidate 1bbe767d, owner-input sha verified on master, R1 Needs Fixes was lineage-only, R2 final verdict Approved for predeploy review; not production/final VERIFIED.",
+          "observation": "Reviewer R1: implementation/tests adequate (20/385/650/338/233-9), collector expansion minimal, no behavioral failure; formal Needs Fixes was solely the candidate-worktree lineage gate (483 errors). R2 on master rechecked exact candidate/binding and reran the gate: lineage errors gone; remaining 25 errors were only the old map approval binding. R2 final verdict: Approved for predeploy review of exact candidate. REVIEW only; not VERIFIED.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-          "artifact_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49"
+          "artifact_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e"
         }
       ],
       "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
@@ -12586,13 +12586,14 @@
       "implementation_path": "plans/features/smart-corrective-01/evidence/s3b/implementation.md",
       "implementation_sha256": "04964a005723e058287471d53bc3badd4d603bf175e53b4cbba89f1915855a00",
       "review_path": "plans/features/smart-corrective-01/evidence/s3b/review-r1.md",
-      "review_sha256": "53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49",
+      "review_sha256": "adb3189ccf3f1e16fbafe70f45a3bd0ba8d30ecacb433eb9569d3ac503cd958e",
       "retention_path": "plans/features/smart-corrective-01/evidence/s3b/cleanup-retention.json",
       "retention_sha256": "166c3be5b8b9fc379a7e26be942df7861bde3c5cc966ccf346705183e0a1bbc4",
       "status": "REVIEW",
-      "review_verdict": "Needs Fixes",
-      "review_blocker": "Formal Needs Fixes solely for candidate-worktree lineage gate (483 errors); master lineage gate rerun separately. Reviewer reissue required for Approved binding.",
-      "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
+      "review_verdict": "Approved",
+      "review_blocker": "",
+      "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists.",
+      "review_note": "R2 approval after master lineage fix: R1 Needs Fixes was lineage-only (483 errors in candidate worktree); R2 verified owner-input sha on master and approved exact candidate for predeploy review."
     }
   }
 }
