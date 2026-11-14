@@ -1,0 +1,306 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "epic": "smart-corrective-01",
+  "parent_epic": "smart-execution-reliability-01",
+  "source": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
+  "source_sha256": "8A0239B3E307F284B5DDC5CC9FAF94725E735DEF03DB384AAAABE6E06952AE71",
+  "notes": "Mandatory read-only investigation (S0) and frozen architecture contract (S1) precede every code slice. Watchdog uses the Architect S5a→S5b→S5c→S5d order; W-12 production data is an investigation input (S0-PRODDATA), not an implementation blocker. Writers are serialized where scopes overlap.",
+  "slices": [
+    {
+      "id": "S0-INVESTIGATE",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/smart-corrective-01/investigation/**"
+      ],
+      "acceptance": "Read-only отчёт по двум production-запускам покрывает 17 пунктов §2.1, отделяет подтверждённые production-факты от выводов, дефектов, гипотез и невосстановимых данных, и содержит расследование шести watchdog-инцидентов (§9.1).",
+      "risk": "R1",
+      "next_role": "Architect",
+      "parallel_with": [],
+      "why_one_slice": "Один доказательный investigation gate: без него исправления были бы основаны на догадках."
+    },
+    {
+      "id": "S1-CONTRACT",
+      "depends_on": [
+        "S0-INVESTIGATE"
+      ],
+      "write_scope": [
+        "plans/features/smart-corrective-01/architecture-contract.md"
+      ],
+      "acceptance": "Architect фиксирует контракты: SourceReader content-search/fallback/result classes, budget propagation, completion semantics, limit taxonomy, prompt delivery и watchdog incident lifecycle; у каждого dependent slice есть frozen interface и запреты §10.3.",
+      "risk": "R1",
+      "next_role": "Builder",
+      "parallel_with": [],
+      "why_one_slice": "Один контрактный join barrier на несколько shared contracts; дробить его на отдельные ADR значило бы плодить документы без независимой ценности."
+    },
+    {
+      "id": "S2-SOURCEREADER",
+      "depends_on": [
+        "S1-CONTRACT"
+      ],
+      "write_scope": [
+        "services/source_reader.py",
+        "tests/test_evol_source_reader.py",
+        "tests/test_smart_c1_source_reader_limits.py",
+        "tests/test_smart_e_local_first_source.py",
+        "tests/test_smart_corrective_source_reader.py"
+      ],
+      "acceptance": "На реальном локальном дереве поиск по содержимому находит `watchdog.jobs` в services/mca_watchdog.py, продолжается за пределами top-3, различает реализацию/тест/документацию/скрипт деплоя и честно возвращает структурированный класс отказа.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S3-BUDGET",
+        "S5A-LIFECYCLE"
+      ],
+      "why_one_slice": "Fallback, локатор и продолжение — один исследовательский маршрут внутри одного файла; раздельная поставка не даёт пользовательского результата."
+    },
+    {
+      "id": "S3-BUDGET",
+      "depends_on": [
+        "S1-CONTRACT"
+      ],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/worker_budget.py",
+        "tests/test_tool_router.py",
+        "tests/test_budget_unlimited_round1019.py",
+        "tests/test_smart_corrective_budget_policy.py"
+      ],
+      "acceptance": "На сквозном пути chat_id и budget_enforced доходят от ToolRouter до SourceReader; effective policy совпадает с единым резолвером чата; при OFF отсутствуют скрытые искусственные потолки, а реальные предохранители сохранены.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S2-SOURCEREADER",
+        "S5A-LIFECYCLE"
+      ],
+      "why_one_slice": "Одна причина — разрыв наследования effective policy в конкретном вызове; доказательство одно: фактически применённая политика."
+    },
+    {
+      "id": "S4-COMPLETION",
+      "depends_on": [
+        "S1-CONTRACT",
+        "S2-SOURCEREADER",
+        "S3-BUDGET"
+      ],
+      "write_scope": [
+        "services/tool_loop.py",
+        "services/checkup_service.py",
+        "tests/test_tool_loop.py",
+        "tests/test_checkup_service.py",
+        "tests/test_checkup_contract.py",
+        "tests/test_smart_corrective_completion.py"
+      ],
+      "acceptance": "Чекап с существенной проблемой продолжает исследование после нерелевантного первого результата или единичного отказа и возвращает подтверждённый вывод либо честный частичный результат с причиной; здоровый чекап не делает лишних вызовов.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S5A-LIFECYCLE"
+      ],
+      "why_one_slice": "Семантика завершения и её проверка в CheckupService неразделимы: контракт tool-loop без потребителя не даёт наблюдаемого результата."
+    },
+    {
+      "id": "S3B-INPUT",
+      "depends_on": [
+        "S4-COMPLETION"
+      ],
+      "write_scope": [
+        "services/checkup_service.py",
+        "services/settings.py",
+        "tests/test_checkup_service.py",
+        "tests/test_smart_corrective_input.py"
+      ],
+      "acceptance": "Существенный диагностический факт за прежним пределом 12 000 символов и квоты метрик доходит до payload; семь видов ограничений различимы; сохранённые настройки владельца не перезаписаны.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S5A-LIFECYCLE",
+        "S5B-RECOVERY",
+        "S5C-EVENTS",
+        "S5D-OBSERVABILITY"
+      ],
+      "why_one_slice": "Сборка входа и семантика ограничений — одна наблюдаемая единица: что именно попадает в LLM-payload.",
+      "serial_join": "Пишет тот же services/checkup_service.py, что S4; сериализовано зависимостью."
+    },
+    {
+      "id": "S6-PROMPT",
+      "depends_on": [
+        "S3B-INPUT"
+      ],
+      "write_scope": [
+        "services/checkup_prompts.py",
+        "services/prompt_registry.py",
+        "services/checkup_service.py",
+        "tests/test_checkup_prompts.py",
+        "tests/test_smart_corrective_prompt_delivery.py"
+      ],
+      "acceptance": "Effective checkup prompt на маршруте равен сохранённой владельцем редакции (hash/bytes), addendum согласован с новым поведением инструментов, устаревший Betterstack удалён только из активного контура, исторические версии не переписаны.",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S5A-LIFECYCLE",
+        "S5B-RECOVERY",
+        "S5C-EVENTS",
+        "S5D-OBSERVABILITY"
+      ],
+      "why_one_slice": "Доставка промпта, addendum и устранение устаревших инструкций — одна проверяемая цепочка system payload чекапа.",
+      "serial_join": "Пишет services/checkup_service.py после S4/S3B; сериализовано зависимостью."
+    },
+    {
+      "id": "S0-PRODDATA",
+      "depends_on": [
+        "S0-INVESTIGATE"
+      ],
+      "write_scope": [
+        "plans/features/smart-corrective-01/investigation/production/**"
+      ],
+      "acceptance": "Read-only production-выборки §4 для шести инцидентов собраны и сведены в таблицу «инцидент → fingerprint → jobs_json → фактическое состояние job → detection/restart/real failure/uncertainty»; W-12 остаётся NEEDS_PRODUCTION_DATA до данных.",
+      "risk": "R1",
+      "next_role": "DevOps",
+      "parallel_with": [
+        "S2-SOURCEREADER",
+        "S3-BUDGET"
+      ],
+      "why_one_slice": "Один доказательный набор production-данных; он является входом расследования, а не блокером реализации W-01..W-11.",
+      "owner_findings": [
+        "W-12"
+      ]
+    },
+    {
+      "id": "S5A-LIFECYCLE",
+      "depends_on": [
+        "S1-CONTRACT"
+      ],
+      "write_scope": [
+        "services/mca_incidents.py",
+        "services/task_supervisor.py",
+        "tests/test_smart_exec_learning_incidents.py",
+        "tests/test_smart_corrective_watchdog_lifecycle.py"
+      ],
+      "acceptance": "Resolved-инцидент не переоткрывается без нового evidence; инцидент сверяется с фактическим состоянием job и авто-закрывается после терминала; success-событие recovery только при подтверждённом переходе; терминальные записи используют fencing.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S2-SOURCEREADER",
+        "S3-BUDGET"
+      ],
+      "why_one_slice": "S5a lifecycle/actual-state auto-resolve + fencing/recovery outcome — первая зависимость: без неё нельзя менять fingerprint и recovery.",
+      "owner_findings": [
+        "W-02",
+        "W-05",
+        "W-07"
+      ]
+    },
+    {
+      "id": "S5B-RECOVERY",
+      "depends_on": [
+        "S1-CONTRACT",
+        "S5A-LIFECYCLE"
+      ],
+      "write_scope": [
+        "services/task_supervisor.py",
+        "services/mca_watchdog.py",
+        "services/mca_gates.py",
+        "tests/test_mca17a_observability_core_round1027.py",
+        "tests/test_smart_corrective_watchdog_recovery.py"
+      ],
+      "acceptance": "recover_stale применяет bounded requeue/next_retry_at и не выходит за owner/kind; durable-running job имеет heartbeat или deadline; queued-сироты и progressless-running различаются без безусловного takeover.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S2-SOURCEREADER",
+        "S3-BUDGET"
+      ],
+      "why_one_slice": "S5b scoped recovery/requeue and heartbeat/progress — один recovery-контракт task lifecycle.",
+      "owner_findings": [
+        "W-03",
+        "W-04",
+        "W-06",
+        "W-08",
+        "W-09"
+      ]
+    },
+    {
+      "id": "S5C-EVENTS",
+      "depends_on": [
+        "S1-CONTRACT",
+        "S5B-RECOVERY"
+      ],
+      "write_scope": [
+        "services/mca_watchdog.py",
+        "services/mca_incidents.py",
+        "services/mca_events.py",
+        "tests/test_smart_corrective_watchdog_events.py"
+      ],
+      "acceptance": "Один batch summary WATCHDOG_TAKEOVER с per-job доказательствами через разрешённые additive-поля; fingerprint учитывает kind; старые fingerprint-строки остаются читаемыми; пустой batch не эмитит takeover.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S2-SOURCEREADER",
+        "S3-BUDGET"
+      ],
+      "why_one_slice": "S5c fingerprint/REASON_CODES/event payload compatibility — после lifecycle, чтобы не расколоть историю инцидентов.",
+      "owner_findings": [
+        "W-01",
+        "W-11"
+      ],
+      "ordering_note": "W-05 lifecycle (S5a) must land before W-11 fingerprint (S5c)."
+    },
+    {
+      "id": "S5D-OBSERVABILITY",
+      "depends_on": [
+        "S1-CONTRACT",
+        "S5C-EVENTS"
+      ],
+      "write_scope": [
+        "services/mca_watchdog.py",
+        "tests/test_smart_corrective_watchdog_observability.py"
+      ],
+      "acceptance": "Отказ регистрации инцидента логируется, эмитит WARN-событие и локальный счётчик; рекурсивный инцидент не создаётся; счётчики различают created/updated/reopened/failed/disabled.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "parallel_with": [
+        "S2-SOURCEREADER",
+        "S3-BUDGET"
+      ],
+      "why_one_slice": "S5d incident-failure observability and analytics reconciliation — последний слой, не влияющий на recovery truth.",
+      "owner_findings": [
+        "W-10"
+      ]
+    },
+    {
+      "id": "S5-WATCHDOG",
+      "depends_on": [
+        "S5A-LIFECYCLE",
+        "S5B-RECOVERY",
+        "S5C-EVENTS",
+        "S5D-OBSERVABILITY"
+      ],
+      "write_scope": [],
+      "acceptance": "Watchdog-направление в целом: recovery-события соответствуют фактически восстановленным задачам, дублирование устранено, queued/running-зависания различаются по контрактам, отказ incident service наблюдаем без рекурсии, шесть инцидентов имеют установленное состояние или честную неопределённость.",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "parallel_with": [],
+      "why_one_slice": "Join-узел S5; сам не пишет код, собирает доказательства под-срезов S5a–S5d."
+    },
+    {
+      "id": "S8-REVIEW-RELEASE",
+      "depends_on": [
+        "S2-SOURCEREADER",
+        "S3-BUDGET",
+        "S4-COMPLETION",
+        "S3B-INPUT",
+        "S6-PROMPT",
+        "S5-WATCHDOG",
+        "S0-PRODDATA"
+      ],
+      "write_scope": [
+        "plans/features/smart-corrective-01/evidence/**",
+        "plans/features/smart-corrective-01/release-evidence/**"
+      ],
+      "acceptance": "Независимое ревью и production-канарейки подтверждают AC-01..AC-24 на одном deployed SHA; приложены identity, effective config, rollback и честное разделение engineering/production/owner-live.",
+      "risk": "R1",
+      "next_role": "DevOps",
+      "parallel_with": [],
+      "why_one_slice": "Один release train и один exact candidate для всего corrective; отдельные деплои на каждый дефект запрещены."
+    }
+  ]
+}

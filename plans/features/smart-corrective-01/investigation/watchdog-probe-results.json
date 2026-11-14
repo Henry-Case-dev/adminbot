@@ -1,0 +1,155 @@
+﻿{
+  "gates": {
+    "watchdog": true,
+    "incidents": true
+  },
+  "results": {
+    "A_build_event_keys": [
+      "component",
+      "event_name",
+      "level",
+      "outcome",
+      "reason_code",
+      "schema_version",
+      "stage",
+      "ts"
+    ],
+    "A_job_ids_survived": false,
+    "B_stale": 3,
+    "B_takeover_events": 3,
+    "B_takeover_payloads": [
+      {
+        "reason": "takeover_recovered",
+        "job_ids": [
+          "a0b95d1091b4410bb6fca19f407e9a7d",
+          "4c18d945293f49a992e9618c0b7d515c",
+          "d68577e6e1db44bf90eed337ca6ad253"
+        ]
+      },
+      {
+        "reason": "takeover_recovered",
+        "job_ids": [
+          "a0b95d1091b4410bb6fca19f407e9a7d",
+          "4c18d945293f49a992e9618c0b7d515c",
+          "d68577e6e1db44bf90eed337ca6ad253"
+        ]
+      },
+      {
+        "reason": "takeover_recovered",
+        "job_ids": [
+          "a0b95d1091b4410bb6fca19f407e9a7d",
+          "4c18d945293f49a992e9618c0b7d515c",
+          "d68577e6e1db44bf90eed337ca6ad253"
+        ]
+      }
+    ],
+    "B_recovered": [
+      "a0b95d1091b4410bb6fca19f407e9a7d",
+      "4c18d945293f49a992e9618c0b7d515c",
+      "d68577e6e1db44bf90eed337ca6ad253"
+    ],
+    "B_incidents_counter": 3,
+    "B_job_states": [
+      "interrupted",
+      "interrupted",
+      "interrupted"
+    ],
+    "B_incident_rows": [
+      {
+        "pipeline_type": "asap8b01",
+        "stage": "takeover",
+        "severity": "ERROR",
+        "repeat_count": 1,
+        "resolved_at": null,
+        "jobs_json": "[\"a0b95d1091b4410bb6fca19f407e9a7d\"]"
+      },
+      {
+        "pipeline_type": "qnd.event",
+        "stage": "takeover",
+        "severity": "ERROR",
+        "repeat_count": 1,
+        "resolved_at": null,
+        "jobs_json": "[\"4c18d945293f49a992e9618c0b7d515c\"]"
+      },
+      {
+        "pipeline_type": "mca16",
+        "stage": "takeover",
+        "severity": "ERROR",
+        "repeat_count": 1,
+        "resolved_at": null,
+        "jobs_json": "[\"d68577e6e1db44bf90eed337ca6ad253\"]"
+      }
+    ],
+    "C_stale": [
+      "69781e2aa08c41a899048c582b352cc8"
+    ],
+    "C_recovered": [],
+    "C_takeover_events": 1,
+    "C_takeover_reasons": [
+      "takeover_recovered"
+    ],
+    "C_job_status_after_failed_recovery": "running",
+    "C_incident_count": 1,
+    "D_recovered": [],
+    "D_takeovers": 1,
+    "E_after_takeover": [
+      [
+        "takeover",
+        "ERROR",
+        1,
+        null
+      ]
+    ],
+    "E_job_status_after_late_success": "completed",
+    "E_active_incidents_after_success": 1,
+    "E_manual_resolve_ok": true,
+    "E_active_after_manual_resolve": 0,
+    "E_after_reopen": [
+      [
+        "takeover",
+        "ERROR",
+        2,
+        null
+      ]
+    ],
+    "F_stale": [],
+    "F_stalled": [
+      "c30e92e63c03414fbb81da0afbd0168d"
+    ],
+    "F_running_heartbeat_alive_no_progress_detected": false,
+    "F_worker_with_old_progress_detected": true,
+    "G_summary": {
+      "checked": 0,
+      "requeued": 0,
+      "terminal": 0,
+      "worker_lost": 1,
+      "stalled": 0
+    },
+    "G_foreign_job_status": "interrupted",
+    "G_foreign_job_reason": "worker_lost",
+    "G_incidents_after_silent_foreign_takeover": 0,
+    "H_result_incidents_counter": 2,
+    "H_incident_rows": [
+      [
+        "vision.media",
+        2,
+        "[\"28934f1ae8884384ab0df7c2625f7c43\", \"50640f373a7d475a932d452362ec2039\"]"
+      ]
+    ],
+    "I_queued_age_seconds": 86400,
+    "I_stale": 0,
+    "I_stalled": 0,
+    "I_overdue": 0,
+    "I_telemetry_freshness": "stale",
+    "K_rows": [
+      [
+        "mca16",
+        "progress",
+        "ERROR",
+        1,
+        "[\"c80c81d71f344b53a9510e957fceaa65\"]"
+      ]
+    ],
+    "K_job_status": "running"
+  }
+}
