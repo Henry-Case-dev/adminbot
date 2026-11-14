@@ -530,6 +530,81 @@ class TestBoundedRecoverySafety:
             await d.close()
 
     @pytest.mark.asyncio
+    async def test_error_only_delivery_unknown_blocks_overdue_takeover(
+            self, tmp_path):
+        """F-S5B-01 (Reviewer blocker): маркер только в `error_code` даёт тот
+        же запрет recovery/requeue, что и маркер в `reason_code`.
+
+        Точный сценарий ревью: checkpoint + stale heartbeat + истёкший
+        `deadline_at` + `reason_code=NULL` + `error_code='delivery_unknown'`.
+        `takeover_stale(include_overdue=True)` не должен вернуть
+        recovered/requeued, стирать маркер или ставить `next_retry_at`;
+        scoped `recover_stale` обязан сохранить маркер в обоих полях."""
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            jid = await _make_running(
+                store, owner="vision.media", kind=mca_vision.VISION_JOB_KIND,
+                payload={"asset_id": "a10", "chat_id": 1}, max_attempts=5,
+                heartbeat_age=9000, deadline_in=-120)
+            await d.db.execute(
+                "UPDATE task_jobs SET reason_code = NULL, "
+                "error_code = 'delivery_unknown' WHERE job_id = ?", (jid,))
+            await d.db.commit()
+            before = await _row(store, jid)
+            assert before["reason_code"] is None
+
+            # (1) прямой overdue-takeover: маркер в error_code блокирует requeue
+            records = await store.takeover_stale(
+                stale_after_seconds=60, retry_delay_seconds=15,
+                include_overdue=True)
+            record = next(r for r in records if r["job_id"] == jid)
+            row = await _row(store, jid)
+            assert record["outcome"] == "no_change"
+            assert record["action"] == "reconcile_required"
+            assert record["reason"] == "delivery_unknown"
+            assert row["status"] == JOB_INTERRUPTED
+            assert row["reason_code"] == "delivery_unknown"
+            assert row["error_code"] == "delivery_unknown"
+            assert row["next_retry_at"] is None
+            assert int(row["fencing_token"]) == int(
+                before["fencing_token"]) + 1
+
+            # (2) полный sweep не «восстанавливает» строку повторно
+            result = await wd.sweep(d, job_store=store)
+            row = await _row(store, jid)
+            assert row["status"] == JOB_INTERRUPTED
+            assert row["error_code"] == "delivery_unknown"
+            assert row["next_retry_at"] is None
+            assert jid not in result["takeover"]["recovered"]
+            assert (await wd.recover_job(d, store, jid))["status"] == \
+                "reconcile_required"
+            assert (await _row(store, jid))["status"] == JOB_INTERRUPTED
+
+            # (3) lease-revocation (scoped recover_stale) тоже сохраняет маркер
+            jid2 = await _make_running(
+                store, owner="vision.media", kind=mca_vision.VISION_JOB_KIND,
+                payload={"asset_id": "a11", "chat_id": 1}, max_attempts=5,
+                heartbeat_age=9000)
+            await d.db.execute(
+                "UPDATE task_jobs SET reason_code = NULL, "
+                "error_code = 'delivery_unknown' WHERE job_id = ?", (jid2,))
+            await d.db.commit()
+            lost = await store.recover_stale(
+                stale_after_seconds=60, kinds=(mca_vision.VISION_JOB_KIND,))
+            assert jid2 in lost
+            row2 = await _row(store, jid2)
+            assert row2["status"] == JOB_INTERRUPTED
+            assert row2["reason_code"] == "delivery_unknown"
+            assert row2["error_code"] == "delivery_unknown"
+            assert (await mr.recover_job(d, store, jid2,
+                                         reason="worker_lost")
+                    )["status"] == "reconcile_required"
+            assert (await _row(store, jid2))["status"] == JOB_INTERRUPTED
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
     async def test_takeover_never_duplicates_active_work(self, tmp_path):
         d = await _db(tmp_path)
         try:

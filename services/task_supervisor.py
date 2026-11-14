@@ -432,6 +432,20 @@ _DELIVERY_UNKNOWN_GUARD_SQL = (
     " AND COALESCE(error_code, '') != 'delivery_unknown'")
 
 
+def has_delivery_unknown(row: dict | None) -> bool:
+    """Маркер `delivery_unknown` в ЛЮБОМ из двух durable-полей (F-S5B-01).
+
+    F-S5A-02/03 сделал маркер двупольным (`reason_code` И `error_code`), но
+    takeover-путь проверял только `reason_code`: строка с маркером лишь в
+    `error_code` уходила в requeue, а ветка requeue обнуляла `error_code` —
+    защита терялась, и неопределённая доставка/оплата могла повториться.
+    Единая проверка обоих полей обязательна во всех recovery-путях."""
+    if not isinstance(row, dict):
+        return False
+    return (str(row.get("reason_code") or "") == DELIVERY_UNKNOWN_REASON
+            or str(row.get("error_code") or "") == DELIVERY_UNKNOWN_REASON)
+
+
 # Колонки `task_jobs` (порядок INSERT; `updated_at`/`finished_at` — отдельно).
 # v19 (`mca-17a`, ADR-1027-8 D2/D4): correlation/span/progress-колонки.
 _JOB_INSERT_COLS = (
@@ -741,7 +755,8 @@ class TaskJobStore:
         owner_scope = tuple(str(o) for o in (owners or ()) if str(o))
 
         async def _body(conn):
-            sql = ("SELECT job_id, reason_code FROM task_jobs WHERE status = ? "
+            sql = ("SELECT job_id, reason_code, error_code FROM task_jobs "
+                   "WHERE status = ? "
                    "AND (heartbeat_at IS NULL OR heartbeat_at < ?)")
             params: list = [JOB_RUNNING, cutoff]
             if kind_scope:
@@ -754,11 +769,12 @@ class TaskJobStore:
             rows = [dict(r) for r in await cursor.fetchall()]
             ids = [r["job_id"] for r in rows]
             for row in rows:
-                # F-S5A-02: lease-revocation не затирает защитный маркер
-                # `delivery_unknown`; consumer'ы обязаны видеть reconcile.
+                # F-S5A-02/F-S5B-01: lease-revocation не затирает защитный
+                # маркер `delivery_unknown` в ЛЮБОМ из двух полей; consumer'ы
+                # обязаны видеть reconcile. Маркер нормализуется в reason_code,
+                # чтобы ни один читатель не остался с «worker_lost».
                 reason = (DELIVERY_UNKNOWN_REASON
-                          if str(row.get("reason_code") or "")
-                          == DELIVERY_UNKNOWN_REASON
+                          if has_delivery_unknown(row)
                           else "worker_lost")
                 await conn.execute(
                     "UPDATE task_jobs SET status = ?, reason_code = ?, "
@@ -825,7 +841,6 @@ class TaskJobStore:
                 owner = str(row.get("owner") or "")
                 attempt = int(row.get("attempt") or 0)
                 max_attempts = max(1, int(row.get("max_attempts") or 1))
-                previous_reason = str(row.get("reason_code") or "")
                 checkpoint = _payload_has_checkpoint(row.get("payload"))
                 token_after = int(row.get("fencing_token") or 0) + 1
                 heartbeat_stale = (row.get("heartbeat_at") is None
@@ -839,14 +854,15 @@ class TaskJobStore:
                                if (overdue and deadline_passed
                                    and not heartbeat_stale)
                                else REASON_WORKER_LOST)
-                # F-S5A-01: `delivery_unknown` — защитный durable-маркер
+                # F-S5A-01/F-S5B-01: `delivery_unknown` — защитный durable-маркер
                 # (слепой повтор side effect запрещён). Снятие lease не имеет
                 # права затирать его на `worker_lost`: consumer (recover_job)
-                # обязан и после takeover видеть reconcile-требование.
-                revoke_reason = (
-                    previous_reason
-                    if previous_reason == "delivery_unknown"
-                    else revoke_root)
+                # обязан и после takeover видеть reconcile-требование. Маркер
+                # читается в ОБОИХ полях — иначе error_code-only строка уходила
+                # в requeue, а ветка requeue обнуляла `error_code`.
+                delivery_unknown = has_delivery_unknown(row)
+                revoke_reason = (DELIVERY_UNKNOWN_REASON if delivery_unknown
+                                 else revoke_root)
                 record = {
                     "job_id": jid, "owner": owner, "kind": row.get("kind"),
                     "status_before": str(row.get("status") or ""),
@@ -867,7 +883,7 @@ class TaskJobStore:
                     record["action"] = "state_changed"
                     out.append(record)
                     continue
-                if previous_reason == "delivery_unknown":
+                if delivery_unknown:
                     record.update(action="reconcile_required",
                                   reason="delivery_unknown")
                     out.append(record)
