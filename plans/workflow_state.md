@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer deployed delta ses_e245a7ee3ffei2b5jaEYh1SfB8; Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE; PM bind V/VMQ-A ses_e2466fc41ffe29CK1Vz4tDm4SW
-Join barriers: Reviewer ONTO-A r1 + Reviewer deployed delta -> PM binds; VMQ-V/VMQ-A binding now running; next code slice ONTO-B after ONTO-A approval
+Active lanes: Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE; PM bind V/VMQ-A + M1/NEXT2 ses_e2466fc41ffe29CK1Vz4tDm4SW
+Join barriers: Reviewer ONTO-A r1 -> PM binding; VMQ-V/VMQ-A and M1/NEXT2 binding now running; next code slice ONTO-B after ONTO-A approval
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02 at REVIEW or Needs Fixes; (2) M1/NEXT2 and VMQ-V verdicts -> PM deploy-state binding; (3) ONTO-B (O-03) then M2/MEM.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:06:00+12:00
+Updated: 2026-11-15T09:12:00+12:00
 
 ## Facts
 
@@ -39,3 +39,7 @@ Builder implemented VMQ-ONTO-A on branch vmq/onto-a from c97c06e4: code a7a576b1
 ## VMQ-V/VMQ-A review (2026-11-15)
 
 Reviewer corrected the wrong master-HEAD lineage reference and issued candidate-bound Approved/REVIEW verdicts for VMQ-A-01 and V-01..V-04 on deployed c97c06e4: exact tree contains services/voice_transcripts.py, handlers/voice_transcription.py, tests/test_vmq_v_voice_writer.py; 48 tests passed; three mutations failed as expected. Artifact sha 999e492a... It explicitly does not claim VERIFIED: no real production Telegram voice events, no production DB delivery evidence, Writer/provider delivery unobserved (outbound_delivered_to_telegram=0). PM is binding these rows at REVIEW only. This is a corrected procedural reference, not a product defect.
+
+## Deployed-delta review Approved (2026-11-15)
+
+Reviewer approved the deployed M1/NEXT2 delta on the exact c97c06e4 tree with VERIFIED-level ledger: M-01..M-03, VMQ-NEXT-02/05. Artifact plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md sha D6580668..., commit 2677a473. Exact runs: 34/30/447 plus 161/295/20; mutations cursor_id=0 and NEXT2 filter >=1 (26 passed/4 failed) confirmed the tests are load-bearing. Limitations: production effective flags/live archive not rechecked; full repo suite not run. PM is binding these five rows and the map top-level candidate/deployed to c97c06e4, preserving old 709865f6/952b9ebd history. The Reviewer retained a dirty disposable mutation run; Orchestrator must reconcile/close it after checking.
