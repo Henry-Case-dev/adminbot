@@ -18145,7 +18145,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18221,6 +18221,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14531",
@@ -18245,7 +18263,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18321,6 +18339,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14533",
@@ -18345,7 +18381,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18421,6 +18457,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14542",
@@ -18445,7 +18499,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18521,6 +18575,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14544",
@@ -18545,7 +18617,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18621,6 +18693,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14546",
@@ -18645,7 +18735,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18721,6 +18811,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14548",
@@ -18745,7 +18853,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -18821,6 +18929,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14550",
@@ -35629,7 +35755,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -35705,6 +35831,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14529",
@@ -35729,7 +35873,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -35805,6 +35949,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14535",
@@ -35829,7 +35991,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -35905,6 +36067,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14536",
@@ -35929,7 +36109,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -36005,6 +36185,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14537",
@@ -36029,7 +36227,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -36105,6 +36303,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14538",
@@ -36129,7 +36345,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -36205,6 +36421,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14539",
@@ -36229,7 +36463,7 @@
       "acceptance": "Воспроизведён исходный production-сценарий с вопросом о конкретных странах и сообщением о традиции: подтверждены сохранение исходного материала, правильное определение вопроса пользователя, построение поиска по этому вопросу, исследование релевантных источников, отсутствие преждевременной остановки из-за старых бюджетов и прямой ответ на вопрос; проверка не сводится к заранее заданному перечню стран или политическому выводу; бот исследует заданный вопрос и формирует вывод на основании evidence; неоднозначность понятия внешнего влияния учитывается или обозначается; отсутствие доказанного влияния конкретной державы на практику не выдаётся за доказанное отсутствие любого влияния.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -36305,6 +36539,24 @@
           "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
           "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "fc-canary.md §2 — clean cap-40 original_production_scenario on 2.58.203",
+          "observation": "Fresh original_production_scenario run at cap 40: observed/production, total 16/40 remaining 24, all 11 predicates true (material anchor used, search built from question, answer stage completed, direct answer, not harness echo, ambiguity acknowledged, no old budget early stop, not fallback template, no prebaked list); cap-20 run recorded separately as not_observed/unavailable, not PASS/failure.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/fc-canary.md",
+          "artifact_sha256": "47126b9f265e7dc97d5c5fa091272c33c9cedab5e79c7d96897df0f8bbe4fc2f"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "raw/fc_original_b_203.json — cap-40 run raw result",
+          "observation": "Raw cap-40 run: status=observed, evidence_class=production, production_evidence=true, cap_reached=false, all SFC-12-09 predicates true.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/raw/fc_original_b_203.json",
+          "artifact_sha256": "fdef9862f03f34deff6bc08d5c7651f25ac7af1167f3b0a76edd5e0ebfe69d2e"
         }
       ],
       "source_ref": "plans/current_task.md:14540",

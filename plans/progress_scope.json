@@ -49,7 +49,7 @@
     },
     {
       "id": "smart-corrective-01",
-      "status": "BUILDING",
+      "status": "WAITING_EXTERNAL",
       "source_path": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
       "source_sha256": "8A0239B3E307F284B5DDC5CC9FAF94725E735DEF03DB384AAAABE6E06952AE71",
       "maps": [
@@ -62,21 +62,21 @@
       "blocker_sources": {},
       "position_status": "owner_ordered",
       "position_basis": "owner directive: immediate continuation of the current corrective contour (parent smart-execution-reliability-01, queue 1)",
-      "execution_state": "implementing",
-      "queue_note": "Registered 2026-11-14 from the owner's SMART-CORRECTIVE-01 task: fix the live checkup self-research defect (SourceReader fallback/content search, effective budget propagation, checkup completion semantics, input completeness, prompt delivery) and the watchdog incidents. Mandatory read-only investigation of the two production runs before implementation; PM map vs SMART/SELF-DIAG and Architect plan required; 2.58.200 delivery evidence stays valid. | 2026-11-14: PM map accepted (384 required rows, 24 AC, 14 slices, plan gate errors=0); Architect S5 contract extended; implementation awaits production run-chain investigation.",
+      "execution_state": "delivered_awaiting_evidence",
+      "deferred_req_ids": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16", "AC-17", "AC-18", "AC-21", "AC-22", "AC-23", "AC-24"],
+      "delivery_gate_ref": "plans/features/smart-corrective-01/evidence/gates/delivery-corrective-c97c06e4.txt",
+      "queue_note": "Registered 2026-11-14 from the owner's SMART-CORRECTIVE-01 task: fix the live checkup self-research defect (SourceReader fallback/content search, effective budget propagation, checkup completion semantics, input completeness, prompt delivery) and the watchdog incidents. Mandatory read-only investigation of the two production runs before implementation; PM map vs SMART/SELF-DIAG and Architect plan required; 2.58.200 delivery evidence stays valid. | 2026-11-14: PM map accepted (384 required rows, 24 AC, 14 slices, plan gate errors=0); Architect S5 contract extended. | 2026-11-15 FINALIZATION: 2.58.203 deployed at c97c06e4; 355 REVIEW->VERIFIED + 4 live rows verified (SC-ART-09/10, AC-19/20); 362/384 VERIFIED, 22 live observations deferred with approved waits; deploy gate 0, delivery gate PASS (engineering delivered, acceptance pending future evidence); corrective engineering cycle stopped per owner finalization.",
       "owner_input": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
       "created": "2026-11-14T18:16:46+12:00",
-      "updated": "2026-11-14T18:58:50+12:00",
-      "not_started": true,
-      "pause_reason": "intake registered; PM mapping and Architect plan in progress",
+      "updated": "2026-11-15T07:55:00+12:00",
       "slice_graph": "plans/features/smart-corrective-01/slice-graph.json",
       "progress": {
         "total_rows": 384,
         "unique_req_ids": 367,
-        "verified": 18,
-        "pending": 366,
+        "verified": 362,
+        "pending": 22,
         "slices": 14,
-        "note": "2026-11-14: production investigation bound (commit 4e26e2ec): 18/384 required rows VERIFIED from observed production facts; 366 PENDING (implementation S1-S6 + AC); AC-15 recorded as NOT met on 2.58.200 (global prompt layer used; owner chat edit not the layer CheckupService reads); 10 unrecoverable items listed without fabrication. S1+S2 and S5A implementation running."
+        "note": "2026-11-15: deployed c97c06e4/2.58.203. 362/384 required rows VERIFIED on the exact deployed candidate; 22 AC live observations remain READY_FOR_LIVE with approved nonblocking postrelease waits (real checkup/source-research scenarios, real Telegram checkup in the saved-edition chat, real batch/incident events). Delivery gate PASS=engineering_delivery, acceptance PENDING_FUTURE_EVIDENCE. No engineering blockers."
       }
     },
     {

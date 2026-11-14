@@ -1,0 +1,4 @@
+engineering_delivery=PASS
+acceptance=PENDING_FUTURE_EVIDENCE
+deferred_req_ids=["SFC-12-07", "SFC-13-03", "SFC-14-03", "SFC-5-10"]
+stage=delivery inventory=396 manual=380 scoped=705 errors=0

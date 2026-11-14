@@ -557,3 +557,58 @@ Anchor evidence лежит в origin-каталоге `plans/features/smart-exec
 Выводы: `evidence/gates/deploy-corrective-c97c06e4.txt`, `evidence/gates/plan-after-final-c97c06e4.txt`, `evidence/gates/deploy-parent-smart-0e4a144d-final.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-final.txt`.
 
 Итоговые статусы: **355 REVIEW, 26 READY_FOR_LIVE, 3 VERIFIED** (только ранее существовавшие S6 investigation-строки); `PENDING` — 0; новых VERIFIED нет. 2.58.203 delta — test/evidence-only, runtime не менялся; appendix approval разрешает controlled deployment exact `c97c06e4`, production acceptance остаётся postdeploy.
+
+## 16. Production evidence 2.58.203 (добавлено 2026-11-15, unit `pm-prod-bind-258203`)
+
+| Поле | Значение |
+|---|---|
+| Deployed | `c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5` / 2.58.203 |
+| Evidence root | `release-evidence/2.58.203/` (`deploy.md`, `prompt-release.md`, `provenance.txt`, `watchdog.md`, `effective-config.txt`, `fc-canary.md`) |
+| Rollback target | `0beed63d` / 2.58.202, не исполнялся |
+
+### 16.1 Corrective map
+
+| Категория | Кол-во | Результат |
+|---|---:|---|
+| Engineering REVIEW-строки, подтверждённые deployed exact candidate + существующим candidate-bound implementation/review evidence | 355 | `VERIFIED` |
+| Production-proven live rows | 4 | `VERIFIED`: `SC-ART-09` (prompt/budget effective state), `SC-ART-10` (deploy/health/identity/rollback), `AC-19` (manual revision pre==post), `AC-20` (real takeover recovered) |
+| Future observations | 22 | остаются `READY_FOR_LIVE` с уже одобренными waits |
+
+`AC-15` получил production evidence (`provenance.txt`/`prompt-release.md`): на bot-like штатном resolver сохранённая редакция доставляется (`chat`, 12 469/31d17506, withheld=false), чат без override получает global 3 462/3140bb36. **Реального Telegram-чекапа не было**, поэтому `AC-15` оставлен `READY_FOR_LIVE`, не VERIFIED.
+
+Итог corrective: **362 VERIFIED, 22 READY_FOR_LIVE, 0 PENDING**. `deployed_commit=c97c06e4`; `delivery_evidence` добавлен (deploy/health). Release gate: `errors=22` (ожидаемо, ровно deferred live rows). Delivery gate: **`engineering_delivery=PASS`, `acceptance=PENDING_FUTURE_EVIDENCE`, errors=0**.
+
+Остались: `AC-01…AC-18`, `AC-21…AC-24` — реальные checkup/жанр/смешанное состояние/полнота/инцидентные сценарии, которых не было в живом Telegram-прогоне; waits не менялись.
+
+### 16.2 FC amendment map
+
+- **14** строк `SFC-12-09` → `VERIFIED` по чистому cap-40 `original_production_scenario` (observed/production, 16/40, все 11 предикатов true). Orchestrator decision записан: cap-40 admissible; cap-20 run — `not_observed/unavailable`, не PASS и не failure.
+- Остальные FC live rows не расширены: `SFC-12-07` (сценарии A–J), `SFC-13-03` (метрики причин), `SFC-14-03` (широкий process/smoke contract), `SFC-5-10` (FC budget values) остаются `READY_FOR_LIVE`.
+- Итог FC: **660 VERIFIED, 45 READY_FOR_LIVE**. Release gate: `errors=45`; delivery gate: `PASS/PENDING_FUTURE_EVIDENCE`, errors=0.
+
+### 16.3 Parent SMART (assessment only; parent map вне write scope)
+
+Parent map не редактировался. Итог: **762 VERIFIED, 66 READY_FOR_LIVE**; release gate `errors=66`, delivery gate `PASS/PENDING_FUTURE_EVIDENCE`, errors=0.
+
+| Row | Assessment |
+|---|---|
+| `SXR-A1-04` | Effective config 2.58.203 доказывает budgets OFF/caps 0/capacity 1,048,576; runtime SMART не менялся — контракт доказуем, но parent map вне write scope, оставлен READY |
+| `SXR-L1-01` | То же: master OFF, скрытого enforcement нет; доказуем, parent map не редактировался |
+| `SXR-L2-01` | Нет реального payload/checkup evidence на 2.58.203 — остаётся READY |
+| `SXR-L4-01` | Нет реального read-only запроса по собственному коду — остаётся READY |
+| `SXR-L6-01` | Нет многошагового source-failure сценария — остаётся READY |
+| `SXR-L7-01` | Нет реального Telegram-чекапа — остаётся READY |
+| `SXR-L8-01` | Причины I1–I6 не перепроверены на 2.58.203 — остаётся READY |
+
+### 16.4 Гейты
+
+| Гейт | Результат | Файл |
+|---|---|---|
+| corrective release | `errors=22`, exit 1 (deferred live rows) | `evidence/gates/release-corrective-c97c06e4.txt` |
+| corrective delivery | `errors=0`, `engineering_delivery=PASS`, `PENDING_FUTURE_EVIDENCE` | `evidence/gates/delivery-corrective-c97c06e4.txt` |
+| FC release | `errors=45` | `evidence/gates/release-parent-fc-0e4a144d-258203.txt` |
+| FC delivery | `errors=0`, `PASS/PENDING_FUTURE_EVIDENCE` | `evidence/gates/delivery-parent-fc-0e4a144d-258203.txt` |
+| parent SMART release | `errors=66` | `evidence/gates/release-parent-smart-0e4a144d-258203.txt` |
+| parent SMART delivery | `errors=0`, `PASS/PENDING_FUTURE_EVIDENCE` | `evidence/gates/delivery-parent-smart-0e4a144d-258203.txt` |
+
+Corrective **engineering delivered**, но не final DONE: 22 live observations остаются. Parent не closable: 66 READY.

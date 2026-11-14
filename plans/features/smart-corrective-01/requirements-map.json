@@ -3,7 +3,7 @@
   "source_path": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
   "source_sha256": "8a0239b3e307f284b5ddc5cc9faf94725e735def03db384aaaabe6e06952ae71",
   "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
-  "deployed_commit": "",
+  "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -19,7 +19,7 @@
       "acceptance": "Corrective зарегистрирован как продолжение существующего контура SMART/SELF-DIAG, а не новый SMART-эпик или повторная реализация с нуля.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -67,7 +67,7 @@
       "acceptance": "Цель corrective — устранить обнаруженные дефекты в существующих контурах SMART и SELF-DIAG, закрыть разрывы между требованиями и production-поведением и проверить сквозную работоспособность исправлений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -115,7 +115,7 @@
       "acceptance": "Ранее поставленные требования SMART сохраняют силу и не ослабляются corrective-задачей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -163,7 +163,7 @@
       "acceptance": "Engineering delivery релиза 2.58.200 остаётся фактом; доказательства развёртывания не отменяются и не перезаписываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -209,7 +209,7 @@
       "acceptance": "Обнаруженный функциональный дефект зарегистрирован, сопоставлен с конкретными требованиями SMART и SELF-DIAG и открыт в corrective-исполнении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -257,7 +257,7 @@
       "acceptance": "Обнаруженный дефект не считается VERIFIED до получения доказательств исправления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -303,7 +303,7 @@
       "acceptance": "Разделение инженерной готовности, production-подтверждения и owner-live проверок сохранено: owner-live не блокирует инженерный DONE, инженерный DONE не заменяет пользовательскую приёмку.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -351,7 +351,7 @@
       "acceptance": "Задача не считается выполненной простой регистрацией corrective, написанием плана, ростом числа тестов или healthz 200.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -397,7 +397,7 @@
       "acceptance": "Исходный production-запуск 14.11.2026 зафиксирован: личный диалог, команда «чекап», подробный отчёт по релизу 2.58.200.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -460,7 +460,7 @@
       "acceptance": "Исследование исходников в исходном чекапе завершилось без анализа реализации проблемного компонента: код watchdog не был прочитан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -556,7 +556,7 @@
       "acceptance": "Чекап завершился до анализа реализации проблемного компонента, хотя существенная проблема уже была обнаружена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -652,7 +652,7 @@
       "acceptance": "Использование GitHub fallback в исходном запуске не подтверждено; отсутствие сетевого обращения не утверждается без фактических трасс.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -731,7 +731,7 @@
       "acceptance": "Зафиксирован второй запрос владельца в reply: «зайди в код посмотри что там по watchdog.jobs».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -794,7 +794,7 @@
       "acceptance": "Второй ответ бота содержательно разобрал services/mca_watchdog.py: process_id, stale running jobs, recover_stale, progress_at, ERROR-инциденты, дублирование WATCHDOG_TAKEOVER и пробелы обнаружения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -857,7 +857,7 @@
       "acceptance": "Содержание второго ответа сверено с фрагментами исходников релиза 2.58.200 и признано согласующимся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -920,7 +920,7 @@
       "acceptance": "Фактический источник, ref, диапазоны строк, tool calls и полнота второго запуска не подтверждены production-трассой и обозначены как ограничение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -989,7 +989,7 @@
       "acceptance": "Дефект сформулирован: бот не довёл существенное исследование до результата внутри исходного чекапа, а дополнительный запрос владельца дал значительно более полезный анализ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1085,7 +1085,7 @@
       "acceptance": "Установлена причина преждевременного завершения самостоятельного исследования и устранены условия, из-за которых оно закончилось раньше требуемого.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -1163,7 +1163,7 @@
       "acceptance": "Пользовательский сценарий чекапа не зависит от того, написал ли владелец отдельное указание читать код.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1241,7 +1241,7 @@
       "acceptance": "Исправление не превращает каждый чекап в обязательный аудит исходников.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1289,7 +1289,7 @@
       "acceptance": "До реализации исправлений проведено read-only расследование двух production-запусков с использованием актуальных production-данных, журналов, событий наблюдаемости, deployed-идентичности, tool traces и сведений о LLM-запросах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1352,7 +1352,7 @@
       "acceptance": "Расследование не ограничивается чтением исходников и гипотезами о возможном поведении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1401,7 +1401,7 @@
       "acceptance": "Маршруты двух запусков сопоставлены, особенно различия между самостоятельной командой чекапа и обычным reply-запросом на чтение кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1450,7 +1450,7 @@
       "acceptance": "Если traces, payload или исторические данные не сохранились, они не выдумываются и не заменяются предположениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1499,7 +1499,7 @@
       "acceptance": "Недостаточная наблюдаемость зафиксирована как возможный дефект: указан конкретный отсутствующий участок трассировки, сценарий воспроизведён доступными средствами и обеспечена наблюдаемость для повторной production-проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1562,7 +1562,7 @@
       "acceptance": "Отсутствие исторической трассы не блокирует исправление независимо подтверждённых дефектов кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1612,7 +1612,7 @@
       "acceptance": "Наблюдаемость использует существующие события и корреляцию; отдельная платформа трассировки не создаётся; секреты, токены, приватные системные промпты и чувствительные данные не пишутся в обычные журналы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -1661,7 +1661,7 @@
       "acceptance": "В services/source_reader.py релиза 2.58.200 подтверждено наличие механизма _maybe_switch_to_remote().",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -1709,7 +1709,7 @@
       "acceptance": "Подтверждено: _locate_in_tree() не использует полноценный fallback при недоступности дерева, проблемах поиска и ряде других отказов, в отличие от отдельных веток _fetch_one() и discovery.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -1757,7 +1757,7 @@
       "acceptance": "Наличие локально-удалённого переключения в одном участке SourceReader не считается доказательством работоспособности всего исследовательского контура.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -1805,7 +1805,7 @@
       "acceptance": "Проверен и исправлен весь путь repo identity → source selection → discovery → locator → verified read → continuation/followup.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "integration",
@@ -1853,7 +1853,7 @@
       "acceptance": "Предпочтение локального источника не запрещает GitHub при наличии локального checkout.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -1901,7 +1901,7 @@
       "acceptance": "Наличие локального checkout не означает, что нужный файл доступен, прочитан или соответствует production.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1949,7 +1949,7 @@
       "acceptance": "Master, default branch или самый свежий commit не используются как незаметная замена работающей версии приложения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1997,7 +1997,7 @@
       "acceptance": "Другая версия для сравнения рассматривается как отдельный источник с собственной идентичностью, а не как production-код.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -2045,7 +2045,7 @@
       "acceptance": "При неизвестном или неподтверждённом deployed SHA он не выдумывается, а ограничения доступного исследования обозначаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2093,7 +2093,7 @@
       "acceptance": "Единичный not_found поискового локатора не считается доказательством отсутствия реализации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2141,7 +2141,7 @@
       "acceptance": "Бессмысленный сетевой fallback не выполняется, если полный проверенный локальный источник достоверно подтвердил отсутствие файла в той же ревизии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -2189,7 +2189,7 @@
       "acceptance": "Отказы безопасности, ограничения прав доступа и запрещённые операции не обходятся через GitHub.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -2237,7 +2237,7 @@
       "acceptance": "Для каждого класса результата — достоверное отсутствие, неуспешный поиск, неполный результат, недоступность источника, отсутствие прав, техническое ограничение провайдера — обеспечено корректное структурированное представление.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -2285,7 +2285,7 @@
       "acceptance": "Разрывы fallback устранены во всех затронутых маршрутах SourceReader, а не добавлен отдельный хардкод для чекапа или watchdog.jobs.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2333,7 +2333,7 @@
       "acceptance": "Механизм переключения источников доступен существующим потребителям SourceReader в соответствии с их правами и задачами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -2381,7 +2381,7 @@
       "acceptance": "Отдельный SourceReader для чекапа не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2429,7 +2429,7 @@
       "acceptance": "Циклическое переключение local→remote→local и бесконечные повторы одной неуспешной операции не допускаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2477,7 +2477,7 @@
       "acceptance": "Использованы существующие механизмы прогресса, идемпотентности, provider failure handling и структурированных результатов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2525,7 +2525,7 @@
       "acceptance": "Подтверждено: фиксированный срез _MAX_LOCATOR_PATHS сохраняется независимо от effective budgets OFF.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2573,7 +2573,7 @@
       "acceptance": "Поиск не считается полноценным, если инструмент перебирает несколько наиболее похожих названий и возвращает первый читаемый файл.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2621,7 +2621,7 @@
       "acceptance": "Обеспечен универсальный поиск по фактическому содержимому исходников доступной ревизии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "integration",
@@ -2669,7 +2669,7 @@
       "acceptance": "Возможности поиска являются общим инструментом поиска по исходникам, а не списком пользовательских команд или триггеров.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2717,7 +2717,7 @@
       "acceptance": "Направление исследования и формулировку запроса выбирает модель исходя из задачи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2765,7 +2765,7 @@
       "acceptance": "Инструмент осуществляет фактический поиск, проверяет найденные вхождения и возвращает релевантные результаты с идентичностью источника.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "integration",
@@ -2813,7 +2813,7 @@
       "acceptance": "Интеллектуальный выбор направления исследования не заменён таблицей соответствий вида watchdog.jobs → services/mca_watchdog.py.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2861,7 +2861,7 @@
       "acceptance": "Не добавлены хардкоды для известных инцидентов, путей, формулировок владельца или отдельных модулей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -2909,7 +2909,7 @@
       "acceptance": "Результат поиска позволяет отличить тесты от исполняемой реализации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -2957,7 +2957,7 @@
       "acceptance": "Результат поиска позволяет отличить планы от исполняемой реализации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3005,7 +3005,7 @@
       "acceptance": "Тесты, документация и другие материалы не исключаются автоматически, но совпадение строки в тесте или скрипте деплоя не считается подтверждением production-реализации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3053,7 +3053,7 @@
       "acceptance": "При поиске конкретного символа или строки проверяется реальное наличие соответствующего содержимого, а не только похожесть пути.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3101,7 +3101,7 @@
       "acceptance": "Предусмотрены уточнение запроса, просмотр дополнительных результатов, чтение нужных диапазонов и переход к связанным участкам кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3149,7 +3149,7 @@
       "acceptance": "Первая прочитанная страница не считается исчерпывающей при наличии необходимых непрочитанных фрагментов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "integration",
@@ -3197,7 +3197,7 @@
       "acceptance": "Фиксированный top-3 удалён как потолок полноты исследования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3245,7 +3245,7 @@
       "acceptance": "Top-3 не заменён top-5, top-10, top-20 или другой произвольной константой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3293,7 +3293,7 @@
       "acceptance": "Порционная выдача результатов допустима, если не лишает возможности продолжить поиск и получить остальные релевантные данные.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "integration",
@@ -3341,7 +3341,7 @@
       "acceptance": "Используется существующая архитектура SourceReader; выбран подходящий технический механизм поиска в рамках текущего стека и доступных источников.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "contract",
@@ -3389,7 +3389,7 @@
       "acceptance": "Не построены новый векторный индекс всего репозитория, отдельная база исходников или крупная система индексирования без доказанной необходимости и проектного решения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3437,7 +3437,7 @@
       "acceptance": "Учтены реальные ограничения GitHub API; поиск по default branch не предполагается соответствующим deployed commit.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3485,7 +3485,7 @@
       "acceptance": "Учтены реальные ограничения CPU, памяти, размера файлов, сети и провайдеров.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3533,7 +3533,7 @@
       "acceptance": "При effective budgets OFF искусственные количественные потолки исследования не препятствуют результату; OFF не отменяет физические ограничения, безопасность и предотвращение бессмысленных циклов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3582,7 +3582,7 @@
       "acceptance": "Подтверждено: SourceReader.run() принимает chat_id и budget_enforced.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3631,7 +3631,7 @@
       "acceptance": "Подтверждено: в deployed-коммите ToolRouter._read_source_code() не передаёт chat_id/budget_enforced в reader.run().",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3680,7 +3680,7 @@
       "acceptance": "Подтверждено: из-за отсутствия параметров вложенный SourceReader может определять budget policy без контекста конкретного чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -3729,7 +3729,7 @@
       "acceptance": "Передача effective policy исправлена сквозным образом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "integration",
@@ -3778,7 +3778,7 @@
       "acceptance": "Используется действующий единый резолвер бюджетов и существующие правила наследования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3827,7 +3827,7 @@
       "acceptance": "Второй независимый механизм определения budgets ON/OFF не введён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3876,7 +3876,7 @@
       "acceptance": "Политика, которую получает вложенный инструмент, соответствует действующему контексту задачи и существующему контракту наследования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3925,7 +3925,7 @@
       "acceptance": "Пользовательская настройка одного чата не используется для другого.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -3974,7 +3974,7 @@
       "acceptance": "Отсутствие chat_id не подменяется безусловным включением или отключением бюджетов, если область исполнения известна.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4023,7 +4023,7 @@
       "acceptance": "Проверены не только SourceReader, но и связанные участки, непосредственно участвующие в проблемном исследовательском контуре.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4072,7 +4072,7 @@
       "acceptance": "Budgets OFF не означает бесконечное исполнение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4121,7 +4121,7 @@
       "acceptance": "Сохранены реальные ограничения провайдера, безопасность, физическая ёмкость модели, отмена задачи, предотвращение повторения идентичных безрезультатных операций и технические предохранители.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4170,7 +4170,7 @@
       "acceptance": "Технический предохранитель не используется как замаскированный обычный бюджет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4219,7 +4219,7 @@
       "acceptance": "Исследование не останавливается из-за общего счётчика, если задача демонстрирует содержательный прогресс и политика позволяет продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4269,7 +4269,7 @@
       "acceptance": "При невозможности продолжения возвращается достоверный частичный результат с конкретной причиной.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4350,7 +4350,7 @@
       "acceptance": "Универсальный tool_loop.py по-прежнему допускает завершение после текстового ответа модели без новых tool calls.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4398,7 +4398,7 @@
       "acceptance": "В чекапе завершение tool-loop по тексту само по себе не доказывает, что существенное диагностическое исследование завершено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4446,7 +4446,7 @@
       "acceptance": "CheckupService получает ToolLoopResult, преобразует его в текст и продолжает публикацию; этот путь проверен на преждевременный вывод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4494,7 +4494,7 @@
       "acceptance": "Устранена ситуация, когда чекап принимает ранний текстовый вывод после нерелевантного результата или первой неудачной попытки, хотя необходимые способы исследования ещё не использованы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4542,7 +4542,7 @@
       "acceptance": "Не требуется устанавливать абсолютную первопричину каждого события.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4590,7 +4590,7 @@
       "acceptance": "Не требуется чтение кода для каждой ошибки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4638,7 +4638,7 @@
       "acceptance": "Не требуется обращение к каждому провайдеру или инструменту.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4686,7 +4686,7 @@
       "acceptance": "Не требуется исследовать все исторические инциденты без учёта состояния, повторяемости, значимости и доступности данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4734,7 +4734,7 @@
       "acceptance": "Здоровый чекап завершается без ненужных tool calls, если имеющихся данных достаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4782,7 +4782,7 @@
       "acceptance": "Если модель определила необходимость дополнительного исследования, нерелевантный файл, неполный фрагмент или единичный отказ не завершают задачу автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4830,7 +4830,7 @@
       "acceptance": "Продолжение не реализовано через жёсткую таблицу ошибок, обязательных инструментов и файлов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4878,7 +4878,7 @@
       "acceptance": "Выбор направления исследования остаётся за моделью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -4926,7 +4926,7 @@
       "acceptance": "Исполнительный контур предоставляет корректные результаты, поддерживает продолжение и различает содержательный прогресс, недостаточность доказательств и объективную невозможность дальнейшего исследования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -4974,7 +4974,7 @@
       "acceptance": "Используется существующая архитектура SMART, ToolRouter и tool-loop.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "contract",
@@ -5022,7 +5022,7 @@
       "acceptance": "Второй независимый agentic pipeline для чекапа не введён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "contract",
@@ -5070,7 +5070,7 @@
       "acceptance": "Без необходимости не добавлены отдельный планировщик, обязательный LLM-ревьюер каждого ответа, дополнительные writer-агенты и постоянное перефразирование.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "contract",
@@ -5118,7 +5118,7 @@
       "acceptance": "Структурированное состояние исследования или механизм продолжения переиспользуют существующие контракты SMART, tool results и execution state либо минимально их расширяют.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -5166,7 +5166,7 @@
       "acceptance": "Общая семантика завершения tool-loop не привязана исключительно к диагностическому модулю.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "contract",
@@ -5214,7 +5214,7 @@
       "acceptance": "Изменения общих механизмов не приводят к повторному исследованию в обычных диалогах, когда задача уже решена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5262,7 +5262,7 @@
       "acceptance": "Бесконечный цикл между моделью, проверкой завершённости и очередными вызовами инструментов не допускается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5310,7 +5310,7 @@
       "acceptance": "Баланс достаточности исследования и прекращения бессмысленных повторов обеспечен существующими критериями прогресса, а не новыми произвольными потолками.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5358,7 +5358,7 @@
       "acceptance": "Фактическое влияние checkup-ограничений на полноту диагностики проверено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5407,7 +5407,7 @@
       "acceptance": "Полезные факты diagnostics collector, журналы и метрики не теряются при объединении в общий payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5456,7 +5456,7 @@
       "acceptance": "Ограничение длины итогового текста не ограничивает исследование.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5505,7 +5505,7 @@
       "acceptance": "Пятиминутное окно свежих журналов не запрещает запрос исторических данных, если для проблемы необходим более ранний период.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5554,7 +5554,7 @@
       "acceptance": "Порционная выдача данных не превращается в потерю доступа к оставшимся сведениям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5603,7 +5603,7 @@
       "acceptance": "Сборка входных данных чекапа приведена в соответствие с принципами SMART и реальной ёмкостью используемой модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5652,7 +5652,7 @@
       "acceptance": "При budgets OFF искусственная обрезка обязательных доказательств ради старых лимитов в символах не сохраняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5701,7 +5701,7 @@
       "acceptance": "Учтены реальные model capacity и резерв для системных инструкций, tool schemas, результатов инструментов и ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5750,7 +5750,7 @@
       "acceptance": "При физической невозможности передать все данные обеспечены приоритет существенных фактов, сохранение структуры и доступ к продолжению.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5799,7 +5799,7 @@
       "acceptance": "Хвост общего текста не отбрасывается без учёта содержания, если это может удалить существенные инциденты, состояния источников или причины отказа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5848,7 +5848,7 @@
       "acceptance": "Текущие 12 000 или 2 000 символов не заменены новыми произвольными константами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -5897,7 +5897,7 @@
       "acceptance": "Передача всего журнала или всей базы данных в один LLM-запрос не требуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -5946,7 +5946,7 @@
       "acceptance": "Функциональность действующих настроек владельца сохранена; изменение семантики оформлено явно с совместимостью, документацией и админкой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -5995,7 +5995,7 @@
       "acceptance": "Сохранённые пользовательские значения не перезаписываются при деплое.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -6168,7 +6168,7 @@
       "acceptance": "Новая редакция сохраняет и усиливает жанр язвительного, резкого технического разбора обнаруженных косяков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -6274,7 +6274,7 @@
       "acceptance": "Сохранённое владельцем значение prompts.checkup_system_prompt не переписывается, не сокращается, не заменяется заводским и не изменяется при миграциях или деплое в рамках этого corrective.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -6398,7 +6398,7 @@
       "acceptance": "Требование сохранения относится к текущей задаче и текущей ручной редакции владельца и не превращено в глобальный запрет будущих согласованных изменений промптов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -6504,7 +6504,7 @@
       "acceptance": "Не создана третья версия текста для пользователя под видом исправления доставки промпта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -6857,7 +6857,7 @@
       "acceptance": "Наличие фразы в Python-константе, админке или preview не считается доказательством реальной доставки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -6965,7 +6965,7 @@
       "acceptance": "Чекап не приобретает вторую независимую Personality Core.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7071,7 +7071,7 @@
       "acceptance": "Отдельная система регулирования мата для чекапа не создаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7177,7 +7177,7 @@
       "acceptance": "Вторая копия Expression не добавлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7283,7 +7283,7 @@
       "acceptance": "Общий речевой слой не стирает специфический жанр чекапа и не заменяет его нейтральным голосом технического ассистента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7389,7 +7389,7 @@
       "acceptance": "Настройки допустимости мата соблюдаются; ограничение конкретного Expression не уничтожает язвительность и жёсткость технического разбора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7495,7 +7495,7 @@
       "acceptance": "Наличие конкретных матерных слов не требуется независимо от настроек речи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7601,7 +7601,7 @@
       "acceptance": "При разрешённой лексике мат не подавляется искусственными техническими ограничениями, противоречивыми инструкциями или скрытыми постпроцессорами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7707,7 +7707,7 @@
       "acceptance": "Чистое свежее окно журналов не отменяет резкий технический разбор существенных обнаруженных проблем.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7813,7 +7813,7 @@
       "acceptance": "При работающей инфраструктуре и наличии активных ERROR-инцидентов чекап корректно отражает оба факта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7919,7 +7919,7 @@
       "acceptance": "Активная историческая запись не выдаётся за доказательство продолжающегося в данный момент падения компонента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8025,7 +8025,7 @@
       "acceptance": "Доказанный инженерный косяк не смягчается только потому, что остальная система функционирует.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8131,7 +8131,7 @@
       "acceptance": "Технические проблемы не выдумываются ради жанра.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8237,7 +8237,7 @@
       "acceptance": "Проверены активные заводские промпты, служебные addendum и fallback notice чекапа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8343,7 +8343,7 @@
       "acceptance": "Устаревшие инструкции про Betterstack удалены из действующего контура, если интеграция уже удалена согласно SELF-DIAG.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8449,7 +8449,7 @@
       "acceptance": "Исторические версии промптов и архивные доказательства не переписаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8555,7 +8555,7 @@
       "acceptance": "При исправлении заводской редакции реестр и контроль версий работают корректно; ручное сохранённое значение владельца не подменяется новой заводской редакцией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8661,7 +8661,7 @@
       "acceptance": "CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM проверен отдельно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8767,7 +8767,7 @@
       "acceptance": "Весь жанровый промпт не дублируется в служебном addendum.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8873,7 +8873,7 @@
       "acceptance": "Не добавлены обязательное LLM-перефразирование, словари ругательств, искусственные проверки количества мата и шаблонные вставки «токсичных» фраз.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -8994,7 +8994,7 @@
       "acceptance": "Работы по watchdog не смешиваются с исправлением SourceReader и самостоятельного диагностического исследования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -9096,7 +9096,7 @@
       "acceptance": "Работы по watchdog не заменяют исправление SMART.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -9198,7 +9198,7 @@
       "acceptance": "Собраны production-данные §4 для шести инцидентов (mca_incidents, task_jobs, mca_events, effective env, process start, media) и установлены detection/restart/real failure/остаточная неопределённость; фикс не назначается без данных, где это требуется.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -9285,7 +9285,7 @@
       "acceptance": "recover_stale ограничен owner/kind: чужой running-job не трогается, vision-job восстанавливается, молчаливого terminated без события/инцидента нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9338,7 +9338,7 @@
       "acceptance": "Durable-running job обновляет heartbeat периодически (интервал из MCA_JOB_HEARTBEAT_SECONDS) либо имеет явный deadline_at-контракт; живая задача не помечается stale.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9406,7 +9406,7 @@
       "acceptance": "Queued-задача без claimer или с истёкшим deadline диагностируется отдельным bucket без takeover; next_retry_at в будущем считается scheduled retry.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9474,7 +9474,7 @@
       "acceptance": "mark_running ставит progress_at; пороги прогресса по kind и exemptions длинных внешних kind; overdue включается в takeover; heartbeat-only job не невидим.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9527,7 +9527,7 @@
       "acceptance": "На каждый фактически затронутый job — не более одного WATCHDOG_TAKEOVER за sweep/attempt, с job identity (job_id или bounded entity_ids), owner/kind, previous status/generation, reason, attempt, truthful outcome и fencing/recovery evidence; одинаковые aggregate events не повторяются из-за размера stale batch или итерации цикла; пустой batch не эмитит событие; совместимость с аналитикой и потребителями сохранена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9580,7 +9580,7 @@
       "acceptance": "При отказе recover_stale или отсутствии store success-событие takeover_recovered не эмитится; discovered/attempted/recovered/failed/no_change разделены; попытка не равна результату.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9633,7 +9633,7 @@
       "acceptance": "После recover_stale применяется существующая политика requeue/recover_job с bounded attempt/max_attempts и next_retry_at; dangerous/delivery_unknown сохраняются; fencing растёт; исчерпание попыток даёт терминал.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9687,7 +9687,7 @@
       "acceptance": "Отказ регистрации инцидента логируется, эмитит WARN-событие и локальный счётчик; рекурсивный инцидент не создаётся; счётчики различают created/updated/reopened/failed.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9740,7 +9740,7 @@
       "acceptance": "fingerprint включает kind и job_id при сохранении старых полей и REASON_CODES; title/impact не замораживаются на первом job или хранят список job; 20-id bound сохранён; два job одного owner разных kind дают два инцидента; исторические строки остаются читаемыми без разрушительного backfill.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9793,7 +9793,7 @@
       "acceptance": "Resolved-инцидент не переоткрывается без нового evidence; инцидент сверяется с состояниями связанных job и авто-resolve после терминала всех job; история сохраняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9846,7 +9846,7 @@
       "acceptance": "Терминальные записи передают fencing_token; finish без токена не воскрешает задачу после takeover; инцидент совпадает с фактическим исходом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -9900,7 +9900,7 @@
       "acceptance": "Все шесть инцидентов не закрываются механически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10002,7 +10002,7 @@
       "acceptance": "История инцидентов не очищается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10104,7 +10104,7 @@
       "acceptance": "Severity не снижается ради зелёного статуса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10206,7 +10206,7 @@
       "acceptance": "Watchdog не исключается из расчёта degraded.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10308,7 +10308,7 @@
       "acceptance": "Recovery, не подтверждённый фактически, не объявляется успешным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10410,7 +10410,7 @@
       "acceptance": "Автоматическое восстановление, способное привести к дублированной работе, повторной доставке ответов, повреждению состояния или нарушению fencing, не вводится.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10512,7 +10512,7 @@
       "acceptance": "Любое закрытие исторической записи соответствует lifecycle-контракту и реальному состоянию с сохранением истории.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10614,7 +10614,7 @@
       "acceptance": "До изменений планов и кода открыты актуальные источники планирования в рабочем окружении проекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10662,7 +10662,7 @@
       "acceptance": "Проверены свежесть, commit identity и фактическое состояние документов планирования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10710,7 +10710,7 @@
       "acceptance": "Устаревшая копия master или старый snapshot не считается актуальным источником очереди.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10758,7 +10758,7 @@
       "acceptance": "Сведения владельца о релизе 2.58.200 и reconciliation commit ce83dbe6 использованы как исходные данные для проверки, а не как подмена фактической идентичности репозитория.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10806,7 +10806,7 @@
       "acceptance": "Дублирующие требования не созданы ради отдельного названия corrective.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10854,7 +10854,7 @@
       "acceptance": "Прежние доказательства не переписаны; старые требования не изменены так, чтобы обнаруженный дефект перестал считаться нарушением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10902,7 +10902,7 @@
       "acceptance": "Перечень будущих эпиков не является командой запускать их.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10950,7 +10950,7 @@
       "acceptance": "Статус, содержание и порядок будущих эпиков не предположены на основании названий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -10998,7 +10998,7 @@
       "acceptance": "Общий дефект, который будет использоваться будущим эпиком, исправлен сейчас в существующем контуре, а контракт обозначен для дальнейшего использования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11046,7 +11046,7 @@
       "acceptance": "Будущая функциональность не реализована досрочно под видом устранения текущего дефекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11094,7 +11094,7 @@
       "acceptance": "Текущий подтверждённый дефект не отложен только потому, что будущая задача тоже касается этого компонента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11142,7 +11142,7 @@
       "acceptance": "Содержимое будущих эпиков не заменено, их требования не поглощены, очередь не переставлена без отдельного обоснованного согласования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11190,7 +11190,7 @@
       "acceptance": "SMART-CORRECTIVE-01 зарегистрирован как продолжение текущего исправительного контура, а не как основание заново запустить всю очередь.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11238,7 +11238,7 @@
       "acceptance": "Пользовательская семантика обычного фактчека не изменена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11288,7 +11288,7 @@
       "acceptance": "Фактчек без дополнительного текста сохраняет возможность определить объект проверки из существующего контекста, включая reply и обсуждаемое утверждение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11334,7 +11334,7 @@
       "acceptance": "Обязательное уточнение после слова «фактчек» не введено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11380,7 +11380,7 @@
       "acceptance": "Расширенное исследование не превращено в самоцель: глубина поиска определяется реальной задачей, а не количеством вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11428,7 +11428,7 @@
       "acceptance": "Новые пользовательские команды или keyword-routing ради исправления чекапа не добавлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11476,7 +11476,7 @@
       "acceptance": "Текущий триггер «чекап» сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11524,7 +11524,7 @@
       "acceptance": "LLM-определение намерения не заменено списком специальных выражений вроде «зайди в код» или «посмотри watchdog».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11572,7 +11572,7 @@
       "acceptance": "Память, embedding pipeline, базы данных, граф знаний и механизмы квантового рандома не изменены без необходимости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -11620,7 +11620,7 @@
       "acceptance": "Приёмка доказывает пользовательское поведение и сквозное исполнение, а не только существование функций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -12573,6 +12573,24 @@
             "0beed63df8037002ccfaacef019b8ea948d957f6",
             "e650f2b854755743f2a750024a1f184d2a802e30"
           ]
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "provenance.txt — bot-like resolver for saved edition",
+          "observation": "Bot-like production resolver on standard startup wiring: owner chat prompt_layer=chat, 12,469 chars, sha 31d17506, withheld=false; chat without override prompt_layer=global, 3,462/3140bb36, Betterstack/401 false. No real Telegram checkup message was sent, so the live message-event check remains deferred.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/provenance.txt",
+          "artifact_sha256": "45c3dc2cb950ad59eed28acf3aff721eee4dbe5f651f3414ff910e20758c6f15",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "prompt-release.md — manual chat delivery",
+          "observation": "Prompt release log confirms the saved manual revision stays active while the factory revision is recorded in history; bytes/override unchanged. This proves delivery wiring, not a live user checkup event.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/prompt-release.md",
+          "artifact_sha256": "187c25c287f90e5c00fadf6e1c52bccf15d1328c6f85216b277fc0a63a3c0a1e",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
         }
       ],
       "production_finding": "AC-15 на deployed 0e4a144d НЕ выполнен: применяется global-редакция, сохранённая владельцем редакция лежит в CHAT_C2 и не читается CheckupService; в CHAT_DM8 override отсутствует. Исправление — S6-PROMPT; статус и формулировка AC не меняются.",
@@ -12786,7 +12804,7 @@
       "acceptance": "Сохранённый владельцем промпт не перезаписывается при исправлениях и деплое.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -12825,6 +12843,15 @@
             "0beed63df8037002ccfaacef019b8ea948d957f6",
             "e650f2b854755743f2a750024a1f184d2a802e30"
           ]
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "prompt-release.md — manual revision preservation",
+          "observation": "Owner manual revision rev:d31300ef35a0 remains active (origin=manual, retired=false, 12,469 chars, sha 31d17506); activation 2945 factory_superseded_manual/skipped_same; pre==post and chat override preserved; no overwrite.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/prompt-release.md",
+          "artifact_sha256": "187c25c287f90e5c00fadf6e1c52bccf15d1328c6f85216b277fc0a63a3c0a1e",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
         }
       ],
       "postrelease_wait": {
@@ -12848,7 +12875,7 @@
       "acceptance": "События успешного recovery соответствуют фактически восстановленным задачам.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -12887,6 +12914,15 @@
             "0beed63df8037002ccfaacef019b8ea948d957f6",
             "e650f2b854755743f2a750024a1f184d2a802e30"
           ]
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "watchdog.md — real takeover recovery",
+          "observation": "One real takeover at 19:14:01Z (job 1e900f46, experience.review, worker_lost) emitted takeover_recovered with discovered/attempted/recovered=1 and failed=0; job returned to queued/scheduled_retry; event corresponds to actual recovered task.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/watchdog.md",
+          "artifact_sha256": "069f775e070bb447b20dfc1bba4d12875bb9149265eff3d47869b1eae477bb3f",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
         }
       ],
       "postrelease_wait": {
@@ -13159,7 +13195,7 @@
       "acceptance": "Проверены затронутые потребители общих изменений SMART: обычные ответы, исследование исходников по прямому запросу, фактчек и другие реально затронутые tool-loop маршруты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13209,7 +13245,7 @@
       "acceptance": "Сохранение семантики короткого «фактчек» без дополнительной формулировки проверено отдельно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13259,7 +13295,7 @@
       "acceptance": "Объём регрессии определяется фактическими изменениями и рисками; все модули проекта не запускаются и новый глобальный тестовый завод не строится.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13305,7 +13341,7 @@
       "acceptance": "Используется действующий workflow проекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13353,7 +13389,7 @@
       "acceptance": "Сначала подготовлены результаты расследования, карта требований corrective и минимально необходимый архитектурный план.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13401,7 +13437,7 @@
       "acceptance": "После плана исправления реализованы, проведено независимое ревью и подтверждены затронутые сценарии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13447,7 +13483,7 @@
       "acceptance": "Reviewer проверяет соответствие реализации требованиям, реальные маршруты, негативные сценарии и возможные способы формального обхода acceptance criteria.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13493,7 +13529,7 @@
       "acceptance": "Не принимаются зелёные тесты, проверяющие заглушки, факт объявления инструмента или наличие строки в промпте вместо нужного поведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13539,7 +13575,7 @@
       "acceptance": "Настройки, модели и сохранённые промпты владельца сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13585,7 +13621,7 @@
       "acceptance": "Не запущены перестройка embedding-индексов, полная перевекторизация, миграции БД или другие несвязанные изменения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13633,7 +13669,7 @@
       "acceptance": "Новые выключенные модули, shadow-режимы или скрытые флаги не введены как способ отложить работоспособность corrective.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13681,7 +13717,7 @@
       "acceptance": "Исправления действуют при первом production-деплое в соответствии с действующей конфигурацией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13727,7 +13763,7 @@
       "acceptance": "Пользовательские настройки, включая явно заданные отключения и ограничения, сохранены; ранее отключённые владельцем возможности не включены без основания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13773,7 +13809,7 @@
       "acceptance": "Обеспечены безопасный деплой, доказательства идентичности работающего кода, rollback и необходимые production-канарейки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13819,7 +13855,7 @@
       "acceptance": "На production не созданы опасные зависшие задачи, намеренные отказы или повторные пользовательские отправки исключительно для демонстрации теста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13865,7 +13901,7 @@
       "acceptance": "Сбой или неполнота наблюдаемости явно зафиксированы, а не компенсированы предположениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13911,7 +13947,7 @@
       "acceptance": "Главный критерий: бот самостоятельно доводит существенное диагностическое исследование до обоснованного результата внутри исходного чекапа, использует доступные источники кода и корректные fallback-маршруты, не упирается в скрытые искусственные лимиты и выдаёт предусмотренный владельцем язвительный технический разбор без отдельного указания исследовать проблему.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -13974,7 +14010,7 @@
       "acceptance": "Реальное исправление не заменяется увеличением нескольких констант.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14022,7 +14058,7 @@
       "acceptance": "Реальное исправление не заменяется переписыванием отчётов и статусов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14070,7 +14106,7 @@
       "acceptance": "В промпт не добавляются инструкции вместо исправления механизмов исполнения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14118,7 +14154,7 @@
       "acceptance": "Не принимаются тесты, доказывающие только существование инструментов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14166,7 +14202,7 @@
       "acceptance": "Проблемная возможность не отключается как способ закрыть дефект.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14214,7 +14250,7 @@
       "acceptance": "Обязательные инженерные исправления не переносятся в owner-live проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14277,7 +14313,7 @@
       "acceptance": "Шесть активных ERROR-инцидентов с process_id = watchdog.jobs зафиксированы как исходная production-база.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -14337,7 +14373,7 @@
       "acceptance": "Стадия инцидентов takeover зафиксирована в исходной базе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -14397,7 +14433,7 @@
       "acceptance": "Наиболее старый инцидент с 72 повторениями зафиксирован отдельно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -14457,7 +14493,7 @@
       "acceptance": "Зафиксировано, что последние наблюдаемые ошибки относятся к более раннему времени, чем пятиминутное окно журналов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -14517,7 +14553,7 @@
       "acceptance": "Зафиксировано расхождение: degraded при отсутствии ошибок в свежем журнальном окне.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "production",
@@ -14727,7 +14763,7 @@
       "acceptance": "Идентичность релиза, deployed SHA, checkout SHA и фактического процесса установлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14787,7 +14823,7 @@
       "acceptance": "Correlation ID, chat ID, маршрут обработки и вызывающий компонент установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14847,7 +14883,7 @@
       "acceptance": "Использованные LLM, провайдер, модельный слот и effective model configuration установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14907,7 +14943,7 @@
       "acceptance": "Фактический набор объявленных инструментов установлен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -14967,7 +15003,7 @@
       "acceptance": "Выбранные моделью инструменты, последовательность вызовов и arguments установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15027,7 +15063,7 @@
       "acceptance": "Операции discovery, locate, read и followup установлены, если они выполнялись.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15087,7 +15123,7 @@
       "acceptance": "Repo identity, ref, commit, path, symbol, query и запрошенные диапазоны строк установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15147,7 +15183,7 @@
       "acceptance": "Выбранный source provider, причина выбора и источник локальной идентичности установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15207,7 +15243,7 @@
       "acceptance": "Результаты поиска, candidate paths, порядок рассмотрения и причины остановки установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15267,7 +15303,7 @@
       "acceptance": "Фактически полученные исходники/фрагменты, их релевантность и provenance установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15327,7 +15363,7 @@
       "acceptance": "Ошибки чтения, частичные результаты, признаки truncation и retrievable remainder установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15387,7 +15423,7 @@
       "acceptance": "Фактические попытки fallback и причины их выполнения или невыполнения установлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15447,7 +15483,7 @@
       "acceptance": "Effective budget policy на уровне tool-loop, ToolRouter, SourceReader и конкретной операции установлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15507,7 +15543,7 @@
       "acceptance": "Использованные лимиты и технические предохранители установлены, если они повлияли на исполнение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15567,7 +15603,7 @@
       "acceptance": "Причина завершения исследовательского цикла установлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15627,7 +15663,7 @@
       "acceptance": "Финальный модельный ответ до cleanup и outbound-обработки получен, если доступен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15687,7 +15723,7 @@
       "acceptance": "Фактический system prompt, параметры сборки и effective Expression установлены, если доступны без нарушения безопасности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15762,7 +15798,7 @@
       "acceptance": "Расследование отдельно обозначает подтверждённые production-факты, выводы из deployed-исходников, воспроизводимые дефекты, гипотезы и невосстановимые сведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15808,7 +15844,7 @@
       "acceptance": "Расследование отдельно обозначает подтверждённые production-факты, выводы из deployed-исходников, воспроизводимые дефекты, гипотезы и невосстановимые сведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15854,7 +15890,7 @@
       "acceptance": "Расследование отдельно обозначает подтверждённые production-факты, выводы из deployed-исходников, воспроизводимые дефекты, гипотезы и невосстановимые сведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15900,7 +15936,7 @@
       "acceptance": "Расследование отдельно обозначает подтверждённые production-факты, выводы из deployed-исходников, воспроизводимые дефекты, гипотезы и невосстановимые сведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -15946,7 +15982,7 @@
       "acceptance": "Расследование отдельно обозначает подтверждённые production-факты, выводы из deployed-исходников, воспроизводимые дефекты, гипотезы и невосстановимые сведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -16051,7 +16087,7 @@
       "acceptance": "Приоритет 1: проверенный локальный код фактически работающей production-версии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16099,7 +16135,7 @@
       "acceptance": "Приоритет 2: другой локальный источник с явно установленной идентичностью и обозначенными ограничениями достоверности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16147,7 +16183,7 @@
       "acceptance": "Приоритет 3: GitHub по точному deployed commit, когда локальный источник не даёт достоверного результата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16210,7 +16246,7 @@
       "acceptance": "Fallback через подходящий резервный источник обеспечен для случая. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16258,7 +16294,7 @@
       "acceptance": "Fallback через подходящий резервный источник обеспечен для случая. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16306,7 +16342,7 @@
       "acceptance": "Fallback через подходящий резервный источник обеспечен для случая. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16354,7 +16390,7 @@
       "acceptance": "Fallback через подходящий резервный источник обеспечен для случая. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16402,7 +16438,7 @@
       "acceptance": "Fallback через подходящий резервный источник обеспечен для случая. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16450,7 +16486,7 @@
       "acceptance": "Fallback через подходящий резервный источник обеспечен для случая. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16498,7 +16534,7 @@
       "acceptance": "Результат структурно различает класс. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16546,7 +16582,7 @@
       "acceptance": "Результат структурно различает класс. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16594,7 +16630,7 @@
       "acceptance": "Результат структурно различает класс. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16642,7 +16678,7 @@
       "acceptance": "Результат структурно различает класс. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16690,7 +16726,7 @@
       "acceptance": "Результат структурно различает класс. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16738,7 +16774,7 @@
       "acceptance": "Результат структурно различает класс. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -16831,7 +16867,7 @@
       "acceptance": "В deployed services/source_reader.py подтверждено значение _MAX_LOCATOR_PATHS = 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -16879,7 +16915,7 @@
       "acceptance": "Подтверждено: _locate_in_tree() перебирает ranked[:_MAX_LOCATOR_PATHS].",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -16927,7 +16963,7 @@
       "acceptance": "Подтверждено: rank_paths() преимущественно использует совпадения в именах файлов и путях, язык и расширение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -16990,7 +17026,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17038,7 +17074,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17086,7 +17122,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17134,7 +17170,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17182,7 +17218,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17230,7 +17266,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17278,7 +17314,7 @@
       "acceptance": "Поиск по содержимому поддерживает возможность. Пункт 7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17341,7 +17377,7 @@
       "acceptance": "Результат поиска позволяет отличить класс материала. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17389,7 +17425,7 @@
       "acceptance": "Результат поиска позволяет отличить класс материала. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17437,7 +17473,7 @@
       "acceptance": "Результат поиска позволяет отличить класс материала. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17485,7 +17521,7 @@
       "acceptance": "Результат поиска позволяет отличить класс материала. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17533,7 +17569,7 @@
       "acceptance": "Результат поиска позволяет отличить класс материала. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17581,7 +17617,7 @@
       "acceptance": "Результат поиска позволяет отличить класс материала. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17689,7 +17725,7 @@
       "acceptance": "Effective budget policy учитывает область исполнения. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17738,7 +17774,7 @@
       "acceptance": "Effective budget policy учитывает область исполнения. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17787,7 +17823,7 @@
       "acceptance": "Effective budget policy учитывает область исполнения. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17836,7 +17872,7 @@
       "acceptance": "Effective budget policy учитывает область исполнения. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17885,7 +17921,7 @@
       "acceptance": "Effective budget policy учитывает область исполнения. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17934,7 +17970,7 @@
       "acceptance": "Effective budget policy учитывает область исполнения. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -17998,7 +18034,7 @@
       "acceptance": "При effective budgets OFF не применяется искусственный лимит. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18047,7 +18083,7 @@
       "acceptance": "При effective budgets OFF не применяется искусственный лимит. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18096,7 +18132,7 @@
       "acceptance": "При effective budgets OFF не применяется искусственный лимит. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18145,7 +18181,7 @@
       "acceptance": "При effective budgets OFF не применяется искусственный лимит. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18194,7 +18230,7 @@
       "acceptance": "При effective budgets OFF не применяется искусственный лимит. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18243,7 +18279,7 @@
       "acceptance": "При effective budgets OFF не применяется искусственный лимит. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18337,7 +18373,7 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18385,7 +18421,7 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18433,7 +18469,7 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18481,7 +18517,7 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18544,7 +18580,7 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18592,7 +18628,7 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18640,7 +18676,7 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18688,7 +18724,7 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18736,7 +18772,7 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18784,7 +18820,7 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18862,7 +18898,7 @@
       "acceptance": "Остаточное ограничение deployed checkup_service проверено на влияние. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18911,7 +18947,7 @@
       "acceptance": "Остаточное ограничение deployed checkup_service проверено на влияние. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -18960,7 +18996,7 @@
       "acceptance": "Остаточное ограничение deployed checkup_service проверено на влияние. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19009,7 +19045,7 @@
       "acceptance": "Остаточное ограничение deployed checkup_service проверено на влияние. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19073,7 +19109,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19122,7 +19158,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19171,7 +19207,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19220,7 +19256,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19269,7 +19305,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19318,7 +19354,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19367,7 +19403,7 @@
       "acceptance": "Отдельный вид ограничения не смешивается с остальными. Пункт 7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -19476,7 +19512,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19582,7 +19618,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19688,7 +19724,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19794,7 +19830,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -19900,7 +19936,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20006,7 +20042,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20112,7 +20148,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20218,7 +20254,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 8.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20324,7 +20360,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 9.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20430,7 +20466,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 10.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20536,7 +20572,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 11.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20642,7 +20678,7 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 12.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20763,7 +20799,7 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20869,7 +20905,7 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -20975,7 +21011,7 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21081,7 +21117,7 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21202,7 +21238,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21308,7 +21344,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21414,7 +21450,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21520,7 +21556,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21626,7 +21662,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21732,7 +21768,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21838,7 +21874,7 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -21959,7 +21995,7 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -22065,7 +22101,7 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -22171,7 +22207,7 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -22277,7 +22313,7 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -22383,7 +22419,7 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -22714,7 +22750,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -22852,7 +22888,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -22990,7 +23026,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23128,7 +23164,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23266,7 +23302,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23404,7 +23440,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23542,7 +23578,7 @@
       "acceptance": "Перед изменениями открыты и проверены актуальные источники планирования: current_task.md, workflow_state.md, progress_scope.json, карты SMART, документы SELF-DIAG, требования по речи и очередь эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23695,7 +23731,7 @@
       "acceptance": "Сопоставление требований corrective фиксирует аспект. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23743,7 +23779,7 @@
       "acceptance": "Сопоставление требований corrective фиксирует аспект. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23791,7 +23827,7 @@
       "acceptance": "Сопоставление требований corrective фиксирует аспект. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23839,7 +23875,7 @@
       "acceptance": "Сопоставление требований corrective фиксирует аспект. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23887,7 +23923,7 @@
       "acceptance": "Сопоставление требований corrective фиксирует аспект. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -23950,7 +23986,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -24103,7 +24139,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -24256,7 +24292,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -24409,7 +24445,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -24562,7 +24598,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -24715,7 +24751,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -24868,7 +24904,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25021,7 +25057,7 @@
       "acceptance": "Проверены пересечения с фактчеком, качеством веб-поиска, FC-TRUST-01, WEB-SEARCH-QUALITY-01, памятью/retrieval/контекстом, квантовым рандомом, общей архитектурой SMART и унифицированной речью/промптами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25324,7 +25360,7 @@
       "acceptance": "Отчёт о расследовании двух исходных production-запусков с фактами и остаточной неопределённостью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25370,7 +25406,7 @@
       "acceptance": "Перечень подтверждённых дефектов и их фактического влияния.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25416,7 +25452,7 @@
       "acceptance": "Сопоставление с существующими требованиями SMART и SELF-DIAG.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25462,7 +25498,7 @@
       "acceptance": "Карта corrective с отдельными критериями приёмки и доказательствами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25508,7 +25544,7 @@
       "acceptance": "Анализ пересечений с текущей очередью эпиков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25554,7 +25590,7 @@
       "acceptance": "Краткое описание реализованной архитектуры и причин выбора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25600,7 +25636,7 @@
       "acceptance": "Перечень изменённых компонентов и проверенных регрессионных сценариев.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25646,7 +25682,7 @@
       "acceptance": "Результаты расследования watchdog-инцидентов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25692,7 +25728,7 @@
       "acceptance": "Доказательства фактической доставки effective prompt и budget policy.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25731,6 +25767,24 @@
             "0beed63df8037002ccfaacef019b8ea948d957f6",
             "e650f2b854755743f2a750024a1f184d2a802e30"
           ]
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "prompt-release.md + effective-config.txt",
+          "observation": "Global factory rev:a2a369bba312/fac:93c42f967ef8 activation 2944 applied; owner chat activation 2945 factory_superseded_manual/skipped_same; budgets OFF everywhere, caps 0, capacity 1,048,576 verified; zero withheld lines.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/prompt-release.md",
+          "artifact_sha256": "187c25c287f90e5c00fadf6e1c52bccf15d1328c6f85216b277fc0a63a3c0a1e",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "effective-config.txt — prompt/budget effective state",
+          "observation": "Production effective config: budgets OFF globally and in all 3 chats, chain caps 0, capacity 1,048,576 verified, owner prompt row 3,462/3140bb36, manual chat override 12,469/31d17506 unchanged.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/effective-config.txt",
+          "artifact_sha256": "b550484b524527f7005ac30241c4aa50bf0cda71cdf5389000e3b84287e420e2",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
         }
       ],
       "postrelease_wait": {
@@ -25754,7 +25808,7 @@
       "acceptance": "Production-evidence исправленного релиза: deployed SHA, health, конфигурация, канарейки, rollback.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -25793,6 +25847,24 @@
             "0beed63df8037002ccfaacef019b8ea948d957f6",
             "e650f2b854755743f2a750024a1f184d2a802e30"
           ]
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "deploy.md — 2.58.203 controlled deploy",
+          "observation": "Deployed c97c06e4/2.58.203 via ff 0beed63d..c97c06e4; backup integrity ok; manifest before restart; health 200/version 2.58.203; unit active NRestarts 0; schema 47; verifier v2 ok=true/33 checks; identity verified_deployed; rollback target 0beed63d not executed.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md",
+          "artifact_sha256": "1f6d3c9e4a404341b090c0de6d07e39742cf304197d9c8355778d7aa983afecc",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "ref": "postdeploy-health.txt — health/unit/journal",
+          "observation": "Postdeploy health 200/version 2.58.203, unit active with NRestarts 0, schema 47; journal window shows no traceback/CRITICAL and only pre-existing/known classes.",
+          "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/postdeploy-health.txt",
+          "artifact_sha256": "d68ae51c55f2d5a64e1829278af53cbc84786c77ed1e11ab198ec722bc18ed21",
+          "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
         }
       ],
       "postrelease_wait": {
@@ -25816,7 +25888,7 @@
       "acceptance": "Честное разделение инженерно подтверждённых требований, production-подтверждений и оставшихся owner-live проверок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "inspection",
@@ -26179,5 +26251,25 @@
     "reference": "evidence/release-train/integration-review.md §Delta review 2.58.203 correction (test isolation)",
     "source_sha256": "11a12ab5a197d27ff44cf9b6fc6fd2626bc6dc9591e921cedcd8a292f26bad68",
     "note": "Label test-isolation fix merged (a73ddc7f); delta review approved; previous e650f2b8 blocker is cleared. Deploy gate rerun required."
-  }
+  },
+  "delivery_evidence": [
+    {
+      "type": "production",
+      "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "ref": "deploy.md — 2.58.203 controlled deployment identity/health/rollback",
+      "observation": "Deployed exact c97c06e4/2.58.203; ff 0beed63d..c97c06e4; backup integrity ok; manifest before restart; health 200/version 2.58.203; unit active NRestarts 0; schema 47; verifier v2 ok=true/33 checks; rollback 0beed63d retained and not executed.",
+      "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md",
+      "artifact_sha256": "1f6d3c9e4a404341b090c0de6d07e39742cf304197d9c8355778d7aa983afecc"
+    },
+    {
+      "type": "production",
+      "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "ref": "postdeploy-health.txt — production health/journal",
+      "observation": "Health 200/version 2.58.203; unit active NRestarts 0; schema 47; journal window has no traceback/CRITICAL and only known/pre-existing classes.",
+      "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/postdeploy-health.txt",
+      "artifact_sha256": "d68ae51c55f2d5a64e1829278af53cbc84786c77ed1e11ab198ec722bc18ed21"
+    }
+  ]
 }

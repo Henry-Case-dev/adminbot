@@ -1,0 +1,4 @@
+engineering_delivery=PASS
+acceptance=PENDING_FUTURE_EVIDENCE
+deferred_req_ids=["SXR-A1-04", "SXR-L1-01", "SXR-L2-01", "SXR-L4-01", "SXR-L6-01", "SXR-L7-01", "SXR-L8-01"]
+stage=delivery inventory=509 manual=359 scoped=828 errors=0
