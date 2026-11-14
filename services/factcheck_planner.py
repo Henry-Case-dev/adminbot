@@ -542,7 +542,8 @@ def build_retrieval_plan(decision, *,
         return None
 
 
-def _claim_units(items, claim: str, *, cap: int | None = None) -> list[str]:
+def _claim_units(items, claim: str, *, cap: int | None = None,
+                 request_text: str = "") -> list[str]:
     """FC-SEMQUERY: самостоятельные проверяемые части для запросов —
     верифицируемые тексты claim_items; единый тезис-«всё сообщение»
     разбивается на предложения (как decompose_claim). Детерминированно.
@@ -554,6 +555,13 @@ def _claim_units(items, claim: str, *, cap: int | None = None) -> list[str]:
     но привязана к предмету, а не к исходному тексту. Части материала, не
     вошедшие в предмет, не ищутся (не расширяют проверку); непокрытый остаток
     предмета (условие/вопрос пользователя) добавляется предложениями.
+
+    SFC-12-09: ``request_text`` — структурно известная часть запроса (S13
+    ``subject_request_text``). Она гарантированно получает собственную единицу:
+    вызывающий может склеить её с материальным предложением без границы
+    предложения, и тогда деление на предложения/отсев «покрытых» её не находят.
+    Гарантия структурная (совпадение текста части запроса с уже принятой
+    единицей), без лексических правил и новых категорий.
 
     FC-01.1/FC-02.2 (corrective 05.11.2026): служебные обёртки материала
     изображений (наши метки OCR/vision) вынесены из ПОИСКОВОГО пути ДО
@@ -593,6 +601,26 @@ def _claim_units(items, claim: str, *, cap: int | None = None) -> list[str]:
                 continue
             units.append(sentence)
             covered.append(low)
+    # SFC-12-09: часть запроса, структурно известная вызывающему, не может
+    # исчезнуть из плана из-за склейки предложений предмета. Сравнение — по
+    # точному нормализованному тексту единицы (без завершающей пунктуации):
+    # если вопрос уже стал отдельным предложением предмета, второй единицы нет
+    # (дедупликация), а если он приклеен к материальному предложению —
+    # появляется собственный запрос.
+    if request_text:
+        def _unit_key(text: str) -> str:
+            return " ".join(str(text).lower().split()).rstrip(".!?;…")
+
+        request_sentences = [
+            s.strip() for s in re.split(
+                r"(?<=[.!?;])\s+", " ".join(str(request_text).split()))
+            if s.strip()]
+        matched = {_unit_key(u) for u in units}
+        for sentence in request_sentences:
+            key = _unit_key(sentence)
+            if key and key not in matched:
+                units.append(sentence)
+                matched.add(key)
     result = [search_thesis_text(u) for u in units if u]
     # S14 §6.6: ``cap`` — размер ПОРЦИИ обработки (32), а не максимум
     # проверяемых утверждений на весь запрос. Без явного ``cap`` хвост
@@ -798,7 +826,8 @@ def _claim_type(unit: str, metrics: list[str]) -> str:
 
 
 def build_claim_units(items, claim: str, *,
-                      source_link: str = "") -> tuple[ClaimUnit, ...]:
+                      source_link: str = "",
+                      request_text: str = "") -> tuple[ClaimUnit, ...]:
     """§3.1: исходная новость → проверяемые claim-единицы (без LLM).
 
     Переиспользует существующую декомпозицию (`_claim_units`, те же
@@ -816,10 +845,14 @@ def build_claim_units(items, claim: str, *,
     S14 §6.6: 32 — размер ПОРЦИИ. Материал с большим числом существенных
     частей обрабатывается последовательными порциями по 32, хвост исходного
     текста не удаляется; ``claim_id`` сквозной по всему материалу.
+
+    SFC-12-09: ``request_text`` — структурно известная часть запроса; она
+    получает собственную единицу даже если приклеена к материальному
+    предложению (см. ``_claim_units``).
     """
     claim_years = _years(claim)
     units: list[ClaimUnit] = []
-    raw_units = _claim_units(items, claim)
+    raw_units = _claim_units(items, claim, request_text=request_text)
     for start in range(0, len(raw_units), _CLAIM_UNITS_PORTION):
         for raw_unit in raw_units[start:start + _CLAIM_UNITS_PORTION]:
             unit = str(raw_unit or "").strip()
@@ -1014,7 +1047,11 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
     # Каждая существенная часть получает СВОЙ запрос (проход 1), уточнения
     # (числа/интервал) идут на остаток бюджета (проход 2). Бюджет зависит от
     # числа частей (§3.2), а не «≤3 на всю новость».
-    units = build_claim_units(items, claim)
+    # SFC-12-09: структура запроса (``subject_request_text``) участвует в
+    # единицах проверки, а не только в анкорах: вопрос пользователя обязан
+    # получать собственный поисковый запрос даже если склеен с материалом.
+    units = build_claim_units(items, claim,
+                              request_text=subject_request_text)
     if not units:
         units = (ClaimUnit(claim_id="c1",
                            text=search_thesis_text(claim)),)
