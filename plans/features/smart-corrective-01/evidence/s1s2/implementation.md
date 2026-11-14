@@ -9,11 +9,11 @@
 - Базовая линия: `release/2.58.200` @ `13884daa32e5cf2a1c05c5c43188ca299f8179f8`
   (код = deployed `0e4a144db476a1535ae3a2b79a7cce30354ad866` + release docs).
 - Рабочая ветка: `sc/corrective-s1s2`.
-- Code candidate commit (production state): `f007da3314685a86346739db5329a904a5d48093`
-  (implementation `86872aac` + диагностическое удаление candidate-sample cap).
+- Code candidate commit (production state): `91516d55fb2e436337bf76ec23b99d5f27f175da`
+  (implementation `86872aac` + candidate-sample cleanup `f007da33` + traceback fix).
 - Test-only additions + эта evidence-запись: коммиты после code candidate в той же ветке
   (final branch HEAD сообщается Orchestrator; расхождение — только tests/evidence,
-  production-код остаётся `f007da33`).
+  production-код остаётся `91516d55`).
 - Worktree:
   `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-corrective-01-0097aecc4a7a-90a1abda`
   (managed `WorkspaceData/worktrees`, registered как `s1s2-source`).
@@ -249,3 +249,36 @@ engine, vector index or repo DB.
   worktree, закрыть вместе с unit).
 - Worktree остаётся зарегистрированным до завершения review; удаление/закрытие
   — после join и переноса доказательств.
+
+## SC-SEARCH-CAP-05 fix (Reviewer r1)
+
+- Discovery: multi-line traceback fragment matched a generic token (`x.py`) and
+  returned `ok`/`caller` instead of confirming a contiguous block.
+- Fix commit: `91516d55fb2e436337bf76ec23b99d5f27f175da`
+  (`fix(source-reader): confirm multi-line traceback fragments contiguously`).
+- Scope: `services/source_reader.py` + `tests/test_smart_corrective_source_reader.py`
+  only. Production behavior: traceback-like multi-line queries are routed to
+  `_traceback_search`; code-bearing lines are normalized only for `\r`/trailing
+  whitespace and must match as one contiguous block. No generic-token match is
+  used to confirm a fragment.
+- Positive result: `traceback.fragment_verified=true`,
+  `traceback.matched_range`, top-level `line_range`, `matched_line_count`, and a
+  `matches[]` entry with the same contiguous range/count.
+- Non-confirming result: `status=partial`, `outcome=partial`, `verified=false`,
+  empty `path`/`match_count`, reason `traceback_fragment_not_confirmed` (or
+  `traceback_fragment_not_multiline` for a one-code-line traceback); individual
+  line matches are exposed only as `traceback.partial_matches` with
+  `confirmed=false`. A reordered block and generic `x.py`-only block therefore
+  cannot produce `ok`.
+- CRLF/trailing-whitespace normalization: `_normalize_fragment_line` strips only
+  `\r` and trailing whitespace; leading source indentation is preserved.
+- Regression tests (4+edge): contiguous positive with range/count, generic
+  token-only negative, reordered near-miss, CRLF/trailing-whitespace positive,
+  single-code-line non-multiline non-confirm.
+- Validation:
+  - `pytest tests/test_smart_corrective_source_reader.py -q` → **30 passed**.
+  - `pytest tests/test_evol_source_reader.py tests/test_smart_e_local_first_source.py tests/test_smart_c1_source_reader_limits.py tests/test_smart_corrective_source_reader.py -q` → **162 passed**.
+  - `py_compile services/source_reader.py` → OK.
+  - Reviewer-style `x.py`-only scenario now returns `partial`/non-confirming with
+    no `path`/`match_material`, not `ok`/`caller`.
+- Status remains `REVIEW`; requirement not marked VERIFIED.
