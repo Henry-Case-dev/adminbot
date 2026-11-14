@@ -250,7 +250,7 @@ class TestAuroraResize:
 class TestVersionAndInvariants:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.201", m and m.group(1)
+        assert m and m.group(1) == "2.58.202", m and m.group(1)
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
