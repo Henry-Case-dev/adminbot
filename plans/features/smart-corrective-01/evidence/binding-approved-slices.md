@@ -391,3 +391,45 @@ S6-строки, представляющие prompt delivery/preservation, пр
 Выводы: `evidence/gates/deploy-corrective-409f4e8a-r2.txt`, `evidence/gates/plan-after-deploy-bind-409f4e8a.txt`, `evidence/gates/deploy-parent-smart-0e4a144d-r2.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-r2.txt`.
 
 AC wait copy проверен программно: для всех 26 READY-строк `row.postrelease_wait == review.approved_postrelease_wait == appendix.postrelease_wait`. Deploy gate разрешает только controlled deployment exact SHA; production acceptance и parent DONE не заявляются.
+
+## 14. 2.58.202 guard rebinding 0beed63d (добавлено 2026-11-15, unit `pm-guard-258202`)
+
+| Поле | Значение |
+|---|---|
+| Release train | `release/smart-corrective-01`, tip `0beed63df8037002ccfaacef019b8ea948d957f6` (2.58.202; merge `f08d4996`, bump `a476818d`) |
+| База | `409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9` (2.58.201, deployed) |
+| Map `candidate_commit` | `0beed63df8037002ccfaacef019b8ea948d957f6` |
+| Map `deployed_commit` | пусто |
+| Guard code candidate | `a8b6197fc49142097a3ea14e76d10a0bcec5a1eb` (`sc/corrective-s6-guard`) |
+
+### Rebind
+
+- **954** evidence-записи на **367** required-строках переведены с `409f4e8a` на `0beed63d`.
+- `bound_from_candidate` = `409f4e8a`; исходная цепочка сохранена в `bound_from_chain` (slice candidate + `409f4e8a`).
+- `slice_candidate_bindings` не перезаписывались; `deploy_stage_appendix` сохраняет исходный candidate 409f4e8a и получает `rebound_to=0beed63d`.
+- `delivery_evidence` не добавлялся; `deployed_commit` пуст.
+
+### Guard binding (EVOL-016)
+
+Артефакты скопированы в master `evidence/s6-prompt-guard/`; implementation/cleanup совпали с blobs train tip:
+
+| Файл | sha256 |
+|---|---|
+| `evidence/s6-prompt-guard/implementation.md` | `5cd877604f671cc50eb03f6594808fb15d5244aa8e11404fc9725d103cde834c` |
+| `evidence/s6-prompt-guard/review-r1.md` | `244d1f0766e732a4ab62622adb214890cf80328da3b94561ed6026875773e878` |
+| `evidence/s6-prompt-guard/cleanup-retained.json` | `6da8e725836fbc61e8b02c44f0bdf5338ebec4878ac0888451904f1763aff5eb` |
+
+Для всех **55** строк `SC-PRM-*` добавлены дополнительные implementation-evidence (guard implementation/tests) и review-evidence (`verdict=Approved`, ref `EVOL-016 guard review`, candidate `0beed63d`). Статусы S6 не менялись: 52 `REVIEW` + 3 ранее существовавшие `VERIFIED` investigation-строки; новых VERIFIED нет.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| deploy corrective | `--stage deploy --candidate 0beed63d --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=384) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+| deploy parent SMART | `--stage deploy --candidate 0e4a144d` (requirements-map.json) | 0 | `errors=0` (scoped=828) |
+| deploy parent FC | `--stage deploy --candidate 0e4a144d` (requirements-map-fc-amendment.json) | 0 | `errors=0` (scoped=705) |
+
+Выводы: `evidence/gates/deploy-corrective-0beed63d.txt`, `evidence/gates/plan-after-guard-0beed63d.txt`, `evidence/gates/deploy-parent-smart-0e4a144d-guard.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-guard.txt`.
+
+Итоговые статусы: **355 REVIEW, 26 READY_FOR_LIVE, 3 VERIFIED** (только ранее существовавшие S6 investigation-строки); `PENDING` — 0. AC wait copy остался точным: 26/26 равны appendix. Guard approval — predeploy only; production `prompt_source=chat` в затронутом чате остаётся postdeploy-проверкой.
