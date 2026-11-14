@@ -1,0 +1,13 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-V-c97c06e4
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-V --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence
+# exit: 1
+# note: финальный прогон после биндинга доказательств на выложенной линии c97c06e4 (2.58.203)
+
+FAIL: V-01: live requirement lacks evidence for stage review
+FAIL: V-02: live requirement lacks evidence for stage review
+FAIL: V-03: live requirement lacks evidence for stage review
+FAIL: V-04: live requirement lacks evidence for stage review
+stage=review inventory=380 manual=69 scoped=4 errors=4
+

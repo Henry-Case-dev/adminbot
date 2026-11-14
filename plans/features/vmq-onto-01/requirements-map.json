@@ -2,9 +2,9 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
-  "candidate_commit": "709865f6dbae508843b9f1b3ec73d33705621589",
-  "deployed_commit": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
-  "deployed_commit_note_2026_11_11": "Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю. [2026-11-11, продолжение] Прод после этого ушёл на 2.58.188 @ c087253d (ступень SELF-DIAG-01 D2, рестарт 09:21:08Z): 952b9ebd — его предок, файлы памяти 2.58.188 не меняет. Верхнеуровневый deployed_commit оставлен 952b9ebd как привязка ИМЕННО этой ступени памяти, а не как «текущая версия прода»; фактическая версия прода фиксируется в deployment_evidence.follow_up_2_58_187.prod_after_2026_11_11.",
+  "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "deployed_commit_note_2026_11_11": "[историческая запись: верна до 2026-11-15] Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю. [2026-11-11, продолжение] Прод после этого ушёл на 2.58.188 @ c087253d (ступень SELF-DIAG-01 D2, рестарт 09:21:08Z): 952b9ebd — его предок, файлы памяти 2.58.188 не меняет. Верхнеуровневый deployed_commit оставлен 952b9ebd как привязка ИМЕННО этой ступени памяти, а не как «текущая версия прода»; фактическая версия прода фиксируется в deployment_evidence.follow_up_2_58_187.prod_after_2026_11_11.",
   "current_production_2026_11_13": {
     "version": "2.58.198",
     "deployed_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
@@ -43,7 +43,7 @@
     "scope_effect": "Привязка читается как «на какой прод-базе снят baseline после выката», а не как приёмка строк: ни одна строка VMQ этим полем не закрывается.",
     "not_an_owner_input": "факт производства, а не новое требование владельца"
   },
-  "candidate_note": "candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING. [2026-11-11: верхнеуровневый deployed_commit переведён на 952b9ebd (2.58.187, следующая ступень памяти); привязки слайса VMQ-MEM-TIME к 709865f6 и запись follow_up_2_58_183 сохранены без переоценки — см. deployment_evidence.follow_up_2_58_187.]",
+  "candidate_note": "[историческая запись: верна до 2026-11-15; текущее верхнеуровневое значение — см. top_level_binding_note_2026_11_15] candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING. [2026-11-11: верхнеуровневый deployed_commit переведён на 952b9ebd (2.58.187, следующая ступень памяти); привязки слайса VMQ-MEM-TIME к 709865f6 и запись follow_up_2_58_183 сохранены без переоценки — см. deployment_evidence.follow_up_2_58_187.]",
   "deployment_note_2_58_183": {
     "slice": "VMQ-MEM-TIME",
     "shipped_in": "2.58.182 @ 446cbf0b (с линии 92070d0e), затем 2.58.183 @ 0fed5845",
@@ -597,7 +597,7 @@
       "acceptance": "Реальное голосовое в Telegram создаёт ровно один source-ref в границах чата; текст STT хранится как ревизия этого source-ref (transcript_revision, transcript_updated_at), а текст ответа бота с /transcript не создаёт новой пользовательской реплики.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "REVIEW",
       "external_wait": {
         "state": "WAITING_EXTERNAL",
         "live_check_id": "VOICE L-01",
@@ -606,9 +606,31 @@
         "blocking": false,
         "recorded": "2026-11-09",
         "reclassified": "2026-11-13",
-        "note": "Переклассифицировано 13.11.2026: владелец не является QA. Код, бэкап и миграция v45 проверены, VMQ-V выкачен в 2.58.170, а естественные голосовые события наблюдаются агентами по прод-БД/трассе — отдельного действия владельца нет. Строка остаётся PENDING не из-за ожидания владельца, а из-за отсутствия candidate-bound артефакта evidence/vmq-v/voice-source-revision.json. Статус в enum гейта — PENDING (WAITING_EXTERNAL не входит в допустимые состояния); внешнее ожидание зафиксировано этим полем."
+        "note": "Переклассифицировано 13.11.2026: владелец не является QA. Код, бэкап и миграция v45 проверены, VMQ-V выкачен в 2.58.170, а естественные голосовые события наблюдаются агентами по прод-БД/трассе — отдельного действия владельца нет. Строка остаётся PENDING не из-за ожидания владельца, а из-за отсутствия candidate-bound артефакта evidence/vmq-v/voice-source-revision.json. Статус в enum гейта — PENDING (WAITING_EXTERNAL не входит в допустимые состояния); внешнее ожидание зафиксировано этим полем.",
+        "status_2026_11_15": "candidate-bound артефакт появился (vmq-v/deployed-review-2026-11-15.md), поэтому прежняя причина PENDING («нет candidate-bound артефакта») снята. Строка в REVIEW; открыто только живое production-событие, исполнитель — агент."
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева voice-пути на выложенной линии",
+          "observation": "exact c97c06e4 содержит handlers/voice_transcription.py (ae00c1b5), services/voice_transcripts.py (6f622cd2), set_smart_message_transcript (database.py f7930a3e), voice-evidence путь direct_chat_service (d9567a20), тест test_vmq_v_voice_writer.py (80c7c4b7, 35 функций / 48 passed)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-v/deployed-review-2026-11-15.md §Per-row behavioral verdicts — V-01",
+          "observation": "V-01 Approved на candidate-bound REVIEW: постоянство одного source-ref и монотонная ревизия транскрипта проверены на exact дереве; реального production voice-события не было",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "artifact_sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -627,6 +649,22 @@
         ],
         "owner": "Reviewer (binding) / PM",
         "needs_code": false
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "verdict": "Approved",
+          "level": "candidate-bound REVIEW"
+        },
+        "scope_verified": "source-ref ↔ transcript revision: set_smart_message_transcript пишет status/revision/updated_at как версию одного источника; тесты test_transcript_is_version_of_single_source_ref",
+        "why_not_verified": "обязательное живое production-событие отсутствует: реальных Telegram voice-сообщений не было, состояние БД по доставке не снималось, доставка Writer/провайдера не наблюдалась; deploy-запись 2.58.203 фиксирует outbound_delivered_to_telegram=0",
+        "next_evidence": "реальное голосовое в рабочем чате → read-only проверка transcript_status/revision/текста в прод-БД и captured Writer payload (агент, не владелец)",
+        "owner_action_required": false,
+        "gate_effect": "scoped review-гейт VMQ-V остаётся красным на live-проверке этих строк — это ожидаемый структурный остаток, а не дефект привязки"
       }
     },
     {
@@ -641,8 +679,29 @@
       "acceptance": "2-3 соседних медиа, запрошенных Reply/дейксисом, резолвятся в упорядоченный bundle с реальными source-ref, авторами и хронологией; payload source list показывает порядок, и ни один запрошенный элемент не подменён случайным соседом из хвоста.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева voice-пути на выложенной линии",
+          "observation": "exact c97c06e4 содержит handlers/voice_transcription.py (ae00c1b5), services/voice_transcripts.py (6f622cd2), set_smart_message_transcript (database.py f7930a3e), voice-evidence путь direct_chat_service (d9567a20), тест test_vmq_v_voice_writer.py (80c7c4b7, 35 функций / 48 passed)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-v/deployed-review-2026-11-15.md §Per-row behavioral verdicts — V-02",
+          "observation": "V-02 Approved на candidate-bound REVIEW: группировка 2-3 соседних голосовых, авторы, порядок, reply/quote и межчатовое исключение проверены; реального production-бандла не наблюдалось",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "artifact_sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -661,6 +720,22 @@
         ],
         "owner": "Reviewer (binding) / PM",
         "needs_code": false
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "verdict": "Approved",
+          "level": "candidate-bound REVIEW"
+        },
+        "scope_verified": "bundle 2-3 медиа: resolve_voice_bundle (kind reply|quote|chronology|missing, упорядоченные source-ref, авторы, cross-chat изоляция); тесты двух/трёх соседних голосовых",
+        "why_not_verified": "обязательное живое production-событие отсутствует: реальных Telegram voice-сообщений не было, состояние БД по доставке не снималось, доставка Writer/провайдера не наблюдалась; deploy-запись 2.58.203 фиксирует outbound_delivered_to_telegram=0",
+        "next_evidence": "реальное голосовое в рабочем чате → read-only проверка transcript_status/revision/текста в прод-БД и captured Writer payload (агент, не владелец)",
+        "owner_action_required": false,
+        "gate_effect": "scoped review-гейт VMQ-V остаётся красным на live-проверке этих строк — это ожидаемый структурный остаток, а не дефект привязки"
       }
     },
     {
@@ -675,7 +750,7 @@
       "acceptance": "Готовая расшифровка реально доставлена Writer: зафиксированный финальный payload содержит текст/ref запрошенного медиа, а не только запись в storage или статус STT success.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "REVIEW",
       "external_wait": {
         "state": "WAITING_EXTERNAL",
         "live_check_id": "VOICE L-01",
@@ -684,9 +759,31 @@
         "blocking": false,
         "recorded": "2026-11-09",
         "reclassified": "2026-11-13",
-        "note": "Переклассифицировано 13.11.2026: владелец не является QA. Доставка в Writer проверена тестами, VMQ-V выкачен в 2.58.170, естественные голосовые события наблюдаются агентами — отдельного действия владельца нет. Строка остаётся PENDING из-за отсутствия candidate-bound артефакта evidence/vmq-v/writer-payload-captured.json. Статус в enum гейта — PENDING (WAITING_EXTERNAL не входит в допустимые состояния); внешнее ожидание зафиксировано этим полем."
+        "note": "Переклассифицировано 13.11.2026: владелец не является QA. Доставка в Writer проверена тестами, VMQ-V выкачен в 2.58.170, естественные голосовые события наблюдаются агентами — отдельного действия владельца нет. Строка остаётся PENDING из-за отсутствия candidate-bound артефакта evidence/vmq-v/writer-payload-captured.json. Статус в enum гейта — PENDING (WAITING_EXTERNAL не входит в допустимые состояния); внешнее ожидание зафиксировано этим полем.",
+        "status_2026_11_15": "candidate-bound артефакт появился (vmq-v/deployed-review-2026-11-15.md), поэтому прежняя причина PENDING («нет candidate-bound артефакта») снята. Строка в REVIEW; открыто только живое production-событие, исполнитель — агент."
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева voice-пути на выложенной линии",
+          "observation": "exact c97c06e4 содержит handlers/voice_transcription.py (ae00c1b5), services/voice_transcripts.py (6f622cd2), set_smart_message_transcript (database.py f7930a3e), voice-evidence путь direct_chat_service (d9567a20), тест test_vmq_v_voice_writer.py (80c7c4b7, 35 функций / 48 passed)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-v/deployed-review-2026-11-15.md §Per-row behavioral verdicts — V-03",
+          "observation": "V-03 Approved на candidate-bound REVIEW: ready-текст и source-ref доходят до Writer payload, включая длинный текст; фактическая доставка Writer/провайдеру в проде не наблюдалась",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "artifact_sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -705,6 +802,22 @@
         ],
         "owner": "Reviewer (binding) / PM",
         "needs_code": false
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "verdict": "Approved",
+          "level": "candidate-bound REVIEW"
+        },
+        "scope_verified": "доставка в Writer: prepare_voice_evidence/render_voice_block и _prepare_turn_voice_evidence; тесты test_ready_transcript_text_reaches_payload_block, test_long_transcript_is_delivered_without_silent_cut",
+        "why_not_verified": "обязательное живое production-событие отсутствует: реальных Telegram voice-сообщений не было, состояние БД по доставке не снималось, доставка Writer/провайдера не наблюдалась; deploy-запись 2.58.203 фиксирует outbound_delivered_to_telegram=0",
+        "next_evidence": "реальное голосовое в рабочем чате → read-only проверка transcript_status/revision/текста в прод-БД и captured Writer payload (агент, не владелец)",
+        "owner_action_required": false,
+        "gate_effect": "scoped review-гейт VMQ-V остаётся красным на live-проверке этих строк — это ожидаемый структурный остаток, а не дефект привязки"
       }
     },
     {
@@ -719,8 +832,29 @@
       "acceptance": "При pending/failed/restart/устаревшем кэше ответ честно различает «расшифровка идёт/не удалась» и «сообщения нет», не порождает два конкурирующих ответа и не теряет ready-транскрипт после рестарта; подтверждено race-fixture и живым аналогом.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева voice-пути на выложенной линии",
+          "observation": "exact c97c06e4 содержит handlers/voice_transcription.py (ae00c1b5), services/voice_transcripts.py (6f622cd2), set_smart_message_transcript (database.py f7930a3e), voice-evidence путь direct_chat_service (d9567a20), тест test_vmq_v_voice_writer.py (80c7c4b7, 35 функций / 48 passed)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-v/deployed-review-2026-11-15.md §Per-row behavioral verdicts — V-04",
+          "observation": "V-04 Approved на candidate-bound REVIEW: pending/failed/restart/stale/retry состояния честны и проверены; реального production перехода состояний не наблюдалось",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "artifact_sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -739,6 +873,22 @@
         ],
         "owner": "Reviewer (binding) / PM",
         "needs_code": false
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "verdict": "Approved",
+          "level": "candidate-bound REVIEW"
+        },
+        "scope_verified": "честные состояния: wait_for_voice_bundle, bounded wait, сохранение ready-текста после рестарта, один ответ; тесты restart/pending/failed",
+        "why_not_verified": "обязательное живое production-событие отсутствует: реальных Telegram voice-сообщений не было, состояние БД по доставке не снималось, доставка Writer/провайдера не наблюдалась; deploy-запись 2.58.203 фиксирует outbound_delivered_to_telegram=0",
+        "next_evidence": "реальное голосовое в рабочем чате → read-only проверка transcript_status/revision/текста в прод-БД и captured Writer payload (агент, не владелец)",
+        "owner_action_required": false,
+        "gate_effect": "scoped review-гейт VMQ-V остаётся красным на live-проверке этих строк — это ожидаемый структурный остаток, а не дефект привязки"
       }
     },
     {
@@ -754,7 +904,7 @@
       "acceptance": "Эпизоды строятся по связной Reply-ветке, авторам и временной близости: давние семантически близкие, но независимые реплики не сливаются в одно событие; каждый эпизод имеет ordered_message_refs и source_revision_fingerprint, сверяемые с исходными сообщениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -779,6 +929,39 @@
           "candidate_deployed": false,
           "carried_from_candidate": "80726249",
           "carry_note": "M-01/M-02 подтверждены на 80726249 и перенесены на cfec9a1a: содержательный diff между кандидатами — только M-03-файлы (services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py), services/mca_episodes.py не менялся."
+        },
+        {
+          "type": "test",
+          "ref": "vmq-deployed-review-2026-11-15.md §Checks/§Ledger — прогоны на exact deployed дереве",
+          "observation": "34 теста контракта на exact c97c06e4 (EpisodeView/episode_view_from_row, ordered source_refs, event_start/end только из timestamps источников, canonical участники, source_fingerprint, chat scope); независимая мутация cursor_id=0 сделала watermark-тест красным",
+          "type_detail": "pytest на exact c97c06e4 (пересобранная копия дерева)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "bound_from_candidate": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева и blob-sha",
+          "observation": "services/mca_episodes.py 8dff1cd0 и tests/test_vmq_m1_episode_contract.py 904f88dc байт-идентичны кандидату cfec9a1a в выложенном дереве; поздняя дельта касается только services/mca_episode_jobs.py (S5A/W-07 fencing)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-deployed-review-2026-11-15.md §Ledger — M-01 | VERIFIED | 34 tests + implementation/probe",
+          "observation": "M-01 VERIFIED: реализация и границы эпизодов просмотрены на exact дереве, 34 теста воспроизведены, контрпример с мутацией cursor_id=0 дал красный результат",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "reviewed_candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb"
         }
       ],
       "expected_evidence": [
@@ -833,6 +1016,22 @@
         "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
         "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
         "reverted_by": "только новый owner-input или изменение контракта Architect"
+      },
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "commit": "2677a473",
+          "verdict": "Approved",
+          "ledger": "M-01 | VERIFIED | 34 tests + implementation/probe"
+        },
+        "implementation": "exact deployed code: services/mca_episodes.py 8dff1cd0 (идентичен кандидату), services/mca_episode_jobs.py 5350657b (только fencing), тест 904f88dc",
+        "limitations": "независимое ревью не имело доступа к проду: эффективные флаги и живой архив повторно не читались, полный прогон репозитория не выполнялся. Это ограничение доказательной базы, а не открытый остаток принятия: приёмка снята на exact deployed code.",
+        "not_this": "не закрывает эпик и не закрывает VMQ-NEXT-01/03/04"
       }
     },
     {
@@ -848,7 +1047,7 @@
       "acceptance": "Тематическая линия охватывает несколько независимых эпизодов за разные годы и несёт supporting и counterexample ссылки; на золотых примерах видно покрытие лет и отсутствие выдуманных событий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -873,6 +1072,39 @@
           "candidate_deployed": false,
           "carried_from_candidate": "80726249",
           "carry_note": "M-01/M-02 подтверждены на 80726249 и перенесены на cfec9a1a: содержательный diff между кандидатами — только M-03-файлы (services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py), services/mca_episodes.py не менялся."
+        },
+        {
+          "type": "test",
+          "ref": "vmq-deployed-review-2026-11-15.md §Checks/§Ledger — прогоны на exact deployed дереве",
+          "observation": "многолетние/гэп/контрпримерные утверждения контракта на exact c97c06e4: reply-ветка в горизонте и вне его, параллельные разговоры, overlap без дублей, unknown timestamp → partial/unknown; переиспользовано story 161 passed",
+          "type_detail": "pytest на exact c97c06e4 (пересобранная копия дерева)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "bound_from_candidate": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева и blob-sha",
+          "observation": "контракт эпизодов и тест M1 байт-идентичны кандидату; широкое покрытие production-архива по-прежнему НЕ заявляется (engineering.md §8.1-§8.2, coverage['complete']=False)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-deployed-review-2026-11-15.md §Ledger — M-02 | VERIFIED | multi-year/gap/counterexample assertions",
+          "observation": "M-02 VERIFIED: multi-year/gap/counterexample assertions проверены; честная граница — фикстура не доказывает качество живого архива",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "reviewed_candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb"
         }
       ],
       "expected_evidence": [
@@ -927,6 +1159,22 @@
         "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
         "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
         "reverted_by": "только новый owner-input или изменение контракта Architect"
+      },
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "commit": "2677a473",
+          "verdict": "Approved",
+          "ledger": "M-02 | VERIFIED | multi-year/gap/counterexample assertions"
+        },
+        "implementation": "exact deployed code: services/mca_episodes.py 8dff1cd0 (идентичен кандидату), services/mca_episode_jobs.py 5350657b (только fencing), тест 904f88dc",
+        "limitations": "независимое ревью не имело доступа к проду: эффективные флаги и живой архив повторно не читались, полный прогон репозитория не выполнялся. Это ограничение доказательной базы, а не открытый остаток принятия: приёмка снята на exact deployed code.",
+        "not_this": "не закрывает эпик и не закрывает VMQ-NEXT-01/03/04"
       }
     },
     {
@@ -942,7 +1190,7 @@
       "acceptance": "Продольное представление субъекта собирается инкрементально и версионируемо: edit/delete/rebuild переводят в stale только связанные derived-записи и не выдают удалённое как живой факт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -978,6 +1226,39 @@
           "candidate_deployed": false,
           "carried_from_candidate": "80726249",
           "carry_note": "M-01/M-02 подтверждены на 80726249 и перенесены на cfec9a1a: содержательный diff между кандидатами — только M-03-файлы (services/mca_episode_jobs.py, tests/test_vmq_m1_episode_contract.py), services/mca_episodes.py не менялся."
+        },
+        {
+          "type": "test",
+          "ref": "vmq-deployed-review-2026-11-15.md §Checks/§Ledger — прогоны на exact deployed дереве",
+          "observation": "rebuild/idempotency/watermark на exact c97c06e4: 34 теста + независимая мутация reason_code → красный probe (row reason_code=None); probe exact-дерева подтвердил подавление записи устаревшего владельца и сохранённый watermark после paused",
+          "type_detail": "pytest на exact c97c06e4 (пересобранная копия дерева)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "bound_from_candidate": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева и blob-sha",
+          "observation": "путь M-03 (process_rechecks_with_status, RecheckAssemblyError, reason=assemble_failed) в позднем диффе не участвует; изменён только терминальный fencing в EpisodesBackfillRunner",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-deployed-review-2026-11-15.md §Ledger — M-03 | VERIFIED | rebuild/idempotency/watermark + mutation red",
+          "observation": "M-03 VERIFIED: rebuild/idempotency/watermark + mutation red; fencing-взаимодействие проверено независимым probe на exact дереве",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "reviewed_candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb"
         }
       ],
       "expected_evidence": [
@@ -1029,6 +1310,22 @@
         "what_this_does_not_do": "Не отменяет и не ослабляет обязательные проверки строк: все acceptance-пункты остаются обязательными и доказаны тестами кандидата; REVIEW не превращается в VERIFIED; реальное качество/полнота production-архива по-прежнему НЕ доказаны и не заявляются (engineering.md §8.1-§8.2). Если владелец потребует живой архивный замер — это отдельная agent-owned задача, а не отменённая проверка.",
         "residual_gap": "реальный архив не наблюдался: coverage['complete']=False, качество и полнота эпизодов на живых данных не измерены; кандидат не выложен в production",
         "reverted_by": "только новый owner-input или изменение контракта Architect"
+      },
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "commit": "2677a473",
+          "verdict": "Approved",
+          "ledger": "M-03 | VERIFIED | rebuild/idempotency/watermark + mutation red"
+        },
+        "implementation": "exact deployed code: services/mca_episodes.py 8dff1cd0 (идентичен кандидату), services/mca_episode_jobs.py 5350657b (только fencing), тест 904f88dc",
+        "limitations": "независимое ревью не имело доступа к проду: эффективные флаги и живой архив повторно не читались, полный прогон репозитория не выполнялся. Это ограничение доказательной базы, а не открытый остаток принятия: приёмка снята на exact deployed code.",
+        "not_this": "не закрывает эпик и не закрывает VMQ-NEXT-01/03/04"
       }
     },
     {
@@ -4038,12 +4335,12 @@
       "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §2 и §5",
       "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
       "acceptance": "На тех же 15 исторических вопросах A1–A15 и двух контрольных C1/C2, что в time/independent-sample-709865f6.md (та же копия прод-БД, чат -1002661910336, путь _rag_unified_rows → _build_rag_block), якорь доходит до финального блока не реже 6/15 при эффективном реранке True (значение флага печатается в отчёте), доля 2026 на этих 15 не выше, чем на 709865f6, «по теме» не хуже 8/18, а явно нерелевантных строк строго меньше 28 % нового набора; хотя бы один из A6, A9, A13, A15 доходит векторной ногой либо в трассе стоит честный vector_pool_miss. Провал: рост явно нерелевантных строк при формальном временнóм разнообразии или засчитывание доставки без векторной ноги.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "deployment_state": "implemented_and_deployed",
-      "acceptance_state": "REVIEW_APPROVED_PREDEPLOY_96c8bc72",
-      "unverified_reason": "Кандидат 96c8bc72 одобрен независимым Reviewer на predeploy-стадии REVIEW, но не выложен: прод-поведение (реальный трафик, effective config прода) не наблюдалось, а прямой повтор A1–A15 на этом кандидате не выполнялся. VERIFIED не выставляется до выкладки и postdeploy-наблюдения.",
+      "acceptance_state": "VERIFIED_ON_DEPLOYED_CANDIDATE_2026_11_15",
+      "unverified_reason": "[закрыто 2026-11-15] открытого остатка нет; ограничения: 60-запросный quality set снимался на 96c8bc72 и на c97c06e4 не повторялся, эффективные флаги прода и живой архив повторно не читались",
       "measurement_class_2026_11_11": {
         "class": "a",
         "closable_by_read_only_copy_measurement": true,
@@ -4118,6 +4415,39 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
           "artifact_sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
           "not_production": true
+        },
+        {
+          "type": "test",
+          "ref": "vmq-deployed-review-2026-11-15.md §Checks/§Ledger — прогоны на exact deployed дереве",
+          "observation": "периодный отбор на exact c97c06e4: period-vector 30 passed, NEXT2-батарея 447 passed; независимая мутация порога >=4 → >=1 дала 26 passed / 4 failed (утечка коротких токенов, точный фильтр, периодный запрос, all-short skip)",
+          "type_detail": "pytest на exact c97c06e4 (пересобранная копия дерева)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "bound_from_candidate": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева и blob-sha",
+          "observation": "в services/mca_retrieval_context.py после кандидата 96c8bc72 изменился только срез превью (9b64f2c3); отбор, пороги §2, порядок, дедуп и тайминги не менялись; тест e532c29d байт-идентичен кандидату",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-deployed-review-2026-11-15.md §Ledger — NEXT-02 | VERIFIED | 30 tests + threshold mutation red",
+          "observation": "NEXT-02 VERIFIED: качественные инварианты §A проверены на exact дереве, мутация порога красная; 60-запросный quality set снимался на кандидате и на выложенной линии не повторялся — ограничение записано",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "reviewed_candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab"
         }
       ],
       "expected_evidence": [
@@ -4268,7 +4598,60 @@
         "decision_line_sha256": "e0a63c1162683db7ba01bd592df32da34f19687e21b7900fcc407b61a8ba3c7a",
         "history_note": "прежний указатель corrective_contract в failure_2026_11_13 вёл на architecture-next2-corrected.md; он сохранён как историческая запись, действующий контракт — architecture-next2-quality.md"
       },
-      "unverified_reason_history": "измерение требует прогона 15+2 вопросов на копии прод-БД; такого прогона на 2.58.187 не выполнялось, а единственный реальный ход с исполненной векторной ногой (11:16:50Z) вернул 0 строк, поэтому ни доставки, ни векторной трассы для A6/A9/A13/A15 не наблюдалось. Допуск индекса открыт (ADMITTED_COMPATIBLE), но это допуск, а не замер."
+      "unverified_reason_history": "измерение требует прогона 15+2 вопросов на копии прод-БД; такого прогона на 2.58.187 не выполнялось, а единственный реальный ход с исполненной векторной ногой (11:16:50Z) вернул 0 строк, поэтому ни доставки, ни векторной трассы для A6/A9/A13/A15 не наблюдалось. Допуск индекса открыт (ADMITTED_COMPATIBLE), но это допуск, а не замер.",
+      "acceptance_state_history": [
+        {
+          "value": "REVIEW_APPROVED_PREDEPLOY_96c8bc72",
+          "until": "2026-11-15",
+          "why": "строки приняты на exact deployed кандидате"
+        }
+      ],
+      "unverified_reason_superseded_2026_11_15": "Кандидат 96c8bc72 одобрен независимым Reviewer на predeploy-стадии REVIEW, но не выложен: прод-поведение (реальный трафик, effective config прода) не наблюдалось, а прямой повтор A1–A15 на этом кандидате не выполнялся. VERIFIED не выставляется до выкладки и postdeploy-наблюдения.",
+      "review_scope_2026_11_15": "NEXT-02 VERIFIED: качественные инварианты §A проверены на exact дереве, мутация порога красная; 60-запросный quality set снимался на кандидате и на выложенной линии не повторялся — ограничение записано",
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "commit": "2677a473",
+          "verdict": "Approved",
+          "ledger": "NEXT-02 | VERIFIED | 30 tests + threshold mutation red"
+        },
+        "implementation": "exact deployed code: services/mca_retrieval_context.py a523dd51 (отбор не менялся после 96c8bc72), tests/test_memory_period_vector_leg.py e532c29d",
+        "limitations": "полный прогон репозитория не выполнялся; эффективные флаги прода и живой архив повторно не читались; 60-запросный quality set на выложенной линии не повторялся",
+        "not_this": "не закрывает эпик и не закрывает VMQ-NEXT-01/03/04"
+      },
+      "live_required_reconciliation_2026_11_15": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "live_when_kept": "preprod (поле остаётся историческим; при live_required=false проверка live-доказательства не применяется — та же конвенция, что у M-01..M-03)",
+        "changed_at": "2026-11-15",
+        "by": "PM при биндинге на выложенной линии c97c06e4",
+        "authority": {
+          "contract_path": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+          "contract_lines": "20-34 (paired measurement на read-only копии архива: заморозка corpus/запросов/harness/provider identity; «не выдавать локальную модель/provider за production-equivalent; если production identity недоступна, так и указать»), 48-54 (PASS/FAIL на этом парном наборе), 68 (corrective stage завершается targeted/regression tests + paired quality set + независимое ревью exact candidate), 76-78 (Builder/Reviewer steps — same-copy measurement)",
+          "review_artifact": {
+            "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+            "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+            "commit": "2677a473dba9b7ee1cb415a160777cf578e4d9a8",
+            "verdict": "Approved",
+            "level": "VERIFIED для exact deployed c97c06e4"
+          },
+          "precedent": "та же bookkeeping-сверка, что live_required_reconciliation у M-01..M-03 (флаг снят до запуска гейта по замороженному контракту слайса, а не подгонка evidence)",
+          "row_acceptance_basis": "acceptance обеих строк сам задаёт измерение на копии прод-БД: NEXT-02 — «та же копия прод-БД, чат -1002661910336, путь _rag_unified_rows → _build_rag_block … значение флага печатается в отчёте»; NEXT-05 — «на тех же 17 вопросах … на той же копии … замер прод-пути вектора», то есть прод-путь кода, а не прод-рантайм",
+          "no_live_production_requirement_found": "ни одна строка контракта 20-34/48-54/68/76-78 и ни одна acceptance-клауза не требуют live production telemetry или реального production-хода для NEXT-02/05"
+        },
+        "why": "критерий качества задан как парное измерение на неизменной read-only копии архива с замороженными corpus/запросами/harness и явной оговоркой о не-production identity; production-телеметрия и реальный ход для этой строки контрактом не предусмотрены",
+        "no_postrelease_wait": "postrelease_wait не добавляется: в этом контракте нет отложенного живого события, которого можно ждать. Любая формулировка «ждём живой ход» была бы выдуманным ожиданием",
+        "what_this_does_not_do": "не отменяет обязательных проверок строки и не превращает ограничение охвата в приёмку продукции: заявление о качестве/латентности продукции не делается, ограничение записано отдельно",
+        "reverted_by": "только новый owner-input или изменение контракта Architect'а",
+        "replaces_note": "live_evidence_status_2026_11_15 (утратила силу: она описывала красный гейт по live-требованию)"
+      },
+      "production_scope_limitation_2026_11_15": "реальный production-архив и effective production flags в рамках ревью повторно не читались; заявление о качестве продукции не делается — это граница охвата контракта (line 22), а не открытый остаток принятия"
     },
     {
       "source_id": "MAN-NEXT-03",
@@ -4618,13 +5001,13 @@
       "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §1 и §5",
       "stage_design_sha256": "b971e6c4a79b65f2425d552b9b48283350f75f3f97abf60868dbf65d4f902fb1",
       "acceptance": "Латентность измерена, а не оценена: на тех же 17 вопросах сняты p50 и p95 сборки блока (_build_rag_block) до и после включения векторной ноги, отдельно knn_ms и fts_ms, при эффективном реранке True (значение флага в отчёте), и p95 периодного вызова не превышает +400 мс к текущему периодному вызову на той же копии; при превышении ступень не принимается, а k не увеличивается. Оценка «+110 мс лексики» вместо замера прод-пути вектора не принимается.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "deployment_state": "implemented_and_deployed",
-      "acceptance_state": "REVIEW_APPROVED_PREDEPLOY_96c8bc72",
+      "acceptance_state": "VERIFIED_ON_DEPLOYED_CANDIDATE_2026_11_15",
       "review_scope_2026_11_13": "REVIEW: измерение и аддитивные поля есть на кандидате c0de0c2b, p95 проходит; отдельного Approved именно по этой строке нет (artifact несёт общий вердикт Needs Fixes по NEXT-02 и прямо разрешает NEXT-05 пройти ревью отдельно). Поэтому REVIEW, а не VERIFIED.",
-      "unverified_reason": "векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false), но замер прод-пути вектора не снят: живого хода с вектором не было (единственный ход с ногой вернул 0 строк) и прогон на копии прод-БД не выполнялся; подставлять оценку вместо измерения запрещено контрактом ступени.",
+      "unverified_reason": "[закрыто 2026-11-15] открытого остатка нет; ограничение: постдеп-замер таймингов на реальном трафике не снимался (поля в проде есть с 96c8bc72)",
       "measurement_class_2026_11_11": {
         "class": "b",
         "closable_by_read_only_copy_measurement": false,
@@ -4687,6 +5070,39 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
           "artifact_sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
           "not_production": true
+        },
+        {
+          "type": "test",
+          "ref": "vmq-deployed-review-2026-11-15.md §Checks/§Ledger — прогоны на exact deployed дереве",
+          "observation": "аддитивные knn_ms/fts_ms и честные None+reason на exact c97c06e4: period-vector 30 passed, caps 20 passed; утверждения о измеренных таймингах и отсутствии фиктивных причин прочитаны независимо",
+          "type_detail": "pytest на exact c97c06e4 (пересобранная копия дерева)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "bound_from_candidate": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность дерева и blob-sha",
+          "observation": "поля таймингов и их заполнение в коде присутствуют в выложенном дереве; поздняя дельта 9b64f2c3 (срез превью) тайминги и поля не меняет",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-deployed-review-2026-11-15.md §Ledger — NEXT-05 | VERIFIED | measured timings and None+reason assertions",
+          "observation": "NEXT-05 VERIFIED: measured timings и None+reason assertions проверены; постдеп-замер на реальном трафике не снимался — ограничение записано",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "artifact_sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true,
+          "reviewed_candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab"
         }
       ],
       "expected_evidence": [
@@ -4736,7 +5152,60 @@
         "not_measured": "прод-телеметрия knn_ms/fts_ms не читалась: полей нет в проде 23477658",
         "artifact": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-summary.json",
         "status_effect": "REVIEW сохраняется и подтверждён одобрением на 96c8bc72; VERIFIED — только после выкладки"
-      }
+      },
+      "acceptance_state_history": [
+        {
+          "value": "REVIEW_APPROVED_PREDEPLOY_96c8bc72",
+          "until": "2026-11-15",
+          "why": "строки приняты на exact deployed кандидате"
+        }
+      ],
+      "unverified_reason_superseded_2026_11_15": "векторная нога в проде допущена (ADMITTED_COMPATIBLE, needs_probe=false), но замер прод-пути вектора не снят: живого хода с вектором не было (единственный ход с ногой вернул 0 строк) и прогон на копии прод-БД не выполнялся; подставлять оценку вместо измерения запрещено контрактом ступени.",
+      "review_scope_2026_11_15": "NEXT-05 VERIFIED: measured timings и None+reason assertions проверены; постдеп-замер на реальном трафике не снимался — ограничение записано",
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+          "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+          "commit": "2677a473",
+          "verdict": "Approved",
+          "ledger": "NEXT-05 | VERIFIED | measured timings and None+reason assertions"
+        },
+        "implementation": "exact deployed code: services/mca_retrieval_context.py a523dd51 (отбор не менялся после 96c8bc72), tests/test_memory_period_vector_leg.py e532c29d",
+        "limitations": "полный прогон репозитория не выполнялся; эффективные флаги прода и живой архив повторно не читались; 60-запросный quality set на выложенной линии не повторялся",
+        "not_this": "не закрывает эпик и не закрывает VMQ-NEXT-01/03/04"
+      },
+      "live_required_reconciliation_2026_11_15": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "live_when_kept": "preprod (поле остаётся историческим; при live_required=false проверка live-доказательства не применяется — та же конвенция, что у M-01..M-03)",
+        "changed_at": "2026-11-15",
+        "by": "PM при биндинге на выложенной линии c97c06e4",
+        "authority": {
+          "contract_path": "plans/features/vmq-onto-01/architecture-next2-quality.md",
+          "contract_lines": "20-34 (paired measurement на read-only копии архива: заморозка corpus/запросов/harness/provider identity; «не выдавать локальную модель/provider за production-equivalent; если production identity недоступна, так и указать»), 48-54 (PASS/FAIL на этом парном наборе), 68 (corrective stage завершается targeted/regression tests + paired quality set + независимое ревью exact candidate), 76-78 (Builder/Reviewer steps — same-copy measurement)",
+          "review_artifact": {
+            "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+            "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+            "commit": "2677a473dba9b7ee1cb415a160777cf578e4d9a8",
+            "verdict": "Approved",
+            "level": "VERIFIED для exact deployed c97c06e4"
+          },
+          "precedent": "та же bookkeeping-сверка, что live_required_reconciliation у M-01..M-03 (флаг снят до запуска гейта по замороженному контракту слайса, а не подгонка evidence)",
+          "row_acceptance_basis": "acceptance обеих строк сам задаёт измерение на копии прод-БД: NEXT-02 — «та же копия прод-БД, чат -1002661910336, путь _rag_unified_rows → _build_rag_block … значение флага печатается в отчёте»; NEXT-05 — «на тех же 17 вопросах … на той же копии … замер прод-пути вектора», то есть прод-путь кода, а не прод-рантайм",
+          "no_live_production_requirement_found": "ни одна строка контракта 20-34/48-54/68/76-78 и ни одна acceptance-клауза не требуют live production telemetry или реального production-хода для NEXT-02/05"
+        },
+        "why": "приёмка требует измеренной латентности прод-пути вектора на той же копии (p50/p95, отдельно knn_ms/fts_ms, порог +400 мс), а не production-телеметрии; измерение выполнено в парном harness и перенесено на выложенный код независимым ревью",
+        "no_postrelease_wait": "postrelease_wait не добавляется: в этом контракте нет отложенного живого события, которого можно ждать. Любая формулировка «ждём живой ход» была бы выдуманным ожиданием",
+        "what_this_does_not_do": "не отменяет обязательных проверок строки и не превращает ограничение охвата в приёмку продукции: заявление о качестве/латентности продукции не делается, ограничение записано отдельно",
+        "reverted_by": "только новый owner-input или изменение контракта Architect'а",
+        "replaces_note": "live_evidence_status_2026_11_15 (утратила силу: она описывала красный гейт по live-требованию)"
+      },
+      "production_scope_limitation_2026_11_15": "постдеп-замер таймингов на реальном трафике не снимался; поля существуют в проде с 96c8bc72, но production-метрика не заявляется"
     },
     {
       "source_id": "MAN-GROUNDS-01",
@@ -9304,8 +9773,29 @@
       "acceptance": "Дельта-карта по фактическому HEAD, активным MEMORY-задачам и production-конфигурации зафиксирована: что уже сделано, что в работе, что добавляется; событийный контракт и тестовые fixtures определены; дубли MEMORY-06/07/08 не созданы, очередь не переставлена без обоснования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "ref": "vmq-binding-c97c06e4-2026-11-15.md §1 — идентичность выложенного дерева и контракт ONTO-A",
+          "observation": "exact c97c06e4: services/memory_contracts.py присутствует (895f733d), services/semantic_contracts.py отсутствует — O-01/O-02 ещё не реализованы; delta-карта audit-head.md (12 разделов) и ARCH_REUSE_CONFIRMED зафиксированы",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/vmq-binding-c97c06e4-2026-11-15.md",
+          "artifact_sha256": "c9c0493898f4f2ed73beaf3a279f372c799016e427d9905069711a1fbfebb0d0",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "vmq-v/deployed-review-2026-11-15.md §Per-row behavioral verdicts — VMQ-A-01",
+          "observation": "VMQ-A-01 Approved на candidate-bound REVIEW: identity выложенного дерева и deployed-манифеста связаны; реальных Telegram-событий и production-доставки не использовалось",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "artifact_sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "candidate_deployed": true
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -9322,6 +9812,25 @@
         ],
         "owner": "Reviewer (binding) / PM",
         "needs_code": false
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed_version": "2.58.203",
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+          "verdict": "Approved",
+          "level": "candidate-bound REVIEW"
+        },
+        "contract": {
+          "path": "plans/features/vmq-onto-01/evidence/onto-a-contract-confirmation-2026-11-15.md",
+          "sha256": "e5f89d2180d661d7ec7268b574e32f8233537f8bdda6c01f52234d5e9c2910cd",
+          "decision": "ARCH_REUSE_CONFIRMED"
+        },
+        "why_not_verified": "артефакт ревью ограничен candidate-bound REVIEW и не опирается на реальные production-события; VERIFIED без них не заявляется",
+        "doc_pin_note": "audit-head.md остаётся исторически привязанным к HEAD c816e83c (2.58.168); актуальная база — c97c06e4, зафиксирована в plan.md §14 (поправка 15.11.2026) и в slice_candidate_bindings.vmq_a",
+        "gate_effect": "VMQ-A-01 в REVIEW; scoped deploy/release-гейт ONTO-A останется красным на этом ребре до VERIFIED"
       }
     },
     {
@@ -11637,7 +12146,7 @@
   "slice_candidate_bindings": {
     "m1": {
       "slice": "VMQ-M1",
-      "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+      "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
       "candidate_short": "cfec9a1a",
       "docs_commit": "d2c95ca296edb061f5698de500f87bd34d5430f4",
       "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
@@ -11662,7 +12171,7 @@
           "requirements-map.json#reconciliation_2026_11_15"
         ]
       },
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "recorded_at": "2026-11-13",
       "why_review_not_verified": "[историческая причина, 13.11.2026] Кандидат слайса не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки M-01..M-03 остаются REVIEW с candidate-bound независимым ревью и привязкой к cfec9a1a.",
       "reason_current_2026_11_15": "Причина сменилась: кандидат ВЫЛОЖЕН (предок c97c06e4), но VERIFIED по-прежнему не ставится — нет фокусных прогонов на точном дереве c97c06e4 и нет одобрения Reviewer на позднюю SMART-дельту (f6db0913) с привязкой к c97c06e4. Гейт сопоставляет evidence[].candidate_commit с кандидатом буквально, поэтому перенос статуса без этих двух артефактов был бы выдуманным доказательством. Рецепт перевода — reconciliation_2026_11_15.promotion_recipe.",
@@ -11808,9 +12317,71 @@
           ],
           "exit": 1,
           "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-m1-c97c06e4-diagnostic-2026-11-15.txt",
-          "reading": "Ожидаемо красный диагностический прогон: он фиксирует ровно то, чего не хватает для VERIFIED на выложенной линии (привязка к c97c06e4), и не является оценкой качества M1"
+          "reading": "Ожидаемо красный диагностический прогон: он фиксирует ровно то, чего не хватает для VERIFIED на выложенной линии (привязка к c97c06e4), и не является оценкой качества M1",
+          "superseded_by": "gates_2026_11_15.review_deployed_c97c06e4 — после биндинга доказательств review-гейт на c97c06e4 зелёный; прежний диагностический вывод оставлен как история состояния до привязки"
+        },
+        "review_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M1 --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-m1-c97c06e4-2026-11-15.txt",
+          "exit": 0,
+          "output": "stage=review inventory=380 manual=69 scoped=3 errors=0",
+          "reading": "Строки M-01..M-03 VERIFIED на выложенном кандидате: state, candidate-bound implementation evidence и независимый approval сходятся на c97c06e4"
+        },
+        "deploy_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M1 --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-m1-c97c06e4-2026-11-15.txt",
+          "exit": 0,
+          "output": "stage=deploy inventory=380 manual=69 scoped=3 errors=0",
+          "reading": "Допуск к выкладке по структуре и доказательствам на выложенном кандидате; замыкание зависимостей у среза пусто"
+        },
+        "release_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage release --slice VMQ-M1 --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --deployed-commit c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-m1-c97c06e4-2026-11-15.txt",
+          "exit": 0,
+          "output": "stage=release inventory=380 manual=69 scoped=3 errors=0",
+          "reading": "Scoped release для VMQ-M1 зелёный: все три строки VERIFIED на выложенном SHA, deployed == candidate, живых обязательств у строк нет. Это приёмка среза, а не DONE эпика"
         }
-      }
+      },
+      "reviewed_candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+      "candidate_commit_history": [
+        {
+          "value": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+          "role": "одобренный кандидат среза VMQ-M1 (ветка vmq/m1, база 2.58.198)",
+          "until": "2026-11-15"
+        }
+      ],
+      "status_history": [
+        {
+          "at": "2026-11-13",
+          "from": "PENDING",
+          "to": "REVIEW",
+          "event": "кандидат cfec9a1a прошёл независимое ревью"
+        },
+        {
+          "at": "2026-11-15",
+          "from": "REVIEW",
+          "to": "VERIFIED",
+          "event": "независимое ревью на exact deployed c97c06e4 (vmq-deployed-review-2026-11-15.md, commit 2677a473)"
+        }
+      ],
+      "verified_at": "2026-11-15",
+      "review_deployed_2026_11_15": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+        "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+        "commit": "2677a473dba9b7ee1cb415a160777cf578e4d9a8",
+        "verdict": "Approved",
+        "reviewer": "независимая сессия Reviewer (deployed-delta review)",
+        "ledger": {
+          "M-01": "VERIFIED",
+          "M-02": "VERIFIED",
+          "M-03": "VERIFIED"
+        },
+        "reproduced": "exact c97c06e4: M1 contract 34 passed; story 161 / memory 295 / caps 20 переиспользованы; контроль 5 failed / 3 passed — предсуществующий fb_retries(sent=...)",
+        "mutations": "cursor_id=0 → красный watermark-тест; reason_code → красный probe; probe exact-дерева ALL PROBES PASSED (fencing: запись устаревшего владельца подавлена, watermark после paused сохранён)",
+        "why_verified": "reviewed exact deployed code и воспроизведённые прогоны на нём; поздние SMART-дельты признаны не меняющими механизм M1",
+        "limitations": "прода в рамках ревью не читали: эффективные флаги и живой архив повторно не снимались, полный прогон репозитория не выполнялся"
+      },
+      "reason_current_note_2026_11_15": "reason_current_2026_11_15 закрыт: фокусные прогоны на exact c97c06e4 и одобрение Reviewer на позднюю SMART-дельту получены (evidence/vmq-deployed-review-2026-11-15.md). Статус среза — VERIFIED."
     },
     "next2": {
       "slice": "VMQ-MEM-NEXT",
@@ -11818,7 +12389,7 @@
         "VMQ-NEXT-02",
         "VMQ-NEXT-05"
       ],
-      "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+      "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
       "candidate_short": "96c8bc72",
       "docs_commit": "a34929250798f149dbbfe0c7806cd1792d4721d",
       "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
@@ -11843,7 +12414,7 @@
           "requirements-map.json#reconciliation_2026_11_15"
         ]
       },
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "recorded_at": "2026-11-13",
       "why_review_not_verified": "[историческая причина, 13.11.2026] Кандидат не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки остаются REVIEW с candidate-bound независимым ревью и привязкой к 96c8bc72.",
       "reason_current_2026_11_15": "Причина сменилась: кандидат ВЫЛОЖЕН (предок c97c06e4), но VERIFIED по-прежнему не ставится — нет фокусных прогонов на точном дереве c97c06e4 и нет одобрения Reviewer на позднюю SMART-дельту 9b64f2c3 (снятие среза превью) с привязкой к c97c06e4. Дополнительно: scoped release-гейт среза останется красным по замыканию зависимостей (MEM-TIME→MEM→M2 не VERIFIED) независимо от качества NEXT-02/05. Постдеп-замер NEXT-05 на проде технически возможен (поля knn_ms/fts_ms пришли с 96c8bc72) и ещё не снимался.",
@@ -12051,6 +12622,241 @@
           "exit": 1,
           "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-next2-96c8bc72-2026-11-15.txt",
           "why_red": "31 ошибка — замыкание зависимостей графа (VMQ-A-01, M-01..M-03/M-04..M-05/O-04, VMQ-MEM-01..08, VMQ-TIME-01..09, O-01..O-03, V-01..V-04 не VERIFIED) плюс те же три остатка среза; это структурное «срез не выпускается отдельно от незавершённых зависимостей», а не провал качества NEXT-02/05"
+        },
+        "review_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-next2-c97c06e4-2026-11-15.txt",
+          "exit": 1,
+          "output": [
+            "FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "FAIL: VMQ-NEXT-02: live requirement lacks evidence for stage review",
+            "FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate",
+            "FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "FAIL: VMQ-NEXT-05: live requirement lacks evidence for stage review",
+            "stage=review inventory=380 manual=69 scoped=5 errors=5"
+          ],
+          "reading": "NEXT-02/05 приняты VERIFIED (state, реализация и approval на c97c06e4 сходятся), но у них live_required=true: прединсталляционная live-проверка не снята, поэтому гейт честно требует живое доказательство. NEXT-01/03/04 — открытые строки среза, а не дефект привязки",
+          "superseded_by": "live_required_reconciliation_2026_11_15: после снятия live-требования по контракту architecture-next2-quality.md строки NEXT-02/05 больше не дают live-ошибки; актуальные выводы — файлы *-after-live-reconciliation-2026-11-15.txt"
+        },
+        "deploy_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-next2-c97c06e4-2026-11-15.txt",
+          "exit": 1,
+          "output_summary": "stage=deploy inventory=380 manual=69 scoped=5 errors=33",
+          "reading": "33 ошибки: 31 — замыкание зависимостей графа (MEM-TIME→MEM→M2→ONTO-B/ONTO-A/VMQ-A→V не VERIFIED), плюс live-требование NEXT-02/05 и открытые NEXT-01/03/04. Структурное «срез не выпускается отдельно от незавершённых зависимостей», не провал качества",
+          "superseded_by": "live_required_reconciliation_2026_11_15: после снятия live-требования по контракту architecture-next2-quality.md строки NEXT-02/05 больше не дают live-ошибки; актуальные выводы — файлы *-after-live-reconciliation-2026-11-15.txt"
+        },
+        "release_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage release --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --deployed-commit c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-2026-11-15.txt",
+          "exit": 1,
+          "output_summary": "stage=release inventory=380 manual=69 scoped=5 errors=33",
+          "reading": "release-гейт среза красный по двум независимым причинам: незакрытое замыкание зависимостей и отсутствие живого/постдеп-доказательства у NEXT-02/05. Ни одна из них не отменяет VERIFIED на выложенном кандидате, но и не позволяет объявить срез выпущенным",
+          "superseded_by": "live_required_reconciliation_2026_11_15: после снятия live-требования по контракту architecture-next2-quality.md строки NEXT-02/05 больше не дают live-ошибки; актуальные выводы — файлы *-after-live-reconciliation-2026-11-15.txt"
+        }
+      },
+      "reviewed_candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+      "candidate_commit_history": [
+        {
+          "value": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+          "role": "одобренный кандидат ступени VMQ-MEM-NEXT (ветка vmq/next2-final, база 2.58.198)",
+          "until": "2026-11-15"
+        }
+      ],
+      "status_history": [
+        {
+          "at": "2026-11-13",
+          "from": "FAILED",
+          "to": "REVIEW",
+          "event": "новый quality-контракт + кандидат 96c8bc72 прошёл независимое ревью"
+        },
+        {
+          "at": "2026-11-15",
+          "from": "REVIEW",
+          "to": "VERIFIED",
+          "event": "независимое ревью на exact deployed c97c06e4 (vmq-deployed-review-2026-11-15.md, commit 2677a473)"
+        }
+      ],
+      "verified_at": "2026-11-15",
+      "verified_rows": [
+        "VMQ-NEXT-02",
+        "VMQ-NEXT-05"
+      ],
+      "open_rows": [
+        "VMQ-NEXT-01",
+        "VMQ-NEXT-03",
+        "VMQ-NEXT-04"
+      ],
+      "review_deployed_2026_11_15": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md",
+        "sha256": "d6580668a66650ec610c96d76ad50f38584a01e1c88e494f8e0074ada1e8c811",
+        "commit": "2677a473dba9b7ee1cb415a160777cf578e4d9a8",
+        "verdict": "Approved",
+        "reviewer": "независимая сессия Reviewer (deployed-delta review)",
+        "ledger": {
+          "VMQ-NEXT-02": "VERIFIED",
+          "VMQ-NEXT-05": "VERIFIED"
+        },
+        "reproduced": "exact c97c06e4: period-vector 30 passed; NEXT2 battery 447 passed; caps 20 passed",
+        "mutations": "порог NEXT2 >=4 → >=1 дал 26 passed / 4 failed (утечка коротких токенов, точный фильтр, периодный запрос, all-short skip)",
+        "why_verified": "reviewed exact deployed code; поздняя дельта 9b64f2c3 меняет только срез превью, не отбор/пороги/тайминги",
+        "limitations": "60-запросный quality set снимался на кандидате 96c8bc72 и на выложенной линии не повторялся; эффективные флаги прода и живой архив повторно не читались; полный прогон репозитория не выполнялся"
+      },
+      "reason_current_note_2026_11_15": "reason_current_2026_11_15 закрыт для NEXT-02/NEXT-05: прогоны на exact c97c06e4 и одобрение Reviewer получены. Остаток среза — NEXT-01 (postrelease-наблюдение), NEXT-03 (candidate-bound положительный кейс), NEXT-04 (положительный архивный случай); scoped release-гейт остаётся красным по замыканию зависимостей MEM-TIME→MEM→M2.",
+      "live_required_reconciliation_2026_11_15": "NEXT-02/05: live_required true → false по замороженному quality-контракту (строки 20-34, 48-54, 68, 76-78); postrelease_wait не добавлялся. Статус строк остаётся VERIFIED на exact deployed c97c06e4.",
+      "gates_after_live_reconciliation_2026_11_15": {
+        "review": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate",
+            "FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "stage=review inventory=380 manual=69 scoped=5 errors=3"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
+          "reading": "live-ошибок у NEXT-02/05 больше нет: остались только реальные открытые строки среза — NEXT-01 (пост-релизное наблюдение), NEXT-03 (нет candidate-bound кейса), NEXT-04 (нет положительного архивного случая)"
+        },
+        "deploy": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "output_summary": "stage=deploy inventory=380 manual=69 scoped=5 errors=31",
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
+          "reading": "28 ошибок замыкания зависимостей графа + те же 3 открытые строки; live-ошибок нет"
+        },
+        "release": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage release --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --deployed-commit c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "output_summary": "stage=release inventory=380 manual=69 scoped=5 errors=31",
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
+          "reading": "те же 28 зависимостей + NEXT-01/03/04 не VERIFIED; live-ошибок нет. VERIFIED NEXT-02/05 на выложенном коде не отменяется, но срез не выпускается отдельно от незавершённых зависимостей"
+        }
+      }
+    },
+    "vmq_v": {
+      "slice": "VMQ-V",
+      "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "candidate_short": "c97c06e4",
+      "candidate_kind": "deployed_line_tip",
+      "deployed": true,
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed_version": "2.58.203",
+      "branch": "release/smart-corrective-01",
+      "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
+      "rows": [
+        "V-01",
+        "V-02",
+        "V-03",
+        "V-04"
+      ],
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "historical_deployment": {
+        "shipped_in": "2.58.170 @ 42f068df22edeeb82062525446b71d7022a6006b (release/2.58.170); миграция 44 → 45 (transcript_status/transcript_revision/transcript_updated_at)",
+        "earlier_ref": "plans/features/mod-acl-ux-01/evidence/m5a/m5a-deploy-2.58.170.md",
+        "earlier_state": "EVIDENCE_GAP (до 13.11.2026): каталога evidence/vmq-v/ не было; 13.11.2026 каталог и код найдены на релизной линии, статус заменён на EVIDENCE_AVAILABLE_ON_RELEASE_LINE",
+        "kept_because": "историческая запись выката не переписана; текущая привязка — c97c06e4"
+      },
+      "tree_identity": {
+        "present": [
+          "services/voice_transcripts.py (6f622cd2)",
+          "handlers/voice_transcription.py (ae00c1b5)",
+          "services/database.py::set_smart_message_transcript (f7930a3e)",
+          "services/direct_chat_service.py voice-evidence путь (d9567a20)",
+          "tests/test_vmq_v_voice_writer.py (80c7c4b7, 35 функций, 48 passed)"
+        ],
+        "absent": [
+          "services/voice_transcription.py (модуль называется handlers/voice_transcription.py)"
+        ],
+        "how_checked": "git rev-parse c97c06e4:<path>; см. evidence/gates/vmq-binding-c97c06e4-2026-11-15.md §1"
+      },
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+        "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+        "verdict": "Approved",
+        "scope": "candidate-bound REVIEW для VMQ-A-01 и V-01..V-04; VERIFIED не заявляется",
+        "reviewer": "независимая сессия Reviewer (deployed-candidate review)",
+        "recorded_at": "2026-11-15"
+      },
+      "why_review_not_verified": "Реализация и тесты подтверждены на exact deployed дереве, но обязательного живого события не было: ни одного реального Telegram voice-сообщения, production-состояние БД по доставке не снималось, доставка Writer/провайдера не наблюдалась; deploy-запись 2.58.203 фиксирует outbound_delivered_to_telegram=0. VERIFIED без реального события был бы выдумкой.",
+      "next_evidence": "реальное голосовое в рабочем чате → read-only проверка transcript_status/revision/текста в прод-БД и captured Writer payload; исполнитель — агент, владелец не привлекается",
+      "gate_expectation": "scoped review-гейт остаётся красным ровно на live-проверке V-01..V-04 (live_required=true, live_when=preprod); это не ошибка привязки",
+      "gates_2026_11_15": {
+        "review_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-V --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-vmq-v-c97c06e4-2026-11-15.txt",
+          "exit": 1,
+          "output": [
+            "FAIL: V-01: live requirement lacks evidence for stage review",
+            "FAIL: V-02: live requirement lacks evidence for stage review",
+            "FAIL: V-03: live requirement lacks evidence for stage review",
+            "FAIL: V-04: live requirement lacks evidence for stage review",
+            "stage=review inventory=380 manual=69 scoped=4 errors=4"
+          ],
+          "reading": "Привязка состоялась: ни одной ошибки «no evidence bound» или «missing approval» нет. Красное — ровно обязательная live-проверка (live_required=true, live_when=preprod): реального голосового события и доставки Writer в проде не было"
+        },
+        "deploy_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-V --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-vmq-v-c97c06e4-2026-11-15.txt",
+          "exit": 1,
+          "output": [
+            "FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED",
+            "FAIL: V-01: live requirement lacks evidence for stage deploy",
+            "FAIL: V-02: live requirement lacks evidence for stage deploy",
+            "FAIL: V-03: live requirement lacks evidence for stage deploy",
+            "FAIL: V-04: live requirement lacks evidence for stage deploy",
+            "stage=deploy inventory=380 manual=69 scoped=4 errors=5"
+          ],
+          "reading": "Те же четыре live-ошибки плюс одна зависимость: VMQ-A-01 остаётся REVIEW. Ошибок привязки нет"
+        }
+      }
+    },
+    "vmq_a": {
+      "slice": "VMQ-A",
+      "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "candidate_short": "c97c06e4",
+      "candidate_kind": "deployed_line_tip",
+      "deployed": true,
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed_version": "2.58.203",
+      "branch": "release/smart-corrective-01",
+      "rows": [
+        "VMQ-A-01"
+      ],
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "contract": {
+        "path": "plans/features/vmq-onto-01/evidence/onto-a-contract-confirmation-2026-11-15.md",
+        "sha256": "e5f89d2180d661d7ec7268b574e32f8233537f8bdda6c01f52234d5e9c2910cd",
+        "decision": "ARCH_REUSE_CONFIRMED",
+        "what": "нового cross-module решения для ONTO-A не требуется; O-01/O-02 реализуются в пределах замороженного architecture-onto-ab.md, аддитивно и read-only",
+        "checked_on": "master HEAD 3b095c33 и production c97c06e4",
+        "boundaries": "write scope ONTO-A — services/semantic_contracts.py, services/message_identity.py, services/summary_aliases.py, tests/test_semantic_contracts.py; ONTO-B и M2 остаются последующими потребителями"
+      },
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+        "sha256": "999e492a6865a13e9518b76f5c7811127c85fd4538fce3012c73526f8b4846b3",
+        "verdict": "Approved",
+        "scope": "VMQ-A-01 на candidate-bound REVIEW: identity дерева и deployed-манифест связаны; реальных Telegram-событий и production-доставки не использовалось",
+        "reviewer": "независимая сессия Reviewer (deployed-candidate review)",
+        "recorded_at": "2026-11-15"
+      },
+      "why_review_not_verified": "Delta-карта и контракт событий/fixtures подтверждены, идентичность выложенного дерева связана; VERIFIED не заявляется, потому что артефакт ревью прямо ограничен candidate-bound REVIEW и не опирается на реальные production-события.",
+      "doc_note": "audit-head.md остаётся исторически привязанным к HEAD c816e83c (2.58.168); актуальная база привязки — c97c06e4 (см. plan.md §14, поправка 15.11.2026). Файл Architect'а не переписывался.",
+      "gates_2026_11_15": {
+        "review_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-A --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-vmq-a-c97c06e4-2026-11-15.txt",
+          "exit": 0,
+          "output": "stage=review inventory=380 manual=69 scoped=1 errors=0",
+          "reading": "VMQ-A-01 REVIEW на выложенном кандидате: state, candidate-bound inspection/review evidence и approval сходятся; live-обязательства у строки нет"
+        },
+        "deploy_deployed_c97c06e4": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-A --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-vmq-a-c97c06e4-2026-11-15.txt",
+          "exit": 0,
+          "output": "stage=deploy inventory=380 manual=69 scoped=1 errors=0",
+          "reading": "Структурный допуск по доказательствам; замыкание зависимостей у VMQ-A пусто. VERIFIED строки не заявляется"
         }
       }
     }
@@ -12260,7 +13066,63 @@
         "statement": "реальная проверка IBM hardware QPU требует token/instance владельца и доступной квоты Open Plan; до этого Q-04 и QM-08 остаются PENDING + blocked_external=true, симулятор не засчитывается",
         "not_blocking_this_line": "остальные провайдеры, пул, fallback, purity и replay реализуемы и проверяемы сейчас; линия памяти/ONTO от этого не зависит"
       }
-    ]
+    ],
+    "resolved_by_2026_11_15": {
+      "at": "2026-11-15",
+      "what": "оба остатка из what_is_not_proven закрыты для M1/NEXT2: фокусные прогоны на exact c97c06e4 и одобрение Reviewer на дельту получены (vmq-deployed-review-2026-11-15.md, commit 2677a473)",
+      "still_open": "production-состояния строк по-прежнему не наблюдались: NEXT-01 ждёт реального хода; V-01..V-04 ждут реального голосового события; NEXT-03/04 ждут своих кейсов"
+    },
+    "status_effect_after_binding_2026_11_15": "M-01..M-03 и VMQ-NEXT-02/05 переведены в VERIFIED на выложенном кандидате c97c06e4; V-01..V-04 и VMQ-A-01 переведены в REVIEW с candidate-bound доказательствами; VMQ-NEXT-01/03/04 остаются открытыми. Эпик не закрыт и не объявляется закрытым.",
+    "rows_state_after_binding_2026_11_15": {
+      "M-01": "VERIFIED",
+      "M-02": "VERIFIED",
+      "M-03": "VERIFIED",
+      "VMQ-NEXT-02": "VERIFIED",
+      "VMQ-NEXT-05": "VERIFIED",
+      "V-01": "REVIEW",
+      "V-02": "REVIEW",
+      "V-03": "REVIEW",
+      "V-04": "REVIEW",
+      "VMQ-A-01": "REVIEW",
+      "VMQ-NEXT-01": "PENDING",
+      "VMQ-NEXT-03": "REVIEW",
+      "VMQ-NEXT-04": "PENDING"
+    },
+    "gate_artifacts_after_binding_2026_11_15": [
+      "plans/features/vmq-onto-01/evidence/gates/plan-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-vmq-a-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-vmq-a-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-vmq-v-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-vmq-v-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-m1-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-m1-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/release-m1-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-next2-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-next2-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt"
+    ],
+    "gate_summary_after_binding_2026_11_15": {
+      "VMQ-A": "review errors=0, deploy errors=0 — привязка REVIEW чистая",
+      "VMQ-V": "review errors=4, deploy errors=5 — только live-доказательства V-01..V-04 и зависимость VMQ-A-01; ошибок привязки нет",
+      "VMQ-M1": "review errors=0, deploy errors=0, release errors=0 — срез принят на выложенном кандидате",
+      "VMQ-MEM-NEXT": "после live_required_reconciliation_2026_11_15: review/deploy/release красные только на NEXT-01 PENDING, NEXT-03 (нет candidate-bound кейса), NEXT-04 PENDING и на замыкании зависимостей графа; live-ошибки NEXT-02/05 сняты",
+      "plan": "errors=0"
+    },
+    "live_flags_reconciled_2026_11_15": {
+      "rows": [
+        "VMQ-NEXT-02",
+        "VMQ-NEXT-05"
+      ],
+      "change": "live_required true → false (live_when оставлен историческим preprod)",
+      "authority": "plans/features/vmq-onto-01/architecture-next2-quality.md строки 20-34/48-54/68/76-78 + независимое ревью exact deployed c97c06e4",
+      "why": "контракт задаёт парное измерение на read-only копии архива и прямо разрешает оговорку о не-production identity; live production-телеметрия не требуется ни контрактом, ни acceptance строк",
+      "no_postrelease_wait": true,
+      "status_effect": "статусы не менялись: NEXT-02/05 остаются VERIFIED; снимается только противоречие между флагом live_required и фактическим контрактом",
+      "limitation_kept": "production-архив/effective flags и постдеп-тайминги не измерялись; заявление о качестве продукции не делается"
+    }
   },
   "next_actions_2026_11_15": {
     "recorded_at": "2026-11-15",
@@ -12504,6 +13366,61 @@
         "everything_else_runnable": "остальные 68 обязательных строк не заблокированы этим: очередь VMQ исполняема сейчас"
       }
     ],
-    "not_created": "новых требований и новых срезов это не создаёт: действия ссылаются на существующие row IDs, write_scope срезов и план §14"
-  }
+    "not_created": "новых требований и новых срезов это не создаёт: действия ссылаются на существующие row IDs, write_scope срезов и план §14",
+    "open_rows_after_binding_2026_11_15": {
+      "total_required": 70,
+      "pending": 58,
+      "review": 6,
+      "verified": 6,
+      "verified_rows": [
+        "VMQ-GROUNDS-01",
+        "M-01",
+        "M-02",
+        "M-03",
+        "VMQ-NEXT-02",
+        "VMQ-NEXT-05"
+      ],
+      "review_rows": [
+        "V-01",
+        "V-02",
+        "V-03",
+        "V-04",
+        "VMQ-A-01",
+        "VMQ-NEXT-03"
+      ],
+      "note": "counts посчитаны по карте после биндинга; эпик остаётся открытым"
+    }
+  },
+  "candidate_commit_history": [
+    {
+      "value": "709865f6dbae508843b9f1b3ec73d33705621589",
+      "role": "замороженный кандидат слайса VMQ-MEM-TIME (в ревью с 11.11.2026, девять строк TIME-01..09 остаются PENDING)",
+      "until": "2026-11-15",
+      "why_replaced": "верхнеуровневый candidate_commit переведён на выложенную линию: строки M-01..M-03 и VMQ-NEXT-02/05 приняты VERIFIED на c97c06e4; привязки TIME-строк к 709865f6 сохраняются в самих строках"
+    }
+  ],
+  "deployed_commit_history": [
+    {
+      "value": "952b9ebd4ceb113bbd687401fa8d2cb53b93a3a9",
+      "version": "2.58.187",
+      "until": "2026-11-15",
+      "role": "историческая привязка ступени VMQ-MEM-NEXT"
+    },
+    {
+      "value": "0fed584598cbf103017a401a117eee236e2be0e5",
+      "version": "2.58.183",
+      "until": "2026-11-11"
+    },
+    {
+      "value": "7c3c01b23ae8e5510229cdc531ebd529f5b1ddbe",
+      "version": "2.58.190",
+      "until": "2026-11-13"
+    },
+    {
+      "value": "234776589c934024ed0e8dceba189fb9d70d3215",
+      "version": "2.58.198",
+      "until": "2026-11-14"
+    }
+  ],
+  "top_level_binding_note_2026_11_15": "candidate_commit и deployed_commit переведены на выложенную линию c97c06e4 (2.58.203). Прежние значения сохранены в candidate_commit_history/deployed_commit_history и в датированных блоках (candidate_note, deployed_commit_note_2026_11_11, current_production_2026_11_13/2026_11_15). Причина перевода: строки M-01..M-03 и VMQ-NEXT-02/05 получили уровень VERIFIED на точном выложенном кандидате по независимому ревью; release/delivery-гейты читают верхнеуровневые поля, поэтому без перевода гейт не мог бы проверить уже принятые строки. Это bookkeeping-перевод привязки, а не переоценка закрытых ранее evidence."
 }

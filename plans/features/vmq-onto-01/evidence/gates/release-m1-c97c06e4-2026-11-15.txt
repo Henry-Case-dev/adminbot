@@ -1,0 +1,9 @@
+﻿# VMQ-ONTO-01 gate: release-VMQ-M1-c97c06e4
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage release --slice VMQ-M1 --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --deployed-commit c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence
+# exit: 0
+# note: финальный прогон после биндинга доказательств на выложенной линии c97c06e4 (2.58.203)
+
+stage=release inventory=380 manual=69 scoped=3 errors=0
+

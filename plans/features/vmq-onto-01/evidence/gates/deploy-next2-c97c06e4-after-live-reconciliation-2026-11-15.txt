@@ -1,0 +1,40 @@
+﻿# VMQ-ONTO-01 gate: deploy-VMQ-MEM-NEXT-after-live-reconciliation
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM-NEXT --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence
+# exit: 1
+# note: после live_required_reconciliation_2026_11_15 (NEXT-02/05: true -> false по architecture-next2-quality.md ст��оки 20-34/48-54)
+
+FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED
+FAIL: M-04: required dependency VMQ-M2 is not evidenced VERIFIED
+FAIL: M-05: required dependency VMQ-M2 is not evidenced VERIFIED
+FAIL: O-04: required dependency VMQ-M2 is not evidenced VERIFIED
+FAIL: VMQ-MEM-01: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-02: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-03: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-04: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-05: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-06: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-07: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-MEM-08: required dependency VMQ-MEM is not evidenced VERIFIED
+FAIL: VMQ-TIME-01: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-02: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-03: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-04: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-05: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-06: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-07: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-08: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: VMQ-TIME-09: required dependency VMQ-MEM-TIME is not evidenced VERIFIED
+FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-03: required dependency VMQ-ONTO-B is not evidenced VERIFIED
+FAIL: V-01: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-02: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-03: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-04: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate
+FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+stage=deploy inventory=380 manual=69 scoped=5 errors=31
+

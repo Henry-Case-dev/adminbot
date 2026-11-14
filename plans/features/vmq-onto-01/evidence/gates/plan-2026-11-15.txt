@@ -3,7 +3,7 @@
 # map: plans/features/vmq-onto-01/requirements-map.json
 # command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage plan --repo . --strict-evidence
 # exit: 0
-# note: финальный прогон после всех правок карты 2026-11-15
+# note: финальный прогон после биндинга доказательств на выложенной линии c97c06e4 (2.58.203)
 
 stage=plan inventory=380 manual=69 scoped=0 errors=0
 
