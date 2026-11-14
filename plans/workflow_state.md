@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Builder VMQ-MEM/TIME measurement ses_e23c52265ffeOiI89Q0kQXNfRH
-Join barriers: VMQ-MEM/TIME measurement -> Reviewer; then release-train readiness (VMQ-A-01/V/M-04/O-04 gate positions)
+Active lanes: Architect VMQ memory root-cause ses_e23abeb6affeORlegSsV2H4ZTu
+Join barriers: Architect root-cause diagnosis -> minimal MEM/TIME/M2 corrective slices -> Reviewer; VMQ release train held until the exact owner defect is fixed
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T10:43:39+12:00
+Updated: 2026-11-15T10:58:00+12:00
 
 ## Facts
 
@@ -101,3 +101,7 @@ Reviewer r1 Approved for predeploy REVIEW of M-04/M-05/O-04 on code f7a9c596 (ti
 ## M2 bound; MEM/TIME measurement started (2026-11-15)
 
 PM bound M-04/M-05/O-04 at REVIEW on code f7a9c596 (tip 8b56fc73, base 64dab0eb, not deployed). Counts: 52 PENDING / 12 REVIEW / 6 VERIFIED; top-level candidate/deployed stay c97c06e4. Review gate scoped=3 errors=2 (M-04/O-04 live_required) and deploy errors=10 (8 dependency closures + the same 2 live); no binding errors. PM explicitly keeps the live flags honest and adds no fake wait. MEM/TIME are not blocked: Builder is running the read-only evidence measurement on a production DB copy, baseline c97c06e4 and candidate f7a9c596, producing formulation-class-matrix/run-retrieval-trace/metrics-comparison and mapping MEM-01..04,07 and TIME-01..08; candidate probes are marked not-live. After that: release-train readiness for ONTO-A -> ONTO-B -> M2, with the three gate positions (VMQ-A-01, V-01..V-04, M-04/O-04) resolved by evidence or a Reviewer-approved deferral, not a fake wait.
+
+## Memory measurement found blocking defects (2026-11-15)
+
+Read-only measurement on a fresh prod DB copy (2,075,621 messages, 2022-12-07..2026-11-14, schema 47), baseline c97c06e4 vs M2 f7a9c596, no product writes. Real findings: (1) explicit 2023 question -> 0 rows from 2023; period pool had 13 rows from 2023, the >=2-common-stems filter rejected 15 of 16, period vector leg inactive (compat_not_proven, attribution pending); (2) exact owner query gets 1 old row (2024) while the Chronicle/lore path gets 148 rows 2022-2023 + 6 edges -> MEM-04 parity not achieved; (3) profile reply block 0 of 10 rows attributed to P1; graph 0 facts about P1 for 2023-2024 despite 44,577 messages; biography 5 years, general only 2026; (4) relationships purpose -> empty_reason=empty, 0 edges, fabricated-relations metric vacuous; (5) event without year stays 2026; dig year window only with explicit year, snippets hidden by budget; (6) M2 overview triggers only on the lexical marker and person tool; exact owner formulation gets no overview. Row verdicts: MEM-04 not satisfied; TIME-01/03/06 not satisfied; TIME-02/05 partial; TIME-04/07 evidence; MEM-01/02/03 evidence; MEM-05 by method; MEM-06/07 not measured; MEM-08 partial. Honest limits: copy != live process, one EMBED_API_FAILED, compat_not_proven not attributed, rerank stochastic, one chat/one run, M2 not deployed. Architect is diagnosing shared root causes and separating measurement artifacts from product defects; the VMQ release train is held until the exact owner defect is fixed or an explicit decision is made. No rows were marked VERIFIED.
