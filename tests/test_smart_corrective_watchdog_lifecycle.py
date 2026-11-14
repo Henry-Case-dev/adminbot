@@ -34,6 +34,8 @@ from services import mca_events as me
 from services import mca_gates
 from services import mca_incidents as inc
 from services import mca_trace as mt
+from services import mca_vision
+from services import media_readiness as mr
 from services import mca_watchdog as wd
 from services.database import DatabaseService
 from services.task_supervisor import (JOB_COMPLETED, JOB_FAILED,
@@ -499,6 +501,136 @@ class TestRecoverySafety:
             assert len(await store.active()) == 1
         finally:
             await d.close()
+
+
+class TestDeliveryUnknownDurableGuards:
+    """F-S5A-02/03: ни один resume/retry/re-arm не обходит delivery_unknown."""
+
+    @staticmethod
+    async def _mark_delivery_unknown(db, jid: str, *, mode: str) -> None:
+        reason = "delivery_unknown" if mode in ("both", "reason") else None
+        error = "delivery_unknown" if mode in ("both", "error") else None
+        await db.db.execute(
+            "UPDATE task_jobs SET reason_code = ?, error_code = ? "
+            "WHERE job_id = ?", (reason, error, jid))
+        await db.db.commit()
+
+    @pytest.mark.asyncio
+    async def test_recover_stale_preserves_delivery_unknown_marker(
+            self, tmp_path):
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            jid = await _running_job(store, max_attempts=3)
+            await self._mark_delivery_unknown(d, jid, mode="both")
+            lost = await store.recover_stale(stale_after_seconds=60)
+            assert jid in lost
+            row = await store.get(jid)
+            assert row["status"] == JOB_INTERRUPTED
+            assert row["reason_code"] == "delivery_unknown"
+            assert row["error_code"] == "delivery_unknown"
+            assert row["fencing_token"] == 1
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_resume_primitives_refuse_delivery_unknown_markers(
+            self, tmp_path):
+        for mode in ("both", "reason", "error"):
+            d = await _db(tmp_path, name=f"s5a_prim_{mode}.db")
+            try:
+                store = TaskJobStore(d)
+                jid = await store.enqueue(owner="qnd.test", kind="k")
+                await store.mark_running(jid)
+                await store.finish(jid, status=JOB_FAILED)
+                await self._mark_delivery_unknown(d, jid, mode=mode)
+                before = await store.get(jid)
+
+                assert await store.requeue(
+                    jid, reason_code="stage_retry_scheduled") is False
+                assert await store.set_next_retry(
+                    jid, int(time.time()) + 30,
+                    reason_code="stage_retry_scheduled") is False
+                assert await store.finish(
+                    jid, status=JOB_QUEUED, reason_code="resume",
+                    recovery=True) is False
+                row = await store.get(jid)
+                assert row["status"] == JOB_FAILED
+                assert row["reason_code"] == before["reason_code"]
+                assert row["error_code"] == before["error_code"]
+                assert row["next_retry_at"] is None
+
+                # Даже строка, оказавшаяся queued (например, raw-запись), не
+                # может быть claim'нута в running при защитном маркере.
+                jid2 = await store.enqueue(owner="qnd.test", kind="k2")
+                await self._mark_delivery_unknown(d, jid2, mode=mode)
+                assert await store.mark_running(jid2) is False
+                assert (await store.get(jid2))["status"] == JOB_QUEUED
+            finally:
+                await d.close()
+
+    @pytest.mark.asyncio
+    async def test_media_recovery_path_cannot_requeue_delivery_unknown(
+            self, tmp_path):
+        """F-S5A-02: caller-supplied reason не отменяет durable-маркер."""
+        d = await _db(tmp_path, name="s5a_media.db")
+        try:
+            store = TaskJobStore(d)
+            jid = await store.enqueue(owner="vision.media",
+                                      kind=mca_vision.VISION_JOB_KIND,
+                                      max_attempts=4)
+            await store.mark_running(jid)
+            await self._mark_delivery_unknown(d, jid, mode="both")
+            await _stale_running(store, jid)
+            fence_before = int((await store.get(jid))["fencing_token"] or 0)
+
+            summary = await mr.watchdog_sweep(
+                d, store=store, kind=mca_vision.VISION_JOB_KIND)
+            row = await store.get(jid)
+            assert summary["worker_lost"] == 1
+            assert summary["requeued"] == 0
+            assert summary["actions"][0]["action"] == "none"
+            assert summary["actions"][0]["reason"] == "delivery_unknown"
+            assert summary["actions"][0]["status"] == "reconcile_required"
+            assert row["status"] == JOB_INTERRUPTED
+            assert row["reason_code"] == "delivery_unknown"
+            assert row["error_code"] == "delivery_unknown"
+            assert row["next_retry_at"] is None
+            assert int(row["fencing_token"] or 0) == fence_before + 1
+
+            # Прямой вызов с «обычной» caller-reason тоже не возобновляет.
+            action = await mr.recover_job(d, store, jid,
+                                          reason="worker_lost")
+            assert action["action"] == "none"
+            assert action["status"] == "reconcile_required"
+            assert (await store.get(jid))["status"] == JOB_INTERRUPTED
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_control_retry_and_resume_block_delivery_unknown(
+            self, tmp_path):
+        """F-S5A-03: guard проверяет reason_code И error_code, retry и resume."""
+        for mode in ("both", "reason", "error"):
+            d = await _db(tmp_path, name=f"s5a_ctrl_{mode}.db")
+            try:
+                store = TaskJobStore(d)
+                jid = await store.enqueue(owner="archive", kind="important")
+                await store.mark_running(jid)
+                assert await store.finish(jid, status=JOB_FAILED) is True
+                await self._mark_delivery_unknown(d, jid, mode=mode)
+                for action in ("retry", "resume"):
+                    res = await mt.control_action(
+                        d, store, action=action, job_id=jid, actor=1)
+                    assert res["status"] == "reconcile_required", (mode, action)
+                row = await store.get(jid)
+                assert row["status"] == JOB_FAILED
+                assert row["reason_code"] == (
+                    "delivery_unknown" if mode in ("both", "reason") else None)
+                assert row["error_code"] == (
+                    "delivery_unknown" if mode in ("both", "error") else None)
+            finally:
+                await d.close()
 
 
 class TestIncidentLifecycle:

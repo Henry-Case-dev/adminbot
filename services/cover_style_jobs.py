@@ -3679,7 +3679,12 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
     state.retry_count = int(state.retry_count or 0) + 1
     state.styled_status = "retry_scheduled"
     await save_cover_state(db, job_id, state)
-    await requeue_cover_job(db, job_id, reason_code="style_recovery")
+    requeued = await requeue_cover_job(db, job_id, reason_code="style_recovery")
+    if not requeued:
+        # F-S5A-03: requeue refused (durable delivery_unknown/DB) — stage не
+        # исполняется без владения строкой; recovery не объявляется успешным.
+        return {"job_id": job_id, "action": "none",
+                "reason": "requeue_refused"}
     await store.mark_running(job_id)
 
     async def _beat():

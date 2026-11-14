@@ -1714,6 +1714,21 @@ async def recover_job(db, store, job: dict | str, *, reason: str,
               "reason": reason, "attempt": attempt, "stage": _job_stage(job, ts)}
     if not job_id:
         return result
+    # F-S5A-02: защитный маркер `delivery_unknown` читаем из СОХРАНЁННОЙ
+    # строки job (caller-supplied `reason` не доказательство). Повтор
+    # side effect/доставки запрещён до сверки по operation ID — никакого
+    # requeue/resume/терминального закрытия в этом проходе.
+    try:
+        stored = await store.get(job_id) if store is not None else None
+    except Exception:
+        stored = None
+    if stored is not None:
+        job = dict(stored)
+    if (str(job.get("reason_code") or "") == "delivery_unknown"
+            or str(job.get("error_code") or "") == "delivery_unknown"):
+        result.update(action="none", reason="delivery_unknown",
+                      status="reconcile_required")
+        return result
     asset = await _asset_row(db, asset_id, chat_id or None)
     if asset is not None:
         scope = mca_vision.access_scope_for(chat_id or int(asset.get("chat_id")

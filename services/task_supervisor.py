@@ -402,6 +402,14 @@ REASON_WORKER_LOST = "worker_lost"
 REASON_CHECKPOINT_MISSING = "checkpoint_missing"
 REASON_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
 
+# F-S5A-02/03: durable-маркер `delivery_unknown` (в reason_code ИЛИ error_code)
+# запрещает любой resume/retry/re-arm: слепой повтор side effect/доставки
+# возможен только после отдельной сверки по operation ID.
+DELIVERY_UNKNOWN_REASON = "delivery_unknown"
+_DELIVERY_UNKNOWN_GUARD_SQL = (
+    " AND COALESCE(reason_code, '') != 'delivery_unknown'"
+    " AND COALESCE(error_code, '') != 'delivery_unknown'")
+
 
 # Колонки `task_jobs` (порядок INSERT; `updated_at`/`finished_at` — отдельно).
 # v19 (`mca-17a`, ADR-1027-8 D2/D4): correlation/span/progress-колонки.
@@ -504,7 +512,8 @@ class TaskJobStore:
             cur2 = await conn.execute(
                 "UPDATE task_jobs SET status = ?, heartbeat_at = ?, "
                 "attempt = attempt + 1, fencing_token = ?, updated_at = ? "
-                "WHERE job_id = ? AND status = ?",
+                "WHERE job_id = ? AND status = ?"
+                + _DELIVERY_UNKNOWN_GUARD_SQL,
                 (JOB_RUNNING, now, use_token, now, job_id, JOB_QUEUED))
             return cur2.rowcount
 
@@ -591,6 +600,10 @@ class TaskJobStore:
             if token is not None:
                 sql += fence
                 params.append(int(token))
+            if status in ACTIVE_JOB_STATUSES:
+                # F-S5A-03: перевод в queued/running — это resume; для
+                # `delivery_unknown` он запрещён даже с recovery/токеном.
+                sql += _DELIVERY_UNKNOWN_GUARD_SQL
             cursor = await conn.execute(sql, tuple(params))
             return cursor.rowcount
 
@@ -606,16 +619,24 @@ class TaskJobStore:
 
         async def _body(conn):
             cursor = await conn.execute(
-                "SELECT job_id FROM task_jobs WHERE status = ? AND "
+                "SELECT job_id, reason_code FROM task_jobs WHERE status = ? AND "
                 "(heartbeat_at IS NULL OR heartbeat_at < ?)",
                 (JOB_RUNNING, cutoff))
-            ids = [r["job_id"] for r in await cursor.fetchall()]
-            for jid in ids:
+            rows = [dict(r) for r in await cursor.fetchall()]
+            ids = [r["job_id"] for r in rows]
+            for row in rows:
+                # F-S5A-02: lease-revocation не затирает защитный маркер
+                # `delivery_unknown`; consumer'ы обязаны видеть reconcile.
+                reason = (DELIVERY_UNKNOWN_REASON
+                          if str(row.get("reason_code") or "")
+                          == DELIVERY_UNKNOWN_REASON
+                          else "worker_lost")
                 await conn.execute(
                     "UPDATE task_jobs SET status = ?, reason_code = ?, "
                     "fencing_token = fencing_token + 1, updated_at = ? "
                     "WHERE job_id = ?",
-                    (JOB_INTERRUPTED, "worker_lost", int(time.time()), jid))
+                    (JOB_INTERRUPTED, reason, int(time.time()),
+                     row["job_id"]))
             return ids
 
         return await self._db.write_transaction(
@@ -901,7 +922,10 @@ class TaskJobStore:
         """Вернуть задачу в `queued` (resume/retry): снять терминальность.
 
         `finished_at` очищается (задача снова активна), `attempt` не сбрасывается
-        (история попыток сохраняется; retry = новая попытка, §27.3)."""
+        (история попыток сохраняется; retry = новая попытка, §27.3).
+
+        F-S5A-03: durable `delivery_unknown` (reason_code ИЛИ error_code) —
+        resume запрещён: слепой повтор side effect/доставки недопустим."""
         now = int(time.time())
         token = fencing_token
 
@@ -910,6 +934,7 @@ class TaskJobStore:
                    "finished_at = NULL, error_code = NULL, updated_at = ? "
                    "WHERE job_id = ?")
             params = [JOB_QUEUED, reason_code, now, job_id]
+            sql += _DELIVERY_UNKNOWN_GUARD_SQL
             if token is not None:
                 sql += " AND fencing_token = ?"
                 params.append(int(token))
@@ -921,14 +946,17 @@ class TaskJobStore:
 
     async def set_next_retry(self, job_id: str, next_retry_at: int,
                              *, reason_code: str | None = None) -> bool:
-        """Запланировать bounded-retry: `next_retry_at` + `retry_scheduled`."""
+        """Запланировать bounded-retry: `next_retry_at` + `retry_scheduled`.
+
+        F-S5A-03: для `delivery_unknown` (reason/error) re-arm запрещён."""
         now = int(time.time())
 
         async def _body(conn):
             cursor = await conn.execute(
                 "UPDATE task_jobs SET next_retry_at = ?, status = ?, "
                 "reason_code = COALESCE(?, reason_code), updated_at = ? "
-                "WHERE job_id = ? AND status != ?",
+                "WHERE job_id = ? AND status != ?"
+                + _DELIVERY_UNKNOWN_GUARD_SQL,
                 (int(next_retry_at), JOB_QUEUED, reason_code, now, job_id,
                  JOB_INTERRUPTED))
             return cursor.rowcount
