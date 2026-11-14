@@ -8,8 +8,12 @@
 * База: `aca1370250a7579cd3cc969679852cf2b1d2608b`.
 * Ветка: `smart/caps-tools`; worktree:
   `WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-43c9d868`.
-* Кодовый кандидат (CODE_SHA): **`8bb18603`** (пять малых коммитов, по одному
-  на семейство; docs-коммит с этим файлом код не меняет).
+* Кодовый кандидат (CODE_SHA): **`dce227f4`** — финальный кандидат тестов
+  (пять малых коммитов по семейству + test-only коммит, добавляющий composer-
+  проверку для memory/transcripts/vision; `8bb18603` — предыдущая точка того
+  же кода). Docs-коммиты этого файла код не меняют.
+* Итоговый HEAD ветки: docs-коммит с этим файлом ПОСЛЕ `dce227f4`; Reviewer
+  работает с CODE_SHA `dce227f4` (docs-изменения код не меняют).
 * Дифф: 7 файлов `services/`, 6 файлов `tests/`; `git diff --check
   aca13702 HEAD -- services tests` пуст. `git diff -w` отличается от обычного
   только на 1 строку (`voice_transcripts._select_around` — та же строка с
@@ -161,8 +165,12 @@ routes/canon — см. §7).
 
 ## 8. Housekeeping
 
-Одноразовые прогоны: `WorkspaceData/runs/.../probe-bba9aa6255` (RED/mutation/
-broad/vision логи — нужные скопированы в этот артефакт), базовый worktree
-`...-20d51a52` (RED на `aca13702`) — закрываются после сдачи evidence
-(`run-close`/`unit-close`; worktree нужен только до подтверждения, что RED
-зафиксирован здесь).
+Одноразовый прогон `WorkspaceData/runs/.../probe-bba9aa6255` закрыт
+(`run-close --apply`): RED/mutation/broad/vision логи скопированы в `raw/`
+этого артефакта; базовый RED-worktree `...-20d51a52` снят (чистый, RED
+зафиксирован здесь). `unit-check` для `sxr-c2-01-toolcaps`:
+`cleanup_complete=true`, `remaining=[]`.
+
+Главный worktree `...-43c9d868` (`smart/caps-tools`) и feature-ветка
+сохраняются для Reviewer/интеграции (не объединены в master/train; это
+ожидаемое удержание до независимого review).
