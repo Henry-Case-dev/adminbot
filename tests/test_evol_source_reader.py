@@ -1135,10 +1135,16 @@ class TestEvidenceHonesty:
                   "quoted_text", "author", "author_name", "sender",
                   "reply_to", "published_at", "date", "yesterday"}
         assert not (banned & set(payload))
-        # Единственная временная метка — техническая метка получения байт.
-        assert set(payload["provenance"]) == {
+        # SMART-CORRECTIVE-01: provenance обязан нести идентичность источника
+        # (repo/commit), операцию/outcome и progress id; при этом никакой
+        # chat-хронологии/цитат в нём по-прежнему нет. Проверяем обязательные
+        # технические ключи, а не прежний закрытый список.
+        required_provenance = {
             "provider", "endpoint", "fetched_at", "bytes", "sha256",
-            "read_level", "network_calls"}
+            "read_level", "network_calls", "repo", "commit", "operation",
+            "outcome", "progress_id"}
+        assert required_provenance <= set(payload["provenance"])
+        assert not (banned & set(payload["provenance"]))
         assert isinstance(payload["provenance"]["fetched_at"], int)
 
     @pytest.mark.asyncio
