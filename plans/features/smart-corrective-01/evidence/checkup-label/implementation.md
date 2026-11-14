@@ -190,3 +190,131 @@ git diff --check → clean
   выполняет и не переписывает значение.
 - Владелец не привлекается к проверкам (owner QA не назначается); все
   технические проверки выполнены агентом.
+
+## Provenance registration fix (дельта-ревью 2.58.203)
+
+Статус: **REVIEW** (кандидат для повторного ревью; не VERIFIED).
+Причина раздела: дельта-интеграционное ревью поезда `e650f2b8` (`2.58.203`)
+зафиксировало падение
+`tests/test_p0_prompts_core.py::test_pr01_saved_and_effective_match_registered_revision`
+в общем прогоне: `assert eff.source == "global"` получал `default` с
+диагностикой `persisted speech value withheld ... reason=provenance_missing ...
+stored_sha=3140bb364044`.
+
+### Идентичность исправления
+
+- База исправления: `fd2b4bb0` (кандидат label-среза).
+- Новый commit: `e7ffb02e`
+  (`e7ffb02e2aec3df3247cc54e6c20f9f365bf1fb1`) —
+  `test(prompts): isolate cutover globals and pin factory provenance attestation`.
+- Изменены только тестовые файлы (3): `tests/test_smart_corrective_checkup_label_activation.py`,
+  `tests/test_smart_corrective_prompt_delivery.py`, `tests/test_p0_prompts_core.py`.
+  Продуктовый код поставки (`services/prompt_registry.py` с меткой
+  `checkup-p0-24-10-mixed-state` и печатью `3140bb364044`, `services/checkup_prompts.py`)
+  не менялся.
+
+### Воспроизведение и настоящая причина
+
+Точное воспроизведение на кандидате до правки:
+`pytest tests/test_smart_corrective_checkup_label_activation.py
+tests/test_smart_corrective_prompt_delivery.py tests/test_p0_prompts_core.py -q`
+→ **36 passed, 1 failed** (то же, что в отчёте ревью). Минимальная пара
+(`test_label_bump_activation_reaches_checkup_route` + `test_pr01_...`) → 1 failed;
+один `test_p0_prompts_core.py` → **9 passed**.
+
+Причина — утечка состояния процесса, а не регистрация метки:
+- новый сквозной тест маршрута чекапа выполняет реальный `apply_release`,
+  который штатно вызывает `freeze_history()` и выставляет
+  `prompt_factory._HISTORY_FROZEN = True`, а `finally` возвращал только
+  release-policy и `prompt_registry.reset_cache()`;
+- в следующем модуле `write_speech_value` → `_mark_provenance` при заморозке
+  намеренно работает как no-op с `persisted=True` (провенанс ведёт журнал),
+  поэтому `character.prompt_history.provenance` не появлялся;
+- `test_p0_prompts_core` доказывает PRE-cutover контракт (release policy
+  выключена), где отсутствие провенанса = withholding: значение удерживалось,
+  `source="default"`, `provenance_reason="provenance_missing"` — ровно
+  наблюдаемая диагностика. Значение `3140bb364044` тут только подтверждает,
+  что записан именно новый заводской текст.
+
+Метка/печать при этом зарегистрированы согласованно: тот же тест под новой
+меткой в чистом процессе проходит (9 passed), `seal_integrity() == {}`,
+`factory_revision` = `fac:<sha12 текста>(checkup-p0-24-10-mixed-state)`,
+`sealed_factory_revision` = `fac:<sha12 метки>`. Отдельного реестра
+«аттестаций по метке» в коде нет — `provenance_state` сверяет только sha
+значения с записью провенанса; поэтому «добавить новую метку в аттестацию»
+физически нечего, а ослаблять withholding незарегистрированных значений
+нельзя и не потребовалось.
+
+### Что изменено
+
+1. `tests/test_smart_corrective_prompt_delivery.py`: фикстура
+   `released_history` возвращает `release_policy`, `retired_blocks`,
+   `pf._HISTORY_FROZEN` и кэш реестра на teardown (в т.ч. при падении теста);
+   сквозной тест использует её вместо ad-hoc `finally`.
+2. `tests/test_p0_prompts_core.py`: `journal`-фикстура выставляет
+   pre-cutover состояние явно и на входе (не только на выходе) — модуль
+   больше не зависит от порядка общего прогона.
+3. `tests/test_smart_corrective_checkup_label_activation.py`: autouse-фикстура
+   сбрасывает те же глобалы на входе и выходе.
+4. Новое durable-покрытие (2 теста):
+   - `test_new_label_factory_value_is_attested_for_effective_prompt` —
+     значение, записанное через API реестра, под новой меткой остаётся
+     `source=global`, `withheld=False`, `provenance_reason=attested`,
+     `revision=act:<sha12 текста>`, `factory_revision=fac:<sha12 текста>(<новая метка>)`;
+   - `test_unregistered_value_is_still_withheld` — значение без записи через
+     реестр по-прежнему удерживается (`source=default`, `withheld=True`,
+     `provenance_missing`), действует заводская редакция. Шлагбаум не ослаблен.
+
+### Обновлённая матрица поведения
+
+| Ситуация | Наблюдаемый результат | Диагностика |
+|---|---|---|
+| Значение = заводская редакция, записано через API реестра, release policy OFF (pre-cutover) | `source=global`, текст = фабрика, ключ принимается | `provenance_attested` |
+| Значение без провенанса (pre-cutover) | `source=default`, действует фабрика, значение не активируется | `provenance_missing` (+ withholding) |
+| Значение с провенансом, но другим sha | `source=default`, withholding | `provenance_mismatch` |
+| После релизного прохода (release policy ON) | активный PG-текст = эффективный слой; токсичный legacy-слепок по-прежнему удерживается | `release_policy_persisted_effective` / `legacy_incompatible` |
+| Метка бампнута (S6-ACTIVATION) | global/чаты без ручной ревизии получают фабрику, ручная редакция сохраняется | `factory_activate` / `factory_superseded_manual` / `factory_superseded_pinned` |
+
+### Прогоны (кандидат `e7ffb02e`)
+
+```
+py -3 -m pytest tests/test_smart_corrective_checkup_label_activation.py \
+  tests/test_smart_corrective_prompt_delivery.py tests/test_p0_prompts_core.py -q
+→ 39 passed            (до правки: 36 passed, 1 failed)
+
+py -3 -m pytest tests/test_p0_prompts_core.py -q
+→ 9 passed             (метка та же — регистрация в порядке; ранее падавший
+                        test_pr01 сохранён без ослабления)
+
+py -3 -m pytest <label + delivery + guard/registry batch> -q
+→ 330 passed, 2 skipped
+
+py -3 -m pytest <checkup/prompt batch> -q
+→ 331 passed
+
+py -3 -m pytest <registry-access batch> -q
+→ 264 passed, 1 known pre-existing failure
+
+py -3 -m pytest <activation/audit batch> -q
+→ 274 passed, 2 skipped, 1 known pre-existing failure
+
+py -3 -m pytest <soul1 batch> -q
+→ 72 passed
+
+py -3 -m pytest tests/test_prompt_field_audit.py tests/test_soul1_registry_completeness.py -q
+→ 2 failed, 25 passed  (ровно два известных pre-existing падения, те же тесты)
+
+py -3 -m py_compile <3 тестовых файла> → 0; git diff --check → clean
+```
+
+Известные pre-existing падения не изменились:
+`test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface`,
+`test_soul1_registry_completeness::test_registry_consumer_pointers_point_at_real_lines`.
+
+### Ограничения
+
+- Продуктовый код и поведение поставки не менялись; исправление относится к
+  изоляции тестов и к доказательствам провенанса. Постдэплой-обязательства
+  раздела выше остаются в силе и не помечаются VERIFIED.
+- `review-r1.md` (артефакт независимого ревью кандидата `fd2b4bb0`) остаётся
+  в рабочем дереве как есть и не входит в коммит исправления.
