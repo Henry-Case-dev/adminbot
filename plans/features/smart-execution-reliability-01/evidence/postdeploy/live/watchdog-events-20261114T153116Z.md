@@ -10,6 +10,10 @@ copy-файла рядом с прод-БД). Окно: от `deployed_at`
 `WATCHDOG_TAKEOVER`, `WATCHDOG_INCIDENT_FAILURE`, таблицу `mca_incidents`,
 связанные `task_jobs`, а также события с `prompt_source` в payload.
 
+Покрытие имён проверено по коду 0beed63d: других `WATCHDOG_*` событий
+watchdog не эмитит. `WATCHDOG_ENABLED` — настройка, `WATCHDOG_TASK` — имя
+asyncio-переменной в `services/video_intent.py`, не событие `mca_events`.
+
 ## 1. Сводные счётчики
 
 ```
