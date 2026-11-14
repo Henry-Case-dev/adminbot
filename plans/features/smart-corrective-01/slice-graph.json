@@ -295,7 +295,7 @@
         "services/mca_events.py",
         "tests/test_smart_corrective_watchdog_events.py"
       ],
-      "acceptance": "Один batch summary WATCHDOG_TAKEOVER с per-job доказательствами через разрешённые additive-поля; fingerprint учитывает kind; старые fingerprint-строки остаются читаемыми; пустой batch не эмитит takeover.",
+      "acceptance": "На каждый фактически затронутый job — не более одного WATCHDOG_TAKEOVER за sweep/attempt с identity и truthful outcome; одинаковые aggregate events не повторяются из-за размера stale batch; fingerprint учитывает kind и job_id; старые fingerprint-строки остаются читаемыми; пустой batch не эмитит takeover.",
       "risk": "R2",
       "next_role": "Reviewer",
       "parallel_with": [

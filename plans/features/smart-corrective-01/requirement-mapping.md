@@ -109,6 +109,8 @@ Read-only расследование `investigation/watchdog-code-analysis.md` +
 | W-13 | проверенный requeue/`next_retry_at` — не дефект | §9.2 A (617) | — | **NOT_A_DEFECT** | context с reason |
 | W-14 | `TaskJobStore.prune`, шум `WATCHDOG_SWEEP`, глобальный recover каждые 5 с | §9.2 A/F | — | **BACKLOG_ONLY** | context с reason + `plans/backlog.md` |
 
+**W-01 не означает «ровно одно aggregate-событие на sweep».** Владелец требует per-job доказательства индивидуального восстановления и запрет повторять идентичный aggregate из-за размера stale batch; архитектура — не более одной записи на фактически затронутый job за sweep/attempt, пустой batch — без события. Формулировка карты исправлена под это; obligation не ослаблена и не переименована.
+
 **Порядок, который подтвердит Architect:** W-05 (lifecycle/reconciliation, включая авто-закрытие по фактическому состоянию job) должен войти **раньше** W-11 (fingerprint/REASON_CODES). Иначе старые активные инциденты останутся без миграционной сверки, а новый fingerprint split сделает их несовместимыми с историей. W-02/W-05/W-07 идут в S5a, W-01/W-11 — в S5c после lifecycle, W-03/W-04/W-06/W-08/W-09 — в S5b, W-10 — в S5d. Architect предложил имена `S5-W01_EVENT_IDENTITY`…; PM привязал те же смыслы к стабильным `SC-WD-W01`…`SC-WD-W12` (suggestions only, PM owns map IDs).
 
 **Что это меняет в прежней оценке:** watchdog остаётся единственным полностью новым направлением, но теперь это не «A–F вообще», а 12 обязательных W-строк с file:line, acceptance и expected evidence. `W-13` не является дефектом и не должен попасть в реализацию; `W-14` не входит в приёмку и лежит в backlog.
@@ -146,4 +148,4 @@ Read-only расследование `investigation/watchdog-code-analysis.md` +
 - Требует перепроверки и, вероятно, признания недостаточным прежнего evidence: `SXR-C1-01`, `SXR-E4-01`, `SXR-A3-01`, `SXR-C3-02`, `SXR-B4-01`, `SXR-H1-01`, `SD1-D4-07`, `SD1-AC-03`, `SD1-D6-03/04/05`.
 - Реально новое: content-search и классы результатов; сквозная передача policy во вложенный инструмент; состояние завершённости исследования у чекапа; таксономия входных ограничений; проверка фактической доставки промпта и addendum; **watchdog W-01…W-12**.
 - W-13 (`requeue`/`next_retry_at`) — **не дефект**, в реализацию не входит. W-14 (prune/sweep noise/глобальный recover) — **BACKLOG_ONLY**, запись в `plans/backlog.md`, вне приёмки.
-- Порядок watchdog: W-05 lifecycle/reconciliation **до** W-11 fingerprint/REASON_CODES; W-01/W-02/W-10 (события) до W-05; W-03/W-04/W-06/W-08/W-09 (recovery) после lifecycle.
+- Порядок watchdog: W-05 lifecycle/reconciliation **до** W-11 fingerprint/REASON_CODES; W-02/W-05/W-07 — S5a, W-03/W-04/W-06/W-08/W-09 — S5b, W-01/W-11 — S5c, W-10 — S5d. Recovery не закрепляет ложную связь инцидент→job до lifecycle.

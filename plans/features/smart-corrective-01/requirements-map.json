@@ -3934,12 +3934,12 @@
       "reason": "",
       "req_id": "SC-WD-W01",
       "slice": "S5C-EVENTS",
-      "acceptance": "На один sweep с N stale jobs эмитится ровно одно WATCHDOG_TAKEOVER; per-job доказательства идут через разрешённые поля; пустой batch не эмитит событие.",
+      "acceptance": "На каждый фактически затронутый job — не более одного WATCHDOG_TAKEOVER за sweep/attempt, с job identity (job_id или bounded entity_ids), owner/kind, previous status/generation, reason, attempt, truthful outcome и fencing/recovery evidence; одинаковые aggregate events не повторяются из-за размера stale batch или итерации цикла; пустой batch не эмитит событие; совместимость с аналитикой и потребителями сохранена.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "expected_evidence": "Focused test: 3 stale jobs → ровно 1 WATCHDOG_TAKEOVER; entity_ids содержит 3 id; integration-проверка payload через build_event (job_ids не отбрасывается молча); пустой batch → 0 событий; реестр/агрегаты совместимы.",
+      "expected_evidence": "Focused test: 3 stale jobs → 3 per-job WATCHDOG_TAKEOVER (не более одного на job), каждый несёт job identity и truthful outcome; идентичный aggregate не повторяется на batch/итерацию; integration-проверка payload через build_event (job identity не отбрасывается молча); пустой batch → 0 событий; реестр/агрегаты совместимы.",
       "owner_clause": "§9.2 C",
       "linked_acceptance": [
         "AC-21"
@@ -4053,12 +4053,12 @@
       "reason": "",
       "req_id": "SC-WD-W11",
       "slice": "S5C-EVENTS",
-      "acceptance": "kind входит в fingerprint; title/impact обновляются или хранят список job; 20-id bound сохранён; два job одного owner разных kind дают два инцидента.",
+      "acceptance": "fingerprint включает kind и job_id при сохранении старых полей и REASON_CODES; title/impact не замораживаются на первом job или хранят список job; 20-id bound сохранён; два job одного owner разных kind дают два инцидента; исторические строки остаются читаемыми без разрушительного backfill.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "expected_evidence": "Два job одного owner разных kind ⇒ два инцидента; title не перезаписывается первым job; 20-id bound сохранён; fingerprint rows.",
+      "expected_evidence": "Два job одного owner разных kind ⇒ два инцидента; title не перезаписывается первым job; 20-id bound сохранён; fingerprint включает kind+job_id, старые строки читаемы без destructive backfill.",
       "owner_clause": "§9.2 F",
       "linked_acceptance": [
         "AC-23"

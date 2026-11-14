@@ -88,7 +88,7 @@ S0-INVESTIGATE (read-only)
 | `S6-PROMPT` | S3B | `checkup_prompts.py`, `prompt_registry.py`, `checkup_service.py`, тесты промпта | Effective prompt = сохранённая редакция владельца (hash/bytes); addendum согласован; Betterstack удалён только из active |
 | `S5A-LIFECYCLE` | S1 | `mca_incidents.py`, `task_supervisor.py`, incident-тесты | Resolved не переоткрывается без evidence; авто-resolve после терминала; fencing; success-событие только при подтверждённом recovery |
 | `S5B-RECOVERY` | S1, S5A | `task_supervisor.py`, `mca_watchdog.py`, `mca_gates.py`, recovery-тесты | Bounded requeue/next_retry_at; owner/kind scope; heartbeat/deadline; queued-сироты и progressless-running различимы |
-| `S5C-EVENTS` | S1, S5B | `mca_watchdog.py`, `mca_incidents.py`, `mca_events.py`, тест событий | 3 stale → 1 batch summary с 3 per-job доказательствами; fingerprint учитывает kind; старые строки читаемы |
+| `S5C-EVENTS` | S1, S5B | `mca_watchdog.py`, `mca_incidents.py`, `mca_events.py`, тест событий | 3 stale → 3 per-job события (не более одного на job) с identity/truthful outcome; идентичный aggregate не повторяется из-за batch/итерации; fingerprint учитывает kind+job_id; старые строки читаемы |
 | `S5D-OBSERVABILITY` | S1, S5C | `mca_watchdog.py`, тест observability | Отказ incident service наблюдаем (log+WARN+счётчик), без рекурсии; created/updated/reopened/failed различаются |
 | `S5-WATCHDOG` | S5A…S5D | — (join) | Собирает доказательства под-срезов; ничего не пишет |
 | `S8-REVIEW-RELEASE` | все, включая S0-PRODDATA | `evidence/**`, `release-evidence/**` | AC-01…AC-24 на одном deployed SHA; identity, config, canary, rollback |
@@ -115,7 +115,7 @@ Follow-up просил «S5 sub-slices»; Architect в `architecture-plan.md` з
 
 1. **S5A-LIFECYCLE** — W-02 (success только при подтверждённом recovery), W-05 (reconciliation, авто-закрытие, запрет молчаливого reopen), W-07 (fencing терминальных записей). **W-05 обязан войти раньше W-11**: старые активные инциденты должны быть сверены с фактическим состоянием job до изменения fingerprint/REASON_CODES; иначе split сделает историю несовместимой.
 2. **S5B-RECOVERY** — W-03 (bounded requeue вместо «снятия lease»), W-04 (owner/kind scope), W-06 (heartbeat/deadline), W-08 (progress_at/пороги/overdue), W-09 (queued-сироты/deadline). После lifecycle, чтобы recovery не закреплял ложную связь инцидент→job.
-3. **S5C-EVENTS** — W-01 (одно batch-событие + per-job доказательства через разрешённые additive-поля), W-11 (fingerprint с kind, title/job list). После lifecycle, чтобы не расколоть историю инцидентов.
+3. **S5C-EVENTS** — W-01 (по одному событию на фактически затронутый job с identity и truthful outcome; одинаковые aggregate events не повторяются из-за размера stale batch; пустой batch — без события), W-11 (fingerprint с kind+job_id, title/job list, история читаема). После lifecycle, чтобы не расколоть историю инцидентов.
 4. **S5D-OBSERVABILITY** — W-10 (наблюдаемость отказа incident service без рекурсии, корректные счётчики).
 5. **S0-PRODDATA** — W-12 (production-данные §4). Это **вход расследования, не блокер реализации**: S5a–S5d могут стартовать без них, но финальная атрибуция шести инцидентов и закрытие W-12 без данных невозможны.
 
