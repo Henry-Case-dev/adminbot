@@ -1814,7 +1814,13 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
         subject_request_text=str(
             getattr(subject, "request_part", "") or ""),
         subject_material_text=str(
-            getattr(subject, "material_part", "") or ""))
+            getattr(subject, "material_part", "") or ""),
+        # SFC-12-09 residual (`fc-anchor`): вошедшая часть материала может
+        # начинаться с «она распространена…» и не содержать названия предмета.
+        # Полный сохранённый материал передаётся отдельно — из него берётся
+        # предметный анкер запроса части, пришедшей из вопроса.
+        subject_full_material_text=str(
+            getattr(subject, "material_text", "") or ""))
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s", req.chat_id,

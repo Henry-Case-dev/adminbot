@@ -221,6 +221,11 @@ class ClaimUnit:
     foreign_terms: tuple[str, ...] = ()
     #: временная точка события (unix ts), когда она однозначна
     event_at: int | None = None
+    #: SFC-12-09 residual (`fc-anchor`): часть добавлена структурной гарантией
+    #: вопроса, потому что вопрос склеен с материалом без границы предложения.
+    #: Запрос такой части обязан нести предметный анкер материала: сам вопрос
+    #: может ссылаться на «эту традицию», не называя предмет.
+    from_glued_request: bool = False
 
     def vocabulary(self) -> str:
         """Словарь привязки источника к ЭТОМУ claim (текст + латинские
@@ -421,6 +426,38 @@ def _expand_terms(terms: list[str], *, limit: int = 12) -> list[str]:
     return out
 
 
+#: SFC-12-09 residual (`fc-anchor`, 2.58.203): сколько ПЕРВЫХ содержательных
+#: термов материала гарантированно уходит в запрос части, пришедшей из
+#: склеенного вопроса. Следствие live-разбора 2.58.202: вопрос ссылался на
+#: «эту традицию» и не называл предмет, поэтому запрос по вопросу уходил в
+#: общий поиск и приносил страницы не по теме (claim c2 → cbinsights).
+#: Это НЕ потолок запроса: термы вопроса добавляются как прежде, а длину
+#: формулировки ограничивает существующий `_QUERY_MAX_CHARS`.
+_MATERIAL_ANCHOR_TERMS = 3
+
+
+def _material_anchor_terms(material_text: str) -> list[str]:
+    """Предметный анкер материала: первые содержательные термы его начала.
+
+    Детерминированно и без предметных словарей: анкер берётся из сохранённого
+    материала (материал начинается с названия предмета), а не из списка
+    стран/категорий. Нужен частям, пришедшим из вопроса: вопрос может
+    ссылаться на «эту традицию», не называя предмет."""
+    return _claim_terms(search_thesis_text(material_text),
+                        limit=_MATERIAL_ANCHOR_TERMS)
+
+
+def _with_material_anchor(terms: list[str],
+                          anchor_terms: list[str]) -> list[str]:
+    """Дописать анкер материала ПЕРЕД термами части.
+
+    Существующий потолок термов (`[:10]`) применяется к термам вопроса до
+    вызова, поэтому анкер не может быть вытеснен из запроса."""
+    known = {str(term).lower() for term in terms}
+    missing = [term for term in anchor_terms if str(term).lower() not in known]
+    return missing + list(terms)
+
+
 def _entities(text: str) -> list[str]:
     """Потенциальные именованные сущности: капитализированные токены НЕ в
     начале предложения (детерминированно, без LLM)."""
@@ -507,6 +544,7 @@ def build_retrieval_plan(decision, *,
                          subject_author: str = "",
                          subject_request_text: str = "",
                          subject_material_text: str = "",
+                         subject_full_material_text: str = "",
                          ) -> RetrievalPlan | None:
     """SuitabilityDecision/ClaimItem → план поисковых действий.
 
@@ -524,7 +562,14 @@ def build_retrieval_plan(decision, *,
 
     BGS-01: контекст чата (участники) планировщику больше НЕ передаётся —
     у него нет доступа к именам, поэтому обязательная деперсонализация
-    запроса не может быть возвращена «по привычке»."""
+    запроса не может быть возвращена «по привычке».
+
+    SFC-12-09 residual (`fc-anchor`): ``subject_full_material_text`` — полный
+    сохранённый материал предмета (а не только вошедшая часть). Он остаётся
+    источником ПРЕДМЕТНОГО АНКЕРА для запроса части, пришедшей из вопроса,
+    когда сам вопрос называет предмет только как «эту традицию». Без
+    параметра (старые вызывающие) анкер берётся из ``subject_material_text``,
+    поэтому поведение прежних планов не меняется."""
     if not planner_enabled():
         return None
     try:
@@ -536,10 +581,38 @@ def build_retrieval_plan(decision, *,
                                      subject_anchor_tg_message_id),
                                  subject_author=subject_author,
                                  subject_request_text=subject_request_text,
-                                 subject_material_text=subject_material_text)
+                                 subject_material_text=subject_material_text,
+                                 subject_full_material_text=(
+                                     subject_full_material_text))
     except Exception:
         logger.warning("[factcheck_planner] plan build failed", exc_info=True)
         return None
+
+
+def _unit_key(text: str) -> str:
+    """Ключ сравнения единицы: нормализованные пробелы без завершающей
+    пунктуации (SFC-12-09: склеенный вопрос сравнивается с предложениями
+    предмета)."""
+    return " ".join(str(text).lower().split()).rstrip(".!?;…")
+
+
+def _request_glued_keys(claim: str, request_text: str) -> set[str]:
+    """Ключи предложений запроса, склеенных с материалом в предмете.
+
+    SFC-12-09 residual (`fc-anchor`): `_subject_from_decision` соединяет
+    `material_part` и `request_part` одиночным пробелом; если материал не
+    заканчивается терминатором, вопрос не становится отдельным предложением
+    предмета. Именно такая часть получает собственный запрос, который без
+    предметного анкера материала уходит в общий поиск."""
+    if not request_text:
+        return set()
+    claim_keys = {_unit_key(sentence) for sentence in re.split(
+        r"(?<=[.!?;])\s+", search_thesis_text(claim)) if sentence.strip()}
+    request_sentences = [sentence.strip() for sentence in re.split(
+        r"(?<=[.!?;])\s+", " ".join(str(request_text).split()))
+        if sentence.strip()]
+    return {_unit_key(sentence) for sentence in request_sentences
+            if _unit_key(sentence) not in claim_keys}
 
 
 def _claim_units(items, claim: str, *, cap: int | None = None,
@@ -608,9 +681,6 @@ def _claim_units(items, claim: str, *, cap: int | None = None,
     # (дедупликация), а если он приклеен к материальному предложению —
     # появляется собственный запрос.
     if request_text:
-        def _unit_key(text: str) -> str:
-            return " ".join(str(text).lower().split()).rstrip(".!?;…")
-
         request_sentences = [
             s.strip() for s in re.split(
                 r"(?<=[.!?;])\s+", " ".join(str(request_text).split()))
@@ -853,6 +923,9 @@ def build_claim_units(items, claim: str, *,
     claim_years = _years(claim)
     units: list[ClaimUnit] = []
     raw_units = _claim_units(items, claim, request_text=request_text)
+    #: SFC-12-09 residual (`fc-anchor`): ключи предложений запроса, склеенных
+    #: с материалом. Их запрос обязан нести предметный анкер материала.
+    glued_keys = _request_glued_keys(claim, request_text)
     for start in range(0, len(raw_units), _CLAIM_UNITS_PORTION):
         for raw_unit in raw_units[start:start + _CLAIM_UNITS_PORTION]:
             unit = str(raw_unit or "").strip()
@@ -883,7 +956,8 @@ def build_claim_units(items, claim: str, *,
                 timezone=_claim_timezone(unit),
                 claim_type=_claim_type(unit, metrics),
                 foreign_terms=tuple(_latin_terms(unit)),
-                event_at=event_at))
+                event_at=event_at,
+                from_glued_request=_unit_key(unit) in glued_keys))
     return tuple(units)
 
 
@@ -1010,7 +1084,9 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
                       subject_anchor_tg_message_id: int | None = None,
                       subject_author: str = "",
                       subject_request_text: str = "",
-                      subject_material_text: str = "") -> RetrievalPlan | None:
+                      subject_material_text: str = "",
+                      subject_full_material_text: str = ""
+                      ) -> RetrievalPlan | None:
     if decision is None:
         return None
     scope = str(getattr(decision, "scope", "") or "")
@@ -1055,6 +1131,37 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
     if not units:
         units = (ClaimUnit(claim_id="c1",
                            text=search_thesis_text(claim)),)
+    # SFC-12-09 residual (`fc-anchor`): анкер берётся из ПОЛНОГО материала
+    # предмета; склеенный вопрос может называть предмет только как «эту
+    # традицию», и без анкера его запрос уходит в общий поиск. Полный материал
+    # приоритетен, вошедшая часть — fallback для старых вызывающих.
+    material_anchor = _material_anchor_terms(
+        subject_full_material_text or subject_material_text)
+    # SFC-12-09 residual (`fc-anchor`): LLM мог сузить ВОШЕДШУЮ часть материала
+    # до подстроки без названия предмета («она распространена…»). Тогда и её
+    # единица уходит в общий поиск без темы. Анкер нужен и ей, но только когда
+    # темы нет в самой вошедшей части: обычный фактчек (вошедшая часть = полный
+    # материал) и request-only планы не меняются.
+    material_basis = " ".join(
+        search_thesis_text(str(subject_material_text or "")).lower().split())
+    material_anchor_lost = bool(
+        material_anchor and material_basis
+        and not any(term.lower() in material_basis for term in material_anchor))
+
+    def _material_side(unit_text: str) -> bool:
+        """Единица пришла из вошедшей части материала (в т.ч. склеенной с
+        вопросом), а не из отдельного предложения запроса."""
+        norm = " ".join(str(unit_text or "").lower().split())
+        return bool(norm) and bool(material_basis) and (
+            norm.startswith(material_basis)
+            or material_basis.startswith(norm))
+
+    def _needs_material_anchor(unit: ClaimUnit) -> bool:
+        if not material_anchor:
+            return False
+        return bool(unit.from_glued_request) or (
+            material_anchor_lost and _material_side(unit.text))
+
     explicit_cap = max_queries is not None and int(max_queries) > 0
     # S14 §5.2/§6.3: план строится по числу существенных частей; 64 — это
     # бюджет ИСПОЛНЕНИЯ (run_retrieval), а не причина терять части плана.
@@ -1102,7 +1209,15 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
         uterms = _claim_terms(unit.text, limit=8)
         uents = [e for e in _entities(unit.text)
                  if e.lower() not in {t.lower() for t in uterms}][:3]
-        base = _expand_terms((uents + uterms)[:10])
+        # SFC-12-09 residual (`fc-anchor`): запрос части, пришедшей из
+        # склеенного вопроса, несёт предметный анкер материала ПЕРВЫМ — вопрос
+        # может называть предмет только как «эту традицию», а существующий
+        # потолок термов иначе оставляет запрос без темы.
+        question_terms = (uents + uterms)[:10]
+        if _needs_material_anchor(unit):
+            question_terms = _with_material_anchor(question_terms,
+                                                   material_anchor)
+        base = _expand_terms(question_terms)
         if refine_room <= 0:
             # Слотов на отдельные уточнения нет — числа/годы/интервал части
             # идут в ЕЁ ЖЕ запрос, чтобы не потеряться (F4), а заявленный
@@ -1126,6 +1241,10 @@ def _build_plan_inner(decision, *, claim_text, max_queries,
             continue
         uterms = _claim_terms(unit.text, limit=8)
         years = _years(unit.text) or _years(claim)
+        if _needs_material_anchor(unit):
+            # Уточнение по склеенному вопросу тоже не уходит в общий поиск без
+            # предмета (та же гарантия, что у базового запроса части).
+            uterms = _with_material_anchor(uterms, material_anchor)
         if unit.metrics:
             _add(_make_query(_expand_terms(uterms), INTENT_NUMERIC,
                              tail=" ".join(unit.metrics), claim_id=unit.claim_id,

@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b-cfc5172f",
+      "owner": "Reviewer",
+      "reason": "Ветка sc/fc-anchor (b0f6ec79 — код+тесты; evidence — следующим коммитом ветки) ожидает независимого review; worktree — рабочая копия кандидата.",
+      "evidence": "plans/features/smart-execution-reliability-01/evidence/fc-anchor/implementation.md",
+      "next_event": "После независимого review/merge ветки sc/fc-anchor — закрыть unit-close --confirmed-idle --confirmed-evidence --apply."
+    }
+  ]
+}
