@@ -172,3 +172,47 @@ Reviewer отдельно отметил, что исходная формули
 Выводы: `evidence/gates/review-S5C-EVENTS.txt`, `evidence/gates/plan-after-S5C.txt`.
 
 `candidate_commit`/`deployed_commit` карты остаются пустыми; S5C — predeploy binding, не production-подтверждение.
+
+## 9. S5D-OBSERVABILITY (добавлено 2026-11-14, unit `pm-s5d-bind`)
+
+| Поле | Значение |
+|---|---|
+| Код-кандидат / review candidate | `4185803c46914a593cdf5ebfa5df5bebd5a2585d` (ветка HEAD evidence `343fdfa2`) |
+| База | `5d7c4798aae1e5db93ee88bdf62d66577e6d6010` |
+| Ветка / worktree | `sc/corrective-s5d`; `…smart-corrective-01-0097aecc4a7a-e6bece84` |
+| Implementation | `evidence/s5d/implementation.md` `64716b66e743a9db2823d3b7e07b5e0fa68b69d936fac0a9871ca951ce0d299f` |
+| Review | `evidence/s5d/review-r1.md` `e4d125c04a5b47ac5bce2e2b4e07dbb255c92c3b6d4d4c612b1357c19b4de406` |
+| Retention | `evidence/s5d/retention.json` `d393ec3d2c5dccb9de361405c84c445c50315e4402bbf4faa27282449ac56606` |
+
+Артефакты скопированы байт-в-байт из candidate worktree; sha256 источника = sha256 назначения.
+
+### Строки S5D
+
+| Показатель | Значение |
+|---|---:|
+| Required-строк S5D-OBSERVABILITY | 1 (`SC-WD-W10`) |
+| Привязано к кандидату `4185803c` (implementation + review) | 1 |
+| `REVIEW` | 1 |
+| `VERIFIED` | 0 |
+| Осталось `PENDING` в S5D | 0 |
+
+`AC-24` связан через `SC-WD-W10.linked_acceptance = ["AC-24"]`; сама `AC-24` остаётся строкой `S8-REVIEW-RELEASE`/`PENDING` до S8 и не переводится в REVIEW этой привязкой.
+
+### Review-вердикт
+
+`review-r1.md`: **Approved for implemented S5D-OBSERVABILITY scope on exact candidate**. Проверены оба пути отказа регистрации инцидента (raise и `status=failed`), ровно один `open_or_update` без рекурсии, WARN `WATCHDOG_INCIDENT_FAILURE`, bounded-счётчики `created/updated/reopened/failed/disabled`, durable `mca_events`, `WATCHDOG_SWEEP.usage_json` фиксированной формы и сохранение recovery-исхода. Mutation-killed: WARN removal (оба пути), `running_contract.deadline_bounded` removal, recursive `open_or_update`. Прогоны: 6 S5D, 70 combined S5A–S5D, 142 event/supervisor (1 pre-existing census failure), 75 self-diag/cover. Привязка только REVIEW; не VERIFIED.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| review | `--stage review --slice S5D-OBSERVABILITY --candidate 4185803c --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=1) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+
+Выводы: `evidence/gates/review-S5D-OBSERVABILITY.txt`, `evidence/gates/plan-after-S5D.txt`.
+
+### Состояние S5-цепочки
+
+С привязкой S5D все четыре code-среза watchdog-цепочки — **S5A-LIFECYCLE, S5B-RECOVERY, S5C-EVENTS, S5D-OBSERVABILITY — связаны со своими кандидатами на уровне REVIEW**. Join-узел `S5-WATCHDOG` не пишет код; его закрытие/комбинированное ревью и release остаются S8-REVIEW-RELEASE. Ни одна S5-строка не VERIFIED; production-подтверждение — только после деплоя и реальных наблюдений.
+
+`candidate_commit`/`deployed_commit` карты остаются пустыми; S5D — predeploy binding, не production-подтверждение.

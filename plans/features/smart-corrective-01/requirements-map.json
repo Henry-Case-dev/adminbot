@@ -4531,8 +4531,27 @@
       "acceptance": "Отказ регистрации инцидента логируется, эмитит WARN-событие и локальный счётчик; рекурсивный инцидент не создаётся; счётчики различают created/updated/reopened/failed.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "4185803c46914a593cdf5ebfa5df5bebd5a2585d",
+          "ref": "S5D implementation.md §2/§4/§5: TestIncidentRegistrationFailure, TestIncidentOutcomeCounters, TestSweepDiagnosticsExposure, TestAnalyticsDurability; 6 S5D + 70 combined passed",
+          "observation": "Оба пути отказа (raise и status=failed) дают ровно один log.warning + WARN WATCHDOG_INCIDENT_FAILURE + failed-счётчик без повторного open_or_update; incident created/updated/reopened/failed/disabled различаются; WATCHDOG_SWEEP.usage_json содержит bounded outcome/queued/overdue/running_contract; recovery-исход не изменён.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s5d/implementation.md",
+          "artifact_sha256": "64716b66e743a9db2823d3b7e07b5e0fa68b69d936fac0a9871ca951ce0d299f"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "4185803c46914a593cdf5ebfa5df5bebd5a2585d",
+          "ref": "S5D review-r1.md lines 2-9 (§Implementation, §Test validity, §Independent challenge); ledger W-10/AC-24 REVIEW evidence",
+          "observation": "Reviewer independently inspected S5D: exception/returned-failed paths log+WARN once without recursion, counters distinct, usage_json fixed-shape and durable, recovery unchanged; mutations killed (6 S5D, 70 combined, 142 event/supervisor with one pre-existing census failure, 75 self-diag/cover). Approved for exact candidate; REVIEW level only, not VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s5d/review-r1.md",
+          "artifact_sha256": "e4d125c04a5b47ac5bce2e2b4e07dbb255c92c3b6d4d4c612b1357c19b4de406"
+        }
+      ],
       "expected_evidence": "open_or_update raise ⇒ WARN-событие + лог, без рекурсии; счётчики created/updated/reopened/failed различаются; probe H.",
       "owner_clause": "§9.2 E",
       "linked_acceptance": [
@@ -11923,6 +11942,12 @@
         "evidence_presence": "файл находится на ветке sc/corrective-s3; в текущем checkout master может отсутствовать"
       },
       "note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
+    },
+    "S5D-OBSERVABILITY": {
+      "linked_acceptance": [
+        "AC-24"
+      ],
+      "note": "AC-24 связан через SC-WD-W10.linked_acceptance и остаётся строкой S8-REVIEW-RELEASE/PENDING до S8; S5D binding относится к W-10."
     }
   },
   "slice_candidate_bindings": {
@@ -12018,6 +12043,21 @@
       "review_sha256": "d8fcc22ea84e8c103cad1d85f67dc0bb454a993100fefee96fdcbd3cbe1a3c9d",
       "retention_path": "plans/features/smart-corrective-01/evidence/s5c/retention.json",
       "retention_sha256": "90e3891874b5a93185ac0419a3268e0b5f3a1bb558277ed7568a9def0bbc4a8f",
+      "status": "REVIEW",
+      "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
+    },
+    "S5D-OBSERVABILITY": {
+      "slice": "S5D-OBSERVABILITY",
+      "candidate_commit": "4185803c46914a593cdf5ebfa5df5bebd5a2585d",
+      "base_commit": "5d7c4798aae1e5db93ee88bdf62d66577e6d6010",
+      "branch": "sc/corrective-s5d",
+      "worktree": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-e6bece84",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s5d/implementation.md",
+      "implementation_sha256": "64716b66e743a9db2823d3b7e07b5e0fa68b69d936fac0a9871ca951ce0d299f",
+      "review_path": "plans/features/smart-corrective-01/evidence/s5d/review-r1.md",
+      "review_sha256": "e4d125c04a5b47ac5bce2e2b4e07dbb255c92c3b6d4d4c612b1357c19b4de406",
+      "retention_path": "plans/features/smart-corrective-01/evidence/s5d/retention.json",
+      "retention_sha256": "d393ec3d2c5dccb9de361405c84c445c50315e4402bbf4faa27282449ac56606",
       "status": "REVIEW",
       "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
     }

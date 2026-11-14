@@ -1,0 +1,13 @@
+{
+  "unit": "s5d-observability",
+  "epic": "smart-corrective-01",
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-e6bece84",
+      "owner": "Builder (S5D-OBSERVABILITY)",
+      "reason": "Registered implementation worktree of branch sc/corrective-s5d (code+tests 4185803c, evidence commit); must remain available for independent review and S5-WATCHDOG join. No production access; disposable pytest caches are not part of the tree.",
+      "evidence": "plans/features/smart-corrective-01/evidence/s5d/implementation.md (4185803c)",
+      "next_event": "After Reviewer approval of S5D (or after the S5-WATCHDOG join): integrate the branch, then release the worktree via unit-close."
+    }
+  ]
+}

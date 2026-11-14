@@ -11,14 +11,15 @@ Last verified: parent 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad
 Acceptance: parent 186 unique ids - 174 VERIFIED, 12 READY_FOR_LIVE (A1-04, L1-01, L2-01, L4-01, L6-01, L7-01, L8-01, SFC-5-10, SFC-12-07, SFC-12-09, SFC-13-03, SFC-14-03), 0 REVIEW/PENDING/FAILED. Corrective map 384 required / 367 ids / 24 AC / 14 slices, plan gate 0.
 Next unlocks: (1) S4 and S5C reviews; (2) F4 harness focused re-run; (3) FC-12-09 fix review + clean canary on a stable provider; (4) S3B-INPUT -> S6-PROMPT -> S5D-OBSERVABILITY; (5) corrective release train
 Next execution: awaiting_children
-Review: S1/S2 Approved; S3 Approved (r2); S5A-D **all Approved** (S5D 4185803c mutation-killed); S4/S5C/S5D bound at REVIEW (S5D binding running); S3B in progress; parent 174/186; SFC-12-09 approved pre-deploy; F4 VERIFIED
+Review: S1/S2 Approved; S3 Approved (r2); S5A-D all Approved and bound at REVIEW (S5 chain complete); S3B in progress; S4/S5C approved+bound; parent 174/186; SFC-12-09 approved pre-deploy; F4 VERIFIED
 Deployment: parent 2.58.200 verified engineering delivery; corrective slices S1/S2, S3, S5A, S5B approved; S4/S5C in progress - no corrective deploy yet
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted; global aggregate 4409/7264 requirements, 324/599 slices
-Updated: 2026-11-14T22:40:14+12:00
+Updated: 2026-11-14T22:43:01+12:00
 
 ## Facts
 
+- S5D bound on master (candidate 4185803c): SC-WD-W10 REVIEW, 0 PENDING; slice binding + implementation/review/retention evidence with sha256; review gate 0, plan gate 0. The whole S5 watchdog chain (S5A-D) is now bound at REVIEW; the S5-WATCHDOG join and combined review/release remain S8. AC-24 stays S8 PENDING. S3B is in progress (uncommitted settings/checkup_service/tests).
 - S5D-OBSERVABILITY **Approved** (candidate 4185803c, evidence 343fdfa2): both incident-failure paths produce one log/WARN/failed counter with no recursion; the fixed-shape WATCHDOG_SWEEP usage_json is complete; mutations (remove exception WARN, remove status=failed WARN, remove deadline_bounded, add recursive open_or_update) each fail a test; 6 S5D + 70 S5A-D + 142/1 pre-existing + 75 + 3 + 18/9. SC-WD-W10/AC-24 REVIEW VERIFIED (not VERIFIED in the map). PM is binding S5D; the whole S5 watchdog chain (S5A-D) is then bound at REVIEW.
 - S5D-OBSERVABILITY implemented on sc/corrective-s5d (base 5d7c4798; code 4185803c, evidence 343fdfa2): incident-registration failure observable on both real paths (exception and status=failed) via log.warning + WARN event WATCHDOG_INCIDENT_FAILURE (job_id/owner/stage/error type), no recursion, no second open_or_update; bounded counters created|updated|reopened|failed|disabled distinct; WATCHDOG_SWEEP carries a fixed-shape usage_json (discovered/attempted/recovered/failed/no_change, incident outcomes, reconcile, overdue, queued buckets, running_contract, stale/progress_stalled); per-job events/lifecycle/fencing/guards unchanged; 6 new tests, 70 S5A-D, 142/1 pre-existing, 75, 3, 18/9. Review running. Known limitation: WARN is durable in mca_events but not in mca_event_aggregates (existing ERROR-only aggregation), totals process-local.
 - S5C-EVENTS bound on master (candidate e5cc838f): 2 required rows (SC-WD-W01/W11) REVIEW, 0 PENDING; slice candidate binding + implementation/review/retention evidence with sha256; review gate 0, plan gate 0; SC-WD-W01 text already aligned with the owner per-job contract. S3B-INPUT and S5D-OBSERVABILITY are in implementation.
