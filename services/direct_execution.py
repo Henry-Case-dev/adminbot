@@ -2683,16 +2683,25 @@ def _emit_tool_phase_event(*, route: str, chat_id, correlation_id, llm,
 
 # ── Evidence pack: per-source fair allocation (§18C.2) ───────────────────────
 
-DEFAULT_EVIDENCE_CAP_CHARS = 4000       # legacy-дефолт (окно неизвестно)
-EVIDENCE_FLOOR_CHARS = 300              # защитный минимум источника
-EVIDENCE_MAX_SHARE = 0.4                # доля окна L2 на evidence (ceiling)
+#: SXR-C3-02: 4000 больше НЕ дефолт неизвестного окна. ``0`` = «ёмкости нет»
+#: → packer отдаёт ВСЁ evidence без искусственного среза; caller с реальным
+#: бюджетом передаёт положительное значение. Неизвестная модель получает
+#: planning-оценку 1M в резолвере (D1), а не этот legacy-потолок.
+DEFAULT_EVIDENCE_CAP_CHARS = 0
+EVIDENCE_FLOOR_CHARS = 300              # защитный минимум источника (known cap)
 
 
 def l2_evidence_budget_chars(input_budget_tokens, other_chars: int,
                              output_reserve_tokens: int = 0) -> int | None:
-    """Capacity evidence под РЕАЛЬНОЕ окно финальной L2 (§18C.2: не
-    магическая константа). input_budget None → None (legacy-дефолт).
-    Формула: доля окна (≤40%) минус прочие блоки пакета, floor 300.
+    """Capacity evidence под РЕАЛЬНОЕ окно финальной L2 (§18C.2).
+
+    SXR-C3-02 (SMART-EXECUTION-RELIABILITY-01 C3): потолок «не более 40%
+    окна» удалён — он оставлял половину доступного окна неиспользованной и
+    обрывал evidence независимо от фактической потребности. Формула теперь
+    ровно реальная ёмкость: весь входной бюджет минус прочие блоки пакета
+    (``other_chars``), с защитным floor 300. ``input_budget None`` → None
+    («ёмкость неизвестна»; caller передаёт 0 в packer = без искусственного
+    среза).
 
     ASAP-EVIDENCE-ROUTING-01 v3 (§0.2 C4): резерв вывода вычитается РОВНО
     один раз — в композере (`l2_input_budget` уже без резерва), поэтому
@@ -2703,8 +2712,7 @@ def l2_evidence_budget_chars(input_budget_tokens, other_chars: int,
             return None
         budget = max(0, int(input_budget_tokens))
         others = max(0, int(other_chars)) // 4        # ~4 симв/токен
-        evidence_tokens = min(int(budget * EVIDENCE_MAX_SHARE),
-                              budget - others - int(output_reserve_tokens))
+        evidence_tokens = budget - others - int(output_reserve_tokens)
         return max(EVIDENCE_FLOOR_CHARS, evidence_tokens * 4)
     except (TypeError, ValueError):
         return None
@@ -2888,9 +2896,14 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
                 sources = [EvidenceSource(tool="tools", status="ok",
                                           content=context_text,
                                           total_chars=len(context_text))]
-        cap = int(capacity_chars) if capacity_chars \
-            else DEFAULT_EVIDENCE_CAP_CHARS
-        cap = max(500, cap)
+        # SXR-C3-02: положительный capacity_chars — РЕАЛЬНЫЙ бюджет вызывающего;
+        # отсутствие/0 — «ёмкость неизвестна» → без искусственного среза
+        # (D1: неизвестная модель планируется как 1M, а не legacy 4000).
+        try:
+            raw_cap = int(capacity_chars or 0)
+        except (TypeError, ValueError):
+            raw_cap = 0
+        cap = raw_cap if raw_cap > 0 else None
         comparison = False
         try:
             comparison = (str(getattr(plan, "structure", "") or "")
@@ -2901,6 +2914,12 @@ def build_evidence_pack(raw, plan=None, *, capacity_chars: int | None = None,
             comparison = False
         limitations: list[str] = []
         live = [s for s in sources if s.content]
+        if cap is None:
+            # Неизвестная ёмкость: доставить весь материал без среза; метаданные
+            # `capacity_chars` честно называют фактический объём, не «потолок».
+            cap = sum(len(s.content) for s in live)
+        else:
+            cap = max(EVIDENCE_FLOOR_CHARS, int(cap))
         pack = EvidencePack(capacity_chars=cap)
         if sources:
             pack.sources = sources
@@ -3051,63 +3070,99 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                 if text.strip():
                     rest.append(text)
             rest_tokens = sum(_safe_count_tokens(p) for p in rest)
-            used = sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)
             kept: list[str] = []
             capacity_reason = ""
             clock_dropped = False
-            if used + rest_tokens <= budget:
+            evidence_out = evidence
+            if sys_tokens + ev_tokens + rest_tokens <= budget:
+                # Всё физически помещается — ничего не сокращаем.
                 kept = rest
             else:
-                # Защищённые блоки: evidence floor + query уже в rest[0]?
-                # rest[0] — первый блок (time_line или user-контекст с
-                # вопросом). Защищаем evidence floor отдельно.
-                remaining = budget - sys_tokens - min(
-                    ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)
-                if remaining <= 0:
-                    capacity_reason = "fallback_window_exceeded"
-                    remaining = max(0, budget // 4)
-                for part in rest:
+                remaining = max(0, budget - sys_tokens)
+                # UR-C-CLOCK: часы — защищённый блок целиком.
+                clock_parts = [p for p in rest if _CLOCK_BLOCK_OPEN in p]
+                plain_parts = [p for p in rest
+                               if _CLOCK_BLOCK_OPEN not in p]
+                clock_tokens = 0
+                for part in clock_parts:
                     tokens = _safe_count_tokens(part)
-                    if _CLOCK_BLOCK_OPEN in part:
-                        # UR-C-CLOCK (review 5c96a396): блок часов ЦЕЛИКОМ
-                        # защищён от сжатия. Влез → целиком; не влез (в т.ч.
-                        # после исчерпания бюджета более ранними блоками) →
-                        # выкидывается целиком с CAPACITY-пометкой. Разрез
-                        # (head+tail) для этого блока запрещён: обрезок
-                        # выглядел бы как «авторитетные» часы с неверным
-                        # временем.
-                        if tokens <= remaining:
-                            kept.append(part)
-                            remaining -= tokens
-                        else:
-                            clock_dropped = True
-                        continue
-                    if remaining <= 0:
-                        break
-                    if tokens <= remaining:
+                    if clock_tokens + tokens <= remaining:
                         kept.append(part)
-                        remaining -= tokens
+                        clock_tokens += tokens
+                    else:
+                        clock_dropped = True
+                remaining_after_clock = max(0, remaining - clock_tokens)
+                plain_tokens = sum(_safe_count_tokens(p) for p in plain_parts)
+                # SXR-C3-02: реальная ёмкость делится пропорционально
+                # фактическим размерам evidence и прочих блоков, а не
+                # потолком «400 токенов evidence»/40% окна. Защищённый
+                # минимум evidence — L2_EVIDENCE_FLOOR_TOKENS, но только
+                # если он физически влезает; всё, что остаётся после
+                # упаковки прочих блоков, возвращается evidence (максимальная
+                # доставка вместо фиксированного обрезка).
+                denominator = ev_tokens + plain_tokens
+                evidence_alloc = 0
+                if ev_tokens and remaining_after_clock:
+                    if denominator:
+                        evidence_alloc = int(
+                            remaining_after_clock * ev_tokens / denominator)
+                    else:
+                        evidence_alloc = remaining_after_clock
+                    evidence_alloc = min(
+                        ev_tokens, remaining_after_clock,
+                        max(evidence_alloc,
+                            min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)))
+                rest_alloc = max(0, remaining_after_clock - evidence_alloc)
+                plain_used = 0
+                for part in plain_parts:
+                    tokens = _safe_count_tokens(part)
+                    if plain_used + tokens <= rest_alloc:
+                        kept.append(part)
+                        plain_used += tokens
                         continue
+                    room = rest_alloc - plain_used
+                    if room <= 0:
+                        break
                     # Частичная врезка по символам (head+tail: хвост
-                    # вопроса защищён).
-                    chars = max(200, remaining * 4)
+                    # вопроса защищён); это реальный остаток окна, не
+                    # фиксированная константа.
+                    chars = max(200, room * 4)
                     piece = str(part).strip()
                     head = piece[:int(chars * 0.6)]
                     tail = piece[-int(chars * 0.4):] if chars < len(piece) \
                         else ""
                     kept.append(head + ("\n[…обрезано под окно fallback]\n"
                                         if tail else "") + tail)
-                    remaining = 0
-                capacity_reason = capacity_reason or (
-                    "fallback_clock_dropped" if clock_dropped
-                    else "fallback_repacked")
+                    plain_used = rest_alloc
+                    break
+                # Остаток доли прочих блоков — evidence (доставить больше).
+                evidence_alloc = min(
+                    ev_tokens,
+                    evidence_alloc + max(0, rest_alloc - plain_used))
+                if ev_tokens > evidence_alloc:
+                    chars = max(200, evidence_alloc * 4)
+                    if evidence_alloc > 0:
+                        head = evidence[:int(chars * 0.75)]
+                        tail = evidence[-int(chars * 0.25):]
+                        evidence_out = (
+                            head + "\n[…обрезано под окно fallback: показано "
+                            f"{evidence_alloc}/{ev_tokens} токенов]\n" + tail)
+                        capacity_reason = "fallback_evidence_truncated"
+                    else:
+                        evidence_out = ""
+                        capacity_reason = "fallback_window_exceeded"
+                else:
+                    capacity_reason = "fallback_repacked"
+                if sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS) \
+                        > budget:
+                    # Защищённый минимум evidence физически не влезает —
+                    # честный overflow, даже если часть evidence доставлена.
+                    capacity_reason = "fallback_window_exceeded"
+                elif clock_dropped:
+                    capacity_reason = capacity_reason or \
+                        "fallback_clock_dropped"
             user_parts = list(kept)
-            if evidence.strip():
-                evidence_out = evidence
-                if capacity_reason == "fallback_window_exceeded":
-                    evidence_out = (evidence[:L2_EVIDENCE_FLOOR_TOKENS * 4]
-                                    + "\n[…evidence обрезан: не помещается "
-                                      "в окно fallback-модели]")
+            if evidence.strip() and evidence_out:
                 user_parts.append("<Tool_Evidence>\n" + evidence_out
                                   + "\n</Tool_Evidence>")
             if capacity_reason == "fallback_window_exceeded":
@@ -3118,6 +3173,16 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                 if on_capacity_reason is not None:
                     try:
                         on_capacity_reason("fallback_window_exceeded")
+                    except Exception:
+                        pass
+            elif capacity_reason == "fallback_evidence_truncated":
+                user_parts.append(
+                    "[CAPACITY] Tool evidence показан не полностью: он "
+                    "больше окна fallback-модели. Не выдавай недостающие "
+                    "части за проверенные.")
+                if on_capacity_reason is not None:
+                    try:
+                        on_capacity_reason("fallback_evidence_truncated")
                     except Exception:
                         pass
             if clock_dropped:

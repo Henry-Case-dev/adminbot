@@ -401,8 +401,6 @@ class FutureIntent:
     kind: str
     goal: str
 
-DEFAULT_DIRECT_L1_EVIDENCE_MAX_CHARS = 4000
-
 # §1.5: force/direct-address факты (детерминированные, LLM их не решает).
 # FIX-CORRECTIVE-R1 (21.10.2026, P2): autonomous-строка называет блок с
 # предыдущими ответами бота и явное равноправие silent/react (без новых
@@ -2170,14 +2168,9 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
 # ── §1.2: deterministic evidence packaging (БЕЗ LLM) ────────────────────────
 
 
-def evidence_max_chars() -> int:
-    """Кап evidence-пакета (код-константа; каталога Δ = 0)."""
-    try:
-        return max(500, int(getattr(
-            settings, "DIRECT_L1_EVIDENCE_MAX_CHARS",
-            DEFAULT_DIRECT_L1_EVIDENCE_MAX_CHARS)))
-    except Exception:      # pragma: no cover - защитная ветка
-        return DEFAULT_DIRECT_L1_EVIDENCE_MAX_CHARS
+# SXR-C3-02: legacy-кап DIRECT_L1_EVIDENCE_MAX_CHARS=4000 удалён —
+# `build_evidence_packet(max_chars=None)` означает «ёмкость неизвестна» и
+# отдаёт материал без искусственного среза; реальный бюджет передаёт caller.
 
 
 def build_evidence_packet(raw, plan=None, *,

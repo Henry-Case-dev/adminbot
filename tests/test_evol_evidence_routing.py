@@ -1761,8 +1761,9 @@ def test_wave3_call_budget_matches_pack_formula(monkeypatch):
         user_blocks=["q"], lessons="", speech="", character="")
     expected = dx.l2_evidence_budget_chars(6000, other_chars=others)
     assert budget == expected
-    # Кэп на 40% окна и floor 300 — тоже часть формулы, не «примерно».
-    assert dx.l2_evidence_budget_chars(6000, other_chars=0) == 9600
+    # SXR-C3-02: весь остаток реального бюджета (40%-потолок удалён);
+    # floor 300 — защитный минимум, не потолок.
+    assert dx.l2_evidence_budget_chars(6000, other_chars=0) == 24000
     assert dx.l2_evidence_budget_chars(6000, other_chars=10 ** 6) == 300
     # Без бюджета композера (None) — 0 → инструмент берёт реальное окно.
     assert svc._evidence_call_budget_chars(

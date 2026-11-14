@@ -849,15 +849,16 @@ class TestRound8CurrentQuestionAndBranch:
         assert blocks[-1].startswith("отвечай на последний вопрос")
 
     @pytest.mark.asyncio
-    async def test_current_question_cap_and_escape(self, fake_time, monkeypatch):
+    async def test_current_question_escape_and_no_char_cap(self, fake_time,
+                                                          monkeypatch):
         service = _make_service(memory=FakeMemory(window=[]))
-        # escape в блоке (полный текст, дефолтный кап)
+        # escape в блоке (полный текст)
         msg = _message(text="расскажи про <дроны> и & роботов")
         blocks = await service._build_user_content(CHAT_ID, msg, "вася")
         current = next(b for b in blocks if b.startswith("<Current_Question>"))
         assert "&lt;дроны&gt;" in current and "&amp;" in current
         assert "расскажи про <дроны>" not in current
-        # кап по символам ДО escape
+        # SXR-C2-01: настроенный символьный «кап» больше не режет вопрос
         monkeypatch.setattr(
             "services.direct_chat_service.settings",
             _cfg(CHAT_CURRENT_QUESTION_MAX_CHARS=10))
@@ -865,7 +866,7 @@ class TestRound8CurrentQuestionAndBranch:
         blocks = await service._build_user_content(CHAT_ID, msg, "вася")
         current = next(b for b in blocks if b.startswith("<Current_Question>"))
         inner = current[len("<Current_Question>\n"):-len("\n</Current_Question>")]
-        assert len(inner) == 10 and inner == "очень длин"
+        assert inner == "очень длинный вопрос про дроны и всё такое"
 
     @pytest.mark.asyncio
     async def test_current_question_without_style_blocks(self, fake_time):

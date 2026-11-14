@@ -6652,8 +6652,10 @@ class DirectChatService:
                     _ev_budget = _dx.l2_evidence_budget_chars(
                         _fallback_meta.get("l2_input_budget"),
                         other_chars=_ev_others)
-                    _ev_cap = (_ev_budget if _ev_budget is not None
-                               else _l1.evidence_max_chars())
+                    # SXR-C3-02: нет бюджета композера → 0 = «без
+                    # искусственного среза» (D1: неизвестная модель
+                    # планируется как 1M); legacy-потолок 4000 удалён.
+                    _ev_cap = (_ev_budget if _ev_budget is not None else 0)
                     # P0-HA SEGMENTS (архконтракт §2): накопление находок
                     # сегментов ДО упаковки — блок @@HISTORY_COVERAGE встаёт
                     # головой в существующий EvidenceSource истории (сырой
@@ -8041,6 +8043,28 @@ class DirectChatService:
         except Exception:      # pragma: no cover - защитная ветка
             return 0
 
+    async def _writer_evidence_capacity(self, *, stage: str,
+                                        other_chars: int = 0) -> int:
+        """Емкость evidence Writer'а по РЕАЛЬНОМУ окну стадии (SXR-C3-02).
+
+        Тот же единый резолвер/формула, что у Direct-пакета: входной бюджет
+        стадии минус прочие блоки. ``0`` — ёмкость резолвится как
+        неизвестная → packer отдаёт материал без искусственного среза
+        (D1: planning-оценка 1M, не legacy 4000). Никогда не бросает."""
+        try:
+            base_url = (str(getattr(self.llm, "_base_url", "") or "")
+                        or str(getattr(settings, "LLM_BASE_URL", "") or ""))
+            model = (str(getattr(self.llm, "_chat_model", "") or "")
+                     or str(getattr(settings, "LLM_MODEL_NAME", "") or ""))
+            result = await _auto_budget.resolve_stage_budget(
+                str(stage or "initiative.l2"), base_url=base_url, model=model,
+                mandatory_tokens=0, policy_raw=-1)
+            cap = _dx.l2_evidence_budget_chars(
+                result.effective_input_budget, other_chars=other_chars)
+            return int(cap or 0)
+        except Exception:      # pragma: no cover — ёмкость не рвёт ход
+            return 0
+
     def _evidence_reuse_pack(self, decision, *, l1_plan, response_plan,
                              chat_id, capacity_chars: int = 0):
         """Пакет из уже прочитанного источника при qualified reuse (§3.4).
@@ -8063,8 +8087,9 @@ class DirectChatService:
                 return None
             pack = _dx.build_reuse_evidence_pack(
                 records, response_plan,
-                capacity_chars=int(capacity_chars or 0)
-                or _l1.evidence_max_chars())
+                # SXR-C3-02: 0 = без искусственного среза; реальный бюджет
+                # передаёт caller (`l2_input_budget`), legacy 4000 удалён.
+                capacity_chars=int(capacity_chars or 0))
             return pack if str(getattr(pack, "text", "") or "") else None
         except Exception:      # pragma: no cover - защитная ветка
             logger.debug("[direct] reuse pack failed", exc_info=True)
@@ -8559,15 +8584,22 @@ class DirectChatService:
             hist.append((src, header))
         if not hist:
             return None
-        slot = (max(500, int(slot_chars)) if slot_chars
-                else _dx.DEFAULT_EVIDENCE_CAP_CHARS)
+        try:
+            slot = max(500, int(slot_chars or 0))
+        except (TypeError, ValueError):
+            slot = 0
         last_header = hist[-1][1]
         has_next = _ha_int(last_header.get("has_next"), 0) == 1
         delivered_chars = sum(len(getattr(s, "content", "") or "")
                               for s, _ in hist)
         available = _ha_int(bound.get("available"), 0)
-        if not has_next and delivered_chars <= slot:
+        if not has_next and (slot <= 0 or delivered_chars <= slot):
             return None              # короткий путь: ровно текущее поведение
+        if slot <= 0:
+            # SXR-C3-02: реальный слот неизвестен (0 = без искусственного
+            # среза). Нарезка «по нулевому бюджету» резала бы каждый сегмент
+            # вслепую — остаётся существующий cursor/страничный путь волны 2.
+            return None
         if has_next and not self._history_tail_reader_ready():
             return None              # хвост недочитываем → паритет волны 2
 
@@ -15891,9 +15923,19 @@ class DirectChatService:
             # остаётся только Writer'у).
             _init_search_query = _evp.claims_query(_initiative_decision)
             _init_router = getattr(self, "tool_router", None)
+            # SXR-C3-02: evidence-бюджет инициативы — по РЕАЛЬНОМУ окну
+            # writer-стадии, а не legacy 4000. Считается один раз и
+            # используется tool-фазой, reuse и финальным пакетом.
+            _init_ev_others = _dx.measure_nonevidence_chars(
+                plan_block=str(plan_block or ""),
+                user_blocks=list(user_blocks or ()),
+                character=str(persona_block or ""))
+            _init_ev_cap = await self._writer_evidence_capacity(
+                stage="initiative.l2",
+                other_chars=_init_ev_others + _EVIDENCE_NOTE_RESERVE_CHARS)
             _init_tool_ctx = ToolContext(
                 chat_id, _goal_query, correlation_id=correlation_id)
-            _init_tool_ctx.evidence_budget_chars = _l1.evidence_max_chars()
+            _init_tool_ctx.evidence_budget_chars = _init_ev_cap
             # §1.6/§3.4 (волна 3): тот же claim-key и тот же reuse, что в
             # Direct — инициатива не отдельный контур.
             _init_tool_ctx.claim_keys = list(getattr(
@@ -15904,7 +15946,7 @@ class DirectChatService:
             _init_reuse = (_reuse_fn(
                 _initiative_decision, l1_plan=plan,
                 response_plan=response_plan, chat_id=chat_id,
-                capacity_chars=_l1.evidence_max_chars())
+                capacity_chars=_init_ev_cap)
                 if _reuse_fn is not None else None)
             # §3.4 (review-fix 5): reuse-выдержка — база пакета, но tool-фаза
             # для НЕ-сетевых инструментов исполняется и здесь (тот же
@@ -15951,7 +15993,7 @@ class DirectChatService:
                     if _init_raw is not None:
                         _initiative_pack = _dx.build_evidence_pack(
                             _init_raw, response_plan,
-                            capacity_chars=_l1.evidence_max_chars(),
+                            capacity_chars=_init_ev_cap,
                             prepend_sources=(list(getattr(
                                 _init_reuse, "sources", ()) or ())
                                 if _init_reuse is not None else ()))
