@@ -1,0 +1,6 @@
+# Repository whitespace policy for review gates.
+# CRLF at end of line is tolerated for existing blobs and is NOT reported as
+# trailing whitespace by `git diff --check` (cr-at-eol). Real trailing spaces
+# and tabs are still reported. No text normalization is forced here to avoid
+# mass renormalization of historical CRLF files; new/edited source is LF.
+* whitespace=cr-at-eol
