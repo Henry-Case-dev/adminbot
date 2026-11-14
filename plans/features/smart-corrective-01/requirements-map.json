@@ -139,8 +139,19 @@
       "acceptance": "Исходный production-запуск 14.11.2026 зафиксирован: личный диалог, команда «чекап», подробный отчёт по релизу 2.58.200.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.1/A.2",
+          "observation": "CHAT_DM8: smart_messages.id=2407142, 05:47:36Z, text «чекап»; маршрут checkup → handlers/checkup.py::checkup_handler → CheckupService.checkup с tool runtime; отчёт checkup_report output_id 1686 (tg 224) 05:48:23, 3 059 chars, sha256_16 c39e685fcd18715c, «подробный отчёт по релизу 2.58.200»; identity запуска deployed_sha=checkout_sha=0e4a144d, source_verified=True, sources=12/15.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-REP-FAIL_48",
@@ -154,8 +165,20 @@
       "acceptance": "Исследование исходников в исходном чекапе завершилось без анализа реализации проблемного компонента: код watchdog не был прочитан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.5-10, §A.2 «Проверка по коду»",
+          "observation": "Запуск A: 8 tool calls / 7 раундов; все успешные read_source_code вернули ОДИН и тот же 141-строчный файл (8 846 chars, verified, local, path_depth=6), а services/mca_watchdog.py в deployed checkout — 329 строк, поэтому реализация watchdog не читалась; финальный отчёт сам заявил, что снапшот отдал только харнесс-скрипт деплоя и «механизм остался непроверенным». Путь 141-строчного файла в трассе отсутствует — inference, не literal trace.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED",
+      "evidence_slice_note": "Строка в S4-COMPLETION, но её acceptance описывает наблюдаемое поведение исходного запуска, а не реализацию исправления; реализация остаётся в SC-CMP-EARLY."
     },
     {
       "source_id": "MANUAL_SC-REP-STOP_52",
@@ -169,8 +192,20 @@
       "acceptance": "Чекап завершился до анализа реализации проблемного компонента, хотя существенная проблема уже была обнаружена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.15, последовательность A",
+          "observation": "Остановка на раунде 7 (05:48:23) после текстового ответа модели: research_reason=ok, research_degraded=false, research_rounds=7, research_calls=8; причин chain/timeout/budget в трассе нет; 8 calls прошли при TOOL_CHAIN_LIMITS_ENABLED=true и MCA_TOOL_MAX_*=0, т.е. лимит не срабатывал.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED",
+      "evidence_slice_note": "Строка в S4-COMPLETION, но её acceptance описывает наблюдаемое поведение исходного запуска, а не реализацию исправления; реализация остаётся в SC-CMP-EARLY."
     },
     {
       "source_id": "MANUAL_SC-REP-GH-UNCONF_54",
@@ -184,8 +219,20 @@
       "acceptance": "Использование GitHub fallback в исходном запуске не подтверждено; отсутствие сетевого обращения не утверждается без фактических трасс.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.6/п.8/п.12, §A.3 п.8/п.12",
+          "observation": "Run A: discover network_calls=0, repo_present=true, ref_kind=branch; все read_source_code шли от локального источника, GitHub/SafeFetcher не вызывались; Run B round 2: source_missing/http=404 при network_calls=0, т.е. локальный отказ не переключился на удалённый источник. Отсутствие сетевого обращения утверждается по фактическим трассам, а не по отсутствию пользовательского ответа.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED",
+      "evidence_note": "Отсутствие сетевого обращения теперь утверждается по фактическим трассам (network_calls=0 в tool events), а не по отсутствию пользовательского ответа."
     },
     {
       "source_id": "MANUAL_CTX_56",
@@ -214,8 +261,19 @@
       "acceptance": "Зафиксирован второй запрос владельца в reply: «зайди в код посмотри что там по watchdog.jobs».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.1, §A.3 п.2",
+          "observation": "smart_messages.id=2407145, 05:54:47Z, reply_to_id=224, text «зайди в код посмотри что там по watchdog.jobs»; Direct trigger reply_to_bot → L1 → mode=adaptive_tool_chain → L2; correlation 0c1bb1ed17574a5c908525d5fe3f805b; ответ direct_reply output_id 1687 (tg 226) 05:57:33, 2 487 chars.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-REP-FOLLOW-READ_60",
@@ -229,8 +287,19 @@
       "acceptance": "Второй ответ бота содержательно разобрал services/mca_watchdog.py: process_id, stale running jobs, recover_stale, progress_at, ERROR-инциденты, дублирование WATCHDOG_TAKEOVER и пробелы обнаружения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.3 п.5-10",
+          "observation": "Round 3 вернул services/mca_watchdog.py: 329 строк, 2 файла followup, 19 050 chars, verified; round 1 — 9 файлов / 3 904 строки / 328 385 chars; round 2 — source_missing/404. Содержание ответа использует process_id, stale jobs, recover_stale, progress_stalled_jobs, ERROR-инциденты и WATCHDOG_TAKEOVER, совпадающие с deployed-кодом.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-REP-CONSIST_70",
@@ -244,8 +313,19 @@
       "acceptance": "Содержание второго ответа сверено с фрагментами исходников релиза 2.58.200 и признано согласующимся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.3 п.10, watchdog-code-analysis.md W-01..W-11",
+          "observation": "Названные в ответе B механизмы совпадают с deployed 0e4a144d: _track_incident (W-10), stale_jobs/recover_stale (W-02/W-03), progress_stalled_jobs/progress_at (W-08), WATCHDOG_TAKEOVER и lifecycle ack≠resolved (W-01/W-05); те же file:line закреплены в watchdog-code-analysis.md.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-REP-TRACE-GAP_72",
@@ -253,14 +333,31 @@
       "source_text_sha256": "fee7327125c82db6058d2bf75e0d3d882ce994c072ff25e2dc8b79f7a7d36940",
       "source_excerpt": "Однако фактический источник, ref, диапазоны прочитанных строк, конкретные tool calls и полнота исследования второго запуска пока не подтверждены production-трассой.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Часть пункта невосстановима по устройству хранения телеметрии: arguments/query/symbol tool-вызовов не сохраняются (только args_fingerprint), путь 141-строчного файла A не записан в трассу, pre-cleanup тексты моделей не хранятся. Требуется явное принятие ограничения (Reviewer/Architect) либо сужение формулировки владельцем; на исправление подтверждённых дефектов не влияет (SC-INV-NOBLOCK).",
       "req_id": "SC-REP-TRACE-GAP",
       "slice": "S0-INVESTIGATE",
       "acceptance": "Фактический источник, ref, диапазоны строк, tool calls и полнота второго запуска не подтверждены production-трассой и обозначены как ограничение.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.5/п.9 и §«Ограничения доказательств» 1-10",
+          "observation": "Трасса подтверждает источник (self repo, local provider, ref_kind=branch, network_calls=0), line ranges [1,141] (A) и [1,329] (B) и последовательность вызовов; НЕ подтверждает arguments/query/symbol tool-вызовов (есть только args_fingerprint f8fd28779c6508a5 / 88f6dd74bf3c427d / cab51a375a18197f), путь 141-строчного файла A (inference) и pre-cleanup тексты моделей.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PARTIALLY_UNRECOVERABLE",
+      "unrecoverable": [
+        "arguments/query/symbol tool-вызовов run A (есть только args_fingerprint f8fd28779c6508a5 / 88f6dd74bf3c427d)",
+        "точный путь 141-строчного файла run A (идентифицирован как inference: line_count=141, path_depth=6, deployed tree)",
+        "pre-cleanup тексты обоих ответов (delivered text + digest + chars сохранены, raw output — нет)",
+        "prompt revisions/hash для run B (usage_json обрезан 2 000 символами)"
+      ]
     },
     {
       "source_id": "MANUAL_SC-REP-ESSENCE_76",
@@ -274,8 +371,20 @@
       "acceptance": "Дефект сформулирован: бот не довёл существенное исследование до результата внутри исходного чекапа, а дополнительный запрос владельца дал значительно более полезный анализ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.16, §A.3 п.16, §A.4",
+          "observation": "A: отчёт 3 059 chars с self-declared непроверенностью механизма; B: ответ 2 487 chars, построенный на реально прочитанных 329 строках services/mca_watchdog.py (round 3, verified, line range [1,329]) с _track_incident/stale_jobs/recover_stale/progress_stalled_jobs/WATCHDOG_TAKEOVER. Исследование не было доведено внутри исходного чекапа и стало полезным только после отдельного указания владельца.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED",
+      "evidence_slice_note": "Формулировка дефекта подтверждена сравнением двух запусков; исправление остаётся в SC-CMP-*."
     },
     {
       "source_id": "MANUAL_SC-REP-CAUSE_78",
@@ -334,8 +443,19 @@
       "acceptance": "До реализации исправлений проведено read-only расследование двух production-запусков с использованием актуальных production-данных, журналов, событий наблюдаемости, deployed-идентичности, tool traces и сведений о LLM-запросах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A (весь), raw-артефакт сеанса",
+          "observation": "Read-only сеанс 2026-11-14 05:35-06:45 UTC: journalctl 4 149 строк текущего окна + 69 339 предыдущего boot, SQLite mode=ro/query_only, PostgreSQL read-only, mca_bot_outputs/mca_events/llm_usage_events, systemd identity PID 709883 / HEAD 0e4a144d; 17 пунктов §2.1 заполнены для обоих запусков с классами доказанности; raw_fixture 311 055 chars.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/raw/production-runs-and-incidents-2.58.200.txt",
+          "artifact_sha256": "cd7edfcce9ed85ff4f1b670f3e2ddc2112963db33afe0766f3fd6e60680c20b6"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-INV-NOTGUESS_90",
@@ -349,8 +469,19 @@
       "acceptance": "Расследование не ограничивается чтением исходников и гипотезами о возможном поведении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2, §A.3, §«Ограничения доказательств»",
+          "observation": "Выводы строятся на БД, журналах и телеметрии LLM (llm_usage_events, mca_events, journal TOOL_*), а не только на чтении исходников: route/identity/correlation/usage/fallback восстановлены из production-данных; каждая строка помечена confirmed_production / from_deployed_code / inference / unrecoverable.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-INV-COMPARE_114",
@@ -364,8 +495,19 @@
       "acceptance": "Маршруты двух запусков сопоставлены, особенно различия между самостоятельной командой чекапа и обычным reply-запросом на чтение кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.4",
+          "observation": "Сопоставление маршрутов: A — 2 declared tools, 7 раундов/8 calls, 4 read-попытки, 141-строчный harness, без fallback; B — L1 capability source_code, 4 раунда/3 calls, локальный 404 без GitHub (network_calls=0), 329-строчный watchdog, writer fallback deepseek-flash. Общий tool-loop/SourceReader и локальный источник; различие — в выбранных моделью arguments.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-INV-NOINVENT_128",
@@ -379,8 +521,19 @@
       "acceptance": "Если traces, payload или исторические данные не сохранились, они не выдумываются и не заменяются предположениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §«Ограничения доказательств» 1-11",
+          "observation": "Невосстановимое явно отделено: args не подбирались по вероятным комбинациям (совпадений нет), путь 141-строчного файла помечен inference, usage_json обрезан 2 000 символами, WATCHDOG_TAKEOVER не хранит job_ids, pre-cleanup тексты отсутствуют; вымышленных traces/payload нет.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-INV-OBSDEF_130",
@@ -388,14 +541,25 @@
       "source_text_sha256": "c6cf9dc58dbc0885de777508dc26b36d3fc20b000cacb56afe95f7d8f420718f",
       "source_excerpt": "Недостаточная наблюдаемость сама может быть дефектом. В таком случае зафиксировать конкретный отсутствующий участок трассировки, воспроизвести сценарий с имеющимися средствами и обеспечить необходимую наблюдаемость для повторной production-",
       "disposition": "required",
-      "reason": "",
+      "reason": "Выполнены первые две части: конкретные отсутствующие участки трассировки зафиксированы и сценарий воспроизведён доступными средствами. Третья часть — обеспечение наблюдаемости для повторной production-проверки — является реализацией S5C/S5D (W-01/W-10/W-11) и пока не выполнена.",
       "req_id": "SC-INV-OBSDEF",
       "slice": "S0-INVESTIGATE",
       "acceptance": "Недостаточная наблюдаемость зафиксирована как возможный дефект: указан конкретный отсутствующий участок трассировки, сценарий воспроизведён доступными средствами и обеспечена наблюдаемость для повторной production-проверки.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §«Ограничения доказательств» 1,3,4,5,6,8,9",
+          "observation": "Конкретные отсутствующие участки трассировки: tool args (только fingerprint), успешные tool calls не эмитятся в mca_events, direct_turn_writer.usage_json cap 2 000, WATCHDOG_TAKEOVER без job_ids (entity_ids=NULL), checkup_triggered.trace_id=NULL, mca_media_analyses.running=8 без события-потребителя, per-sweep история инцидентов не хранится. Сценарий воспроизведён read-only по существующим данным; обеспечение постоянной наблюдаемости — реализация S5C/S5D, не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PARTIALLY_SATISFIED"
     },
     {
       "source_id": "MANUAL_SC-INV-NOBLOCK_132",
@@ -409,8 +573,20 @@
       "acceptance": "Отсутствие исторической трассы не блокирует исправление независимо подтверждённых дефектов кода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §«Ограничения доказательств» 11; plan.md §8 п.5 / §12",
+          "observation": "Отчёт фиксирует: отсутствие исторической трассы не отменяет независимо доказанных дефектов кода; W-01..W-11 остаются исполняемыми без данных W-12, S5A-S5D не заблокированы. Ограничение сохраняется как постоянное правило приёмки, а не как блокер реализации.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "POLICY_CONFIRMED",
+      "evidence_note": "Правило остаётся действующим ограничением приёмки, а не разовым фактом."
     },
     {
       "source_id": "MANUAL_SC-INV-EXIST_134",
@@ -424,8 +600,19 @@
       "acceptance": "Наблюдаемость использует существующие события и корреляцию; отдельная платформа трассировки не создаётся; секреты, токены, приватные системные промпты и чувствительные данные не пишутся в обычные журналы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.1, §«Команды и запросы», §«Ограничения доказательств» 10",
+          "observation": "Использованы существующие mca_events/mca_incidents/task_jobs/llm_usage_events/journal и корреляция checkup:e37c…/0c1bb1…; новая trace-платформа не создавалась. Chat id заменены на CHAT_DM8/CHAT_C1/CHAT_C2, текст промпта не копировался (только hash/длина/source), секретов и приватных промптов в отчёте/raw нет.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "POLICY_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-SRC-FIND-01_140",
@@ -1789,8 +1976,20 @@
       "acceptance": "Учтено, что владелец подготовил новую редакцию системного промпта чекапа и самостоятельно заменяет её в админке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §C.2",
+          "observation": "Ручная редакция владельца найдена: CHAT_C2, 12 469 chars, sha256_16 31d175065461, manual_edit, 06:11:54Z, rev:d31300ef35a0. Она учтена как факт и НЕ записывается как доставленная: применяемый слой — global (3 030 chars, b0c70f974e0e), CheckupService не читает chat override; в CHAT_DM8 override отсутствует.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED",
+      "production_finding": "Ручная редакция существует, но НЕ доставлена на маршрут чекапа: слоем является global, а chat override не читается CheckupService; фиксировать как «доставлено» нельзя."
     },
     {
       "source_id": "MANUAL_SC-PRM-GENRE_472",
@@ -1813,14 +2012,26 @@
       "source_text_sha256": "486ac32b232993c6f61cecc09c8e31be83733811044a0eae7424a7230d6c7138",
       "source_excerpt": "**Сохранённое владельцем значение `prompts.checkup_system_prompt` не переписывать, не сокращать, не заменять заводским и не изменять его при миграциях или деплое в рамках этого corrective.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Требование о невмешательстве в сохранённое значение должно быть доказано на деплое corrective-релиза; production пока только читался, деплоя не было.",
       "req_id": "SC-PRM-PRESERVE",
       "slice": "S6-PROMPT",
       "acceptance": "Сохранённое владельцем значение prompts.checkup_system_prompt не переписывается, не сокращается, не заменяется заводским и не изменяется при миграциях или деплое в рамках этого corrective.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §C.2, §A.1",
+          "observation": "На 2026-11-14 06:40 сохранённое значение не изменялось: corrective-сеанс был read-only, деплоя не было, global row остаётся с updated 2026-10-31T12:26:32Z, C2 override — с manual_edit 06:11:54Z. Сохранность при будущем деплое corrective-релиза не доказана и остаётся обязательной для S6/S8.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PENDING_AT_DEPLOY",
+      "production_finding": "Наблюдаемое расхождение: владелец считает сохранённую редакцию действующей, тогда как маршрут чекапа использует global row. Сохранность значения и устранение расхождения доставки — S6-PROMPT."
     },
     {
       "source_id": "MANUAL_SC-PRM-SCOPE_476",
@@ -1864,8 +2075,20 @@
       "acceptance": "Установлено, какая версия промпта фактически использовалась в проблемном чекапе, насколько позволяют сохранённые исторические данные.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.17, §C.2",
+          "observation": "Установлено по сохранённой телеметрии: запуск A использовал prompt_source=global, prompt_hash=ccaf4803efe2ff79, prompt_version_used=global:ccaf4803efe2, prompt_chars=9 966; global row prompts.checkup_system_prompt — 3 030 chars, sha256_16 b0c70f974e0e, updated 2026-10-31T12:26:32Z, factory revision checkup-p0-24-10; CHAT_DM8 override отсутствует. Ручная редакция владельца лежит в CHAT_C2 (12 469 chars, sha 31d175065461, manual_edit 06:11:54Z, rev:d31300ef35a0), это не DM и она создана после обоих запусков; CheckupService (services/checkup_service.py:85-95) читает только global слой. Вывод: сохранённая владельцем редакция НЕ была применённым слоем на маршруте чекапа.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED",
+      "production_finding": "Применённый слой — global prompts.checkup_system_prompt (3 030 chars, b0c70f974e0e); сохранённая владельцем редакция хранится как chat override CHAT_C2 (12 469 chars, manual_edit 06:11:54Z) и маршрутом чекапа не читается (CheckupService читает только global)."
     },
     {
       "source_id": "MANUAL_SC-PRM-TELEMETRY_499",
@@ -1879,8 +2102,19 @@
       "acceptance": "Использована существующая телеметрия prompt_source, prompt_hash, prompt_version_used, prompt_chars и другие доступные сведения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.2 п.17, §A.3 п.17, §C.2",
+          "observation": "Использованы prompt_source/prompt_hash/prompt_version_used/prompt_chars из checkup_triggered.source_ref_json, строка bot_settings prompts.checkup_system_prompt и chat_profiles overrides; дополнительно l1.prompt_layers и style policy revision g13.548c080d50c8 (source global). Для run B точные ревизии/хэши невосстановимы — usage_json обрезан 2 000 символами.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
+      "evidence_state": "PRODUCTION_FACT_CONFIRMED"
     },
     {
       "source_id": "MANUAL_SC-PRM-NOTPROOF_501",
@@ -1888,14 +2122,16 @@
       "source_text_sha256": "73538740283901e38a38cc2a760ea9b803d8dfd64754a81c17ce4c15043cef12",
       "source_excerpt": "Не считать доказательством реальной доставки простое наличие фразы в Python-константе, админке или preview.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Правило применяется на ревью S8: наличие строки в константе/админке/preview не принимается как доказательство доставки. Кандидата реализации ещё нет.",
       "req_id": "SC-PRM-NOTPROOF",
       "slice": "S6-PROMPT",
       "acceptance": "Наличие фразы в Python-константе, админке или preview не считается доказательством реальной доставки.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "evidence_state": "REVIEW_RULE",
+      "production_finding": "Production-факт подтверждает актуальность правила: admin-редакция (CHAT_C2, 12 469 chars) не является доставленной."
     },
     {
       "source_id": "MANUAL_SC-PRM-NOCORE2_512",
@@ -2239,15 +2475,36 @@
       "acceptance": "Собраны production-данные §4 для шести инцидентов (mca_incidents, task_jobs, mca_events, effective env, process start, media) и установлены detection/restart/real failure/остаточная неопределённость; фикс не назначается без данных, где это требуется.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §B.1-B.6 (read-only production SQL)",
+          "observation": "6 активных инцидентов: memory 3, vision.media 12, summary 3, asap8b01 73, mca16 15, qnd.event 19 повторов; все связанные job-ы терминальные (20 completed asap8b01, 15 completed mca16, 18 interrupted qnd, vision 8 interrupted/3 completed, summary 2/1, memory 1 cancelled), active/queued нет; false-takeover подтверждён на job 3550 (created 06:34:03, heartbeat 06:34:04, takeover 06:35:12 при stale=60, finished 06:35:49 completed); effective MCA_JOB_STALE_SECONDS=60, HEARTBEAT=15, progress-stall 600, watchdog/incidents enabled, process_started_at 05:18:59Z; mca_media_analyses running=8 — старые строки без подтверждённого потребителя. Классификация: detection artifacts + подтверждённый false-takeover, не шесть текущих падений; остаточная неопределённость зафиксирована.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "live",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "production-runs-and-incidents.md §A.1, §B.6 (live state 06:40:17Z)",
+          "observation": "Live-состояние прода на момент проверки: systemd unit admin_bot active, PID 709883, NRestarts=0, start 2026-11-14T05:18:59Z, /healthz 200 {\"status\":\"ok\",\"version\":\"2.58.200\"}; активных/queued job-ов нет; пользовательских ошибок, связанных с watchdog, в текущем окне нет.",
+          "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+          "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        }
+      ],
       "expected_evidence": "Read-only SQL §4 + таблица инцидент→job→состояние→классификация; W-12 остаётся NEEDS_PRODUCTION_DATA до данных.",
       "owner_clause": "§9.2 F",
       "linked_acceptance": [
         "AC-23"
       ],
-      "production_data_state": "NEEDS_PRODUCTION_DATA",
-      "production_data_source": "investigation/watchdog-code-analysis.md §4"
+      "production_data_state": "RECEIVED",
+      "production_data_source": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md §B.1-B.6",
+      "evidence_state": "PRODUCTION_DATA_RECEIVED",
+      "evidence_note": "Данные §4 получены 2026-11-14; окончательная атрибуция и закрытие инцидентов остаются в W-05/W-11 (AC-23 PENDING)."
     },
     {
       "source_id": "MANUAL_SC-WD-W04_611",
@@ -2814,7 +3071,11 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "effective_state_refs": [
+        "EFF-FACTCHECK-V2"
+      ],
+      "effective_state_note": "Обычный фактчек на 2.58.200 фактически идёт по v2-пути: flags.factcheck_pipeline_v2=true (PG, 2026-10-20), env не задан, code default False. Регрессия семантики должна проверяться на v2-пути."
     },
     {
       "source_id": "MANUAL_SC-OVL-FC-CONTEXT_746",
@@ -3159,7 +3420,11 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "production_finding": "AC-15 на deployed 0e4a144d НЕ выполнен: применяется global-редакция, сохранённая владельцем редакция лежит в CHAT_C2 и не читается CheckupService; в CHAT_DM8 override отсутствует. Исправление — S6-PROMPT; статус и формулировка AC не меняются.",
+      "effective_state_refs": [
+        "EFF-CHECKUP-PROMPT-LAYER"
+      ]
     },
     {
       "source_id": "MANUAL_AC-16_840",
@@ -3279,7 +3544,8 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "production_finding": "Production-данные по шести инцидентам собраны (SC-WD-W12): 20/15 completed, 18 interrupted, detection artifacts + подтверждённый false-takeover; остаточная неопределённость зафиксирована. Окончательная атрибуция и закрытие требуют W-05/W-11, поэтому AC-23 остаётся PENDING."
     },
     {
       "source_id": "MANUAL_AC-24_876",
@@ -3309,7 +3575,11 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "effective_state_refs": [
+        "EFF-FACTCHECK-V2"
+      ],
+      "effective_state_note": "В список затронутых потребителей входит фактчек, работающий по effective v2 (PG true)."
     },
     {
       "source_id": "MANUAL_SC-ACC-REG-02_884",
@@ -3324,7 +3594,11 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "effective_state_refs": [
+        "EFF-FACTCHECK-V2"
+      ],
+      "effective_state_note": "Проверка сохранения семантики короткого «фактчек» должна учитывать effective v2-путь."
     },
     {
       "source_id": "MANUAL_SC-ACC-REG-SCOPE_886",
@@ -6917,7 +7191,7 @@
   "epic": "smart-corrective-01",
   "parent_epic": "smart-execution-reliability-01",
   "source_origin": "owner chat 2026-11-14, captured verbatim in plans/owner_inputs/2026-11-14-smart-corrective-01.md",
-  "status_note": "PLANNED ONLY: все обязательные строки PENDING; ни одна не VERIFIED. Источник — immutable owner input (sha256 8A0239B3E307F284B5DDC5CC9FAF94725E735DEF03DB384AAAABE6E06952AE71). current_task.md на момент планирования НЕ содержит раздела SMART-CORRECTIVE-01; дефект зарегистрирован через owner_inputs и progress_scope.tasks[smart-corrective-01]. §9 подтверждён read-only расследованием investigation/watchdog-code-analysis.md (W-01..W-14): W-01..W-11 required fixes, W-12 NEEDS_PRODUCTION_DATA (required investigation), W-13 NOT_A_DEFECT (context), W-14 BACKLOG_ONLY (context + plans/backlog.md). Перед реализацией обязательны read-only investigation gate (S0) и Architect contract (S1).",
+  "status_note": "ИСТОРИЯ ПЛАНИРОВАНИЯ (состояние на момент admission, до production-реконструкции): все обязательные строки PENDING; ни одна не VERIFIED. Источник — immutable owner input (sha256 8A0239B3E307F284B5DDC5CC9FAF94725E735DEF03DB384AAAABE6E06952AE71). current_task.md на момент планирования НЕ содержит раздела SMART-CORRECTIVE-01; дефект зарегистрирован через owner_inputs и progress_scope.tasks[smart-corrective-01]. §9 подтверждён read-only расследованием investigation/watchdog-code-analysis.md (W-01..W-14): W-01..W-11 required fixes, W-12 NEEDS_PRODUCTION_DATA (required investigation), W-13 NOT_A_DEFECT (context), W-14 BACKLOG_ONLY (context + plans/backlog.md). Перед реализацией обязательны read-only investigation gate (S0) и Architect contract (S1). СТАТУС ПОСЛЕ PRODUCTION-РЕКОНСТРУКЦИИ (2026-11-14, binding-production-investigation.md): расследование двух чекап-запусков и production-данные по watchdog завершены read-only; VERIFIED только строки, чья приёмка является наблюдаемым production-фактом (S0-INVESTIGATE, SC-WD-W12, наблюдательные §2-строки, SC-PRM-VERSION/TELEMETRY/OWNER). Все implementation-строки S1-S6 и AC-01..AC-24 остаются PENDING; реализация не авторизована. Открытые ограничения: SC-REP-TRACE-GAP (частично невосстановимо), SC-INV-OBSDEF (обеспечение наблюдаемости = S5C/S5D).",
   "baseline": {
     "parent_deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
     "parent_version": "2.58.200",
@@ -6928,6 +7202,86 @@
     "watchdog_code_analysis": "plans/features/smart-corrective-01/investigation/watchdog-code-analysis.md",
     "watchdog_probe_results": "plans/features/smart-corrective-01/investigation/watchdog-probe-results.json",
     "watchdog_probe_results_sha256": "2C18E609001635474242A5C22CBA08C63C41A0AD8A4B58F41EFBF98E481EFEDE",
-    "checkup_two_runs": "pending S0: 17 пунктов §2.1; существующие production-recon артефакты родителя не покрывают весь набор"
+    "checkup_two_runs": {
+      "state": "RECONSTRUCTED_TO_RECOVERABLE_LIMIT",
+      "path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+      "sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118",
+      "raw": "plans/features/smart-corrective-01/investigation/raw/production-runs-and-incidents-2.58.200.txt",
+      "raw_sha256": "cd7edfcce9ed85ff4f1b670f3e2ddc2112963db33afe0766f3fd6e60680c20b6",
+      "evidence_commit": "264b4ab0",
+      "provenance": "read-only production session 2026-11-14T06:40:17Z; deployed 0e4a144d / 2.58.200"
+    },
+    "watchdog_production_data": {
+      "state": "RECEIVED",
+      "section": "Part B (B.1-B.6) того же отчёта",
+      "binding_note": "plans/features/smart-corrective-01/evidence/binding-production-investigation.md"
+    },
+    "binding": "plans/features/smart-corrective-01/evidence/binding-production-investigation.md"
+  },
+  "effective_state": {
+    "observed_at": "2026-11-14T06:40:17Z",
+    "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "version": "2.58.200",
+    "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
+    "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118",
+    "facts": [
+      {
+        "id": "EFF-FACTCHECK-V2",
+        "value": "true",
+        "detail": "flags.factcheck_pipeline_v2=true в PG (updated 2026-10-20T09:44:06Z); env FACTCHECK_PIPELINE_V2_ENABLED отсутствует; code default False. Значение приходит из PG row.",
+        "rows": [
+          "SC-OVL-FC-SEM",
+          "SC-ACC-REG-01",
+          "SC-ACC-REG-02"
+        ]
+      },
+      {
+        "id": "EFF-CHECKUP-PROMPT-LAYER",
+        "value": "global layer; chat override не читается",
+        "detail": "global prompts.checkup_system_prompt 3 030 chars, sha256_16 b0c70f974e0e, updated 2026-10-31T12:26:32Z; composed 9 966 chars, hash ccaf4803efe2; CHAT_DM8 override отсутствует; CHAT_C2 override 12 469 chars, manual_edit 06:11:54Z, не DM; CheckupService читает только global.",
+        "rows": [
+          "SC-PRM-OWNER",
+          "SC-PRM-VERSION",
+          "SC-PRM-TELEMETRY",
+          "SC-PRM-PRESERVE",
+          "AC-15"
+        ]
+      },
+      {
+        "id": "EFF-CHECKUP-FLAGS",
+        "value": "checkup_enabled=true; checkup_memory_metrics_enabled=true",
+        "detail": "bot_settings rows updated 2026-09-10 и 2026-08-29.",
+        "rows": [],
+        "applies_to": "контекст для S6-PROMPT/AC-15: триггер чекапа и метрики памяти включены в проде"
+      },
+      {
+        "id": "EFF-WATCHDOG-LIMITS",
+        "value": "stale=60s, heartbeat=15s, progress-stall=600s, vision lease=180s, watchdog/incidents enabled",
+        "detail": "Все значения — defaults без env-override; process_started_at=2026-11-14T05:18:59Z.",
+        "rows": [
+          "SC-WD-W06",
+          "SC-WD-W08",
+          "SC-WD-W12"
+        ]
+      },
+      {
+        "id": "EFF-BUDGETS",
+        "value": "master budgets OFF; MCA_TOOL_MAX_*=0; TOOL_CHAIN_LIMITS_ENABLED=true (factory), лимиты не применяются",
+        "detail": "Запуск A прошёл 8 tool calls / 7 раундов без ограничения; evidence window 200 000/вызов; SourceReader фиксированный срез _MAX_LOCATOR_PATHS=3.",
+        "rows": [
+          "SC-SEARCH-FIND-CAP",
+          "SC-SEARCH-OFF",
+          "SC-BUD-NOTINF",
+          "SC-BUD-GUARD"
+        ]
+      },
+      {
+        "id": "EFF-PROVIDER-NANOGPT",
+        "value": "работоспособен; класс отказа HTTP 200 + пустой content сохраняется",
+        "detail": "resolve_capacity 1048576/32768 verified; за 60 мин 39 OK, 1 timeout, 1 fallback OK; real-LLM canaries выполнимы, но должны допускать пустой content и fallback (deepseek-flash).",
+        "rows": [],
+        "applies_to": "все postdeploy real-LLM canaries (AC-01..AC-24): провайдер доступен, но класс отказа HTTP 200 + пустой content сохраняется, поэтому canary обязан допускать fallback/retry"
+      }
+    ]
   }
 }

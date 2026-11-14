@@ -1,0 +1,1 @@
+stage=plan inventory=224 manual=232 scoped=0 errors=0
