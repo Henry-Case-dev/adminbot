@@ -5,10 +5,10 @@ Task source: plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md + p
 Status: in_progress
 Primary phase: build
 Active feature: smart-execution-reliability-01
-Active lanes: Release-train resumed Builder ses_e287297a5ffejxQMUph26XsFlX (smart/release-train-01; HEAD d487a405: S16+D+F+I1+I2 merged + integration fix ff3c5041; remaining I3 d471309a, I4 4bf11400, I56 c84e77d5). PM idle; S13-S16 bound.
-Join barriers: release train build -> train review + system-wide cap audit (C2-01/C3-01/C3-02) + S17 acceptance -> S12 acceptance -> deploy; one release train.
+Active lanes: Train audit Reviewer ses_e27eaf480fferGHdP0UHtnLOOT (aca13702 integration + cap audit); S17 Reviewer ses_e27eaf47fffeZdqD0KoR7HPc22 (smart/fc-s17-accept, aca13702). PM idle.
+Join barriers: train audit -> PM binding C2-01/C3-01/C3-02; S17 acceptance -> merge tests into train -> S12 acceptance -> deploy.
 Last verified: production 2.58.199 at d20a7f73 (schema 47, no DDL, rollback 25876167). Map after S14 binding: core 60 REVIEW / 7 READY_FOR_LIVE / 6 VERIFIED (S0) / 26 PENDING (S3 integration-required 3 + S12 23); FC 68 REVIEW / 3 READY_FOR_LIVE / 16 PENDING (S17 only). Gates: S8 review 57/0, S13 review 252/0, plan core/FC 0. S3 approved at 5e87ed48 and bound (27cd2d39, 7e5f9d85): S3 review 35 errors = only integration-required rows (C2-01/C3-01/C3-02), deploy red is structural dependency closure. I56 approved at d43fa1fd (+tests 58a8f859) and bound (4bcc52ff, 3fd4d68a); S11 gate 0 errors.
-Candidates: H d238f808 (head 120517a6; merge conflict resolved ce9e9f01; cross-slice fixture 8c5549b7; 627 affected, RED 13/12, mutations) under review; S13 ffe417d0 approved and bound (38 reqs/252 rows REVIEW; FC review gate 0 errors; artifact review-s13-ffe417d0.md needs re-emit).
+Train candidate aca13702 (head f31a06bf; 21111 tests: 118 failed vs base 124, only-on-candidate 0 regressions; merge log evidence/release-train/merge-log-aca13702.md). Candidates: H d238f808 (head 120517a6; merge conflict resolved ce9e9f01; cross-slice fixture 8c5549b7; 627 affected, RED 13/12, mutations) under review; S13 ffe417d0 approved and bound (38 reqs/252 rows REVIEW; FC review gate 0 errors; artifact review-s13-ffe417d0.md needs re-emit).
 Next unlocks: H handoff -> H review; FC tests/evidence -> S13 review; then FC S14-S17; integrated audit + S12 acceptance L/J/K/M; single release train and postdeploy smoke.
 Next execution: awaiting_children
 Review: S0 approved+VERIFIED; S3/I56 approved+bound; I1-02/I2-02 approved+REVIEW; H/S13 pending
