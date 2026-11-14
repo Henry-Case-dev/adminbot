@@ -18,10 +18,11 @@ Review: harness audit Needs Fixes (fixes running); corrective implementation not
 Deployment: parent 2.58.200 verified engineering delivery; corrective not implemented
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted (384 required / 367 ids / 14 slices, plan gate 0); global aggregate 4385/7264 requirements, 322/599 slices
-Updated: 2026-11-14T19:10:54+12:00
+Updated: 2026-11-14T19:19:24+12:00
 
 ## Facts
 
+- Both harnesses fixed and committed: SMART ea595ef8 (sha 69349c3b…), self-test exit 0/failures=0, real continuation/journal/lag assertions, evidence_class plumbing vs production, self-hash + candidate identity + --expect-harness-sha256, offline guard; FC 46dec0b3 (sha 9513548e…), bounded self-test 16/16 in 0.27 s with socket guard, run-scoped durable asserts, stop_reason, delivered+remainder==total, 13 negative controls, evidence_class, binding. Reviewer focused re-review (r2) is running; no production canary before it approves.
 - PM bound the production investigation to the corrective map (commit 4e26e2ec): 18/384 required rows VERIFIED from observed facts (both run identities/followup/consistency, investigation mandate/no-guess/no-invent/existence, W-12 data, run failure/stop/essence, prompt version/telemetry/owner fact); 366 PENDING. Ten items recorded as unrecoverable without fabrication (tool args/query/symbol for run A, inferred 141-line path, prompt revision/hash for B clipped by usage_json cap, pre-cleanup texts, trace_id NULL, successful tool calls not emitted, takeover payload without job ids, media running rows without consumer, per-sweep incident history, prompt text not copied). AC-15 recorded as NOT met on 2.58.200: global prompt layer used, owner chat edit not the layer CheckupService reads; owner value not marked delivered. Map slice naming: prompt-delivery = S6-PROMPT, completion = S4-COMPLETION (dispatch S3/S4/S6 by map ids).
 - Owner corrective scope: fix the live checkup self-research defect (SourceReader full local-first fallback, content-based search, effective budget propagation, checkup completion/input completeness, prompt delivery verification) and the watchdog incident contour; mandatory read-only investigation of both production runs before implementation; no duplicate epic, no queue restart.
 - Parent 2.58.200 engineering delivery evidence stays valid and must not be rewritten; the discovered defect is not VERIFIED until fix evidence exists.
