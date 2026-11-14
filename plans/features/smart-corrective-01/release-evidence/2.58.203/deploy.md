@@ -154,26 +154,49 @@ chat-override не тронуты.
 
 ## 10. Journal
 
-`journal-summary.txt`: за окно процесса 1401 строк, 0 traceback, 0 CRITICAL,
-2 ERROR и 11 WARNING. Оба ERROR — существующий периодический сбой
+`journal-summary.txt` (окно до 19:08:51Z): 1401 строк, 0 traceback,
+0 CRITICAL, 2 ERROR и 11 WARNING. Оба ERROR — существующий периодический сбой
 `anticliche` (wikipedia `sources_unavailable`), он же встречается 6 раз в
 6 часах ДО релиза; WARNING — пропуски тиков APScheduler, 2 retry LLM по
 ReadTimeout и известное FTS-предупреждение `summary_memory`.
 Строк `persisted speech value withheld` — 0.
 
-## 11. Rollback
+Расширенное окно 19:09–19:20:41Z (тот же процесс): добавились 2 ERROR
+`services.llm_client` (ReadTimeout/total_budget_exceeded к nano-gpt.com),
+4 ERROR `services.summary_memory` как следствие того же таймаута
+(`graph_extract_failed`, «batch kept, pipeline continues») и 1 ERROR
+`services.mca_events` — инцидент реального takeover (см. §11). Traceback 0,
+CRITICAL 0. Класс `llm_client` встречался и до релиза (12 раз за 6 часов).
+
+## 11. Watchdog / инциденты
+
+Подробно — `watchdog.md`. Кратко: после релиза 22 свипа (18:56:52–19:17:02Z),
+все `success`; один **реальный** takeover в 19:14:01Z (job `1e900f46…`,
+experience.review, `worker_lost` → `takeover_recovered`,
+discovered/attempted/recovered=1, failed=0) и связанный с ним инцидент
+`inc_583cdba5…` (ERROR; на 19:18:03Z ещё открыт, в последнем свипе задача уже
+в `normal_wait`). Тот же fingerprint срабатывал до релиза (16:34:42Z,
+17:22:04Z, оба раза восстановление и закрытие), поэтому это существующий
+повторяющийся класс, а не регрессия релиза; ложных takeover нет.
+Исторические инциденты (15, из них 3 открытых) сохранены.
+
+## 12. Rollback
 
 Target: **0beed63d / 2.58.202**, code-only; схема 47 и данные не
 откатываются. Финальный deploy rollback не требовал; точные команды — в
 `rollback.md`.
 
-## 12. Границы
+## 13. Границы
 
 - Требования в карте **не помечены** VERIFIED: связывание наблюдений — за PM.
 - Пин канарейки `original_production_scenario --max-provider-calls 20`
   оказался недостаточным после FC-анкера (прогон A упал в
   `provider_cap_reached`, это не продуктовый вердикт); чистый вердикт
-  получен свежим прогоном с cap 40 — см. `fc-canary.md` §4.
+  получен свежим прогоном с cap 40 — см. `fc-canary.md` §4. Это вопрос
+  конфигурации измерения, его должен подтвердить Reviewer/PM.
+- Инцидент `inc_583cdba5…` (experience.review worker_lost) остаётся
+  открытым на момент последнего наблюдения; класс повторяющийся и
+  фиксировался до релиза. Наблюдение — агентское, через штатную телеметрию.
 - `backups/` pre-existing 36.5 GB, cleanup не выполнялся.
 - Live-сообщений в чаты владельца не отправлялось (харнесс использует
   stub-бота и синтетический чат; `outbound_delivered_to_telegram=0`).

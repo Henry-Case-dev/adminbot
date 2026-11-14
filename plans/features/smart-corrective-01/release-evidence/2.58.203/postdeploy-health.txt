@@ -75,3 +75,23 @@ VERIFY / ROLLBACK STATE
 -----------------------
 raw/verify203.json: ok=true, failed=[] (33 проверки).
 Rollback не требовался: deployment checks passed.
+
+РАСШИРЕННОЕ ОКНО 19:09–19:20:41Z (тот же процесс, без рестартов)
+----------------------------------------------------------------
+```
+health local/public       200 {"status":"ok","version":"2.58.203"}
+MainPID 887397, NRestarts 0, ActiveState active
+HEAD c97c06e4, tracked dirty 0
+ERROR за 20 минут         7 строк:
+  2 services.anticliche_worker   (wikipedia sources_unavailable; до релиза 6 раз)
+  2 services.llm_client          (ReadTimeout / total_budget_exceeded, nano-gpt.com)
+  4 services.summary_memory      (graph_extract_failed как следствие таймаута LLM;
+                                  «batch kept, pipeline continues»)
+  1 services.mca_events          (INCIDENT: takeover-инцидент inc_583cdba5…,
+                                  stage=takeover, worker_lost, см. watchdog.md §1.1)
+tracebacks 0; CRITICAL 0; withheld-строк 0
+```
+
+Класс `llm_client`/`anticliche` встречается и до релиза (12 и 6 раз за
+6 часов соответственно), то есть это внешняя провайдерская/сетевая
+изменчивость, а не регрессия 2.58.203.

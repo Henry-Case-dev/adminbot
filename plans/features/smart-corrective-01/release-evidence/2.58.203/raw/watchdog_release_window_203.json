@@ -1,0 +1,121 @@
+{
+ "generated_at": 1794683883,
+ "deploy_epoch": 1794682609,
+ "window_seconds": 1274,
+ "sweeps": 22,
+ "first_sweep_ts": 1794682612,
+ "last_sweep_ts": 1794683822,
+ "sweep_outcomes": {
+  "success": 22
+ },
+ "totals": {
+  "incidents.created": 1,
+  "incidents.updated": 0,
+  "incidents.reopened": 0,
+  "incidents.failed": 0,
+  "takeover.discovered": 1,
+  "takeover.attempted": 1,
+  "takeover.recovered": 1,
+  "takeover.failed": 0,
+  "takeover.no_change": 0,
+  "reconcile.checked": 69,
+  "reconcile.resolved": 0,
+  "reconcile.pending": 69,
+  "reconcile.failed": 0,
+  "stale": 1,
+  "progress_stalled": 0
+ },
+ "maxima": {
+  "overdue.running": 0,
+  "overdue.queued": 0,
+  "queued.overdue": 0,
+  "queued.hang": 0,
+  "queued.scheduled_retry": 1,
+  "running_contract.heartbeat_only": 1,
+  "running_contract.deadline_bounded": 0
+ },
+ "events": [
+  {
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "n": 22
+  },
+  {
+   "event_name": "WATCHDOG_TAKEOVER",
+   "outcome": "success",
+   "n": 1
+  }
+ ],
+ "incidents_created_after_deploy": [
+  {
+   "incident_id": "inc_583cdba56ad542eea8f3a889db26cb4e",
+   "fingerprint": "watchdog.jobs|mca16|takeover|worker_lost|||experience.review|1e900f46aef448bd923009ca9ed3235a",
+   "severity": "ERROR",
+   "stage": "takeover",
+   "first_ts": 1794683641,
+   "last_ts": 1794683641,
+   "resolved_at": null
+  }
+ ],
+ "incidents_totals_all_time": [
+  {
+   "n": 16,
+   "open": 4
+  }
+ ],
+ "last_sweep_usage": {
+  "stale": 0,
+  "progress_stalled": 0,
+  "incidents": 0,
+  "takeover": {
+   "discovered": 0,
+   "attempted": 0,
+   "recovered": 0,
+   "failed": 0,
+   "no_change": 0
+  },
+  "takeover_records": 0,
+  "takeover_totals": {
+   "recovered": 1,
+   "failed": 0,
+   "no_change": 0
+  },
+  "incident": {
+   "created": 0,
+   "updated": 0,
+   "reopened": 0,
+   "failed": 0,
+   "disabled": 0
+  },
+  "incident_totals": {
+   "created": 1,
+   "updated": 0,
+   "reopened": 0,
+   "failed": 0,
+   "disabled": 0
+  },
+  "reconcile": {
+   "checked": 4,
+   "resolved": 0,
+   "pending": 4,
+   "inconclusive": 0,
+   "failed": 0
+  },
+  "overdue": {
+   "running": 0,
+   "queued": 0
+  },
+  "queued": {
+   "scheduled_retry": 0,
+   "deadline_pending": 0,
+   "overdue": 0,
+   "owner_managed": 0,
+   "hang": 0,
+   "normal_wait": 1
+  },
+  "running_contract": {
+   "heartbeat_only": 0,
+   "deadline_bounded": 0
+  }
+ }
+}
