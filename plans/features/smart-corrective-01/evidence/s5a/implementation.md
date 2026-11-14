@@ -201,3 +201,33 @@ fencing_token/action/reason/outcome); остаётся добавить разр
   DevOps при выкате (S8), не в этой полосе.
 * Для S5A-строк `live_required=false`; production-доступа не было, live-проверки
   не заявляются. S5B/S5C/S5D и S8 остаются открытыми.
+
+## 7. F-S5A-01 fix (Reviewer blocker, review-r1)
+
+**Finding.** `takeover_stale()` (`services/task_supervisor.py`) заменял durable
+`delivery_unknown` на `worker_lost` при снятии lease. `recover_job()` после
+этого не видел защитный маркер и возобновлял задачу (repro Reviewer:
+`no_change/reconcile_required`, затем `resumed=True` и
+`queued/recovery_from_checkpoint`), что допускало повтор side effect/доставки.
+
+**Fix commit:** `8a64c7af39e804d069775f2f8b4265ab01bcca5e`.
+- `takeover_stale`: при revocation сохраняется исходный `delivery_unknown`
+  (`error_code` не перезаписывается); строка остаётся `interrupted` с защитным
+  маркером.
+- `recover_job`: `delivery_unknown` в `reason_code` ИЛИ `error_code` →
+  `reconcile_required` до любых checkpoint/attempt-веток; строка не
+  переводится в `queued`/`running`.
+- Regression: `test_delivery_unknown_takeover_cannot_be_resumed` (точная
+  последовательность takeover → recover_job) + обновлён
+  `test_delivery_unknown_not_retried_by_takeover` (маркер сохраняется).
+  Truthful outcome, incident lifecycle, fencing/CAS не менялись; DDL/флагов нет.
+
+**Прогоны после фикса:** новый S5A-набор `24 passed`; S5A+baseline
+watchdog/incidents/task-supervisor `129 passed, 1 deselected` (pre-existing
+census); `-k "incident or watchdog or takeover or recover_stale or task_jobs"`
+`80 passed`; затронутые cover/initiative/episode/experience/meme/vision/
+embedding/dossier `497 passed`.
+
+**Гарантия:** takeover → recover_job для `delivery_unknown` возвращает
+`reconcile_required` и оставляет строку `interrupted/delivery_unknown`; повтор
+side effect/доставки не выполняется.
