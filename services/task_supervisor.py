@@ -666,6 +666,14 @@ class TaskJobStore:
                 previous_reason = str(row.get("reason_code") or "")
                 checkpoint = _payload_has_checkpoint(row.get("payload"))
                 token_after = int(row.get("fencing_token") or 0) + 1
+                # F-S5A-01: `delivery_unknown` — защитный durable-маркер
+                # (слепой повтор side effect запрещён). Снятие lease не имеет
+                # права затирать его на `worker_lost`: consumer (recover_job)
+                # обязан и после takeover видеть reconcile-требование.
+                revoke_reason = (
+                    previous_reason
+                    if previous_reason == "delivery_unknown"
+                    else REASON_WORKER_LOST)
                 record = {
                     "job_id": jid, "owner": owner, "kind": row.get("kind"),
                     "status_before": str(row.get("status") or ""),
@@ -673,13 +681,13 @@ class TaskJobStore:
                     "fencing_token": token_after,
                     "checkpoint": bool(checkpoint),
                     "outcome": "no_change", "action": "lease_revoked",
-                    "reason": REASON_WORKER_LOST, "next_retry_at": None,
+                    "reason": revoke_reason, "next_retry_at": None,
                 }
                 revoked = await conn.execute(
                     "UPDATE task_jobs SET status = ?, reason_code = ?, "
                     "fencing_token = ?, updated_at = ? "
                     "WHERE job_id = ? AND status = ?",
-                    (JOB_INTERRUPTED, REASON_WORKER_LOST, token_after, ts,
+                    (JOB_INTERRUPTED, revoke_reason, token_after, ts,
                      jid, JOB_RUNNING))
                 if not revoked.rowcount:
                     # Параллельный писатель уже изменил строку — не recovery.

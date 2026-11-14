@@ -419,18 +419,63 @@ class TestRecoverySafety:
             store = TaskJobStore(d)
             jid = await _running_job(store, max_attempts=3, checkpoint=True)
             await d.db.execute(
-                "UPDATE task_jobs SET reason_code = 'delivery_unknown' "
-                "WHERE job_id = ?", (jid,))
+                "UPDATE task_jobs SET reason_code = 'delivery_unknown', "
+                "error_code = 'delivery_unknown' WHERE job_id = ?", (jid,))
             await d.db.commit()
             result = await wd.sweep(d, job_store=store)
 
             row = await store.get(jid)
             assert row["status"] == JOB_INTERRUPTED
-            assert row["reason_code"] == "worker_lost"
+            # F-S5A-01: защитный маркер сохраняется при снятии lease, иначе
+            # recover_job снова увидит «worker_lost» и возобновит side effect.
+            assert row["reason_code"] == "delivery_unknown"
             assert row["next_retry_at"] is None
             assert result["takeover"]["no_change"] == [jid]
             assert result["takeover"]["records"][0]["action"] == \
                 "reconcile_required"
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_delivery_unknown_takeover_cannot_be_resumed(
+            self, tmp_path, monkeypatch):
+        """F-S5A-01: takeover → recover_job не возобновляет delivery_unknown.
+
+        Даже при наличии durable checkpoint задача остаётся припаркованной:
+        повтор side-effect операции/доставки запрещён; recover_job возвращает
+        reconcile-required и не переводит строку в queued/running."""
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            jid = await _running_job(store, max_attempts=5, checkpoint=True)
+            await d.db.execute(
+                "UPDATE task_jobs SET reason_code = 'delivery_unknown', "
+                "error_code = 'delivery_unknown' WHERE job_id = ?", (jid,))
+            await d.db.commit()
+            before = await store.get(jid)
+
+            captured = _capture_events(monkeypatch)
+            result = await wd.sweep(d, job_store=store)
+            assert result["takeover"]["no_change"] == [jid]
+            assert result["takeover"]["recovered"] == []
+            row = await store.get(jid)
+            assert row["status"] == JOB_INTERRUPTED
+            assert row["reason_code"] == "delivery_unknown"
+            assert row["fencing_token"] == before["fencing_token"] + 1
+            assert row["next_retry_at"] is None
+
+            rec = await wd.recover_job(d, store, jid)
+            assert rec["status"] == "reconcile_required"
+            assert rec["reason"] == "delivery_unknown"
+            assert rec["resumed"] is False
+            row = await store.get(jid)
+            assert row["status"] == JOB_INTERRUPTED
+            assert row["reason_code"] == "delivery_unknown"
+            assert row["next_retry_at"] is None
+            # Никакого «успешного» recovery-события/перехода не эмитировано.
+            assert not [e for e in captured
+                        if e.get("reason_code")
+                        == "recovery_from_checkpoint"]
         finally:
             await d.close()
 

@@ -346,7 +346,12 @@ async def recover_job(db, job_store, job_id: str) -> dict:
     checkpoint = await job_store.get_checkpoint(job_id)
     result["checkpoint"] = checkpoint
     reason = str(row.get("reason_code") or "")
-    if reason == "delivery_unknown":
+    error_code = str(row.get("error_code") or "")
+    # F-S5A-01: `delivery_unknown` — не «потеря владельца», а запрет слепого
+    # повтора side effect/доставки. Durable-маркер сохраняется takeover'ом;
+    # здесь он блокирует resume НЕЗАВИСИМО от наличия checkpoint: строка не
+    # переводится в queued/running до сверки по operation ID.
+    if reason == "delivery_unknown" or error_code == "delivery_unknown":
         result["status"] = "reconcile_required"
         result["reason"] = "delivery_unknown"
         await _emit("RECOVERY", "delivery_unknown", stage="reconcile")
