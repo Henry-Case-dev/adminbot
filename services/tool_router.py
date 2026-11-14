@@ -4812,10 +4812,10 @@ class ToolRouter:
         # допустимо для tool-ветки, но обязано быть видно в трассе, а не
         # выглядеть как дословный текст цели.
         claim_origin = "tool_claim"
-        claim_truncated = False
         if claim_from_reply:
-            claim_truncated = len(reply_text) > 300
-            claim = reply_text[:300]      # bounded — как в дет. деривации
+            # SXR-C2: тезис из replied-сообщения передаётся в фактчек ЦЕЛИКОМ
+            # (срез 300 удалён): усечённый тезис менял предмет проверки.
+            claim = reply_text
         target = args.get("target") if isinstance(args.get("target"),
                                                   dict) else {}
         try:
@@ -4965,6 +4965,10 @@ class ToolRouter:
                 continue
             if item["url"] or item["excerpt"]:
                 evidence_payload.append(item)
+        # SXR-C2: в фактчек уходит ПОЛНЫЙ тезис (срез 300 удалён); флаг
+        # `claim_truncated` теперь описывает только поле ответа `claim`
+        # (бюджет отображения 400), а не проверенный тезис.
+        claim_truncated = len(str(envelope.claim_text or "")) > 400
         payload = {
             "status": "ready",
             "reason": verdict.reason,

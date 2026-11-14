@@ -228,9 +228,66 @@ class TestV2OnToolRoute:
         assert _FakeService.calls == []
 
 
+# ── SXR-C2: replied-тезис >300 символов идёт в фактчек целиком ──────────────
+
+class _ReplySourceDb:
+    """Двойник хранилища: origin-строка replied-сообщения (envelope-источник)."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    async def get_smart_message_origin_block(self, chat_id, tg_message_id):
+        return {"text": self.text, "caption": None, "sent_at": 1_700_000_000,
+                "origin_type": None, "origin_sent_at": None,
+                "current_revision": 1, "content_hash": "hash"}
+
+
+@pytest.mark.asyncio
+async def test_reply_claim_over_300_reaches_factcheck_intact(
+        monkeypatch, v2_off):
+    """Срез ``reply_text[:300]`` удалён: предмет проверки — весь текст.
+
+    Прежний кап обрезал replied-сообщение до 300 символов и проверялся не
+    тот тезис, который написал человек. Здесь тезис проходит до фактчека
+    целиком (envelope.claim_text), включая хвост после 300-го символа."""
+    reply_text = "УТВЕРЖДЕНИЕ: " + ("подробность " * 120) + "ХВОСТ-ТЕЗИСА"
+    assert len(reply_text) > 300
+    seen: dict = {}
+    original = tf.build_envelope
+
+    async def spy(db_, ref, **kwargs):
+        seen["ref"] = ref
+        return await original(db_, ref, **kwargs)
+
+    async def record(db_, run, scope=None):
+        return "run-sxr"
+
+    monkeypatch.setattr(tf, "build_envelope", spy)
+    monkeypatch.setattr(tf, "record_temporal_run", record)
+    from services.tool_router import ToolContext, ToolDeps, ToolRouter
+    deps = ToolDeps(MagicMock(), MagicMock(), db=_ReplySourceDb(reply_text),
+                    llm=MagicMock())
+    router = ToolRouter(deps)
+    ctx = ToolContext(7, "фактчек", reply_source_text=reply_text,
+                      reply_source_message_id=55,
+                      lore_verbatim_instruction=False)
+    raw = await router.dispatch("fact_check", {"claim": "бот, это правда?"},
+                                ctx)
+    assert seen["ref"].claim_text == reply_text
+    assert len(seen["ref"].claim_text) > 300
+    envelope = _FakeService.calls[0][0]
+    assert envelope.claim_text == reply_text
+    assert "ХВОСТ-ТЕЗИСА" in envelope.claim_text
+    payload = json.loads(raw)
+    assert payload["status"] == "ready"
+    assert payload["claim_origin"] == "tool_claim"
+    assert payload["claim_anchor_tg_message_id"] == 55
+
+
 # ── Контракт OFF: байт-паритет 2.58.98 ──────────────────────────────────────
 
 class TestOffParity:
+
     @pytest.mark.asyncio
     async def test_off_single_positional_call_no_gate(self, monkeypatch,
                                                       db, v2_off):
