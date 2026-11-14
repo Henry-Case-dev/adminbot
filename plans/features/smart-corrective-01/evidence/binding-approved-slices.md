@@ -92,3 +92,43 @@ Worktrees (managed, `WorkspaceData/worktrees`):
 8. **S8-REVIEW-RELEASE**: один релизный кандидат (train tip), независимое ревью комбинированного diff, deploy-гейт, реальный deployed SHA, immediate canaries, effective config parity, rollback; затем перепривязка всех REVIEW-строк к train-tip и `--stage release`. Только после реальных production-наблюдений строки могут стать `VERIFIED`.
 
 До релизного кандидата `candidate_commit` карты остаётся пустым, `deployed_commit` не выставляется; ни одна строка не объявляется production-подтверждённой.
+
+## 7. S4-COMPLETION (добавлено 2026-11-14, unit `pm-s4-bind`)
+
+| Поле | Значение |
+|---|---|
+| Код-кандидат / review candidate | `7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa` (ветка HEAD; code `8ccd0730`) |
+| База | `bbb3055588364a8f48ce56af94fbf65ec1fc4d09` |
+| Ветка / worktree | `sc/corrective-s4`; `…smart-corrective-01-0097aecc4a7a-68195166` |
+| Implementation | `evidence/s4/implementation.md` `44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33` |
+| Review | `evidence/s4/review-r1.md` `3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3` |
+| Retention | `evidence/s4/cleanup-retention.json` `9f0d4444f1d0a5facf5eb928fd8c8b64db247decc0d634d65b056b2573cd3c37` |
+
+Артефакты скопированы байт-в-байт из candidate worktree; sha256 источника = sha256 назначения.
+
+### Строки S4
+
+| Показатель | Значение |
+|---|---:|
+| Required-строк S4-COMPLETION (включая перенесённые `SC-BUD-PROGRESS`/`SC-BUD-PARTIAL`) | 35 |
+| Привязано к кандидату `7c1e1afb` (implementation + review) | 35 |
+| `REVIEW` | 32 |
+| `VERIFIED` (ранее подтверждённые `SC-REP-FAIL`/`SC-REP-STOP`/`SC-REP-ESSENCE`) | 3 |
+| Осталось `PENDING` в S4 | 0 |
+
+`SC-BUD-PROGRESS` и `SC-BUD-PARTIAL` перенесены из `S3-BUDGET` в `S4-COMPLETION`, поскольку их недостающая семантика («продолжение по содержательному прогрессу», честный partial чекапа) реализуется и проверяется в S4. Поэтому scope `S3-BUDGET` теперь 26 строк (было 28); историческая таблица §4 выше сохраняет снимок на момент привязки S3.
+
+### Review-вердикт и lineage
+
+Reviewer независимо проверил реализацию, тесты и adversarial-сценарии (11/267/650/301 passed); behavioral verdict — pass. Формальный `Needs Fixes` в `review-r1.md` относился **только** к candidate-lineage gate (491 ошибка при запуске гейта внутри candidate worktree, где нет master-only owner input/plan docs). На master owner input `plans/owner_inputs/2026-11-14-smart-corrective-01.md` (sha `8a0239b3…`) и plan docs присутствуют; review-гейт по тому же кандидату дал `errors=0`. Привязка выполнена на уровне REVIEW; ни одна строка не переведена в VERIFIED.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| review | `--stage review --slice S4-COMPLETION --candidate 7c1e1afb --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=35) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+
+Выводы: `evidence/gates/review-S4-COMPLETION.txt`, `evidence/gates/plan-after-S4.txt`.
+
+`candidate_commit`/`deployed_commit` карты остаются пустыми; S4 — predeploy binding, не production-подтверждение.

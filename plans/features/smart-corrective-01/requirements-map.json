@@ -270,6 +270,25 @@
           "observation": "Запуск A: 8 tool calls / 7 раундов; все успешные read_source_code вернули ОДИН и тот же 141-строчный файл (8 846 chars, verified, local, path_depth=6), а services/mca_watchdog.py в deployed checkout — 329 строк, поэтому реализация watchdog не читалась; финальный отчёт сам заявил, что снапшот отдал только харнесс-скрипт деплоя и «механизм остался непроверенным». Путь 141-строчного файла в трассе отсутствует — inference, не literal trace.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: RED/GREEN probe A + research_state/partial note",
+          "observation": "Исходный провал воспроизведён на базе (промежуточный текст публикуется как полный отчёт); на кандидате продолжение предложено и исполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
         }
       ],
       "evidence_state": "PRODUCTION_FACT_CONFIRMED",
@@ -297,6 +316,25 @@
           "observation": "Остановка на раунде 7 (05:48:23) после текстового ответа модели: research_reason=ok, research_degraded=false, research_rounds=7, research_calls=8; причин chain/timeout/budget в трассе нет; 8 calls прошли при TOOL_CHAIN_LIMITS_ENABLED=true и MCA_TOOL_MAX_*=0, т.е. лимит не срабатывал.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: RED/GREEN probe A + test_irrelevant_first_result_gets_continuation",
+          "observation": "Ранний текстовый вывод после нерелевантного результата больше не принимается за завершённый отчёт.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
         }
       ],
       "evidence_state": "PRODUCTION_FACT_CONFIRMED",
@@ -476,6 +514,25 @@
           "observation": "A: отчёт 3 059 chars с self-declared непроверенностью механизма; B: ответ 2 487 chars, построенный на реально прочитанных 329 строках services/mca_watchdog.py (round 3, verified, line range [1,329]) с _track_incident/stale_jobs/recover_stale/progress_stalled_jobs/WATCHDOG_TAKEOVER. Исследование не было доведено внутри исходного чекапа и стало полезным только после отдельного указания владельца.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: RED/GREEN probe A + checkup partial note",
+          "observation": "Существенное исследование доведено до продолжения; чекап помечает частичный результат с причиной.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
         }
       ],
       "evidence_state": "PRODUCTION_FACT_CONFIRMED",
@@ -493,8 +550,28 @@
       "acceptance": "Установлена причина преждевременного завершения самостоятельного исследования и устранены условия, из-за которых оно закончилось раньше требуемого.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: research_state cause/continuation, progress gate",
+          "observation": "Причина преждевременного завершения устранена структурным research_state и прогресс-гейтом, а не квотой.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-REP-NOFOLLOWUP_80",
@@ -508,8 +585,28 @@
       "acceptance": "Пользовательский сценарий чекапа не зависит от того, написал ли владелец отдельное указание читать код.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_irrelevant_first_result_gets_continuation; checkup opt-in ensure_research_completion=True",
+          "observation": "Чекап сам предлагает продолжение без отдельного указания владельца.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOAUDIT_82",
@@ -523,8 +620,28 @@
       "acceptance": "Исправление не превращает каждый чекап в обязательный аудит исходников.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_healthy_checkup_without_tool_calls",
+          "observation": "Здоровый чекап: 0 tool calls, 1 LLM-вызов, complete/no_research_needed, без аудита исходников.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-INV-MANDATE_88",
@@ -2533,12 +2650,32 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SC-BUD-PROGRESS",
-      "slice": "S3-BUDGET",
+      "slice": "S4-COMPLETION",
       "acceptance": "Исследование не останавливается из-за общего счётчика, если задача демонстрирует содержательный прогресс и политика позволяет продолжение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: progress gate + test_irrelevant_first_result_gets_continuation, test_repeated_same_failure_offers_only_once, test_model_declines_continuation_and_partial_is_marked",
+          "observation": "Продолжение предлагается при новых данных; повтор того же пробела/нет новых записей завершает partial; новых квот нет.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ],
       "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3.",
       "pending_reason": "Нет доказательства S4-COMPLETION: продолжение по содержательному прогрессу (no-progress guard / progress-based continuation) реализуется и проверяется в tool_loop/CheckupService; S3 доказывает только, что бюджетные счётчики при OFF не останавливают исследование."
     },
@@ -2550,7 +2687,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "SC-BUD-PARTIAL",
-      "slice": "S3-BUDGET",
+      "slice": "S4-COMPLETION",
       "acceptance": "При невозможности продолжения возвращается достоверный частичный результат с конкретной причиной.",
       "live_required": false,
       "live_when": "preprod",
@@ -2573,6 +2710,25 @@
           "observation": "Independent Reviewer approved S3 at 163b8ddd after two rounds: real router/reader/schema audit, 68 budget+router tests, 138 schema/source-reader/MCA tests, 102 factcheck tests, and three independent mutations (chat_id/budget_enforced removal, cursor blanking, schema cursor removal) each failed at the expected contract assertion in a disposable copy. Production effective-state explicitly outside this review; rows stay REVIEW.",
           "artifact_path": "plans/features/smart-corrective-01/evidence/s3/review-r1.md",
           "artifact_sha256": "2be25415e80793515df3e9ee8eded485f274f700c78a2e59ba2c25bf6117987b"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_incomplete_fragment_continues_from_next_arguments, test_denied_only_path_returns_partial_with_cause, test_partial_keeps_results_refs_and_text",
+          "observation": "Частичный результат честен: причина и неподтверждённая область указаны, evidence/provenance сохранены.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
         }
       ],
       "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
@@ -2589,8 +2745,28 @@
       "acceptance": "Универсальный tool_loop.py по-прежнему допускает завершение после текстового ответа модели без новых tool calls.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: существующий chat_with_tools; ensure_research_completion default False; test_ordinary_dialog_does_not_re_research",
+          "observation": "Универсальный tool-loop сохранён; opt-in не меняет обычные диалоги.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOTPROOF_353",
@@ -2604,8 +2780,28 @@
       "acceptance": "В чекапе завершение tool-loop по тексту само по себе не доказывает, что существенное диагностическое исследование завершено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: research_state/gaps/evidence_sufficient; test_irrelevant_first_result_gets_continuation",
+          "observation": "Текстовый ответ модели сам по себе не скрывает структурный пробел: состояние partial и gaps выставляются по журналу.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-SERVICE_355",
@@ -2619,8 +2815,28 @@
       "acceptance": "CheckupService получает ToolLoopResult, преобразует его в текст и продолжает публикацию; этот путь проверен на преждевременный вывод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: checkup_service.py telemetry + partial note",
+          "observation": "CheckupService получает ToolLoopResult, публикует partial note до outbound style и пишет research-телеметрию.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-EARLY_357",
@@ -2634,8 +2850,28 @@
       "acceptance": "Устранена ситуация, когда чекап принимает ранний текстовый вывод после нерелевантного результата или первой неудачной попытки, хотя необходимые способы исследования ещё не использованы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_irrelevant_first_result_gets_continuation; probe A",
+          "observation": "Промежуточный текст не публикуется; продолжение исполняется в том же цикле.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOABS_368",
@@ -2649,8 +2885,28 @@
       "acceptance": "Не требуется устанавливать абсолютную первопричину каждого события.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: структурные gaps по envelope; без анализа текста модели",
+          "observation": "Абсолютная первопричина не требуется: контур различает подтверждённое/неподтверждённое/неполное/отказ.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOCODE_370",
@@ -2664,8 +2920,28 @@
       "acceptance": "Не требуется чтение кода для каждой ошибки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: gaps по статусам/кодам инструментов, без таблицы «ошибка→файл»",
+          "observation": "Чтение кода не обязательно для каждой ошибки; направление выбирает модель.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOALLPROV_372",
@@ -2679,8 +2955,28 @@
       "acceptance": "Не требуется обращение к каждому провайдеру или инструменту.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md options untried_tools/alternate_route; test_unavailable_source_allows_other_declared_tool",
+          "observation": "Обращение ко всем провайдерам не требуется; используется доступный альтернативный инструмент.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOHIST_374",
@@ -2694,8 +2990,28 @@
       "acceptance": "Не требуется исследовать все исторические инциденты без учёта состояния, повторяемости, значимости и доступности данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: структурные gaps только по текущему исследованию, без обхода истории",
+          "observation": "Исторические инциденты не исследуются все подряд; учитываются доступные факты текущей задачи.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-HEALTHY_376",
@@ -2709,8 +3025,28 @@
       "acceptance": "Здоровый чекап завершается без ненужных tool calls, если имеющихся данных достаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_healthy_checkup_without_tool_calls",
+          "observation": "Здоровый чекап завершается без лишних tool calls.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-PARTIAL_380",
@@ -2724,8 +3060,28 @@
       "acceptance": "Если модель определила необходимость дополнительного исследования, нерелевантный файл, неполный фрагмент или единичный отказ не завершают задачу автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_denied_only_path_returns_partial_with_cause, test_partial_keeps_results_refs_and_text",
+          "observation": "Нерелевантный/неполный/отказной результат не завершает задачу; partial сохраняет evidence refs и текст модели.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOTABLE_391",
@@ -2739,8 +3095,28 @@
       "acceptance": "Продолжение не реализовано через жёсткую таблицу ошибок, обязательных инструментов и файлов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: gaps выводятся из envelope-журнала; таблиц ошибок/инструментов/файлов нет",
+          "observation": "Продолжение не реализовано жёсткой таблицей; варианты родовые.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-MODEL_393",
@@ -2754,8 +3130,28 @@
       "acceptance": "Выбор направления исследования остаётся за моделью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: options refine_query/other_candidates/alternate_route/untried_tools; direction chosen by model",
+          "observation": "Модель выбирает направление; код предъявляет только фактические пробелы и родовые варианты.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-EXEC_395",
@@ -2769,8 +3165,28 @@
       "acceptance": "Исполнительный контур предоставляет корректные результаты, поддерживает продолжение и различает содержательный прогресс, недостаточность доказательств и объективную невозможность дальнейшего исследования.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: complete/partial/failed + continuation; tests DONE/CONT/PARTIAL",
+          "observation": "Исполнительный контур различает прогресс, недостаточность доказательств и объективную невозможность.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-ARCH_399",
@@ -2954,8 +3370,28 @@
       "acceptance": "Изменения общих механизмов не приводят к повторному исследованию в обычных диалогах, когда задача уже решена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_ordinary_dialog_does_not_re_research",
+          "observation": "Без opt-in обычный диалог не переисследует решённую задачу.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-NOLOOP_411",
@@ -2969,8 +3405,28 @@
       "acceptance": "Бесконечный цикл между моделью, проверкой завершённости и очередными вызовами инструментов не допускается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_repeated_same_failure_offers_only_once + progress signature/journal gate",
+          "observation": "Повторный offer только при новом отпечатке пробелов и росте журнала; иначе partial/no_progress.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-CMP-BALANCE_413",
@@ -2984,8 +3440,28 @@
       "acceptance": "Баланс достаточности исследования и прекращения бессмысленных повторов обеспечен существующими критериями прогресса, а не новыми произвольными потолками.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_repeated_same_failure_offers_only_once, test_model_declines_continuation_and_partial_is_marked",
+          "observation": "Баланс обеспечивается фактическим прогрессом данных, без новых квот раундов/вызовов.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-INP-CHECK_424",
@@ -4751,8 +5227,28 @@
       "acceptance": "Расширенное исследование не превращено в самоцель: глубина поиска определяется реальной задачей, а не количеством вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "inspection",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: продолжение opt-in и только при структурном пробеле; test_model_declines_continuation_and_partial_is_marked",
+          "observation": "Глубина определяется задачей/пробелом, а не количеством вызовов; продолжение не самоцель.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-OVL-NOCMD_752",
@@ -8156,8 +8652,28 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md tests: test_confirmed_result_ends_immediately, test_healthy_checkup_without_tool_calls; probe B",
+          "observation": "Подтверждённые факты завершают исследование немедленно: 2 LLM-вызова, complete/evidence_sufficient, 0 продолжений; здоровый чекап без tool calls.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00364",
@@ -8171,8 +8687,28 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md tests: test_irrelevant_first_result_gets_continuation, test_single_transient_failure_allows_continuation, test_incomplete_fragment_continues_from_next_arguments",
+          "observation": "Продолжение реально исполняется после нерелевантного результата, транзиентного отказа и неполного фрагмента и даёт подтверждённый/честный результат.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00365",
@@ -8186,8 +8722,28 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md: research_state/evidence_sufficient + test_confirmed_result_ends_immediately",
+          "observation": "Подтверждённые результаты без незакрытых структурных пробелов завершают исследование; закрытый фактом пробел не блокирует финал.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00366",
@@ -8201,8 +8757,28 @@
       "acceptance": "Чекап содержательно завершён при условии. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md tests: test_denied_only_path_returns_partial_with_cause, test_model_declines_continuation_and_partial_is_marked, test_repeated_same_failure_offers_only_once",
+          "observation": "Недоступность/отказ/исчерпание путей дают partial с cause и неподтверждённой областью; бесконечного продолжения нет.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00378",
@@ -8231,8 +8807,28 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_irrelevant_first_result_gets_continuation + option refine_query",
+          "observation": "Модель получила директиву уточнить направление поиска и реально сменила запрос.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00385",
@@ -8246,8 +8842,28 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_irrelevant_first_result_gets_continuation + options other_candidates/refine_query",
+          "observation": "Второй запрос отличается от первого; модель выбирает другой кандидат/запрос.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00386",
@@ -8261,8 +8877,28 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md options other_candidates/untried_tools + test_unavailable_source_allows_other_declared_tool",
+          "observation": "Предложены дополнительные найденные пути и другой объявленный инструмент; кросс-проверка исполнена.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00387",
@@ -8276,8 +8912,28 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_incomplete_fragment_continues_from_next_arguments",
+          "observation": "continuation.next_arguments довёл до реального чтения следующего диапазона (line_start второй страницы).",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00388",
@@ -8291,8 +8947,28 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_single_transient_failure_allows_continuation + option alternate_route",
+          "observation": "После транзиентного отказа повтор маршрута реально исполнен.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00389",
@@ -8306,8 +8982,28 @@
       "acceptance": "При необходимости продолжения обеспечена возможность. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "bound_from_candidate": "8ccd0730",
+          "ref": "S4 implementation.md — implementation.md test_unavailable_source_allows_other_declared_tool",
+          "observation": "Исходники/данные сопоставлены с runtime-инструментом как кросс-проверкой/резервным источником.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+          "artifact_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+          "ref": "S4 review-r1.md lines 3-7 (implementation/contract, test validity, independent challenge); line 8 candidate-lineage blocker resolved by master review gate; line 9 Needs Fixes was solely that gate",
+          "observation": "Reviewer независимо проверил S4 implementation и тесты: assertions содержательные, adversarial scenarios green (11/267/650/301 passed). Формальный Needs Fixes относился только к candidate-lineage gate (491 ошибка внутри candidate worktree); на master review gate errors=0. Привязка на уровне REVIEW, не VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+          "artifact_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3"
+        }
+      ]
     },
     {
       "source_id": "L00397",
@@ -11254,6 +11950,21 @@
       "implementation_sha256": "90ee337e570248c65f9cd0054e8f041e8e2f793dda19e43b940940ac1b8e670b",
       "review_path": "plans/features/smart-corrective-01/evidence/s5b/review-r1.md",
       "review_sha256": "99311a8547d06dd30c4ecffc249ad4e5ab66a7568e6aa294c8412ad6ad2b1ab5",
+      "status": "REVIEW",
+      "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
+    },
+    "S4-COMPLETION": {
+      "slice": "S4-COMPLETION",
+      "candidate_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+      "base_commit": "bbb3055588364a8f48ce56af94fbf65ec1fc4d09",
+      "branch": "sc/corrective-s4",
+      "worktree": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-68195166",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+      "implementation_sha256": "44044c117b7d52d5dd580d121aebf12468dc45e225adaf69884a243c3d032f33",
+      "review_path": "plans/features/smart-corrective-01/evidence/s4/review-r1.md",
+      "review_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3",
+      "retention_path": "plans/features/smart-corrective-01/evidence/s4/cleanup-retention.json",
+      "retention_sha256": "9f0d4444f1d0a5facf5eb928fd8c8b64db247decc0d634d65b056b2573cd3c37",
       "status": "REVIEW",
       "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
     }
