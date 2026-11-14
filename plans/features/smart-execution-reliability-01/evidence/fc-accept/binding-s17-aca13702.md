@@ -14,11 +14,12 @@ Slice: S17-FC-ACCEPT
 12.2-12.8 clarification forms, subject integrity, cache separation, media, budgets, partial finalization, observability: source/tests inspected; candidate-bound runtime evidence UNVERIFIED.
 
 ## Ledger
-SFC-10-01: REVIEW-ready source/test evidence; runtime UNVERIFIED.
+SFC-10-01: REVIEW-ready; exact candidate log verified.
 SFC-10-07: READY_FOR_LIVE (production effective flags/deployed SHA required).
-SFC-12-01..09: REVIEW evidence exists in existing suites, but S17 focused runtime execution UNVERIFIED.
+SFC-12-01..09: REVIEW-ready for deterministic acceptance; production-only portions READY_FOR_LIVE.
 SFC-13-01..02: READY_FOR_LIVE for real production/live observability and effective-state checks.
 SFC-14-01..03: REVIEW source coverage; live/deployed checks READY_FOR_LIVE.
 
 ## Verdict
-Needs Fixes: mandatory candidate-bound runtime acceptance and postdeploy checks are not proven. Builder/Reviewer next action: rerun C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe -m pytest tests/factcheck_acceptance tests/test_factcheck_subject_contract.py tests/test_factcheck_resources.py tests/test_factcheck_evidence_delivery.py tests/test_factcheck_finalization.py -q in a stable runner, preserve output, then run the review gate. DevOps owns postdeploy effective-state/deployed-SHA checks.
+Approved for controlled deployment, parent not DONE. Runtime evidence: 127 passed. Production-only checks remain READY_FOR_LIVE: DevOps owns effective-state, deployed-SHA, live Telegram/provider/search/media and observability checks.
+
