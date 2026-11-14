@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b-5d94bdef",
+      "owner": "Builder (I3 lane)",
+      "reason": "candidate branch smart/i3-lessons is not integrated into repository HEAD and must remain for independent Reviewer inspection and possible Needs Fixes rework",
+      "evidence": "plans/features/smart-execution-reliability-01/evidence/binding-i3-89a37168.md",
+      "next_event": "Reviewer I3 decision: Approved -> Orchestrator integrates/releases then unit-close; Needs Fixes -> Builder reuses same worktree"
+    }
+  ]
+}

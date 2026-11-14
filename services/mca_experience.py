@@ -601,23 +601,73 @@ def canonical_template_seed_rows(now: int) -> list[tuple]:
     return rows
 
 
+#: Applicability семантического контракта — машинный идентификатор субъекта,
+#: а не фраза-эффект: `user:<id> pref:<token>` (P3), `tool:<token>` (P1),
+#: `area:<topic>` (P4), `humor_technique_context` (SOUL-08). Только эти точные
+#: формы исключаются из свободного эффект-скана; любая другая строка (в т.ч.
+#: админская правка applicability) проверяется полностью.
+_MACHINE_APPLICABILITY_RE = re.compile(
+    r"^(?:user:\d{1,20} pref:[a-z0-9_.]{1,64}"
+    r"|tool:[A-Za-z0-9_.:\-]{1,64}"
+    r"|area:[a-z0-9_\-]{1,64}"
+    r"|humor_technique_context)$")
+
+#: В машинном идентификаторе «ignore» — имя предмета предпочтения
+#: (`communication.ignore_unread`), а не императив. Опасной остаётся связка
+#: «ignore + объект системного контура», которую модель прочитала бы как
+#: команду обойти правила.
+_MACHINE_EFFECT_RE = re.compile(
+    r"(?:\bignore\b[\s._:\-]+(?:all\b[\s._:\-]+)?"
+    r"(?:system|prompt|instructions?|rules?|polic(?:y|ies)|permissions?|"
+    r"secrets?|budget|safety|guard)\b"
+    r"|(?:system|prompt|instructions?|rules?|polic(?:y|ies)|permissions?|"
+    r"secrets?|budget|safety|guard)\b[\s._:\-]+(?:all\b[\s._:\-]+)?"
+    r"\bignore\b)")
+
+_EFFECT_MARKERS = (
+    "system prompt", "системный промпт", "системную инструкц",
+    "системные инструкц", "игнорир", "ignore", "подчиняй",
+    "слушаться только", "секрет", "выдай себе", "измени свои права",
+    "изменить свои права", "свои права", "измени права",
+    "изменить права", "измени бюджет", "изменить бюджет",
+    "обойди ограничен",
+)
+
+#: Эффект-маркеры, применимые к машинному токену. «ignore»/«игнорир» — не
+#: сами по себе: в `key.value` это описательное имя предмета предпочтения.
+_MACHINE_CONTOUR_MARKERS = tuple(
+    marker for marker in _EFFECT_MARKERS
+    if marker not in ("ignore", "игнорир"))
+
+
 def _forbidden_effects(recommendation: str, applicability: str = "") -> bool:
     """Урок не меняет system prompt/секреты/инструменты/права/бюджет (spec §3).
 
     Канонические тексты не содержат императивов над системным контуром;
     свободные (крафт) — отсекаются здесь и на активации. Проверка — по
     эффект-фразам (не по тематическим словам: «инструмент» в каноне — это
-    предмет процедуры, а не команда изменить контур)."""
-    text = f"{recommendation or ''} {applicability or ''}".casefold()
-    markers = (
-        "system prompt", "системный промпт", "системную инструкц",
-        "системные инструкц", "игнорир", "ignore", "подчиняй",
-        "слушаться только", "секрет", "выдай себе", "измени свои права",
-        "изменить свои права", "свои права", "измени права",
-        "изменить права", "измени бюджет", "изменить бюджет",
-        "обойди ограничен",
-    )
-    return any(marker in text for marker in markers)
+    предмет процедуры, а не команда изменить контур).
+
+    `applicability` бывает двух видов: свободный текст (админская правка) и
+    машинный subject-идентификатор семантического контракта. Второй — имя
+    предмета, а не инструкция: `communication.ignore_unread` описывает
+    предпочтение «не читать непрочитанное», а не приказ игнорировать контур.
+    Поэтому для точной машинной формы рекомендация по-прежнему сканируется
+    полностью, а в токене запрещена только связка «ignore + системный объект».
+    """
+    text = str(recommendation or "").casefold()
+    if any(marker in text for marker in _EFFECT_MARKERS):
+        return True
+    applicability = str(applicability or "").strip()
+    if not applicability:
+        return False
+    if _MACHINE_APPLICABILITY_RE.match(applicability):
+        machine = re.sub(r"[\s._:\-]+", " ", applicability.casefold())
+        return bool(_MACHINE_EFFECT_RE.search(machine)
+                    or any(marker in machine
+                           for marker in _MACHINE_CONTOUR_MARKERS))
+    return any(marker in applicability.casefold()
+               for marker in _EFFECT_MARKERS)
 
 
 # ── Совместимость (spec §5; fingerprint'и текущего запуска) ─────────────────
