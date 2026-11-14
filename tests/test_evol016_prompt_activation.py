@@ -15,7 +15,8 @@
   8. исключение на втором ключе пакета — ни один ключ пакета не изменён;
   9. global и два chat_id — override чата 1 не виден чату 2; новая метка
      снимает старые override обоих чатов в историю; override после метки
-     рестарт не снимает;
+     рестарт не снимает; сохранённую ручную редакцию чата новая метка не
+     снимает (SMART-CORRECTIVE-01 §8.1/AC-19);
  10. смена заводского текста без смены метки — план integrity_reject,
      запись значения не выполняется;
  11. снятый/переименованный ключ — старые ревизии читаются, retired=true;
@@ -395,14 +396,21 @@ async def test_scope_global_and_two_chats(edition, store):
     assert len(store.activations) == before
     assert store.chat_overrides[111][PG_KEY] == "НОВЫЙ ЧАТОВЫЙ ТЕКСТ\n"
 
-    # следующая новая метка снимает и его (в историю)
+    # следующая новая метка НЕ снимает сохранённую ручную редакцию чата
+    # (SMART-CORRECTIVE-01 §8.1/AC-19): заводская ревизия — в историю,
+    # значение и override не трогаются, событие — factory_superseded_manual.
     edition.set_edition(BLOCK, "narrator-c", FACTORY_C)
-    await prp.apply_release(cache, release_id="deploy-c", store=store,
-                            blocks=[BLOCK])
-    assert PG_KEY not in store.chat_overrides[111]
+    result_c = await prp.apply_release(cache, release_id="deploy-c", store=store,
+                                       blocks=[BLOCK])
+    chat_rows = [r for r in result_c["results"]
+                 if r.scope == "chat" and r.chat_id == 111]
+    assert [r.detail_code for r in chat_rows] == ["factory_superseded_manual"]
+    assert chat_rows[0].outcome == "skipped_same"
+    assert store.chat_overrides[111][PG_KEY] == "НОВЫЙ ЧАТОВЫЙ ТЕКСТ\n"
     chat_revs = {r.content_sha12 for r in store.revisions.values()
                  if r.scope == "chat"}
     assert pr.sha12("НОВЫЙ ЧАТОВЫЙ ТЕКСТ\n") in chat_revs
+    assert pr.sha12(FACTORY_C) in chat_revs    # поставка не потеряна
 
 
 # ── 10. Целостность: текст сменён без метки → fail-closed ──────────────────
