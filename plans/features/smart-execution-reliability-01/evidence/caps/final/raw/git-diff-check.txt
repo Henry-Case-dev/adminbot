@@ -1,0 +1,2 @@
+git diff --check 8277d33c HEAD -- services handlers tools tests -> EMPTY (exit 0)
+diff_w_identical=True
