@@ -14,7 +14,7 @@ Next execution: awaiting_children
 Review: S0 approved+VERIFIED; S3/I56 approved+bound; I1-02/I2-02 approved+REVIEW; H/S13 pending
 Deployment: verified 2.58.199 @ d20a7f73; rollback 25876167 (SMART epic not deployed)
 Human gate: none
-Progress scope: plans/progress_scope.json | SMART 186 reqs: 128 review (core 60 + FC 68), 10 ready, 6 verified, 42 pending (core 26 + FC 16)
+Progress scope: plans/progress_scope.json | SMART 186 reqs: 131 review (core 63 + FC 68), 10 ready, 6 verified, 39 pending (core 23 + FC 16)
 Updated: 2026-11-14T08:50:00+12:00
 
 ## Facts
