@@ -1,0 +1,13 @@
+{
+  "unit": "s5b-recovery",
+  "epic": "smart-corrective-01",
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-756d6104",
+      "owner": "Builder (S5B-RECOVERY)",
+      "reason": "Registered implementation worktree of branch sc/corrective-s5b (commit 53eea774 + evidence 5115eefd); must remain available for independent review and for S5C/S5D continuation. Disposable test artefacts (.pytest_cache, var/, local_database.db) were removed; worktree is clean.",
+      "evidence": "plans/features/smart-corrective-01/evidence/s5b/implementation.md (commits 53eea774, 5115eefd)",
+      "next_event": "After Reviewer approval of S5B (or after S5B/S5C/S5D join): integrate the branch, then release the worktree via unit-close."
+    }
+  ]
+}
