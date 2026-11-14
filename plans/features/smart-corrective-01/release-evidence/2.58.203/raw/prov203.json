@@ -1,0 +1,107 @@
+{
+ "deployed_app_version": "2.58.203",
+ "factory_code": {
+  "chars": 3462,
+  "sha256": "3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052"
+ },
+ "global_layer": {
+  "raw_value_chars": 3500,
+  "body_chars": 3462,
+  "body_sha12": "3140bb364044",
+  "body_sha256": "3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052",
+  "contains_betterstack": false,
+  "contains_401": false,
+  "active_revision": {
+   "activation_id": 2944,
+   "revision_id": "rev:a2a369bba312",
+   "detail_code": "factory_activate",
+   "outcome": "applied",
+   "release_id": "evol-016-cutover",
+   "factory_revision_applied": "fac:93c42f967ef8",
+   "chars": 3462,
+   "sha12": "3140bb364044"
+  }
+ },
+ "manual_revision": {
+  "revision_id": "rev:d31300ef35a0",
+  "origin": "manual",
+  "scope": "chat",
+  "retired": false,
+  "chars": 12469,
+  "sha12": "31d175065461"
+ },
+ "chats": [
+  {
+   "alias": "CHAT_C1",
+   "ref": "39b94607c5b3",
+   "overrides_count": 8,
+   "checkup_override": null
+  },
+  {
+   "alias": "CHAT_C2",
+   "ref": "bb8fd23954ef",
+   "overrides_count": 32,
+   "checkup_override": {
+    "chars": 12469,
+    "sha12": "31d175065461"
+   }
+  },
+  {
+   "alias": "CHAT_C3",
+   "ref": "316e52bad714",
+   "overrides_count": 5,
+   "checkup_override": null
+  }
+ ],
+ "manual_chat": {
+  "alias": "CHAT_C2",
+  "ref": "bb8fd23954ef"
+ },
+ "no_override_chat": {
+  "alias": "CHAT_C1",
+  "ref": "39b94607c5b3"
+ },
+ "resolver": {
+  "release_policy_active": true,
+  "manual_chat": {
+   "target": "manual_chat",
+   "chat_ref": "bb8fd23954ef",
+   "prompt_layer": "chat",
+   "meta_prompt_layer": "chat",
+   "withheld": false,
+   "meta_withheld": false,
+   "provenance_reason": "provenance_missing",
+   "meta_provenance_reason": "provenance_missing",
+   "text_chars": 12469,
+   "text_sha12": "31d175065461",
+   "text_sha256": "31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701",
+   "contains_betterstack": false,
+   "contains_401": false,
+   "diagnostics": [
+    "release_policy_persisted_effective",
+    "provenance_missing"
+   ],
+   "withheld_class": ""
+  },
+  "no_override_chat": {
+   "target": "no_override_chat",
+   "chat_ref": "39b94607c5b3",
+   "prompt_layer": "global",
+   "meta_prompt_layer": "global",
+   "withheld": false,
+   "meta_withheld": false,
+   "provenance_reason": "provenance_missing",
+   "meta_provenance_reason": "provenance_missing",
+   "text_chars": 3462,
+   "text_sha12": "3140bb364044",
+   "text_sha256": "3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052",
+   "contains_betterstack": false,
+   "contains_401": false,
+   "diagnostics": [
+    "release_policy_persisted_effective",
+    "provenance_missing"
+   ],
+   "withheld_class": ""
+  }
+ }
+}

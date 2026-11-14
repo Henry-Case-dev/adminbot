@@ -1,0 +1,22 @@
+JOURNAL SUMMARY - admin_bot after 2.58.203 restart (2026-11-14 18:56:49Z)
+total_lines=1401
+traceback=0 error=2 critical=0 warning=11
+prompt_release_lines=3
+withheld_lines=0
+
+--- selected lines (prompt_release, ERROR/CRITICAL, non-FTS WARNING) ---
+Nov 14 18:56:52 vps159032-gqg python[887397]: 2026-11-14 18:56:52,075 - services.prompt_release_policy - INFO - [prompt_release] manual scope: заводская ревизия rev:9ed7b22b0d8c записана в историю, сохранённая редакция rev:d31300ef35a0 остаётся активной | block=checkup.base.system | scope=chat | chat=-1002661910336
+Nov 14 18:56:52 vps159032-gqg python[887397]: 2026-11-14 18:56:52,127 - services.prompt_release_policy - INFO - [prompt_release] activation | release=evol-016-cutover | block=checkup.base.system | scope=global | action=activate | outcome=applied | detail=factory_activate | rev=rev:a2a369bba312 | factory_rev=fac:93c42f967ef8
+Nov 14 18:56:52 vps159032-gqg python[887397]: 2026-11-14 18:56:52,128 - services.prompt_release_policy - INFO - [prompt_release] релиз применён | release=evol-016-cutover | blocks=112 | changed=1 | retired=0
+Nov 14 18:57:57 vps159032-gqg python[887397]: 2026-11-14 18:57:57,220 - apscheduler.executors.default - WARNING - Run time of job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 18:58:52 UTC)" was missed by 0:00:04.917375
+Nov 14 18:57:57 vps159032-gqg python[887397]: 2026-11-14 18:57:57,220 - apscheduler.executors.default - WARNING - Run time of job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-14 18:58:52 UTC)" was missed by 0:00:04.827820
+Nov 14 19:01:22 vps159032-gqg python[887397]: 2026-11-14 19:01:22,569 - services.llm_client - WARNING - LLM request retry | url=https://nano-gpt.com/api/v1/chat/completions | attempt=1/2 | sleep=2.0s | reason=ReadTimeout:
+Nov 14 19:01:52 vps159032-gqg python[887397]: 2026-11-14 19:01:52,170 - apscheduler.scheduler - WARNING - Execution of job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 19:01:52 UTC)" skipped: maximum number of running instances reached (1)
+Nov 14 19:01:52 vps159032-gqg python[887397]: 2026-11-14 19:01:52,225 - services.anticliche_worker - WARNING - [anticliche] no usable source | problems=0
+Nov 14 19:01:52 vps159032-gqg python[887397]: 2026-11-14 19:01:52,225 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+Nov 14 19:01:52 vps159032-gqg python[887397]: 2026-11-14 19:01:52,230 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-11-22 00:22:33.416100+05:00
+Nov 14 19:02:52 vps159032-gqg python[887397]: 2026-11-14 19:02:52,169 - apscheduler.scheduler - WARNING - Execution of job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 19:02:52 UTC)" skipped: maximum number of running instances reached (1)
+Nov 14 19:03:52 vps159032-gqg python[887397]: 2026-11-14 19:03:52,170 - apscheduler.scheduler - WARNING - Execution of job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 19:03:52 UTC)" skipped: maximum number of running instances reached (1)
+Nov 14 19:03:52 vps159032-gqg python[887397]: 2026-11-14 19:03:52,756 - services.llm_client - WARNING - LLM request retry | url=https://nano-gpt.com/api/v1/chat/completions | attempt=1/2 | sleep=1.1s | reason=ReadTimeout:
+Nov 14 19:04:52 vps159032-gqg python[887397]: 2026-11-14 19:04:52,171 - apscheduler.scheduler - WARNING - Execution of job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 19:04:52 UTC)" skipped: maximum number of running instances reached (1)
+Nov 14 19:05:52 vps159032-gqg python[887397]: 2026-11-14 19:05:52,170 - apscheduler.scheduler - WARNING - Execution of job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 19:05:52 UTC)" skipped: maximum number of running instances reached (1)

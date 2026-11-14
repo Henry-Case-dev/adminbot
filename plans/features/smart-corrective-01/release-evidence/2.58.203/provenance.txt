@@ -1,0 +1,95 @@
+BOT-LIKE PROVENANCE PROOF — 2.58.203
+====================================
+
+Метод: на проде запущен штатный код 2.58.203 с read-only PG-транзакцией, кэши
+горячего слоя и чатов прогреты из фактических слоёв, политика релиза включена
+тем же вызовом, который делает штатное стартовое wiring
+(`apply_release` -> `set_release_policy_active(True)`). Затем измерен
+существующий метод сервиса `checkup_service._resolve_checkup_base_prompt`
+и `prompt_registry.resolve_chat_speech_ex`. Никаких записей, ни одного вызова
+провайдера, Telegram не задействован.
+
+Воспроизводимость: исходник пробы — `probes/prov203.py`, сырые данные —
+`raw/prov203.json`. Запуск: `cd /var/www/admin_bot && venv/bin/python
+/probes/prov203.py /tmp/prov203.json`. Значения в выводе только машинные
+(длины, sha, коды слоёв, хешированные ссылки на чаты).
+
+## 1. Чат с сохранённой редакцией владельца
+
+```
+chat_ref              bb8fd23954ef  (CHAT_C2)
+prompt_layer          chat
+withheld              false
+text_chars            12 469
+text_sha12            31d175065461
+text_sha256           31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701
+contains_betterstack  false
+contains_401          false
+provenance_reason     provenance_missing
+diagnostics           ["release_policy_persisted_effective", "provenance_missing"]
+withheld_class        (пусто)
+```
+
+Совпадает с AC-15/AC-19: сохранённая редакция **доставляется** (слой `chat`,
+12 469 симв., sha `31d17506…`), `withheld=false`.
+
+Честное уточнение: `provenance_reason=provenance_missing` остаётся, потому что
+у ручной правки владельца нет записи-аттестации в реестре; значение при этом
+эффективно, поскольку политика релиза активна
+(`release_policy_persisted_effective`). Это не удержание (`withheld=false`) и
+не подмена текста: байты и длина совпадают с редакцией владельца.
+
+## 2. Чат без checkup-override
+
+```
+chat_ref              39b94607c5b3  (CHAT_C1)
+prompt_layer          global
+withheld              false
+text_chars            3 462
+text_sha12            3140bb364044
+text_sha256           3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052
+contains_betterstack  false
+contains_401          false
+provenance_reason     provenance_missing  (та же семантика слоя, withheld=false)
+```
+
+Заводской текст = 3 462 симв./`3140bb36…`, Betterstack и 401 отсутствуют.
+Слой `global`, потому что после релиза в глобальном слое лежит именно новая
+заводская ревизия `rev:a2a369bba312`.
+
+## 3. Заводской текст кода (не зависит от БД)
+
+```
+CHECKUP_SYSTEM_PROMPT  3 462 chars
+sha256                 3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052
+betterstack present    false
+"401" present          false
+```
+
+## 4. Слои, из которых резолвится значение
+
+```
+bot_settings.prompts.checkup_system_prompt
+  raw JSON 3 500 chars -> тело 3 462 chars, sha12 3140bb364044
+  contains_betterstack=false, contains_401=false
+  updated_at 2026-11-14 18:56:52.126739+00
+
+chat_profiles CHAT_C2.overrides["prompts.checkup_system_prompt"]
+  12 469 chars, sha12 31d175065461
+
+prompt_activations (последние)
+  2945 chat   rev:d31300ef35a0  skipped_same  factory_superseded_manual
+  2944 global rev:a2a369bba312  applied       factory_activate
+```
+
+## 5. Что это доказывает и чего не доказывает
+
+Доказано: на реальном прод-состоянии и штатном wiring сохранённая редакция
+владельца доставляется в чат (12 469/`31d17506…`, без удержания), а чат без
+override получает новый заводской текст (3 462/`3140bb36…`, без
+Betterstack/401).
+
+Не доказано этим прогоном: живой пользовательский чекап, инициированный
+сообщением в Telegram-чате владельца, — таких сообщений в прогоне не было
+(и они не отправлялись). Это отдельное наблюдение на реальном событии; его
+эквивалент для агентской проверки — данный бот-подобный резолвер.

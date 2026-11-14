@@ -1,0 +1,322 @@
+{
+ "ts": "2026-11-14T18:55:01Z",
+ "app_version": "2.58.202",
+ "head": "0beed63df8037002ccfaacef019b8ea948d957f6",
+ "branch": "release/smart-corrective-01",
+ "dirty_tracked": 0,
+ "health_local": {
+  "code": 200,
+  "body": "{\"status\":\"ok\",\"version\":\"2.58.202\"}"
+ },
+ "health_public": {
+  "code": 200,
+  "body": "{\"status\":\"ok\",\"version\":\"2.58.202\"}"
+ },
+ "sqlite": {
+  "user_version": 47,
+  "tables": 130,
+  "schema_migrations_rows": 36,
+  "schema_migrations_max": 47
+ },
+ "settings": {
+  "count": 548,
+  "digest": "255867d174b6bcb6731c71dd3328ed74015b840d747c78a6085be6e02d97b42b",
+  "digest_excluding_checkup": "fefe4bca76adca6049572f3fe6f33f8c38bf0ba4bb37bb71e18896790a2ac86d",
+  "specific": {
+   "flags.budgets_enabled": {
+    "present": true,
+    "chars": 5,
+    "sha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+    "updated_at": "2026-10-25 06:13:07.439995+00"
+   },
+   "flags.factcheck_pipeline_v2": {
+    "present": true,
+    "chars": 4,
+    "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "updated_at": "2026-10-20 09:44:06.723+00"
+   },
+   "models.llm_model_name": {
+    "present": true,
+    "chars": 31,
+    "sha256": "763b4042b08bb6603d4004f0749b538faf2173978a4a916b6150e74551f4b45b",
+    "updated_at": "2026-11-11 12:04:22.696731+00"
+   },
+   "models.llm_base_url": {
+    "present": true,
+    "chars": 29,
+    "sha256": "73424c3004afb6fdf4ecc157549b8c278b74867916fe331dd6c05b4f512dd427",
+    "updated_at": "2026-09-12 05:43:07.884798+00"
+   },
+   "prompts.checkup_system_prompt": {
+    "present": true,
+    "chars": 3068,
+    "sha256": "86c2e871aad99734f0369e45a8b3fd4b7ab215b1ea81aad81713406d62e55447",
+    "updated_at": "2026-10-31 12:26:32.312537+00",
+    "contains_betterstack": true,
+    "contains_401": true
+   },
+   "prompts.factcheck_subject_system_prompt": {
+    "present": true,
+    "chars": 2204,
+    "sha256": "e694c4675157338dc52e0fd81bf8f63c7e55416086967be1dca530d2465d19ad",
+    "updated_at": "2026-11-14 05:19:03.548386+00",
+    "contains_betterstack": false,
+    "contains_401": false
+   }
+  }
+ },
+ "profiles": {
+  "count": 3,
+  "digest": "323a6528d0c6cee592efabad757314bff517d666d0311b52f714d07c76510f89",
+  "chats": [
+   {
+    "alias": "CHAT_C1",
+    "ref": "39b94607c5b3",
+    "overrides_count": 8,
+    "checkup_override": {
+     "present": false
+    }
+   },
+   {
+    "alias": "CHAT_C2",
+    "ref": "bb8fd23954ef",
+    "overrides_count": 32,
+    "checkup_override": {
+     "present": true,
+     "chars": 12469,
+     "sha256": "31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701"
+    }
+   },
+   {
+    "alias": "CHAT_C3",
+    "ref": "316e52bad714",
+    "overrides_count": 5,
+    "checkup_override": {
+     "present": false
+    }
+   }
+  ]
+ },
+ "prompts": {
+  "block": "checkup.base.system",
+  "global_row": {
+   "chars": 3068,
+   "sha256": "86c2e871aad99734f0369e45a8b3fd4b7ab215b1ea81aad81713406d62e55447"
+  },
+  "revisions": [
+   {
+    "revision_id": "rev:9ed7b22b0d8c",
+    "origin": "factory",
+    "scope": "chat",
+    "chat_ref": "bb8fd23954ef",
+    "retired": false,
+    "factory_revision": "fac:d263c52f7871",
+    "reason": "factory_release",
+    "chars": 3462,
+    "sha12": "3140bb364044",
+    "created": "2026-11-14 13:42:28.420641+00"
+   },
+   {
+    "revision_id": "rev:d31300ef35a0",
+    "origin": "manual",
+    "scope": "chat",
+    "chat_ref": "bb8fd23954ef",
+    "retired": false,
+    "factory_revision": "",
+    "reason": "owner_edit",
+    "chars": 12469,
+    "sha12": "31d175065461",
+    "created": "2026-11-14 06:11:54.954581+00"
+   },
+   {
+    "revision_id": "rev:96fbd1a7be54",
+    "origin": "legacy",
+    "scope": "global",
+    "chat_ref": "",
+    "retired": false,
+    "factory_revision": "",
+    "reason": "legacy_import",
+    "chars": 2312,
+    "sha12": "1e8a3c69cf7b",
+    "created": "2026-10-31 12:26:32.242783+00"
+   },
+   {
+    "revision_id": "rev:3be4841bca08",
+    "origin": "factory",
+    "scope": "global",
+    "chat_ref": "",
+    "retired": false,
+    "factory_revision": "fac:d263c52f7871",
+    "reason": "factory_release",
+    "chars": 3030,
+    "sha12": "b0c70f974e0e",
+    "created": "2026-10-31 12:26:32.242783+00"
+   }
+  ],
+  "activations": [
+   {
+    "activation_id": 2943,
+    "revision_id": "rev:d31300ef35a0",
+    "scope": "chat",
+    "chat_ref": "bb8fd23954ef",
+    "kind": "manual_rollback",
+    "outcome": "skipped_same",
+    "detail_code": "activate:manual",
+    "release_id": "",
+    "factory_revision_applied": "fac:d263c52f7871",
+    "created": "2026-11-14 15:14:52.902697+00"
+   },
+   {
+    "activation_id": 2942,
+    "revision_id": "rev:d31300ef35a0",
+    "scope": "chat",
+    "chat_ref": "bb8fd23954ef",
+    "kind": "manual_rollback",
+    "outcome": "applied",
+    "detail_code": "activate:manual",
+    "release_id": "",
+    "factory_revision_applied": "fac:d263c52f7871",
+    "created": "2026-11-14 15:14:52.896133+00"
+   },
+   {
+    "activation_id": 2941,
+    "revision_id": "rev:9ed7b22b0d8c",
+    "scope": "chat",
+    "chat_ref": "bb8fd23954ef",
+    "kind": "deploy_activate",
+    "outcome": "applied",
+    "detail_code": "factory_activate",
+    "release_id": "evol-016-cutover",
+    "factory_revision_applied": "fac:d263c52f7871",
+    "created": "2026-11-14 13:42:28.420641+00"
+   },
+   {
+    "activation_id": 2940,
+    "revision_id": "rev:d31300ef35a0",
+    "scope": "chat",
+    "chat_ref": "bb8fd23954ef",
+    "kind": "manual_edit",
+    "outcome": "applied",
+    "detail_code": "owner_edit",
+    "release_id": "",
+    "factory_revision_applied": "",
+    "created": "2026-11-14 06:11:54.954581+00"
+   },
+   {
+    "activation_id": 2758,
+    "revision_id": "rev:3be4841bca08",
+    "scope": "global",
+    "chat_ref": "",
+    "kind": "deploy_activate",
+    "outcome": "applied",
+    "detail_code": "factory_activate",
+    "release_id": "evol-016-cutover",
+    "factory_revision_applied": "fac:d263c52f7871",
+    "created": "2026-10-31 12:26:32.242783+00"
+   },
+   {
+    "activation_id": 2757,
+    "revision_id": "rev:96fbd1a7be54",
+    "scope": "global",
+    "chat_ref": "",
+    "kind": "legacy_import",
+    "outcome": "applied",
+    "detail_code": "legacy_snapshot",
+    "release_id": "evol-016-cutover",
+    "factory_revision_applied": "",
+    "created": "2026-10-31 12:26:32.242783+00"
+   }
+  ],
+  "manual_revision": {
+   "revision_id": "rev:d31300ef35a0",
+   "origin": "manual",
+   "scope": "chat",
+   "retired": false,
+   "factory_revision": "",
+   "reason": "owner_edit",
+   "chars": 12469,
+   "sha256": "31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701",
+   "created": "2026-11-14 06:11:54.954581+00"
+  }
+ },
+ "budgets": {
+  "global_value": false,
+  "global_source": "global",
+  "factory_default": true,
+  "chat_override_present": true,
+  "chats": [
+   {
+    "alias": "CHAT_C1",
+    "value": false,
+    "source": "chat",
+    "chat_override": true
+   },
+   {
+    "alias": "CHAT_C2",
+    "value": false,
+    "source": "chat",
+    "chat_override": true
+   },
+   {
+    "alias": "CHAT_C3",
+    "value": false,
+    "source": "global",
+    "chat_override": false
+   }
+  ],
+  "global_limits": {
+   "budgets_enabled": false,
+   "limits_enforced": false,
+   "max_total_calls": 0,
+   "max_metered_calls": 0,
+   "max_same_call": 0,
+   "fuse_seconds": 0.0
+  },
+  "per_chat_limits": [
+   {
+    "budgets_enabled": false,
+    "limits_enforced": false,
+    "max_total_calls": 0,
+    "max_metered_calls": 0,
+    "max_same_call": 0,
+    "fuse_seconds": 0.0,
+    "alias": "CHAT_C1"
+   },
+   {
+    "budgets_enabled": false,
+    "limits_enforced": false,
+    "max_total_calls": 0,
+    "max_metered_calls": 0,
+    "max_same_call": 0,
+    "fuse_seconds": 0.0,
+    "alias": "CHAT_C2"
+   },
+   {
+    "budgets_enabled": false,
+    "limits_enforced": false,
+    "max_total_calls": 0,
+    "max_metered_calls": 0,
+    "max_same_call": 0,
+    "fuse_seconds": 0.0,
+    "alias": "CHAT_C3"
+   }
+  ]
+ },
+ "capacity": {
+  "model": "z-ai/glm-5.3-flash-uncensored",
+  "base_url_host": "nano-gpt.com",
+  "window": 1048576,
+  "max_output": 32768,
+  "declared": 1048576,
+  "runtime": null,
+  "source": "provider_catalog",
+  "confidence": "verified",
+  "fallback_used": false,
+  "override_value": null,
+  "proven_limit": null
+ },
+ "factory_code": {
+  "chars": 3462,
+  "sha256": "3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052"
+ }
+}

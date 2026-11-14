@@ -1,0 +1,93 @@
+EFFECTIVE CONFIG — SMART-CORRECTIVE-01 / 2.58.203
+==================================================
+
+APP_VERSION     2.58.203
+SCHEMA          user_version=47
+                tables=130
+                schema_migrations rows=36, max_version=47 (DDL в релизе нет)
+HEALTH          local/public 200 {"status":"ok","version":"2.58.203"}
+
+BUDGETS / CHAIN LIMITS  (значения слоёв: chat override -> global -> default)
+---------------------------------------------------------------------------
+global budgets          budgets_enabled=false, source=global, factory_default=true
+chat CHAT_C1            false, source=chat (явный override false)
+chat CHAT_C2            false, source=chat (явный override false)
+chat CHAT_C3            false, source=global
+
+global chain limits     max_total_calls=0, max_metered_calls=0,
+                        max_same_call=0, fuse_seconds=0.0,
+                        budgets_enabled=false, limits_enforced=false
+per-chat chain limits   те же нули для всех 3 чатов, limits_enforced=false
+VERDICT                 бюджеты OFF везде, caps 0, скрытого enforcement нет
+                        (значения pre == post)
+
+MODEL CAPACITY
+--------------
+chat model              z-ai/glm-5.3-flash-uncensored
+base_url_host           nano-gpt.com
+effective window        1 048 576
+max output              32 768
+source / confidence     provider_catalog / verified
+declared_window         1 048 576
+runtime_window          null
+override / proven limit null
+fallback_used           false
+VERDICT                 capacity_ok, как на 2.58.202
+
+OWNER SETTINGS (bot_settings)
+-----------------------------
+count                   548 (pre == post)
+digest (548 строк)      изменён ровно в одной строке
+digest без checkup-строки
+  pre  fefe4bca76adca6049572f3fe6f33f8c38bf0ba4bb37bb71e18896790a2ac86d
+  post fefe4bca76adca6049572f3fe6f33f8c38bf0ba4bb37bb71e18896790a2ac86d
+                        (идентичны)
+
+flags.budgets_enabled               false        unchanged
+flags.factcheck_pipeline_v2         true         unchanged
+models.llm_model_name               z-ai/glm-5.3-flash-uncensored  unchanged
+models.llm_base_url                 https://nano-gpt.com/api/v1     unchanged
+prompts.factcheck_subject_system_prompt 2 146 chars                 unchanged
+
+prompts.checkup_system_prompt  — единственное изменённое значение:
+  pre   raw JSON 3 068 chars, тело 3 030 chars, sha256 b0c70f974e0e…,
+        contains_betterstack=true, contains_401=true
+        (активная global-ревизия rev:3be4841bca08, fac:d263c52f7871)
+  post  raw JSON 3 500 chars, тело 3 462 chars, sha256 3140bb364044…,
+        contains_betterstack=false, contains_401=false
+        (активная global-ревизия rev:a2a369bba312, fac:93c42f967ef8,
+         активация 2944 deploy_activate/applied/factory_activate)
+  updated_at 2026-11-14 18:56:52.126739+00
+
+PROFILES / CHAT OVERRIDES
+-------------------------
+chat_profiles count     3 (pre == post)
+chat_profiles digest    pre == post
+                        (323a6528d0c6cee592efabad757314bff517d666d0311b52f714d07c76510f89)
+CHAT_C1 overrides       8, checkup override отсутствует
+CHAT_C2 overrides       32, checkup override present:
+                        12 469 chars, sha256 31d175065461…  (не изменён)
+CHAT_C3 overrides       5, checkup override отсутствует
+
+PROMPT JOURNAL (checkup.base.system)
+------------------------------------
+manual owner edition
+  revision_id           rev:d31300ef35a0
+  origin/scope          manual / chat
+  retired               false
+  body_chars            12 469
+  body_sha256           31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701
+  created_at            2026-11-14T06:11:54.954581Z
+  состояние             АКТИВНА до и после релиза (активации 2942/2943/2945)
+
+factory edition history
+  rev:9ed7b22b0d8c      factory / chat / 3 462 / 3140bb36 / fac:d263c52f7871
+                        (старая метка, в истории, retired=false)
+  rev:a2a369bba312      factory / global / 3 462 / 3140bb36 / fac:93c42f967ef8
+                        (новая метка, активна в global-слое)
+  rev:3be4841bca08      factory / global / 3 030 / b0c70f97 / fac:d263c52f7871
+                        (предыдущая global-ревизия, история)
+
+VERIFY
+------
+raw/verify203.json: ok=true, 33 checks, failed=[].

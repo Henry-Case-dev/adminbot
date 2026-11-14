@@ -1,0 +1,984 @@
+{
+  "schema": "fc-live-canary/v1",
+  "harness": "fc_live_canary",
+  "harness_version": "1.4.0",
+  "harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+  "expected_harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+  "harness_sha256_preflight": {
+    "requested": true,
+    "ok": true,
+    "expected": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "actual": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "reason": ""
+  },
+  "started_at": "2026-11-14T19:00:23.376811+00:00",
+  "repo_root": "/var/www/admin_bot",
+  "allow_provider_calls": true,
+  "offline": false,
+  "max_provider_calls": 20,
+  "python": "3.12.3",
+  "checks": [
+    {
+      "id": "original_production_scenario",
+      "req_ids": [
+        "SFC-12-09"
+      ],
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "production_evidence": false,
+      "summary": "Исходный production-сценарий прерван лимитом харнесса до стадии ответа: provider_cap_reached (harness measurement budget exhausted: cap=20, total=20, denied_charges=3, kinds=llm,llm,llm; the pipeline could not reach the answer stage — this is NOT a product verdict)",
+      "details": {
+        "run": {
+          "name": "original_production_scenario",
+          "status": "not_observed",
+          "error": "provider_cap_reached (harness measurement budget exhausted: cap=20, total=20, denied_charges=3, kinds=llm,llm,llm; the pipeline could not reach the answer stage — this is NOT a product verdict)",
+          "duration_s": 36.025,
+          "outcome": "verdict",
+          "correlation_id": "e36a52d5de5340c995e77a0e0942bd22",
+          "subject": {
+            "version": "cs1",
+            "origin": "mixed",
+            "resolved_by": "llm",
+            "note": "",
+            "fingerprint": "eeffdc9a59cc3a17a5c6ba096bfb9865e222a9e182aac8a80cbf9affdd12125c",
+            "material_tg_message_id": 900131,
+            "request_tg_message_id": 900132,
+            "has_request": true,
+            "has_material_part": true,
+            "has_request_part": true,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 512,
+            "material_chars": 134,
+            "text_overlaps_material": 1.0,
+            "text_is_material": false,
+            "text_preview": "Женское обрезание — древняя традиция, она распространена во многих странах Африки и Ближнего Востока, и на её сохранение повлияли США. Распространение женского обрезания как традиции в странах Африки …",
+            "material_part_chars": 134,
+            "material_part_is_full_material": true,
+            "request_part_chars": 114
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 134,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 4,
+            "needs_web": true,
+            "claims": 4,
+            "intents": [
+              "entity_check",
+              "entity_check",
+              "entity_check",
+              "entity_check"
+            ],
+            "query_previews": [
+              "Африки Ближнего Востока женское обрезание древняя традиция она распространена во",
+              "распространение женского обрезания традиции странах африки ближнего востока",
+              "Франция Великобритания Германия проверяется страны этой традицией которые не влияли германия и сша ре",
+              "женское обрезание древняя Франция Великобритания Германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "query_texts": [
+              "Африки Ближнего Востока женское обрезание древняя традиция она распространена во",
+              "распространение женского обрезания традиции странах африки ближнего востока",
+              "Франция Великобритания Германия проверяется страны этой традицией которые не влияли германия и сша ре",
+              "женское обрезание древняя Франция Великобритания Германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "subject_origin": "mixed",
+            "subject_fingerprint": true,
+            "claim_anchors": 4
+          },
+          "retrieval": {
+            "total_claims": 4,
+            "claims_searched": 4,
+            "claims_with_direct_evidence": 4,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 8,
+            "stale_sources_dropped": 0,
+            "refine_calls": 0,
+            "queries_attempted": 4,
+            "queries_used": 4,
+            "budget_exhausted": false,
+            "stop_reason": "sufficient_evidence",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 80,
+            "opened": 0,
+            "claim_units": 4,
+            "refs": 6,
+            "evidence_chars": 1799,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 5,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 28070,
+            "search_text_portions": 1,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "африки ближнего востока женское обрезание древняя традиция она распространена во",
+              "распространение женского обрезания традиции странах африки ближнего востока",
+              "франция великобритания германия проверяется страны этой традицией которые не влияли германия и сша ре",
+              "женское обрезание древняя франция великобритания германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              },
+              {
+                "claim_id": "c2",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              },
+              {
+                "claim_id": "c3",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              },
+              {
+                "claim_id": "c4",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 1
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 512,
+            "material_chars": 134,
+            "request_chars": 127,
+            "subject_origin": "mixed",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason_code": "temporal_fallback_mode",
+            "parts": 4,
+            "uncertainty_keys": [
+              "dates_unresolved"
+            ],
+            "has_ambiguity_note": false,
+            "inference_gap": false,
+            "counterpoint": false,
+            "evidence_rows_delivered": 6,
+            "evidence_delivered_chars": 1799,
+            "fallback_used": true,
+            "verdict_text_chars": 52,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "success",
+                "reason": "unified_retrieval"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success",
+                "reason": "temporal_fallback_mode"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "skipped",
+                "reason": "temporal_fallback_mode"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 4,
+            "provider_attempts": 4,
+            "provider_failures": 0,
+            "documents_retrieved": 80,
+            "queries_with_results": 4,
+            "extract_attempts": 5,
+            "extract_successes": 0,
+            "extract_failures": 5,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 8,
+            "relevant_evidence_count": 6,
+            "citable_evidence_count": 6,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "sufficient_evidence",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "ok",
+            "technical_reason": "temporal_fallback_mode",
+            "attempted_queries": [
+              "африки ближнего востока женское обрезание древняя традиция она распространена во",
+              "распространение женского обрезания традиции странах африки ближнего востока",
+              "франция великобритания германия проверяется страны этой традицией которые не влияли германия и сша ре",
+              "женское обрезание древняя франция великобритания германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "evidence_delivery": {
+              "total_rows": 6,
+              "delivered_rows": 6,
+              "total_chars": 1799,
+              "delivered_chars": 1799,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 4,
+            "claims_searched": 4,
+            "claims_with_direct_evidence": 4,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 0,
+            "stop_reason": "sufficient_evidence",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 1049,
+            "preview": "<b>Недостаточно данных для проверки</b> Недостаточно данных для полной проверки утверждения. Источники: 1. <a href=\"https://ru.wikipedia.org/wiki/%D0%96%D0%B5%D0%BD%D1%81%D0%BA%D0%BE%D0%B5_%D0%BE%D0%B1%D1%80%D0%B5%D0%B7%D0%B0%D0%BD%D0%B8%D0%B5\">ru.wikipedia.org</a> — энциклопедия 2. <a href=\"https://coinmarketcap.com/academy/ru/article/2023-cmc-crypto-playbook-eu-crypto-regulations-outlook-by-blockchain-for-europe-bc4eu\">coinmarketcap.com</a> — пересказ 3. <a href=\"https://news.un.org/ru/story/2022/02/1417812\">news.un.org</a> — пересказ 4. <a href=\"https://www.bbc.com/russian/features-47142789\">bbc.com</a> — пересказ 5. <a href=\"https://www.cbinsights.com/company/wensleydale-creamery\">cbinsights.com</a> — пересказ 6. <a href=\"https://www.dw.com/ru/%D0%B2-%D1%84%D1%80%D0%B3-%D0%BF%D0%BE%D1%87%D1%82%D0%B8-50-%D1%82%D1%8B%D1%81%D1%8F%D1%87-%D0%B6%D0%B5%D0%BD%D1%89%D0%B8%D0%BD-%D0%BF%D0%BE%D…",
+            "reply_targets": [
+              900131
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 6,
+            "ledger_rows": 1,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900132,
+              "target_tg_message_id": 900131
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-6633645c3a404937",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason": "temporal_fallback_mode",
+            "claim_chars": 512,
+            "evidence_chars": 1799
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 20,
+            "remaining": 0,
+            "llm_calls": 1,
+            "search_calls": 8,
+            "page_fetch_calls": 11,
+            "total": 20,
+            "cap_hit": 3,
+            "cap_kinds": [
+              "llm",
+              "llm",
+              "llm"
+            ],
+            "cap_reached_this_run": true,
+            "cap_denied_calls_this_run": 3,
+            "cap_kinds_this_run": [
+              "llm",
+              "llm",
+              "llm"
+            ],
+            "this_run": {
+              "llm": 1,
+              "search": 8,
+              "fetch": 11
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": "temporal_date_unknown",
+                "stage": "origin_date_resolve"
+              },
+              "normalized": {
+                "reason_code": "temporal_date_unknown",
+                "stage": "origin_date_resolve",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": null,
+                "stage": "claim_decompose"
+              },
+              "normalized": {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": "unified_retrieval",
+                "stage": "temporal_search"
+              },
+              "normalized": {
+                "reason_code": "unified_retrieval",
+                "stage": "temporal_search",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": null,
+                "stage": "evidence_validate"
+              },
+              "normalized": {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "failed",
+              "level": "WARN",
+              "fields": {
+                "stage": "temporal_verdict"
+              },
+              "normalized": {
+                "stage": "temporal_verdict",
+                "outcome": "failed"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": "temporal_fallback_mode",
+                "stage": "claim_coverage"
+              },
+              "normalized": {
+                "reason_code": "temporal_fallback_mode",
+                "stage": "claim_coverage",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": "temporal_fallback_mode",
+                "stage": "verdict"
+              },
+              "normalized": {
+                "reason_code": "temporal_fallback_mode",
+                "stage": "verdict",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "failed",
+              "level": "WARN",
+              "fields": {
+                "stage": "temporal_verbalize"
+              },
+              "normalized": {
+                "stage": "temporal_verbalize",
+                "outcome": "failed"
+              }
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": "",
+              "fields": {
+                "reason_code": "bot_output_recorded"
+              },
+              "normalized": {
+                "reason_code": "bot_output_recorded",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "stage": "v2:envelope_temporal"
+              },
+              "normalized": {
+                "stage": "v2:envelope_temporal",
+                "outcome": "success"
+              }
+            }
+          ],
+          "admission": {},
+          "transport": "real",
+          "cap_reached": true,
+          "cap_denied_calls": 3,
+          "cap_kinds": [
+            "llm",
+            "llm",
+            "llm"
+          ],
+          "budget_blocked": false
+        },
+        "provider_cap_reached": true,
+        "provider_budget_insufficient": false,
+        "cap": {
+          "denied_calls": 3,
+          "kinds": [
+            "llm",
+            "llm",
+            "llm"
+          ],
+          "max_calls": 20,
+          "total": 20,
+          "this_run": {
+            "llm": 1,
+            "search": 8,
+            "fetch": 11
+          }
+        },
+        "call_costs": {
+          "ordinary_factcheck": 17,
+          "multipart_and_short_reply": 34,
+          "original_production_scenario": 14,
+          "production_smoke": 7
+        },
+        "min_calls_required": 17,
+        "answer_stage_reached": {
+          "completed": false,
+          "fallback_used": true,
+          "reason_code": "temporal_fallback_mode",
+          "stage_trace": [
+            "{'stage': 'target_resolve', 'outcome': 'success'}",
+            "{'stage': 'origin_date_resolve', 'outcome': 'success', 'reason': 'temporal_date_unknown'}",
+            "{'stage': 'claim_decompose', 'outcome': 'success'}",
+            "{'stage': 'temporal_search', 'outcome': 'success', 'reason': 'unified_retrieval'}",
+            "{'stage': 'evidence_validate', 'outcome': 'success'}",
+            "{'stage': 'verdict', 'outcome': 'success', 'reason': 'temporal_fallback_mode'}",
+            "{'stage': 'verbalize', 'outcome': 'skipped', 'reason': 'temporal_fallback_mode'}"
+          ],
+          "stages": [
+            "target_resolve",
+            "origin_date_resolve",
+            "claim_decompose",
+            "temporal_search",
+            "evidence_validate",
+            "verdict",
+            "verbalize"
+          ],
+          "failed_events": [
+            "temporal_verdict",
+            "temporal_verbalize"
+          ],
+          "this_run_llm_calls": 1
+        }
+      },
+      "duration_s": 36.026
+    }
+  ],
+  "observability": [
+    {
+      "run": "original_production_scenario",
+      "check_id": "original_production_scenario",
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "transport": "real",
+      "request_correlation_id": "e36a52d5de5340c995e77a0e0942bd22",
+      "route": "envelope_temporal",
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "app_version": "2.58.203",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 4,
+      "candidates": 80,
+      "opened_sources": 0,
+      "claim_units": 4,
+      "evidence_chars": 1799,
+      "evidence_delivered_rows": 6,
+      "evidence_delivered_chars": 1799,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "sufficient_evidence",
+      "part_coverage": 4,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "unknown",
+        "reason_code": "temporal_fallback_mode",
+        "delivered_chars": 1049,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Недостаточно данных для полной проверки утверждения. Источники: 1. <a href=\"https://ru.wikipedia.org/wiki/%D0%96%D0%B5%D0%BD%D1%81%D0%BA%D0%BE%D0%B5_%D0%BE%D0%B1%D1%80%D0%B5%D0%B7%D0%B0%D0%BD%D0%B8%D0%B5\">ru.wikipedia.org</a> — энциклопедия 2. <a href=\"https://coinmarketcap.com/academy/ru/article/2023-cmc-crypto-playbook-eu-crypto-regulations-outlook-by-blockchain-for-europe-bc4eu\">coinmarketcap.com</a> — пересказ 3. <a href=\"https://news.un.org/ru/story/2022/02/1417812\">news.un.org</a> — пересказ 4. <a href=\"https://www.bbc.com/russian/features-47142789\">bbc.com</a> — пересказ 5. <a href=\"https://www.cbinsights.com/company/wensleydale-creamery\">cbinsights.com</a> — пересказ 6. <a href=\"https://www.dw.com/ru/%D0%B2-%D1%84%D1%80%D0%B3-%D0%BF%D0%BE%D1%87%D1%82%D0%B8-50-%D1%82%D1%8B%D1%81%D1%8F%D1%87-%D0%B6%D0%B5%D0%BD%D1%89%D0%B8%D0%BD-%D0%BF%D0%BE%D…"
+      }
+    }
+  ],
+  "limitations": [
+    "Harness drives run_factcheck directly (the BinaryHandler seam is not exercised); the deployed v2 code path is identical.",
+    "ToolRouter/tool-loop is not wired (envelope branch does not use it); lore/metric tools are not exercised.",
+    "Media/Vision branches are out of scope for these rows.",
+    "Synthetic chat lives in a temp SQLite DB; production PG is read read-only for effective-state only.",
+    "Real provider answers vary between runs; evidence counts are observed, not fixed.",
+    "Checks with evidence_class=plumbing use scripted transport doubles; they are never production evidence on their own."
+  ],
+  "identity": {
+    "repo_root": "/var/www/admin_bot",
+    "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "version": "2.58.203",
+      "deployed_at": "2026-11-14T18:56:47.914303Z",
+      "effect": "deploy"
+    },
+    "app_version_runtime": "2.58.203",
+    "identity_code": "local_unverified",
+    "identity_reason": "no_process_start",
+    "version_provenance": {
+      "runtime": "2.58.203",
+      "manifest": "2.58.203",
+      "consistent": true
+    },
+    "upstream_head": {
+      "sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "ref": "refs/remotes/origin/release/smart-corrective-01",
+      "observed_at": "2026-11-14T18:56:47.797016Z",
+      "reason": ""
+    },
+    "service_started_at": "Sat 2026-11-14 18:56:49 UTC",
+    "process_started_source": "systemctl ActiveEnterTimestamp",
+    "sources": [
+      "release_manifest",
+      "git_head",
+      "git_cli",
+      "runtime_app_version"
+    ],
+    "conflict": []
+  },
+  "health": {
+    "url": "http://127.0.0.1:8000/healthz",
+    "http": 200,
+    "version": "2.58.203",
+    "status": "ok",
+    "body": null,
+    "duration_ms": 11,
+    "ok": true
+  },
+  "candidate_binding": {
+    "harness_path": "/tmp/fc_live_canary.py",
+    "harness_name": "fc_live_canary",
+    "harness_version": "1.4.0",
+    "harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "harness_sha256_source": "sha256 of this file's bytes",
+    "repo_root": "/var/www/admin_bot",
+    "app_version_runtime": "2.58.203",
+    "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "identity_code": "local_unverified",
+    "release_manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "version": "2.58.203",
+      "deployed_at": "2026-11-14T18:56:47.914303Z"
+    },
+    "binding_status": "verified",
+    "binding_reasons": [],
+    "binding_rule": "attach this JSON next to the harness file; the harness_sha256 identifies the exact committed harness bytes and git_head/deployed_sha identify the release checkout the run observed"
+  },
+  "effective": {
+    "synthetic_chat": {
+      "budgets_state": {
+        "budgets_enabled": false,
+        "source": "global",
+        "stale": false,
+        "known": true
+      },
+      "limits": {
+        "budgets_enabled": false,
+        "budget_source": "global",
+        "budget_known": true,
+        "base_seconds": null,
+        "max_seconds": null,
+        "refine_calls": null,
+        "total_queries": null,
+        "search_text_chars": null,
+        "page_size": 20,
+        "claim_portion": 32,
+        "primary_fetches": null,
+        "excerpt_chars": null,
+        "sources": {
+          "flags.budgets_enabled": "global",
+          "limits.factcheck_claim_portion": "default",
+          "limits.factcheck_excerpt_chars": "default",
+          "limits.factcheck_max_queries_total": "default",
+          "limits.factcheck_page_size": "default",
+          "limits.factcheck_primary_fetches": "default",
+          "limits.factcheck_refine_calls": "default",
+          "limits.factcheck_retrieval_seconds": "default",
+          "limits.factcheck_retrieval_seconds_max": "default",
+          "limits.factcheck_search_text_chars": "default"
+        }
+      }
+    },
+    "real_chats": [
+      {
+        "chat": "chat-1",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "chat",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "chat",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "chat",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      {
+        "chat": "chat-2",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "chat",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "chat",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "chat",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      {
+        "chat": "chat-3",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "global",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "global",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      }
+    ],
+    "global": {
+      "budgets_enabled": false,
+      "source": "global",
+      "stale": false,
+      "known": true
+    },
+    "pipeline_v2_enabled": true,
+    "pipeline_v2": {
+      "known": true,
+      "enabled": true,
+      "reason": "",
+      "source": "hot PG flags.factcheck_pipeline_v2 → env FACTCHECK_PIPELINE_V2_ENABLED → factory"
+    },
+    "temporal_factcheck_enabled": true,
+    "pg": {
+      "available": true,
+      "global_count": 548,
+      "chat_count": 3,
+      "reason": null,
+      "read_mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only"
+    },
+    "model_capacity": {
+      "primary": {
+        "channel": "primary",
+        "model": "z-ai/glm-5.3-flash-uncensored",
+        "window_tokens": 1000000,
+        "window_source": "unknown_fallback",
+        "evidence_budget_chars": 800000,
+        "output_reserve_tokens": 100000
+      },
+      "fallback": {
+        "channel": "fallback",
+        "model": "deepseek-flash",
+        "window_tokens": 131072,
+        "window_source": "model_map",
+        "evidence_budget_chars": 104857,
+        "output_reserve_tokens": 13107
+      }
+    }
+  },
+  "finished_at": "2026-11-14T19:01:02.141677+00:00",
+  "duration_s": 36.217,
+  "call_budget": {
+    "allowed": true,
+    "max_calls": 20,
+    "remaining": 0,
+    "llm_calls": 1,
+    "search_calls": 8,
+    "page_fetch_calls": 11,
+    "total": 20,
+    "cap_hit": 3,
+    "cap_kinds": [
+      "llm",
+      "llm",
+      "llm"
+    ],
+    "cap_reached_this_run": true,
+    "cap_denied_calls_this_run": 3,
+    "cap_kinds_this_run": [
+      "llm",
+      "llm",
+      "llm"
+    ]
+  },
+  "check_call_costs": {
+    "ordinary_factcheck": 17,
+    "multipart_and_short_reply": 34,
+    "original_production_scenario": 14,
+    "production_smoke": 7
+  },
+  "check_call_margin": 3,
+  "min_calls_per_check": {
+    "ordinary_factcheck": 20,
+    "multipart_and_short_reply": 37,
+    "original_production_scenario": 17,
+    "production_smoke": 10
+  },
+  "safety": {
+    "telegram_bot_class": "StubBot",
+    "telegram_bot_is_stub": true,
+    "real_telegram_bot_constructed": false,
+    "outbound_calls_recorded": 1,
+    "outbound_delivered_to_telegram": 0,
+    "synthetic_chat_id": "SYNTH_CHAT",
+    "real_chat_history_written": false,
+    "production_pg": {
+      "opened": true,
+      "mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only",
+      "reason": null,
+      "global_count": 548,
+      "chat_count": 3
+    },
+    "config_persisted": false,
+    "in_memory_overrides_restored": true,
+    "shim_events": {
+      "hot_enter": 2,
+      "hot_exit": 2,
+      "chat_enter": 2,
+      "chat_exit": 2
+    },
+    "provider_calls_allowed": true,
+    "provider_calls_total": 20,
+    "provider_call_cap": 20
+  },
+  "summary": {
+    "observed": 0,
+    "not_observed": 1,
+    "error": 0,
+    "by_evidence_class": {
+      "plumbing": 0,
+      "production": 0,
+      "unavailable": 1
+    },
+    "production_observed": 0
+  }
+}

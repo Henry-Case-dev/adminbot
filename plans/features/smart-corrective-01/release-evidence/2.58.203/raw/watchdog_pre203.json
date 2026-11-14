@@ -1,0 +1,637 @@
+{
+ "now": 1794682982,
+ "window_minutes": 120,
+ "window_since": 1794675782,
+ "events_by_name": [
+  {
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "n": 121
+  },
+  {
+   "event_name": "WATCHDOG_TAKEOVER",
+   "outcome": "success",
+   "n": 1
+  }
+ ],
+ "aggregate": {
+  "sweeps": 121,
+  "takeover_events": 1,
+  "incident_failures": 0,
+  "recovery_events": 50
+ },
+ "sweep_totals": {
+  "discovered": 0,
+  "attempted": 0,
+  "recovered": 0,
+  "failed": 0,
+  "no_change": 0,
+  "overdue": 0,
+  "queued": 0,
+  "heartbeat_only": 0
+ },
+ "incident_outcomes": {
+  "_scalar": 3
+ },
+ "reconcile": {
+  "checked": 395,
+  "resolved": 6,
+  "pending": 389,
+  "inconclusive": 0,
+  "failed": 0
+ },
+ "running_contract": {
+  "heartbeat_only": 8,
+  "deadline_bounded": 0
+ },
+ "last_sweep": {
+  "ts": 1794682917,
+  "outcome": "success",
+  "usage_keys": [
+   "incident",
+   "incident_totals",
+   "incidents",
+   "overdue",
+   "progress_stalled",
+   "queued",
+   "reconcile",
+   "running_contract",
+   "stale",
+   "takeover",
+   "takeover_records",
+   "takeover_totals"
+  ],
+  "usage": {
+   "discovered": null,
+   "attempted": null,
+   "recovered": null,
+   "failed": null,
+   "no_change": null,
+   "overdue": {
+    "running": 0,
+    "queued": 0
+   },
+   "queued": {
+    "scheduled_retry": 0,
+    "deadline_pending": 0,
+    "overdue": 0,
+    "owner_managed": 0,
+    "hang": 0,
+    "normal_wait": 0
+   },
+   "heartbeat_only": null
+  },
+  "incidents": 0,
+  "reconcile": {
+   "checked": 3,
+   "resolved": 0,
+   "pending": 3,
+   "inconclusive": 0,
+   "failed": 0
+  },
+  "running_contract": {
+   "heartbeat_only": 0,
+   "deadline_bounded": 0
+  },
+  "raw_usage": {
+   "stale": 0,
+   "progress_stalled": 0,
+   "incidents": 0,
+   "takeover": {
+    "discovered": 0,
+    "attempted": 0,
+    "recovered": 0,
+    "failed": 0,
+    "no_change": 0
+   },
+   "takeover_records": 0,
+   "takeover_totals": {
+    "recovered": 0,
+    "failed": 0,
+    "no_change": 0
+   },
+   "incident": {
+    "created": 0,
+    "updated": 0,
+    "reopened": 0,
+    "failed": 0,
+    "disabled": 0
+   },
+   "incident_totals": {
+    "created": 0,
+    "updated": 0,
+    "reopened": 0,
+    "failed": 0,
+    "disabled": 0
+   },
+   "reconcile": {
+    "checked": 3,
+    "resolved": 0,
+    "pending": 3,
+    "inconclusive": 0,
+    "failed": 0
+   },
+   "overdue": {
+    "running": 0,
+    "queued": 0
+   },
+   "queued": {
+    "scheduled_retry": 0,
+    "deadline_pending": 0,
+    "overdue": 0,
+    "owner_managed": 0,
+    "hang": 0,
+    "normal_wait": 0
+   },
+   "running_contract": {
+    "heartbeat_only": 0,
+    "deadline_bounded": 0
+   }
+  }
+ },
+ "takeovers": [
+  {
+   "ts": 1794679324,
+   "outcome": "success",
+   "reason_code": "takeover_recovered",
+   "entity_ids": "[\"1d33839d6ee048f49fcbf97ad888b9ed\"]",
+   "usage_json": null
+  }
+ ],
+ "incident_failures": [],
+ "recoveries": [
+  {
+   "ts": 1794682917,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682857,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682797,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 1, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682737,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682677,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 1, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682612,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682612,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682565,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682505,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682445,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682385,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682325,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682265,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682205,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682145,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682085,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794682025,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681965,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681905,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681845,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681785,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681725,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681665,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681605,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681545,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681485,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681425,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681365,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681305,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681245,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681185,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681125,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681065,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794681005,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680945,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 1, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680885,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680825,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680764,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680704,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680644,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680584,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680524,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680464,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680404,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680344,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680284,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 3, \"resolved\": 0, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680224,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 6, \"resolved\": 3, \"pending\": 3, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680164,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 6, \"resolved\": 0, \"pending\": 6, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680104,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 1, \"incidents\": 1, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 1, \"updated\": 0, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 6, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 5, \"resolved\": 0, \"pending\": 5, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 0, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  },
+  {
+   "ts": 1794680044,
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "usage_json": "{\"stale\": 0, \"progress_stalled\": 0, \"incidents\": 0, \"takeover\": {\"discovered\": 0, \"attempted\": 0, \"recovered\": 0, \"failed\": 0, \"no_change\": 0}, \"takeover_records\": 0, \"takeover_totals\": {\"recovered\": 2, \"failed\": 0, \"no_change\": 0}, \"incident\": {\"created\": 0, \"updated\": 1, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"incident_totals\": {\"created\": 5, \"updated\": 11, \"reopened\": 0, \"failed\": 0, \"disabled\": 0}, \"reconcile\": {\"checked\": 5, \"resolved\": 0, \"pending\": 5, \"inconclusive\": 0, \"failed\": 0}, \"overdue\": {\"running\": 0, \"queued\": 0}, \"queued\": {\"scheduled_retry\": 0, \"deadline_pending\": 0, \"overdue\": 0, \"owner_managed\": 0, \"hang\": 1, \"normal_wait\": 0}, \"running_contract\": {\"heartbeat_only\": 0, \"deadline_bounded\": 0}}"
+  }
+ ],
+ "incidents_total": [
+  {
+   "n": 15,
+   "open": 3
+  }
+ ],
+ "incidents_recent": [
+  {
+   "incident_id": "inc_9e0d2371e31f40f49ae6a8dc67165c44",
+   "fingerprint": "watchdog.jobs|mca16|progress|progress_stall|||experience.review|1d33839d6ee048f49fcbf97ad888b9ed",
+   "severity": "ERROR",
+   "title": "job 1d33839d6ee048f49fcbf97ad888b9ed: progress_stall",
+   "stage": "progress",
+   "first_ts": 1794680104,
+   "last_ts": 1794680104,
+   "repeat_count": 1,
+   "resolved_at": 1794680224
+  },
+  {
+   "incident_id": "inc_f424d95b41f44867acf0073c6960bc9d",
+   "fingerprint": "watchdog.jobs|mca16|queued|stage_queued|queue_no_claimer||experience.review|1d33839d6ee048f49fcbf97ad888b9ed",
+   "severity": "WARN",
+   "title": "job 1d33839d6ee048f49fcbf97ad888b9ed: stage_queued",
+   "stage": "queued",
+   "first_ts": 1794679684,
+   "last_ts": 1794680044,
+   "repeat_count": 7,
+   "resolved_at": 1794680224
+  },
+  {
+   "incident_id": "inc_336a09e58d234b9a8cc749546283de3a",
+   "fingerprint": "watchdog.jobs|mca16|takeover|worker_lost|||experience.review|1d33839d6ee048f49fcbf97ad888b9ed",
+   "severity": "ERROR",
+   "title": "job 1d33839d6ee048f49fcbf97ad888b9ed: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1794679324,
+   "last_ts": 1794679324,
+   "repeat_count": 1,
+   "resolved_at": 1794680224
+  },
+  {
+   "incident_id": "inc_7f7c78918c554351b14830bc16d3bd16",
+   "fingerprint": "watchdog.jobs|mca16|progress|progress_stall|||experience.review|d3b85948376a4f72a941d667698d8a6c",
+   "severity": "ERROR",
+   "title": "job d3b85948376a4f72a941d667698d8a6c: progress_stall",
+   "stage": "progress",
+   "first_ts": 1794675603,
+   "last_ts": 1794675603,
+   "repeat_count": 1,
+   "resolved_at": 1794675843
+  },
+  {
+   "incident_id": "inc_d11f2afffcd8489690b67014b433582b",
+   "fingerprint": "watchdog.jobs|mca16|queued|stage_queued|queue_no_claimer||experience.review|d3b85948376a4f72a941d667698d8a6c",
+   "severity": "WARN",
+   "title": "job d3b85948376a4f72a941d667698d8a6c: stage_queued",
+   "stage": "queued",
+   "first_ts": 1794675243,
+   "last_ts": 1794675543,
+   "repeat_count": 6,
+   "resolved_at": 1794675843
+  },
+  {
+   "incident_id": "inc_100fb7b20c534f2680fcf9fbdd34ea73",
+   "fingerprint": "watchdog.jobs|mca16|takeover|worker_lost|||experience.review|d3b85948376a4f72a941d667698d8a6c",
+   "severity": "ERROR",
+   "title": "job d3b85948376a4f72a941d667698d8a6c: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1794674882,
+   "last_ts": 1794674882,
+   "repeat_count": 1,
+   "resolved_at": 1794675843
+  },
+  {
+   "incident_id": "inc_77334d11bd224be0bd972bb35ff3bf86",
+   "fingerprint": "watchdog.jobs|mca16|progress|progress_stall|||experience.review|fd679aad42864fc4a23548d6d21452de",
+   "severity": "ERROR",
+   "title": "job fd679aad42864fc4a23548d6d21452de: progress_stall",
+   "stage": "progress",
+   "first_ts": 1794666036,
+   "last_ts": 1794666936,
+   "repeat_count": 2,
+   "resolved_at": 1794667116
+  },
+  {
+   "incident_id": "inc_e61914f9b74745f282d207c0147f11fc",
+   "fingerprint": "watchdog.jobs|mca16|queued|stage_queued|queue_no_claimer||experience.review|fd679aad42864fc4a23548d6d21452de",
+   "severity": "WARN",
+   "title": "job fd679aad42864fc4a23548d6d21452de: stage_queued",
+   "stage": "queued",
+   "first_ts": 1794665556,
+   "last_ts": 1794666876,
+   "repeat_count": 16,
+   "resolved_at": 1794667116
+  },
+  {
+   "incident_id": "inc_2e88ab02ced24aaaa04c41511be797fb",
+   "fingerprint": "watchdog.jobs|mca16|takeover|worker_lost|||experience.review|fd679aad42864fc4a23548d6d21452de",
+   "severity": "ERROR",
+   "title": "job fd679aad42864fc4a23548d6d21452de: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1794665196,
+   "last_ts": 1794666096,
+   "repeat_count": 2,
+   "resolved_at": 1794667116
+  },
+  {
+   "incident_id": "inc_4627f4bd625945b6b330f33bb7f47184",
+   "fingerprint": "watchdog.jobs|asap8b01|takeover|worker_lost||",
+   "severity": "ERROR",
+   "title": "job 13c7347e0a2445ac90af71d53225abe3: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1792650071,
+   "last_ts": 1794660624,
+   "repeat_count": 75,
+   "resolved_at": 1794663748
+  },
+  {
+   "incident_id": "inc_0bf85af44dbb48308eae5d672fd9db95",
+   "fingerprint": "watchdog.jobs|qnd.event|takeover|worker_lost||",
+   "severity": "ERROR",
+   "title": "job 1becfb6d17e844deaeb859698b07724e: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1794317222,
+   "last_ts": 1794646159,
+   "repeat_count": 20,
+   "resolved_at": null
+  },
+  {
+   "incident_id": "inc_54307e9fa8054539a3a90015ff0b3cdd",
+   "fingerprint": "watchdog.jobs|mca16|takeover|worker_lost||",
+   "severity": "ERROR",
+   "title": "job 11eacf2b185446298ec9794a2af4d87e: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1794283685,
+   "last_ts": 1794627652,
+   "repeat_count": 15,
+   "resolved_at": 1794663748
+  },
+  {
+   "incident_id": "inc_c16332769f7648179ffeb44f57bf3ab3",
+   "fingerprint": "watchdog.jobs|vision.media|takeover|worker_lost||",
+   "severity": "ERROR",
+   "title": "job e75c45b78eca47a4aa6d57e9f2aad0cb: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1792401284,
+   "last_ts": 1794598681,
+   "repeat_count": 12,
+   "resolved_at": null
+  },
+  {
+   "incident_id": "inc_9b7b2d37fac24d45871f856708b1035a",
+   "fingerprint": "watchdog.jobs|summary|takeover|worker_lost||",
+   "severity": "ERROR",
+   "title": "job cov_28696235df42e0f97994ca0a: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1792415359,
+   "last_ts": 1794468375,
+   "repeat_count": 3,
+   "resolved_at": null
+  },
+  {
+   "incident_id": "inc_330e13ec804d43069158a260c724f557",
+   "fingerprint": "watchdog.jobs|memory|takeover|worker_lost||",
+   "severity": "ERROR",
+   "title": "job 7ed322e68a0d433b89f03ef66117c367: worker_lost",
+   "stage": "takeover",
+   "first_ts": 1790940570,
+   "last_ts": 1792628090,
+   "repeat_count": 3,
+   "resolved_at": 1794663748
+  }
+ ]
+}

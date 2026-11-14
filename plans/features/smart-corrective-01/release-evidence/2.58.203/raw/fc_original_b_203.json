@@ -1,0 +1,1048 @@
+{
+  "schema": "fc-live-canary/v1",
+  "harness": "fc_live_canary",
+  "harness_version": "1.4.0",
+  "harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+  "expected_harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+  "harness_sha256_preflight": {
+    "requested": true,
+    "ok": true,
+    "expected": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "actual": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "reason": ""
+  },
+  "started_at": "2026-11-14T19:03:02.410425+00:00",
+  "repo_root": "/var/www/admin_bot",
+  "allow_provider_calls": true,
+  "offline": false,
+  "max_provider_calls": 40,
+  "python": "3.12.3",
+  "checks": [
+    {
+      "id": "original_production_scenario",
+      "req_ids": [
+        "SFC-12-09"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "production_evidence": true,
+      "summary": "Исходный production-сценарий воспроизведён: вопрос о странах исследован (материальный анкер в поиске), стадия ответа выполнена, дан ответ по evidence (в т.ч. допустим честный отрицательный ответ).",
+      "details": {
+        "run": {
+          "name": "original_production_scenario",
+          "status": "observed",
+          "error": null,
+          "duration_s": 108.918,
+          "outcome": "verdict",
+          "correlation_id": "50ad1affa177469890638551da1ee39b",
+          "subject": {
+            "version": "cs1",
+            "origin": "mixed",
+            "resolved_by": "llm",
+            "note": "",
+            "fingerprint": "ddc6f93369aa13e6bece72a3972215e06ca37d92eccab6dec6b1ab7b11af614b",
+            "material_tg_message_id": 900131,
+            "request_tg_message_id": 900132,
+            "has_request": true,
+            "has_material_part": true,
+            "has_request_part": true,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 532,
+            "material_chars": 134,
+            "text_overlaps_material": 1.0,
+            "text_is_material": false,
+            "text_preview": "Женское обрезание — древняя традиция, она распространена во многих странах Африки и Ближнего Востока, и на её сохранение повлияли США. Справедливо ли, что женское обрезание — древняя традиция, распрос…",
+            "material_part_chars": 134,
+            "material_part_is_full_material": true,
+            "request_part_chars": 113
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 134,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 3,
+            "needs_web": true,
+            "claims": 3,
+            "intents": [
+              "entity_check",
+              "entity_check",
+              "entity_check"
+            ],
+            "query_previews": [
+              "Африки Ближнего Востока женское обрезание древняя традиция она распространена во",
+              "Африки Ближнего Востока справедливо женское обрезание древняя традиция распространённая во германия или сша",
+              "женское обрезание древняя Франция Великобритания Германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "query_texts": [
+              "Африки Ближнего Востока женское обрезание древняя традиция она распространена во",
+              "Африки Ближнего Востока справедливо женское обрезание древняя традиция распространённая во германия или сша",
+              "женское обрезание древняя Франция Великобритания Германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "subject_origin": "mixed",
+            "subject_fingerprint": true,
+            "claim_anchors": 3
+          },
+          "retrieval": {
+            "total_claims": 3,
+            "claims_searched": 3,
+            "claims_with_direct_evidence": 3,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 6,
+            "stale_sources_dropped": 0,
+            "refine_calls": 0,
+            "queries_attempted": 3,
+            "queries_used": 3,
+            "budget_exhausted": false,
+            "stop_reason": "sufficient_evidence",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 60,
+            "opened": 0,
+            "claim_units": 3,
+            "refs": 3,
+            "evidence_chars": 799,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 3,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 21063,
+            "search_text_portions": 1,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "африки ближнего востока женское обрезание древняя традиция она распространена во",
+              "африки ближнего востока справедливо женское обрезание древняя традиция распространённая во германия или сша",
+              "женское обрезание древняя франция великобритания германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              },
+              {
+                "claim_id": "c2",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              },
+              {
+                "claim_id": "c3",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 1
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 532,
+            "material_chars": 134,
+            "request_chars": 127,
+            "subject_origin": "mixed",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason_code": "",
+            "parts": 3,
+            "uncertainty_keys": [
+              "dates_unresolved",
+              "summary"
+            ],
+            "has_ambiguity_note": false,
+            "inference_gap": true,
+            "counterpoint": true,
+            "evidence_rows_delivered": 3,
+            "evidence_delivered_chars": 799,
+            "fallback_used": false,
+            "verdict_text_chars": 1125,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "success",
+                "reason": "unified_retrieval"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "validated"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "success"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 3,
+            "provider_attempts": 3,
+            "provider_failures": 0,
+            "documents_retrieved": 60,
+            "queries_with_results": 3,
+            "extract_attempts": 3,
+            "extract_successes": 0,
+            "extract_failures": 3,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 6,
+            "relevant_evidence_count": 3,
+            "citable_evidence_count": 3,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "sufficient_evidence",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "ok",
+            "technical_reason": "",
+            "attempted_queries": [
+              "африки ближнего востока женское обрезание древняя традиция она распространена во",
+              "африки ближнего востока справедливо женское обрезание древняя традиция распространённая во германия или сша",
+              "женское обрезание древняя франция великобритания германия реально страны этой традицией которые не влияли /германия/сша?"
+            ],
+            "evidence_delivery": {
+              "total_rows": 3,
+              "delivered_rows": 3,
+              "total_chars": 799,
+              "delivered_chars": 799,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 3,
+            "claims_searched": 3,
+            "claims_with_direct_evidence": 3,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 0,
+            "stop_reason": "sufficient_evidence",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 1761,
+            "preview": "<b>Недостаточно данных для проверки</b> Короче, по фактам так: то, что женское обрезание практикуется в ряде стран Африки и Ближнего Востока, подтверждается. Всё остальное в тезисе висит в воздухе. Древность традиции подтверждёнными данными не подкреплена, утверждение, будто на её сохранение повлияли США, тоже: есть распространённость практики, но нет исследований причин, и из первой второе не вытягиваешь. Это как сказать \"люди в городе носят зонты, значит, их обязали американцы\". Зонты-то есть, а вывод из жопы. По твоему вопросу про страны, которые не трогали Франция, Британия, Германия или Штаты: ответить нормально не вышло, данных не хватило. Не потому что таких стран точно нет, а потому что в разборе просто нет информации, которая позволила бы их назвать или отсчитать. Это не \"ложь\" и не \"правда\", это честное \"не установлено\". Так что итог: часть про географию практики - да, части пр…",
+            "reply_targets": [
+              900131
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 3,
+            "ledger_rows": 1,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900132,
+              "target_tg_message_id": 900131
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-80d2546fb7664a98",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason": null,
+            "claim_chars": 532,
+            "evidence_chars": 799
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 40,
+            "remaining": 24,
+            "llm_calls": 4,
+            "search_calls": 6,
+            "page_fetch_calls": 6,
+            "total": 16,
+            "cap_hit": 0,
+            "cap_kinds": [],
+            "cap_reached_this_run": false,
+            "cap_denied_calls_this_run": 0,
+            "cap_kinds_this_run": [],
+            "this_run": {
+              "llm": 4,
+              "search": 6,
+              "fetch": 6
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": "temporal_date_unknown",
+                "stage": "origin_date_resolve"
+              },
+              "normalized": {
+                "reason_code": "temporal_date_unknown",
+                "stage": "origin_date_resolve",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": null,
+                "stage": "claim_decompose"
+              },
+              "normalized": {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": "unified_retrieval",
+                "stage": "temporal_search"
+              },
+              "normalized": {
+                "reason_code": "unified_retrieval",
+                "stage": "temporal_search",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": null,
+                "stage": "evidence_validate"
+              },
+              "normalized": {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "stage": "temporal_verdict"
+              },
+              "normalized": {
+                "stage": "temporal_verdict",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "temporal_validator",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "stage": "temporal_validator"
+              },
+              "normalized": {
+                "stage": "temporal_validator",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": null,
+                "stage": "claim_coverage"
+              },
+              "normalized": {
+                "stage": "claim_coverage",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "reason_code": null,
+                "stage": "verdict"
+              },
+              "normalized": {
+                "stage": "verdict",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "stage": "temporal_verbalize"
+              },
+              "normalized": {
+                "stage": "temporal_verbalize",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": "",
+              "fields": {
+                "reason_code": "bot_output_recorded"
+              },
+              "normalized": {
+                "reason_code": "bot_output_recorded",
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO",
+              "normalized": {
+                "outcome": "success"
+              }
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO",
+              "fields": {
+                "stage": "v2:envelope_temporal"
+              },
+              "normalized": {
+                "stage": "v2:envelope_temporal",
+                "outcome": "success"
+              }
+            }
+          ],
+          "admission": {},
+          "transport": "real",
+          "cap_reached": false,
+          "cap_denied_calls": 0,
+          "cap_kinds": [],
+          "budget_blocked": false
+        },
+        "assertions": {
+          "material_kept": true,
+          "user_question_identified": true,
+          "search_built_from_question": true,
+          "relevant_sources_researched": true,
+          "no_old_budget_early_stop": true,
+          "answer_stage_completed": true,
+          "direct_answer_on_question": true,
+          "answer_not_a_harness_echo": true,
+          "ambiguity_acknowledged": true
+        },
+        "bundle": {
+          "request_correlation_id": "50ad1affa177469890638551da1ee39b",
+          "route": "envelope_temporal",
+          "subject": {
+            "version": "cs1",
+            "origin": "mixed",
+            "resolved_by": "llm",
+            "note": "",
+            "fingerprint": "ddc6f93369aa13e6bece72a3972215e06ca37d92eccab6dec6b1ab7b11af614b",
+            "material_tg_message_id": 900131,
+            "request_tg_message_id": 900132,
+            "has_request": true,
+            "has_material_part": true,
+            "has_request_part": true,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 532,
+            "material_chars": 134,
+            "text_overlaps_material": 1.0,
+            "text_is_material": false,
+            "text_preview": "Женское обрезание — древняя традиция, она распространена во многих странах Африки и Ближнего Востока, и на её сохранение повлияли США. Справедливо ли, что женское обрезание — древняя традиция, распрос…",
+            "material_part_chars": 134,
+            "material_part_is_full_material": true,
+            "request_part_chars": 113
+          },
+          "queries": [
+            "африки ближнего востока женское обрезание древняя традиция она распространена во",
+            "африки ближнего востока справедливо женское обрезание древняя традиция распространённая во германия или сша",
+            "женское обрезание древняя франция великобритания германия реально страны этой традицией которые не влияли /германия/сша?"
+          ],
+          "plan_query_texts": [
+            "Африки Ближнего Востока женское обрезание древняя традиция она распространена во",
+            "Африки Ближнего Востока справедливо женское обрезание древняя традиция распространённая во германия или сша",
+            "женское обрезание древняя Франция Великобритания Германия реально страны этой традицией которые не влияли /германия/сша?"
+          ],
+          "opened": 0,
+          "refs": 3,
+          "evidence_chars": 799,
+          "stop_reason": "sufficient_evidence",
+          "factual_verdict": "insufficient_evidence",
+          "reason_code": "",
+          "plain_conclusion": "<b>Недостаточно данных для проверки</b> Короче, по фактам так: то, что женское обрезание практикуется в ряде стран Африки и Ближнего Востока, подтверждается. Всё остальное в тезисе висит в воздухе. Древность традиции подтверждёнными данными не подкреплена, утверждение, будто на её сохранение повлиял…",
+          "answer_preview": "<b>Недостаточно данных для проверки</b> Короче, по фактам так: то, что женское обрезание практикуется в ряде стран Африки и Ближнего Востока, подтверждается. Всё остальное в тезисе висит в воздухе. Древность традиции подтверждёнными данными не подкреплена, утверждение, будто на её сохранение повлияли США, тоже: есть распространённость практики, но нет исследований причин, и из первой второе не вытягиваешь. Это как сказать \"люди в городе носят зонты, значит, их обязали американцы\". Зонты-то есть, а вывод из жопы. По твоему вопросу про страны, которые не трогали Франция, Британия, Германия или Штаты: ответить нормально не вышло, данных не хватило. Не потому что таких стран точно нет, а потому что в разборе просто нет информации, которая позволила бы их назвать или отсчитать. Это не \"ложь\" и не \"правда\", это честное \"не установлено\". Так что итог: часть про географию практики - да, части пр…",
+          "answer_stage": {
+            "completed": true,
+            "fallback_used": false,
+            "reason_code": "",
+            "stage_trace": [
+              "{'stage': 'target_resolve', 'outcome': 'success'}",
+              "{'stage': 'origin_date_resolve', 'outcome': 'success', 'reason': 'temporal_date_unknown'}",
+              "{'stage': 'claim_decompose', 'outcome': 'success'}",
+              "{'stage': 'temporal_search', 'outcome': 'success', 'reason': 'unified_retrieval'}",
+              "{'stage': 'evidence_validate', 'outcome': 'success'}",
+              "{'stage': 'verdict', 'outcome': 'success'}",
+              "{'stage': 'verdict', 'outcome': 'validated'}",
+              "{'stage': 'verbalize', 'outcome': 'success'}"
+            ],
+            "stages": [
+              "target_resolve",
+              "origin_date_resolve",
+              "claim_decompose",
+              "temporal_search",
+              "evidence_validate",
+              "verdict",
+              "verdict",
+              "verbalize"
+            ],
+            "failed_events": [],
+            "this_run_llm_calls": 4
+          },
+          "answer_is_fallback_template": false,
+          "answer_is_honest_negative": false,
+          "material_anchor_usage": {
+            "anchors": [
+              "женск",
+              "обрезан"
+            ],
+            "hits": [
+              "женск",
+              "обрезан"
+            ],
+            "anchor_used": true,
+            "query_chars": 307,
+            "evidence_texts": 3,
+            "subject_overlap_full": 1.0
+          },
+          "material_present_in_subject": true,
+          "question_places": [
+            "Великобритания",
+            "Германия",
+            "США",
+            "Франция"
+          ],
+          "question_place_stems": [
+            "великобритан",
+            "герман",
+            "сша",
+            "франц"
+          ],
+          "answer_mentions_question_places": [
+            "Германия",
+            "США",
+            "Франция"
+          ],
+          "answer_place_like_tokens": [
+            "Востока",
+            "Зонты",
+            "Франция",
+            "Британия",
+            "Германия",
+            "Штаты"
+          ],
+          "ambiguity": {
+            "uncertainty_keys": [
+              "dates_unresolved",
+              "summary"
+            ],
+            "inference_gap": true,
+            "counterpoint": true
+          },
+          "no_prebaked_country_list": {
+            "prebaked_list_used": false,
+            "harness_removed_countries": false,
+            "answer_not_a_harness_echo": true,
+            "explanation": "Запрос отправлен ровно текстом пользователя; список стран и политический вывод харнесс не формирует и не подмешивает; ответ не повторяет входной материал/вопрос харнесса."
+          }
+        }
+      },
+      "duration_s": 108.92
+    }
+  ],
+  "observability": [
+    {
+      "run": "original_production_scenario",
+      "check_id": "original_production_scenario",
+      "status": "observed",
+      "evidence_class": "production",
+      "transport": "real",
+      "request_correlation_id": "50ad1affa177469890638551da1ee39b",
+      "route": "envelope_temporal",
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "app_version": "2.58.203",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 3,
+      "candidates": 60,
+      "opened_sources": 0,
+      "claim_units": 3,
+      "evidence_chars": 799,
+      "evidence_delivered_rows": 3,
+      "evidence_delivered_chars": 799,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "sufficient_evidence",
+      "part_coverage": 3,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "unknown",
+        "reason_code": "",
+        "delivered_chars": 1761,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Короче, по фактам так: то, что женское обрезание практикуется в ряде стран Африки и Ближнего Востока, подтверждается. Всё остальное в тезисе висит в воздухе. Древность традиции подтверждёнными данными не подкреплена, утверждение, будто на её сохранение повлияли США, тоже: есть распространённость практики, но нет исследований причин, и из первой второе не вытягиваешь. Это как сказать \"люди в городе носят зонты, значит, их обязали американцы\". Зонты-то есть, а вывод из жопы. По твоему вопросу про страны, которые не трогали Франция, Британия, Германия или Штаты: ответить нормально не вышло, данных не хватило. Не потому что таких стран точно нет, а потому что в разборе просто нет информации, которая позволила бы их назвать или отсчитать. Это не \"ложь\" и не \"правда\", это честное \"не установлено\". Так что итог: часть про географию практики - да, части пр…"
+      }
+    }
+  ],
+  "limitations": [
+    "Harness drives run_factcheck directly (the BinaryHandler seam is not exercised); the deployed v2 code path is identical.",
+    "ToolRouter/tool-loop is not wired (envelope branch does not use it); lore/metric tools are not exercised.",
+    "Media/Vision branches are out of scope for these rows.",
+    "Synthetic chat lives in a temp SQLite DB; production PG is read read-only for effective-state only.",
+    "Real provider answers vary between runs; evidence counts are observed, not fixed.",
+    "Checks with evidence_class=plumbing use scripted transport doubles; they are never production evidence on their own."
+  ],
+  "identity": {
+    "repo_root": "/var/www/admin_bot",
+    "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "version": "2.58.203",
+      "deployed_at": "2026-11-14T18:56:47.914303Z",
+      "effect": "deploy"
+    },
+    "app_version_runtime": "2.58.203",
+    "identity_code": "local_unverified",
+    "identity_reason": "no_process_start",
+    "version_provenance": {
+      "runtime": "2.58.203",
+      "manifest": "2.58.203",
+      "consistent": true
+    },
+    "upstream_head": {
+      "sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "ref": "refs/remotes/origin/release/smart-corrective-01",
+      "observed_at": "2026-11-14T18:56:47.797016Z",
+      "reason": ""
+    },
+    "service_started_at": "Sat 2026-11-14 18:56:49 UTC",
+    "process_started_source": "systemctl ActiveEnterTimestamp",
+    "sources": [
+      "release_manifest",
+      "git_head",
+      "git_cli",
+      "runtime_app_version"
+    ],
+    "conflict": []
+  },
+  "health": {
+    "url": "http://127.0.0.1:8000/healthz",
+    "http": 200,
+    "version": "2.58.203",
+    "status": "ok",
+    "body": null,
+    "duration_ms": 11,
+    "ok": true
+  },
+  "candidate_binding": {
+    "harness_path": "/tmp/fc_live_canary.py",
+    "harness_name": "fc_live_canary",
+    "harness_version": "1.4.0",
+    "harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "harness_sha256_source": "sha256 of this file's bytes",
+    "repo_root": "/var/www/admin_bot",
+    "app_version_runtime": "2.58.203",
+    "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "identity_code": "local_unverified",
+    "release_manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "version": "2.58.203",
+      "deployed_at": "2026-11-14T18:56:47.914303Z"
+    },
+    "binding_status": "verified",
+    "binding_reasons": [],
+    "binding_rule": "attach this JSON next to the harness file; the harness_sha256 identifies the exact committed harness bytes and git_head/deployed_sha identify the release checkout the run observed"
+  },
+  "effective": {
+    "synthetic_chat": {
+      "budgets_state": {
+        "budgets_enabled": false,
+        "source": "global",
+        "stale": false,
+        "known": true
+      },
+      "limits": {
+        "budgets_enabled": false,
+        "budget_source": "global",
+        "budget_known": true,
+        "base_seconds": null,
+        "max_seconds": null,
+        "refine_calls": null,
+        "total_queries": null,
+        "search_text_chars": null,
+        "page_size": 20,
+        "claim_portion": 32,
+        "primary_fetches": null,
+        "excerpt_chars": null,
+        "sources": {
+          "flags.budgets_enabled": "global",
+          "limits.factcheck_claim_portion": "default",
+          "limits.factcheck_excerpt_chars": "default",
+          "limits.factcheck_max_queries_total": "default",
+          "limits.factcheck_page_size": "default",
+          "limits.factcheck_primary_fetches": "default",
+          "limits.factcheck_refine_calls": "default",
+          "limits.factcheck_retrieval_seconds": "default",
+          "limits.factcheck_retrieval_seconds_max": "default",
+          "limits.factcheck_search_text_chars": "default"
+        }
+      }
+    },
+    "real_chats": [
+      {
+        "chat": "chat-1",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "chat",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "chat",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "chat",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      {
+        "chat": "chat-2",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "chat",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "chat",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "chat",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      {
+        "chat": "chat-3",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "global",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "global",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      }
+    ],
+    "global": {
+      "budgets_enabled": false,
+      "source": "global",
+      "stale": false,
+      "known": true
+    },
+    "pipeline_v2_enabled": true,
+    "pipeline_v2": {
+      "known": true,
+      "enabled": true,
+      "reason": "",
+      "source": "hot PG flags.factcheck_pipeline_v2 → env FACTCHECK_PIPELINE_V2_ENABLED → factory"
+    },
+    "temporal_factcheck_enabled": true,
+    "pg": {
+      "available": true,
+      "global_count": 548,
+      "chat_count": 3,
+      "reason": null,
+      "read_mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only"
+    },
+    "model_capacity": {
+      "primary": {
+        "channel": "primary",
+        "model": "z-ai/glm-5.3-flash-uncensored",
+        "window_tokens": 1000000,
+        "window_source": "unknown_fallback",
+        "evidence_budget_chars": 800000,
+        "output_reserve_tokens": 100000
+      },
+      "fallback": {
+        "channel": "fallback",
+        "model": "deepseek-flash",
+        "window_tokens": 131072,
+        "window_source": "model_map",
+        "evidence_budget_chars": 104857,
+        "output_reserve_tokens": 13107
+      }
+    }
+  },
+  "finished_at": "2026-11-14T19:04:53.682429+00:00",
+  "duration_s": 109.111,
+  "call_budget": {
+    "allowed": true,
+    "max_calls": 40,
+    "remaining": 24,
+    "llm_calls": 4,
+    "search_calls": 6,
+    "page_fetch_calls": 6,
+    "total": 16,
+    "cap_hit": 0,
+    "cap_kinds": [],
+    "cap_reached_this_run": false,
+    "cap_denied_calls_this_run": 0,
+    "cap_kinds_this_run": []
+  },
+  "check_call_costs": {
+    "ordinary_factcheck": 17,
+    "multipart_and_short_reply": 34,
+    "original_production_scenario": 14,
+    "production_smoke": 7
+  },
+  "check_call_margin": 3,
+  "min_calls_per_check": {
+    "ordinary_factcheck": 20,
+    "multipart_and_short_reply": 37,
+    "original_production_scenario": 17,
+    "production_smoke": 10
+  },
+  "safety": {
+    "telegram_bot_class": "StubBot",
+    "telegram_bot_is_stub": true,
+    "real_telegram_bot_constructed": false,
+    "outbound_calls_recorded": 1,
+    "outbound_delivered_to_telegram": 0,
+    "synthetic_chat_id": "SYNTH_CHAT",
+    "real_chat_history_written": false,
+    "production_pg": {
+      "opened": true,
+      "mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only",
+      "reason": null,
+      "global_count": 548,
+      "chat_count": 3
+    },
+    "config_persisted": false,
+    "in_memory_overrides_restored": true,
+    "shim_events": {
+      "hot_enter": 2,
+      "hot_exit": 2,
+      "chat_enter": 2,
+      "chat_exit": 2
+    },
+    "provider_calls_allowed": true,
+    "provider_calls_total": 16,
+    "provider_call_cap": 40
+  },
+  "summary": {
+    "observed": 1,
+    "not_observed": 0,
+    "error": 0,
+    "by_evidence_class": {
+      "plumbing": 0,
+      "production": 1,
+      "unavailable": 0
+    },
+    "production_observed": 1
+  }
+}

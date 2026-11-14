@@ -1,0 +1,59 @@
+DEPLOYED IDENTITY — SMART-CORRECTIVE-01 / 2.58.203
+==================================================
+
+HEAD                 c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5
+BRANCH               release/smart-corrective-01
+APP_VERSION          2.58.203
+DEPLOYED_AT          2026-11-14T18:56:47.914303Z
+PROCESS_STARTED_AT   2026-11-14T18:56:49Z
+UNIT                 admin_bot (active)
+MAIN_PID             887397
+NRestarts            0
+CHECKOUT_DIRTY       false
+TRACKED_TREE         clean
+
+MANIFEST (.deploy/release.json)
+-------------------------------
+{
+  "deployed_at": "2026-11-14T18:56:47.914303Z",
+  "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+  "previous_version": "2.58.202",
+  "release_branch": "release/smart-corrective-01",
+  "schema": 1,
+  "version": "2.58.203"
+}
+
+services.deploy_identity.collect_identity
+-----------------------------------------
+(вызов с repo_root=/var/www/admin_bot и process_started_at из unit —
+ ровно тот вход, который передаёт сам сервис)
+
+code                      verified_deployed
+reason                    (empty)
+deployed_sha              c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5
+checkout_sha              c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5
+dirty                     false
+local_source_verification verified_deployed
+process_started_at        2026-11-14T18:56:49Z
+deployed_at               2026-11-14T18:56:47.914303Z
+version_provenance        runtime=2.58.203, manifest=2.58.203, consistent=true
+previous_sha              0beed63df8037002ccfaacef019b8ea948d957f6
+previous_version          2.58.202
+upstream_head             refs/remotes/origin/release/smart-corrective-01
+                          c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5
+                          observed_at 2026-11-14T18:56:47.797016Z
+sources                   release_manifest, git_head, git_cli,
+                          runtime_app_version, process_start
+conflict                  []
+schema                    1
+repo_origin               Henry-Case-dev/adminbot
+
+IDENTITY CODE            verified_deployed
+EVIDENCE CLASS           production (deployed checkout + manifest + runtime)
+
+Примечание: без `process_started_at` тот же вызов отдаёт
+`local_unverified/no_process_start` (в харнессе это видно как
+`identity_code=local_unverified`); это контекст вызова, не состояние прода.

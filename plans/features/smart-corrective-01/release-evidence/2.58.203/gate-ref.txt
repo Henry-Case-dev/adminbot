@@ -1,0 +1,21 @@
+GATE REFS — SMART-CORRECTIVE-01 / 2.58.203
+===========================================
+
+deploy (этот релиз)
+  stage=deploy inventory=224 manual=232 scoped=384 errors=0
+  файл: plans/features/smart-corrective-01/evidence/gates/deploy-corrective-c97c06e4.txt
+  plan gate for the same candidate: errors=0
+  parent deploy gates (smart-execution-reliability-01): errors=0
+
+delta review (кандидат c97c06e4)
+  artifact: plans/features/smart-corrective-01/evidence/release-train/integration-review.md
+  sha256 11a12ab5a197d27ff44cf9b6fc6fd2626bc6dc9591e921cedcd8a292f26bad68
+  verdict: Approved for controlled deployment (test-only delta vs e650f2b8)
+
+release gate
+  НЕ запускался DevOps в этом прогоне: строки карты остаются REVIEW /
+  READY_FOR_LIVE, наблюдения этого прогона ещё не связаны с требованиями.
+  Порядок: PM связывает evidence (этот каталог + raw/*.json) с requirement ids,
+  затем `requirements_gate.py check --stage release --candidate c97c06e4
+  --deployed-commit c97c06e4 --repo .` (и, при необходимости, delivery stage).
+  DevOps НЕ помечал ни одну строку VERIFIED.

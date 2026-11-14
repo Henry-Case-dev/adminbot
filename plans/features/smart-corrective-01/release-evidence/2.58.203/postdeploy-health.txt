@@ -1,0 +1,77 @@
+POST-DEPLOY HEALTH — SMART-CORRECTIVE-01 / 2.58.203
+====================================================
+
+Timestamps
+  restart clicked     2026-11-14T18:56:47Z (manifest записан до рестарта)
+  process start       2026-11-14T18:56:49Z
+  post checks         2026-11-14T18:56:57Z
+  final check         2026-11-14T19:08:51Z
+  (все дальнейшие проверки — в том же процессе, рестартов не было)
+
+IDENTITY
+--------
+HEAD                    c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5
+BRANCH                  release/smart-corrective-01
+APP_VERSION             2.58.203
+TRACKED_DIRTY           0
+UNTRACKED               только .cache/ (pre-existing)
+
+HTTP HEALTH
+-----------
+local   http://127.0.0.1:8000/healthz
+        poll 2 после рестарта: 200 {"status":"ok","version":"2.58.203"}
+        final 19:08:51Z:        200 {"status":"ok","version":"2.58.203"}
+public  https://admin-bot.duckdns.org/healthz
+        200 {"status":"ok","version":"2.58.203"} (сразу после рестарта)
+        final 200 {"status":"ok","version":"2.58.203"}
+
+SYSTEMD
+-------
+unit                    admin_bot
+ActiveState             active
+MainPID                 887397 (без изменений весь прогон)
+NRestarts               0
+ExecMainStatus          0
+ExecMainStartTimestamp  2026-11-14 18:56:49 UTC
+restart rc              0
+
+MANIFEST (.deploy/release.json)
+------------------------------
+c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 / 2.58.203
+previous 0beed63df8037002ccfaacef019b8ea948d957f6 / 2.58.202
+release_branch release/smart-corrective-01
+dirty_tracked false
+owner adminbot:adminbot, mode 644
+
+JOURNAL (since process start, до финальной проверки)
+----------------------------------------------------
+lines                   1401
+Traceback               0
+ERROR                   2
+CRITICAL                0
+WARNING                 11
+[prompt_release]        3
+persisted withheld      0
+
+Оба ERROR — существующий периодический сбой anticliche-воркера:
+  [pipeline] component=anticliche step=fetch status=error
+            reason=sources_unavailable problems=0 version=11
+  [pipeline] component=anticliche step=refresh fetch_error reason=wikipedia
+  (19:01:52Z; в 6 часах ДО релиза та же пара встречается 6 раз,
+   т.е. не связано с 2.58.203)
+WARNING: пропуск тиков APScheduler (Goodmorning/UptimeHeartbeat/Summary),
+  2 x `LLM request retry ... ReadTimeout` (внешний провайдер nano-gpt),
+  известное FTS-only предупреждение `services.summary_memory`.
+Ни один WARNING/ERROR не относится к промпт-слою: строк
+`persisted speech value withheld` нет.
+
+DISK
+----
+pre   103083636 74231616 23593068 76% /
+post  103083636 77164876 20659808 79% /
+      (свободно ≈ 19.7 GiB; backup 2.8 GiB + runtime)
+
+VERIFY / ROLLBACK STATE
+-----------------------
+raw/verify203.json: ok=true, failed=[] (33 проверки).
+Rollback не требовался: deployment checks passed.

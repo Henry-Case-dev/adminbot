@@ -1,0 +1,289 @@
+{
+  "schema": "fc-live-canary/v1",
+  "harness": "fc_live_canary",
+  "harness_version": "1.4.0",
+  "harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+  "expected_harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+  "harness_sha256_preflight": {
+    "requested": true,
+    "ok": true,
+    "expected": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "actual": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "reason": ""
+  },
+  "started_at": "2026-11-14T19:00:20.960297+00:00",
+  "repo_root": "/var/www/admin_bot",
+  "allow_provider_calls": false,
+  "offline": true,
+  "max_provider_calls": 120,
+  "python": "3.12.3",
+  "checks": [],
+  "observability": [],
+  "limitations": [
+    "Harness drives run_factcheck directly (the BinaryHandler seam is not exercised); the deployed v2 code path is identical.",
+    "ToolRouter/tool-loop is not wired (envelope branch does not use it); lore/metric tools are not exercised.",
+    "Media/Vision branches are out of scope for these rows.",
+    "Synthetic chat lives in a temp SQLite DB; production PG is read read-only for effective-state only.",
+    "Real provider answers vary between runs; evidence counts are observed, not fixed.",
+    "Checks with evidence_class=plumbing use scripted transport doubles; they are never production evidence on their own."
+  ],
+  "dry_run": {
+    "identity": {
+      "repo_root": "/var/www/admin_bot",
+      "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "git_head_source": "deploy_identity",
+      "branch": "release/smart-corrective-01",
+      "dirty": false,
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "manifest": {
+        "path": ".deploy/release.json",
+        "present": true,
+        "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "version": "2.58.203",
+        "deployed_at": "2026-11-14T18:56:47.914303Z",
+        "effect": "deploy"
+      },
+      "app_version_runtime": "2.58.203",
+      "identity_code": "local_unverified",
+      "identity_reason": "no_process_start",
+      "version_provenance": {
+        "runtime": "2.58.203",
+        "manifest": "2.58.203",
+        "consistent": true
+      },
+      "upstream_head": {
+        "sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "ref": "refs/remotes/origin/release/smart-corrective-01",
+        "observed_at": "2026-11-14T18:56:47.797016Z",
+        "reason": ""
+      },
+      "service_started_at": "Sat 2026-11-14 18:56:49 UTC",
+      "process_started_source": "systemctl ActiveEnterTimestamp",
+      "sources": [
+        "release_manifest",
+        "git_head",
+        "git_cli",
+        "runtime_app_version"
+      ],
+      "conflict": []
+    },
+    "health": {
+      "url": "http://127.0.0.1:8000/healthz",
+      "http": 200,
+      "version": "2.58.203",
+      "status": "ok",
+      "body": null,
+      "duration_ms": 13,
+      "ok": true
+    },
+    "effective": {
+      "synthetic_chat": {
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "limits": {
+          "budgets_enabled": false,
+          "budget_source": "global",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "global",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      "real_chats": [
+        {
+          "chat": "chat-1",
+          "budgets_state": {
+            "budgets_enabled": false,
+            "source": "chat",
+            "stale": false,
+            "known": true
+          },
+          "factcheck_limits": {
+            "budgets_enabled": false,
+            "budget_source": "chat",
+            "budget_known": true,
+            "base_seconds": null,
+            "max_seconds": null,
+            "refine_calls": null,
+            "total_queries": null,
+            "search_text_chars": null,
+            "page_size": 20,
+            "claim_portion": 32,
+            "primary_fetches": null,
+            "excerpt_chars": null,
+            "sources": {
+              "flags.budgets_enabled": "chat",
+              "limits.factcheck_claim_portion": "default",
+              "limits.factcheck_excerpt_chars": "default",
+              "limits.factcheck_max_queries_total": "default",
+              "limits.factcheck_page_size": "default",
+              "limits.factcheck_primary_fetches": "default",
+              "limits.factcheck_refine_calls": "default",
+              "limits.factcheck_retrieval_seconds": "default",
+              "limits.factcheck_retrieval_seconds_max": "default",
+              "limits.factcheck_search_text_chars": "default"
+            }
+          }
+        },
+        {
+          "chat": "chat-2",
+          "budgets_state": {
+            "budgets_enabled": false,
+            "source": "chat",
+            "stale": false,
+            "known": true
+          },
+          "factcheck_limits": {
+            "budgets_enabled": false,
+            "budget_source": "chat",
+            "budget_known": true,
+            "base_seconds": null,
+            "max_seconds": null,
+            "refine_calls": null,
+            "total_queries": null,
+            "search_text_chars": null,
+            "page_size": 20,
+            "claim_portion": 32,
+            "primary_fetches": null,
+            "excerpt_chars": null,
+            "sources": {
+              "flags.budgets_enabled": "chat",
+              "limits.factcheck_claim_portion": "default",
+              "limits.factcheck_excerpt_chars": "default",
+              "limits.factcheck_max_queries_total": "default",
+              "limits.factcheck_page_size": "default",
+              "limits.factcheck_primary_fetches": "default",
+              "limits.factcheck_refine_calls": "default",
+              "limits.factcheck_retrieval_seconds": "default",
+              "limits.factcheck_retrieval_seconds_max": "default",
+              "limits.factcheck_search_text_chars": "default"
+            }
+          }
+        },
+        {
+          "chat": "chat-3",
+          "budgets_state": {
+            "budgets_enabled": false,
+            "source": "global",
+            "stale": false,
+            "known": true
+          },
+          "factcheck_limits": {
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "budget_known": true,
+            "base_seconds": null,
+            "max_seconds": null,
+            "refine_calls": null,
+            "total_queries": null,
+            "search_text_chars": null,
+            "page_size": 20,
+            "claim_portion": 32,
+            "primary_fetches": null,
+            "excerpt_chars": null,
+            "sources": {
+              "flags.budgets_enabled": "global",
+              "limits.factcheck_claim_portion": "default",
+              "limits.factcheck_excerpt_chars": "default",
+              "limits.factcheck_max_queries_total": "default",
+              "limits.factcheck_page_size": "default",
+              "limits.factcheck_primary_fetches": "default",
+              "limits.factcheck_refine_calls": "default",
+              "limits.factcheck_retrieval_seconds": "default",
+              "limits.factcheck_retrieval_seconds_max": "default",
+              "limits.factcheck_search_text_chars": "default"
+            }
+          }
+        }
+      ],
+      "global": {
+        "budgets_enabled": false,
+        "source": "global",
+        "stale": false,
+        "known": true
+      },
+      "pipeline_v2_enabled": true,
+      "pipeline_v2": {
+        "known": true,
+        "enabled": true,
+        "reason": "",
+        "source": "hot PG flags.factcheck_pipeline_v2 → env FACTCHECK_PIPELINE_V2_ENABLED → factory"
+      },
+      "temporal_factcheck_enabled": true,
+      "pg": {
+        "available": true,
+        "global_count": 548,
+        "chat_count": 3,
+        "reason": null,
+        "read_mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only"
+      },
+      "model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      }
+    },
+    "allow_provider_calls": false,
+    "max_provider_calls": 120
+  },
+  "candidate_binding": {
+    "harness_path": "/tmp/fc_live_canary.py",
+    "harness_name": "fc_live_canary",
+    "harness_version": "1.4.0",
+    "harness_sha256": "afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1",
+    "harness_sha256_source": "sha256 of this file's bytes",
+    "repo_root": "/var/www/admin_bot",
+    "app_version_runtime": "2.58.203",
+    "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "identity_code": "local_unverified",
+    "release_manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "version": "2.58.203",
+      "deployed_at": "2026-11-14T18:56:47.914303Z"
+    },
+    "binding_status": "verified",
+    "binding_reasons": [],
+    "binding_rule": "attach this JSON next to the harness file; the harness_sha256 identifies the exact committed harness bytes and git_head/deployed_sha identify the release checkout the run observed"
+  }
+}

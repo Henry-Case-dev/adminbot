@@ -1,0 +1,106 @@
+{
+ "generated_at": 1794683330,
+ "deploy_epoch": 1794682609,
+ "window_seconds": 721,
+ "sweeps": 13,
+ "first_sweep_ts": 1794682612,
+ "last_sweep_ts": 1794683280,
+ "sweep_outcomes": {
+  "success": 13
+ },
+ "totals": {
+  "incidents.created": 0,
+  "incidents.updated": 0,
+  "incidents.reopened": 0,
+  "incidents.failed": 0,
+  "takeover.discovered": 0,
+  "takeover.attempted": 0,
+  "takeover.recovered": 0,
+  "takeover.failed": 0,
+  "takeover.no_change": 0,
+  "reconcile.checked": 39,
+  "reconcile.resolved": 0,
+  "reconcile.pending": 39,
+  "reconcile.failed": 0,
+  "stale": 0,
+  "progress_stalled": 0
+ },
+ "maxima": {
+  "overdue.running": 0,
+  "overdue.queued": 0,
+  "queued.overdue": 0,
+  "queued.hang": 0,
+  "queued.scheduled_retry": 0,
+  "running_contract.heartbeat_only": 1,
+  "running_contract.deadline_bounded": 0
+ },
+ "events": [
+  {
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "n": 13
+  }
+ ],
+ "incidents_created_after_deploy": [],
+ "incidents_totals_all_time": [
+  {
+   "n": 15,
+   "open": 3
+  }
+ ],
+ "last_sweep_usage": {
+  "stale": 0,
+  "progress_stalled": 0,
+  "incidents": 0,
+  "takeover": {
+   "discovered": 0,
+   "attempted": 0,
+   "recovered": 0,
+   "failed": 0,
+   "no_change": 0
+  },
+  "takeover_records": 0,
+  "takeover_totals": {
+   "recovered": 0,
+   "failed": 0,
+   "no_change": 0
+  },
+  "incident": {
+   "created": 0,
+   "updated": 0,
+   "reopened": 0,
+   "failed": 0,
+   "disabled": 0
+  },
+  "incident_totals": {
+   "created": 0,
+   "updated": 0,
+   "reopened": 0,
+   "failed": 0,
+   "disabled": 0
+  },
+  "reconcile": {
+   "checked": 3,
+   "resolved": 0,
+   "pending": 3,
+   "inconclusive": 0,
+   "failed": 0
+  },
+  "overdue": {
+   "running": 0,
+   "queued": 0
+  },
+  "queued": {
+   "scheduled_retry": 0,
+   "deadline_pending": 0,
+   "overdue": 0,
+   "owner_managed": 0,
+   "hang": 0,
+   "normal_wait": 0
+  },
+  "running_contract": {
+   "heartbeat_only": 0,
+   "deadline_bounded": 0
+  }
+ }
+}

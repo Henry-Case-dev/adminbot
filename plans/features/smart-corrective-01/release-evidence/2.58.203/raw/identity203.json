@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "code": "verified_deployed",
+ "reason": "",
+ "repo_origin": "Henry-Case-dev/adminbot",
+ "deployed_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+ "checkout_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+ "dirty": false,
+ "upstream_head": {
+  "sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "ref": "refs/remotes/origin/release/smart-corrective-01",
+  "observed_at": "2026-11-14T18:56:47.797016Z",
+  "reason": ""
+ },
+ "version_provenance": {
+  "runtime": "2.58.203",
+  "manifest": "2.58.203",
+  "consistent": true
+ },
+ "local_source_verification": "verified_deployed",
+ "artifact": {
+  "kind": "git_checkout",
+  "release_branch": "release/smart-corrective-01",
+  "schema_version": null
+ },
+ "deployed_at": "2026-11-14T18:56:47.914303Z",
+ "process_started_at": "2026-11-14T18:56:49Z",
+ "observed_at": "2026-11-14T19:10:23.145031Z",
+ "sources": [
+  "release_manifest",
+  "git_head",
+  "git_cli",
+  "runtime_app_version",
+  "process_start"
+ ],
+ "conflict": [],
+ "local_identity": {
+  "checkout_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "dirty": false,
+  "checkout_mtime": "2026-11-14T18:56:47.811016Z",
+  "branch": "release/smart-corrective-01"
+ },
+ "effect": "deploy",
+ "previous_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+ "previous_version": "2.58.202",
+ "_process_started_at_source": {
+  "raw": "Sat 2026-11-14 18:56:49 UTC",
+  "iso": "2026-11-14T18:56:49Z"
+ }
+}
