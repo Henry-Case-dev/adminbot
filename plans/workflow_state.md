@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Architect VMQ memory root-cause ses_e23abeb6affeORlegSsV2H4ZTu
-Join barriers: Architect root-cause diagnosis -> minimal MEM/TIME/M2 corrective slices -> Reviewer; VMQ release train held until the exact owner defect is fixed
+Active lanes: Builder VMQ Slice A ses_e23a8029dffe38UM57AB0XPUiR
+Join barriers: Slice A (period/vector) -> Reviewer; Slice B (subject/chronology/relations) -> Slice C (M2 trigger) -> re-measure; VMQ release train held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T11:11:08+12:00
+Updated: 2026-11-15T11:20:00+12:00
 
 ## Facts
 
@@ -105,3 +105,7 @@ PM bound M-04/M-05/O-04 at REVIEW on code f7a9c596 (tip 8b56fc73, base 64dab0eb,
 ## Memory measurement found blocking defects (2026-11-15)
 
 Read-only measurement on a fresh prod DB copy (2,075,621 messages, 2022-12-07..2026-11-14, schema 47), baseline c97c06e4 vs M2 f7a9c596, no product writes. Real findings: (1) explicit 2023 question -> 0 rows from 2023; period pool had 13 rows from 2023, the >=2-common-stems filter rejected 15 of 16, period vector leg inactive (compat_not_proven, attribution pending); (2) exact owner query gets 1 old row (2024) while the Chronicle/lore path gets 148 rows 2022-2023 + 6 edges -> MEM-04 parity not achieved; (3) profile reply block 0 of 10 rows attributed to P1; graph 0 facts about P1 for 2023-2024 despite 44,577 messages; biography 5 years, general only 2026; (4) relationships purpose -> empty_reason=empty, 0 edges, fabricated-relations metric vacuous; (5) event without year stays 2026; dig year window only with explicit year, snippets hidden by budget; (6) M2 overview triggers only on the lexical marker and person tool; exact owner formulation gets no overview. Row verdicts: MEM-04 not satisfied; TIME-01/03/06 not satisfied; TIME-02/05 partial; TIME-04/07 evidence; MEM-01/02/03 evidence; MEM-05 by method; MEM-06/07 not measured; MEM-08 partial. Honest limits: copy != live process, one EMBED_API_FAILED, compat_not_proven not attributed, rerank stochastic, one chat/one run, M2 not deployed. Architect is diagnosing shared root causes and separating measurement artifacts from product defects; the VMQ release train is held until the exact owner defect is fixed or an explicit decision is made. No rows were marked VERIFIED.
+
+## Root cause confirmed; Slice A started (2026-11-15)
+
+Architect verdict ARCHITECT_ADJUSTMENT_REQUIRED (root-cause-2026-11-15.md sha 764f88d8...): the core VMQ-MEM/TIME contract is not met. Confirmed product defects: explicit 2023 period rows lost after the subject filter (13 pool -> 0 accepted; 15/16 rejected); profile/reply path lacks subject-bound multi-year material (0/10 rows about P1; graph 0 P1 facts 2023-2024); relationships consumer has no temporal relation series (honest empty, but no data); event without year remains 2026-dominant; M2 overview trigger is lexical (_HISTORY_MARKERS) and misses the exact owner formulation. compat_not_proven/EMBED_API_FAILED are measurement degradation, not a proven live defect; a live read-only admission check is required. Corrective train: A period selection + vector admission honesty (mca_retrieval_context.py, serialized); B subject/chronology/relations (tool_router.py, database.py read query/projection, existing producer only if tracing proves missing data); C M2 overview trigger (vmq/m2) after A's structured intent flag. Release train ONTO-A -> ONTO-B -> M2 held until A and B are fixed and independently verified. Builder Slice A started on vmq/mem-a from 8b56fc73 (M2 tip); no other writer on mca_retrieval_context.py.
