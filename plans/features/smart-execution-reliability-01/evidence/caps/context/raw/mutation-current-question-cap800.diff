@@ -1,0 +1,13 @@
+--- a/services/direct_chat_service.py
++++ b/services/direct_chat_service.py
+@@ -12009,8 +12009,9 @@ class DirectChatService:
+         if not stripped and not markers:
+             return ""
+         # SXR-C2-01: полный текст без символьного потолка; медиа-маркеры —
+         # отдельный машинный суффикс, они не вытесняют и не режут вопрос.
+-        body = stripped
++        # MUTATION: возвращён искусственный потолок 800 символов.
++        body = stripped[:800]
+         if markers:
+             suffix = " ".join(markers)
+             body = f"{stripped} {suffix}".strip() if stripped else suffix
