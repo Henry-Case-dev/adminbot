@@ -1,0 +1,6 @@
+
+tests\test_factcheck_finalization.py:262: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_finalization.py::test_budget_interruption_keeps_evidence_and_splits_honestly
+FAILED tests/test_factcheck_finalization.py::test_verbalizer_receives_partial_inventory_not_limit_stub
+2 failed, 1 passed, 9 deselected in 2.89s

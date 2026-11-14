@@ -1,0 +1,12 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 78bba077..35b91e0a 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -2038,6 +2038,7 @@ _SERVICE_TAG_RE = re.compile(
+ 
+ 
+ def strip_service_tokens(text: str) -> str:
++    return str(text or '')  # MUTATION B
+     """╨г╨▒╤А╨░╤В╤М ╤Б╨╗╤Г╨╢╨╡╨▒╨╜╤Л╨╡ ╨╝╨╡╤В╨║╨╕/╨╕╨┤╨╡╨╜╤В╨╕╤Д╨╕╨║╨░╤В╨╛╤А╤Л/╨║╨╛╨╜╤В╨╡╨╣╨╜╨╡╤А╤Л ╨╕╨╖ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╛╨╣ ╤А╨╡╤З╨╕.
+ 
+     ╨Я╤А╨╕╨╝╨╡╨╜╤П╨╡╤В╤Б╤П ╨║ ╤В╨╡╨║╤Б╤В╤Г, ╨║╨╛╤В╨╛╤А╤Л╨╣ ╨│╨╛╤В╨╛╨▓╨╕╤В╤Б╤П ╨║ ╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╨╕ (╨▓╨╡╤А╨▒╨░╨╗╨╕╨╖╨░╤В╨╛╤А ╨╕

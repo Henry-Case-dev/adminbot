@@ -1,0 +1,14 @@
+F.                                                                       [100%]
+================================== FAILURES ===================================
+________________ test_temporal_decompose_keeps_tail_beyond_32 _________________
+
+    def test_temporal_decompose_keeps_tail_beyond_32():
+        parts = tf.decompose_claim(_env(_claim(40)))
+>       assert len(parts) == 40
+E       AssertionError: assert 32 == 40
+E        +  where 32 = len((ClaimPart(part_id='p1', text='╨д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1.', period_from=None, period_to=None, precision=None...od_from=None, period_to=None, precision=None, numeric={'metric_id': 'fc:9c5c3dfc51c5', 'value': 6, 'unit': None}), ...))
+
+tests\test_factcheck_resources.py:493: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_resources.py::test_temporal_decompose_keeps_tail_beyond_32
+1 failed, 1 passed in 2.98s

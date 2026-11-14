@@ -1101,9 +1101,12 @@ def evaluate_suitability(claim_text: str | None, user_hint: str | None,
                       else _has_predicate(user_hint)):
         item = ClaimItem(text=user_hint.strip(),
                          claim_type=CHECKABLE_FACTUAL_CLAIM, verifiable=True,
-                         source="literal",
-                         anchor_tg_message_id=target_ref.get(
-                             "target_tg_message_id"),
+                         # S13: собственный текст пользователя — его
+                         # происхождение (не цитата исходного автора).
+                         source="user_request",
+                         anchor_tg_message_id=(target_ref.get(
+                             "trigger_tg_message_id")
+                             or target_ref.get("target_tg_message_id")),
                          anchor_chat_id=target_ref.get("chat_id"))
         return _decide(DECISION_CHECKABLE, CHECKABLE_FACTUAL_CLAIM, (item,),
                        SCOPE_WEB, _REASON_HINT, 0.85,
@@ -1232,6 +1235,7 @@ async def evaluate_with_expansion(db, chat_id: int, *, claim_text: str,
                                   trigger_tg_message_id=None,
                                   cache=None,
                                   explicit_request: bool = False,
+                                  subject_text: str | None = None,
                                   ) -> tuple[SuitabilityDecision,
                                              ConversationContext | None]:
     """Протокол двух проходов (06J.1): сбор → решение; needs_context →
@@ -1242,13 +1246,19 @@ async def evaluate_with_expansion(db, chat_id: int, *, claim_text: str,
     ``explicit_request`` (ASAP-FC-ADMISSION-01) — явная команда «фактчек»:
     передаётся в оба прохода, чтобы сомнение классификатора не превращалось
     в отказ на действующем маршруте (в т.ч. в v2, где suitability
-    вызывается напрямую, без отдельного флага путей)."""
+    вызывается напрямую, без отдельного флага путей).
+
+    ``subject_text`` (S13): установленный предмет проверки — только для
+    СБОРА КОНТЕКСТА (verbatim-выбор и кэш-идентичность среза). Решение о
+    допуске по-прежнему принимается по материалу и запросу; предмет не
+    подменяет вход гейта."""
     target_ref = {"chat_id": chat_id,
                   "target_tg_message_id": target_tg_message_id,
                   "trigger_tg_message_id": trigger_tg_message_id}
     ctx = await build_wide_context(
         db, chat_id, target_tg_message_id=target_tg_message_id,
-        trigger_tg_message_id=trigger_tg_message_id, claim_text=claim_text,
+        trigger_tg_message_id=trigger_tg_message_id,
+        claim_text=subject_text or claim_text,
         cache=cache)
     decision = evaluate_suitability(claim_text, user_hint, ctx,
                                     target_ref=target_ref,

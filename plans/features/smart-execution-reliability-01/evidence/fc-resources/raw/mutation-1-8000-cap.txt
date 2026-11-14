@@ -1,0 +1,48 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+__________ test_on_search_text_is_a_100k_portion_without_losing_tail __________
+
+    @pytest.mark.asyncio
+    async def test_on_search_text_is_a_100k_portion_without_losing_tail():
+        big = "╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 " * 5000  # тЙИ160k ╤Б╨╕╨╝╨▓╨╛╨╗╨╛╨▓
+        outcome = await fsp.run_retrieval(
+            _plan(1), aggregator=_Agg(big), limits=_on_limits(),
+            refine_calls=0)
+        assert outcome.search_text_total_chars == len(big)
+>       assert len(outcome.search_text) == 100_000
+E       AssertionError: assert 8000 == 100000
+E        +  where 8000 = len('╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡...1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝')
+E        +    where '╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡...1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝' = RetrievalOutcome(evidence_map=None, search_text='╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝...╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 '), search_text_total_chars=180000, search_text_truncated=True).search_text
+
+tests\test_factcheck_resources.py:187: AssertionError
+________________ test_off_removes_deadline_query_and_char_caps ________________
+
+    @pytest.mark.asyncio
+    async def test_off_removes_deadline_query_and_char_caps():
+        plan = _plan(40)
+        agg = _Agg("╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1")
+        outcome = await fsp.run_retrieval(
+            plan, aggregator=agg, limits=_off_limits())
+        # 40 ╨▒╨░╨╖╨╛╨▓╤Л╤Е + ╨┐╨╛ ╨╛╨┤╨╜╨╛╨╝╤Г ╤Г╤В╨╛╤З╨╜╨╡╨╜╨╕╤О ╨╜╨░ ╤З╨░╤Б╤В╤М: 64 ╨╕ 24 ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨┐╨╛╤В╨╛╨╗╨║╨╕.
+        assert outcome.queries_attempted == 80
+        assert outcome.refine_calls == 40
+        assert outcome.budget_exhausted is False
+        assert outcome.stop_reason == fsp.STOP_PATHS_EXHAUSTED
+
+        big = "╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 " * 5000
+        out_text = await fsp.run_retrieval(
+            _plan(1), aggregator=_Agg(big), limits=_off_limits(),
+            refine_calls=0)
+>       assert out_text.search_text == big
+E       AssertionError: assert '╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1...╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝' == '╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1...╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 '
+E
+E         Skipping 7989 identical leading characters in diff, use -v to show
+E         -  1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д╨░╨║╤В ╨╜╨╛╨╝╨╡╤А 1 ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨╕╨╖╨┤╨░╨╜╨╕╨╡╨╝ 1 ╤Д...
+E
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\test_factcheck_resources.py:219: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_resources.py::test_on_search_text_is_a_100k_portion_without_losing_tail
+FAILED tests/test_factcheck_resources.py::test_off_removes_deadline_query_and_char_caps
+2 failed in 2.97s

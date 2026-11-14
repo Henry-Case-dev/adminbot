@@ -17,10 +17,12 @@ pytestmark = pytest.mark.asap31
 @pytest.fixture(autouse=True)
 def _clean_cache():
     mc.invalidate_capacity_cache()
+    mc.clear_proven_limits()
     mc._WINDOW_CACHE.clear()
     mc._WARNED_UNKNOWN.clear()
     yield
     mc.invalidate_capacity_cache()
+    mc.clear_proven_limits()
     mc._WINDOW_CACHE.clear()
     mc._WARNED_UNKNOWN.clear()
 
@@ -70,28 +72,37 @@ async def test_known_model_registry_source_no_fallback(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_prod_model_deepseek_v4_registry(monkeypatch):
-    """Прод-модель инцидента (§74) больше не получает молчаливый 16384."""
+async def test_prod_model_exact_id_or_estimate(monkeypatch):
+    """SMART D2/D3: точный ID (`deepseek-chat`) — registry; семейный префикс
+    (`deepseek-v4.1-flash`) ёмкость НЕ определяет → честная 1M-оценка."""
     await _no_network(monkeypatch)
     window, source = await mc.resolve_stage_window(
-        "https://nano-gpt.com/v1", "deepseek/deepseek-v4.1-flash")
+        "https://nano-gpt.com/v1", "deepseek-chat")
     assert window == 131072
     assert source == mc.SOURCE_REGISTRY
+    family_window, family_source = await mc.resolve_stage_window(
+        "https://nano-gpt.com/v1", "deepseek/deepseek-v4.1-flash")
+    assert family_source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert family_window == mc.UNKNOWN_WINDOW_DEFAULT
 
 
-# ── §40.3: completely unknown model → fallback + warning ────────────────────
+# ── §40.3: полностью неизвестная модель → планировочная 1M-оценка ──────────
 
 @pytest.mark.asyncio
-async def test_unknown_model_fallback_warns(caplog, monkeypatch):
+async def test_unknown_model_estimates_1m(caplog, monkeypatch):
+    """SMART D1: unknown → 1M estimated; 16384 не возвращается, событие
+    оценки честно помечено (не provider-verified)."""
     with caplog.at_level("WARNING", logger="services.model_capacity"):
         await _no_network(monkeypatch)
         window, source = await mc.resolve_stage_window(
             "https://nano-gpt.com/v1", "mystery-model-asap31")
-    assert window == 16384
-    assert source == mc.SOURCE_FALLBACK
-    assert any("MODEL_CAPACITY_FALLBACK" in r.message for r in caplog.records)
-    metrics = mc.capacity_metrics_snapshot()
-    assert metrics["capacity_fallback_total"] >= 1
+    assert window == mc.UNKNOWN_WINDOW_DEFAULT == 1_000_000
+    assert source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert not any("MODEL_CAPACITY_FALLBACK" in r.message
+                   for r in caplog.records)
+    assert any("MODEL_CAPACITY_UNKNOWN_ESTIMATE" in r.message
+               for r in caplog.records)
+
 
 
 @pytest.mark.asyncio
@@ -144,8 +155,8 @@ async def test_developer_override_applies_above_fallback(monkeypatch):
     _override(monkeypatch, None)
     result2 = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                         "mystery-override-model")
-    assert result2.source == mc.SOURCE_FALLBACK
-    assert result2.effective_context_window == 16384
+    assert result2.source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert result2.effective_context_window == mc.UNKNOWN_WINDOW_DEFAULT
 
 
 @pytest.mark.asyncio
@@ -155,7 +166,8 @@ async def test_override_negative_is_never_capacity(monkeypatch):
     result = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                        "mystery-override-neg")
     assert result.source != mc.SOURCE_DEVELOPER_OVERRIDE
-    assert result.effective_context_window == 16384
+    assert result.effective_context_window == mc.UNKNOWN_WINDOW_DEFAULT
+
 
 
 # ── §40.5: model switch → cache invalidated ────────────────────────────────
@@ -168,12 +180,13 @@ async def test_model_switch_invalidates_cache(monkeypatch):
     assert first.source == mc.SOURCE_REGISTRY
     second = await mc.resolve_capacity("https://nano-gpt.com/v1",
                                        "mystery-switched")
-    assert second.source == mc.SOURCE_FALLBACK
+    assert second.source == mc.SOURCE_ESTIMATED_UNKNOWN
     assert second.effective_context_window != \
         first.effective_context_window
     # Явная инвалидация (config reload / refresh-кнопка).
     assert mc.invalidate_capacity_cache() >= 2
     assert not mc._CACHE
+
 
 
 @pytest.mark.asyncio
@@ -224,7 +237,10 @@ async def test_ollama_runtime_context_length(monkeypatch):
     assert result.runtime_context_window == 16384
     # §5: локальный runtime 16K при theoretical 128K → используется 16K.
     assert result.effective_context_window == 16384
-    assert result.declared_context_window == 131072
+    # SMART D2: семейный префикс `qwen3` больше не выдаёт ёмкость точной
+    # модели → declared пуст (нет точного registry-совпадения).
+    assert result.declared_context_window is None
+
 
 
 @pytest.mark.asyncio
@@ -263,9 +279,10 @@ async def test_vllm_model_info_max_model_len(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_vllm_endpoint_unavailable_registry_fallback(monkeypatch):
+async def test_vllm_endpoint_unavailable_registry_or_estimate(monkeypatch):
     """Q8.4 санкция: недоступный metadata-endpoint НЕ блокирует резолв —
-    registry + (developer override); НЕ выдумывать из имени модели."""
+    exact registry для точного ID, иначе честная 1M-оценка; НЕ выдумывать
+    из имени модели."""
 
     async def _fail(url, *, headers=None):
         return None
@@ -273,8 +290,8 @@ async def test_vllm_endpoint_unavailable_registry_fallback(monkeypatch):
     monkeypatch.setattr(mc, "_http_get_json", _fail)
     result = await mc.resolve_capacity("http://10.0.0.5:8000/v1",
                                        "deepseek-v4-custom-deploy")
-    assert result.source == mc.SOURCE_REGISTRY
-    assert result.effective_context_window == 131072
+    assert result.source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert result.effective_context_window == mc.UNKNOWN_WINDOW_DEFAULT
 
 
 @pytest.mark.asyncio
@@ -283,8 +300,9 @@ async def test_generic_provider_regex_guessing_forbidden():
     window, source = await mc.resolve_stage_window(
         "https://api.example-llm.com/v1",
         "some-supermodel-1048576k-unlimited")
-    assert source == mc.SOURCE_FALLBACK
-    assert window == 16384
+    assert source == mc.SOURCE_ESTIMATED_UNKNOWN
+    assert window == mc.UNKNOWN_WINDOW_DEFAULT
+
 
 
 # ── §5: runtime > theoretical ───────────────────────────────────────────────
@@ -315,7 +333,10 @@ async def test_resolver_off_legacy_path(monkeypatch):
     assert (window, source) == (131072, mc.WINDOW_SOURCE_MAP)
     window2, source2 = await mc.resolve_stage_window(
         "https://nano-gpt.com/v1", "mystery-model-off-path")
-    assert (window2, source2) == (16384, mc.WINDOW_SOURCE_FALLBACK)
+    # D1: legacy-контур тоже больше не отдаёт 16384 — планировочная 1M.
+    assert (window2, source2) == (mc.UNKNOWN_WINDOW_DEFAULT,
+                                  mc.WINDOW_SOURCE_FALLBACK)
+
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,70 @@
+﻿{
+ "root": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\runs\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b\\probe-a3ffd061d6\\base",
+ "multiround": {
+  "llm_calls": 4,
+  "tool_msgs_per_request": [
+   0,
+   2,
+   4,
+   6
+  ],
+  "router_calls": 6,
+  "reason": "chain_call_limit",
+  "degraded": true,
+  "rounds_used": 4,
+  "tool_results": 7,
+  "text": "╨з╨╡╤В ╨┤╨╛╨╗╨│╨╛ ╨┤╤Г╨╝╨░╨╗, ╨░╨╢ ╨┐╨╡╤А╨╡╨│╤А╨╡╨╗╤Б╤П тАФ ╨╕ ╨▓╤Б╤С ╤А╨░╨▓╨╜╨╛ ╨╜╨╕ ╨║ ╤З╨╡╨╝╤Г ╨╜╨╡ ╨┐╤А"
+ },
+ "identical_repeats": {
+  "llm_calls": 4,
+  "tool_msgs_per_request": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "router_calls": 2,
+  "reason": "round_limit",
+  "degraded": true,
+  "rounds_used": 4,
+  "tool_results": 4,
+  "text": "╨з╨╡╤В ╨┤╨╛╨╗╨│╨╛ ╨┤╤Г╨╝╨░╨╗, ╨░╨╢ ╨┐╨╡╤А╨╡╨│╤А╨╡╨╗╤Б╤П тАФ ╨╕ ╨▓╤Б╤С ╤А╨░╨▓╨╜╨╛ ╨╜╨╕ ╨║ ╤З╨╡╨╝╤Г ╨╜╨╡ ╨┐╤А"
+ },
+ "constants": {
+  "legacy_constants_present": [
+   "TOOL_MAX_ROUNDS",
+   "_TOOL_CALLS_PER_ROUND_MAX",
+   "TOOL_MAX_TOTAL_CALLS",
+   "_TOOL_MAX_SAME_CALL",
+   "TOOL_CHAIN_MAX_METERED_CALLS",
+   "PLAN_MAX_STEPS"
+  ],
+  "chain_fuse_seconds": 360.0,
+  "settings_defaults": {
+   "MCA_TOOL_MAX_TOTAL_CALLS": 6,
+   "MCA_TOOL_MAX_METERED_CALLS": 4,
+   "MCA_TOOL_MAX_SAME_CALL": 2,
+   "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 360.0
+  }
+ },
+ "plan": {
+  "normalized_steps": 6
+ },
+ "budgets_read_error": {
+  "budgets_enabled_on_read_error": true,
+  "state": null
+ },
+ "budget_off_policy": {
+  "llm_calls": 2,
+  "tool_msgs_per_request": [
+   0,
+   2
+  ],
+  "router_calls": 2,
+  "reason": "ok",
+  "degraded": false,
+  "rounds_used": 2,
+  "tool_results": 2,
+  "text": "╤Д╨╕╨╜╨░╨╗"
+ }
+}

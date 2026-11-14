@@ -331,7 +331,8 @@ class TestDynamicWindow:
         assert window.source == "legacy"
         assert window.effective_limit == auto_budget.LEGACY_SEARCH_MAX_SYMBOLS
 
-    def test_unknown_window_is_marked_and_conservative(self, monkeypatch):
+    def test_unknown_window_is_marked_and_estimated(self, monkeypatch):
+        """SMART D1: неизвестная модель — планировочные 1M, честно помеченные."""
         model_capacity._WINDOW_CACHE.clear()
         window = auto_budget.resolve_evidence_tool_window(
             "article", model="totally-unknown-model-xyz")
@@ -341,8 +342,10 @@ class TestDynamicWindow:
             model_capacity.WINDOW_SOURCE_MAP,
             model_capacity.WINDOW_SOURCE_ENV)
         if window.window_source == model_capacity.WINDOW_SOURCE_FALLBACK:
-            assert window.window_tokens == 16384
+            assert window.window_tokens == model_capacity.UNKNOWN_WINDOW_DEFAULT
+            assert window.window_tokens == 1_000_000
         model_capacity._WINDOW_CACHE.clear()
+
 
     def test_small_window_keeps_claim_source_and_urls(self):
         """Сценарий 39: overflow решается retrieval'ом, пара claim→source жива."""

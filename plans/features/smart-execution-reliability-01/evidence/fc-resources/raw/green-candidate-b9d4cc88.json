@@ -1,0 +1,77 @@
+{
+ "total": 14,
+ "passed": 14,
+ "failed": [],
+ "results": [
+  {
+   "check": "factory_base_seconds_120",
+   "ok": true,
+   "detail": "120.0"
+  },
+  {
+   "check": "factory_max_seconds_600",
+   "ok": true,
+   "detail": "600.0"
+  },
+  {
+   "check": "factory_refine_24",
+   "ok": true,
+   "detail": "24"
+  },
+  {
+   "check": "factory_total_queries_64",
+   "ok": true,
+   "detail": "64"
+  },
+  {
+   "check": "factory_search_chars_100k",
+   "ok": true,
+   "detail": "100000"
+  },
+  {
+   "check": "old_claim_hard_cap_removed",
+   "ok": true,
+   "detail": "False"
+  },
+  {
+   "check": "claim_units_40_tail_kept",
+   "ok": true,
+   "detail": "40"
+  },
+  {
+   "check": "temporal_parts_40_tail_kept",
+   "ok": true,
+   "detail": "40"
+  },
+  {
+   "check": "temporal_queries_no_cap_2",
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "check": "factcheck_limits_factory_contract",
+   "ok": true,
+   "detail": "{'budgets_enabled': True, 'budget_source': 'default', 'budget_known': True, 'base_seconds': 120.0, 'max_seconds': 600.0, 'refine_calls': 24, 'total_queries': 64, 'search_text_chars': 100000, 'page_size': 20, 'claim_portion': 32, 'primary_fetches': 2, 'excerpt_chars': 600, 'sources': {}}"
+  },
+  {
+   "check": "off_limits_have_no_caps",
+   "ok": true,
+   "detail": "{'budgets_enabled': False, 'budget_source': 'default', 'budget_known': True, 'base_seconds': None, 'max_seconds': None, 'refine_calls': None, 'total_queries': None, 'search_text_chars': None, 'page_size': 20, 'claim_portion': 32, 'primary_fetches': None, 'excerpt_chars': None, 'sources': {}}"
+  },
+  {
+   "check": "page_size_more_than_old_4",
+   "ok": true,
+   "detail": "20"
+  },
+  {
+   "check": "off_no_query_cap_64",
+   "ok": true,
+   "detail": "[80, False]"
+  },
+  {
+   "check": "off_no_char_budget",
+   "ok": true,
+   "detail": "[180000, False]"
+  }
+ ]
+}

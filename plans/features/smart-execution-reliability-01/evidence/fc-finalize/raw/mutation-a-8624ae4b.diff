@@ -1,0 +1,13 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 78bba077..fdd4b1aa 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -4191,7 +4191,7 @@ class FactCheckService:
+             pieces = [opener]
+             pieces.extend(partial_inventory_lines(
+                 inventory, search_boundary=search_boundary))
+-        elif has_partial:
++        elif False:  # MUTATION A
+             if str(retrieval_state or "") in openers:
+                 # P0-FACTCHECK (┬з3.6)/FC-05: ╤В╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕╨╣ ╨║╨╗╨░╤Б╤Б ╨┐╨╛╨╕╤Б╨║╨░ ╨╜╨░╨╖╤Л╨▓╨░╨╡╤В╤Б╤П
+                 # ╨Ф╨Ю╨б╨Ы╨Ю╨Т╨Э╨Ю ╨┐╤А╨╡╨╢╨╜╨╡╨╣ ╤З╨╡╤Б╤В╨╜╨╛╨╣ ╤Д╤А╨░╨╖╨╛╨╣ тАФ ╤З╨░╤Б╤В╨╕╤З╨╜╤Л╨╣ ╤А╨░╨╖╨▒╨╛╤А ╨╕╨┤╤С╤В ╨┐╨╛╤Б╨╗╨╡

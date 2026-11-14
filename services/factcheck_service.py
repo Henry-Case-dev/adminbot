@@ -23,6 +23,7 @@ import json
 import logging
 import re
 import time
+from urllib.parse import urlsplit
 
 from config.settings import settings
 from services import hot_config as hot
@@ -211,12 +212,363 @@ def _emit_factcheck(outcome: str, *, level: str = "INFO", **fields):
 
 
 def _temporal_max_evidence() -> int:
-    """mca-20: потолок evidence-строк прогона (env-лимит gates, D16)."""
+    """mca-20: потолок evidence-строк прогона (env-лимит gates, D16).
+
+    S15-FC-EVIDENCE: на unified/envelope-пути этот «потолок числа строк» больше
+    НЕ ограничивает доставку evidence — размер порции считает единый capacity
+    resolver (см. `_evidence_delivery`). Helper сохранён для прежних вызовов и
+    как аварийный degrade, когда ёмкость маршрута неизвестна.
+    """
     try:
         from services import mca_gates
         return mca_gates.temporal_max_evidence_per_run()
     except Exception:      # pragma: no cover
         return 20
+
+
+# ── S15-FC-EVIDENCE: доставка evidence по фактической ёмкости маршрута ──────
+# Owner §7.1–7.5 (14.11.2026): 100 000 символов — размер ПОРЦИИ, а не потолок
+# исследования; 20 строк/1200 символов — прежние скрытые caps, которые нельзя
+# сохранять как универсальный бюджет. Размер доставки считает ЕДИНЫЙ capacity
+# resolver родительского эпика (`services.model_capacity`, S4): фактическая
+# модель и endpoint маршрута, proven limit → кэш каталога → unknown 1M.
+# Отдельного окна 16384 в фактчеке нет. Если ёмкость маршрута неизвестна,
+# доставка честно деградирует к прежней порции (gates), а не «угадывает» окно.
+
+#: Сколько символов одной выдержки достаточно, чтобы включить её усечённой,
+#: когда весь support не помещается в остаток ёмкости. Это НЕ бюджет доставки:
+#: порция целиком определяется ёмкостью; константа лишь не даёт вставлять
+#: обрывок в 3 символа. Остаток документа сохраняется указателем (URL+ev-id).
+_EVIDENCE_MIN_TRUNCATED_CHARS = 200
+
+
+@dataclasses.dataclass(frozen=True)
+class RouteCapacity:
+    """Ёмкость ОДНОГО фактического маршрута (модель+endpoint) для evidence.
+
+    ``input_chars`` — сколько символов evidence допускает окно этой модели под
+    merge-долю, которую родительский контракт отводит одному tool-результату.
+    ``output_reserve`` — токены вывода, посчитанные ОТДЕЛЬНО (D2): они не
+    превращаются в evidence-бюджет и не занижают полезный контекст. ``None``
+    в ``input_chars`` означает «ёмкость неизвестна» (аварийный degrade), а не
+    «нулевой бюджет».
+    """
+
+    channel: str
+    model: str
+    base_url: str
+    window_tokens: int
+    window_source: str
+    input_chars: int | None
+    output_reserve: int
+
+    def as_meta(self) -> dict:
+        """R17-safe снимок (без ключей/URL-путей; только host-free имя модели)."""
+        return {
+            "channel": self.channel,
+            "model": self.model[:64],
+            "window_tokens": int(self.window_tokens or 0),
+            "window_source": str(self.window_source or ""),
+            "evidence_budget_chars": self.input_chars,
+            "output_reserve_tokens": int(self.output_reserve or 0),
+        }
+
+
+@dataclasses.dataclass(frozen=True)
+class EvidenceDelivery:
+    """Результат упаковки evidence: доставленные строки + честная граница."""
+
+    rows: tuple[dict, ...]
+    route: RouteCapacity | None
+    budget_chars: int | None
+    total_rows: int
+    total_chars: int
+    delivered_chars: int
+    truncated_ids: tuple[str, ...] = ()
+    remainder_ids: tuple[str, ...] = ()
+    remainder_urls: tuple[tuple[str, str], ...] = ()
+    #: Полные (неусечённые) строки до упаковки — для recompose под ёмкость
+    #: фактически вызванного fallback-маршрута (owner §7.4). Не попадают в
+    #: payload сами по себе.
+    all_rows: tuple[dict, ...] = ()
+    #: Ёмкость маршрута неизвестна (resolver упал) — доставка честно
+    #: деградировала к прежней порции gates AND говорит об этом в payload.
+    degraded: bool = False
+
+    @property
+    def limited(self) -> bool:
+        return bool(self.truncated_ids or self.remainder_ids or self.degraded)
+
+    def as_meta(self) -> dict:
+        """R17-safe метаданные доставки (числа/enum/ID; без текстов чата)."""
+        meta = {
+            "total_rows": int(self.total_rows),
+            "delivered_rows": len(self.rows),
+            "total_chars": int(self.total_chars),
+            "delivered_chars": int(self.delivered_chars),
+            "budget_chars": self.budget_chars,
+            "limited": self.limited,
+            "degraded_capacity": bool(self.degraded),
+            "truncated": len(self.truncated_ids),
+            "remainder": len(self.remainder_ids),
+        }
+        if self.route is not None:
+            meta["route"] = self.route.as_meta()
+        return meta
+
+    def payload_block(self) -> str:
+        """`<evidence_delivery>` — машинная граница доставки для analyst/validator.
+
+        Появляется ТОЛЬКО когда evidence реально ограничен ёмкостью маршрута:
+        аналитик обязан видеть, что материалов больше, чем доставлено, и не
+        выводить «доказательств нет» из искусственного предела. Текст
+        источников здесь не дублируется — только ID/URL остатка."""
+        if not self.limited:
+            return ""
+        payload = {
+            "delivered": len(self.rows),
+            "total": int(self.total_rows),
+            "delivered_chars": int(self.delivered_chars),
+            "total_chars": int(self.total_chars),
+            "budget_chars": self.budget_chars,
+            "capacity_unknown": bool(self.degraded),
+            "truncated_ids": list(self.truncated_ids),
+            "remainder_ids": [rid for rid, _url in self.remainder_urls],
+            "remainder_urls": [url for _rid, url in self.remainder_urls
+                               if url],
+        }
+        return ("<evidence_delivery>" + escape_xml_text(
+            json.dumps(payload, ensure_ascii=False)) + "</evidence_delivery>")
+
+
+def _client_route(llm, kind: str) -> tuple[str, str]:
+    """Фактический маршрут клиента: ``(model, base_url)`` для primary/fallback.
+
+    ``LLMClient.generate`` отправляет именно `_chat_model`/`_base_url`, а при
+    fallback — `_fallback_model`/`_fallback_base_url`; поэтому ёмкость читается
+    с ЭТИХ полей, а не с «главной модели» настроек. Тест-двойники без полей →
+    hot/settings-значения (тот же порядок, что у клиента при инициализации)."""
+    if kind == "fallback":
+        model = (getattr(llm, "_fallback_model", "")
+                 or hot.get("models.llm_fallback_model",
+                            getattr(settings, "LLM_FALLBACK_MODEL", "")))
+        base = (getattr(llm, "_fallback_base_url", "")
+                or hot.get("models.llm_fallback_base_url",
+                           getattr(settings, "LLM_FALLBACK_BASE_URL", "")))
+    else:
+        model = (getattr(llm, "_chat_model", "")
+                 or hot.get("models.llm_model_name",
+                            getattr(settings, "LLM_MODEL_NAME", "")))
+        base = (getattr(llm, "_base_url", "")
+                or hot.get("models.llm_base_url",
+                           getattr(settings, "LLM_BASE_URL", "")))
+    return str(model or "").strip(), str(base or "").strip()
+
+
+def _route_capacity(llm, kind: str = "primary") -> RouteCapacity | None:
+    """Ёмкость фактического маршрута через ЕДИНЫЙ resolver (S4), никогда не бросает.
+
+    Окно и допустимый output считаются ОТДЕЛЬНО: окно → evidence-бюджет,
+    `output_reserve_tokens` → резерв вывода (в бюджет evidence не входит).
+    Модель без подтверждённого окна получает planning-оценку 1M от resolver'а
+    (`unknown_fallback`), а не 16384."""
+    try:
+        from services import model_capacity as mc
+        model, base = _client_route(llm, kind)
+        window, source = mc.resolve_evidence_window_tokens(model, base)
+        window = int(window or 0)
+        if window <= 0:
+            return RouteCapacity(kind, model, base, 0, str(source or ""),
+                                 None, 0)
+        budget = int(mc.evidence_window_for_tokens(window))
+        reserve = int(mc.output_reserve_tokens(window))
+        return RouteCapacity(kind, model, base, window, str(source or ""),
+                             max(0, budget), reserve)
+    except Exception:      # pragma: no cover — capacity не рвёт фактчек
+        logger.warning("[factcheck] capacity resolve failed — legacy portion",
+                       exc_info=True)
+        return None
+
+
+def _accepts_kwarg(fn, name: str) -> bool:
+    """Принимает ли callable kwarg ``name`` (тест-двойники/старые клиенты).
+
+    Нужен, чтобы S15-adept ``fallback_payload_adapter`` не ломал существующие
+    подмены LLM: отсутствие параметра → прежний вызов без него."""
+    try:
+        import inspect
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):      # pragma: no cover — C-объекты
+        return True
+    if name in params:
+        return True
+    return any(p.kind == inspect.Parameter.VAR_KEYWORD
+               for p in params.values())
+
+
+def _evidence_opening_index(retrieval) -> dict[str, bool]:
+    """``evidence_id → opened`` из claim coverage (FC-03.2): открывалась ли
+    страница источника в этом прогоне. Snippet без открытия — не то же
+    доказательство, что прочитанный документ; аналитик видит provenance."""
+    opened: dict[str, bool] = {}
+    for claim in tuple(getattr(retrieval, "claims", ()) or ()):
+        for item in tuple(getattr(claim, "evidence", ()) or ()):
+            eid = str(getattr(item, "evidence_id", "") or "")
+            if not eid:
+                continue
+            opened[eid] = bool(opened.get(eid)) or bool(
+                getattr(item, "opened", False))
+    return opened
+
+
+def _pack_evidence(rows, *, budget_chars: int | None,
+                   route: RouteCapacity | None = None,
+                   degrade_rows: int | None = None) -> EvidenceDelivery:
+    """Упаковать evidence-строки в ёмкость маршрута БЕЗ скрытых caps.
+
+    ``budget_chars=None`` — ёмкость неизвестна: отдаём строки как есть
+    (аварийная деградация к прежней порции вызывающего; не «нулевой» бюджет).
+    Порядок строк не меняется (он уже отражает силу привязки к claim'ам).
+    Строка, не помещающаяся целиком, включается усечённой (>= минимума) с
+    сохранением остатка указателем; всё, что после неё, — честно в remainder.
+    """
+    rows = tuple(rows or ())
+    total_chars = sum(len(str(r.get("support") or "")) for r in rows)
+    if budget_chars is None:
+        limit = (max(1, int(degrade_rows)) if degrade_rows
+                 else len(rows))
+        delivered = rows[:limit]
+        remainder = [(str(r.get("evidence_id") or ""),
+                      str(r.get("url") or "")) for r in rows[limit:]]
+        return EvidenceDelivery(
+            rows=delivered, route=route, budget_chars=None,
+            total_rows=len(rows), total_chars=total_chars,
+            delivered_chars=sum(len(str(r.get("support") or ""))
+                                for r in delivered),
+            remainder_ids=tuple(rid for rid, _u in remainder if rid),
+            remainder_urls=tuple(remainder), all_rows=rows,
+            degraded=len(remainder) > 0)
+    budget = max(0, int(budget_chars))
+    delivered: list[dict] = []
+    used = 0
+    truncated: list[str] = []
+    remainder: list[tuple[str, str]] = []
+    cutting = False
+    for row in rows:
+        support = str(row.get("support") or "")
+        eid = str(row.get("evidence_id") or "")
+        url = str(row.get("url") or "")
+        if not cutting:
+            # overhead — заголовок строки ([ev-N] claim= published: …)
+            cost = len(support) + 64
+            if used + cost <= budget:
+                delivered.append(row)
+                used += cost
+                continue
+            room = budget - used - 64
+            if room >= _EVIDENCE_MIN_TRUNCATED_CHARS:
+                delivered.append({**row, "support": support[:room],
+                                  "support_truncated": True,
+                                  "support_total_chars": len(support)})
+                used = budget
+                truncated.append(eid)
+            else:
+                # места не хватило даже на осмысленный обрывок — документ
+                # целиком остаётся в remainder (не исчезает).
+                remainder.append((eid, url))
+            cutting = True
+            continue
+        remainder.append((eid, url))
+    return EvidenceDelivery(
+        rows=tuple(delivered), route=route, budget_chars=budget,
+        total_rows=len(rows), total_chars=total_chars,
+        delivered_chars=sum(len(str(r.get("support") or ""))
+                            for r in delivered),
+        truncated_ids=tuple(t for t in truncated if t),
+        remainder_ids=tuple(rid for rid, _u in remainder if rid),
+        remainder_urls=tuple(remainder), all_rows=rows)
+
+
+def _evidence_delivery(retrieval, *, route: RouteCapacity | None,
+                       fallback_results: str | None = None,
+                       refs_only: bool = False) -> EvidenceDelivery:
+    """Собрать evidence-строки unified-контура и доставить их по ёмкости.
+
+    Строки строятся из СТРУКТУРНЫХ refs (FC-UNIFY: evidence только из
+    проверяемых ссылок), затем:
+    * support восстанавливается до полного текста ref — `temporal_factcheck`
+      исторически резал его до 1200 символов, что при увеличенном
+      `limits.factcheck_excerpt_chars` молча уничтожало выдержку (owner §7.3);
+    * строка получает provenance (`opened`, `source_kind`, `strength`) —
+      заголовок/сниппет не выдаются за прочитанный документ (owner §8.2);
+    * упаковка идёт по ёмкости ФАКТИЧЕСКОГО маршрута, без потолка 20 строк.
+    """
+    from services import temporal_factcheck as tf
+    refs = tuple(getattr(getattr(retrieval, "evidence_map", None), "refs", ())
+                 or ())
+    budget = route.input_chars if route is not None else None
+    if budget is not None and budget <= 0:
+        # Нулевая/отрицательная оценка — это отсутствие данных о ёмкости,
+        # а не «evidence запрещён»: честная деградация к порции gates.
+        budget = None
+    max_rows = len(refs) if refs else _temporal_max_evidence()
+    if not refs and refs_only:
+        # F2 (review r1): веб-прогон unified-контура даёт evidence ТОЛЬКО из
+        # структурных refs; повторный разбор `search_text` не возвращается.
+        return _pack_evidence((), budget_chars=budget, route=route)
+    if not refs:
+        rows = tf.evidence_rows_from_results(
+            fallback_results or "", max_rows=max_rows)
+        return _pack_evidence(rows, budget_chars=budget, route=route,
+                              degrade_rows=_temporal_max_evidence())
+    rows = tf.evidence_rows_from_refs(
+        refs, fallback_results=fallback_results, max_rows=max_rows)
+    full_support = {str(getattr(ref, "evidence_id", "")):
+                    str(getattr(ref, "support", "") or "") for ref in refs}
+    opened = _evidence_opening_index(retrieval)
+    strength = {}
+    for claim in tuple(getattr(retrieval, "claims", ()) or ()):
+        for item in tuple(getattr(claim, "evidence", ()) or ()):
+            eid = str(getattr(item, "evidence_id", "") or "")
+            if eid and getattr(item, "strength", ""):
+                strength[eid] = str(item.strength)
+    enriched = []
+    for row in rows:
+        eid = str(row.get("evidence_id") or "")
+        support = full_support.get(eid) or str(row.get("support") or "")
+        enriched.append({
+            **row,
+            "support": support,
+            "opened": bool(opened.get(eid, False)),
+            "strength": strength.get(eid, ""),
+        })
+    return _pack_evidence(enriched, budget_chars=budget, route=route,
+                          degrade_rows=_temporal_max_evidence())
+
+
+def _evidence_context_note(retrieval, evidence) -> str:
+    """`<analysis_context>`-факт о границе поиска для analyst'а (owner §8.2).
+
+    Если поиск остановлен бюджетом/deadline ДО рассмотрения доступных
+    источников, вывод «доказательств не существует» запрещён — даже когда
+    evidence непустой. Это тот же существующий контракт `_RETRIEVAL_CAVEAT`,
+    но он обязан дойти до аналитика ДО вердикта, а не только в uncertainty."""
+    if retrieval is None or not evidence:
+        return ""
+    exhausted = bool(getattr(retrieval, "budget_exhausted", False))
+    skipped = int(getattr(retrieval, "fetch_skipped_budget", 0) or 0) \
+        + int(getattr(retrieval, "fetch_skipped_deadline", 0) or 0)
+    if not exhausted and skipped <= 0:
+        return ""
+    return (
+        "<analysis_context>\n"
+        "Поиск остановлен ограничением бюджета/времени: часть доступных "
+        "релевантных источников не проверена"
+        + (f" (не открыто кандидатов: {skipped})" if skipped > 0 else "")
+        + ". Это ограничение ПОИСКА, а не доказательство отсутствия фактов; "
+          "не делай вывод «доказательств нет» и не выдавай первое совпадение "
+          "за окончательный вердикт.\n"
+          "</analysis_context>")
 
 
 def _fmt_evidence_date(published_at) -> str:
@@ -1260,7 +1612,7 @@ def _diag_count(value) -> int | str:
 
 
 def evidence_diagnostics(*, retrieval, retrieval_state: str,
-                         evidence, verdict) -> dict:
+                         evidence, verdict, delivery=None) -> dict:
     """§11.3: диагностика ОДНОГО прогона из фактических значений.
 
     Ничего не вычисляется «по аналогии»: если счётчика в этой ветке нет —
@@ -1280,6 +1632,7 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
     documents = (sum(int(getattr(c, "candidates", 0) or 0) for c in claims)
                  if known else None)
     citable = len([r for r in (evidence or ()) if r.get("url")])
+    delivery_meta = delivery.as_meta() if delivery is not None else {}
     return {
         "source_query_count": _diag_count(
             getattr(retrieval, "queries_attempted", None) if known else None),
@@ -1307,6 +1660,14 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
         "fetch_skipped_deadline": _diag_count(
             getattr(retrieval, "fetch_skipped_deadline", None)
             if known else None),
+        # S15: точка остановки поиска и пропущенные из-за бюджета операции —
+        # durable-след прогона (прод-случай tfr-d4f381867a884cbd: поиск был
+        # прерван лимитом, но stage_trace показывал "success").
+        "stop_reason": (str(getattr(retrieval, "stop_reason", "") or "")
+                        if known else _DIAG_UNKNOWN),
+        "fetch_skipped_budget": _diag_count(
+            getattr(retrieval, "fetch_skipped_budget", None)
+            if known else None),
         "retrieval_class": str(retrieval_state or ""),
         "technical_reason": str(getattr(verdict, "reason", "") or ""),
         # FC-07.1 (corrective 05.11.2026): все attempted queries прогона —
@@ -1319,16 +1680,22 @@ def evidence_diagnostics(*, retrieval, retrieval_state: str,
             str(q)[:160] for q in
             (tuple(getattr(retrieval, "attempted_queries", ()) or ())
              if known else ())][:16],
+        # S15-FC-EVIDENCE: фактическая доставка evidence в модель — числа и
+        # маршрут (R17: без текстов и ключей). divergence БД↔payload виден как
+        # delivered_rows vs citable_evidence_count.
+        "evidence_delivery": delivery_meta,
     }
 
 
 def emit_evidence_diagnostics(*, chat_id: int | None, retrieval,
                               retrieval_state: str, evidence, verdict,
-                              pipeline_run_id: str | None = None) -> dict:
+                              pipeline_run_id: str | None = None,
+                              delivery=None) -> dict:
     """§11.3: одно событие диагностики на прогон (fail-open)."""
     fields = evidence_diagnostics(retrieval=retrieval,
                                   retrieval_state=retrieval_state,
-                                  evidence=evidence, verdict=verdict)
+                                  evidence=evidence, verdict=verdict,
+                                  delivery=delivery)
     try:
         from services import mca_events
         mca_events.emit_mca_event(
@@ -1464,6 +1831,283 @@ def _verdict_is_substantive(verdict) -> bool:
                    for p in (verdict.parts or ()))
     except Exception:          # pragma: no cover — метаданные не рвут вердикт
         return False
+
+
+# ── S16-FC-FINALIZE: ответ по предмету, честный частичный результат ─────────
+#
+# Owner §9.1-9.4 (FACTCHECK-REQUEST-INTEGRITY v2). Здесь НЕТ нового жанра,
+# третьей LLM-стадии или markdown-шаблона: те же данные вердикта получают
+# честные поля для СУЩЕСТВУЮЩИХ стадий (аналитик/валидатор/вербализатор), а
+# детерминированная деградация (вербализатор недоступен) перестаёт быть
+# заглушкой, когда материалы уже собраны.
+
+#: Статусы части, при которых часть ТЕХНИЧЕСКИ не проверена (не «нет данных»).
+#: Единственный владелец формулировок — существующий `CLAIM_STATUS_HUMAN`.
+_PART_TECHNICAL_STATUSES = frozenset({
+    "source_extract_failed", "provider_error", "deadline_exceeded",
+    "search_not_started", "claim_unidentified",
+})
+
+
+def _distinct_text(text, *others) -> str:
+    """Непустой текст, если он не дублирует уже переданные поля (без обрезки)."""
+    value = " ".join(str(text or "").split())
+    if not value:
+        return ""
+    norm = value.casefold()
+    for other in others:
+        if norm == " ".join(str(other or "").split()).casefold():
+            return ""
+    return value
+
+
+def _search_boundary_situation(retrieval, evidence) -> str:
+    """Остановка поиска бюджетом/дедлайном при НЕПУСТОМ evidence (owner §9.3).
+
+    ``classify_retrieval`` законно возвращает ``ok`` при любом evidence, поэтому
+    техническая граница поиска иначе не доходит до финализации: пользователь
+    видит обычный вердикт или «недостаточно данных», но не «часть источников
+    не проверена». Тот же факт уже передаётся аналитику
+    (``_evidence_context_note``); здесь — человеческая формулировка для
+    вербализатора и детерминированного частичного ответа.
+    """
+    if retrieval is None or not evidence:
+        return ""
+    exhausted = bool(getattr(retrieval, "budget_exhausted", False))
+    skipped = int(getattr(retrieval, "fetch_skipped_budget", 0) or 0) \
+        + int(getattr(retrieval, "fetch_skipped_deadline", 0) or 0)
+    if not exhausted and skipped <= 0:
+        return ""
+    return ("внешний поиск остановлен ограничением бюджета/времени — часть "
+            "доступных источников не проверена")
+
+
+def _part_text(part: dict) -> str:
+    return " ".join(str(part.get("text") or part.get("note") or "").split())
+
+
+def _host_of(url: str) -> str:
+    try:
+        return str(urlsplit(str(url or "")).hostname or "").removeprefix("www.")
+    except Exception:      # pragma: no cover — URL не рвёт частичный ответ
+        return ""
+
+
+def partial_inventory(verdict, evidence=(), *, search_boundary: str = "",
+                      max_collected: int = 3) -> dict:
+    """Честное разделение уже полученного результата (owner §9.3).
+
+    Классы: подтверждённое / опровергнутое / подтверждённое частично /
+    недостаточно подтверждённое / технически непроверенное. Часть без
+    содержательного вердикта НЕ получает придуманный статус: она честно
+    относится к технически непроверенным. Когда разбора частей нет, но
+    материалы уже собраны, перечисляются только ФАКТИЧЕСКИ полученные
+    выдержки (не выводы). Ничего не выдумывается.
+    """
+    buckets: dict[str, list[str]] = {
+        "confirmed": [], "refuted": [], "partial": [],
+        "insufficient": [], "technical": [],
+    }
+    collected: list[dict] = []
+    for part in tuple(getattr(verdict, "parts", ()) or ()):
+        if not isinstance(part, dict):
+            continue
+        text = _part_text(part)
+        if not text:
+            continue
+        status = str(part.get("status_detail") or "")
+        factual = str(part.get("factual_verdict") or "")
+        if status in _PART_TECHNICAL_STATUSES:
+            buckets["technical"].append(text)
+        elif factual in ("supported", "refuted", "mixed"):
+            buckets[{"supported": "confirmed", "refuted": "refuted",
+                     "mixed": "partial"}[factual]].append(text)
+        elif factual == "insufficient_evidence":
+            buckets["insufficient"].append(text)
+        else:
+            buckets["technical"].append(text)
+    if not any(buckets.values()):
+        for row in tuple(evidence or ())[:max(1, int(max_collected))]:
+            if not isinstance(row, dict):
+                continue
+            support = " ".join(str(row.get("support") or "").split())
+            if not support:
+                continue
+            collected.append({
+                "host": _host_of(str(row.get("url") or "")),
+                "text": support[:160].rstrip() + ("…" if len(support) > 160
+                                                  else ""),
+            })
+    if search_boundary:
+        buckets["technical"].append(search_boundary)
+    return {
+        "confirmed": buckets["confirmed"],
+        "refuted": buckets["refuted"],
+        "partial": buckets["partial"],
+        "insufficient": buckets["insufficient"],
+        "technical": buckets["technical"],
+        "collected": collected,
+    }
+
+
+def partial_inventory_has_content(inventory: dict) -> bool:
+    """Есть ли в инвентаре содержательный частичный результат.
+
+    Перечисление одних лишь «недостаточно подтверждённых» частей без evidence
+    и без технической границы — это НЕ частичный результат: там остаётся
+    существующая короткая честная граница (``limit_note``), а не список
+    пунктов ради объёма (owner §9.3).
+    """
+    return any(inventory.get(key) for key in
+               ("confirmed", "refuted", "partial", "technical", "collected"))
+
+
+_PARTIAL_LABELS = (
+    ("confirmed", "Подтверждено"),
+    ("refuted", "Опровергнуто"),
+    ("partial", "Подтверждено частично"),
+    ("insufficient", "Недостаточно подтверждено"),
+    ("technical", "Технически не проверено"),
+)
+
+
+def partial_inventory_lines(inventory: dict, *, search_boundary: str = ""
+                            ) -> list[str]:
+    """Человеческие строки частичного результата (без нового шаблона).
+
+    Граница поиска не повторяется второй раз, если уже названа в открывающей
+    фразе (тот же принцип «ограничение один раз», что у renderer'а §7.3).
+    """
+    lines: list[str] = []
+    for key, label in _PARTIAL_LABELS:
+        rows = list(inventory.get(key) or ())
+        if key == "technical" and search_boundary \
+                and rows == [search_boundary]:
+            continue
+        if not rows:
+            continue
+        lines.append(label + ": " + "; ".join(rows[:4])
+                     + ("; …" if len(rows) > 4 else ""))
+    collected = inventory.get("collected") or []
+    if collected:
+        rows = []
+        for row in collected:
+            host = str(row.get("host") or "")
+            text = str(row.get("text") or "")
+            rows.append(f"• {text}" + (f" ({host})" if host else ""))
+        lines.append("Уже собрано:\n" + "\n".join(rows))
+    return lines
+
+
+# ── Служебные метки и идентификаторы НЕ выходят в пользовательскую речь ──────
+# S16-FC-FINALIZE / SFC-10-06 (owner §10.6): служебные enum, внутренние схемы,
+# технические идентификаторы и сырые контейнеры (OCR-контекст) не должны
+# заменять нормальный ответ. Чистка — на границе пользовательской речи; факты
+# не меняются.
+
+_SERVICE_FIELD_RE = re.compile(
+    r"\b(?:factual_verdict|temporal_status|reason_code|evidence_refs|"
+    r"claim_id|part_id|plan_version|gate_version|subject_version|"
+    r"resolved_by|evidence_id|support_truncated|as_of|uncertainty)\s*[=:]\s*"
+    r"[\"']?[\w./:%+\-]+[\"']?", re.IGNORECASE)
+_SERVICE_ENUM_RE = re.compile(
+    r"\b(?:insufficient_evidence|old_but_valid|misleading_reuse|"
+    r"source_extract_failed|provider_unavailable|deadline_exceeded|"
+    r"search_not_started|claim_unidentified|validator_suppressed|"
+    r"evidence_insufficient_for_exact_number|evidence_conflicting|"
+    r"no_relevant_sources|source_missing|not_run)\b")
+_SERVICE_ID_RE = re.compile(r"\b(?:ev-\d+|claim[_-][A-Za-z0-9_-]+|"
+                            r"part[_-]p?\d+|p\d+|c\d+)\b")
+#: Латинские служебные слова схемы прогона, которые не являются
+#: пользовательской речью в русском канале (остатки дампов). Список намеренно
+#: узкий: общие технические слова (`json`, `schema` и т.п.) могут быть частью
+#: проверяемого утверждения и не трогаются.
+_SERVICE_WORD_RE = re.compile(r"\b(?:claim|claims|part|parts)\b")
+_SERVICE_OCR_RE = re.compile(r"\bOCR\b", re.IGNORECASE)
+
+#: Единый список служебных/сырых контейнеров. Имена — внутренние блоки
+#: пайплайна и источники сырых дампов (OCR/vision/tool/debug), которые не
+#: являются пользовательской речью. Контейнер удаляется ВМЕСТЕ с содержимым:
+#: вырезать только теги недостаточно (S16 ревью: сырой OCR-текст оставался).
+_SERVICE_CONTAINER_NAMES = (
+    "chat_context|analysis_context|claim_coverage|evidence_delivery|"
+    "temporal_context|claim_parts|evidence|bot_knowledge|reply_chains|"
+    "user_hint|search_results|verdict_draft|original_material|user_request|"
+    "form_request|chat_time_context|raw|ocr|ocr_text|vision|image_context|"
+    "media_context|tool_context|service_context|internal|debug|trace|"
+    "diagnostics|payload|schema"
+)
+_SERVICE_BLOCK_RE = re.compile(
+    rf"<\s*(?P<tag>{_SERVICE_CONTAINER_NAMES})\b[^>]*>.*?"
+    rf"<\s*/\s*(?P=tag)\s*>",
+    re.IGNORECASE | re.DOTALL)
+#: Незакрытый служебный контейнер: его содержимое нельзя публиковать, поэтому
+#: вырезается до конца абзаца/текста (закрывающий тег потерян/обрезан).
+_SERVICE_OPEN_RE = re.compile(
+    rf"<\s*(?:{_SERVICE_CONTAINER_NAMES})\b[^>]*>", re.IGNORECASE)
+_SERVICE_TAG_RE = re.compile(
+    rf"</?\s*(?:{_SERVICE_CONTAINER_NAMES})\b[^>]*>", re.IGNORECASE)
+
+
+def _drop_unclosed_service_containers(text: str) -> str:
+    """Удалить незакрытые служебные контейнеры вместе с их содержимым.
+
+    Вызывается ПОСЛЕ удаления закрытых блоков: остаток открывающего тега
+    означает потерянный/обрезанный close-tag. Содержимое такого блока —
+    внутренние данные, а не ответ; удаляем до пустой строки (конец абзаца) или
+    до конца текста. Обычная речь, где имя тега упомянуто без ``<``, не
+    затрагивается.
+    """
+    while True:
+        match = _SERVICE_OPEN_RE.search(text)
+        if match is None:
+            return text
+        tail = text[match.end():]
+        boundary = re.search(r"\n\s*\n", tail)
+        end = match.end() + (boundary.end() if boundary else len(tail))
+        text = text[:match.start()] + " " + text[end:]
+
+
+def strip_service_tokens(text: str) -> str:
+    """Убрать служебные метки/идентификаторы/контейнеры из пользовательской речи.
+
+    Применяется к тексту, который готовится к публикации (вербализатор и
+    legacy-финализация), ДО проверки чисел: иначе идентификатор ``ev-1``
+    выглядел «непроверенным числом» и заменял живой ответ формализованным
+    отчётом. Обычная русская речь, цифры фактов и ссылки не затрагиваются;
+    чистка идемпотентна и не бросает.
+    """
+    out = str(text or "")
+    if not out:
+        return out
+    cleaned = _SERVICE_BLOCK_RE.sub(" ", out)
+    cleaned = _drop_unclosed_service_containers(cleaned)
+    cleaned = _SERVICE_TAG_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_FIELD_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_ENUM_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_ID_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_WORD_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_OCR_RE.sub(" ", cleaned)
+    if cleaned == out:
+        return out
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+([;,.!?])", r"\1", cleaned)
+    cleaned = re.sub(r"[;:,]{2,}", ";", cleaned)
+    cleaned = re.sub(r"(?m)^[\s;,]+$", "", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r"^[\s;,:.]+", "", cleaned)
+    cleaned = re.sub(r"[\s;,]+$", "", cleaned)
+    normalized_in = " ".join(out.split())
+    cleaned_norm = " ".join(cleaned.split())
+    if normalized_in and not re.search(r"[A-Za-zА-Яа-яЁё]", cleaned_norm):
+        # От ответа остались только разделители — служебный дамп не публикуется:
+        # вызывающий берёт честный частичный результат/деградацию.
+        logger.info("[factcheck] service-only answer rejected | chars=%d",
+                    len(normalized_in))
+        return ""
+    logger.info("[factcheck] service tokens stripped | chars=%d->%d",
+                len(normalized_in), len(cleaned_norm))
+    return cleaned.strip()
 
 
 # ── ASAP-FC-EVIDENCE-STYLE-02 §3/§4: покрытие ПО КАЖДОМУ claim ──────────────
@@ -2508,6 +3152,10 @@ class FactCheckService:
                 gstats.stripped_phantom, gstats.stripped_bare, gstats.kept,
             )
         out = strip_lore_html(out)
+        # S16-FC-FINALIZE / SFC-10-06 (owner §10.6): legacy-путь публикует тот же
+        # пользовательский текст — служебные метки/ID/окружения сюда не
+        # проходят. Пустой после чистки ответ — прежняя честная ошибка.
+        out = strip_service_tokens(out)
         if not out.strip():
             raise LLMBadResponseError("factcheck: empty answer")
         return out
@@ -2655,20 +3303,28 @@ class FactCheckService:
         # публикации оставшихся web-evidence (bounded, fail-open) — parse
         # failure не прерывает pipeline и не подставляет now().
         # Пусто → insufficient_evidence (no-false-acceptance).
+        #
+        # S15-FC-EVIDENCE: доставка строк считается по ЁМКОСТИ фактического
+        # маршрута (единый resolver S4), а не по прежнему потолку 20 строк;
+        # support не режется историческим 1200; остаток сохраняется
+        # указателями и виден аналитику (`<evidence_delivery>`).
         retrieval_refs = ()
         if retrieval is not None:
             retrieval_refs = tuple(
                 getattr(getattr(retrieval, "evidence_map", None),
                         "refs", ()) or ())
+        route = _route_capacity(self.llm, "primary")
+        fallback_route = _route_capacity(self.llm, "fallback")
         if retrieval is not None:
             # F2 (review r1): веб-прогон даёт evidence ТОЛЬКО из структурных
             # строк плана. Прежний fallback разбирал `search_text` заново и
             # возвращал строки с url=None (прод-симптом tfr-6e0ab2db…).
             # Нет проверяемых ссылок → evidence пуст, класс
             # `processing_failed` вместо содержательного «нет данных».
-            evidence = tf.evidence_rows_from_refs(
-                retrieval_refs, fallback_results=results,
-                max_rows=_temporal_max_evidence()) if retrieval_refs else ()
+            delivery = _evidence_delivery(
+                retrieval, route=route, fallback_results=results,
+                refs_only=True)
+            evidence = delivery.rows
             if retrieval_refs and evidence:
                 # §3.3: выдержка связана с claim-частью, к которой привязана
                 # на retrieval-слое (иначе в хранинном evidence claim_part
@@ -2684,18 +3340,24 @@ class FactCheckService:
                             str(row.get("evidence_id")))} if claim_by_evidence.get(
                             str(row.get("evidence_id"))) else row
                         for row in evidence)
+                    delivery = dataclasses.replace(delivery, rows=evidence)
         else:
             # Внутренний поиск ветки: строки без URL тоже не доказательство
-            # (их нельзя открыть и проверить).
-            evidence = tuple(
-                r for r in tf.evidence_rows_from_results(
-                    results, max_rows=_temporal_max_evidence())
-                if r.get("url"))
+            # (их нельзя открыть и проверить). Порция — по ёмкости маршрута.
+            delivery = _evidence_delivery(
+                retrieval, route=route, fallback_results=results)
+            evidence = tuple(r for r in delivery.rows if r.get("url"))
+            delivery = dataclasses.replace(delivery, rows=evidence)
         date_summary = None
         if evidence and tf.evidence_date_fetch_enabled():
             try:
                 evidence, date_summary = await tf.enrich_evidence_dates(
                     evidence)
+                by_id = {str(r.get("evidence_id")): r for r in evidence}
+                delivery = dataclasses.replace(
+                    delivery, rows=evidence,
+                    all_rows=tuple(by_id.get(str(r.get("evidence_id")), r)
+                                   for r in delivery.all_rows))
             except Exception:
                 logger.warning("[factcheck] evidence date enrich failed — "
                                "honest unknown", exc_info=True)
@@ -2749,16 +3411,35 @@ class FactCheckService:
                 "прочитаны, но проверяемых URL/цитат в них не оказалось. Это "
                 "НЕ технический сбой поиска; ссылки в ответе не выдумывать.\n"
                 "</analysis_context>")
+        # S15 (owner §8.2): остановка поиска бюджетом/deadline — ограничение
+        # ПОИСКА, а не доказательство отсутствия; аналитик обязан знать это
+        # ДО вердикта, даже когда часть evidence уже есть.
+        budget_note = _evidence_context_note(retrieval, evidence)
+        if budget_note:
+            analysis_context = (analysis_context + "\n" + budget_note
+                                if analysis_context else budget_note)
+        # S16-FC-FINALIZE (owner §9.3): та же граница поиска, но человеческой
+        # фразой — для вербализатора и детерминированного частичного ответа.
+        # Без этого при непустом evidence классификация «ok» скрывала
+        # техническое прерывание от финального ответа.
+        search_boundary = _search_boundary_situation(retrieval, evidence)
         # ASAP-FC-EVIDENCE-STYLE-02 §3.1: покрытие частей известно ДО вердикта
         # (retrieval уже отработал) — аналитик получает статус каждого пункта,
         # чтобы не смешивать технический сбой с «нет данных» и разбирать
         # спорное число отдельно от события.
         claim_coverage = tuple(getattr(retrieval, "claims", ()) or ()) \
             if retrieval is not None else ()
-        user_payload = self._temporal_user_payload(env, parts, evidence,
-                                                   chat_context,
-                                                   analysis_context,
-                                                   coverage=claim_coverage)
+
+        def _analyst_payload(delivery_obj: EvidenceDelivery) -> str:
+            """Payload аналитика для конкретной порции evidence (route-aware)."""
+            payload = self._temporal_user_payload(
+                env, parts, delivery_obj.rows, chat_context, analysis_context,
+                coverage=claim_coverage, delivery=delivery_obj)
+            if _temporal_snap is not None:
+                payload = _cclock.append_time_block(
+                    payload, _temporal_snap, phase=_cclock.PHASE_ANSWER)
+            return payload
+
         # UR-C-CLOCK (UR-26.4): время ОЦЕНКИ (ChatClock чата) — отдельный
         # авторитетный блок; даты публикации источника остаются в
         # <temporal_context>/<evidence> в СВОЁМ поясе (UR-27), ChatClock их
@@ -2767,22 +3448,49 @@ class FactCheckService:
         try:
             if env.chat_id is not None:
                 _temporal_snap = await _cclock.snapshot(env.chat_id)
-                user_payload = _cclock.append_time_block(
-                    user_payload, _temporal_snap,
-                    phase=_cclock.PHASE_ANSWER)
         except Exception:      # pragma: no cover - fail-open honest
             _temporal_snap = None
+        user_payload = _analyst_payload(delivery)
         allowed_refs = ({str(r.get("evidence_id")) for r in evidence
                          if r.get("evidence_id")}
                         if evidence else set())
+
+        def _route_adapter(builder):
+            """Recompose под ёмкость ФАКТИЧЕСКИ вызванного fallback-маршрута.
+
+            Owner §7.4: при переходе на fallback/другой endpoint используются
+            характеристики фактического маршрута; уменьшенная порция не
+            теряется молча — остаток остаётся в `<evidence_delivery>`."""
+            if fallback_route is None or not delivery.all_rows:
+                return None
+
+            def _adapt(payload):
+                try:
+                    messages = list(payload.get("messages") or ())
+                    if len(messages) < 2:
+                        return payload
+                    packed = _pack_evidence(
+                        delivery.all_rows,
+                        budget_chars=fallback_route.input_chars,
+                        route=fallback_route)
+                    messages[-1] = {**messages[-1],
+                                    "content": builder(packed)}
+                    return {**payload, "messages": messages}
+                except Exception:      # pragma: no cover — fail-open
+                    return payload
+            return _adapt
+
+        _analyst_adapter = _route_adapter(_analyst_payload)
         raw_payload = await self._temporal_verdict_json(
             tf.TEMPORAL_ANALYST_SYSTEM, user_payload, env,
-            correlation_id, step="temporal_verdict")
+            correlation_id, step="temporal_verdict",
+            fallback_payload_adapter=_analyst_adapter)
         if raw_payload is None:
             fallback_used = True
             raw_payload = await self._temporal_verdict_json(
                 tf._TEMPORAL_FALLBACK_SYSTEM, user_payload, env,
-                correlation_id, step="temporal_fallback")
+                correlation_id, step="temporal_fallback",
+                fallback_payload_adapter=_analyst_adapter)
         if raw_payload is None:
             # Обе попытки мимо: честный degraded-вердикт. Техническая
             # причина retrieval (бюджет/недоступность/обработка, §5.1)
@@ -2849,16 +3557,27 @@ class FactCheckService:
         # исход фиксируется дополнительной записью "verdict" в трассе.
         validator_outcome = None
         if evidence and raw_payload:
-            _validator_content = self._temporal_validator_payload(
-                env, verdict, evidence)
-            if _temporal_snap is not None:
-                _validator_content = _cclock.append_time_block(
-                    _validator_content, _temporal_snap,
-                    phase=_cclock.PHASE_ANSWER)
+            # S15: validator получает ту же серверную границу поиска, что и
+            # аналитик (owner §8.2) — остановка бюджетом не превращается в
+            # «доказательств нет» на стадии подтверждения вердикта.
+            validator_boundary = _evidence_context_note(retrieval, evidence)
+
+            def _validator_payload(delivery_obj: EvidenceDelivery) -> str:
+                content = self._temporal_validator_payload(
+                    env, verdict, delivery_obj.rows, delivery=delivery_obj,
+                    boundary_note=validator_boundary)
+                if _temporal_snap is not None:
+                    content = _cclock.append_time_block(
+                        content, _temporal_snap, phase=_cclock.PHASE_ANSWER)
+                return content
+
+            _validator_content = _validator_payload(delivery)
+            _validator_adapter = _route_adapter(_validator_payload)
             v_payload = await self._temporal_verdict_json(
                 tf.TEMPORAL_VALIDATOR_SYSTEM,
                 _validator_content,
-                env, correlation_id, step="temporal_validator")
+                env, correlation_id, step="temporal_validator",
+                fallback_payload_adapter=_validator_adapter)
             if v_payload is not None:
                 verdict, corrected = tf.apply_validator(verdict, v_payload,
                                                         env)
@@ -2954,6 +3673,12 @@ class FactCheckService:
             uncertainty = dict(verdict.uncertainty or {})
             uncertainty["retrieval_state"] = caveat
             verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
+        # S16 (owner §9.3): техническое прерывание при уже собранных материалах
+        # — такая же честная оговорка, а не «обычный вердикт»/«нет данных».
+        if search_boundary:
+            uncertainty = dict(verdict.uncertainty or {})
+            uncertainty.setdefault("search_boundary", search_boundary)
+            verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
         # ASAP-FC-EVIDENCE-STYLE-02 §3.1/§4: покрытие ПО КАЖДОЙ части —
         # подтверждённые части не растворяются в общем «данных недостаточно»,
         # каждый пробел получает конкретную причину, ссылки части — только
@@ -2971,20 +3696,23 @@ class FactCheckService:
         verdict_text = await self._temporal_verbalize(
             env, verdict, fallback_used, correlation_id,
             retrieval_state=retrieval_state, coverage=claim_coverage,
-            evidence=evidence, time_snap=_temporal_snap)
+            evidence=evidence, time_snap=_temporal_snap,
+            search_boundary=search_boundary)
         trace.add("verbalize", "success" if verdict_text else "skipped",
                   reason=None if verdict_text else "temporal_fallback_mode")
 
         if not verdict_text:
             verdict_text = self._temporal_fallback_text(
-                env, verdict, retrieval_state=retrieval_state)
+                env, verdict, retrieval_state=retrieval_state,
+                evidence=evidence, search_boundary=search_boundary)
 
         # §11.3 (FC-EVIDENCE-STATUS-01): диагностика прогона из фактических
         # счётчиков стадии — не из «нет URL». Неизвестное → «нет данных».
         emit_evidence_diagnostics(
             chat_id=env.chat_id, retrieval=retrieval,
             retrieval_state=retrieval_state, evidence=evidence,
-            verdict=verdict, pipeline_run_id=correlation_id)
+            verdict=verdict, pipeline_run_id=correlation_id,
+            delivery=delivery)
 
         return tf.TemporalRunResult(
             envelope=env, verdict=verdict, verdict_text=verdict_text,
@@ -2995,6 +3723,7 @@ class FactCheckService:
         self, env: tf.TemporalClaimEnvelope, parts, evidence,
         chat_context: str | None, analysis_context: str = "",
         coverage=(),
+        delivery: EvidenceDelivery | None = None,
     ) -> str:
         """User-content вердиктной стадии: <claim> + <temporal_context>
         (даты/периоды/режим — серверные метаданные, D2) + <evidence> +
@@ -3003,7 +3732,10 @@ class FactCheckService:
         <analysis_context> — статус поиска и рамка самостоятельной
         проверки (серверный текст, не доказательства).
         ASAP-FC-EVIDENCE-STYLE-02 §3.1: <claim_coverage> — что именно уже
-        проверено по каждой части и чего не хватает (серверные метаданные)."""
+        проверено по каждой части и чего не хватает (серверные метаданные).
+        S15: <evidence_delivery> — машинная граница доставки, когда материалов
+        больше, чем поместилось в ёмкость маршрута (остаток не выдумывается).
+        """
         sections = [
             "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
             "<temporal_context>" + escape_xml_text(json.dumps({
@@ -3018,6 +3750,21 @@ class FactCheckService:
                 "analysis_as_of": env.analysis_as_of,
             }, ensure_ascii=False)) + "</temporal_context>",
         ]
+        # S16-FC-FINALIZE (owner §9.2): предмет может быть вопросом пользователя
+        # о СВЯЗАННОЙ ЧАСТИ материала. Тогда исходный материал обязан быть
+        # виден аналитику — иначе проверяется вопрос без проверяемого
+        # содержания. Когда предмет и есть материал, блок не дублируется.
+        material = _distinct_text(getattr(env, "material_claim_text", ""),
+                                  env.claim_text)
+        if material:
+            sections.append("<original_material>"
+                            + escape_xml_text(material)
+                            + "</original_material>")
+        request_text = _distinct_text(getattr(env, "request_text", ""),
+                                      env.claim_text, material)
+        if request_text:
+            sections.append("<user_request>" + escape_xml_text(request_text)
+                            + "</user_request>")
         if parts:
             sections.append("<claim_parts>" + escape_xml_text(json.dumps(
                 [{"part_id": p.part_id, "text": p.text,
@@ -3028,16 +3775,26 @@ class FactCheckService:
             # публикации (unknown — честно); model evidence_refs ссылаются
             # только на эти ID (allowlist проверяется сервером).
             # §3.3: выдержка помечается claim-частью, к которой привязана.
+            # S15: provenance (source_kind/opened/strength) — заголовок и
+            # сниппет не выдаются за прочитанный документ (owner §8.2).
             sections.append("<evidence>" + escape_xml_text("\n\n".join(
-                "[%s]%s published: %s%s\n%s" % (
+                "[%s]%s published: %s%s%s\n%s" % (
                     r.get("evidence_id") or "?",
                     (" claim=%s" % r["claim_part"])
                     if r.get("claim_part") else "",
                     _fmt_evidence_date(r.get("published_at")),
                     (" (%s)" % r["published_at_source"])
                     if r.get("published_at_source") else "",
+                    (" source=%s;opened=%s;strength=%s" % (
+                        r.get("source_kind") or "unknown",
+                        "yes" if r.get("opened") else "no",
+                        r.get("strength") or "none")),
                     r["support"])
                 for r in evidence)) + "</evidence>")
+        if delivery is not None:
+            block = delivery.payload_block()
+            if block:
+                sections.append(block)
         coverage_section = _claim_coverage_payload(coverage)
         if coverage_section:
             sections.append(coverage_section)
@@ -3050,11 +3807,19 @@ class FactCheckService:
     def _temporal_validator_payload(
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         evidence,
+        delivery: EvidenceDelivery | None = None,
+        boundary_note: str = "",
     ) -> str:
         """User-content validator-стадии (D11/TH-2, data-only): утверждение +
         серверный контекст + черновой вердикт + выдержки. Untrusted-evidence
         остаётся ДАННЫМИ: экранирование то же, что у аналитика, контейнер
-        <search_results> не разрывается содержимым сниппетов."""
+        <search_results> не разрывается содержимым сниппетов.
+
+        S15-FC-EVIDENCE: validator видит ТУ ЖЕ границу доказательств, что и
+        аналитик: provenance каждой выдержки (source/opened/strength — сниппет
+        не равен прочитанному документу, owner §8.2) и серверную оговорку об
+        остановке поиска бюджетом (`boundary_note`), иначе он может утвердить
+        вывод «доказательств нет» из искусственного предела."""
         sections = [
             "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
             "<temporal_context>" + escape_xml_text(json.dumps({
@@ -3072,26 +3837,60 @@ class FactCheckService:
                 "assessment_mode": verdict.assessment_mode,
             }, ensure_ascii=False)) + "</verdict_draft>",
             "<evidence>" + escape_xml_text("\n\n".join(
-                "[%s] published: %s\n%s" % (
+                "[%s] published: %s source=%s;opened=%s;strength=%s\n%s" % (
                     r.get("evidence_id") or "?",
                     _fmt_evidence_date(r.get("published_at")),
+                    r.get("source_kind") or "unknown",
+                    "yes" if r.get("opened") else "no",
+                    r.get("strength") or "none",
                     r["support"])
                 for r in evidence)) + "</evidence>",
         ]
+        # S16-FC-FINALIZE (owner §9.2): валидатор проверяет ТОТ ЖЕ предмет, что
+        # аналитик: вопрос о связанной части материала без самого материала
+        # проверить нельзя. Дубли предмета не добавляются.
+        material = _distinct_text(getattr(env, "material_claim_text", ""),
+                                  env.claim_text)
+        if material:
+            sections.insert(1, "<original_material>"
+                            + escape_xml_text(material)
+                            + "</original_material>")
+        request_text = _distinct_text(getattr(env, "request_text", ""),
+                                      env.claim_text, material)
+        if request_text:
+            sections.insert(2, "<user_request>" + escape_xml_text(request_text)
+                            + "</user_request>")
+        if delivery is not None:
+            block = delivery.payload_block()
+            if block:
+                sections.append(block)
+        if boundary_note:
+            sections.append(boundary_note)
         return "\n\n".join(sections)
 
     async def _temporal_verdict_json(
         self, system: str, user_payload: str, env,
         correlation_id: str | None, *, step: str,
+        fallback_payload_adapter=None,
     ) -> dict | None:
-        """Один data-only LLM-вызов вердиктной стадии → dict|None."""
+        """Один data-only LLM-вызов вердиктной стадии → dict|None.
+
+        ``fallback_payload_adapter`` (S15, owner §7.4): при фактическом переходе
+        клиента на fallback-модель/endpoint payload recompose'ится под ёмкость
+        ЭТОГО маршрута; None → прежнее поведение (payload не меняется)."""
         from services.system2_handoff import parse_json_object
+        generate = getattr(self.llm, "generate", None)
+        if generate is None:
+            return None
+        kwargs = {"module": "factcheck", "step": step,
+                  "correlation_id": correlation_id}
+        if fallback_payload_adapter is not None \
+                and _accepts_kwarg(generate, "fallback_payload_adapter"):
+            kwargs["fallback_payload_adapter"] = fallback_payload_adapter
         try:
-            raw = await self.llm.generate(
+            raw = await generate(
                 [{"role": "system", "content": system},
-                 {"role": "user", "content": user_payload}],
-                module="factcheck", step=step,
-                correlation_id=correlation_id)
+                 {"role": "user", "content": user_payload}], **kwargs)
         except Exception:
             return None
         payload = parse_json_object(str(raw))
@@ -3101,7 +3900,7 @@ class FactCheckService:
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         fallback_used: bool, correlation_id: str | None,
         *, retrieval_state: str | None = None, coverage=(), evidence=(),
-        time_snap=None,
+        time_snap=None, search_boundary: str = "",
     ) -> str:
         """Вербализатор (REUSE существующего контракта фактчека): verdict →
         текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
@@ -3161,6 +3960,22 @@ class FactCheckService:
         if _counterpoint:
             payload["counterpoint"] = _counterpoint
         payload["parts"] = list(verdict.parts)
+        # S16-FC-FINALIZE (owner §9.2): ответ адресуется фактическому предмету.
+        # Если пользователь спрашивал о связанной части материала, вербализатор
+        # видит и вопрос, и материал (и просьбу о форме, если она была) — иначе
+        # он отвечает только на переформулировку и вынужден ограничиваться
+        # оговоркой. Это ДАННЫЕ существующей стадии, а не новый жанр/шаблон.
+        material = _distinct_text(getattr(env, "material_claim_text", ""),
+                                  env.claim_text)
+        if material:
+            payload["original_material"] = material
+        request_text = _distinct_text(getattr(env, "request_text", ""),
+                                      env.claim_text, material)
+        if request_text:
+            payload["user_request"] = request_text
+        form_request = str(getattr(env, "form_request", "") or "").strip()
+        if form_request:
+            payload["requested_form"] = form_request
         # §3.1/§5: покрытие частей — вербализатор пишет КОНКРЕТНЫЕ пробелы
         # (техсбой/нет источников/недоказанное число), а не общее «данных
         # недостаточно» после каждого пункта.
@@ -3193,6 +4008,13 @@ class FactCheckService:
         if situation:
             # §3.6: вербализатор не должен называть сбой «отсутствием фактов».
             payload["situation"] = situation
+        # S16-FC-FINALIZE (owner §9.3): техническая граница поиска существует и
+        # тогда, когда часть evidence уже собрана (иначе классификация «ok»
+        # скрывала её от ответа). Технический факт — не вердикт по тезису.
+        if search_boundary:
+            payload["situation"] = (
+                f"{payload['situation']}; {search_boundary}"
+                if payload.get("situation") else search_boundary)
         if fallback_used:
             payload["fallback_note"] = (
                 "структурированный анализ не удался — не утверждай больше, "
@@ -3201,7 +4023,27 @@ class FactCheckService:
         # содержательного анализа НЕТ — короткая честная граница вместо
         # абзацев-компенсаций. Универсального правила длины НЕ вводится:
         # содержательный ответ передаётся как есть (§7.1).
-        if not _verdict_is_substantive(verdict):
+        #
+        # S16-FC-FINALIZE (owner §9.3): если часть результата уже получена
+        # (части вердикта/собранный evidence/техническая граница), «назови
+        # ограничение» больше НЕ подменяет содержательный частичный ответ.
+        # Вербализатор получает честное разделение и обязан ответить по нему —
+        # живым текстом, без нового шаблона.
+        inventory = partial_inventory(verdict, evidence,
+                                      search_boundary=search_boundary)
+        incomplete = bool(fallback_used or search_boundary or (
+            bool(tuple(getattr(verdict, "parts", ()) or ()))
+            and not _verdict_is_substantive(verdict)))
+        if incomplete and partial_inventory_has_content(inventory):
+            payload["partial"] = inventory
+            payload["partial_note"] = (
+                "разбор неполный — скажи прямо, что подтверждено, что "
+                "опровергнуто, что осталось недостаточно подтверждённым и что "
+                "технически не проверено. Пиши тем же живым голосом, без "
+                "карточек, служебных полей и отдельного раздела: уже собранные "
+                "сведения не заменяй общей оговоркой, а техническое прерывание "
+                "не делай доказательством истинности или ложности утверждения")
+        elif not _verdict_is_substantive(verdict):
             payload["limit_note"] = (
                 "содержательного разбора не получилось — коротко назови "
                 "фактическое ограничение и какой информации не хватает, "
@@ -3271,6 +4113,13 @@ class FactCheckService:
                              else "absent")))
             return ""
         out = out.strip()
+        # S16-FC-FINALIZE / SFC-10-06 (owner §10.6): служебные метки и ID
+        # срезаются ДО проверки чисел. Иначе `ev-1`/`p2` из служебной метки
+        # выглядели «непроверенным числом» и заменяли живой ответ
+        # формализованным структурным отчётом.
+        out = strip_service_tokens(out)
+        if not out:
+            return ""
         # RLR §3.4/§8: неподтверждённое число не публикуется и НЕ правится в
         # готовой фразе — вместо пересказа идёт структурный отчёт проверки
         # (тот же verdict-класс, те же источники).
@@ -3320,13 +4169,20 @@ class FactCheckService:
     @staticmethod
     def _temporal_fallback_text(env: tf.TemporalClaimEnvelope,
                                 verdict: tf.TemporalVerdict,
-                                *, retrieval_state: str | None = None) -> str:
+                                *, retrieval_state: str | None = None,
+                                evidence=(), search_boundary: str = "") -> str:
         """Детерминированный честный текст (все ветки получают даты, D11):
         краткая дата/неопределённость без технической схемы (D15).
 
         P0-FACTCHECK (§3.6): технический сбой не маскируется под «мало
         данных» — фраза прямо называет причину (бюджет/недоступность/
-        непригодные выдержки)."""
+        непригодные выдержки).
+
+        S16-FC-FINALIZE (owner §9.3): при отказе вербализатора уже собранный
+        результат НЕ превращается в стандартную заглушку — он честно
+        разделяется на подтверждённое/опровергнутое/недостаточно
+        подтверждённое/технически непроверенное. Заглушка остаётся только
+        когда результата действительно нет."""
         import datetime as _dt
 
         def _fmt(ts):
@@ -3352,6 +4208,9 @@ class FactCheckService:
                 "Поиск ответил, но подходящих материалов не дал — поэтому "
                 "вывод сделан без внешних источников.",
         }
+        inventory = partial_inventory(verdict, evidence,
+                                      search_boundary=search_boundary)
+        has_partial = partial_inventory_has_content(inventory)
         if _verdict_is_substantive(verdict):
             # §7: содержательный разбор не подменяется сообщением о сбое —
             # даже при отказе вербализатора разбор частей сохраняется.
@@ -3360,22 +4219,27 @@ class FactCheckService:
                       if str(retrieval_state or "") in (
                           RETRIEVAL_BUDGET, RETRIEVAL_SEARCH_FAILED,
                           RETRIEVAL_PROCESSING_FAILED, RETRIEVAL_NO_RESULTS)
-                      else "Недостаточно данных для полной проверки "
-                           "утверждения.")
+                      else "Проверка неполная — ниже то, что уже установлено.")
             pieces = [opener]
-            for part in (verdict.parts or ())[:4]:
-                if not isinstance(part, dict):
-                    continue
-                text = " ".join(str(part.get("text") or "").split())
-                if not text:
-                    continue
-                label = {"supported": "подтверждается",
-                         "refuted": "не подтверждается",
-                         "mixed": "подтверждается частично",
-                         "insufficient_evidence": "данных недостаточно"}.get(
-                    str(part.get("factual_verdict") or ""), "")
-                pieces.append(f"• {text}"
-                              + (f" — {label}" if label else ""))
+            pieces.extend(partial_inventory_lines(
+                inventory, search_boundary=search_boundary))
+        elif has_partial:
+            if str(retrieval_state or "") in openers:
+                # P0-FACTCHECK (§3.6)/FC-05: технический класс поиска называется
+                # ДОСЛОВНО прежней честной фразой — частичный разбор идёт после
+                # неё, а не вместо неё.
+                opener = openers[str(retrieval_state)]
+            elif search_boundary:
+                opener = (
+                    "Проверку не удалось довести до конца: "
+                    f"{search_boundary}. Это ограничение проверки, а не "
+                    "доказательство истинности или ложности утверждения.")
+            else:
+                opener = ("Проверку удалось выполнить только частично — ниже "
+                          "то, что уже установлено.")
+            pieces = [opener]
+            pieces.extend(partial_inventory_lines(
+                inventory, search_boundary=search_boundary))
         else:
             pieces = [openers.get(str(retrieval_state or ""),
                                   "Недостаточно данных для полной проверки "

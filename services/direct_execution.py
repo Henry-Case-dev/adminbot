@@ -315,7 +315,8 @@ async def _orchestrator_window(llm) -> tuple[int, str]:
                          exc_info=True)
     try:
         from services.model_capacity import resolve_evidence_window_tokens
-        window, source = resolve_evidence_window_tokens(model or None)
+        window, source = resolve_evidence_window_tokens(model or None,
+                                                        base_url=base_url)
         if int(window or 0) > 0:
             return int(window), str(source or "")
     except Exception:      # pragma: no cover - защитная ветка

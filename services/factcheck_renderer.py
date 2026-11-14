@@ -289,6 +289,10 @@ def _content(presentation: FactcheckPresentation,
             if cited_urls:
                 links = tuple(u for u in links if u in cited_urls)
     notice = str(presentation.notice or "").strip()
+    # S16-FC-FINALIZE / SFC-10-06 (owner §10.6): граница пользовательской речи.
+    # Служебные enum/ID/сырые контейнеры (OCR-контекст), попавшие в тело от
+    # любого Writer'а, не публикуются вместо нормального ответа. Обычный текст
+    # и факты не меняются (чистка идемпотентна).
     # §7.3: технический сбой объясняется явно, но ОДИН раз: при техническом
     # заголовке отдельная концовка с тем же ограничением не добавляется
     # (заголовок + абзац + концовка = три одинаковых сообщения — снято).
@@ -300,7 +304,10 @@ def _content(presentation: FactcheckPresentation,
     if not links and not notice and verdict is not None \
             and verdict.evidence.refs:
         notice = _NO_LINKS_NOTICE
-    return headline, str(presentation.text or ""), links, notice
+    from services.factcheck_service import strip_service_tokens
+    body = strip_service_tokens(str(presentation.text or ""))
+    notice = strip_service_tokens(notice)
+    return headline, body, links, notice
 
 
 def _trim(text: str, limit: int = _PART_TEXT_MAX_CHARS) -> str:

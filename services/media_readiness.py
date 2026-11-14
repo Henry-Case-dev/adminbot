@@ -1027,7 +1027,8 @@ async def link_pending_intent_for_message(db, *, chat_id: int,
                   "tg_message_id": int(tg_message_id),
                   "asset_ids": payload["linked"]["asset_ids"],
                   "consumer": str(payload.get("consumer") or "direct"),
-                  "question": str(payload.get("question") or "")}
+                  "question": str(payload.get("question") or ""),
+                  "context": dict(payload.get("context") or {})}
         logger.info("[media_readiness] pending intent linked | chat=%s | "
                     "trigger=%s | tg=%s", chat_id, trigger, tg_message_id)
         # Потребитель уже попросил разбор — привязка обязана запустить анализ
@@ -1094,7 +1095,8 @@ async def take_pending_intent(db, *, chat_id: int, consume: bool = True
                   "asset_ids": list(linked.get("asset_ids") or []),
                   "media_group_id": str(linked.get("media_group_id") or ""),
                   "consumer": str(payload.get("consumer") or "direct"),
-                  "question": str(payload.get("question") or "")}
+                  "question": str(payload.get("question") or ""),
+                  "context": dict(payload.get("context") or {})}
         if consume:
             await _consume_intent(db, result["job_id"])
         return result
@@ -1934,13 +1936,20 @@ def _intent_key(chat_id: int, trigger_message_id: int) -> str:
 async def defer_until_ready(db, readiness: MediaReadiness | None, *,
                             consumer: str, message_id: int | None = None,
                             query: str = "", user_id: int | None = None,
-                            notify: bool = True) -> dict:
+                            notify: bool = True,
+                            context: dict | None = None) -> dict:
     """Отложить пользовательский запрос до готовности (durable).
 
     Используется на ИНТЕРАКТИВНОМ таймауте: Vision продолжает работать, ответ
     не выдумывается, запрос сохраняется и будет возобновлён. `notify=True` —
     разрешена ОДНА короткая реплика «распознавание продолжается» (флаг
-    `notified` durable, повторной реплики не будет)."""
+    `notified` durable, повторной реплики не будет).
+
+    ``context`` (S13 FACTCHECK-REQUEST-INTEGRITY): необязательный машинный
+    контекст потребителя (например, полный текст уточнения фактчека). Поле
+    ``question`` исторически ограничено 400 символами для связи с медиа; полный
+    пользовательский запрос без содержательной обрезки хранится здесь и
+    возвращается тому же consumer'у при возобновлении."""
     if db is None or readiness is None or message_id in (None, 0):
         return {}
     if readiness.ready or readiness.analysis_status in TERMINAL_ANALYSIS:
@@ -1956,6 +1965,7 @@ async def defer_until_ready(db, readiness: MediaReadiness | None, *,
         "expires_at": now + max(60, pending_intent_ttl_seconds()),
         "notified": bool(notify),
         "state": "deferred",
+        "context": dict(context or {}),
         "linked": {"asset_ids": [s.asset_id for s in (readiness.assets or ())
                                  if getattr(s, "asset_id", "")],
                    "tg_message_id": int(readiness.target_message_id or 0),
@@ -2174,7 +2184,8 @@ async def resume_deferred_requests(db, *, chat_id: int | None = None,
                       "consumer": str(payload.get("consumer") or "direct"),
                       "association_kind": str(
                           linked.get("association_kind") or ""),
-                      "question": str(payload.get("question") or "")}
+                      "question": str(payload.get("question") or ""),
+                      "context": dict(payload.get("context") or {})}
             try:
                 delivered = await dispatcher(intent, states)
             except Exception:
@@ -2202,6 +2213,7 @@ async def resume_deferred_requests(db, *, chat_id: int | None = None,
                       "association_kind": str(
                           linked.get("association_kind") or ""),
                       "question": str(payload.get("question") or ""),
+                      "context": dict(payload.get("context") or {}),
                       "reason_code": next((s.reason_code for s in states
                                            if s.terminal_failure), "vision_failed")}
             try:

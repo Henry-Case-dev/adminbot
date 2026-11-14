@@ -1,0 +1,53 @@
+[
+ {
+  "name": "row-cap-20",
+  "why": "прежний скрытый потолок 20 строк",
+  "exit": 1,
+  "failed": [
+   "test_no_hidden_row_cap_20",
+   "test_capacity_unknown_degrades_honestly"
+  ],
+  "failed_count": 2
+ },
+ {
+  "name": "support-cut-1200",
+  "why": "прежняя обрезка support до 1200 символов",
+  "exit": 1,
+  "failed": [
+   "test_evidence_over_8000_reaches_analyst_and_validator"
+  ],
+  "failed_count": 1
+ },
+ {
+  "name": "fallback-ignores-route",
+  "why": "fallback без recompose под фактическую ёмкость",
+  "exit": 1,
+  "failed": [
+   "test_fallback_route_recomposes_payload_to_its_capacity"
+  ],
+  "failed_count": 1
+ },
+ {
+  "name": "silent-budget-no-note",
+  "why": "остановка поиска бюджетом без запрета «доказательств нет»",
+  "exit": 1,
+  "failed": [
+   "test_budget_stopped_search_forbids_absence_conclusion"
+  ],
+  "failed_count": 1
+ },
+ {
+  "name": "capacity-16384",
+  "why": "прежнее «универсальное окно» 16384 вместо резолвера",
+  "exit": 1,
+  "failed": [
+   "test_evidence_over_8000_reaches_analyst_and_validator",
+   "test_no_hidden_row_cap_20",
+   "test_capacity_resolver_called_with_actual_route",
+   "test_real_capacity_budget_limits_portion_and_keeps_remainder",
+   "test_fallback_route_recomposes_payload_to_its_capacity",
+   "test_tiny_share_route_still_marks_remainder"
+  ],
+  "failed_count": 6
+ }
+]

@@ -829,35 +829,62 @@ async def execute_supervised(llm, *, messages, operation: str,
     if primary_exc is None:      # pragma: no cover - defensive
         from services.llm_client import LLMError
         primary_exc = LLMError("summary supervisor: primary failed")
-    # Runtime 400/context-length → инвалидация capacity-кеша + переоценка
-    # в рамках run (T-4605/T-4612; единая orchestration-политика).
+    # Runtime 400/context-length → разбор structured причины + обновление
+    # ФИЗИЧЕСКОГО предела endpoint/model (SMART D6) + переоценка в рамках run
+    # (T-4605/T-4612; единая orchestration-политика).
     _status = _http_status_of(primary_exc)
-    if _status in (400, 404, 413):
+    if _status in (400, 404, 413, 422):
         try:
             from services import model_capacity as _mc
             base_for_cap = (str(getattr(slot, "base_url", "") or "")
                             if slot is not None
                             and bool(getattr(slot, "dedicated", False))
                             else str(getattr(llm, "_base_url", "") or ""))
-            invalidated = _mc.invalidate_runtime_capacity(
-                base_for_cap, model, reason="runtime_context_error")
+            info, recovery = _mc.note_context_overflow(
+                primary_exc, base_url=base_for_cap, model=model,
+                output_reserve_tokens=_reserve_for_operation(state.operation))
+            proven_recorded = bool(info is not None and info.limit_tokens)
+            if proven_recorded:
+                # proven_limit уже записан внутри note_context_overflow;
+                # кэш этого endpoint/model инвалидирован там же.
+                invalidated = 1
+            else:
+                invalidated = _mc.invalidate_runtime_capacity(
+                    base_for_cap, model, reason="runtime_context_error")
             try:
                 from services import pipeline_events
+                if recovery is None:
+                    _reason = "capacity_cache_invalidated"
+                elif recovery.uncertain:
+                    _reason = "context_overflow_uncertain"
+                else:
+                    _reason = "context_overflow_recovery"
+                counts = {"reason": _reason,
+                          "http_status": _status,
+                          "invalidated": int(invalidated or 0),
+                          "supervised": True}
+                if info is not None:
+                    counts["proven_limit"] = int(info.limit_tokens or 0)
+                    counts["overflow_code"] = str(info.code or "")[:48]
+                if recovery is not None:
+                    counts.update(recovery.as_event_counts())
+                elif info is not None and info.limit_tokens:
+                    counts["recovery"] = "budget_exhausted_no_retry"
                 pipeline_events.capacity_resolved(
                     str(correlation_id or "run"), chat_id=chat_id,
                     provider=_provider_host(base_for_cap) or None,
-                    model=model or None,
-                    counts={"reason": "capacity_cache_invalidated",
-                            "http_status": _status,
-                            "invalidated": int(invalidated or 0),
-                            "supervised": True})
+                    model=model or None, counts=counts)
             except Exception:      # pragma: no cover
                 pass
             logger.info(
-                "SUMMARY supervisor: capacity invalidated (runtime %d) | "
-                "op=%s | model=%s", _status, operation, model)
+                "SUMMARY supervisor: capacity updated (runtime %d) | "
+                "op=%s | model=%s | proven_limit=%s | recovery=%s",
+                _status, operation, model,
+                getattr(info, "limit_tokens", None),
+                bool(recovery))
         except Exception:      # pragma: no cover - fail-open
             pass
+
     # ── Fallback-решение Supervisor'а (§27) ────────────────────────────────
     state.reason = state.reason or _reason_of(primary_exc)
     _record_fail(state, provider=state.provider, model=model,

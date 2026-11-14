@@ -134,6 +134,7 @@ from services.chat_prompts import (
 from services.dossier_prompts import format_dossier_block
 from services.llm_client import (
     LLMBadResponseError,
+    LLMContextOverflowError,
     LLMError,
     LLMServerError,
     LLMTimeoutError,
@@ -9361,6 +9362,68 @@ class DirectChatService:
             return _l2_cont.TextCompletion(
                 await self.llm.generate(msgs, step=step, **_call_kwargs))
 
+        async def _recover_l2_overflow(exc, messages):
+            """SMART D6: РОВНО одна пересборка L2 в доказанном пределе.
+
+            Предел уже извлечён из структурированной ошибки и записан
+            ``model_capacity.note_context_overflow`` (вызов в ``llm_client``),
+            кэш этого endpoint/model инвалидирован. Здесь payload
+            пересобирается существующим L2-репаком (защищены запрос и
+            обязательный tool evidence) под ``recovery.budget_tokens`` и
+            отправляется ОДИН раз. Нет плана/бюджета, лимит не раскрыт →
+            ``None``: прежняя обработка ошибки, без 16384 и без платных
+            повторов. Ошибка восстановления не маскируется — исходная
+            context-overflow остаётся причиной, детали в логе."""
+            plan = getattr(exc, "context_recovery", None)
+            try:
+                budget = int(getattr(plan, "budget_tokens", 0) or 0)
+            except (TypeError, ValueError):
+                budget = 0
+            if budget <= 0:
+                return None
+            try:
+                adapter = _dx.build_l2_fallback_adapter(
+                    system=verbalizer_system,
+                    parts=[p for p in (list(parts)
+                                       + ([_closing] if _closing else ()))
+                           if not str(p).startswith("<Tool_Evidence>")],
+                    evidence=evidence, query=query,
+                    fallback_budget_tokens=budget,
+                    on_capacity_reason=lambda reason: (
+                        _l1.record_l1_diagnostics(
+                            chat_id, l2_capacity_reason=str(reason))))
+                recovered = adapter({"messages": messages}) or {}
+                recovered_messages = recovered.get("messages") or messages
+                _info = getattr(exc, "context_info", None)
+                # Q6/UR-F: вариант payload'а обязан описывать ТЕЛО, которое
+                # реально ушло модели, — иначе receipt/инспектор показывали бы
+                # primary-текст вместо восстановленного.
+                try:
+                    _prep = _prepared_rebased(
+                        primary_prepared, _sent_user_text(recovered),
+                        budget={"slot": "direct.primary",
+                                "budget": int(budget),
+                                "policy_mode": "context_overflow_recovery"})
+                    if _prep is not None:
+                        _l2_binding["prepared"] = _prep
+                    _l2_binding["prepared_text"] = _sent_user_text(recovered)
+                except Exception:
+                    logger.debug("direct: recovery prepared rebase failed",
+                                 exc_info=True)
+                logger.warning(
+                    "direct: L2 context-overflow recovery | chat=%s | "
+                    "proven_limit=%s | budget=%d | attempt=1",
+                    chat_id, getattr(_info, "limit_tokens", None), budget)
+                _l1.record_l1_diagnostics(
+                    chat_id, l2_context_recovery_tokens=int(budget))
+                return await _call_l2(recovered_messages,
+                                      step="l2_recovery")
+            except Exception:
+                logger.warning(
+                    "direct: L2 context-overflow recovery failed — исходная "
+                    "ошибка сохраняется | chat=%s", chat_id, exc_info=True)
+                return None
+
         #: §7: что ФАКТИЧЕСКИ вернул автор (raw final) и метаданные завершения.
         #: Нужно для digest'а raw_final и классификации LLM-вызовов; сырой
         #: текст живёт только в этом замыкании и в digest не сохраняется.
@@ -9370,6 +9433,19 @@ class DirectChatService:
             _fallbacks_before = _llm_fallbacks_total()
             try:
                 completion = await _call_l2(messages, step="l2_writer")
+            except LLMContextOverflowError as _ovf:
+                # SMART D6: ёмкость уже обновлена; здесь — ограниченное
+                # восстановление. Плана нет → прежний честный отказ.
+                completion = await _recover_l2_overflow(_ovf, messages)
+                if completion is None:
+                    if _expr_rendered:
+                        _expression_diag("provider_limitation",
+                                         chat_id=chat_id, stage="l2_writer",
+                                         detail="context_overflow",
+                                         mode=_expr_mode)
+                        if diag_out is not None:
+                            diag_out["provider_error"] = True
+                    raise
             except Exception:
                 # §6 `provider_limitation`: вызов со слоем упал — не
                 # маскируем как «исправлено» (существующие fallback-события

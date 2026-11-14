@@ -1,0 +1,2058 @@
+{
+ "rev": "HEAD",
+ "files": {
+  "services/factcheck_planner.py": {
+   "lines": 2392,
+   "constants": [
+    {
+     "line": 62,
+     "name": "PLANNER_VERSION",
+     "value": "\"fp4\""
+    },
+    {
+     "line": 65,
+     "name": "CLAIM_SEARCH_NOT_ATTEMPTED",
+     "value": "\"not_attempted\""
+    },
+    {
+     "line": 66,
+     "name": "CLAIM_SEARCH_SEARCHED",
+     "value": "\"searched\""
+    },
+    {
+     "line": 67,
+     "name": "CLAIM_SEARCH_SOURCE_READ",
+     "value": "\"source_read\""
+    },
+    {
+     "line": 68,
+     "name": "CLAIM_SEARCH_SOURCE_FAILED",
+     "value": "\"source_failed\""
+    },
+    {
+     "line": 69,
+     "name": "CLAIM_SEARCH_DEADLINE",
+     "value": "\"deadline_exceeded\""
+    },
+    {
+     "line": 70,
+     "name": "CLAIM_SEARCH_PROVIDER_FAILED",
+     "value": "\"provider_failed\""
+    },
+    {
+     "line": 75,
+     "name": "CLAIM_STATUS_VERIFIED",
+     "value": "\"verified\""
+    },
+    {
+     "line": 76,
+     "name": "CLAIM_STATUS_REFUTED",
+     "value": "\"refuted\""
+    },
+    {
+     "line": 77,
+     "name": "CLAIM_STATUS_PARTIAL",
+     "value": "\"partial\""
+    },
+    {
+     "line": 78,
+     "name": "CLAIM_STATUS_NO_RELEVANT_SOURCES",
+     "value": "\"no_relevant_sources\""
+    },
+    {
+     "line": 79,
+     "name": "CLAIM_STATUS_EXACT_NUMBER",
+     "value": "\"evidence_insufficient_for_exact_number\""
+    },
+    {
+     "line": 80,
+     "name": "CLAIM_STATUS_CONFLICTING",
+     "value": "\"evidence_conflicting\""
+    },
+    {
+     "line": 81,
+     "name": "CLAIM_STATUS_SOURCE_EXTRACT",
+     "value": "\"source_extract_failed\""
+    },
+    {
+     "line": 82,
+     "name": "CLAIM_STATUS_PROVIDER_ERROR",
+     "value": "\"provider_error\""
+    },
+    {
+     "line": 83,
+     "name": "CLAIM_STATUS_DEADLINE",
+     "value": "\"deadline_exceeded\""
+    },
+    {
+     "line": 84,
+     "name": "CLAIM_STATUS_SEARCH_NOT_STARTED",
+     "value": "\"search_not_started\""
+    },
+    {
+     "line": 85,
+     "name": "CLAIM_STATUS_CLAIM_UNIDENTIFIED",
+     "value": "\"claim_unidentified\""
+    },
+    {
+     "line": 88,
+     "name": "CLAIM_OUTCOME_CONFIRMED",
+     "value": "\"confirmed\""
+    },
+    {
+     "line": 89,
+     "name": "CLAIM_OUTCOME_REFUTED",
+     "value": "\"refuted\""
+    },
+    {
+     "line": 90,
+     "name": "CLAIM_OUTCOME_PARTIAL",
+     "value": "\"partially_confirmed\""
+    },
+    {
+     "line": 91,
+     "name": "CLAIM_OUTCOME_CONFLICTING",
+     "value": "\"conflicting_evidence\""
+    },
+    {
+     "line": 92,
+     "name": "CLAIM_OUTCOME_INSUFFICIENT",
+     "value": "\"insufficient_evidence\""
+    },
+    {
+     "line": 93,
+     "name": "CLAIM_OUTCOME_TECHNICAL",
+     "value": "\"not_checked_technical\""
+    },
+    {
+     "line": 95,
+     "name": "CLAIM_OUTCOMES",
+     "value": "(CLAIM_OUTCOME_CONFIRMED, CLAIM_OUTCOME_REFUTED,"
+    },
+    {
+     "line": 101,
+     "name": "CLAIM_OUTCOME_TO_VERDICT",
+     "value": "{"
+    },
+    {
+     "line": 111,
+     "name": "CLAIM_OUTCOME_REASON",
+     "value": "{"
+    },
+    {
+     "line": 124,
+     "name": "CLAIM_TYPE_FACT",
+     "value": "\"fact\""
+    },
+    {
+     "line": 125,
+     "name": "CLAIM_TYPE_NUMBER",
+     "value": "\"number\""
+    },
+    {
+     "line": 126,
+     "name": "CLAIM_TYPE_CHANGE",
+     "value": "\"change\""
+    },
+    {
+     "line": 127,
+     "name": "CLAIM_TYPE_CAUSE",
+     "value": "\"cause\""
+    },
+    {
+     "line": 128,
+     "name": "CLAIM_TYPE_QUOTE",
+     "value": "\"quote\""
+    },
+    {
+     "line": 129,
+     "name": "CLAIM_TYPE_FORECAST",
+     "value": "\"forecast\""
+    },
+    {
+     "line": 130,
+     "name": "CLAIM_TYPES",
+     "value": "(CLAIM_TYPE_FACT, CLAIM_TYPE_NUMBER, CLAIM_TYPE_CHANGE,"
+    },
+    {
+     "line": 134,
+     "name": "INTENT_ENTITY_CHECK",
+     "value": "\"entity_check\""
+    },
+    {
+     "line": 135,
+     "name": "INTENT_NUMERIC",
+     "value": "\"numeric_verification\""
+    },
+    {
+     "line": 136,
+     "name": "INTENT_TEMPORAL",
+     "value": "\"temporal_context\""
+    },
+    {
+     "line": 137,
+     "name": "INTENT_ORIGIN",
+     "value": "\"claim_origin\""
+    },
+    {
+     "line": 138,
+     "name": "INTENTS",
+     "value": "(INTENT_ENTITY_CHECK, INTENT_NUMERIC, INTENT_TEMPORAL,"
+    },
+    {
+     "line": 143,
+     "name": "QUERY_PURPOSE_BASE",
+     "value": "\"base\""
+    },
+    {
+     "line": 144,
+     "name": "QUERY_PURPOSE_REFINE",
+     "value": "\"refine\""
+    },
+    {
+     "line": 1284,
+     "name": "FACTCHECK_BUDGET_SECONDS",
+     "value": "120.0"
+    },
+    {
+     "line": 1285,
+     "name": "FACTCHECK_BUDGET_SECONDS_MAX",
+     "value": "600.0"
+    },
+    {
+     "line": 1286,
+     "name": "FACTCHECK_REFINE_CALLS",
+     "value": "24"
+    },
+    {
+     "line": 1287,
+     "name": "FACTCHECK_QUERIES_TOTAL",
+     "value": "64"
+    },
+    {
+     "line": 1288,
+     "name": "FACTCHECK_SEARCH_TEXT_CHARS",
+     "value": "100_000"
+    },
+    {
+     "line": 1289,
+     "name": "FACTCHECK_PAGE_SIZE",
+     "value": "20"
+    },
+    {
+     "line": 1290,
+     "name": "FACTCHECK_CLAIM_PORTION",
+     "value": "32"
+    },
+    {
+     "line": 1291,
+     "name": "FACTCHECK_PRIMARY_FETCHES",
+     "value": "2"
+    },
+    {
+     "line": 1292,
+     "name": "FACTCHECK_EXCERPT_CHARS",
+     "value": "600"
+    },
+    {
+     "line": 1906,
+     "name": "STOP_SUFFICIENT_EVIDENCE",
+     "value": "\"sufficient_evidence\""
+    },
+    {
+     "line": 1907,
+     "name": "STOP_NO_PROGRESS",
+     "value": "\"no_progress\""
+    },
+    {
+     "line": 1908,
+     "name": "STOP_PROVIDERS_UNAVAILABLE",
+     "value": "\"providers_unavailable\""
+    },
+    {
+     "line": 1909,
+     "name": "STOP_BUDGET_EXHAUSTED",
+     "value": "\"budget_exhausted\""
+    },
+    {
+     "line": 1910,
+     "name": "STOP_TECHNICAL_LIMIT",
+     "value": "\"technical_limit\""
+    },
+    {
+     "line": 1911,
+     "name": "STOP_PATHS_EXHAUSTED",
+     "value": "\"paths_exhausted\""
+    },
+    {
+     "line": 1912,
+     "name": "STOP_CANCELLED",
+     "value": "\"cancelled\""
+    },
+    {
+     "line": 1913,
+     "name": "STOP_UNEXPLAINED",
+     "value": "\"unexplained_stop\""
+    },
+    {
+     "line": 1914,
+     "name": "STOP_NOT_STARTED",
+     "value": "\"not_started\""
+    }
+   ],
+   "hot_keys": [
+    {
+     "line": 184,
+     "key": "flags.factcheck_pipeline_v2"
+    },
+    {
+     "line": 1310,
+     "key": "limits.factcheck_retrieval_seconds"
+    },
+    {
+     "line": 1311,
+     "key": "limits.factcheck_retrieval_seconds_max"
+    },
+    {
+     "line": 1312,
+     "key": "limits.factcheck_refine_calls"
+    },
+    {
+     "line": 1313,
+     "key": "limits.factcheck_max_queries_total"
+    },
+    {
+     "line": 1314,
+     "key": "limits.factcheck_search_text_chars"
+    },
+    {
+     "line": 1315,
+     "key": "limits.factcheck_page_size"
+    },
+    {
+     "line": 1316,
+     "key": "limits.factcheck_claim_portion"
+    },
+    {
+     "line": 1317,
+     "key": "limits.factcheck_primary_fetches"
+    },
+    {
+     "line": 1318,
+     "key": "limits.factcheck_excerpt_chars"
+    }
+   ],
+   "literal_slices": [
+    {
+     "line": 427,
+     "slice": 4,
+     "text": "return out[:4]"
+    },
+    {
+     "line": 437,
+     "slice": 3,
+     "text": "return phrases[:3]"
+    },
+    {
+     "line": 446,
+     "slice": 3,
+     "text": "return years[:3]"
+    },
+    {
+     "line": 492,
+     "slice": "_QUERY_MAX_CHARS",
+     "text": "return SearchQuery(text=text[:_QUERY_MAX_CHARS], intent=intent,"
+    },
+    {
+     "line": 749,
+     "slice": 60,
+     "text": "return phrase[:60], ts"
+    },
+    {
+     "line": 761,
+     "slice": 60,
+     "text": "return around.strip()[:60], ts"
+    },
+    {
+     "line": 825,
+     "slice": 3,
+     "text": "if e.lower() not in {t.lower() for t in uterms}][:3]"
+    },
+    {
+     "line": 945,
+     "slice": 4,
+     "text": "terms = list(claim.foreign_terms[:4])"
+    },
+    {
+     "line": 948,
+     "slice": 2,
+     "text": "(list(claim.entities[:2])"
+    },
+    {
+     "line": 949,
+     "slice": 8,
+     "text": "+ _claim_terms(claim.text, limit=6))[:8])"
+    },
+    {
+     "line": 1003,
+     "slice": 3,
+     "text": "if e.lower() not in {t.lower() for t in terms}][:3]"
+    },
+    {
+     "line": 1035,
+     "slice": "_QUERY_MAX_CHARS",
+     "text": "if key == str(claim).lower().strip()[:_QUERY_MAX_CHARS]:"
+    },
+    {
+     "line": 1041,
+     "slice": "max_queries_value",
+     "text": "base_units = units[:max_queries_value]"
+    },
+    {
+     "line": 1050,
+     "slice": 6,
+     "text": "latin = list(unit.foreign_terms[:6])"
+    },
+    {
+     "line": 1051,
+     "slice": 2,
+     "text": "tail_bits = list(unit.metrics[:2])"
+    },
+    {
+     "line": 1053,
+     "slice": 1,
+     "text": "tail_bits.extend(uyears[:1])"
+    },
+    {
+     "line": 1062,
+     "slice": 3,
+     "text": "if e.lower() not in {t.lower() for t in uterms}][:3]"
+    },
+    {
+     "line": 1063,
+     "slice": 10,
+     "text": "base = _expand_terms((uents + uterms)[:10])"
+    },
+    {
+     "line": 1100,
+     "slice": 4,
+     "text": "_add(_make_query(entities or terms[:4], INTENT_ORIGIN,"
+    },
+    {
+     "line": 1105,
+     "slice": 8,
+     "text": "base = _expand_terms((entities + terms)[:8])"
+    },
+    {
+     "line": 1173,
+     "slice": 200,
+     "text": "title = text_lines[0][:200]"
+    },
+    {
+     "line": 1175,
+     "slice": 400,
+     "text": "support = f\"{title}. {snippet}\".strip(\". \")[:400]"
+    },
+    {
+     "line": 1178,
+     "slice": 100,
+     "text": "key = re.sub(r\"\\W+\", \"\", support.lower())[:100]"
+    },
+    {
+     "line": 1724,
+     "slice": 100,
+     "text": "else re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100])"
+    },
+    {
+     "line": 2281,
+     "slice": 100,
+     "text": "re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]"
+    },
+    {
+     "line": 2301,
+     "slice": 100,
+     "text": "r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]] = \\"
+    },
+    {
+     "line": 2307,
+     "slice": 100,
+     "text": "key = ref.url or re.sub(r\"\\W+\", \"\", str(ref.support or \"\").lower())[:100]"
+    }
+   ],
+   "def_defaults": [
+    {
+     "line": 364,
+     "func": "_claim_terms",
+     "args": "text: str, *, limit: int = 8"
+    },
+    {
+     "line": 405,
+     "func": "_expand_terms",
+     "args": "terms: list[str], *, limit: int = 12"
+    },
+    {
+     "line": 540,
+     "func": "_claim_units",
+     "args": "items, claim: str, *, cap: int | None = None"
+    },
+    {
+     "line": 1473,
+     "func": "resolve_factcheck_limits_sync",
+     "args": "chat_id=None"
+    },
+    {
+     "line": 1801,
+     "func": "_normalized_title",
+     "args": "support: str, *, limit: int = 200"
+    }
+   ],
+   "call_args": [
+    {
+     "line": 498,
+     "name": "max_queries",
+     "value": "int | None = None"
+    },
+    {
+     "line": 509,
+     "name": "max_queries",
+     "value": "None``"
+    },
+    {
+     "line": 527,
+     "name": "max_queries",
+     "value": "max_queries"
+    },
+    {
+     "line": 1146,
+     "name": "max_rows",
+     "value": "int = 6"
+    },
+    {
+     "line": 1263,
+     "name": "max_rows_per_query",
+     "value": "int | None = None"
+    },
+    {
+     "line": 1275,
+     "name": "max_rows_per_query",
+     "value": "max_rows_per_query"
+    },
+    {
+     "line": 1340,
+     "name": "refine_calls",
+     "value": "int | None = FACTCHECK_REFINE_CALLS"
+    },
+    {
+     "line": 1394,
+     "name": "refine_calls",
+     "value": "None"
+    },
+    {
+     "line": 1409,
+     "name": "refine_calls",
+     "value": "refine"
+    },
+    {
+     "line": 1620,
+     "name": "refine_calls",
+     "value": "int = 0"
+    },
+    {
+     "line": 1621,
+     "name": "budget_seconds",
+     "value": "float | None = 0.0"
+    },
+    {
+     "line": 1931,
+     "name": "max_rows_per_query",
+     "value": "int | None = None"
+    },
+    {
+     "line": 1932,
+     "name": "budget_seconds",
+     "value": "float | None = None"
+    },
+    {
+     "line": 1933,
+     "name": "refine_calls",
+     "value": "int | None = None"
+    },
+    {
+     "line": 1982,
+     "name": "budget_seconds",
+     "value": "budget"
+    },
+    {
+     "line": 2103,
+     "name": "max_rows",
+     "value": "page_limit"
+    },
+    {
+     "line": 2367,
+     "name": "refine_calls",
+     "value": "counters[\"refine\"]"
+    },
+    {
+     "line": 2368,
+     "name": "budget_seconds",
+     "value": "budget"
+    }
+   ]
+  },
+  "services/temporal_factcheck.py": {
+   "lines": 1545,
+   "constants": [
+    {
+     "line": 58,
+     "name": "TEMPORAL_TZ_RESOLUTION_VERSION",
+     "value": "\"tzr1\""
+    },
+    {
+     "line": 62,
+     "name": "TEMPORAL_PIPELINE_VERSION",
+     "value": "\"tf3\""
+    },
+    {
+     "line": 64,
+     "name": "SOURCE_TYPES",
+     "value": "(\"text\", \"caption\", \"ocr\", \"transcript\", \"url\", \"free_text\")"
+    },
+    {
+     "line": 65,
+     "name": "DATE_SOURCES",
+     "value": "(\"telegram_origin\", \"telegram_message\", \"publication_metadata\","
+    },
+    {
+     "line": 67,
+     "name": "ASSESSMENT_MODES",
+     "value": "(\"contextual\", \"current\", \"historical_truth\","
+    },
+    {
+     "line": 69,
+     "name": "FACTUAL_VERDICTS",
+     "value": "(\"supported\", \"refuted\", \"mixed\", \"insufficient_evidence\")"
+    },
+    {
+     "line": 70,
+     "name": "TEMPORAL_STATUSES",
+     "value": "(\"current\", \"outdated\", \"old_but_valid\","
+    },
+    {
+     "line": 73,
+     "name": "INPUT_KINDS",
+     "value": "(\"command\", \"reply\", \"tool\", \"ui\", \"auto\")"
+    },
+    {
+     "line": 1141,
+     "name": "ANALYST_DIRECTIVE",
+     "value": "("
+    },
+    {
+     "line": 1154,
+     "name": "TEMPORAL_ANALYST_SYSTEM",
+     "value": "("
+    },
+    {
+     "line": 1225,
+     "name": "TEMPORAL_VALIDATOR_SYSTEM",
+     "value": "("
+    }
+   ],
+   "hot_keys": [],
+   "literal_slices": [
+    {
+     "line": 672,
+     "slice": 16,
+     "text": "return \"tcl-\" + uuid.uuid4().hex[:16]"
+    },
+    {
+     "line": 1017,
+     "slice": 12,
+     "text": "chunk.encode(\"utf-8\")).hexdigest()[:12],"
+    },
+    {
+     "line": 1113,
+     "slice": 3,
+     "text": "years_str = \" OR \".join(str(y) for y in years[:3]) if years else \"\""
+    },
+    {
+     "line": 1128,
+     "slice": 200,
+     "text": "envelope.claim_text))[:200])"
+    },
+    {
+     "line": 1431,
+     "slice": 100,
+     "text": "key = re.sub(r\"\\W+\", \"\", block.lower())[:100]"
+    },
+    {
+     "line": 1439,
+     "slice": 512,
+     "text": "\"url\": url_m.group(0)[:512] if url_m else None,"
+    },
+    {
+     "line": 1440,
+     "slice": 1200,
+     "text": "\"support\": block[:1200],"
+    },
+    {
+     "line": 1473,
+     "slice": 1200,
+     "text": "\"support\": support[:1200],"
+    },
+    {
+     "line": 1497,
+     "slice": 16,
+     "text": "run_id = \"tfr-\" + uuid.uuid4().hex[:16]"
+    }
+   ],
+   "def_defaults": [
+    {
+     "line": 1031,
+     "func": "_query_entities",
+     "args": "text: str, *, cap: int = 3"
+    },
+    {
+     "line": 1051,
+     "func": "_semantic_query_text",
+     "args": "text: str, *, limit: int = 200"
+    },
+    {
+     "line": 1325,
+     "func": "parse_publication_date",
+     "args": "html_text, url=None"
+    },
+    {
+     "line": 1380,
+     "func": "fetch_text",
+     "args": "url, _f=_fetcher"
+    }
+   ],
+   "call_args": [
+    {
+     "line": 1067,
+     "name": "max_queries",
+     "value": "int | None = None"
+    },
+    {
+     "line": 1075,
+     "name": "max_queries",
+     "value": "None`"
+    },
+    {
+     "line": 1415,
+     "name": "max_rows",
+     "value": "int = 20"
+    },
+    {
+     "line": 1454,
+     "name": "max_rows",
+     "value": "int = 20"
+    },
+    {
+     "line": 1485,
+     "name": "max_rows",
+     "value": "max_rows"
+    },
+    {
+     "line": 1492,
+     "name": "max_evidence",
+     "value": "int = 20"
+    },
+    {
+     "line": 1541,
+     "name": "max_rows",
+     "value": "max_evidence"
+    }
+   ]
+  },
+  "services/factcheck_service.py": {
+   "lines": 3397,
+   "constants": [
+    {
+     "line": 91,
+     "name": "CRITIQUE_SECTION_KEY",
+     "value": "\"flags.factcheck_critique_section_enabled\""
+    },
+    {
+     "line": 1134,
+     "name": "RETRIEVAL_OK",
+     "value": "\"ok\""
+    },
+    {
+     "line": 1135,
+     "name": "RETRIEVAL_NOT_RUN",
+     "value": "\"not_run\""
+    },
+    {
+     "line": 1136,
+     "name": "RETRIEVAL_BUDGET",
+     "value": "\"budget_exhausted\""
+    },
+    {
+     "line": 1137,
+     "name": "RETRIEVAL_SEARCH_FAILED",
+     "value": "\"search_failed\""
+    },
+    {
+     "line": 1138,
+     "name": "RETRIEVAL_PROCESSING_FAILED",
+     "value": "\"processing_failed\""
+    },
+    {
+     "line": 1139,
+     "name": "RETRIEVAL_INSUFFICIENT",
+     "value": "\"insufficient_evidence\""
+    },
+    {
+     "line": 1143,
+     "name": "RETRIEVAL_NO_RESULTS",
+     "value": "\"no_usable_results\""
+    },
+    {
+     "line": 1478,
+     "name": "CLAIM_STATUS_HUMAN",
+     "value": "{"
+    },
+    {
+     "line": 1794,
+     "name": "NUMBER_TOKEN_RE",
+     "value": "re.compile(r\"\\d+(?:[ \\u00a0\\u202f'.,/-]\\d+)*\")"
+    },
+    {
+     "line": 1799,
+     "name": "NUMBER_UNVALIDATED",
+     "value": "\"factcheck_number_unvalidated\""
+    },
+    {
+     "line": 1802,
+     "name": "NUMERIC_REPORT_NOTE",
+     "value": "("
+    }
+   ],
+   "hot_keys": [
+    {
+     "line": 2158,
+     "key": "limits.factcheck_max_symbols"
+    },
+    {
+     "line": 2158,
+     "key": "limits.factcheck_max_symbols"
+    },
+    {
+     "line": 3109,
+     "key": "limits.factcheck_max_symbols"
+    },
+    {
+     "line": 3109,
+     "key": "limits.factcheck_max_symbols"
+    }
+   ],
+   "literal_slices": [
+    {
+     "line": 479,
+     "slice": "_MAX_ALBUM_ELEMENTS",
+     "text": "for mid in ids[:_MAX_ALBUM_ELEMENTS]:"
+    },
+    {
+     "line": 547,
+     "slice": "element_budget",
+     "text": "ocr_part = ocr_part[:element_budget].rstrip()"
+    },
+    {
+     "line": 554,
+     "slice": "element_budget",
+     "text": "desc_part = desc_part[:element_budget].rstrip()"
+    },
+    {
+     "line": 892,
+     "slice": "_MAX_ALBUM_ELEMENTS",
+     "text": "album_rows = [by_id[key] for key in sorted(by_id)][:_MAX_ALBUM_ELEMENTS]"
+    },
+    {
+     "line": 1031,
+     "slice": "_MAX_ALBUM_ELEMENTS",
+     "text": "if v)[:_MAX_ALBUM_ELEMENTS]"
+    },
+    {
+     "line": 1319,
+     "slice": 160,
+     "text": "str(q)[:160] for q in"
+    },
+    {
+     "line": 1321,
+     "slice": 16,
+     "text": "if known else ())][:16],"
+    },
+    {
+     "line": 1420,
+     "slice": 4,
+     "text": "parts = list(tf.decompose_claim(envelope))[:4]"
+    },
+    {
+     "line": 1450,
+     "slice": 2,
+     "text": "\"evidence_refs\": [rid for _s, rid in scored[:2]],"
+    },
+    {
+     "line": 1498,
+     "slice": 80,
+     "text": "return re.sub(r\"\\s+\", \" \", str(text or \"\").strip().lower())[:80]"
+    },
+    {
+     "line": 1509,
+     "slice": 40,
+     "text": "return key == claim_key or key.startswith(claim_key[:40]) \\"
+    },
+    {
+     "line": 1510,
+     "slice": 40,
+     "text": "or claim_key.startswith(key[:40])"
+    },
+    {
+     "line": 2833,
+     "slice": 24,
+     "text": "% (str(verdict.factual_verdict or \"unknown\")[:24],"
+    },
+    {
+     "line": 2837,
+     "slice": 24,
+     "text": "% (str(verdict.temporal_status or \"unknown\")[:24],"
+    },
+    {
+     "line": 2838,
+     "slice": 32,
+     "text": "str(getattr(env, \"date_source\", \"\") or \"unknown\")[:32],"
+    },
+    {
+     "line": 3366,
+     "slice": 4,
+     "text": "for part in (verdict.parts or ())[:4]:"
+    }
+   ],
+   "def_defaults": [
+    {
+     "line": 198,
+     "func": "_emit_factcheck",
+     "args": "outcome: str, *, level: str = \"INFO\", **fields"
+    },
+    {
+     "line": 1428,
+     "func": "_claim_terms",
+     "args": "text, limit=8"
+    },
+    {
+     "line": 2001,
+     "func": "deterministic_analysis_report",
+     "args": "data: dict, *, sources=("
+    },
+    {
+     "line": 2033,
+     "func": "deterministic_temporal_report",
+     "args": "env, verdict, *, evidence=("
+    }
+   ],
+   "call_args": [
+    {
+     "line": 2671,
+     "name": "max_rows",
+     "value": "_temporal_max_evidence("
+    },
+    {
+     "line": 2692,
+     "name": "max_rows",
+     "value": "_temporal_max_evidence("
+    }
+   ]
+  },
+  "services/factcheck_orchestrator.py": {
+   "lines": 2267,
+   "constants": [
+    {
+     "line": 76,
+     "name": "PIPELINE_VERSION",
+     "value": "\"fcv4\"      # fcv4: P0-FACTCHECK — per-part запросы fp3,"
+    },
+    {
+     "line": 84,
+     "name": "OUTCOME_VERDICT",
+     "value": "\"verdict\"            # вердикт доставлен — кулдаун остаётся"
+    },
+    {
+     "line": 85,
+     "name": "OUTCOME_NO_CLAIM",
+     "value": "\"no_claim\"          # проверяемого ядра нет (после цели)"
+    },
+    {
+     "line": 86,
+     "name": "OUTCOME_AMBIGUOUS",
+     "value": "\"ambiguous\"        # непонятно, что проверять — уточнение"
+    },
+    {
+     "line": 87,
+     "name": "OUTCOME_UNAVAILABLE",
+     "value": "\"unavailable\"    # цель пуста/недоступна — честный ответ"
+    },
+    {
+     "line": 88,
+     "name": "OUTCOME_ERROR",
+     "value": "\"error\"                # сбой поиска/LLM/неожиданный"
+    },
+    {
+     "line": 89,
+     "name": "OUTCOME_BUSY",
+     "value": "\"busy\"                  # нет слота пула (параллельный дубль)"
+    },
+    {
+     "line": 93,
+     "name": "OUTCOME_PENDING",
+     "value": "\"pending\""
+    },
+    {
+     "line": 95,
+     "name": "REFUNDABLE_OUTCOMES",
+     "value": "frozenset({OUTCOME_NO_CLAIM, OUTCOME_AMBIGUOUS,"
+    },
+    {
+     "line": 99,
+     "name": "COOLDOWN_REFUND",
+     "value": "\"refund\""
+    },
+    {
+     "line": 100,
+     "name": "COOLDOWN_KEPT",
+     "value": "\"kept\""
+    },
+    {
+     "line": 253,
+     "name": "SUBJECT_VERSION",
+     "value": "\"cs1\""
+    },
+    {
+     "line": 254,
+     "name": "SUBJECT_ORIGIN_MATERIAL",
+     "value": "\"material\""
+    },
+    {
+     "line": 255,
+     "name": "SUBJECT_ORIGIN_REQUEST",
+     "value": "\"request\""
+    },
+    {
+     "line": 256,
+     "name": "SUBJECT_ORIGIN_MIXED",
+     "value": "\"mixed\""
+    },
+    {
+     "line": 260,
+     "name": "FACTCHECK_SUBJECT_SYSTEM_PROMPT",
+     "value": "\"\"\"\\"
+    },
+    {
+     "line": 1064,
+     "name": "FACTCHECK_RESUME_CONSUMER",
+     "value": "\"factcheck\""
+    }
+   ],
+   "hot_keys": [
+    {
+     "line": 644,
+     "key": "flags.factcheck_pipeline_v2"
+    }
+   ],
+   "literal_slices": [
+    {
+     "line": 366,
+     "slice": 2000,
+     "text": "_subject_norm(material_text)[:2000],"
+    },
+    {
+     "line": 419,
+     "slice": "_SUBJECT_MAX_CHARS",
+     "text": "subject = subject[:_SUBJECT_MAX_CHARS].strip()"
+    },
+    {
+     "line": 798,
+     "slice": "_AMBIG_MAX_CANDIDATES",
+     "text": "chosen = sorted(pool[:_AMBIG_MAX_CANDIDATES], key=lambda row: row[1])"
+    },
+    {
+     "line": 2194,
+     "slice": 8,
+     "text": "(getattr(cov, \"provider_status\", ()) or ())][:8],"
+    }
+   ],
+   "def_defaults": [
+    {
+     "line": 1076,
+     "func": "bind_runtime",
+     "args": "*, db=None, service=None, cache=None"
+    },
+    {
+     "line": 1190,
+     "func": "_dispatch",
+     "args": "intent, states, bot=None"
+    },
+    {
+     "line": 1209,
+     "func": "deliver_deferred_factcheck",
+     "args": "intent, states, bot=None"
+    }
+   ],
+   "call_args": []
+  },
+  "services/factcheck_suitability.py": {
+   "lines": 1272,
+   "constants": [
+    {
+     "line": 78,
+     "name": "GATE_VERSION",
+     "value": "\"fsg1\""
+    },
+    {
+     "line": 81,
+     "name": "CHECKABLE_FACTUAL_CLAIM",
+     "value": "\"checkable_factual_claim\""
+    },
+    {
+     "line": 82,
+     "name": "MIXED_CLAIM",
+     "value": "\"mixed_claim\""
+    },
+    {
+     "line": 83,
+     "name": "SUBJECTIVE_OPINION",
+     "value": "\"subjective_opinion\""
+    },
+    {
+     "line": 84,
+     "name": "PERSONAL_PREDICTION",
+     "value": "\"personal_prediction\""
+    },
+    {
+     "line": 85,
+     "name": "QUESTION_WITHOUT_ASSERTION",
+     "value": "\"question_without_assertion\""
+    },
+    {
+     "line": 86,
+     "name": "JOKE_IRONY",
+     "value": "\"joke_irony\""
+    },
+    {
+     "line": 87,
+     "name": "NONSENSE",
+     "value": "\"nonsense_semantically_incoherent\""
+    },
+    {
+     "line": 88,
+     "name": "INSUFFICIENT_CONTEXT",
+     "value": "\"insufficient_context\""
+    },
+    {
+     "line": 89,
+     "name": "QUOTE_WITHOUT_CLAIM",
+     "value": "\"quote_without_claim\""
+    },
+    {
+     "line": 90,
+     "name": "UNSAFE_OR_UNAVAILABLE_TARGET",
+     "value": "\"unsafe_or_unavailable_target\""
+    },
+    {
+     "line": 91,
+     "name": "CLAIM_TYPES",
+     "value": "(CHECKABLE_FACTUAL_CLAIM, MIXED_CLAIM, SUBJECTIVE_OPINION,"
+    },
+    {
+     "line": 97,
+     "name": "DECISION_CHECKABLE",
+     "value": "\"checkable_in_context\""
+    },
+    {
+     "line": 98,
+     "name": "DECISION_NEEDS_CONTEXT",
+     "value": "\"needs_context\""
+    },
+    {
+     "line": 99,
+     "name": "DECISION_AMBIGUOUS",
+     "value": "\"ambiguous_needs_clarification\""
+    },
+    {
+     "line": 100,
+     "name": "DECISION_NO_CLAIM",
+     "value": "\"no_claim_after_context\""
+    },
+    {
+     "line": 101,
+     "name": "DECISION_CONTEXT_UNAVAILABLE",
+     "value": "\"context_unavailable\""
+    },
+    {
+     "line": 102,
+     "name": "DECISIONS",
+     "value": "(DECISION_CHECKABLE, DECISION_NEEDS_CONTEXT, DECISION_AMBIGUOUS,"
+    },
+    {
+     "line": 106,
+     "name": "SCOPE_NONE",
+     "value": "\"none\""
+    },
+    {
+     "line": 107,
+     "name": "SCOPE_WEB",
+     "value": "\"web\""
+    },
+    {
+     "line": 108,
+     "name": "SCOPE_CHAT",
+     "value": "\"chat_history\""
+    },
+    {
+     "line": 109,
+     "name": "SCOPE_WEB_AND_CHAT",
+     "value": "\"web_and_chat\""
+    },
+    {
+     "line": 128,
+     "name": "ADMISSION_CHECKABLE",
+     "value": "\"checkable\""
+    },
+    {
+     "line": 129,
+     "name": "ADMISSION_NO_IDENTIFIABLE_CLAIM",
+     "value": "\"no_identifiable_claim\""
+    },
+    {
+     "line": 130,
+     "name": "ADMISSION_INSUFFICIENT_CONTEXT",
+     "value": "\"insufficient_context\""
+    },
+    {
+     "line": 131,
+     "name": "ADMISSION_AMBIGUOUS_TARGET",
+     "value": "\"ambiguous_target\""
+    },
+    {
+     "line": 132,
+     "name": "ADMISSION_UNAVAILABLE_TARGET",
+     "value": "\"unavailable_target\""
+    },
+    {
+     "line": 133,
+     "name": "ADMISSION_NOT_APPLIED",
+     "value": "\"gate_not_applied\""
+    }
+   ],
+   "hot_keys": [
+    {
+     "line": 166,
+     "key": "flags.factcheck_suitability_gate"
+    },
+    {
+     "line": 889,
+     "key": "limits.chat_thread_max_depth"
+    },
+    {
+     "line": 889,
+     "key": "limits.chat_thread_max_depth"
+    }
+   ],
+   "literal_slices": [
+    {
+     "line": 758,
+     "slice": 3,
+     "text": "return None, \"ambiguous\", _ids([m for m, _s in scored[:3]])"
+    },
+    {
+     "line": 764,
+     "slice": 3,
+     "text": "return None, \"ambiguous\", _ids(tied[:3])"
+    },
+    {
+     "line": 774,
+     "slice": 3,
+     "text": "return None, \"ambiguous\", _ids(ordered[:3])"
+    }
+   ],
+   "def_defaults": [],
+   "call_args": []
+  },
+  "services/mca_gates.py": {
+   "lines": 2731,
+   "constants": [
+    {
+     "line": 30,
+     "name": "KILL_SWITCHES",
+     "value": "{"
+    },
+    {
+     "line": 498,
+     "name": "W2_GATES",
+     "value": "{"
+    },
+    {
+     "line": 541,
+     "name": "W2_ENV_KEYS",
+     "value": "{"
+    },
+    {
+     "line": 565,
+     "name": "INCIDENT_GATES",
+     "value": "{"
+    },
+    {
+     "line": 588,
+     "name": "MEMORY_GATES",
+     "value": "{"
+    },
+    {
+     "line": 655,
+     "name": "MEMORY_GATE_CATALOG_KEYS",
+     "value": "{"
+    },
+    {
+     "line": 2033,
+     "name": "DREAM_GATE_REASONS",
+     "value": "("
+    },
+    {
+     "line": 2043,
+     "name": "SCHEDULER_GATE_REASONS",
+     "value": "frozenset({"
+    },
+    {
+     "line": 2047,
+     "name": "DEEP_RETRY_CONTENT_EMPTY",
+     "value": "\"content_empty\"   # A: обычный интервал"
+    },
+    {
+     "line": 2048,
+     "name": "DEEP_RETRY_TECH_ERROR",
+     "value": "\"tech_error\"         # B: bounded backoff (Gate 7a)"
+    },
+    {
+     "line": 2049,
+     "name": "DEEP_RETRY_BOOTSTRAP",
+     "value": "\"bootstrap\"           # C: 2 ч / ≤6 сутки, до первой записи"
+    },
+    {
+     "line": 2051,
+     "name": "DEEP_CONTENT_EMPTY_STATUSES",
+     "value": "frozenset({"
+    },
+    {
+     "line": 2056,
+     "name": "DEEP_BOOTSTRAP_INTERVAL_SECONDS",
+     "value": "2 * 3600   # раз в 2 ч"
+    },
+    {
+     "line": 2057,
+     "name": "DEEP_BOOTSTRAP_DAILY_CAP",
+     "value": "6                 # максимум 6/сутки"
+    },
+    {
+     "line": 2694,
+     "name": "W5_GATES",
+     "value": "{"
+    },
+    {
+     "line": 2703,
+     "name": "W5_ENV_KEYS",
+     "value": "{"
+    }
+   ],
+   "hot_keys": [
+    {
+     "line": 1593,
+     "key": "memory.random_enabled"
+    },
+    {
+     "line": 1803,
+     "key": "limits.intent_heartbeat_batch_max"
+    },
+    {
+     "line": 1809,
+     "key": "limits.intent_max_attempts"
+    },
+    {
+     "line": 1815,
+     "key": "limits.intent_candidates_max"
+    },
+    {
+     "line": 1821,
+     "key": "limits.intent_retention_days"
+    },
+    {
+     "line": 1829,
+     "key": "limits.intent_defer_backoff_seconds"
+    }
+   ],
+   "literal_slices": [],
+   "def_defaults": [
+    {
+     "line": 677,
+     "func": "memory_attribution_enabled",
+     "args": "chat_id: int | None = None"
+    },
+    {
+     "line": 710,
+     "func": "memory_maintenance_policy_enabled",
+     "args": "chat_id: int | None = None"
+    },
+    {
+     "line": 736,
+     "func": "memory_identity_enabled",
+     "args": "chat_id: int | None = None"
+    },
+    {
+     "line": 775,
+     "func": "memory_communities_enabled",
+     "args": "chat_id: int | None = None"
+    },
+    {
+     "line": 816,
+     "func": "memory_search_enabled",
+     "args": "chat_id: int | None = None"
+    },
+    {
+     "line": 848,
+     "func": "_env_flag",
+     "args": "name: str, default: bool = True"
+    },
+    {
+     "line": 1373,
+     "func": "progress_stall_seconds",
+     "args": "stage_type: str | None = None"
+    },
+    {
+     "line": 1725,
+     "func": "_intent_catalog_flag",
+     "args": "pg_key: str, default: bool = True"
+    },
+    {
+     "line": 1981,
+     "func": "_int_setting_min",
+     "args": "name: str, default: int, minimum: int = 1"
+    },
+    {
+     "line": 2564,
+     "func": "w2_env_axis",
+     "args": "name: str, default: bool = False"
+    }
+   ],
+   "call_args": []
+  },
+  "services/param_catalog.py": {
+   "lines": 5004,
+   "constants": [
+    {
+     "line": 30,
+     "name": "CATEGORY_PROMPTS",
+     "value": "\"prompts\""
+    },
+    {
+     "line": 31,
+     "name": "CATEGORY_MODELS",
+     "value": "\"models\""
+    },
+    {
+     "line": 32,
+     "name": "CATEGORY_KEYS",
+     "value": "\"keys\""
+    },
+    {
+     "line": 33,
+     "name": "CATEGORY_LIMITS",
+     "value": "\"limits\""
+    },
+    {
+     "line": 34,
+     "name": "CATEGORY_FLAGS",
+     "value": "\"flags\""
+    },
+    {
+     "line": 35,
+     "name": "CATEGORY_REACTIONS",
+     "value": "\"reactions\""
+    },
+    {
+     "line": 36,
+     "name": "CATEGORY_CONTENT",
+     "value": "\"content\""
+    },
+    {
+     "line": 38,
+     "name": "CATEGORY_MEMORY",
+     "value": "\"memory\""
+    },
+    {
+     "line": 41,
+     "name": "CATEGORY_TEMPORAL",
+     "value": "\"temporal\""
+    },
+    {
+     "line": 43,
+     "name": "CATEGORIES",
+     "value": "("
+    },
+    {
+     "line": 60,
+     "name": "SENSITIVITY_SECRET",
+     "value": "\"SECRET_VALUE\""
+    },
+    {
+     "line": 61,
+     "name": "SENSITIVITY_PROMPT_CONTENT",
+     "value": "\"PROMPT_CONTENT\""
+    },
+    {
+     "line": 62,
+     "name": "SENSITIVITY_CONFIG",
+     "value": "\"NON_SECRET_CONFIG\""
+    },
+    {
+     "line": 63,
+     "name": "SENSITIVITY_PUBLIC",
+     "value": "\"PUBLIC_DIAGNOSTIC\""
+    },
+    {
+     "line": 65,
+     "name": "SENSITIVITY_VALUES",
+     "value": "("
+    },
+    {
+     "line": 71,
+     "name": "SENSITIVITY_SOURCE_DECLARED",
+     "value": "\"declared\""
+    },
+    {
+     "line": 72,
+     "name": "SENSITIVITY_SOURCE_DERIVED",
+     "value": "\"legacy_derivation\""
+    },
+    {
+     "line": 103,
+     "name": "MIGRATION_REMOVED",
+     "value": "\"removed\""
+    },
+    {
+     "line": 104,
+     "name": "MIGRATION_RETAINED_TECHNICAL",
+     "value": "\"retained_as_technical\""
+    },
+    {
+     "line": 105,
+     "name": "MIGRATION_RETAINED_EXPLICIT",
+     "value": "\"retained_for_explicit_transform\""
+    },
+    {
+     "line": 106,
+     "name": "MIGRATION_RETAINED_SPECIALIZED",
+     "value": "\"retained_for_specialized_pipe\""
+    },
+    {
+     "line": 107,
+     "name": "MIGRATION_DEPRECATED_COMPAT",
+     "value": "\"deprecated_compat\""
+    },
+    {
+     "line": 109,
+     "name": "MIGRATION_CLASSES",
+     "value": "("
+    },
+    {
+     "line": 302,
+     "name": "LEGACY_REPHRASING_MIGRATION",
+     "value": "("
+    },
+    {
+     "line": 510,
+     "name": "GROUPS",
+     "value": "("
+    },
+    {
+     "line": 3745,
+     "name": "EFFECTIVE_STATUS_META",
+     "value": "{"
+    },
+    {
+     "line": 4109,
+     "name": "REGISTRY",
+     "value": "_build_registry()"
+    },
+    {
+     "line": 4432,
+     "name": "TAB_MOD_SUMMARY",
+     "value": "\"mod_summary\""
+    },
+    {
+     "line": 4433,
+     "name": "TAB_MOD_DIRECT",
+     "value": "\"mod_direct\""
+    },
+    {
+     "line": 4434,
+     "name": "TAB_MOD_FACTCHECK",
+     "value": "\"mod_factcheck\""
+    },
+    {
+     "line": 4435,
+     "name": "TAB_MOD_SEARCH",
+     "value": "\"mod_search\""
+    },
+    {
+     "line": 4436,
+     "name": "TAB_MOD_TRANSCRIBE",
+     "value": "\"mod_transcribe\""
+    },
+    {
+     "line": 4437,
+     "name": "TAB_MOD_VIDEO_SUMMARY",
+     "value": "\"mod_video_summary\""
+    },
+    {
+     "line": 4438,
+     "name": "TAB_MOD_MEDIA_DOWNLOAD",
+     "value": "\"mod_media_download\""
+    },
+    {
+     "line": 4439,
+     "name": "TAB_MOD_WEB",
+     "value": "\"mod_web\""
+    },
+    {
+     "line": 4440,
+     "name": "TAB_MOD_CHECKUP",
+     "value": "\"mod_checkup\""
+    },
+    {
+     "line": 4441,
+     "name": "TAB_MOD_SLEEP",
+     "value": "\"mod_sleep\""
+    },
+    {
+     "line": 4442,
+     "name": "TAB_MOD_NOSTALGIA",
+     "value": "\"mod_nostalgia\""
+    },
+    {
+     "line": 4445,
+     "name": "TAB_MOD_BUDGETS",
+     "value": "\"mod_budgets\""
+    },
+    {
+     "line": 4449,
+     "name": "TAB_MOD_IMAGES",
+     "value": "\"mod_images\""
+    },
+    {
+     "line": 4453,
+     "name": "TAB_MOD_VISION",
+     "value": "\"mod_vision\""
+    },
+    {
+     "line": 4457,
+     "name": "TAB_MOD_INITIATIVE",
+     "value": "\"mod_initiative\""
+    },
+    {
+     "line": 4458,
+     "name": "TAB_LLM_PROVIDERS",
+     "value": "\"llm_providers\""
+    },
+    {
+     "line": 4459,
+     "name": "TAB_PROMPTS",
+     "value": "\"prompts\""
+    },
+    {
+     "line": 4460,
+     "name": "TAB_MEMORY_RAG",
+     "value": "\"memory_rag\""
+    },
+    {
+     "line": 4462,
+     "name": "TAB_PEOPLE_NAMES",
+     "value": "\"people_names\""
+    },
+    {
+     "line": 4463,
+     "name": "TAB_RELATIONS",
+     "value": "\"relations\""
+    },
+    {
+     "line": 4464,
+     "name": "TAB_CHAT_LORE",
+     "value": "\"chat_lore\""
+    },
+    {
+     "line": 4466,
+     "name": "TAB_PERMSOC",
+     "value": "\"permsoc\""
+    },
+    {
+     "line": 4468,
+     "name": "CONFIG_TAB_TITLES",
+     "value": "{"
+    },
+    {
+     "line": 4497,
+     "name": "NAV_MODULES",
+     "value": "\"modules\""
+    },
+    {
+     "line": 4498,
+     "name": "NAV_AI",
+     "value": "\"ai\""
+    },
+    {
+     "line": 4500,
+     "name": "NAV_MEMORY",
+     "value": "\"memory\""
+    },
+    {
+     "line": 4501,
+     "name": "NAV_PERMSOC",
+     "value": "\"permsoc\""
+    },
+    {
+     "line": 4503,
+     "name": "NAV_TITLES",
+     "value": "{"
+    },
+    {
+     "line": 4510,
+     "name": "NAV_ORDER",
+     "value": "(NAV_MODULES, NAV_AI, NAV_MEMORY, NAV_PERMSOC)"
+    },
+    {
+     "line": 4517,
+     "name": "TAB_NAV",
+     "value": "{"
+    },
+    {
+     "line": 4548,
+     "name": "TAB_RULES",
+     "value": "("
+    }
+   ],
+   "hot_keys": [
+    {
+     "line": 1585,
+     "key": "limits.summary_hybrid_context_tokens"
+    },
+    {
+     "line": 1591,
+     "key": "limits.summary_hybrid_context_chars"
+    },
+    {
+     "line": 1595,
+     "key": "limits.summary_hybrid_response_mode"
+    },
+    {
+     "line": 1599,
+     "key": "limits.summary_hybrid_target_chars"
+    },
+    {
+     "line": 1603,
+     "key": "limits.summary_hybrid_target_paragraphs"
+    },
+    {
+     "line": 1606,
+     "key": "limits.summary_hybrid_max_chars"
+    },
+    {
+     "line": 1656,
+     "key": "limits.direct_l1_temperature"
+    },
+    {
+     "line": 1660,
+     "key": "limits.direct_l1_timeout_seconds"
+    },
+    {
+     "line": 1664,
+     "key": "limits.direct_l1_max_output_tokens"
+    },
+    {
+     "line": 1668,
+     "key": "limits.direct_l1_context_tokens"
+    },
+    {
+     "line": 3113,
+     "key": "limits.vision_readiness_wait_seconds"
+    },
+    {
+     "line": 3120,
+     "key": "limits.vision_association_window_seconds"
+    },
+    {
+     "line": 3127,
+     "key": "limits.vision_pending_intent_ttl_seconds"
+    },
+    {
+     "line": 3133,
+     "key": "limits.vision_job_lease_seconds"
+    },
+    {
+     "line": 3139,
+     "key": "limits.vision_queue_wait_seconds"
+    },
+    {
+     "line": 3144,
+     "key": "limits.vision_job_lifetime_seconds"
+    },
+    {
+     "line": 3150,
+     "key": "limits.vision_job_max_recoveries"
+    },
+    {
+     "line": 3155,
+     "key": "limits.vision_job_backoff_base_seconds"
+    },
+    {
+     "line": 3160,
+     "key": "limits.vision_job_backoff_max_seconds"
+    },
+    {
+     "line": 3255,
+     "key": "limits.intent_heartbeat_batch_max"
+    },
+    {
+     "line": 3261,
+     "key": "limits.intent_max_attempts"
+    },
+    {
+     "line": 3267,
+     "key": "limits.intent_candidates_max"
+    },
+    {
+     "line": 3273,
+     "key": "limits.intent_retention_days"
+    },
+    {
+     "line": 3280,
+     "key": "limits.intent_defer_backoff_seconds"
+    },
+    {
+     "line": 3375,
+     "key": "limits.qnd_nostalgia_min_seconds"
+    },
+    {
+     "line": 3384,
+     "key": "limits.qnd_nostalgia_max_seconds"
+    },
+    {
+     "line": 3392,
+     "key": "limits.qnd_initiative_min_seconds"
+    },
+    {
+     "line": 3398,
+     "key": "limits.qnd_initiative_max_seconds"
+    },
+    {
+     "line": 3404,
+     "key": "limits.qnd_cadence_floor_seconds"
+    },
+    {
+     "line": 3410,
+     "key": "limits.qnd_cadence_shape"
+    },
+    {
+     "line": 3417,
+     "key": "limits.qnd_activity_min_factor"
+    },
+    {
+     "line": 3423,
+     "key": "limits.qnd_activity_max_factor"
+    },
+    {
+     "line": 3429,
+     "key": "limits.qnd_activity_target_mps"
+    },
+    {
+     "line": 3437,
+     "key": "limits.qnd_silence_hours"
+    },
+    {
+     "line": 3443,
+     "key": "limits.qnd_silence_factor"
+    },
+    {
+     "line": 3449,
+     "key": "limits.qnd_budget_factor"
+    },
+    {
+     "line": 3455,
+     "key": "limits.qnd_stale_seconds"
+    },
+    {
+     "line": 3463,
+     "key": "limits.qnd_lease_seconds"
+    },
+    {
+     "line": 3469,
+     "key": "limits.qnd_heartbeat_seconds"
+    },
+    {
+     "line": 3476,
+     "key": "limits.qnd_event_debounce_seconds"
+    },
+    {
+     "line": 3483,
+     "key": "limits.qnd_event_min_interval_seconds"
+    },
+    {
+     "line": 3491,
+     "key": "limits.qnd_freshness_horizon_seconds"
+    },
+    {
+     "line": 3498,
+     "key": "limits.qnd_w_relevance"
+    },
+    {
+     "line": 3503,
+     "key": "limits.qnd_w_significance"
+    },
+    {
+     "line": 3508,
+     "key": "limits.qnd_w_activity"
+    },
+    {
+     "line": 3513,
+     "key": "limits.qnd_w_freshness"
+    },
+    {
+     "line": 3518,
+     "key": "limits.qnd_w_memory"
+    },
+    {
+     "line": 3524,
+     "key": "limits.qnd_w_recent"
+    },
+    {
+     "line": 3530,
+     "key": "limits.qnd_publication_theta"
+    },
+    {
+     "line": 3536,
+     "key": "limits.qnd_publication_tau"
+    },
+    {
+     "line": 3542,
+     "key": "limits.qnd_memory_quality_reference"
+    },
+    {
+     "line": 3548,
+     "key": "limits.qnd_nostalgia_publication_min"
+    },
+    {
+     "line": 3555,
+     "key": "limits.qnd_nostalgia_publication_max"
+    },
+    {
+     "line": 3562,
+     "key": "limits.qnd_initiative_publication_min"
+    },
+    {
+     "line": 3568,
+     "key": "limits.qnd_initiative_publication_max"
+    },
+    {
+     "line": 3748,
+     "key": "limits.chat_budget_response_ratio"
+    },
+    {
+     "line": 3751,
+     "key": "limits.chat_lock_max_entries"
+    },
+    {
+     "line": 3757,
+     "key": "limits.chat_style_anchors_count"
+    },
+    {
+     "line": 3760,
+     "key": "limits.chat_style_anchor_max_chars"
+    },
+    {
+     "line": 3763,
+     "key": "limits.chat_budget_anchors_ratio"
+    },
+    {
+     "line": 3776,
+     "key": "limits.chat_timezone"
+    },
+    {
+     "line": 3780,
+     "key": "limits.chat_direct_reply_ttl_days"
+    },
+    {
+     "line": 3785,
+     "key": "limits.chat_context_budget_tokens"
+    },
+    {
+     "line": 3790,
+     "key": "limits.chat_lock_wait_seconds"
+    },
+    {
+     "line": 3795,
+     "key": "limits.smartmodule_concurrency_wait_seconds"
+    },
+    {
+     "line": 3800,
+     "key": "limits.chat_silence_after_cooldowns"
+    },
+    {
+     "line": 3806,
+     "key": "limits.anticliche_max_patterns"
+    },
+    {
+     "line": 4222,
+     "key": "limits.summary_hybrid_response_mode"
+    },
+    {
+     "line": 4271,
+     "key": "limits.deep_sleep_max_paradigms_per_run"
+    },
+    {
+     "line": 4824,
+     "key": "limits.chat_timezone"
+    }
+   ],
+   "literal_slices": [],
+   "def_defaults": [
+    {
+     "line": 4355,
+     "func": "audit_sensitivity",
+     "args": "registry: dict[str, ParamSpec] | None = None"
+    }
+   ],
+   "call_args": []
+  },
+  "config/settings.py": {
+   "lines": 3612,
+   "constants": [
+    {
+     "line": 95,
+     "name": "DEFAULT_KOSTIK_REPLIES",
+     "value": "("
+    },
+    {
+     "line": 187,
+     "name": "LEGACY_REPHRASING_DEPRECATED_ENV",
+     "value": "frozenset({"
+    },
+    {
+     "line": 3565,
+     "name": "APP_VERSION",
+     "value": "\"2.58.199\"   # (13.11.2026): 2.58.199 - Самодиагностика (SELF-DIAG-01), корректива: чекап при провале проверки проводит ограниченное исследование по разрешённым"
+    }
+   ],
+   "hot_keys": [],
+   "literal_slices": [],
+   "def_defaults": [],
+   "call_args": []
+  }
+ }
+}

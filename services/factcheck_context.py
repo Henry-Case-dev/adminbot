@@ -31,6 +31,7 @@ Fail-open: ЛЮБАЯ ошибка сборки → '' (вызывающий п�
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import logging
 import re
@@ -434,8 +435,23 @@ def select_verbatim(ctx: ConversationContext,
 
 # ── Кеш среза (06I.9): версия/диапазон/ID в ключе; новые сообщения → miss. ──
 
+def _claim_digest(claim_text: str | None) -> str:
+    """Кэш-идентичность предмета в срезе контекста (S13 §4.5).
+
+    Срез строится под конкретный предмет (verbatim-выбор существенных
+    фрагментов). Разные предметы одного Telegram-сообщения не должны получать
+    один и тот же срез; одинаковый предмет переиспользует срез (источник —
+    БД-сообщения — при этом не «кэш вердикта»)."""
+    if not claim_text:
+        return ""
+    return hashlib.sha256(
+        normalize_text(str(claim_text)).encode("utf-8", "ignore")
+    ).hexdigest()[:32]
+
+
 def slice_cache_components(ctx: ConversationContext, *,
-                           before: int, after: int) -> dict:
+                           before: int, after: int,
+                           claim_text: str | None = None) -> dict:
     return {
         "version": WIDE_CONTEXT_VERSION,
         "chat_id": ctx.chat_id,
@@ -443,14 +459,18 @@ def slice_cache_components(ctx: ConversationContext, *,
         "trigger": ctx.trigger_tg_message_id,
         "window": [before, after],
         "newest": ctx.newest_message_id,
+        # S13: фактический предмет входит в идентичность кэша среза.
+        "subject": _claim_digest(claim_text),
     }
 
 
 def slice_cache_key(ctx: ConversationContext, *,
-                    before: int, after: int) -> str | None:
+                    before: int, after: int,
+                    claim_text: str | None = None) -> str | None:
     try:
         raw = json.dumps(slice_cache_components(ctx, before=before,
-                                                after=after),
+                                                after=after,
+                                                claim_text=claim_text),
                          ensure_ascii=False, sort_keys=True)
         return build_key(_CACHE_SLUG, normalize_text(raw))
     except Exception:
@@ -459,12 +479,14 @@ def slice_cache_key(ctx: ConversationContext, *,
 
 async def read_slice_cache(cache, ctx: ConversationContext, *,
                            before: int, after: int,
-                           ttl_seconds: int | None = None):
-    """Чтение среза: попадание только при совпадении версии/окна/newest.
-    Никогда не бросает (ошибка кеша → None)."""
+                           ttl_seconds: int | None = None,
+                           claim_text: str | None = None):
+    """Чтение среза: попадание только при совпадении версии/окна/newest и
+    предмета. Никогда не бросает (ошибка кеша → None)."""
     if cache is None:
         return None
-    key = slice_cache_key(ctx, before=before, after=after)
+    key = slice_cache_key(ctx, before=before, after=after,
+                          claim_text=claim_text)
     if key is None:
         return None
     if ttl_seconds is None:
@@ -497,12 +519,14 @@ async def read_slice_cache(cache, ctx: ConversationContext, *,
 
 async def write_slice_cache(cache, ctx: ConversationContext, *,
                             before: int, after: int,
-                            ttl_seconds: int | None = None) -> bool:
+                            ttl_seconds: int | None = None,
+                            claim_text: str | None = None) -> bool:
     """Запись среза (TTL ``limits.factcheck_wide_context_cache_ttl``,
     default 120 с). Никогда не бросает."""
     if cache is None:
         return False
-    key = slice_cache_key(ctx, before=before, after=after)
+    key = slice_cache_key(ctx, before=before, after=after,
+                          claim_text=claim_text)
     if key is None:
         return False
     if ttl_seconds is None:
@@ -595,7 +619,7 @@ async def build_wide_context(db, chat_id: int, *,
         messages=(), window={"before": before, "after": after},
         newest_message_id=newest)
     cached = None if skip_cache_read else await read_slice_cache(
-        cache, probe, before=before, after=after)
+        cache, probe, before=before, after=after, claim_text=claim_text)
     if cached is not None and cached.messages:
         return select_verbatim(cached, claim_text)
     try:
@@ -644,7 +668,8 @@ async def build_wide_context(db, chat_id: int, *,
     ctx = select_verbatim(ctx, claim_text)
     ctx = dataclasses.replace(
         ctx, window={**ctx.window, "verbatim": len(ctx.verbatim_messages)})
-    await write_slice_cache(cache, ctx, before=before, after=after)
+    await write_slice_cache(cache, ctx, before=before, after=after,
+                            claim_text=claim_text)
     return ctx
 
 

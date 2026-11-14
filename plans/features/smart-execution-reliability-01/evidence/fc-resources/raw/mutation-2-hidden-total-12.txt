@@ -1,0 +1,80 @@
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+________________ test_on_deadline_and_query_budget_are_applied ________________
+
+    @pytest.mark.asyncio
+    async def test_on_deadline_and_query_budget_are_applied():
+        limits = _on_limits()
+        assert fsp._budget_seconds(1, limits) == 120.0
+        # ╨░╨┤╨░╨┐╤В╨╕╨▓: +50% ╨▒╨░╨╖╨╛╨▓╨╛╨│╨╛ ╨╖╨░ ╨║╨░╨╢╨┤╤Г╤О ╨┤╨╛╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М╨╜╤Г╤О ╤З╨░╤Б╤В╤М, cap 600
+        assert fsp._budget_seconds(2, limits) == 180.0
+        assert fsp._budget_seconds(40, limits) == 600.0
+
+        # 40 ╤З╨░╤Б╤В╨╡╨╣, ╨▓╤Б╨╡ ╨╖╨░╨┐╤А╨╛╤Б╤Л ╨╜╨╡ ╨┤╨░╤О╤В ╨┐╨╛╨║╤А╤Л╤В╨╕╤П тЖТ 40 ╨▒╨░╨╖╨╛╨▓╤Л╤Е + 24 ╤Г╤В╨╛╤З╨╜╤П╤О╤Й╨╕╤Е,
+        # ╨╛╨▒╤Й╨╕╨╣ ╨▒╤О╨┤╨╢╨╡╤В 64 (╤Г╤В╨╛╤З╨╜╤П╤О╤Й╨╕╨╡ ╨Э╨Х ╤Б╤Г╨╝╨╝╨╕╤А╤Г╤О╤В╤Б╤П ╤Б╨▓╨╡╤А╤Е ╨╜╨╡╨│╨╛).
+        plan = _plan(40)
+        agg = _Agg("╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1")
+        outcome = await fsp.run_retrieval(plan, aggregator=agg, limits=limits)
+>       assert outcome.queries_attempted == 64
+E       AssertionError: assert 12 == 64
+E        +  where 12 = RetrievalOutcome(evidence_map=None, search_text='╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1\n\n╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps:...://t.example/1\n\n╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1',), search_text_total_chars=478, search_text_truncated=False).queries_attempted
+
+tests\test_factcheck_resources.py:153: AssertionError
+________________ test_off_removes_deadline_query_and_char_caps ________________
+
+    @pytest.mark.asyncio
+    async def test_off_removes_deadline_query_and_char_caps():
+        plan = _plan(40)
+        agg = _Agg("╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1")
+        outcome = await fsp.run_retrieval(
+            plan, aggregator=agg, limits=_off_limits())
+        # 40 ╨▒╨░╨╖╨╛╨▓╤Л╤Е + ╨┐╨╛ ╨╛╨┤╨╜╨╛╨╝╤Г ╤Г╤В╨╛╤З╨╜╨╡╨╜╨╕╤О ╨╜╨░ ╤З╨░╤Б╤В╤М: 64 ╨╕ 24 ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨┐╨╛╤В╨╛╨╗╨║╨╕.
+>       assert outcome.queries_attempted == 80
+E       AssertionError: assert 12 == 80
+E        +  where 12 = RetrievalOutcome(evidence_map=None, search_text='╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1\n\n╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps:...://t.example/1\n\n╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В ╤Б╨▓╤С╨║╨╗╨░\nhttps://t.example/1',), search_text_total_chars=478, search_text_truncated=False).queries_attempted
+
+tests\test_factcheck_resources.py:210: AssertionError
+______________ test_off_saved_budget_does_not_enforce_end_to_end ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D611E53290>
+
+    @pytest.mark.asyncio
+    async def test_off_saved_budget_does_not_enforce_end_to_end(monkeypatch):
+        """╨б╨╛╤Е╤А╨░╨╜╤С╨╜╨╜╤Л╨╡ 10 ╤Б / 12 ╨╖╨░╨┐╤А╨╛╤Б╨╛╨▓ / 8000 ╤Б╨╕╨╝╨▓╨╛╨╗╨╛╨▓ ╨╜╨╡ ╨╛╨│╤А╨░╨╜╨╕╤З╨╕╨▓╨░╤О╤В
+        ╨╕╤Б╤Б╨╗╨╡╨┤╨╛╨▓╨░╨╜╨╕╨╡ ╨┐╤А╨╕ master OFF тАФ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛ ╨╜╨░ ╤А╨╡╨░╨╗╤М╨╜╨╛╨╝ run_retrieval."""
+        async def fake_read(key, *, chat_id=None, default=None):
+            return {
+                "limits.factcheck_retrieval_seconds": (10.0, "chat"),
+                "limits.factcheck_retrieval_seconds_max": (45.0, "chat"),
+                "limits.factcheck_refine_calls": (3, "chat"),
+                "limits.factcheck_max_queries_total": (12, "chat"),
+                "limits.factcheck_search_text_chars": (8000, "chat"),
+                "limits.factcheck_page_size": (4, "chat"),
+                "limits.factcheck_claim_portion": (8, "chat"),
+                "limits.factcheck_primary_fetches": (2, "chat"),
+                "limits.factcheck_excerpt_chars": (600, "chat"),
+            }[key]
+
+        async def fake_budgets(chat_id=None):
+            return budget_gate.BudgetState(
+                enabled=False, source="chat", chat_id=chat_id, known=True)
+
+        monkeypatch.setattr(
+            "services.worker_settings.resolve_setting_with_source", fake_read)
+        monkeypatch.setattr(budget_gate, "resolve_budgets", fake_budgets)
+
+        limits = await fsp.resolve_factcheck_limits(CHAT)
+        outcome = await fsp.run_retrieval(
+            _plan(40), aggregator=_Agg("╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В\nhttps://t.example/1"),
+            limits=limits)
+        assert outcome.budget_seconds is None
+>       assert outcome.queries_attempted == 80
+E       AssertionError: assert 12 == 80
+E        +  where 12 = RetrievalOutcome(evidence_map=None, search_text='╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В\nhttps://t.example/1\n\n╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В\nhttps://t.example/1\...\nhttps://t.example/1\n\n╨С╨╛╤А╤Й ╤А╨╡╤Ж╨╡╨┐╤В\nhttps://t.example/1',), search_text_total_chars=394, search_text_truncated=False).queries_attempted
+
+tests\test_factcheck_resources.py:408: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_resources.py::test_on_deadline_and_query_budget_are_applied
+FAILED tests/test_factcheck_resources.py::test_off_removes_deadline_query_and_char_caps
+FAILED tests/test_factcheck_resources.py::test_off_saved_budget_does_not_enforce_end_to_end
+3 failed in 3.01s

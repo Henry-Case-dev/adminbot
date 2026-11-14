@@ -88,7 +88,7 @@ async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
                                  target: types.Message, target_text: str,
                                  user_hint: str | None,
                                  forward_source: str | None,
-                                 publication=None) -> str:
+                                 publication=None, subject=None) -> str:
     """CFG-06 W3 (06H.2): все входы → один run_factcheck. Кулдаун/пустой
     таргет — выше по контракту; ошибки — те же семантики фраз внутри
     оркестратора.
@@ -127,7 +127,8 @@ async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
         requester_name=str(getattr(requester, "first_name", "") or ""),
         default_mode=str(default_mode or "contextual"))
     return await orchestrator.run_factcheck(req, service=_service, db=_db,
-                                            bot=bot, publication=publication)
+                                            bot=bot, publication=publication,
+                                            subject=subject)
 
 
 async def _factcheck_temporal(message: types.Message, bot: Bot,
@@ -135,7 +136,8 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                               user_hint: str | None,
                               forward_source: str | None,
                               publication=None,
-                              context_feed: str | None = None) -> str:
+                              context_feed: str | None = None,
+                              subject=None) -> str:
     """MCA-20 ON-путь (D3/D9): один resolver → TemporalClaimEnvelope →
     envelope-пайплайн единого сервиса. Кеш готовых вердиктов удалён
     (P0-FACTCHECK-CORRECTIVE §6): каждое обращение — актуальная проверка.
@@ -182,7 +184,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
         hint=user_hint, claim_text=assembled_claim,
         claim_anchor_tg_message_id=(
             publication.claim_anchor_tg_message_id
-            if publication is not None else None))
+            if publication is not None else None),
+        # S13: единый предмет проверки (уточнение уже учтено); обычный вызов
+        # без уточнения — материал байт-в-байт.
+        subject=subject)
     try:
         default_mode = await _cp_g(
             chat_id, "temporal.default_mode",
@@ -231,7 +236,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                             settings.FACTCHECK_CONTEXT_AFTER),
                     target_tg_message_id=eff_target_tg,
                     trigger_message_id=message.message_id,
-                    claim_text=target_text, user_hint=user_hint,
+                    claim_text=(str(getattr(subject, "text", "") or "")
+                                or target_text),
+                    admission_text=target_text,
+                    user_hint=user_hint,
                     explicit_request=True)
             # Review fix: визуальные описания — контекст к существующему
             # тезису (не доказательства); в тезис они не подмешиваются.
@@ -291,8 +299,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
             else:
                 # envelope_rejected: честное вычисление без кеша (легаси
                 # сервис, временные метаданные не подставляются).
+                # S13: проверяется установленный предмет, не «сырая» цель.
                 verdict = await _service.check_claim(
-                    target_text, user_hint, forward_source, chat_id=chat_id,
+                    (str(getattr(subject, "text", "") or "") or target_text),
+                    user_hint, forward_source, chat_id=chat_id,
                     chat_context=chat_context or None)
                 verdict_text = verdict
             delivered_text = _with_publication_notice(verdict_text,
@@ -352,6 +362,7 @@ async def _fetch_context_with_gate(
         chat_id: int, before: int, after: int, *,
         target_tg_message_id=None, trigger_message_id=None,
         claim_text: str | None = None,
+        admission_text: str | None = None,
         user_hint: str | None = None,
         explicit_request: bool = False):
     """Контекст + W2 suitability gate (06B.1: один гейт для обоих маршрутов).
@@ -362,7 +373,12 @@ async def _fetch_context_with_gate(
     06J.1) на ConversationContext из W1; возврат (фид, решение).
 
     ``explicit_request`` (ASAP-FC-ADMISSION-01 §2.1) — явная команда
-    «фактчек»: гейт не превращает сомнение классификатора в отказ."""
+    «фактчек»: гейт не превращает сомнение классификатора в отказ.
+
+    S13: ``claim_text`` — установленный предмет проверки (кэш-идентичность
+    среза контекста), ``admission_text`` — материал для решения гейта. Это
+    разные сущности: допуск оценивает материал/запрос, а verbatim-выбор
+    контекста собирается под предмет."""
     from services import factcheck_context as _fcx
     from services import factcheck_suitability as _fsg
     if not (_fcx.wide_context_enabled()
@@ -372,11 +388,13 @@ async def _fetch_context_with_gate(
             trigger_message_id=trigger_message_id, claim_text=claim_text),
             None)
     decision, ctx = await _fsg.evaluate_with_expansion(
-        _db, chat_id, claim_text=claim_text or "", user_hint=user_hint,
+        _db, chat_id, claim_text=admission_text or claim_text or "",
+        user_hint=user_hint,
         target_tg_message_id=target_tg_message_id,
         trigger_tg_message_id=trigger_message_id,
         cache=get_smart_cache(),
-        explicit_request=explicit_request)
+        explicit_request=explicit_request,
+        subject_text=claim_text)
     feed = ctx.render_feed() if ctx is not None else ""
     logger.info("[factcheck] suitability gate | chat=%s | decision=%s | "
                 "type=%s | scope=%s | items=%d | conf=%.2f | reason=%s | "
@@ -613,6 +631,61 @@ async def _settle_cooldown(chat_id: int, user_id: int, outcome: str | None
 
 _FACTCHECK_TRIGGER_RE = re.compile(r"^фактчек\b", re.IGNORECASE)   # слово целиком («фактчекинг» НЕ матчится)
 _HINT_LEAD_RE = re.compile(r"^[\s,:;]+")
+
+
+def _material_author_name(target: types.Message, publication=None) -> str:
+    """Имя автора ИСХОДНОГО материала (не автора запроса).
+
+    Для subject-контракта важно не перепутать: пользовательский вопрос не
+    становится цитатой автора материала. Здесь только уже известные поля
+    Telegram/публикации, без догадок."""
+    name = (str(getattr(publication, "claim_anchor_author", "") or "")
+            if publication is not None else "")
+    if not name and publication is not None:
+        name = str(getattr(publication, "forward_source", "") or "")
+    if not name and target is not None:
+        sender = (getattr(target, "from_user", None)
+                  or getattr(target, "sender_chat", None))
+        name = (str(getattr(sender, "first_name", "") or "")
+                or str(getattr(sender, "title", "") or "")
+                or str(getattr(target, "author_signature", "") or ""))
+    return name.strip()
+
+
+async def _resolve_subject(message: types.Message, target: types.Message,
+                           publication, target_text: str,
+                           user_hint: str | None):
+    """S13: один предмет проверки до всех стадий.
+
+    Без текста после команды LLM-вызова нет (material байт-в-байт); с
+    уточнением — существующая семантическая стадия. Никогда не бросает:
+    ошибка резолвера даёт честный material-fallback с сохранённым запросом."""
+    from services import factcheck_orchestrator as orchestrator
+    try:
+        return await orchestrator.resolve_check_subject(
+            _service, material_text=str(target_text or ""),
+            request_text=user_hint,
+            material_author=_material_author_name(target, publication),
+            request_author=str(getattr(getattr(message, "from_user", None),
+                                       "first_name", "") or ""),
+            material_tg_message_id=(
+                getattr(publication, "target_tg_message_id", None)
+                or getattr(target, "message_id", None)),
+            request_tg_message_id=getattr(message, "message_id", None),
+            chat_id=getattr(getattr(message, "chat", None), "id", None))
+    except Exception:          # pragma: no cover — fail-open как в сервисе
+        logger.warning("[factcheck] subject resolve wrapper failed",
+                       exc_info=True)
+        return orchestrator._material_subject(
+            material_text=str(target_text or ""), request_text=user_hint,
+            material_author=_material_author_name(target, publication),
+            request_author=str(getattr(getattr(message, "from_user", None),
+                                       "first_name", "") or ""),
+            material_tg_message_id=(
+                getattr(publication, "target_tg_message_id", None)
+                or getattr(target, "message_id", None)),
+            request_tg_message_id=getattr(message, "message_id", None),
+            resolved_by="fallback", note="wrapper_error")
 
 
 def setup_factcheck(service, db=None) -> None:
@@ -1235,6 +1308,18 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         author = await _transcription_forward_author(message.chat.id, target)
         if author:
             forward_source = author
+    # S13 FACTCHECK-REQUEST-INTEGRITY: ОДИН предмет проверки до всех стадий.
+    # Материал = финальный текст публикации (после законной contextual/
+    # транскрипционной нормализации); запрос = текст после команды целиком.
+    subject = await _resolve_subject(message, target, publication,
+                                     target_text, user_hint)
+    logger.info("[factcheck] subject | chat=%s | origin=%s | by=%s | "
+                "request=%s | form=%s | fp=%s", message.chat.id,
+                getattr(subject, "origin", ""),
+                getattr(subject, "resolved_by", ""),
+                bool(getattr(subject, "request_part", "")),
+                bool(getattr(subject, "form_request", "")),
+                str(getattr(subject, "fingerprint", ""))[:12])
     # P0-FACTCHECK-CORRECTIVE (§6, решение владельца 28.10.2026): legacy
     # Exact Match Cache (`factcheck`) удалён — повторный тезис запускает
     # новую актуальную проверку; защита от повторной отправки того же
@@ -1256,14 +1341,16 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                    else target_text)
         outcome = await _factcheck_pipeline_v2(message, bot, target, v2_text,
                                                user_hint, forward_source,
-                                               publication=publication)
+                                               publication=publication,
+                                               subject=subject)
         await _settle_cooldown(message.chat.id, user_id, outcome)
         return
     if _temporal_on():
         outcome = await _factcheck_temporal(message, bot, target, target_text,
                                             user_hint, forward_source,
                                             publication=publication,
-                                            context_feed=context_feed)
+                                            context_feed=context_feed,
+                                            subject=subject)
         await _settle_cooldown(message.chat.id, user_id, outcome)
         return
     # Раунд N (T-841): слот пула per-chat перед LLM-вызовом check_claim
@@ -1294,7 +1381,10 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                             settings.FACTCHECK_CONTEXT_AFTER),
                     target_tg_message_id=target.message_id,
                     trigger_message_id=message.message_id,
-                    claim_text=target_text, user_hint=user_hint,
+                    claim_text=(str(getattr(subject, "text", "") or "")
+                                or target_text),
+                    admission_text=target_text,
+                    user_hint=user_hint,
                     explicit_request=True)
             # Review fix: описание изображения — контекст, не тезис.
             media_context = publication.material_context()
@@ -1337,7 +1427,8 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 await _settle_cooldown(message.chat.id, user_id, "ambiguous")
                 return
             verdict = await _service.check_claim(
-                target_text, user_hint, forward_source, chat_id=message.chat.id,
+                (str(getattr(subject, "text", "") or "") or target_text),
+                user_hint, forward_source, chat_id=message.chat.id,
                 chat_context=chat_context or None,
             )
             delivered_text = _with_publication_notice(verdict, publication)

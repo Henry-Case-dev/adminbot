@@ -214,6 +214,29 @@ class LLMBadResponseError(LLMError):
     """Malformed JSON or missing content in a 2xx response."""
 
 
+class LLMContextOverflowError(LLMError):
+    """SMART-EXECUTION-RELIABILITY-01 D6: провайдер отверг запрос из-за
+    переполнения контекста (400/413 с structured reason).
+
+    Несёт разобранную причину и план ограниченного восстановления:
+    ``context_info`` (ContextOverflowInfo), ``context_recovery``
+    (ContextRecoveryPlan | None), ``status``, ``body`` (in-memory, обрезанное
+    тело ответа для диагностики — НЕ логируется), ``model``/``base_url``.
+    Ёмкость endpoint/model к этому моменту уже обновлена
+    (`model_capacity.record_proven_limit`), поэтому пересобранный payload
+    считается по доказанному пределу. Наследник LLMError: существующие
+    классификаторы/фолбэки продолжают работать. Текст сообщения — прежний
+    (`LLM HTTP 400: <url>`, B1 ревью D): детали несут тип и атрибуты, а
+    диагностический лог не меняется."""
+
+    status: int | None = None
+    body: str = ""
+    model: str = ""
+    base_url: str = ""
+    context_info = None
+    context_recovery = None
+
+
 class NoApiKeyForChat(LLMError):
     """Раунд 10 (F-7 §5.2): у чата нет своего ключа, а глобальный
     недоступен ('forbidden' — запрет allow_global) или исчерпан ('budget').
@@ -507,6 +530,43 @@ def _sent_max_output_tokens(body: dict) -> int | None:
     except (TypeError, ValueError):
         return None
     return value if value > 0 else None
+
+
+def _context_overflow_exc(err: LLMError, *, status: int,
+                          payload: dict, base_url: str
+                          ) -> LLMContextOverflowError | None:
+    """SMART D6: structured context-overflow → типизированная ошибка.
+
+    Разбор и обновление ёмкости делает существующий `model_capacity`
+    (`note_context_overflow`), сеть не используется, ключи/тело не
+    логируются. Не-контекстная 400/413 → None (прежний LLMError)."""
+    if status not in (400, 413, 422):
+        return None
+    model = str(payload.get("model") or "")
+    try:
+        from services import model_capacity as _mc
+        reserve = None
+        try:
+            reserve = int(payload.get("max_tokens")) \
+                if payload.get("max_tokens") else None
+        except (TypeError, ValueError):
+            reserve = None
+        info, plan = _mc.note_context_overflow(
+            err, base_url=base_url, model=model,
+            output_reserve_tokens=reserve)
+    except Exception:      # pragma: no cover - диагностика не рвёт ошибку
+        logger.debug("LLM context-overflow parse failed", exc_info=True)
+        return None
+    if info is None:
+        return None
+    overflow = LLMContextOverflowError(str(err))
+    overflow.status = status
+    overflow.body = str(getattr(err, "body", "") or "")
+    overflow.model = model or str(info.model or "")
+    overflow.base_url = str(base_url or "")
+    overflow.context_info = info
+    overflow.context_recovery = plan
+    return overflow
 
 
 class LLMClient:
@@ -1216,7 +1276,21 @@ class LLMClient:
                             len(payload.get("messages", [])),
                             response.text[:_BODY_MAX_CHARS],
                         )
-                        raise LLMError(f"LLM HTTP {status}: {url}")
+                        # SMART D6: тело/модель/endpoint доступны in-memory
+                        # (не логируются) — по ним распознаётся context
+                        # overflow и обновляется ФИЗИЧЕСКИЙ предел endpoint.
+                        err = LLMError(f"LLM HTTP {status}: {url}")
+                        err.status = status
+                        err.body = response.text[:4000]
+                        err.model = str(payload.get("model") or "")
+                        err.base_url = base
+                        overflow = _context_overflow_exc(
+                            err, status=status, payload=payload,
+                            base_url=base)
+                        if overflow is not None:
+                            raise overflow
+                        raise err
+
                     logger.info(
                         "LLM request OK | url=%s | status=%d | latency_ms=%.0f | in=%d chars | out=%d chars",
                         url, status, latency_ms, request_len, len(response.content),

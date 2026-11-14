@@ -1,0 +1,26 @@
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 94%]
+python.exe : 
+строка:1 знак:176
++ ... NPATH=$tmp; & "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -m p ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 2 leaked aiosqlite connection(s)
+............                                                             [100%]
+============================== warnings summary ===============================
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+  C:\Users\main\.config\opencode\WorkspaceData\worktrees\09be1fde42dce0c2\smart-execution-reliability-01-45d7d5f19c3b-5192338e\services\search_aggregator.py:945: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+    with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
+
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\proactor_events.py:116: ResourceWarning: unclosed transport <_ProactorSocketTransport fd=2604 read=<_OverlappedFuture cancelled>>
+    _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+228 passed, 3 warnings in 19.80s

@@ -241,6 +241,8 @@ def resolve_attribution(ctx, attribution: AttributionClaim | None
                 return AttributionMatch(
                     author=str(m.author or "").strip(),
                     quote=quote,
+                    # `message_text` — диагностический снимок реплики, НЕ
+                    # evidence (в payload не уходит); цитата (`quote`) полная.
                     message_text=" ".join(
                         str(m.text or "").split())[:400],
                     timestamp=m.timestamp,
@@ -270,13 +272,17 @@ def format_match_stamp(timestamp: int | None) -> str:
 
 def attribution_evidence_ref(match: AttributionMatch) -> EvidenceRef:
     """EvidenceRef атрибуции: support = автор + цитата + дата, url=None
-    (локальный источник, внешней ссылки нет → renderer ссылку не строит)."""
+    (локальный источник, внешней ссылки нет → renderer ссылку не строит).
+
+    S15-FC-EVIDENCE: цитата не режется «старым» лимитом 400 символов — для
+    проверки существенна вся найденная реплика; порцию доставки ограничивает
+    ёмкость фактического маршрута (factcheck_service), а не этот слой."""
     stamp = format_match_stamp(match.timestamp)
     support = f"{match.author}: «{match.quote}»"
     if stamp:
         support = f"{support} [{stamp}]"
     return EvidenceRef(evidence_id="chat-1", url=None,
-                       support=support[:400], source_kind="chat",
+                       support=support, source_kind="chat",
                        published_at=match.timestamp)
 
 

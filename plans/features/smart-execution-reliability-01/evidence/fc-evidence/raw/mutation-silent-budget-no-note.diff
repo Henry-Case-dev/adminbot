@@ -1,0 +1,13 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index c26e9232..5dd4e9ea 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -557,7 +557,7 @@ def _evidence_context_note(retrieval, evidence) -> str:
+     exhausted = bool(getattr(retrieval, "budget_exhausted", False))
+     skipped = int(getattr(retrieval, "fetch_skipped_budget", 0) or 0) \
+         + int(getattr(retrieval, "fetch_skipped_deadline", 0) or 0)
+-    if not exhausted and skipped <= 0:
++    if True:
+         return ""
+     return (
+         "<analysis_context>\n"

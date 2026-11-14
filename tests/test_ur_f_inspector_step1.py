@@ -145,13 +145,39 @@ def _completion(text, finish_reason, correlation_id=None, sent_body=None):
         correlation_id=correlation_id, sent_body=sent_body)
 
 
+def _confirm_small_window(monkeypatch, window_tokens: int) -> None:
+    """SMART D1: маленькое окно модели — ПОДТВЕРЖДЁННОЕ значение резолвера.
+
+    Прежде эти сценарии опирались на удалённый аварийный 16384-fallback
+    неизвестной модели; теперь неизвестная модель планирует 1M, поэтому
+    «тесное окно» задаётся явно на уровне источника окна. Бюджетная
+    арифметика (reserve/policy) остаётся прежней — подменяется только окно."""
+    from services import model_capacity as _mc
+
+    async def _window(base_url, model, slot=None):
+        return (int(window_tokens), "runtime")
+
+    monkeypatch.setattr(dcs._model_capacity, "resolve_stage_window", _window)
+    # Legacy-контур (`resolver_on` OFF): окно берётся из
+    # `resolve_effective_window` прямо в `direct_chat_service`.
+    monkeypatch.setattr(
+        dcs, "resolve_effective_window",
+        lambda primary, fallback=None: (int(window_tokens),
+                                        _mc.WINDOW_SOURCE_FALLBACK))
+
+
 def _drive(monkeypatch, llm, *, text="бот, как дела?", window=None,
-           facts=None):
-    """Продовый ход Direct (композер ON) с РЕАЛЬНОЙ доставкой."""
+           facts=None, model_window=None):
+    """Продовый ход Direct (композер ON) с РЕАЛЬНОЙ доставкой.
+
+    ``model_window`` — подтверждённое окно модели для сценариев, которым нужно
+    сжатие контекста (иначе неизвестная модель планирует 1M, SMART D1)."""
     from config.settings import Settings
     from tests.test_direct_chat import FakeMemory, _bot, _make_service, \
         _message, _user
 
+    if model_window is not None:
+        _confirm_small_window(monkeypatch, int(model_window))
     monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", True)
     monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", True)
     monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
@@ -764,7 +790,8 @@ async def test_thread_compressed_by_allocator_counts_only_rows_in_request(
     `dropped` был пуст. Теперь ids/даты/«вошло» считаются по выжившим строкам
     (та же техника, что у tail/middle), а вырезанное названо причиной."""
     llm = _StagedLLM()
-    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 model_window=16384)
     long_chain = _chain_items(40, chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
@@ -901,7 +928,8 @@ async def test_evicted_quoted_thread_line_reports_no_delivery(
     событие эмитилось на рендере, и телеметрия объявляла доставленной цитату,
     которой в запросе нет (репро ревью)."""
     llm = _StagedLLM()
-    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 model_window=16384)
     chain = _quoted_chain(40, quoted_item_id="tg:740", chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
@@ -1067,7 +1095,8 @@ async def test_identical_quotes_credit_only_the_surviving_item(
     Тест падает, если атрибуция снова начнёт опираться на совпадение текста
     (проверено мутацией): в payload одна аннотация, событий тоже одно."""
     llm = _StagedLLM()
-    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 model_window=16384)
     chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
                         source_id="tg:740", target_id="tg:701")
 
@@ -1114,7 +1143,8 @@ async def test_quote_on_cut_header_line_still_reports_delivery(
     аннотации в собственной строке, а не наличием заголовка, — иначе такой
     ход молчал бы о реально доставленной цитате."""
     llm = _StagedLLM()
-    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 model_window=16384)
     chain = _quoted_chain(40, quoted_item_id="tg:720", chars=800)
 
     async def _fake_chain(chat_id, message, depth=None):
@@ -1152,7 +1182,8 @@ async def test_raw_view_keeps_identity_attribution(monkeypatch, events):
     monkeypatch.setattr(thread_chain, "speech_projection_enabled",
                         lambda: False)
     llm = _StagedLLM()
-    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3))
+    svc, bot, msg, user = _drive(monkeypatch, llm, window=_plain_rows(3),
+                                 model_window=16384)
     chain = _same_quote(_quoted_chain(40, quoted_item_id="tg:740", chars=800),
                         source_id="tg:740", target_id="tg:701")
 
@@ -1421,6 +1452,11 @@ OUTBOUND_CONTEXT_CALLS = {
      "_call_l2", "l2_writer"): "covered:l2_writer",
     ("services/direct_chat_service.py", "_generate",
      "_call_l2", "l2_continuation"): "covered:l2_writer",
+    # SMART D6: ограниченное восстановление L2 после context-overflow. Тот же
+    # собранный контекст хода (цепочка+evidence), payload заменяется целиком;
+    # доставка учтена обёрткой `_l2_write_answer` — `covered:l2_writer`.
+    ("services/direct_chat_service.py", "_recover_l2_overflow",
+     "_call_l2", "l2_recovery"): "covered:l2_writer",
     ("services/direct_chat_service.py", "generate_initiative_reply",
      "self._l2_write_answer", None): "other_entry:initiative",
     ("services/direct_execution.py", "run_adaptive_chain",

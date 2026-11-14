@@ -7,10 +7,14 @@
 
 D1 — источник окна (в порядке приоритета):
   1. env `CHAT_MODEL_CONTEXT_WINDOW` (override, priority above map);
-  2. префикс-матч по карте известных моделей (`MODEL_CONTEXT_WINDOWS`);
-  3. неизвестная модель → env `CHAT_UNKNOWN_MODEL_WINDOW` (default 16384,
-     консервативный fallback) + однократный WARN на модель — источник решения
-     виден в `CONTEXT_CAPACITY` (`window_source`), это НЕ «тихий hidden cap».
+  2. точное совпадение ID модели с реестром (`MODEL_CONTEXT_WINDOWS` /
+     `MODEL_EXACT_WINDOWS`, namespace/suffix/alias нормализуются);
+  3. неизвестная модель → env `CHAT_UNKNOWN_MODEL_WINDOW` (default 1 000 000,
+     SMART-EXECUTION-RELIABILITY-01 stage D1) + однократный WARN на модель —
+     источник решения виден в `CONTEXT_CAPACITY` (`window_source`). Это
+     ПЛАНИРОВОЧНАЯ оценка, НЕ подтверждённая ёмкость провайдера; 16384 как
+     универсальный unknown-fallback удалён. Семейные префиксы
+     (`glm-4`/`deepseek-v4`) НЕ угадывают ёмкость незнакомой модели.
 
 D2 — формула (safety-множитель применяется РОВНО ОДИН раз):
     window         = resolve_model_context_window(model)
@@ -29,14 +33,25 @@ D2 — формула (safety-множитель применяется РОВН
 ASAP-3.1 (round 1028, ADR-1028-3 D1, spec раздел 3) — Model Capacity Resolver.
 Структурированный резолв по реальной тройке `provider/base_url + model`:
 
-  precedence (детерминированный, §4):
+  precedence (SMART-EXECUTION-RELIABILITY-01 stage D2/D3, owner 14.11.2026;
+  детерминированный, §4):
+    0. proven_limit — подтверждённый физический предел фактического
+       endpoint/model (structured context-overflow от провайдера). Выше
+       owner override: override НЕ отменяет доказанный предел (конфликт
+       виден в полях `override_value`/`clamped_by_proven_limit`);
     1. developer_override — `models.chat_context_window_override` > 0
        (hot-first; env-слой — прежний `CHAT_MODEL_CONTEXT_WINDOW`);
+       planning input, confidence=`override` (НЕ provider-verified);
     2. runtime — metadata фактического backend (адаптеры локальных рантаймов);
-    3. provider_catalog — каталог провайдера (класс OpenRouter);
-    4. registry — verified internal registry (наследник MODEL_CONTEXT_WINDOWS);
-    5. fallback — консервативный аварийный путь (<=16384) + WARNING
-       `MODEL_CAPACITY_FALLBACK` + метрика; НИКОГДА не «нормальный путь» (§8).
+    3. provider_catalog — каталог провайдера (класс OpenRouter/NanoGPT);
+    4. verified cache — свежее значение того же provider/base_url/model/route
+       (реализуется `resolve_capacity` до вызова `_resolve_uncached`);
+    5. registry — ТОЧНОЕ совпадение ID с проверенным реестром (namespace/
+       suffix/alias нормализуются; семейный префикс ёмкость не определяет);
+    6. estimated_unknown — планировочные 1 000 000 (не provider-verified).
+  Legacy-контур (kill-switch `MODEL_CAPACITY_RESOLVER_ENABLED=OFF`)
+  сохраняет прежнюю цепочку runtime → catalog → registry(family map) →
+  override → unknown, но unknown-окно — 1M (D1), не 16384.
 
   `effective = min(runtime, provider/model)` (§5); локальный 16K при 128K
   используется полностью. Кэш по ключу provider/base_url/model/override c
@@ -46,8 +61,9 @@ ASAP-3.1 (round 1028, ADR-1028-3 D1, spec раздел 3) — Model Capacity Res
   `invalidate_capacity_cache()` — config reload / explicit refresh.
 
   Kill-switch `MODEL_CAPACITY_RESOLVER_ENABLED` (env-only, default ON):
-  OFF → функции-legacy ниже работают байт-в-байт по-прежнему (карта + env +
-  fallback 16384; прецедент DIRECT_CONTEXT_COMPOSER_ENABLED).
+  OFF → функции-legacy ниже работают прежним контуром (карта + env +
+  unknown-window: 1M estimated, НЕ 16384; прецедент
+  DIRECT_CONTEXT_COMPOSER_ENABLED).
 
   Adapters (Q8, только по реальным классам подключений; fail-open, никогда
   не блокируют резолв — таймаут 2 с, ошибка = «адаптер недоступен»):
@@ -150,12 +166,88 @@ MODEL_CONTEXT_WINDOWS: dict[str, int] = {
 
 # Окно резолвится один раз на процесс (карта/env стабильны в рантайме);
 # WARN «неизвестная модель» — ровно один раз на имя модели.
-_WINDOW_CACHE: dict[str, tuple[int, str]] = {}
+_WINDOW_CACHE: dict[tuple, tuple[int, str]] = {}
 _WARNED_UNKNOWN: set[str] = set()
 
 WINDOW_SOURCE_MAP = "model_map"
 WINDOW_SOURCE_ENV = "env_override"
 WINDOW_SOURCE_FALLBACK = "unknown_fallback"
+
+#: Планировочное окно неизвестной модели (SMART-EXECUTION-RELIABILITY-01 D1):
+#: это ОЦЕНКА, а не подтверждённая провайдером ёмкость. 16384 как
+#: универсальный unknown-fallback удалён — он молча занижал реальные
+#: 128K/1M-модели (инцидент с NanoGPT `z-ai/glm-5.3-flash-uncensored`).
+UNKNOWN_WINDOW_DEFAULT = 1_000_000
+
+#: Точный реестр известных ID моделей. Ключ — ID модели (namespace и
+#: routing-суффиксы нормализуются в `_model_candidates`), поэтому ёмкость
+#: определяется только точным совпадением, а НЕ семейным префиксом
+#: (`glm-4` не даёт ёмкость `glm-5.3-*`). Значения — намеренно заданные
+#: реальные лимиты конкретных моделей, они не перезаписываются 1M.
+MODEL_EXACT_WINDOWS: dict[str, int] = dict(MODEL_CONTEXT_WINDOWS)
+
+#: Routing/вариантные суффиксы, которые провайдеры добавляют к ID модели
+#: (`:free`, `:nitro`, `@provider`); они не меняют ёмкость модели.
+_ROUTING_SUFFIXES = (":free", ":nitro", ":thinking", ":online", ":extended",
+                     ":floor", ":beta")
+
+
+def _model_candidates(model_name: str | None) -> list[str]:
+    """Нормализованные кандидаты ID: полный, basename, без routing-суффикса.
+
+    Namespace провайдера (`z-ai/`) не входит в идентичность модели — каталоги
+    отдают как `z-ai/glm-5.3-flash-uncensored`, так и `glm-5.3-flash-uncensored`.
+    Никаких префиксных/семейных совпадений здесь не появляется."""
+    raw = str(model_name or "").strip().lower().strip("/")
+    if not raw:
+        return []
+    out: list[str] = []
+
+    def _add(value: str) -> None:
+        value = str(value or "").strip().strip("/")
+        if value and value not in out:
+            out.append(value)
+
+    _add(raw)
+    base = raw.rsplit("/", 1)[-1]
+    _add(base)
+    for value in (base, raw):
+        for suffix in _ROUTING_SUFFIXES:
+            if value.endswith(suffix):
+                _add(value[: -len(suffix)])
+        if "@" in value:
+            _add(value.split("@", 1)[0])
+    return out
+
+
+def normalize_model_id(model_name: str | None) -> str:
+    """Канонический ID модели для ключей кэша/сопоставления (lower, basename,
+    без routing-суффикса). Пустое имя → ''. Никогда не бросает."""
+    candidates = _model_candidates(model_name)
+    if not candidates:
+        return ""
+    base = candidates[1] if len(candidates) > 1 else candidates[0]
+    for suffix in _ROUTING_SUFFIXES:
+        if base.endswith(suffix):
+            return base[: -len(suffix)]
+    if "@" in base:
+        return base.split("@", 1)[0]
+    return base
+
+
+def _same_model_id(left: str | None, right: str | None) -> bool:
+    """Совпадение ID с нормализацией namespace/routing-suffix (N1 ревью D).
+
+    Обе стороны сравниваются канонически (`normalize_model_id`): иначе полный
+    ID в кэше и короткий ID в `record_proven_limit`/инвалидации не совпали бы,
+    и устаревший catalog-кэш продолжал бы затенять доказанный предел. Пустые
+    имена сравниваются как прежде (сырой lower) — молча ничего не расширяем.
+    """
+    norm_left = normalize_model_id(left)
+    norm_right = normalize_model_id(right)
+    if norm_left and norm_right:
+        return norm_left == norm_right
+    return str(left or "").strip().lower() == str(right or "").strip().lower()
 
 
 def _env_override_window() -> int | None:
@@ -171,19 +263,25 @@ def _env_override_window() -> int | None:
 
 
 def _unknown_window() -> int:
-    """`CHAT_UNKNOWN_MODEL_WINDOW` (default 16384); мусор → дефолт."""
+    """Планировочное окно неизвестной модели (`CHAT_UNKNOWN_MODEL_WINDOW`).
+
+    Заводское значение — :data:`UNKNOWN_WINDOW_DEFAULT` (1 000 000). Любое
+    отсутствие/ноль/ошибка кастования → 1M, НИКОГДА не 16384 (D1: не
+    оставлять ситуации «в настройках 1M, а helper вернул 16384»)."""
     try:
-        window = int(getattr(settings, "CHAT_UNKNOWN_MODEL_WINDOW", 16384))
-        return window if window > 0 else 16384
+        window = int(getattr(settings, "CHAT_UNKNOWN_MODEL_WINDOW",
+                             UNKNOWN_WINDOW_DEFAULT))
     except Exception:      # pragma: no cover - защитная ветка
-        return 16384
+        return UNKNOWN_WINDOW_DEFAULT
+    return window if window > 0 else UNKNOWN_WINDOW_DEFAULT
 
 
 def _match_model_window(model_name: str) -> int | None:
-    """Префикс-матч по карте (lower-case); longest-prefix приоритет.
+    """LEGACY-путь (§D1): префикс-матч по карте (lower-case, longest-prefix).
 
-    ASAP-3.1: понимает формат `org/model` (OpenAI/OpenRouter-стиль,
-    напр. `deepseek/deepseek-v4.1-flash` → суффикс `deepseek-v4.1-flash`)."""
+    Используется ТОЛЬКО legacy-контуром (kill-switch OFF) и явно помечается
+    `WINDOW_SOURCE_MAP`; в контракте по умолчанию ёмкость так не выводится
+    (см. `_registry_exact_window`)."""
     name = str(model_name or "").strip().lower()
     if not name:
         return None
@@ -202,50 +300,97 @@ def _match_model_window(model_name: str) -> int | None:
     return None
 
 
+def _registry_exact_window(model_name: str) -> int | None:
+    """Точное совпадение ID модели с проверенным реестром (D2, уровень 5).
+
+    Namespace/routing-suffix нормализуются (`_model_candidates`), сам ID
+    сравнивается ПОЛНОСТЬЮ: модель `glm-5.3-flash-uncensored` не получает
+    ёмкость `glm-4` только из-за общего префикса."""
+    for candidate in _model_candidates(model_name):
+        window = MODEL_EXACT_WINDOWS.get(candidate)
+        if window is not None:
+            return int(window)
+    return None
+
+
+def _legacy_model_window(model_name: str) -> tuple[int, str]:
+    """Legacy-контур (kill-switch OFF): env override → семейная карта →
+    планировочное окно. Именно сюда ушло прежнее «16384» — теперь 1M."""
+    override = _env_override_window()
+    if override is not None:
+        return override, WINDOW_SOURCE_ENV
+    mapped = _match_model_window(model_name)
+    if mapped is not None:
+        return mapped, WINDOW_SOURCE_MAP
+    return _unknown_window(), WINDOW_SOURCE_FALLBACK
+
+
 def resolve_model_context_window(model_name: str | None) -> tuple[int, str]:
-    """D1: ``(window, window_source ∈ {model_map, env_override,
-    unknown_fallback})``. Не бросает; результат кэшируется по имени модели
-    (env в рантайме не меняется — hot-перезагрузка этих ClassVar не
-    поддерживается проектом, прецедент `CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS`)."""
+    """Синхронное окно модели: ``(window, window_source)``.
+
+    Контракт по умолчанию (SMART D2): env override → ТОЧНЫЙ реестр →
+    планировочные 1M estimated. Семейные префиксы ёмкость не определяют.
+    Kill-switch OFF → прежний legacy-контур (карта семей + 1M unknown).
+    Кэш per (модель, режим); env в рантайме не меняется (прецедент
+    `CHAT_CONTEXT_UNLIMITED_CEILING_TOKENS`)."""
     name = str(model_name or "").strip()
-    cache_key = name.lower()
+    mode = "legacy" if not capacity_resolver_enabled() else "exact"
+    cache_key = (mode, name.lower())
     cached = _WINDOW_CACHE.get(cache_key)
     if cached is not None:
         return cached
-    override = _env_override_window()
-    if override is not None:
-        result = (override, WINDOW_SOURCE_ENV)
+    if mode == "legacy":
+        result = _legacy_model_window(name)
     else:
-        mapped = _match_model_window(name)
-        if mapped is not None:
-            result = (mapped, WINDOW_SOURCE_MAP)
+        override = _env_override_window()
+        if override is not None:
+            result = (override, WINDOW_SOURCE_ENV)
         else:
-            result = (_unknown_window(), WINDOW_SOURCE_FALLBACK)
-            if name and name.lower() not in _WARNED_UNKNOWN:
-                _WARNED_UNKNOWN.add(name.lower())
-                logger.warning(
-                    "model_capacity: unknown model %r — conservative "
-                    "window=%d (CHAT_UNKNOWN_MODEL_WINDOW); настройте "
-                    "CHAT_MODEL_CONTEXT_WINDOW для точного окна",
-                    name, result[0])
+            mapped = _registry_exact_window(name)
+            if mapped is not None:
+                result = (mapped, WINDOW_SOURCE_MAP)
+            else:
+                result = (_unknown_window(), WINDOW_SOURCE_FALLBACK)
+                if name.lower() not in _WARNED_UNKNOWN:
+                    _WARNED_UNKNOWN.add(name.lower())
+                    logger.warning(
+                        "model_capacity: unknown model %r — planning "
+                        "window=%d (CHAT_UNKNOWN_MODEL_WINDOW, estimated, "
+                        "НЕ provider-verified); точное окно даст каталог "
+                        "провайдера/реестр",
+                        name, result[0])
     _WINDOW_CACHE[cache_key] = result
     return result
 
 
+def _parse_stage_window(model_name: str | None) -> tuple[int, str]:
+    """Внутренний резолв стадии: режим определяется kill-switch один раз."""
+    if not capacity_resolver_enabled():
+        return _legacy_model_window(model_name)
+    return resolve_model_context_window(model_name)
+
+
 def resolve_effective_window(primary_model: str | None,
-                             fallback_model: str | None) -> tuple[int, str]:
-    """D1: для LLM-fallback-модели берётся **min** окно primary/fallback
-    (композер не знает, каким финалом ответит провайдер — conservative).
-    Источник — резолв primary (fallback только сужает; факт сужения виден
-    в сравнении `window` с primary-окном в логе CONTEXT_CAPACITY)."""
-    primary_window, source = resolve_model_context_window(primary_model)
-    name = str(fallback_model or "").strip()
-    if not name:
+                             fallback_model: str | None = None
+                             ) -> tuple[int, str]:
+    """Окно PRIMARY-цепочки (SMART D4: без preemptive-min по fallback).
+
+    Fallback-модель резолвится ОТДЕЛЬНО в момент фактического перехода
+    (`fallback_window_for_model`/`resolve_stage_window`), поэтому маленькое
+    окно резервной модели больше не занижает весь primary-payload заранее.
+    Legacy-контур (kill-switch OFF) сохраняет прежний консервативный min —
+    это rollback-путь без recompose-адаптера."""
+    if not capacity_resolver_enabled():
+        primary_window, source = _legacy_model_window(primary_model)
+        name = str(fallback_model or "").strip()
+        if not name:
+            return primary_window, source
+        fallback_window, _ = _legacy_model_window(name)
+        if 0 < fallback_window < primary_window:
+            return fallback_window, source
         return primary_window, source
-    fallback_window, _ = resolve_model_context_window(name)
-    if fallback_window > 0 and fallback_window < primary_window:
-        return fallback_window, source
-    return primary_window, source
+    return resolve_model_context_window(primary_model)
+
 
 
 # ── D2: формула полного payload (safety-множитель РОВНО ОДИН раз) ───────────
@@ -383,6 +528,19 @@ SOURCE_PROVIDER_CATALOG = "provider_catalog"
 SOURCE_VERIFIED_REGISTRY = "verified_registry"
 SOURCE_REGISTRY = "registry"
 SOURCE_FALLBACK = "fallback"
+#: SMART-EXECUTION-RELIABILITY-01 D2/D6: подтверждённый физический предел
+#: фактического endpoint/model (structured context-overflow от провайдера).
+#: Выше owner override — доказанный предел не переопределяется планированием.
+SOURCE_PROVEN_LIMIT = "proven_limit"
+#: Планировочное окно неизвестной модели (1 000 000): НЕ provider-verified.
+SOURCE_ESTIMATED_UNKNOWN = "estimated_unknown"
+
+CONFIDENCE_VERIFIED = "verified"
+CONFIDENCE_ESTIMATED = "estimated"
+#: Явный owner override: planning input, НЕ подтверждённая ёмкость.
+CONFIDENCE_OVERRIDE = "override"
+CONFIDENCE_FALLBACK = "fallback"
+
 
 # ── ASAP 4.1 (эпик asap-4-1-durable-whole-window-summary, T-4604/T-4605;
 # spec §1 A.2 + ADR-1028-8 D2/AM-2 AMEND ADR-1028-3): решения режима входа
@@ -452,10 +610,34 @@ class CapacityResult:
     runtime_context_window: int | None
     effective_context_window: int
     max_output_tokens: int | None
-    source: str          # developer_override|runtime|provider_catalog|registry|fallback
-    confidence: str      # verified|estimated|fallback
+    source: str          # proven_limit|developer_override|runtime|provider_catalog|
+                         # verified_registry|registry|estimated_unknown|fallback
+    confidence: str      # verified|estimated|override|fallback
     resolved_at: float
     fallback_used: bool
+    # SMART-EXECUTION-RELIABILITY-01 D2: конфликт override ↔ доказанный
+    # физический предел виден потребителю (оба значения + факт клампа).
+    override_value: int | None = None
+    proven_limit: int | None = None
+    clamped_by_proven_limit: bool = False
+
+    def as_window_meta(self) -> dict:
+        """R17-safe поля для событий/логов (без ключей и текста запроса)."""
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "effective_window": self.effective_context_window,
+            "declared_window": self.declared_context_window,
+            "runtime_window": self.runtime_context_window,
+            "max_output_tokens": self.max_output_tokens,
+            "source": self.source,
+            "confidence": self.confidence,
+            "override_value": self.override_value,
+            "proven_limit": self.proven_limit,
+            "clamped_by_proven_limit": bool(self.clamped_by_proven_limit),
+            "fallback_used": bool(self.fallback_used),
+        }
+
 
 
 # ── Метрики §50 (process-local + grep-able `direct_metric name=…`) ─────────
@@ -463,6 +645,7 @@ _CAPACITY_METRICS: dict[str, int] = {
     "capacity_fallback_total": 0,
     "capacity_manual_override_total": 0,
     "capacity_resolved_total": 0,
+    "capacity_proven_limit_total": 0,
 }
 
 
@@ -576,19 +759,11 @@ async def _adapter_openrouter(base_url: str, model: str) -> int | None:
     items = data.get("data") if isinstance(data, dict) else None
     if not isinstance(items, list):
         return None
-    wanted = str(model or "").strip().lower()
-    if not wanted:
+    item = catalog_item_for_model(items, model)
+    if item is None:
         return None
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("id") or "").strip().lower() == wanted:
-            try:
-                window = int(item.get("context_length"))
-            except (TypeError, ValueError):
-                return None
-            return window if window > 0 else None
-    return None
+    return _first_positive_int(item, _CATALOG_CONTEXT_FIELDS)
+
 
 
 # Схема live/public каталога NanoGPT верифицирована по официальным docs
@@ -609,39 +784,104 @@ def _nanogpt_catalog_urls(base_url: str) -> list[str]:
     return urls
 
 
+def _first_positive_int(item: dict, fields) -> int | None:
+    """Первое положительное целое из документированных полей каталога."""
+    for field in fields:
+        try:
+            value = int(item.get(field))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
+
+
+#: Документированные поля ёмкости каталогов (NanoGPT: `context_length`,
+#: `max_output_tokens`; часть ответов отдаёт `max_context_tokens`/
+#: `max_completion_tokens`). Неизвестное поле НЕ угадывается.
+_CATALOG_CONTEXT_FIELDS = ("context_length", "max_context_tokens",
+                           "context_window", "max_input_tokens")
+_CATALOG_OUTPUT_FIELDS = ("max_output_tokens", "max_completion_tokens")
+
+
+def catalog_item_for_model(items: list, model: str) -> dict | None:
+    """Точный item каталога для запрошенной модели (namespace/suffix/alias).
+
+    Порядок (без семейных/префиксных догадок):
+      1. полный нормализованный ID равен одному из кандидатов запроса;
+      2. basename (ID без namespace провайдера) равен кандидату РОВНО у одного
+         item'а — иначе неоднозначно → None (честный miss);
+      3. два разных item'а с одним basename → None.
+    """
+    if not isinstance(items, list):
+        return None
+    wanted = _model_candidates(model)
+    if not wanted:
+        return None
+    exact: list[dict] = []
+    by_base: dict[str, list[dict]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        raw_id = str(item.get("id") or "")
+        candidates = _model_candidates(raw_id)
+        if not candidates:
+            continue
+        if any(cand in wanted for cand in candidates):
+            exact.append(item)
+            continue
+        base = normalize_model_id(raw_id)
+        if base:
+            by_base.setdefault(base, []).append(item)
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        return None                      # несколько вариантов — не гадаем
+    matches: list[dict] = []
+    seen_ids: set[str] = set()
+    for cand in wanted:
+        for item in by_base.get(cand, ()):  # type: ignore[arg-type]
+            item_id = str(item.get("id") or "")
+            if item_id in seen_ids:
+                continue
+            seen_ids.add(item_id)
+            matches.append(item)
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
 async def _adapter_nanogpt_catalog(base_url: str, model: str
                                    ) -> tuple[int, int | None] | None:
-    """Каталог NanoGPT (§53): `(context_length, max_output_tokens | None)`
-    по id; каталог недоступен/модели нет → None (→ registry/fallback с
-    честным source в Analytics). НЕ бросает."""
-    wanted = str(model or "").strip().lower()
+    """Каталог NanoGPT (§53, D3): `(context_length, max_output_tokens | None)`.
+
+    Сопоставление — ТОЛЬКО точное (namespace/suffix/alias нормализуются,
+    `catalog_item_for_model`); каталог недоступен / модели нет / формат
+    неоднозначен → None (→ exact registry или 1M estimated с честным
+    source; выдуманных записей и семейных догадок нет). НЕ бросает."""
+    wanted = str(model or "").strip()
     if not wanted:
         return None
     for url in _nanogpt_catalog_urls(base_url):
         data = await _http_get_json(url)
-        items = data.get("data") if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            continue
+        items = data.get("data")
+        if not isinstance(items, list):
+            items = data.get("models")
         if not isinstance(items, list):
             continue
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("id") or "").strip().lower() != wanted:
-                continue
-            try:
-                window = int(item.get("context_length"))
-            except (TypeError, ValueError):
-                return None          # модель есть, окна нет — честный miss
-            if window <= 0:
-                return None
-            max_output = None
-            try:
-                candidate = int(item.get("max_output_tokens"))
-                if candidate > 0:
-                    max_output = candidate
-            except (TypeError, ValueError):
-                max_output = None
-            return window, max_output
+        item = catalog_item_for_model(items, wanted)
+        if item is None:
+            continue
+        window = _first_positive_int(item, _CATALOG_CONTEXT_FIELDS)
+        if window is None:
+            # Модель есть, документированного окна нет — честный miss
+            # (следующий URL/слой), НЕ 0 и НЕ 16384.
+            continue
+        return window, _first_positive_int(item, _CATALOG_OUTPUT_FIELDS)
     return None
+
 
 
 async def _adapter_llama_cpp(base_url: str, model: str) -> int | None:
@@ -758,13 +998,17 @@ def invalidate_runtime_capacity(base_url: str, model: str,
     (runtime 400/context-length error → переоценка в рамках run;
     spec §7/T-4605; fingerprint/override игнорируются — тройка суверенна).
 
+    N1 ревью D: сравнение ID — каноническое (`_same_model_id`), иначе запись
+    под полным ID (`z-ai/...`) переживала бы инвалидацию по короткому и
+    затеняла доказанный предел.
+
     R17: provider host/model/reason — без ключей/URL-пути."""
     provider_class = detect_provider_class(base_url)
     host = _base_url_host(base_url)
-    name = str(model or "").strip().lower()
+    name = normalize_model_id(model) or str(model or "").strip().lower()
     victim_keys = [key for key in _CACHE
                    if key[0] == provider_class and key[1] == host
-                   and key[2] == name]
+                   and _same_model_id(key[2], model)]
     for key in victim_keys:
         _CACHE.pop(key, None)
     if victim_keys:
@@ -773,6 +1017,431 @@ def invalidate_runtime_capacity(base_url: str, model: str,
             "entries=%d | reason=%s", provider_class, name,
             len(victim_keys), reason)
     return len(victim_keys)
+
+
+# ── D6: подтверждённый физический предел endpoint/model + recovery ──────────
+# Факт «провайдер сказал: не больше N токенов» сильнее любого каталога,
+# кэша и owner override. Хранится process-local по
+# (provider class, host, model, route); это НЕ новая таблица/БД (§K).
+
+
+@dataclass(frozen=True)
+class ProvenLimit:
+    """Зафиксированный физический предел конкретного endpoint/model."""
+
+    provider: str
+    host: str
+    model: str
+    route: str
+    limit_tokens: int
+    max_output_tokens: int | None
+    requested_tokens: int | None
+    reason: str
+    recorded_at: float
+
+
+_PROVEN_LIMITS: dict[tuple, ProvenLimit] = {}
+_PROVEN_LIMITS_MAX = 256
+
+
+def _proven_key(base_url: str, model: str, route: str | None = None) -> tuple:
+    return (detect_provider_class(base_url), _base_url_host(base_url),
+            normalize_model_id(model), str(route or "").strip().lower())
+
+
+def clear_proven_limits() -> int:
+    """Сброс подтверждённых пределов (тесты; смена провайдера/деплоя)."""
+    count = len(_PROVEN_LIMITS)
+    _PROVEN_LIMITS.clear()
+    return count
+
+
+def proven_limit_for(base_url: str, model: str, *, route: str | None = None
+                     ) -> int | None:
+    """Подтверждённый физический предел для пары endpoint/model.
+
+    ``base_url`` пуст → ищем по ID модели (единственное значение); разные
+    пределы разных endpoint'ов не смешиваются (неоднозначно → None)."""
+    model_key = normalize_model_id(model)
+    if not model_key:
+        return None
+    if base_url:
+        entry = _PROVEN_LIMITS.get(_proven_key(base_url, model, route))
+        return entry.limit_tokens if entry is not None else None
+    route_key = str(route or "").strip().lower()
+    found = {entry.limit_tokens for entry in _PROVEN_LIMITS.values()
+             if entry.model == model_key and entry.route == route_key}
+    if len(found) == 1:
+        return next(iter(found))
+    return None
+
+
+def record_proven_limit(base_url: str, model: str, limit_tokens: int, *,
+                        route: str | None = None,
+                        reason: str = "provider_context_overflow",
+                        max_output_tokens: int | None = None,
+                        requested_tokens: int | None = None
+                        ) -> ProvenLimit | None:
+    """Зафиксировать физический предел и сбросить устаревшие окна.
+
+    Только положительное целое; мусор → None (ничего не записываем).
+    Инвалидация: свежий cache value и sync-кэш этого model больше не
+    используются — следующий резолв вернёт `proven_limit`."""
+    try:
+        limit = int(limit_tokens)
+    except (TypeError, ValueError):
+        return None
+    if limit <= 0:
+        return None
+    key = _proven_key(base_url, model, route)
+    entry = ProvenLimit(
+        provider=key[0], host=key[1], model=key[2], route=key[3],
+        limit_tokens=limit,
+        max_output_tokens=(int(max_output_tokens)
+                           if max_output_tokens and int(max_output_tokens) > 0
+                           else None),
+        requested_tokens=(int(requested_tokens)
+                          if requested_tokens and int(requested_tokens) > 0
+                          else None),
+        reason=str(reason or "provider_context_overflow")[:64],
+        recorded_at=time.time())
+    if len(_PROVEN_LIMITS) >= _PROVEN_LIMITS_MAX and key not in _PROVEN_LIMITS:
+        # FIFO-вытеснение: физические факты не растут без предела.
+        oldest = min(_PROVEN_LIMITS, key=lambda k: _PROVEN_LIMITS[k].recorded_at)
+        _PROVEN_LIMITS.pop(oldest, None)
+    _PROVEN_LIMITS[key] = entry
+    # Свежий каталог/кэш мог быть больше доказанного предела.
+    invalidate_runtime_capacity(base_url, model, reason=entry.reason)
+    for cache_key in [k for k in _WINDOW_CACHE
+                      if _same_model_id(k[1], entry.model)]:
+        _WINDOW_CACHE.pop(cache_key, None)
+    _CAPACITY_METRICS["capacity_proven_limit_total"] += 1
+    logger.warning(
+        "MODEL_CAPACITY_PROVEN_LIMIT | provider=%s | model=%s | route=%s | "
+        "limit=%d | requested=%s | reason=%s",
+        entry.provider, entry.model, entry.route or "-", entry.limit_tokens,
+        entry.requested_tokens, entry.reason)
+    return entry
+
+
+#: Структурированные коды провайдеров, означающие «контекст не влез».
+CONTEXT_OVERFLOW_CODES = frozenset({
+    "context_length_exceeded",
+    "context_window_exceeded",
+    "maximum_context_length_exceeded",
+    "context_too_long",
+    "prompt_too_long",
+    "input_too_long",
+    "request_too_large",
+    "string_above_max_length",
+    "too_many_tokens",
+    "max_tokens_exceeded",
+})
+
+#: Текстовые маркеры «контекст не влез» (только при их наличии извлекаем
+#: числа — иначе любая 400-ошибка дала бы ложный предел).
+_CONTEXT_OVERFLOW_HINTS = (
+    "context length", "context window", "maximum context", "context_length",
+    "prompt is too long", "reduce the length of the messages",
+    "too many tokens", "exceeds the context", "input is too long",
+    "request too large", "string_above_max_length",
+)
+
+_LIMIT_TOKEN_PATTERNS = (
+    re.compile(r"maximum context length is\s+([\d][\d,]*)", re.I),
+    re.compile(r"context length of only\s+([\d][\d,]*)", re.I),
+    re.compile(r"max(?:imum)? context (?:length|size|window)\s*"
+               r"(?:is|of|:|=)?\s*([\d][\d,]*)", re.I),
+    re.compile(r"context (?:length|window)\s*(?:is|of|:|=)\s*([\d][\d,]*)"
+               r"\s*tokens", re.I),
+    re.compile(r"limit(?:ed)? (?:is|of|to)?\s*([\d][\d,]*)\s*tokens", re.I),
+    re.compile(r"([\d][\d,]*)\s*tokens?\s*(?:maximum|max)\b", re.I),
+)
+_REQUESTED_TOKEN_PATTERNS = (
+    re.compile(r"you requested\s+([\d][\d,]*)", re.I),
+    re.compile(r"resulted in\s+([\d][\d,]*)", re.I),
+    re.compile(r"requested\s+([\d][\d,]*)\s*tokens", re.I),
+    re.compile(r"prompt(?: is)?\s+too long:\s*([\d][\d,]*)", re.I),
+    re.compile(r"([\d][\d,]*)\s*tokens\s*(?:>|greater than)", re.I),
+)
+_CONTEXT_NUMERIC_FIELDS = ("limit", "context_length", "max_context_tokens",
+                           "context_window", "maximum_context_length",
+                           "max_tokens_allowed")
+_REQUESTED_NUMERIC_FIELDS = ("requested", "requested_tokens", "prompt_tokens",
+                             "input_tokens", "num_tokens", "tokens")
+_OUTPUT_NUMERIC_FIELDS = ("max_output_tokens", "max_completion_tokens",
+                          "max_tokens")
+
+
+def _to_int(value) -> int | None:
+    try:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, str):
+            value = value.replace(",", "").replace("_", "").strip()
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+@dataclass(frozen=True)
+class ContextOverflowInfo:
+    """Разобранная причина context length exceeded (§D6)."""
+
+    code: str
+    structured: bool
+    limit_tokens: int | None
+    requested_tokens: int | None
+    max_output_tokens: int | None
+    model: str
+    detail: str
+
+
+def _error_payloads(exc: BaseException) -> list:
+    """Возможные носители структурированной ошибки у исключения (in-memory).
+
+    `body` прикладывает `llm_client` для 4xx (обрезанный, НЕ логируется);
+    `args`/`str(exc)` — текст; `error_body`/`payload` — словари адаптеров."""
+    payloads: list = []
+    for attr in ("error_body", "payload", "body"):
+        value = getattr(exc, attr, None)
+        if value is None:
+            continue
+        if isinstance(value, bytes):
+            try:
+                value = value.decode("utf-8", "replace")
+            except Exception:      # pragma: no cover - защитная ветка
+                continue
+        if isinstance(value, (dict, list, str)):
+            payloads.append(value)
+    for value in getattr(exc, "args", ()) or ():
+        if isinstance(value, (dict, str)):
+            payloads.append(value)
+    return payloads
+
+
+def _iter_error_dicts(payload) -> list[dict]:
+    """Найти словари ошибки в т.ч. внутри JSON-строк и вложенных `error`."""
+    out: list[dict] = []
+    stack = [payload]
+    while stack and len(out) < 8:
+        node = stack.pop()
+        if isinstance(node, str):
+            text = node.strip()
+            if text.startswith("{") or text.startswith("["):
+                try:
+                    import json
+                    node = json.loads(text)
+                except Exception:
+                    continue
+            else:
+                continue
+        if isinstance(node, list):
+            stack.extend(node[:4])
+            continue
+        if not isinstance(node, dict):
+            continue
+        out.append(node)
+        for key in ("error", "details", "data", "response", "innererror"):
+            child = node.get(key)
+            if isinstance(child, (dict, list)):
+                stack.append(child)
+    return out
+
+
+def parse_context_overflow_error(exc: BaseException, *,
+                                 text: str | None = None
+                                 ) -> ContextOverflowInfo | None:
+    """Разобрать структурированную ошибку провайдера «context exceeded».
+
+    Возвращает `ContextOverflowInfo` только если есть маркер переполнения
+    контекста (код или фраза). Числа берутся из структурированных полей,
+    затем из текста; отсутствующее число остаётся None (uncertain) — мы НЕ
+    выдумываем ёмкость. Никогда не бросает и не ходит в сеть."""
+    try:
+        payloads = _error_payloads(exc)
+        if text:
+            payloads.append(text)
+        payloads.append(str(exc))
+        code = ""
+        model = ""
+        limit = None
+        requested = None
+        max_output = None
+        structured = False
+        detail = ""
+        blobs: list[str] = []
+        for payload in payloads:
+            if isinstance(payload, str):
+                blobs.append(payload)
+            for node in _iter_error_dicts(payload):
+                structured = True
+                raw_code = node.get("code") or node.get("type") or ""
+                code = code or str(raw_code or "").strip()
+                if not model:
+                    model = str(node.get("model") or "").strip()
+                for field in _CONTEXT_NUMERIC_FIELDS:
+                    if limit is None:
+                        limit = _to_int(node.get(field))
+                for field in _REQUESTED_NUMERIC_FIELDS:
+                    if requested is None:
+                        requested = _to_int(node.get(field))
+                for field in _OUTPUT_NUMERIC_FIELDS:
+                    if max_output is None:
+                        max_output = _to_int(node.get(field))
+                message = node.get("message")
+                if isinstance(message, str):
+                    blobs.append(message)
+        lowered = " ".join(blobs).lower()
+        code_key = code.lower()
+        hinted = (code_key in CONTEXT_OVERFLOW_CODES
+                  or any(hint in lowered for hint in _CONTEXT_OVERFLOW_HINTS))
+        if not hinted:
+            return None
+        if limit is None:
+            for pattern in _LIMIT_TOKEN_PATTERNS:
+                match = pattern.search(" ".join(blobs).replace(",", ""))
+                if match:
+                    limit = _to_int(match.group(1))
+                    if limit is not None:
+                        break
+        if requested is None:
+            for pattern in _REQUESTED_TOKEN_PATTERNS:
+                match = pattern.search(" ".join(blobs).replace(",", ""))
+                if match:
+                    requested = _to_int(match.group(1))
+                    if requested is not None:
+                        break
+        if not code:
+            code = "context_length_exceeded"
+        detail = (code_key or "context_length_exceeded")[:48]
+        return ContextOverflowInfo(
+            code=code[:48], structured=structured,
+            limit_tokens=limit, requested_tokens=requested,
+            max_output_tokens=max_output,
+            model=model[:96], detail=detail)
+    except Exception:      # pragma: no cover - парсер не рвёт обработку ошибки
+        return None
+
+
+#: Ограниченное восстановление: одна повторная сборка payload на запрос.
+CONTEXT_RECOVERY_MAX_ATTEMPTS = 1
+
+
+@dataclass(frozen=True)
+class ContextRecoveryPlan:
+    """Решение о восстановлении текущего запроса (§D6, bounded)."""
+
+    info: ContextOverflowInfo
+    limit_tokens: int
+    budget_tokens: int
+    output_reserve: int
+    attempt: int
+    max_attempts: int
+    uncertain: bool
+    preserve_tool_evidence: bool
+    reason: str
+
+    def as_event_counts(self) -> dict:
+        return {
+            "reason": self.reason,
+            "limit_tokens": self.limit_tokens,
+            "budget_tokens": self.budget_tokens,
+            "output_reserve": self.output_reserve,
+            "attempt": self.attempt,
+            "max_attempts": self.max_attempts,
+            "uncertain": bool(self.uncertain),
+        }
+
+
+def recovery_budget_tokens(limit_tokens: int, *,
+                           output_reserve_tokens: int = 0,
+                           protocol_reserve_tokens: int = 0) -> int:
+    """Входной бюджет под доказанный предел: `safe_budget(limit − reserves)`.
+
+    Окно — физический предел, max_output — отдельная величина (D5): резерв
+    ответа и protocol overhead вычитаются, но НЕ превращаются в 16384.
+    Никогда не бросает; минимум 1."""
+    try:
+        limit = max(1, int(limit_tokens))
+    except (TypeError, ValueError):
+        return 1
+    try:
+        reserve = max(0, int(output_reserve_tokens or 0))
+    except (TypeError, ValueError):
+        reserve = 0
+    try:
+        protocol = max(0, int(protocol_reserve_tokens or 0))
+    except (TypeError, ValueError):
+        protocol = 0
+    base = max(1, limit - reserve - protocol)
+    return max(1, int(safe_budget(base)))
+
+
+def note_context_overflow(exc: BaseException, *, base_url: str, model: str,
+                          route: str | None = None,
+                          output_reserve_tokens: int | None = None,
+                          protocol_reserve_tokens: int = 0,
+                          attempt: int = 0,
+                          max_attempts: int = CONTEXT_RECOVERY_MAX_ATTEMPTS
+                          ) -> tuple[ContextOverflowInfo | None,
+                                     ContextRecoveryPlan | None]:
+    """Разобрать context-overflow, обновить capacity и дать план recovery.
+
+    * структурированный предел найден → фиксируется как `proven_limit`
+      (выше каталога/override), инвалидируется устаревший кэш;
+    * предел не раскрыт → `uncertain=True`, budget=0: вызывающий идёт
+      существующим адаптивным путём (recompose/fallback), без 16384;
+    * `attempt >= max_attempts` → plan=None (никаких бесконечных платных
+      повторов); info возвращается для наблюдаемости/остановки.
+    Сеть не используется: миллионный probe запрещён (§D6).
+    Никогда не бросает."""
+    info = parse_context_overflow_error(exc)
+    if info is None:
+        return None, None
+    try:
+        target_model = str(model or info.model or "")
+        reserve = 0
+        try:
+            reserve = max(0, int(output_reserve_tokens or 0))
+        except (TypeError, ValueError):
+            reserve = 0
+        if reserve <= 0:
+            reserve = output_reserve_tokens_for_stage()
+        limit = info.limit_tokens or 0
+        if limit <= 0:
+            return info, None if attempt >= max_attempts else ContextRecoveryPlan(
+                info=info, limit_tokens=0, budget_tokens=0,
+                output_reserve=int(reserve or 0),
+                attempt=int(attempt) + 1, max_attempts=int(max_attempts),
+                uncertain=True, preserve_tool_evidence=True,
+                reason="limit_not_disclosed")
+        record_proven_limit(
+            base_url, target_model, limit, route=route,
+            max_output_tokens=info.max_output_tokens,
+            requested_tokens=info.requested_tokens,
+            reason=info.code or "provider_context_overflow")
+        if attempt >= max_attempts:
+            return info, None
+        budget = recovery_budget_tokens(
+            limit, output_reserve_tokens=reserve or 0,
+            protocol_reserve_tokens=protocol_reserve_tokens)
+        return info, ContextRecoveryPlan(
+            info=info, limit_tokens=limit, budget_tokens=budget,
+            output_reserve=int(reserve or 0), attempt=int(attempt) + 1,
+            max_attempts=int(max_attempts), uncertain=False,
+            preserve_tool_evidence=True, reason="proven_limit_recorded")
+    except Exception:      # pragma: no cover - recovery не рвёт обработку
+        return info, None
+
+
+def output_reserve_tokens_for_stage() -> int:
+    """Резерв ответа по умолчанию для recovery (floor 1024).
+
+    max_output — отдельная величина от окна (D5): здесь только минимальный
+    protocol/output-reserve, без процентов «на качество»."""
+    return OUTPUT_RESERVE_FLOOR
 
 
 def _warn_capacity_fallback(result: CapacityResult, base_url: str,
@@ -794,14 +1463,15 @@ async def resolve_capacity(base_url: str, model: str, *,
                            route: str | None = None) -> CapacityResult:
     """Структурированный резолв §3/§4 (async: runtime-адаптеры — HTTP).
 
-    Precedence (ASAP 4.2 Step 2c-1, spec §4/AMEND ADR-1028-8 D2, при
-    `SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED=ON`): developer_override →
-    verified live provider/model metadata → verified route metadata →
-    fresh provider cache → internal registry → conservative unknown.
-    OFF → прежний контур 2.58.47 (runtime → catalog → registry → override →
-    fallback) байт-в-байт. `effective = min(runtime, provider/model)` (§5).
-    Никогда не бросает; `route` входит в cache key (`route/capability
-    fingerprint`): смена route инвалидирует."""
+    Precedence (SMART-EXECUTION-RELIABILITY-01 D2/D6):
+    proven physical limit → developer override (planning input, capped by the
+    proven limit) → runtime metadata → provider catalog → fresh verified
+    cache (этот уровень реализует сам `resolve_capacity`) → exact registry →
+    1M estimated/unknown. OFF-kill-switch → прежний контур 2.58.47
+    (runtime → catalog → registry → override → unknown 1M, не 16384).
+    `effective = min(runtime, exact registry)` для metadata без live
+    precedence; family-префиксы ёмкость не определяют. Никогда не бросает;
+    `route` входит в cache key (смена route инвалидирует)."""
     name = str(model or "").strip()
     provider_class = detect_provider_class(base_url)
     override = _developer_override_window()
@@ -811,24 +1481,25 @@ async def resolve_capacity(base_url: str, model: str, *,
     if cached is not None:
         result, expires_at = cached
         if now < expires_at:
-            # ON: stale family-registry cache не должен занижать live
-            # capability → пере-резолв; fallback кэшируется коротко (300 с)
-            # и остаётся authoritative (не долбить недоступный endpoint).
-            skip_stale_registry = (
+            # ON: stale registry/estimate не должен занижать (или завышать)
+            # live capability → пере-резолв; fallback/estimate кэшируются
+            # коротко (300 с) и не долбят недоступный endpoint.
+            skip_stale = (
                 live_precedence_enabled()
                 and result.source == SOURCE_REGISTRY
                 and provider_class in (PROVIDER_NANOGPT, PROVIDER_OPENROUTER,
                                        PROVIDER_LLAMA_CPP, PROVIDER_OLLAMA))
-            if not skip_stale_registry:
+            if not skip_stale:
                 return result
-            _CACHE.pop(key, None)      # stale registry — re-resolve live
+            _CACHE.pop(key, None)      # stale registry/estimate — re-resolve
         else:
             _CACHE.pop(key, None)
 
     result = await _resolve_uncached(provider_class, base_url, name,
                                      override, route=route)
-    ttl = _FALLBACK_TTL_SECONDS if result.fallback_used else \
-        _ttl_for(provider_class)
+    short_lived = result.fallback_used or result.source in (
+        SOURCE_ESTIMATED_UNKNOWN, SOURCE_FALLBACK)
+    ttl = _FALLBACK_TTL_SECONDS if short_lived else _ttl_for(provider_class)
     _CACHE[key] = (result, now + ttl)
     # Наблюдаемость §49: событие на актуальный (cache-miss) резолв.
     try:
@@ -853,14 +1524,38 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
                             route: str | None = None) -> CapacityResult:
     """Одна итерация precedence (без кэша; никогда не бросает).
 
-    ASAP 4.2 Step 2c-1 (spec §4/AMEND ADR-1028-8 D2): при
-    `SUMMARY_CAPACITY_LIVE_PRECEDENCE_ENABLED=ON` цепочка — override
-    (уровень 1) → live provider/model metadata → live route metadata →
-    fresh provider cache (обрабатывается `resolve_capacity`) → internal
-    registry → conservative unknown. OFF → прежний контур 2.58.47
-    (runtime → catalog → registry → override → fallback) байт-в-байт."""
+    D2-порядок: proven_limit (0) → override при live (1) → runtime (2) →
+    provider catalog (3) → route metadata (3b) → exact registry (5) →
+    legacy override при OFF (6) → 1M estimated (7).
+
+    Owner override — planning input: он не отменяет доказанный физический
+    предел (конфликт виден в `override_value`/`clamped_by_proven_limit`) и
+    НЕ маркируется provider-verified (`confidence="override"`)."""
     now = time.time()
     live = live_precedence_enabled()
+    override_value = override
+    # ── 0) proven physical limit (D6): сильнее каталога, кэша и override ───
+    proven = proven_limit_for(base_url, name, route=route)
+    if proven is not None:
+        if override is not None and 0 < override <= proven:
+            _CAPACITY_METRICS["capacity_manual_override_total"] += 1
+            return CapacityResult(
+                provider=provider_class, model=name,
+                declared_context_window=proven, runtime_context_window=None,
+                effective_context_window=override, max_output_tokens=None,
+                source=SOURCE_DEVELOPER_OVERRIDE,
+                confidence=CONFIDENCE_OVERRIDE, resolved_at=now,
+                fallback_used=False, override_value=override,
+                proven_limit=proven, clamped_by_proven_limit=False)
+        clamped = override is not None and override > proven
+        return CapacityResult(
+            provider=provider_class, model=name,
+            declared_context_window=proven, runtime_context_window=None,
+            effective_context_window=proven, max_output_tokens=None,
+            source=SOURCE_PROVEN_LIMIT, confidence=CONFIDENCE_VERIFIED,
+            resolved_at=now, fallback_used=False,
+            override_value=(override if clamped else None),
+            proven_limit=proven, clamped_by_proven_limit=bool(clamped))
     # ── 1) developer override — уровень 1 (live precedence ON) ─────────────
     if live and override is not None:
         _CAPACITY_METRICS["capacity_manual_override_total"] += 1
@@ -868,8 +1563,9 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
             provider=provider_class, model=name,
             declared_context_window=None, runtime_context_window=None,
             effective_context_window=override, max_output_tokens=None,
-            source=SOURCE_DEVELOPER_OVERRIDE, confidence="verified",
-            resolved_at=now, fallback_used=False)
+            source=SOURCE_DEVELOPER_OVERRIDE, confidence=CONFIDENCE_OVERRIDE,
+            resolved_at=now, fallback_used=False,
+            override_value=override_value)
     runtime_window: int | None = None
     runtime_provider = provider_class
     # 2) runtime metadata — локальные рантаймы (llama.cpp/Ollama по классу;
@@ -887,36 +1583,40 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
         # 3) provider catalog (класс OpenRouter) — context_length каталога.
         catalog_window = await _adapter_openrouter(base_url, name)
         if catalog_window is not None:
-            result = CapacityResult(
+            declared = _registry_exact_window(name) or catalog_window
+            effective = catalog_window if (live or declared is None) \
+                else min(catalog_window, declared)
+            return CapacityResult(
                 provider=provider_class, model=name,
-                declared_context_window=catalog_window,
+                declared_context_window=declared,
                 runtime_context_window=None,
-                effective_context_window=catalog_window,
+                effective_context_window=effective,
                 max_output_tokens=None, source=SOURCE_PROVIDER_CATALOG,
-                confidence="verified", resolved_at=now, fallback_used=False)
-            return result
+                confidence=CONFIDENCE_VERIFIED, resolved_at=now,
+                fallback_used=False)
     elif provider_class == PROVIDER_NANOGPT:
-        # 3) provider catalog (§53, T-4202): live/public каталог NanoGPT —
-        # context window + max output; недоступен → registry/fallback с
-        # честным source (ниже). НЕ угадываем из имени (§56).
+        # 3) provider catalog (§53, D3): live/public каталог NanoGPT —
+        # context window + max output; точное сопоставление ID
+        # (namespace/suffix/alias), без семейных догадок. Miss → exact
+        # registry → 1M estimated (ниже).
         catalog = await _adapter_nanogpt_catalog(base_url, name)
         if catalog is not None:
             catalog_window, max_output = catalog
-            declared = _match_model_window(name)
-            # T-4808: live precedence ON → live catalog суверенен, stale
-            # registry НЕ занижает live capability (declared остаётся для
+            declared = _registry_exact_window(name) or catalog_window
+            # T-4808: live precedence ON → live catalog суверенен, exact
+            # registry НЕ занижает live capability (declared — для
             # прозрачности); OFF → прежний min(live, registry).
             effective = catalog_window if (live or declared is None) \
                 else min(catalog_window, declared)
-            result = CapacityResult(
+            return CapacityResult(
                 provider=provider_class, model=name,
                 declared_context_window=declared,
                 runtime_context_window=None,
                 effective_context_window=effective,
                 max_output_tokens=max_output,
                 source=SOURCE_PROVIDER_CATALOG,
-                confidence="verified", resolved_at=now, fallback_used=False)
-            return result
+                confidence=CONFIDENCE_VERIFIED, resolved_at=now,
+                fallback_used=False)
     # ── 3b) verified route metadata (live precedence ON) ───────────────────
     # Маршрут-специфичная metadata (например, endpoint-лимиты) — только из
     # верифицированного адаптера; без подтверждения слой честно пропускается.
@@ -926,10 +1626,11 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
         if route_result is not None:
             return route_result
 
-    declared_window = _match_model_window(name)
+    # ── 5) exact registry (D2): только ТОЧНЫЙ ID, без семейных префиксов ────
+    declared_window = _registry_exact_window(name)
     if runtime_window is not None:
-        # §5: effective = min(runtime, known provider/model limit) — OFF.
-        # T-4808: live precedence ON → runtime (live) суверенен, stale
+        # §5: effective = min(runtime, exact provider/model limit) — OFF.
+        # T-4808: live precedence ON → runtime (live) суверенен, exact
         # registry не занижает.
         effective = runtime_window if (live or declared_window is None) \
             else min(runtime_window, declared_window)
@@ -938,50 +1639,70 @@ async def _resolve_uncached(provider_class: str, base_url: str, name: str,
             declared_context_window=declared_window,
             runtime_context_window=runtime_window,
             effective_context_window=effective, max_output_tokens=None,
-            source=SOURCE_RUNTIME, confidence="verified", resolved_at=now,
-            fallback_used=False)
+            source=SOURCE_RUNTIME, confidence=CONFIDENCE_VERIFIED,
+            resolved_at=now, fallback_used=False)
     if declared_window is not None:
         if provider_class == PROVIDER_DEEPSEEK:
             # §54 (T-4202): Direct DeepSeek — отдельный identity; machine-
             # readable catalog нет → verified official registry entry,
-            # source=`verified_registry` (НЕ `provider_catalog`, НЕ «generic
-            # registry guess»).
+            # source=`verified_registry` (НЕ `provider_catalog`).
             return CapacityResult(
                 provider=provider_class, model=name,
                 declared_context_window=declared_window,
                 runtime_context_window=None,
                 effective_context_window=declared_window,
                 max_output_tokens=None, source=SOURCE_VERIFIED_REGISTRY,
-                confidence="verified", resolved_at=now, fallback_used=False)
+                confidence=CONFIDENCE_VERIFIED, resolved_at=now,
+                fallback_used=False)
         return CapacityResult(
             provider=provider_class, model=name,
             declared_context_window=declared_window,
             runtime_context_window=None,
             effective_context_window=declared_window,
             max_output_tokens=None, source=SOURCE_REGISTRY,
-            confidence="verified", resolved_at=now, fallback_used=False)
+            confidence=CONFIDENCE_VERIFIED, resolved_at=now,
+            fallback_used=False)
 
-    # ── 4) developer override (уровень 4; legacy OFF-контур 2.58.47) ───────
-    # применяется ТОЛЬКО когда live precedence OFF (AMEND ADR-1028-8 D2),
-    # защищая цепочку перед консервативным fallback (уровень 5).
+    # ── 6) developer override (уровень 4; legacy OFF-контур 2.58.47) ───────
+    # применяется ТОЛЬКО когда live precedence OFF (AMEND ADR-1028-8 D2).
     if override is not None:
         return CapacityResult(
             provider=provider_class, model=name,
             declared_context_window=None, runtime_context_window=None,
             effective_context_window=override, max_output_tokens=None,
-            source=SOURCE_DEVELOPER_OVERRIDE, confidence="verified",
-            resolved_at=now, fallback_used=False)
+            source=SOURCE_DEVELOPER_OVERRIDE, confidence=CONFIDENCE_OVERRIDE,
+            resolved_at=now, fallback_used=False, override_value=override_value)
 
-    # 5) fallback — только аварийно (§8): 16384 + WARNING + badge.
-    result = CapacityResult(
+    # ── 7) 1M estimated/unknown (D1): планировочная оценка, не verified ────
+    window = _unknown_window()
+    if not live:
+        # Legacy-контур OFF: прежнее аварийное поведение (badge fallback),
+        # но окно — 1M, не 16384 (D1 применяется и к legacy resolver'у).
+        result = CapacityResult(
+            provider=provider_class, model=name,
+            declared_context_window=None, runtime_context_window=None,
+            effective_context_window=window,
+            max_output_tokens=None, source=SOURCE_FALLBACK,
+            confidence=CONFIDENCE_FALLBACK, resolved_at=now,
+            fallback_used=True)
+        _warn_capacity_fallback(result, base_url,
+                                "unknown_model_no_adapter_data")
+        return result
+    if name and normalize_model_id(name) not in _WARNED_UNKNOWN:
+        _WARNED_UNKNOWN.add(normalize_model_id(name))
+        logger.warning(
+            "MODEL_CAPACITY_UNKNOWN_ESTIMATE | provider=%s | model=%s | "
+            "planning_window=%d | source=estimated_unknown — НЕ "
+            "provider-verified (каталог/реестр не дали значения)",
+            provider_class, name[:64], window)
+    return CapacityResult(
         provider=provider_class, model=name,
         declared_context_window=None, runtime_context_window=None,
-        effective_context_window=_unknown_window(),
-        max_output_tokens=None, source=SOURCE_FALLBACK,
-        confidence="fallback", resolved_at=now, fallback_used=True)
-    _warn_capacity_fallback(result, base_url,
-                            "unknown_model_no_adapter_data")
-    return result
+        effective_context_window=window,
+        max_output_tokens=None, source=SOURCE_ESTIMATED_UNKNOWN,
+        confidence=CONFIDENCE_ESTIMATED, resolved_at=now,
+        fallback_used=False)
+
 
 
 async def _resolve_route_metadata(provider_class: str, base_url: str,
@@ -997,33 +1718,75 @@ async def _resolve_route_metadata(provider_class: str, base_url: str,
     return None
 
 
+def _cached_verified_window(base_url: str, model: str,
+                            route: str | None = None
+                            ) -> tuple[int, str] | None:
+    """Свежее ВЕРИФИЦИРОВАННОЕ значение того же provider/base_url/model/route.
+
+    D2-уровень 4: sync-потребители (tool-окно, fallback recompose) не ходят
+    в сеть, но обязаны видеть уже подтверждённую ёмкость (каталог/рантайм/
+    proven), а не планировочные 1M. Route входит в область совпадения
+    (контракт D2: «cached value только того же endpoint+model+route»):
+    значение, посчитанное для другого route того же endpoint'а, не наследуется
+    (sync-путь без route видит только route-less записи)."""
+    model_key = normalize_model_id(model)
+    if not model_key:
+        return None
+    provider_class = detect_provider_class(base_url)
+    host = _base_url_host(base_url)
+    route_key = str(route or "").strip().lower()
+    now = time.time()
+    for key, (result, expires_at) in list(_CACHE.items()):
+        if now >= expires_at:
+            continue
+        if key[0] != provider_class:
+            continue
+        if normalize_model_id(key[2]) != model_key \
+                and str(key[2]).strip().lower() != str(model or "").strip().lower():
+            continue
+        if base_url and key[1] != host:
+            continue
+        if str(key[5] if len(key) > 5 else "").strip().lower() != route_key:
+            continue
+        if result.source in (SOURCE_FALLBACK, SOURCE_ESTIMATED_UNKNOWN):
+            continue
+        return (result.effective_context_window, result.source)
+    return None
+
+
 async def resolve_stage_window(base_url: str, model: str, *,
                                slot: str | None = None
                                ) -> tuple[int, str]:
     """Drop-in для потребителей: ``(effective_window, source)``.
 
-    Kill-switch OFF → legacy-путь `resolve_model_context_window` байт-в-байт
-    (карта + env + fallback 16384, источник model_map/env_override/
-    unknown_fallback)."""
+    Kill-switch OFF → legacy-контур (`_legacy_model_window`: семейная карта +
+    env + 1M unknown — НЕ 16384)."""
     if not capacity_resolver_enabled():
-        return resolve_model_context_window(model)
+        return _legacy_model_window(model)
     result = await resolve_capacity(base_url, model, slot=slot)
     return result.effective_context_window, result.source
 
 
 def fallback_window_for_model(model: str) -> tuple[int, str]:
-    """Окно fallback-модели БЕЗ сети (§14: resolve capacity fallback отдельно
-    перед recompose). Runtime-адаптеры не вызываются — registry/env/fallback;
-    для точного runtime-окна fallback'а используется `resolve_stage_window`."""
+    """Окно fallback-модели БЕЗ сети (D4: resolve fallback отдельно перед
+    recompose). Runtime-адаптеры и каталоги не вызываются: proven limit →
+    developer override → exact registry → 1M estimated. Семейные префиксы
+    ёмкость не определяют. Для точного runtime-окна fallback'а используется
+    `resolve_stage_window`."""
     if not capacity_resolver_enabled():
-        return resolve_model_context_window(model)
+        return _legacy_model_window(model)
+    proven = proven_limit_for("", str(model or ""))
     override = _developer_override_window()
+    if proven is not None:
+        if override is not None and 0 < override <= proven:
+            return override, SOURCE_DEVELOPER_OVERRIDE
+        return proven, SOURCE_PROVEN_LIMIT
     if override is not None:
         return override, SOURCE_DEVELOPER_OVERRIDE
-    mapped = _match_model_window(str(model or ""))
+    mapped = _registry_exact_window(str(model or ""))
     if mapped is not None:
         return mapped, SOURCE_REGISTRY
-    return _unknown_window(), SOURCE_FALLBACK
+    return _unknown_window(), SOURCE_ESTIMATED_UNKNOWN
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1238,13 +2001,16 @@ def evidence_window_for_tokens(window_tokens: int | None, *,
     return max(0, value)
 
 
-def resolve_evidence_window_tokens(model: str | None = None
+def resolve_evidence_window_tokens(model: str | None = None,
+                                   base_url: str | None = None
                                    ) -> tuple[int, str]:
-    """``(window_tokens, window_source)`` для tool-пути (sync, кэш D1).
+    """``(window_tokens, window_source)`` синхронного пути (tool-окно).
 
-    Модель не передана → активная модель чата (`models.llm_model_name` из
-    hot, затем `LLM_MODEL_NAME`). Неизвестная модель → консервативное окно
-    `unknown_fallback` (WARN один раз, ``model_capacity:173–232``)."""
+    SMART D2: модель — ФАКТИЧЕСКИ назначенная стадии (не «всегда главная»),
+    ``base_url`` — её endpoint. Порядок без сети:
+    proven_limit → verified cache этого endpoint/model → env override →
+    exact registry → 1M estimated (``unknown_fallback``, оценка).
+    Неизвестная модель больше НЕ получает 16384."""
     name = str(model or "").strip()
     if not name:
         try:
@@ -1252,7 +2018,21 @@ def resolve_evidence_window_tokens(model: str | None = None
                                getattr(settings, "LLM_MODEL_NAME", "")) or "")
         except Exception:      # pragma: no cover - защитная ветка
             name = str(getattr(settings, "LLM_MODEL_NAME", "") or "")
+    endpoint = str(base_url or "").strip()
+    if not capacity_resolver_enabled():
+        return _legacy_model_window(name)
+    proven = proven_limit_for(endpoint, name)
+    if proven is not None:
+        override = _developer_override_window()
+        if override is not None and 0 < override <= proven:
+            return override, SOURCE_DEVELOPER_OVERRIDE
+        return proven, SOURCE_PROVEN_LIMIT
+    if endpoint:
+        cached = _cached_verified_window(endpoint, name)
+        if cached is not None:
+            return cached
     return resolve_model_context_window(name)
+
 
 
 def evidence_window_dynamic_enabled() -> bool:
@@ -1267,8 +2047,10 @@ def evidence_window_dynamic_enabled() -> bool:
 
 
 __all__ = [
-    "MODEL_CONTEXT_WINDOWS", "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV",
+    "MODEL_CONTEXT_WINDOWS", "MODEL_EXACT_WINDOWS", "UNKNOWN_WINDOW_DEFAULT",
+    "WINDOW_SOURCE_MAP", "WINDOW_SOURCE_ENV",
     "WINDOW_SOURCE_FALLBACK", "OUTPUT_RESERVE_FLOOR",
+    "normalize_model_id", "catalog_item_for_model",
     "resolve_model_context_window", "resolve_effective_window",
     "output_reserve_tokens", "compute_available_budget",
     "apply_budget_policy",
@@ -1277,6 +2059,9 @@ __all__ = [
     # ASAP-3.1 (ADR-1028-3): structured capacity resolver.
     "SOURCE_DEVELOPER_OVERRIDE", "SOURCE_RUNTIME", "SOURCE_PROVIDER_CATALOG",
     "SOURCE_VERIFIED_REGISTRY", "SOURCE_REGISTRY", "SOURCE_FALLBACK",
+    "SOURCE_PROVEN_LIMIT", "SOURCE_ESTIMATED_UNKNOWN",
+    "CONFIDENCE_VERIFIED", "CONFIDENCE_ESTIMATED", "CONFIDENCE_OVERRIDE",
+    "CONFIDENCE_FALLBACK",
     "PROVIDER_OPENROUTER", "PROVIDER_NANOGPT", "PROVIDER_DEEPSEEK",
     "PROVIDER_OLLAMA", "PROVIDER_LLAMA_CPP",
     "PROVIDER_VLLM", "PROVIDER_GENERIC",
@@ -1284,6 +2069,13 @@ __all__ = [
     "capacity_resolver_enabled", "detect_provider_class",
     "invalidate_capacity_cache", "capacity_metrics_snapshot",
     "resolve_capacity", "resolve_stage_window", "fallback_window_for_model",
+    # SMART-EXECUTION-RELIABILITY-01 D2/D6: proven physical limit + recovery.
+    "ProvenLimit", "proven_limit_for", "record_proven_limit",
+    "clear_proven_limits",
+    "ContextOverflowInfo", "parse_context_overflow_error",
+    "ContextRecoveryPlan", "note_context_overflow",
+    "recovery_budget_tokens", "CONTEXT_RECOVERY_MAX_ATTEMPTS",
+    "CONTEXT_OVERFLOW_CODES",
     # ASAP 4.1 (эпик asap-4-1-durable-whole-window-summary): capacity engine
     # Summary (T-4604/T-4605).
     "MODE_WHOLE_WINDOW", "MODE_CAPACITY_OVERFLOW",

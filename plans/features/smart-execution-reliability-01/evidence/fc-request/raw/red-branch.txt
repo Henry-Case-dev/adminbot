@@ -1,0 +1,18 @@
+O1_slice_key_differs_by_subject	true
+O1_keys	["87fe60e88f19ac7126dccd3af85ef06e", "aef81deee754a21bb867da86dff0ce1d"]
+O2_full_subject_survives_claim_units	true
+O2_units	["╨Ф╤А╨╡╨▓╨╜╤П╤П ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╨╢╨╡╨╜╤Б╨║╨╛╨│╨╛ ╨╛╨▒╤А╨╡╨╖╨░╨╜╨╕╤П ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╨╡╤В ╤В╤Л╤Б╤П╤З╨╕ ╨╗╨╡╤В.", "╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╡╤А╨╕╨╛╨┤ 1990тАУ2000 ╨│╨╛╨┤╨╛╨▓."]
+O3_plan_accepts_subject_provenance	true
+O3_query_texts	["╨У╨╡╤А╨╝╨░╨╜╨╕╨╕ ╤Б╤В╤А╨░╨╜╤Л ╨│╨┤╨╡ ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П ╨▒╨╡╨╖ ╨▓╨╗╨╕╤П╨╜╨╕╤П ╤Д╤А╨░╨╜╤Ж╨╕╨╕ ╨▓╨╡╨╗╨╕╨║╨╛╨▒╤А╨╕╤В╨░╨╜╨╕╨╕"]
+O3_anchor_origins	["user_request"]
+O4_resolver_exists	true
+O4_subject	"╨Х╤Б╤В╤М ╨╗╨╕ ╤Б╤В╤А╨░╨╜╤Л, ╨│╨┤╨╡ ╤В╤А╨░╨┤╨╕╤Ж╨╕╤П ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П ╨▒╨╡╨╖ ╨▓╨╗╨╕╤П╨╜╨╕╤П ╨д╤А╨░╨╜╤Ж╨╕╨╕, ╨Т╨╡╨╗╨╕╨║╨╛╨▒╤А╨╕╤В╨░╨╜╨╕╨╕, ╨У╨╡╤А╨╝╨░╨╜╨╕╨╕ ╨╕ ╨б╨и╨Р?"
+O4_origin	"request"
+O4_request_preserved	true
+O5_envelope_reason	null
+O5_claim_text_is_question	true
+O5_has_request_text_field	true
+O5_has_material_claim_field	true
+O5_material_date_not_transferred	true
+O5_attribution_author	"╨Р╨╜╤П"
+O5_subject_fingerprint	true
