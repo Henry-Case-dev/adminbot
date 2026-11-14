@@ -49,6 +49,27 @@ cd /var/www/admin_bot && venv/bin/python "$HARNESS" \
   --json-out /tmp/smart_live_canary.json
 ```
 
+Полный прогон с F4-сценариями внешнего кода (добавляет один реальный
+provider-вызов для `external_natural_request` и до ~14 real GitHub-запросов
+для `external_scenarios`; анонимный лимит GitHub — 60/ч):
+
+```bash
+cd /var/www/admin_bot && venv/bin/python "$HARNESS" \
+  --allow-provider-calls --max-provider-calls 5 \
+  --expect-harness-sha256 <sha256> \
+  --json-out /tmp/smart_live_canary.json
+```
+
+Только внешние сценарии (без LLM — `external_natural_request` честно
+`not_observed`):
+
+```bash
+cd /var/www/admin_bot && venv/bin/python "$HARNESS" \
+  --checks external_reads,external_scenarios \
+  --expect-harness-sha256 <sha256> \
+  --json-out /tmp/smart_live_canary_external.json
+```
+
 Офлайн-предпроверка (без сети; часть проверок честно скажет
 `not_observed`, ошибок быть не должно):
 
@@ -74,9 +95,11 @@ Self-test обязан исполняться на deployed-классах 2.58.
 
 ## Версия, self-hash и привязка к candidate
 
-Harness `smart-live-canary/2`, `HARNESS_VERSION=1.2.0` (r2: defensive
+Harness `smart-live-canary/2`, `HARNESS_VERSION=1.3.0` (r2: defensive
 `budgets_enabled`, provenance-aware `k3_settings`, `external_reads` доказывает
-verified-файл исходника и отказ tool-path без сети). Каждый JSON-прогон
+verified-файл исходника и отказ tool-path без сети; r3/F4: `external_scenarios`
+и `external_natural_request` закрывают шесть сценариев приёмки внешнего кода).
+Каждый JSON-прогон
 содержит:
 
 - `harness_sha256` — sha256 самого исполняемого файла, посчитанный в рантайме;
@@ -102,8 +125,8 @@ venv/bin/python /tmp/smart_live_canary.py \
 показывать `repo.head` = deployed SHA, `repo.app_version` = `2.58.200`,
 `manifest.deployed_sha` = тому же SHA; все три поля входят в JSON.
 
-Документированная версия `HARNESS_VERSION=1.2.0` имеет
-`sha256=21c7ac74dbe139d9784168b93cb0a1a6c7fb7f18c1e17f7aa497d6d12fffd820`
+Документированная версия `HARNESS_VERSION=1.3.0` имеет
+`sha256=39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119`
 (именно это значение передаётся в `--expect-harness-sha256`).
 
 Дополнительно: `--checks a,b`, `--check-timeout SEC`, `--db-path PATH`,
@@ -134,6 +157,8 @@ venv/bin/python /tmp/smart_live_canary.py \
 | 5 | `capacity_scenarios` | SXR-L3-01 | 8 сценариев: current / <1M / >1M / unknown custom / switch / fallback / catalog-unavailable (in-memory инъекция) / context-overflow; source/confidence; 1M не выдаётся за verified |
 | 6 | `local_source_read` | SXR-L4-01 | `read_source_code` читает `services/tool_loop.py`: local+verified, `network_calls=0`, repo/commit/path == deployed SHA, git HEAD и `.deploy/release.json` совпадают |
 | 7 | `external_reads` | SXR-F2-01, SXR-F4-01, SXR-L5-01 | публичный GitHub реально прочитан по сети: (а) README — сеть + repo/commit/path identity и честный `verified=false` (по контракту SourceReader V1 `verified` выдаётся только файлу исходника, `source_kind=file`); (б) файл исходника `octocat/Spoon-Knife@main:index.html` — `verified=true`, kind=file, commit/path; (в) loopback/169.254.169.254 отклонены tool-path'ом ДО сети (`network_calls=0`; `read_source_code` — provider-scoped GitHub-инструмент, поэтому причина `unsupported/provider_unconfigured`, detail=host_not_supported); (г) прямой `SafeFetcher` — `destination_blocked`/`metadata_endpoint_blocked`, stage=resolve; (д) 404 отдан фактической причиной |
+| 7b | `external_scenarios` | SXR-F4-01, SXR-F2-01, SXR-L5-01 | F4-сценарии внешнего кода через production tool-path на публичном `githubtraining/hellogitworld` (маленькое дерево, учебный репо): (а) чтение по ветке `master` — `verified`, kind=file, commit 40-hex, точный path; (б) **переход к связанным источникам** — в ответе реально прочитанный смежный файл (`role=followup`, `verified=true`, `AppTest.java` → `App.java`) из того же commit; (в) **поиск файла/символа** — `operation=locate`, `symbol=main` на закреплённом commit предыдущего чтения → тот же commit и `src/main/java/com/github/App.java`, `symbol_found=true`; (г) **чтение по blob-ссылке** (`verified_url` предыдущего ответа) → та же commit/path идентичность и `verified=true`; (д) **недоступный репозиторий** → фактическая причина (`source_missing`/`auth_failed`/`rate_limit`/`provider_unavailable`), ровно один bounded запрос, без обхода прав; (е) **отдельной GitHub-команды нет** — ровно один tool `read_source_code` с операциями `discover|locate|read`, в реестре команд триггеров github/исходник/репозиторий нет. Запросы минимизированы: commit/`verified_url` переиспользуются, одинаковые аргументы кэшируются в пределах прогона |
+| 7c | `external_natural_request` | SXR-F4-01 | **естественный запрос о коде внешнего проекта** через Direct/L1: ОДИН реальный provider-вызов (`--allow-provider-calls`, общий `--max-provider-calls`), независимая формулировка; фиксируется решение модели (`capabilities_needed`, `tool_policy`, `execution_mode`) и фактическое исполнение `read_source_code` (status/verified/path/network_calls). Если модель не выбрала чтение исходников — честный `not_observed` с трассой решения, без подмены |
 | 8 | `diagnostic_variants` | SXR-L6-01 | 7 вариантов на одном `chat_with_tools` (все источники / один отказ / GitHub blocked+local / local down+remote / исследование невозможно / финальный LLM недоступен / technical deadline): данные сохранены, бессмысленная заглушка не публикуется |
 | 9 | `checkup_real` | SXR-H3-01, SXR-H4-01, SXR-L7-01 | реальный journal unit, `MainPID` не root, `deploy.identity` (`verified_deployed`), `.deploy/release.json` ↔ git ↔ процесс, `DiagnosticCollector.collect_for_checkup` и (при разрешении) `CheckupService.checkup` |
 | 10 | `direct_continuation` | SXR-L7-01 | L1 Planner (`prompts.direct_l1_planner_system_prompt`) на двух независимых формулировках: решение LLM (`capabilities_needed`), затем фактический read-only tool-вызов; плюс реальный remainder/cursor и дочитывание следующего диапазона |
@@ -171,6 +196,8 @@ evidence_reason, production_observed, summary, details, duration_s}`.
 | `capacity_scenarios` | production онлайн / unavailable offline | реальный resolver + provider-каталог; один сценарий каталога инъецируется in-memory |
 | `local_source_read` | production только при verified deployed identity | реальный `read_source_code` по deployed-дереву, `network_calls=0`, commit/path == deployed SHA |
 | `external_reads` | production онлайн / unavailable offline | реальный публичный GitHub-read по сети (README + verified файл исходника) + реальный `SafeFetcher` SSRF-полиси и отказ tool-path без сетевого вызова |
+| `external_scenarios` | production онлайн / unavailable offline | реальные GitHub-сценарии F4: ветка/commit, поиск символа, blob-ссылка, связанные файлы, фактический отказ; capability-структура из deployed `tool_schemas`/`command_registry` |
+| `external_natural_request` | production только при реальном provider-вызове / unavailable без `--allow-provider-calls` | решение L1 на реальном провайдере + фактическое исполнение `read_source_code` на внешнем репозитории |
 | `diagnostic_variants` | plumbing | 7 вариантов production tool-loop с контролируемыми LLM/роутером |
 | `checkup_real` | production при реальном journal / иначе unavailable | systemd unit, `MainPID`, `deploy.identity`, manifest ↔ git ↔ процесс, реальный отчёт чекапа (при provider) |
 | `direct_continuation` | production при реальном provider call / иначе unavailable | решение LLM + реальный tool-вызов; плюс реальный remainder/cursor и дочитывание следующего диапазона |
@@ -291,5 +318,14 @@ finalization-варианта, continuation (реальный remainder + вто
 сломанный `as_meta` не роняет проверку) и `k3.*` (правка владельца
 атрибутирована; запись без провенанса, `deploy_activate`, анонимная запись
 истории и запись вне окна — проваливают атрибуцию; нетронутый профиль — ок).
+F4-блок (`external.*`) — позитивные и негативные контроли предикатов
+(related sources только при `verified`-смежнике; поиск совпадает по path и
+точному commit; blob-ссылка даёт ту же идентичность; отказ обязан быть
+фактическим кодом без ретраев; `verified=false`/чужая причина/лишний
+GitHub-tool/команда — провал) плюс проводка самих проверок: канонические
+ответы → `external_scenarios` = `observed`, сломанный путь (без смежника,
+чужой commit) → `not_observed`, а без `--allow-provider-calls`
+`external_natural_request` = `not_observed`/`unavailable`. Сеть при этом
+запрещена guard'ом — это plumbing-проводка, не production-evidence.
 Ожидаемый результат: `failures=0`, код 0, без traceback. Ненулевой код или
 `BLOCKED` означает, что сам harness либо его repo-binding сломан.

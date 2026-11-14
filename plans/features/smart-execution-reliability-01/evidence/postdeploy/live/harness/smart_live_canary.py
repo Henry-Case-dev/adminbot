@@ -77,7 +77,14 @@ from typing import Any, Awaitable, Callable
 #: запись релиза без следа проваливает проверку; external_reads доказывает
 #: verified-идентичность файлом исходника (README по контракту V1 — honest
 #: verified=false) и требует от tool-path отказа БЕЗ сетевого вызова.
-HARNESS_VERSION = "1.2.0"
+#: 1.3.0 (2026-11-14): F4 external-code acceptance — новый check
+#: `external_scenarios` (публичный repo, поиск файла/символа на точном commit,
+#: чтение по blob-ссылке, переход к связанным источникам, фактический отказ
+#: недоступного repo, отсутствие отдельной GitHub-команды) и
+#: `external_natural_request` (естественный запрос о внешнем коде через Direct
+#: L1 с ОДНИМ реальным provider-вызовом; без решения модели — честный
+#: not_observed с трассой).
+HARNESS_VERSION = "1.3.0"
 SCHEMA = "smart-live-canary/2"
 
 STATUS_OBSERVED = "observed"
@@ -2183,10 +2190,502 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 8. diagnostic variants → SXR-L6-01
+# 7b. F4 external-code scenarios → SXR-F4-01 (+ SXR-F2-01, SXR-L5-01)
 # ═════════════════════════════════════════════════════════════════════════════
 
+#: Публичный внешний репозиторий для сценариев F4. Маленькое дерево (16
+#: файлов) + два файла, где ОДИН реально ссылается на другой по имени
+#: (`AppTest.java` → `App`), поэтому related-sources проверяются на фактическом
+#: содержимом, а не на догадке. Репозиторий учебный/архивный: содержимое и
+#: ветка `master` стабильны.
+EXTERNAL_REPO = "githubtraining/hellogitworld"
+EXTERNAL_BRANCH = "master"
+#: Основной файл цепочки: `public class AppTest extends TestCase` + `AppTest(…)`
+#: → stem-идентификатор `app` указывает на `App.java` (проверено чистыми
+#: функциями SourceReader: rank_sibling_paths).
+EXTERNAL_CHAIN_PATH = "src/test/java/com/github/AppTest.java"
+EXTERNAL_CHAIN_SIBLING = "src/main/java/com/github/App.java"
+#: Поиск файла/символа: `main(` есть только в `App.java` (locate → ranked →
+#: locate_symbol_line), поэтому результат детерминирован.
+EXTERNAL_SEARCH_SYMBOL = "main"
+EXTERNAL_SEARCH_EXPECT_PATH = "src/main/java/com/github/App.java"
+#: Несуществующий репозиторий: GitHub обязан ответить фактической причиной
+#: (404/private/rate limit), без обхода прав. Один запрос, без ретраев.
+EXTERNAL_MISSING_REPO = "githubtraining/canary-does-not-exist-7f3a"
+#: Фактические коды отказа внешнего чтения (причина, а не «нет доступа»).
+EXTERNAL_FACTUAL_FAILURE_CODES = frozenset({
+    "source_missing", "auth_failed", "rate_limit", "provider_unavailable",
+})
+#: Независимая естественная формулировка запроса о коде внешнего проекта
+#: (не пересекается с _DIRECT_FORMULATIONS и не является командой).
+EXTERNAL_NATURAL_REQUEST = (
+    "Наткнулся на репозиторий githubtraining/hellogitworld. Посмотри по "
+    "исходникам, что делает метод main в файле "
+    "src/main/java/com/github/App.java, и ответь коротко по делу."
+)
 
+
+def _external_chain_facts(payload: dict) -> dict:
+    """Факты по ответу `read`: primary + реально прочитанная цепочка."""
+    files = [f for f in (payload.get("files") or []) if isinstance(f, dict)]
+    primary = next((f for f in files
+                    if str(f.get("role") or "") == "primary"), None)
+    siblings = [f for f in files if str(f.get("role") or "") != "primary"]
+    verified_siblings = [
+        f for f in siblings
+        if bool(f.get("verified")) and int(f.get("snippet_chars") or 0) > 0]
+    primary_path = str(payload.get("path") or "")
+    not_checked = payload.get("not_checked")
+    return {
+        "status": payload.get("status"),
+        "commit": str(payload.get("commit") or "").lower(),
+        "path": payload.get("path") or None,
+        "verified": bool(payload.get("verified")),
+        "source_kind": payload.get("source_kind"),
+        "network_calls": int(payload.get("network_calls") or 0),
+        "snippet_chars": int(payload.get("snippet_chars") or 0),
+        "verified_url": str(payload.get("verified_url") or ""),
+        "sibling_paths": [str(f.get("path") or "") for f in siblings],
+        "verified_sibling_paths": [str(f.get("path") or "")
+                                   for f in verified_siblings],
+        "distinct_verified_sibling": any(
+            str(f.get("path") or "") not in ("", primary_path)
+            for f in verified_siblings),
+        "files_read": (not_checked.get("files_read")
+                       if isinstance(not_checked, dict) else None),
+        "has_primary": bool(primary) and int(
+            (primary or {}).get("snippet_chars") or 0) > 0,
+    }
+
+
+def _external_search_facts(payload: dict, *, expected_path: str,
+                           expected_commit: str) -> dict:
+    """Факты поиска файла/символа (`locate`) с проверкой точного commit."""
+    commit = str(payload.get("commit") or "").lower()
+    path = str(payload.get("path") or "")
+    return {
+        "status": payload.get("status"),
+        "stage": payload.get("stage"),
+        "path": path or None,
+        "commit": commit or None,
+        "verified": bool(payload.get("verified")),
+        "source_kind": payload.get("source_kind"),
+        "symbol": payload.get("symbol"),
+        "symbol_found": bool(payload.get("symbol_found")),
+        "line_range": list(payload.get("line_range") or []),
+        "snippet_chars": int(payload.get("snippet_chars") or 0),
+        "network_calls": int(payload.get("network_calls") or 0),
+        "candidate_paths": list(payload.get("candidate_paths") or [])[:5],
+        "path_matches": bool(expected_path) and path == expected_path,
+        "commit_matches": bool(expected_commit)
+        and commit == str(expected_commit).lower(),
+    }
+
+
+def _external_link_facts(payload: dict, *, expected_commit: str,
+                         expected_path: str) -> dict:
+    """Факты чтения по blob-ссылке: та же commit/path идентичность."""
+    commit = str(payload.get("commit") or "").lower()
+    path = str(payload.get("path") or "")
+    return {
+        "status": payload.get("status"),
+        "stage": payload.get("stage"),
+        "path": path or None,
+        "commit": commit or None,
+        "verified": bool(payload.get("verified")),
+        "source_kind": payload.get("source_kind"),
+        "snippet_chars": int(payload.get("snippet_chars") or 0),
+        "network_calls": int(payload.get("network_calls") or 0),
+        "path_matches": bool(expected_path) and path == expected_path,
+        "commit_matches": bool(expected_commit)
+        and commit == str(expected_commit).lower(),
+    }
+
+
+def _external_failure_facts(payload: dict) -> dict:
+    """Факты отказа внешнего источника: причина названа, прав не обходим."""
+    err = payload.get("error_detail")
+    err = err if isinstance(err, dict) else {}
+    code = str(payload.get("error") or err.get("code") or "")[:64]
+    status = str(payload.get("status") or "")
+    calls = int(payload.get("network_calls") or 0)
+    return {
+        "status": status,
+        "stage": payload.get("stage"),
+        "code": code,
+        "detail": str(err.get("detail") or "")[:64],
+        "http": err.get("http"),
+        "retryable": bool(payload.get("retryable", err.get("retryable"))),
+        "network_calls": calls,
+        "factual": status in ("error", "not_found")
+        and code in EXTERNAL_FACTUAL_FAILURE_CODES,
+        "not_read": status != "ok",
+        "no_retries": calls <= 2,
+    }
+
+
+def _external_capability_facts(schemas, commands) -> dict:
+    """Внешний код — ОДИН tool с тремя операциями, а не отдельная команда."""
+    tool = dict(getattr(schemas, "TOOL_READ_SOURCE_CODE", {}) or {})
+    function = tool.get("function") or {}
+    params = (function.get("parameters") or {}).get("properties") or {}
+    operations = list((params.get("operation") or {}).get("enum") or [])
+    name = str(function.get("name") or "")
+    tools = [t for t in (getattr(schemas, "TOOL_CALLING_TOOLS", []) or [])
+             if isinstance(t, dict)]
+    names = [str(((t.get("function") or {}).get("name") or "")) for t in tools]
+    github_like_tools = [n for n in names
+                         if re.search(r"(?i)github|source|read_?code", n)]
+    triggers: list[str] = []
+    for _group, items in (getattr(commands, "FUNCTIONAL_COMMANDS", {}) or {}).items():
+        for item in items or ():
+            triggers.append(str(item))
+    github_like_commands = [t for t in triggers
+                            if re.search(r"(?i)github|исходник|репозитор", t)]
+    return {
+        "tool_name": name,
+        "tool_operations": operations,
+        "tool_count": len(names),
+        "github_like_tools": github_like_tools,
+        "command_triggers": len(triggers),
+        "github_like_commands": github_like_commands,
+        "single_tool": bool(name) and github_like_tools == [name],
+        "operations_cover": set(operations) == {"discover", "locate", "read"},
+        "no_separate_command": not github_like_commands,
+    }
+
+
+async def check_external_scenarios(ctx: HarnessContext) -> CheckOutcome:
+    """F4: поиск файла/символа, blob-ссылка, related sources, отказ, команда."""
+    from services.tool_router import ToolContext, ToolDeps, ToolRouter
+
+    a = Asserts()
+    details: dict[str, Any] = {
+        "offline": bool(ctx.args.offline),
+        "scenario": {
+            "repo": EXTERNAL_REPO,
+            "branch": EXTERNAL_BRANCH,
+            "chain_path": EXTERNAL_CHAIN_PATH,
+            "chain_sibling": EXTERNAL_CHAIN_SIBLING,
+            "search_symbol": EXTERNAL_SEARCH_SYMBOL,
+            "search_expect_path": EXTERNAL_SEARCH_EXPECT_PATH,
+            "missing_repo": EXTERNAL_MISSING_REPO,
+            "call_budget_policy": (
+                "реальные запросы минимизированы: commit/verified_url берутся "
+                "из уже полученного ответа, повторные запросы с теми же "
+                "аргументами кэшируются в пределах прогона"),
+        },
+    }
+    if ctx.args.offline:
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "F4-сценарии пропущены: --offline",
+            {**details, "assertions": a.report()},
+            EVIDENCE_UNAVAILABLE,
+            "offline: external provider path not contacted",
+        )
+
+    router = ToolRouter(ToolDeps(search=None, memory=None))
+    tool_ctx = ToolContext(0, "canary external scenarios")
+    cache: dict[str, dict] = {}
+
+    async def _dispatch(args: dict, *, fresh: bool = False) -> dict:
+        key = json.dumps(args, sort_keys=True, ensure_ascii=False)
+        if not fresh and key in cache:
+            cached = dict(cache[key])
+            cached["_cache_hit"] = True
+            return cached
+        out = await router.dispatch("read_source_code", args, tool_ctx)
+        payload: dict = {"raw": _clip(out, 300)}
+        if str(out).strip().startswith("{"):
+            try:
+                payload = json.loads(out)
+            except ValueError:
+                payload = {"raw": _clip(out, 300)}
+        if payload.get("status") == "ok":
+            cache[key] = dict(payload)
+        return payload
+
+    # 1) Публичный репозиторий + чтение по ветке + переход к связанным файлам.
+    chain_payload = await _dispatch({
+        "operation": "read", "repo": EXTERNAL_REPO,
+        "ref": EXTERNAL_BRANCH, "path": EXTERNAL_CHAIN_PATH})
+    chain = _external_chain_facts(chain_payload)
+    details["chain_read"] = chain
+    a.expect("external_public_repo_read_ok", chain["status"] == "ok", chain)
+    a.expect("external_branch_read_identity",
+             len(chain["commit"] or "") == 40
+             and str(chain["path"] or "") == EXTERNAL_CHAIN_PATH
+             and chain["source_kind"] == "file",
+             chain)
+    a.expect("external_branch_read_verified", chain["verified"], chain)
+    a.expect("external_read_uses_network", chain["network_calls"] > 0, chain)
+    a.expect("external_related_sources_read",
+             chain["has_primary"] and chain["distinct_verified_sibling"],
+             chain)
+    details["related_sources"] = {
+        "verified_sibling_paths": chain["verified_sibling_paths"],
+        "expected_sibling_present": EXTERNAL_CHAIN_SIBLING
+        in chain["verified_sibling_paths"],
+        "files_read": chain["files_read"],
+    }
+
+    commit = chain["commit"]
+
+    # 2) Поиск файла/символа в публичном репозитории на ТОЧНОМ commit.
+    search_payload = await _dispatch({
+        "operation": "locate", "repo": EXTERNAL_REPO,
+        "ref": commit or EXTERNAL_BRANCH, "symbol": EXTERNAL_SEARCH_SYMBOL})
+    search = _external_search_facts(
+        search_payload, expected_path=EXTERNAL_SEARCH_EXPECT_PATH,
+        expected_commit=commit)
+    details["symbol_search"] = search
+    a.expect("external_symbol_search_ok",
+             search["status"] == "ok" and search["stage"] == "locator", search)
+    a.expect("external_symbol_search_found_path", search["path_matches"],
+             search)
+    a.expect("external_symbol_search_symbol_found", search["symbol_found"],
+             search)
+    a.expect("external_symbol_search_exact_commit", search["commit_matches"],
+             search)
+    a.expect("external_symbol_search_verified", search["verified"], search)
+
+    # 3) Чтение по blob-ссылке (verified_url предыдущего ответа) — та же
+    #    commit/path идентичность, без отдельного «github»-вызова.
+    link_url = str(chain["verified_url"] or search.get("verified_url") or "")
+    details["link_url_present"] = bool(link_url)
+    if link_url:
+        link_payload = await _dispatch({"operation": "read", "url": link_url})
+    else:
+        link_payload = {"status": "unavailable", "error": "no_verified_url"}
+    link = _external_link_facts(
+        link_payload, expected_commit=commit, expected_path=EXTERNAL_CHAIN_PATH)
+    details["link_read"] = link
+    a.expect("external_link_read_ok", link["status"] == "ok", link)
+    a.expect("external_link_read_identity",
+             link["path_matches"] and link["commit_matches"], link)
+    a.expect("external_link_read_verified",
+             link["verified"] and link["source_kind"] == "file", link)
+
+    # 4) Отказ: несуществующий/недоступный репозиторий → фактическая причина,
+    #    один bounded вызов, без обхода прав.
+    missing_payload = await _dispatch({
+        "operation": "read", "repo": EXTERNAL_MISSING_REPO})
+    failure = _external_failure_facts(missing_payload)
+    details["missing_repo"] = failure
+    a.expect("external_missing_repo_factual", failure["factual"], failure)
+    a.expect("external_missing_repo_not_read", failure["not_read"], failure)
+    a.expect("external_missing_repo_no_retries", failure["no_retries"],
+             failure)
+
+    # 5) Отдельной GitHub-команды нет: возможность живёт как ОДИН tool.
+    from services import command_registry, tool_schemas
+
+    capability = _external_capability_facts(tool_schemas, command_registry)
+    details["capability"] = capability
+    a.expect("external_capability_single_tool", capability["single_tool"],
+             capability)
+    a.expect("external_capability_three_operations",
+             capability["operations_cover"], capability)
+    a.expect("external_capability_no_command",
+             capability["no_separate_command"], capability)
+
+    network_total = (chain["network_calls"]
+                     + search["network_calls"]
+                     + link["network_calls"]
+                     + failure["network_calls"])
+    details["network_calls_total"] = network_total
+    a.expect("external_scenarios_network_observed", network_total > 0,
+             network_total)
+
+    if a.failures:
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "F4-сценарии внешнего кода не подтверждены: "
+            + ", ".join(a.failures[:6]),
+            {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION,
+            "real GitHub/provider path executed; contract not satisfied",
+        )
+    return CheckOutcome(
+        STATUS_OBSERVED,
+        "публичный репозиторий прочитан по ветке (verified, точный commit); "
+        "поиск символа дал тот же commit и файл; чтение по blob-ссылке дало ту "
+        "же идентичность; переход к связанным источникам — реальное чтение "
+        "смежного файла; недоступный репозиторий назван фактической причиной; "
+        "отдельной GitHub-команды нет (один tool, три операции)",
+        {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real public GitHub read/search/link/follow-up + factual refusal",
+    )
+
+
+async def check_external_natural_request(ctx: HarnessContext) -> CheckOutcome:
+    """F4: естественный запрос о коде внешнего проекта через Direct/L1.
+
+    Ровно ОДИН реальный provider-вызов (`--allow-provider-calls`, общий cap).
+    Если модель не запросила чтение исходников — честный `not_observed` с
+    трассой решения (никакой подмены «мы сами вызвали tool»).
+    """
+    from config.settings import settings
+    from services import direct_capabilities
+    from services.chat_prompts import DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    from services.direct_l1 import build_l1_context, parse_l1_plan
+    from services.prompt_style_blocks import resolve_prompt
+    from services.tool_router import ToolContext, ToolDeps, ToolRouter
+
+    a = Asserts()
+    details: dict[str, Any] = {
+        "query": EXTERNAL_NATURAL_REQUEST,
+        "repo": EXTERNAL_REPO,
+        "path": EXTERNAL_SEARCH_EXPECT_PATH,
+        "offline": bool(ctx.args.offline),
+    }
+    if ctx.args.offline or not ctx.args.allow_provider_calls:
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "естественный запрос о внешнем коде не наблюдался: provider calls "
+            "выключены (--allow-provider-calls отсутствует или --offline)",
+            {**details, "assertions": a.report(),
+             "provider_calls": {"used": ctx.provider_calls,
+                                "denied": ctx.provider_denied}},
+            EVIDENCE_UNAVAILABLE,
+            "provider calls disabled; production LLM decision unavailable",
+        )
+
+    await ctx.load_config_cache()  # read-only; реальные model/key
+    if not ctx.take_provider_call():
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "provider-бюджет исчерпан до естественного запроса",
+            {**details, "assertions": a.report(),
+             "provider_calls": {"used": ctx.provider_calls,
+                                "denied": ctx.provider_denied}},
+            EVIDENCE_UNAVAILABLE,
+            "provider budget denied the L1 call",
+        )
+
+    system_prompt = resolve_prompt(
+        "prompts.direct_l1_planner_system_prompt",
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+    )
+    temperature = float(getattr(settings, "LLM_TEMPERATURE", 0.7) or 0.0)
+    plan = None
+    raw_chars = 0
+    try:
+        l1_context = build_l1_context(
+            query=EXTERNAL_NATURAL_REQUEST, speaker="owner", addressee="bot",
+            capabilities=("source_code",),
+        )
+        raw = await asyncio.wait_for(
+            ctx.llm().generate(
+                [{"role": "system", "content": system_prompt},
+                 {"role": "user", "content": l1_context}],
+                temperature=temperature, chat_id=None, module="canary",
+                step="l1_external",
+            ),
+            timeout=120,
+        )
+        raw_chars = len(str(raw or ""))
+        plan = parse_l1_plan(raw)
+    except Exception as exc:
+        details["error"] = type(exc).__name__
+        details["error_detail"] = _clip(str(exc), 200)
+    details["decision"] = None if plan is None else {
+        "action": plan.action,
+        "tool_policy": plan.tool_policy,
+        "capabilities_needed": list(plan.capabilities_needed),
+        "execution_mode": plan.execution_mode,
+        "execution_mode_source": plan.execution_mode_source,
+        "response_act": plan.response_act,
+        "raw_chars": raw_chars,
+    }
+    selected_tool = ""
+    for capability_name in (list(plan.capabilities_needed) if plan else []):
+        for candidate in direct_capabilities.CAPABILITY_TOOLS.get(
+                capability_name, ()):
+            if candidate == "read_source_code":
+                selected_tool = candidate
+                break
+        if selected_tool:
+            break
+    details["selected_tool"] = selected_tool or None
+
+    execution: dict | None = None
+    if selected_tool == "read_source_code":
+        router = ToolRouter(ToolDeps(search=None, memory=None))
+        tool_ctx = ToolContext(0, EXTERNAL_NATURAL_REQUEST)
+        dispatched = {"operation": "read", "repo": EXTERNAL_REPO,
+                      "ref": EXTERNAL_BRANCH, "path": EXTERNAL_SEARCH_EXPECT_PATH}
+        details["dispatched_arguments"] = dispatched
+        try:
+            out = await router.dispatch("read_source_code", dispatched, tool_ctx)
+            payload = json.loads(out) if str(out).strip().startswith("{") else {}
+            execution = {
+                "status": payload.get("status"),
+                "stage": payload.get("stage"),
+                "repo": payload.get("repo"),
+                "path": payload.get("path"),
+                "commit": str(payload.get("commit") or "").lower() or None,
+                "verified": bool(payload.get("verified")),
+                "source_kind": payload.get("source_kind"),
+                "snippet_chars": int(payload.get("snippet_chars") or 0),
+                "network_calls": int(payload.get("network_calls") or 0),
+                "error": (payload.get("error")
+                          if isinstance(payload.get("error"), str) else None),
+            }
+        except Exception as exc:
+            execution = {"status": "exception",
+                         "error": type(exc).__name__,
+                         "error_detail": _clip(str(exc), 200)}
+        details["tool_execution"] = execution
+
+    details["provider_calls"] = {
+        "used": ctx.provider_calls,
+        "denied": ctx.provider_denied,
+        "max_provider_calls": int(ctx.args.max_provider_calls),
+    }
+    a.expect("natural_request_provider_call", int(ctx.provider_calls) >= 1,
+             details["provider_calls"])
+    a.expect("natural_request_decision_parsed", plan is not None,
+             details.get("decision"))
+    a.expect("natural_request_selected_source_tool",
+             selected_tool == "read_source_code", details.get("decision"))
+    a.expect("natural_request_tool_executed",
+             bool(execution) and (execution or {}).get("status") == "ok",
+             execution)
+    a.expect("natural_request_tool_verified",
+             bool((execution or {}).get("verified"))
+             and str((execution or {}).get("path") or "")
+             == EXTERNAL_SEARCH_EXPECT_PATH
+             and (execution or {}).get("source_kind") == "file",
+             execution)
+    a.expect("natural_request_tool_network",
+             int((execution or {}).get("network_calls") or 0) > 0, execution)
+
+    if a.failures:
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "естественный запрос о внешнем коде не подтверждён: "
+            + ", ".join(a.failures[:6]),
+            {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION,
+            "real L1 provider call executed; decision/execution not satisfied",
+        )
+    return CheckOutcome(
+        STATUS_OBSERVED,
+        "естественный запрос о внешнем коде: L1 выбрал capability "
+        "source_code, production tool реально прочитал файл на GitHub "
+        "(verified, точный path)",
+        {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real provider decision + real source-read execution",
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 8. diagnostic variants → SXR-L6-01
+# ═════════════════════════════════════════════════════════════════════════════
 async def _run_variant(rounds, responder, *, finalizer_error=None,
                        final_text="canary: данные сохранены и изложены"):
     from services.tool_loop import chat_with_tools
@@ -3886,6 +4385,14 @@ CHECKS: tuple[CheckSpec, ...] = (
               ("SXR-L4-01",), check_local_source_read),
     CheckSpec("external_reads", "7", "External GitHub read + SSRF refusal",
               ("SXR-F2-01", "SXR-F4-01", "SXR-L5-01"), check_external_reads),
+    CheckSpec("external_scenarios", "7b",
+              "F4: public repo, symbol search, link read, related sources, "
+              "factual refusal, no separate command",
+              ("SXR-F4-01", "SXR-F2-01", "SXR-L5-01"),
+              check_external_scenarios),
+    CheckSpec("external_natural_request", "7c",
+              "F4: natural external-code request via Direct L1 (one provider call)",
+              ("SXR-F4-01",), check_external_natural_request),
     CheckSpec("diagnostic_variants", "8", "Seven diagnostic/finalization variants",
               ("SXR-L6-01",), check_diagnostic_variants),
     CheckSpec("checkup_real", "9", "Real checkup: journal, identity, manifest, report",
@@ -4295,6 +4802,224 @@ async def _self_test_body(repo_root: Path) -> int:
     expect("k3.untouched_profile_ok",
            untouched_verdict["ok"] is True
            and not untouched_verdict["post_deploy_changes"], untouched_verdict)
+
+    # 11) F4 external-scenario predicates: positive + negative controls
+    def _chain_payload(files, *, status="ok", path=EXTERNAL_CHAIN_PATH,
+                       commit="a" * 40, verified=True, calls=5):
+        return {"status": status, "path": path, "commit": commit,
+                "verified": verified, "source_kind": "file",
+                "network_calls": calls, "snippet_chars": 40,
+                "files": files, "not_checked": {"files_read": len(files)}}
+
+    good_files = [
+        {"path": EXTERNAL_CHAIN_PATH, "role": "primary", "verified": True,
+         "snippet_chars": 40, "verified_url": "https://github.com/x/y/blob/"
+                                            + "a" * 40 + "/" + EXTERNAL_CHAIN_PATH},
+        {"path": EXTERNAL_CHAIN_SIBLING, "role": "followup", "verified": True,
+         "snippet_chars": 25},
+    ]
+    chain_ok = _external_chain_facts(_chain_payload(good_files))
+    expect("external.chain_related_positive",
+           chain_ok["has_primary"] and chain_ok["distinct_verified_sibling"]
+           and EXTERNAL_CHAIN_SIBLING in chain_ok["verified_sibling_paths"],
+           chain_ok)
+    only_primary = _external_chain_facts(_chain_payload(good_files[:1]))
+    expect("external.chain_no_sibling_negative",
+           only_primary["has_primary"]
+           and not only_primary["distinct_verified_sibling"], only_primary)
+    unverified_sibling = _external_chain_facts(_chain_payload([
+        good_files[0],
+        {"path": EXTERNAL_CHAIN_SIBLING, "role": "followup",
+         "verified": False, "snippet_chars": 25},
+    ]))
+    expect("external.chain_unverified_sibling_negative",
+           not unverified_sibling["distinct_verified_sibling"],
+           unverified_sibling)
+
+    commit_ref = "b" * 40
+    search_ok = _external_search_facts(
+        {"status": "ok", "stage": "locator", "path": EXTERNAL_SEARCH_EXPECT_PATH,
+         "commit": commit_ref, "verified": True, "source_kind": "file",
+         "symbol": EXTERNAL_SEARCH_SYMBOL, "symbol_found": True,
+         "line_range": [10, 13], "snippet_chars": 60, "network_calls": 4},
+        expected_path=EXTERNAL_SEARCH_EXPECT_PATH, expected_commit=commit_ref)
+    expect("external.search_symbol_positive",
+           search_ok["path_matches"] and search_ok["commit_matches"]
+           and search_ok["symbol_found"] and search_ok["verified"], search_ok)
+    search_wrong_commit = _external_search_facts(
+        {"status": "ok", "stage": "locator", "path": EXTERNAL_SEARCH_EXPECT_PATH,
+         "commit": "c" * 40, "verified": True}, expected_path=
+        EXTERNAL_SEARCH_EXPECT_PATH, expected_commit=commit_ref)
+    expect("external.search_exact_commit_negative",
+           not search_wrong_commit["commit_matches"], search_wrong_commit)
+    search_wrong_path = _external_search_facts(
+        {"status": "ok", "stage": "locator", "path": "src/Other.java",
+         "commit": commit_ref, "verified": True},
+        expected_path=EXTERNAL_SEARCH_EXPECT_PATH, expected_commit=commit_ref)
+    expect("external.search_path_negative",
+           not search_wrong_path["path_matches"], search_wrong_path)
+
+    link_ok = _external_link_facts(
+        {"status": "ok", "path": EXTERNAL_CHAIN_PATH, "commit": commit_ref,
+         "verified": True, "source_kind": "file", "snippet_chars": 90,
+         "network_calls": 3},
+        expected_commit=commit_ref, expected_path=EXTERNAL_CHAIN_PATH)
+    expect("external.link_identity_positive",
+           link_ok["path_matches"] and link_ok["commit_matches"]
+           and link_ok["verified"], link_ok)
+    link_wrong = _external_link_facts(
+        {"status": "ok", "path": "src/Other.java", "commit": "d" * 40,
+         "verified": True, "source_kind": "file"},
+        expected_commit=commit_ref, expected_path=EXTERNAL_CHAIN_PATH)
+    expect("external.link_identity_negative",
+           not link_wrong["path_matches"] and not link_wrong["commit_matches"],
+           link_wrong)
+
+    failure_missing = _external_failure_facts(
+        {"status": "not_found", "stage": "discover", "error": "source_missing",
+         "network_calls": 1})
+    expect("external.failure_missing_factual",
+           failure_missing["factual"] and failure_missing["not_read"]
+           and failure_missing["no_retries"], failure_missing)
+    failure_rate = _external_failure_facts(
+        {"status": "error", "stage": "discover", "error": "rate_limit",
+         "error_detail": {"code": "rate_limit", "stage": "discover",
+                          "http": 403}, "network_calls": 1})
+    expect("external.failure_rate_limit_factual",
+           failure_rate["factual"] and failure_rate["http"] == 403,
+           failure_rate)
+    failure_read = _external_failure_facts(
+        {"status": "ok", "network_calls": 1})
+    expect("external.failure_read_negative", not failure_read["factual"],
+           failure_read)
+    failure_unknown_code = _external_failure_facts(
+        {"status": "error", "error": "something_odd", "network_calls": 1})
+    expect("external.failure_unknown_code_negative",
+           not failure_unknown_code["factual"], failure_unknown_code)
+    failure_hammered = _external_failure_facts(
+        {"status": "not_found", "error": "source_missing", "network_calls": 9})
+    expect("external.failure_retries_negative",
+           not failure_hammered["no_retries"], failure_hammered)
+
+    from services import command_registry as _cmd_registry
+    from services import tool_schemas as _tool_schemas
+
+    capability_ok = _external_capability_facts(_tool_schemas, _cmd_registry)
+    expect("external.capability_real_single_tool",
+           capability_ok["single_tool"]
+           and capability_ok["tool_name"] == "read_source_code"
+           and capability_ok["operations_cover"]
+           and capability_ok["no_separate_command"], capability_ok)
+
+    class _FakeSchemas:
+        TOOL_READ_SOURCE_CODE = {
+            "function": {"name": "read_source_code",
+                         "parameters": {"properties": {
+                             "operation": {"enum": ["read"]}}}}}
+        TOOL_CALLING_TOOLS = [
+            {"function": {"name": "read_source_code"}},
+            {"function": {"name": "github_fetch"}},
+        ]
+
+    class _FakeCommands:
+        FUNCTIONAL_COMMANDS = {"search": ("найди",),
+                               "source": ("исходник",)}
+
+    capability_bad = _external_capability_facts(_FakeSchemas, _FakeCommands)
+    expect("external.capability_extra_tool_negative",
+           not capability_bad["single_tool"], capability_bad)
+    expect("external.capability_partial_operations_negative",
+           not capability_bad["operations_cover"], capability_bad)
+    expect("external.capability_command_negative",
+           not capability_bad["no_separate_command"], capability_bad)
+
+    # 12) F4-проверки целиком: проводка на канонических ответах (plumbing —
+    # транспорт подменён, сеть запрещена guard'ом) + честный guard без флага.
+    from services.tool_router import ToolRouter as _ToolRouter
+
+    fake_ctx = type("_Ctx", (), {
+        "args": type("_A", (), {
+            "offline": False, "allow_provider_calls": False,
+            "max_provider_calls": 0}),
+        "provider_calls": 0,
+        "provider_denied": 0,
+    })()
+
+    def _canned(payloads: dict):
+        def _respond(arguments: dict) -> dict:
+            arguments = arguments or {}
+            if arguments.get("repo") == EXTERNAL_MISSING_REPO:
+                return payloads["missing"]
+            if str(arguments.get("operation") or "") == "locate":
+                return payloads["locate"]
+            if arguments.get("url"):
+                return payloads["link"]
+            return payloads["chain"]
+        return _respond
+
+    good_payloads = {
+        "chain": {"status": "ok", "stage": "fetch", "path": EXTERNAL_CHAIN_PATH,
+                  "commit": "e" * 40, "verified": True, "source_kind": "file",
+                  "snippet_chars": 40, "network_calls": 5,
+                  "verified_url": "https://github.com/x/y/blob/" + "e" * 40
+                                  + "/" + EXTERNAL_CHAIN_PATH,
+                  "files": good_files, "not_checked": {"files_read": 2}},
+        "locate": {"status": "ok", "stage": "locator", "path":
+                   EXTERNAL_SEARCH_EXPECT_PATH, "commit": "e" * 40,
+                   "verified": True, "source_kind": "file",
+                   "symbol": EXTERNAL_SEARCH_SYMBOL, "symbol_found": True,
+                   "line_range": [10, 13], "snippet_chars": 60,
+                   "network_calls": 4},
+        "link": {"status": "ok", "stage": "fetch", "path": EXTERNAL_CHAIN_PATH,
+                 "commit": "e" * 40, "verified": True, "source_kind": "file",
+                 "snippet_chars": 90, "network_calls": 3},
+        "missing": {"status": "not_found", "stage": "discover",
+                    "error": "source_missing", "network_calls": 1},
+    }
+    broken_payloads = dict(good_payloads)
+    broken_payloads["chain"] = {**good_payloads["chain"],
+                                "files": good_files[:1]}
+    broken_payloads["locate"] = {**good_payloads["locate"], "commit": "f" * 40}
+
+    original_dispatch = _ToolRouter.dispatch
+
+    async def _run_external_scenarios(payloads: dict):
+        def _respond(arguments: dict) -> dict:
+            return _canned(payloads)(arguments)
+
+        async def _fake_dispatch(self, name, arguments, tool_ctx):  # noqa: ANN001
+            return json.dumps(_respond(arguments), ensure_ascii=False)
+
+        _ToolRouter.dispatch = _fake_dispatch
+        try:
+            return await check_external_scenarios(fake_ctx)
+        finally:
+            _ToolRouter.dispatch = original_dispatch
+
+    try:
+        positive = await _run_external_scenarios(good_payloads)
+        negative = await _run_external_scenarios(broken_payloads)
+        expect("external.check_wiring_observed",
+               positive.status == STATUS_OBSERVED
+               and positive.evidence_class == EVIDENCE_PRODUCTION,
+               {"status": positive.status,
+                "failed": [x["name"] for x in
+                           (positive.details.get("assertions") or [])
+                           if not x["ok"]]})
+        negative_failed = [x["name"] for x in
+                           (negative.details.get("assertions") or [])
+                           if not x["ok"]]
+        expect("external.check_wiring_broken_path_not_observed",
+               negative.status == STATUS_NOT_OBSERVED
+               and "external_related_sources_read" in negative_failed
+               and "external_symbol_search_exact_commit" in negative_failed,
+               {"status": negative.status, "failed": negative_failed})
+        guard = await check_external_natural_request(fake_ctx)
+        expect("external.natural_request_guard_without_flag",
+               guard.status == STATUS_NOT_OBSERVED
+               and guard.evidence_class == EVIDENCE_UNAVAILABLE, guard.status)
+    except Exception as exc:
+        expect("external.check_wiring_ran", False, type(exc).__name__)
 
     print(f"[self-test] failures={len(failures)}")
     for line in failures:
