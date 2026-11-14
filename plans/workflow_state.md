@@ -18,7 +18,7 @@ Review: harnesses admissible (r2); S5A F-S5A-01 fixed in 1267ab9e but two bypass
 Deployment: parent 2.58.200 verified engineering delivery; corrective not implemented
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted (384 required / 367 ids / 14 slices, plan gate 0); global aggregate 4385/7264 requirements, 322/599 slices
-Updated: 2026-11-14T20:02:58+12:00+12:00
+Updated: 2026-11-14T20:02:58+12:00
 
 ## Facts
 
