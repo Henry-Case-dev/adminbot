@@ -15,10 +15,11 @@ Review: S1/S2 Approved; S3 Approved (r2); S5A Approved; S5B Approved (r2); S5C *
 Deployment: parent 2.58.200 verified engineering delivery; corrective slices S1/S2, S3, S5A, S5B approved; S4/S5C in progress - no corrective deploy yet
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted; global aggregate 4409/7264 requirements, 324/599 slices
-Updated: 2026-11-14T22:24:08+12:00
+Updated: 2026-11-14T22:26:28+12:00
 
 ## Facts
 
+- S5C-EVENTS bound on master (candidate e5cc838f): 2 required rows (SC-WD-W01/W11) REVIEW, 0 PENDING; slice candidate binding + implementation/review/retention evidence with sha256; review gate 0, plan gate 0; SC-WD-W01 text already aligned with the owner per-job contract. S3B-INPUT and S5D-OBSERVABILITY are in implementation.
 - S4-COMPLETION bound on master (candidate 7c1e1afb): 35 required rows (32 REVIEW + 3 previously VERIFIED observation rows), 0 PENDING; slice_candidate_binding + implementation/review evidence (artifact sha256 verified); review gate 0 errors, plan gate 0; SC-BUD-PROGRESS/PARTIAL moved from S3 to S4 (S3 scope now 26 rows; S3 review gate 0). PM is binding S5C next.
 - S5C-EVENTS **Approved** (candidate e5cc838f, evidence 5d7c4798): per-job WATCHDOG_TAKEOVER identity/outcome, no aggregate duplicates, empty batch 0 events, event schema/REASON_CODES preserved, fingerprint kind+job_id, per-job incident rows, title/jobs_json/history; mutations (aggregate re-emission -> 6 events, empty-batch event, fingerprint without kind/job_id) each fail a test; 13 S5C + 64 combined + 102/1 pre-existing + 40 consumers + 39 self-diag. Map text reconciled by PM. S5D-OBSERVABILITY dispatched from sc/corrective-s5c.
 - S4-COMPLETION independent review: implementation and test evidence adequate (11 focused, 267/650/301 suites, adversarial scenarios green; mutation probe rejected by the local scanner = procedural gap); the only blocker was the review gate lineage (it was run inside the candidate worktree where master-only owner input/plan docs are absent). PM is binding S4 on master and re-running the gate. S3B-INPUT dispatched from sc/corrective-s4.

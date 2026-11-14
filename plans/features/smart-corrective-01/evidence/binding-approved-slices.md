@@ -132,3 +132,43 @@ Reviewer независимо проверил реализацию, тесты 
 Выводы: `evidence/gates/review-S4-COMPLETION.txt`, `evidence/gates/plan-after-S4.txt`.
 
 `candidate_commit`/`deployed_commit` карты остаются пустыми; S4 — predeploy binding, не production-подтверждение.
+
+## 8. S5C-EVENTS (добавлено 2026-11-14, unit `pm-s5c-bind`)
+
+| Поле | Значение |
+|---|---|
+| Код-кандидат / review candidate | `e5cc838f7367be830e05be5394a2eea201321f4f` (ветка HEAD evidence `5d7c4798`) |
+| База | `7d0c6b409a786960b1057950f32c4ed24dd7cf0a` |
+| Ветка / worktree | `sc/corrective-s5c`; `…smart-corrective-01-0097aecc4a7a-e405b67c` |
+| Implementation | `evidence/s5c/implementation.md` `f8f8c0ab20acfa84f4c07284fbd7e1a00fdda0ddb14c75974bbe4f9c9d4b10f4` |
+| Review | `evidence/s5c/review-r1.md` `d8fcc22ea84e8c103cad1d85f67dc0bb454a993100fefee96fdcbd3cbe1a3c9d` |
+| Retention | `evidence/s5c/retention.json` `90e3891874b5a93185ac0419a3268e0b5f3a1bb558277ed7568a9def0bbc4a8f` |
+
+Артефакты скопированы байт-в-байт из candidate worktree; sha256 источника = sha256 назначения.
+
+### Строки S5C
+
+| Показатель | Значение |
+|---|---:|
+| Required-строк S5C-EVENTS (`SC-WD-W01`, `SC-WD-W11`) | 2 |
+| Привязано к кандидату `e5cc838f` (implementation + review) | 2 |
+| `REVIEW` | 2 |
+| `VERIFIED` | 0 |
+| Осталось `PENDING` в S5C | 0 |
+
+Reviewer отдельно отметил, что исходная формулировка `SC-WD-W01` («ровно одно событие на sweep») конфликтовала с owner §9.2 C и architecture §7.1 (per-job evidence). К моменту привязки текст строки уже согласован с owner/architecture: не более одного события на фактически затронутый job, без повторения идентичного aggregate из-за размера batch, пустой batch — без события. Obligation не ослаблена.
+
+### Review-вердикт
+
+`review-r1.md`: **Approved for implemented S5C-EVENTS scope on exact candidate**. Проверены per-job identity/outcomes, пустой batch, `build_event`/durable `mca_events`, fingerprint `kind+job_id`, два kind → два инцидента, 20-id bound и сохранение исторических строк. Mutation-killed: duplicate emission, empty-batch mutation, fingerprint removal. Прогоны: 13 S5C, 64 combined, 40 consumers, 39 self-diag; единственный pre-existing failure (`test_write_points_go_through_single_writer`) воспроизведён на базе и вне scope. Привязка только на уровне REVIEW; ни одна строка не VERIFIED.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| review | `--stage review --slice S5C-EVENTS --candidate e5cc838f --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=2) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+
+Выводы: `evidence/gates/review-S5C-EVENTS.txt`, `evidence/gates/plan-after-S5C.txt`.
+
+`candidate_commit`/`deployed_commit` карты остаются пустыми; S5C — predeploy binding, не production-подтверждение.

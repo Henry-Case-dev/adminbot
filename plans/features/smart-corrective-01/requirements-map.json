@@ -4413,8 +4413,27 @@
       "acceptance": "На каждый фактически затронутый job — не более одного WATCHDOG_TAKEOVER за sweep/attempt, с job identity (job_id или bounded entity_ids), owner/kind, previous status/generation, reason, attempt, truthful outcome и fencing/recovery evidence; одинаковые aggregate events не повторяются из-за размера stale batch или итерации цикла; пустой batch не эмитит событие; совместимость с аналитикой и потребителями сохранена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "e5cc838f7367be830e05be5394a2eea201321f4f",
+          "ref": "S5C implementation.md — implementation.md §2/§4/§5: TestPerJobTakeoverEvents, TestEventPayloadContract; 13 S5C + 64 combined passed",
+          "observation": "Per-job WATCHDOG_TAKEOVER: 3 stale jobs → 3 distinct events with job_id/entity_ids/owner/kind/status/attempt; no aggregate duplicate per batch row; empty batch → 0; build_event and durable mca_events preserve identity.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s5c/implementation.md",
+          "artifact_sha256": "f8f8c0ab20acfa84f4c07284fbd7e1a00fdda0ddb14c75974bbe4f9c9d4b10f4"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e5cc838f7367be830e05be5394a2eea201321f4f",
+          "ref": "S5C review-r1.md lines 2-9 (§Implementation, §Test validity, §Independent challenge); line 7 SC-WD-W01 wording reconciliation completed on master before binding",
+          "observation": "Reviewer independently inspected S5C implementation, tests and mutations: per-job identity/outcomes, empty-batch zero, kind+job_id fingerprint, historical-row preservation and 20-id bound verified; mutation-killed (13 S5C + 64 combined + 40 consumers + 39 self-diag). Reviewer noted SC-WD-W01 wording conflict; PM reconciled the map text to owner §9.2 C / architecture §7.1 before binding. REVIEW level only; not VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s5c/review-r1.md",
+          "artifact_sha256": "d8fcc22ea84e8c103cad1d85f67dc0bb454a993100fefee96fdcbd3cbe1a3c9d"
+        }
+      ],
       "expected_evidence": "Focused test: 3 stale jobs → 3 per-job WATCHDOG_TAKEOVER (не более одного на job), каждый несёт job identity и truthful outcome; идентичный aggregate не повторяется на batch/итерацию; integration-проверка payload через build_event (job identity не отбрасывается молча); пустой batch → 0 событий; реестр/агрегаты совместимы.",
       "owner_clause": "§9.2 C",
       "linked_acceptance": [
@@ -4532,8 +4551,27 @@
       "acceptance": "fingerprint включает kind и job_id при сохранении старых полей и REASON_CODES; title/impact не замораживаются на первом job или хранят список job; 20-id bound сохранён; два job одного owner разных kind дают два инцидента; исторические строки остаются читаемыми без разрушительного backfill.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "e5cc838f7367be830e05be5394a2eea201321f4f",
+          "ref": "S5C implementation.md — implementation.md §3/§4/§5: TestIncidentFingerprint + updated lifecycle/incident tests",
+          "observation": "Fingerprint includes kind+job_id while old field positions/REASON_CODES remain; two jobs of one owner with different kinds produce two incidents with own title/jobs_json; 20-id bound preserved; historical rows untouched (no backfill).",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s5c/implementation.md",
+          "artifact_sha256": "f8f8c0ab20acfa84f4c07284fbd7e1a00fdda0ddb14c75974bbe4f9c9d4b10f4"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e5cc838f7367be830e05be5394a2eea201321f4f",
+          "ref": "S5C review-r1.md lines 2-9 (§Implementation, §Test validity, §Independent challenge); line 7 SC-WD-W01 wording reconciliation completed on master before binding",
+          "observation": "Reviewer independently inspected S5C implementation, tests and mutations: per-job identity/outcomes, empty-batch zero, kind+job_id fingerprint, historical-row preservation and 20-id bound verified; mutation-killed (13 S5C + 64 combined + 40 consumers + 39 self-diag). Reviewer noted SC-WD-W01 wording conflict; PM reconciled the map text to owner §9.2 C / architecture §7.1 before binding. REVIEW level only; not VERIFIED.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s5c/review-r1.md",
+          "artifact_sha256": "d8fcc22ea84e8c103cad1d85f67dc0bb454a993100fefee96fdcbd3cbe1a3c9d"
+        }
+      ],
       "expected_evidence": "Два job одного owner разных kind ⇒ два инцидента; title не перезаписывается первым job; 20-id bound сохранён; fingerprint включает kind+job_id, старые строки читаемы без destructive backfill.",
       "owner_clause": "§9.2 F",
       "linked_acceptance": [
@@ -11965,6 +12003,21 @@
       "review_sha256": "3a3e4c995ce6d121b3f5839ee616683629fd3ba8497899b488f3a43809ad90c3",
       "retention_path": "plans/features/smart-corrective-01/evidence/s4/cleanup-retention.json",
       "retention_sha256": "9f0d4444f1d0a5facf5eb928fd8c8b64db247decc0d634d65b056b2573cd3c37",
+      "status": "REVIEW",
+      "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
+    },
+    "S5C-EVENTS": {
+      "slice": "S5C-EVENTS",
+      "candidate_commit": "e5cc838f7367be830e05be5394a2eea201321f4f",
+      "base_commit": "7d0c6b409a786960b1057950f32c4ed24dd7cf0a",
+      "branch": "sc/corrective-s5c",
+      "worktree": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-e405b67c",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s5c/implementation.md",
+      "implementation_sha256": "f8f8c0ab20acfa84f4c07284fbd7e1a00fdda0ddb14c75974bbe4f9c9d4b10f4",
+      "review_path": "plans/features/smart-corrective-01/evidence/s5c/review-r1.md",
+      "review_sha256": "d8fcc22ea84e8c103cad1d85f67dc0bb454a993100fefee96fdcbd3cbe1a3c9d",
+      "retention_path": "plans/features/smart-corrective-01/evidence/s5c/retention.json",
+      "retention_sha256": "90e3891874b5a93185ac0419a3268e0b5f3a1bb558277ed7568a9def0bbc4a8f",
       "status": "REVIEW",
       "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists."
     }

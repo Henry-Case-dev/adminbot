@@ -1,0 +1,13 @@
+{
+  "unit": "s5c-events",
+  "epic": "smart-corrective-01",
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-e405b67c",
+      "owner": "Builder (S5C-EVENTS)",
+      "reason": "Registered implementation worktree of branch sc/corrective-s5c (code+tests e5cc838f, evidence commit); must remain available for independent review and for S5D continuation. No production access; disposable pytest cache removed.",
+      "evidence": "plans/features/smart-corrective-01/evidence/s5c/implementation.md (e5cc838f)",
+      "next_event": "After Reviewer approval of S5C (or after S5C/S5D join): integrate the branch, then release the worktree via unit-close."
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+﻿# Independent review r1 - S5C-EVENTS
+Candidate: e5cc838f7367be830e05be5394a2eea201321f4f; base 7d0c6b40; evidence 5d7c4798.
+Implementation: inspected mca_watchdog merge emit sweep incident paths, mca_incidents fingerprint/open_or_update, and mca_events validation. Per-job identity/outcome, no aggregate duplicates, empty-batch zero, no-store/error per-job records, preserved schema/reason codes, appended kind/job_id fingerprint, per-job incident title/jobs_json bound and historical-row preservation are implemented.
+Test validity: all 13 S5C tests and 3 updated tests were read. Real SQLite rows and captured payloads assert identity, owner, kind, outcomes, counts, duplicate prevention, empty batch, fingerprint sensitivity, distinct incidents, 20-id bound and historical rows; no vacuous assertions.
+Independent challenge: archive mutations failed as required: duplicate emission produced 6 instead of 3; empty-batch mutation failed the empty-batch test; fingerprint removal failed fingerprint sensitivity because base equaled by_kind_1. Control S5C: 13 passed.
+Checks: combined S5A+S5B+S5C 64 passed; mca17a+mca01 102 passed/1 failed, sole known pre-existing census failure test_write_points_go_through_single_writer; event consumers mca13/qnd/mca17c 40 passed and self-diagnostics 39 passed. No DDL/flags/settings changes; production not accessed.
+Ledger: W-01 REVIEW VERIFIED; W-11 REVIEW VERIFIED. SC-WD-W01 map wording conflicts with owner section 9.2 C and architecture section 7.1 per-job contract; implementation satisfies owner/architecture, PM reconciliation required, nonblocking.
+Findings: no in-scope blocker. Pre-existing census failure is nonblocking and outside S5C scope.
+Verdict: Approved for implemented S5C-EVENTS scope on exact candidate. Requirements remain REVIEW evidence only; no row marked final VERIFIED. PM must reconcile SC-WD-W01 wording.
