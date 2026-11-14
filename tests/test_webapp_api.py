@@ -1466,7 +1466,9 @@ class TestParamPermissionFlagsApi:
         # рассохшийся счётчик).
         # ASAP-VISION-SYNC-01 wave2 (31.10.2026): +12 PG-only ключей
         # распознавания (3 models + 9 limits) → categorized 570.
-        assert len(items) == len(categorized) == 618
+        # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 categorized —
+        # prompts.factcheck_subject_system_prompt → 619.
+        assert len(items) == len(categorized) == 619
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

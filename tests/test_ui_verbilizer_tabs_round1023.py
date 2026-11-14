@@ -81,7 +81,7 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 644
+        assert len(pc.REGISTRY) == 645
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22
@@ -122,7 +122,9 @@ class TestCatalogDelta:
         # critique_directive (директива «Критического разноса») = 26.
         # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): +2 — prompts.meme_joke и
         # prompts.meme_image (промпты мем-пайплайна) = 28.
-        assert len(prompts) == 28
+        # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 —
+        # prompts.factcheck_subject_system_prompt (предмет фактчека) = 29.
+        assert len(prompts) == 29
         for spec in prompts:
             assert spec.code_source
             assert spec.stage in (None, "synthesizer", "verbalizer", "mode")

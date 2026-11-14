@@ -1037,8 +1037,9 @@ _PROMPTS: list[tuple] = [
      "services.factcheck_orchestrator.FACTCHECK_SUBJECT_SYSTEM_PROMPT",
      "prompts_factcheck",
      "Служебная машинная стадия: определяет точный предмет проверки по "
-     "исходному материалу и запросу пользователя (data-only JSON). Пусто — "
-     "заводская редакция. Изменения применяются сразу.", "", "synthesizer"),
+     "исходному материалу и запросу пользователя (машиночитаемый ответ). "
+     "Пусто — заводская редакция. Изменения применяются сразу.",
+     "", "synthesizer"),
     ("prompts.summary_editor_system_prompt", "Legacy Editor",
      "services.summary_prompts.SUMMARY_EDITOR_SYSTEM_PROMPT", "prompts_summary",
      "Legacy fallback, не основной Hybrid writer: сжимает историю в выжимку "

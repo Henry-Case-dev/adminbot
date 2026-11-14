@@ -157,7 +157,10 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # VMQ-MEM-TIME (10.11.2026): L1 получил поле memory_scope в схеме и абзац
     # контракта → набор фабричных текстов изменился осознанно; прочие каноны
     # байт-в-байт. Было 1532c9480cd5, стало ae40ca11c77b.
-    assert pr.FACTORY_SET_SHA256_12 == "ae40ca11c77b"
+    # SMART-EXECUTION-RELIABILITY-01 release train 01 (14.11.2026): +2 блока
+    # заводских канонов — direct.tool_finalize (§G) и factcheck.subject (§S13);
+    # печать набора переутверждена осознанно → 330952838067.
+    assert pr.FACTORY_SET_SHA256_12 == "330952838067"
 
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"

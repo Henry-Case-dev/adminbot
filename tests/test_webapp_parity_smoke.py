@@ -66,7 +66,7 @@ class TestCatalogParity:
         # (факт 586) — учтено → 581/119.
         # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS (квантовое
         # расписание и вероятность публикации на существующих вкладках).
-        assert len(REGISTRY) == 644, len(REGISTRY)
+        assert len(REGISTRY) == 645, len(REGISTRY)
         assert len(GROUPS) == 121
         from config.settings import Settings
         import dataclasses

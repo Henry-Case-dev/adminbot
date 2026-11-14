@@ -894,9 +894,12 @@ class DiagnosticCollector:
             result["bundle"], max_chars=int(self.limits.max_facts_chars))
         # SXR-H1-02/H5: если явный бюджет фактов отсёк хвост, агрегат
         # not_checked не должен исчезнуть вместе с ним: модель обязана
-        # видеть, что именно осталось непроверенным.
+        # видеть, что именно осталось непроверенным. Строка дописывается
+        # ПОСЛЕ блока: заголовок `DIAGNOSTIC_EVIDENCE` остаётся первым
+        # (контейнер-evidence не превращается в инструкцию, паритет
+        # контракта чекапа).
         unchecked = tuple(result["bundle"].not_checked)
         if unchecked and "[facts_budget_exceeded]" in facts_text:
-            facts_text = ("[facts_unknown] not_checked="
-                          + ",".join(unchecked)[:400] + "\n" + facts_text)
+            facts_text = (facts_text + "\n[facts_unknown] not_checked="
+                          + ",".join(unchecked)[:400])
         return result["bundle"], facts_text

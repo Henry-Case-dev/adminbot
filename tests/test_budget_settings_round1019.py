@@ -37,7 +37,7 @@ class TestCatalogDeltaF3:
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings/categorized
         # (BUDGETS_ENABLED), +1 GROUPS/mapped (flags_module_budgets →
         # вкладка mod_budgets); TAB_RULES 20 — новых вкладок нет.
-        assert len(pc.REGISTRY) == 644
+        assert len(pc.REGISTRY) == 645
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         # F5 (10.24, ADR-1024-9 D3): +1 config-вкладка mod_images.

@@ -72,6 +72,9 @@ SCOPE_CODE_WITH_PG_KEY: dict[str, str] = {
         "метаданные до MEME-P0: значение живёт в global/chat, текст в журнале",
     "initiative.meme.image":
         "метаданные до MEME-P0: значение живёт в global/chat, текст в журнале",
+    "factcheck.subject":
+        "S13: служебная машинная стадия, заводской текст — код-канон, правка "
+        "идёт ключом каталога prompts.factcheck_subject_system_prompt",
     "factcheck.critique.directive":
         "речевая директива публикуется как текст блока, правится через speech",
 }
@@ -293,13 +296,17 @@ def test_registry_snapshot_counts_are_stable():
     """
     blocks = pr.all_blocks()
     with_text = [b for b in blocks if pr.factory_text(b.block_id)]
-    assert len(blocks) == 113, (
+    # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 блок
+    # `factcheck.subject` (+1 печать/метка/`pg_key`) и §G — блок
+    # `direct.tool_finalize` уже учтён предыдущей полосой; оба идут одной
+    # релизной линией, поэтому пин и §2 контракта обновлены вместе.
+    assert len(blocks) == 114, (
         f"блоков {len(blocks)}: обновите §2 контракта и этот пин")
-    assert len(with_text) == 112, len(with_text)
-    assert len(pr.FACTORY_REVISION_SEALS) == 112
-    assert len(pr.FACTORY_REVISION_LABELS) == 103, (
+    assert len(with_text) == 113, len(with_text)
+    assert len(pr.FACTORY_REVISION_SEALS) == 113
+    assert len(pr.FACTORY_REVISION_LABELS) == 104, (
         len(pr.FACTORY_REVISION_LABELS))
-    assert len(_pg_blocks()) == 39
+    assert len(_pg_blocks()) == 40
     assert len([b for b in blocks if not b.pg_key]) == 74
 
 

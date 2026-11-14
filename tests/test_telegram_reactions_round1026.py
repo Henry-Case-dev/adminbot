@@ -512,7 +512,7 @@ class TestBoundaries:
 
     def test_counts_unchanged(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 644
+        assert len(pc.REGISTRY) == 645
         assert len({f.name for f in dataclasses.fields(Settings)}) == 472  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10 ; MENU-01 (f8f11a01): +3 MINI_APP_* (deep-link mode/registration confirmed/short name, env-only) -> 471
         # PINS-258151 reissue (MEME-PIPELINE-REFACTOR-01 P2, 07627068):
         # +2 PG-only prompt-ключа prompts.meme_joke/prompts.meme_image →

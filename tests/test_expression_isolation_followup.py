@@ -220,5 +220,8 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # поле memory_scope в схеме и абзац контракта (метка
     # l1-planner-memory-scope, sha12 619290834387); прочие каноны байт-в-байт.
     # Было 1532c9480cd5, стало ae40ca11c77b.
-    assert pr.FACTORY_SET_SHA256_12 == "ae40ca11c77b"
+    # SMART-EXECUTION-RELIABILITY-01 release train 01 (14.11.2026): +2 блока
+    # заводских канонов — direct.tool_finalize (§G) и factcheck.subject (§S13);
+    # печать набора переутверждена осознанно → 330952838067.
+    assert pr.FACTORY_SET_SHA256_12 == "330952838067"
 

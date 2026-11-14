@@ -694,7 +694,10 @@ class TestGroups8424:
         # MOD-ACL-UX-01 amendment (09.11.2026): +11 PG-only порогов/бюджетов
         # семантического контракта уроков (группа memory_experience) →
         # memory 59.
-        assert counts == {"prompts": 28, "models": 74, "keys": 33,
+        # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 prompts
+        # (prompts.factcheck_subject_system_prompt — ключ читался рантаймом
+        # через resolve_prompt, записи каталога не имел) → prompts 29.
+        assert counts == {"prompts": 29, "models": 74, "keys": 33,
                           "limits": 269, "flags": 109, "reactions": 39,
                           "content": 5, "memory": 59, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

@@ -270,7 +270,7 @@ def test_blockE_catalog_random_uses_keys():
     # снята) → 581/119/117/22.
     # QND-NONDET (10.11.2026): +32 REGISTRY / +2 GROUPS / +2 mapped (группы
     # limits_qnd|limits_qnd_nostalgia на существующих вкладках), TAB_RULES 22.
-    assert len(pc.REGISTRY) == 644
+    assert len(pc.REGISTRY) == 645
     assert len(pc.GROUPS) == 121
     assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 22
@@ -318,10 +318,10 @@ def test_blockE_f8_check_green_and_baselines():
     # семантического контракта уроков).
     # QND-NONDET (10.11.2026): 606 → 638 (+32: limits.qnd_* и compat-мэппинг
     # initiative.trigger_probability).
-    assert "643" in res.stdout
+    assert "645" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 644
+    assert fx["counts"]["REGISTRY"] == 645
     assert fx["counts"]["GROUPS"] == 121
     assert fx["counts"]["TAB_BY_GROUP"] == 119
     assert fx["counts"]["TAB_RULES"] == 22
@@ -331,10 +331,10 @@ def test_blockE_f8_check_green_and_baselines():
     # распознавания: предел ответа/режимы модели + границы ожидания и жизни
     # медиа-задачи). FC-06C/EVOL-031 сняли ключи исторически — набор не
     # пересчитывался.
-    assert fx["counts"]["delta"] == 242
+    assert fx["counts"]["delta"] == 244
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 643
+    assert len(cb["registry_keys"]) == 645
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

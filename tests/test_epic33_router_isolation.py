@@ -11,6 +11,7 @@ search_router (0d) + common_router (4c). Прогон через Dispatcher.feed
 """
 import asyncio
 import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -195,6 +196,13 @@ class TestRouterIsolation:
         → ровно 1 ответ, check_claim с caption, reply_to_message_id == 3-го фото."""
         dp, bot, db, relay, _, factcheck_service = env
         setup_factcheck(factcheck_service, db)
+        # S13/date-honesty: медиа-цель без известной даты публикации получает
+        # честный envelope (`date_source=unknown`) и проверяется единым
+        # temporal-путём, а не отказом контура. Мок отвечает тем же вердиктом;
+        # durable-запись прогона fail-open (envelope/verdict не заполнены).
+        run = SimpleNamespace(verdict_text="вердикт: пиздеж", fallback_used=False,
+                              envelope=None, verdict=None)
+        factcheck_service.check_claim_envelope = AsyncMock(return_value=run)
         await dp.feed_update(bot, Update(update_id=10, message=_make_photo_message(
             2, "текст новости", message_id=70, media_group_id="album-1")))
         await dp.feed_update(bot, Update(update_id=11, message=_make_photo_message(
@@ -215,11 +223,11 @@ class TestRouterIsolation:
                 or "не распознана" in sent.args[1]
                 or "распознавание" in sent.args[1])
         assert sent.kwargs["reply_to_message_id"] == 72   # target = 3-е фото
-        call = factcheck_service.check_claim.await_args
-        assert call.args[0] == "текст новости"
-        assert call.kwargs["chat_id"] == CHAT_ID
-        # wide default ON: caption/цепочка идут контекстом, не доказательствами
+        call = factcheck_service.check_claim_envelope.await_args
+        envelope = call.args[0]
+        assert envelope.claim_text == "текст новости"
         assert call.kwargs["chat_context"]
+        # wide default ON: caption/цепочка идут контекстом, не доказательствами
         assert "<chat_context" in call.kwargs["chat_context"]
         relay.send_common.assert_not_awaited()
 

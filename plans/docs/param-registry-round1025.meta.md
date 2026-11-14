@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
 - **APP_VERSION:** `2.58.199`
-- **HEAD (short):** `8797cd83`
+- **HEAD (short):** `5bdb80cb`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **644** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
-- **Реестр:** 644 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **645** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **22**.
+- **Реестр:** 645 строк == REGISTRY.
 - **inventory.tsv (10.14):** 401 baseline-ключей.
-- **Дельта 411 → 644 = 243** новых ключей (`status=new`).
+- **Дельта 411 → 645 = 244** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 644 = 243 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 645 = 244 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -245,6 +245,7 @@
 - `prompts.direct_l1_planner_system_prompt`
 - `prompts.factcheck_analyst_system_prompt`
 - `prompts.factcheck_critique_directive`
+- `prompts.factcheck_subject_system_prompt`
 - `prompts.factcheck_verbalizer_system_prompt`
 - `prompts.meme_image`
 - `prompts.meme_joke`

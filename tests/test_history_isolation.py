@@ -261,14 +261,18 @@ class TestOldEpisodesIsolation:
         block, stats = await svc._build_old_episodes(
             CHAT_ID, "проанализируй последние 50 сообщений", [], {},
             history_sample=bound)
-        # cap спана 3:1 назад от хита: строки 222..261; окно выборки ≥251
+        # SXR-C2-01: заводской потолок спана 40 удалён — coherent эпизод
+        # отдаётся целиком в пределах окна чтения (±120/60 строк); в P0-блок
+        # попадают только строки окна выборки (≥251), продолжение — одной
+        # помеченной строкой. Окно вокруг хита 252 покрывает 132..261, из них
+        # вне выборки 132..250 → 119 сообщений.
         assert "tg:252" in block and "tg:251" in block
         assert "tg:250" not in block and "tg:222" not in block
         supp = stats.get("supplement_lines") or []
         outside = [ln for ln in supp if "продолжается раньше края" in ln]
         assert len(outside) == 1
         assert "вне выборки tg:252" in outside[0]
-        assert "ещё 29 сообщ." in outside[0]
+        assert "ещё 119 сообщ." in outside[0]
 
     @pytest.mark.asyncio
     async def test_no_sample_legacy_history_mode_par_h24(self, monkeypatch):
