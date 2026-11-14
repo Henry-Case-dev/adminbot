@@ -433,3 +433,89 @@ AC wait copy проверен программно: для всех 26 READY-с�
 Выводы: `evidence/gates/deploy-corrective-0beed63d.txt`, `evidence/gates/plan-after-guard-0beed63d.txt`, `evidence/gates/deploy-parent-smart-0e4a144d-guard.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-guard.txt`.
 
 Итоговые статусы: **355 REVIEW, 26 READY_FOR_LIVE, 3 VERIFIED** (только ранее существовавшие S6 investigation-строки); `PENDING` — 0. AC wait copy остался точным: 26/26 равны appendix. Guard approval — predeploy only; production `prompt_source=chat` в затронутом чате остаётся postdeploy-проверкой.
+
+## 15. 2.58.203 label + anchor binding (добавлено 2026-11-15, unit `pm-bind-258203`)
+
+| Поле | Значение |
+|---|---|
+| Release train | `release/smart-corrective-01`, tip `e650f2b854755743f2a750024a1f184d2a802e30` (2.58.203; merge `9b101624` label / `8012ce87` anchor, bump `1bdd8507`) |
+| База | `0beed63df8037002ccfaacef019b8ea948d957f6` (2.58.202, deployed) |
+| Map `candidate_commit` | `e650f2b854755743f2a750024a1f184d2a802e30` |
+| Map `deployed_commit` | пусто (до фактического деплоя) |
+| Label candidate | `sc/corrective-checkup-label`: код `1a945ec5b5c47ff18d30c5782ee91e63a5e23441`, HEAD evidence `fd2b4bb017d27f101c76fa02b412f7764153226d`, worktree `…-c1b9af67` |
+| Anchor candidate | `sc/fc-anchor`: код `b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27`, HEAD evidence `4852c67c7fc82fad39a832059c17122e3828861b`, worktree `…-cfc5172f` |
+
+### Скопированные артефакты (байт-в-байт) и sha256
+
+| Путь в master | Байт | sha256 | Сверка с поездом |
+|---|---:|---|---|
+| `evidence/checkup-label/implementation.md` | 15906 | `6e7a1676ca9be922b6bdf23c9ee0d62491aae7fd8fa65c2b169d3a0bd85c659a` | blob `6b18a26a` = worktree `fd2b4bb0` = `e650f2b8` |
+| `evidence/checkup-label/review-r1.md` | 2460 | `9aa50b38546c5c008b2be2a5587ee968ed460134d0702eaaa54c565b16c8d8dc` | uncommitted (Reviewer); sha256 источника = назначения |
+| `evidence/fc-anchor/implementation.md` | 17161 | `20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828` | blob `4cf546c2` = worktree `4852c67c` = `e650f2b8` |
+| `evidence/fc-anchor/review-r1.md` | 4203 | `85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607` | uncommitted (Reviewer); sha256 источника = назначения |
+| `evidence/fc-anchor/probe_before_after.py` | 4739 | `b107a232fd88434de72c7186099dce0c2e596e38046b43a375d0bd83d24d555d` | blob `d6245883` = worktree = `e650f2b8` |
+| `evidence/fc-anchor/mutation_no_anchor_plugin.py` | 857 | `1e8e28fbce44da137893269b4798a73b0f9171a5fec154f7d99b9c1c3eae170f` | blob `2b2ad3a3` = worktree = `e650f2b8` |
+| `evidence/fc-anchor/cleanup_retained.json` | 741 | `dc5a06943b9dc386b94f070934cd48180e1fa16bc3bbc13c52d75c0e814580f4` | blob `af12c7de` = worktree = `e650f2b8` |
+
+Anchor evidence лежит в origin-каталоге `plans/features/smart-execution-reliability-01/evidence/fc-anchor/`;
+в master он скопирован под `plans/features/smart-corrective-01/evidence/fc-anchor/` (write scope этого юнита),
+происхождение и коммиты записаны в каждом evidence-entry (`ref` + `bound_from_candidate`).
+
+### Rebind
+
+- **1064** evidence-записи на **384** required-строках переведены `0beed63d → e650f2b8`; исходный кандидат — в `bound_from_candidate`, цепочка дополнена `0beed63d` в `bound_from_chain` (110 записей были без цепочки, у них она создана).
+- Всего в карте теперь **1174** evidence-записи, все с `candidate_commit = e650f2b8`; артефакты существуют, sha256 сходятся (проверка по всем записям, 0 расхождений).
+- `slice_candidate_bindings` сохранены как история; `guard_binding.s6-prompt-guard.candidate_commit` переведён на `e650f2b8` с `bound_from_candidate=0beed63d`; `deploy_stage_appendix` — `sha256` обновлён, `rebound_to=e650f2b8`.
+- `deployed_commit` пуст; статусы не менялись: **355 REVIEW, 26 READY_FOR_LIVE, 3 VERIFIED (pre-existing), 0 PENDING**.
+
+### Клирикальная правка устаревших pins (не ослабление evidence)
+
+Две записи карты указывали sha256 на версии документов, изменённые **после** привязки 0beed63d (сам факт — дрейф, не новый дефект):
+
+| Артефакт | Было в карте | Стало | Причина дрейфа |
+|---|---|---|---|
+| `evidence/release-train/integration-review.md` (136 записей) | `2bb30e6593…` | `5299bfc616a30d1940bff7195fb477e85ecd2df9a6b2f0b9901bfecedf6df152` | после привязки в файл добавлены разделы «Delta integration review 2.58.202» и «…2.58.203» (Reviewer, uncommitted на момент привязки) |
+| `requirement-mapping.md` (21 запись) | `a5e12a1f04…` | `2ff0d1a2f91d674d55bc9f4b8fa4adb59ecb2dc2d534899030e5279666abe4df` | коммит `81d4dcfd` согласовал текст S5C с per-job контрактом владельца |
+
+Смысл approvals не менялся: appendix по-прежнему содержит «Approved for controlled deployment» для `0beed63d` и добавляет новый (независимый) вердикт по `e650f2b8`. Pin зафиксирован по фактическому содержимому файла на 2026-11-15T06:06:31+12:00; если appendix будет дополнен, pin нужно обновить до следующего гейта.
+
+### Привязка label evidence (S6-ACTIVATION)
+
+Для всех **55** строк `SC-PRM-*` добавлены две дополнительные записи (`candidate_commit = e650f2b8`, `bound_from_candidate = 1a945ec5`):
+
+- implementation (`type: test`) → `evidence/checkup-label/implementation.md` `6e7a1676…`;
+- review (`type: review`, `reviewer_role: Reviewer`, `verdict: Approved`) → `evidence/checkup-label/review-r1.md` `9aa50b38…`.
+
+Статусы S6 не менялись: 52 `REVIEW` + 3 ранее существовавшие `VERIFIED` investigation-строки; новых `VERIFIED` нет. Postdeploy-исходы (активация в реальном процессе бота, `factory_revision_applied`, чекап без override с фабрикой 3 462/`3140bb36`, `factory_superseded_manual` в затронутом чате с неизменным sha) остаются `UNVERIFIED`.
+
+### Привязка anchor evidence (SFC-12-09, родительская карта FC)
+
+Для всех **14** строк `req_id=SFC-12-09` в `requirements-map-fc-amendment.json` добавлены две записи (`candidate_commit = e650f2b8`, `bound_from_candidate = b0f6ec79`): implementation/probe (`type: test`) → `evidence/fc-anchor/implementation.md` `20d0c438…`, review (`Approved`) → `evidence/fc-anchor/review-r1.md` `85a11f54…`.
+
+- Статусы не менялись: 14 × `READY_FOR_LIVE`; `live_required=true`, `live_when=postdeploy` и `postrelease_wait` не тронуты.
+- `approved_postrelease_wait` к anchor-review **не** приписан: отсрочку approves appendix, а не этот review. Поэтому карта FC здесь **не** перепривязана (остаётся `0e4a144d`); перепривязка FC к 2.58.203 и копирование wait-объектов — отдельный шаг на момент деплоя.
+- Production-доказательство SFC-12-09 (чистый изолированный `original_production_scenario` на выкаченном 2.58.203 и live-метрики) остаётся `UNVERIFIED`; итоговый финальный кандидат строк — выкаченный 2.58.203.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| deploy corrective | `--stage deploy --candidate e650f2b8 --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=384) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+| deploy parent SMART | `--stage deploy --candidate 0e4a144d` (requirements-map.json) | 0 | `errors=0` (scoped=828) |
+| deploy parent FC | `--stage deploy --candidate 0e4a144d` (requirements-map-fc-amendment.json) | 0 | `errors=0` (scoped=705) |
+
+Выводы: `evidence/gates/deploy-corrective-e650f2b8.txt`, `evidence/gates/plan-after-258203-bind.txt`,
+`evidence/gates/deploy-parent-smart-0e4a144d-258203.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-258203.txt`.
+
+### Открытый блокер деплоя (не скрыт гейтом)
+
+Независимый delta-review поезда `e650f2b8` (`integration-review.md`, раздел «Delta integration review 2.58.203») вернул **Needs Fixes**:
+на точном поезде `tests/test_p0_prompts_core.py::test_pr01_saved_and_effective_match_registered_revision`
+падает с `eff.source=default`, `withheld=true`, `reason=provenance_missing` (stored_sha `3140bb364044`, stored_chars 3462)
+вместо `source=global`/`withheld=false` (focused label suite 36 passed / 1 failed). Владелец исправления — Builder
+(узкая поправка provenance/effective_prompt под новую метку), затем Reviewer перепрогоняет focused label+anchor suite.
+
+Запись зафиксирована в карте: `deploy_blocker` (candidate, source, sha256 appendix, finding, owner, effect, recheck).
+**`deploy gate errors=0` для `e650f2b8` — это структурная привязка evidence, а не разрешение на выкат.**
+Выкат 2.58.203 допустим только после устранения дефекта, повторного ревью исправленного поезда и перепривязки карты к новому tip.

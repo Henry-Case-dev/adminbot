@@ -18201,6 +18201,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14531",
@@ -18281,6 +18301,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14533",
@@ -18361,6 +18401,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14542",
@@ -18441,6 +18501,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14544",
@@ -18521,6 +18601,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14546",
@@ -18601,6 +18701,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14548",
@@ -18681,6 +18801,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14550",
@@ -35545,6 +35685,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14529",
@@ -35625,6 +35785,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14535",
@@ -35705,6 +35885,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14536",
@@ -35785,6 +35985,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14537",
@@ -35865,6 +36085,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14538",
@@ -35945,6 +36185,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14539",
@@ -36025,6 +36285,26 @@
           "observation": "Реальный прогон завершился (outcome=verdict, corr 093904aea444462ebc41ae208e4ac0ee), но 3 контрактные проверки провалены: search_built_from_question=false, direct_answer_on_question=false, ambiguity_acknowledged=false (истинны: material_kept, user_question_identified, relevant_sources_researched, no_old_budget_early_stop, answer_not_a_harness_echo). Subject origin=mixed, 567 симв. (материал 134, запрос 127), has_request=true; вопрос содержит места [Великобритания, Германия, США, Франция], а оба запроса построены по материалу («Африки Ближнего Востока женское обрезание древняя традиция…»); 2 claim / 2 searched / 2 direct / 34 кандидата / 3 refs / 1 200 симв. evidence; stop_reason=sufficient_evidence, verdict insufficient_evidence, reason=temporal_fallback_mode, fallback_used=true, стадия verdict=failed, verbalize=skipped; доставлено 524 симв., в ответе нет мест из вопроса и нет пометки неоднозначности; additionally в plain_conclusion ссылки отрендерены с пустым href (<a href=\" — пересказ). Это реальное production-отклонение поведения (не unavailable и не сбой харнесса): строка остаётся READY_FOR_LIVE, разбор передан Builder.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor implementation.md §3/§4/§5 (origin worktree sc/fc-anchor, code b0f6ec79, evidence 4852c67c; copied byte-exact to plans/features/smart-corrective-01/evidence/fc-anchor/): полный material_text в план, анкер из первых 3 термов материала перед термами части, glued-question всегда, material_anchor_lost условно",
+          "observation": "На записанном сценарии 153116Z запросы частей предмета получают анкер «женское обрезание древняя» при неизменном числе запросов (2 -> 2) и сохранённых термах вопроса; обычный, request-only и material-only планы не меняются; 112 зеркальных тестов, 161 planner/orchestrator/acceptance, 718 factcheck; RED на 0beed63d 10 failed; мутация без анкера 4 failed / 6 passed. Production-подтверждение не выполнено.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/implementation.md",
+          "artifact_sha256": "20d0c43863cdc94465942ee24413562b128fb3ae8e901491e5527c7b99348828"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "e650f2b854755743f2a750024a1f184d2a802e30",
+          "bound_from_candidate": "b0f6ec79f8693d17d6a9e7b9d18e93612a10dd27",
+          "ref": "fc-anchor review-r1.md (Approved for exact predeploy candidate 4852c67c, code b0f6ec79; scope: SFC-12-09 residual only)",
+          "observation": "Reviewer независимо проверил implementation (factcheck_orchestrator 1805-1823; factcheck_planner 439-459, 1129-1257), валидность assertions в двух зеркальных файлах и воспроизвёл probe до/после плюс мутацию без анкера (4 failed / 6 passed). Nonblocking: шов оркестратора проверен source-level. Postdeploy original_production_scenario на 2.58.203 остаётся UNVERIFIED: границы material_part/request_part реконструированы, не переиграны.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/fc-anchor/review-r1.md",
+          "artifact_sha256": "85a11f54a91df191bcd276c347283a8b16ac432e90ffed5e83238681b67b1607"
         }
       ],
       "source_ref": "plans/current_task.md:14540",
