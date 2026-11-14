@@ -27,6 +27,14 @@ heartbeat/watchdog/takeover/recovery §27.5.
   затронутую задачу (job_id/owner/kind через разрешённые additive-поля), без
   агрегата, повторяемого на каждой строке stale batch; fingerprint инцидента
   включает `kind` и `job_id`, исторические строки не переписываются.
+* S5D (W-10): отказ регистрации инцидента (исключение или возвращённый
+  `status=failed`) логируется и эмитит WARN-событие
+  `WATCHDOG_INCIDENT_FAILURE`, не вызывая `open_or_update` повторно и не
+  создавая инцидент из собственной ошибки. Счётчики
+  `created|updated|reopened|failed|disabled` и диагностика sweep
+  (discovered/attempted/recovered/failed/no_change, overdue/queued/
+  running_contract) публикуются одним `WATCHDOG_SWEEP` в существующий
+  event/analytics-канал (additive `usage_json`), без нового trace-платформы.
 * Recovery: прочитать checkpoint, определить подтверждённые записи/side effects,
   возобновить только безопасные этапы; бесконечных retries нет. Неопределённая
   доставка/платная операция — `delivery_unknown` до сверки по operation ID;
@@ -382,6 +390,61 @@ async def _emit_takeover_record(record: dict) -> None:
                             "fencing_token": record.get("fencing_token")})
 
 
+async def _emit_incident_failure(row: dict, *, stage: str,
+                                 error_type: str | None = None) -> None:
+    """WARN-событие отказа регистрации инцидента (S5D/W-10).
+
+    Идёт в существующий event/analytics-канал (`mca_trace.emit_stage` →
+    `mca_events`) с bounded identity; НЕ вызывает `open_or_update` повторно и
+    не создаёт инцидент из собственной ошибки (AC-24). Сырое сообщение
+    исключения не переносится — только его тип (R17)."""
+    await _emit("WATCHDOG_INCIDENT_FAILURE", None, stage=stage,
+                outcome="failed", level="WARN",
+                job_id=row.get("job_id"),
+                pipeline_type=str(row.get("owner") or "") or None,
+                error_json={
+                    "type": str(error_type or "IncidentRegistrationFailed"),
+                    "kind": row.get("kind"),
+                    "stage": stage})
+
+
+def _sweep_usage(result: dict) -> dict:
+    """Bounded-сводка прохода sweep для существующего event/analytics (S5D).
+
+    `mca_events` не имеет отдельных колонок под эти счётчики, а DDL запрещён;
+    `usage_json` — существующее разрешённое JSON-поле деталей события.
+    Форма фиксирована (те же ключи каждый проход, только числа), поэтому
+    аналитика сравнивает проходы без нового trace-хранилища."""
+    takeover = result.get("takeover") or {}
+    overdue = result.get("overdue") or {}
+    queued = result.get("queued") or {}
+    contract = result.get("running_contract") or {}
+    return {
+        "stale": len(result.get("stale") or []),
+        "progress_stalled": len(result.get("progress_stalled") or []),
+        "incidents": int(result.get("incidents") or 0),
+        "takeover": {key: len(takeover.get(key) or [])
+                     for key in ("discovered", "attempted", "recovered",
+                                 "failed", "no_change")},
+        "takeover_records": len(takeover.get("records") or []),
+        "takeover_totals": takeover_outcome_totals(),
+        "incident": {key: int(value or 0)
+                     for key, value in
+                     (result.get("incident_outcomes") or {}).items()},
+        "incident_totals": incident_outcome_totals(),
+        "reconcile": {key: int(value or 0)
+                      for key, value in
+                      (result.get("incident_reconcile") or {}).items()},
+        "overdue": {"running": len(overdue.get("running") or []),
+                    "queued": len(overdue.get("queued") or [])},
+        "queued": {key: len(items or []) for key, items in queued.items()},
+        "running_contract": {
+            "heartbeat_only": len(contract.get("heartbeat_only") or []),
+            "deadline_bounded": len(contract.get("deadline_bounded") or []),
+        },
+    }
+
+
 async def sweep(db, job_store=None, *, now: int | None = None,
                 detect_progress_stall: bool = True,
                 track_incidents: bool = True) -> dict:
@@ -398,7 +461,10 @@ async def sweep(db, job_store=None, *, now: int | None = None,
     после терминального итога всех job (`reconcile_linked_incidents`).
 
     S5A/W-10: отказ регистрации инцидента наблюдаем (log.warning + счётчики
-    `created|updated|reopened|failed|disabled`), без рекурсии.
+    `created|updated|reopened|failed|disabled`), без рекурсии. S5D/W-10:
+    отказ дополнительно эмитит WARN `WATCHDOG_INCIDENT_FAILURE`, а итоговые
+    счётчики и диагностика прохода публикуются одним `WATCHDOG_SWEEP`
+    (additive `usage_json`).
 
     Возвращает `{recovered, stale, progress_stalled, incidents, takeover,
     incident_outcomes, incident_reconcile, queued, overdue,
@@ -494,7 +560,6 @@ async def sweep(db, job_store=None, *, now: int | None = None,
     except Exception:
         logger.debug("[mca_watchdog] cover style recovery hook failed",
                      exc_info=True)
-    await _emit("WATCHDOG_SWEEP", None, stage="sweep")
     # S5B/W-08: overdue-running — такое же наблюдение, как stale (без него
     # deadline-задача не оставляет инцидента, если heartbeat ещё жив).
     stale_ids = {r.get("job_id") for r in stale}
@@ -542,6 +607,12 @@ async def sweep(db, job_store=None, *, now: int | None = None,
         result["incident_outcomes"][key] += 1
         if key in ("created", "reopened"):
             result["incidents"] += 1
+    # S5D/W-10: один итоговый `WATCHDOG_SWEEP` на проход с bounded-счётчиками
+    # исходов takeover/incidents и диагностикой overdue/queued/running_contract.
+    # Публикуется в существующий event/analytics-канал (additive `usage_json`),
+    # имена и поля прежних событий не меняются.
+    await _emit("WATCHDOG_SWEEP", None, stage="sweep",
+                usage_json=_sweep_usage(result))
     return result
 
 
@@ -557,7 +628,12 @@ async def _track_incident(db, row: dict, *, reason_code: str,
     отсутствие claimer'а наблюдаемо, но не выдаётся за падение компонента.
 
     S5C/W-11: `kind` входит в fingerprint — два job одного owner разных типов
-    не сливаются в один инцидент; title каждого инцидента называет свой job."""
+    не сливаются в один инцидент; title каждого инцидента называет свой job.
+
+    S5D/W-10: любой подтверждённый отказ регистрации (исключение либо
+    возвращённый `status=failed`) логируется watchdog-логгером и эмитит WARN
+    `WATCHDOG_INCIDENT_FAILURE`; повторного `open_or_update` и инцидента из
+    собственной ошибки нет (AC-24)."""
     try:
         from services import mca_incidents as inc
         # F8: тип/владелец job берётся из строки (а не хардкод «archive.rebuild»)
@@ -579,16 +655,31 @@ async def _track_incident(db, row: dict, *, reason_code: str,
             job_id=row.get("job_id"), kind=row.get("kind"),
             trace_id=row.get("pipeline_run_id"),
             impact=impact)
-    except Exception:
+    except Exception as exc:
         logger.warning("[mca_watchdog] incident registration failed | "
-                       "job_id=%s | stage=%s", row.get("job_id"), stage,
-                       exc_info=True)
+                       "job_id=%s | stage=%s | error=%s", row.get("job_id"),
+                       stage, type(exc).__name__, exc_info=True)
+        await _emit_incident_failure(row, stage=stage,
+                                     error_type=type(exc).__name__)
         return "failed"
     status = str((res or {}).get("status") or "")
     if status in _INCIDENT_OUTCOME_KEYS:
+        if status == "failed":
+            error_type = str((res or {}).get("error") or "") or None
+            logger.warning("[mca_watchdog] incident registration failed | "
+                           "job_id=%s | stage=%s | error=%s",
+                           row.get("job_id"), stage,
+                           error_type or "unknown")
+            await _emit_incident_failure(row, stage=stage,
+                                         error_type=error_type)
         return status
     if res is None:
         return "disabled"
+    logger.warning("[mca_watchdog] incident registration failed | "
+                   "job_id=%s | stage=%s | error=invalid_result",
+                   row.get("job_id"), stage)
+    await _emit_incident_failure(row, stage=stage,
+                                 error_type="InvalidRegistrationResult")
     return "failed"
 
 
