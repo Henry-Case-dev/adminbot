@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM bind ONTO-A ses_e2466fc41ffe29CK1Vz4tDm4SW; Builder ONTO-B ses_e242808deffeGybOowSpRvB7Av
-Join barriers: PM binds O-01/O-02 at REVIEW; Builder ONTO-B -> Reviewer; next M2 after ONTO-B
+Active lanes: Builder ONTO-B ses_e242808deffeGybOowSpRvB7Av
+Join barriers: Builder ONTO-B -> Reviewer -> PM binds O-03; next M2 after ONTO-B approval
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T08:55:32+12:00
+Updated: 2026-11-15T09:02:00+12:00
 
 ## Facts
 
@@ -65,3 +65,6 @@ Builder fixed the r1 blocker on vmq/onto-a: corrected candidate code 8cb9e00d, t
 ## ONTO-A r2 Approved; ONTO-B started (2026-11-15)
 
 Reviewer r2 approved the corrected ONTO-A candidate (code 8cb9e00d, tip d67262cb; review-r2 sha 08d05f5c...): 26 focused passed, independent mutation 3 failed/23 passed, chat_scope invariant and O-02 regression checks passed, forbidden boundaries audited. PM is binding O-01/O-02 at REVIEW (candidate not deployed; event_time caller-supplied and no retrieval integration are honest limits). Builder ONTO-B (O-03) started on branch vmq/onto-b from d67262cb: typed/directed relations with author, time and provenance; co-occurrence is not a fact; legacy links marked; definition conflicts visible; no second storage/retrieval/LLM, and any DDL must be reported for approval before writing.
+## ONTO-A binding (2026-11-15)
+
+PM bound O-01/O-02 at REVIEW on candidate 8cb9e00d (tip d67262cb, base c97c06e4; not deployed). Counts now 56 PENDING / 8 REVIEW / 6 VERIFIED. Review gate scoped=2 errors=0; deploy gate red only on VMQ-A-01 (required dependency not evidenced VERIFIED), not a binding error. Honest gaps recorded: affected 310 was run before the R1 correction and not re-run (the R1 diff is the new module and its tests); full repo suite not run. implementation.md copied byte-identically from the branch to master for the strict gate.
