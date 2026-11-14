@@ -874,3 +874,69 @@ class TestDigFixRound:
             "dig_into_lore", {"query": "длинный", "mode": "messages"}, _ctx())
         # truncate = limit символов + многоточие
         assert len(out) <= 501
+
+
+class _RecordingSourceReader:
+    """Минимальный SourceReader для проверки ПЕРЕДАЧИ аргументов."""
+
+    def __init__(self, payload=None):
+        self.payload = payload or {"status": "ok", "stage": "fetch",
+                                   "verified": True, "snippet": "x = 1\n",
+                                   "line_range": [1, 1], "network_calls": 0}
+        self.calls: list[dict] = []
+
+    async def run(self, **kwargs):
+        self.calls.append(dict(kwargs))
+        return dict(self.payload)
+
+
+class TestReadSourceCodeBudgetPropagation:
+    """SMART-CORRECTIVE-01 §3: Router передаёт effective-политику явно.
+
+    Регрессия исходного дефекта: ``_read_source_code`` вызывал
+    ``reader.run(...)`` без ``chat_id``/``budget_enforced``, поэтому вложенный
+    SourceReader резолвил бюджеты без контекста конкретного чата.
+    """
+
+    def _router(self, reader) -> ToolRouter:
+        return ToolRouter(ToolDeps(None, None, source_reader=reader))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("enforced", [False, True])
+    async def test_chat_and_effective_policy_reach_reader(self, monkeypatch,
+                                                          enforced):
+        from services import source_reader as sr
+
+        seen: list = []
+
+        async def _predicate(chat_id=None):
+            seen.append(chat_id)
+            return enforced
+
+        monkeypatch.setattr(sr, "budget_limits_enforced", _predicate)
+        reader = _RecordingSourceReader()
+        out = json.loads(await self._router(reader).dispatch(
+            "read_source_code",
+            {"operation": "read", "repo": "owner/repo", "path": "a.py"},
+            _ctx()))
+        assert out["status"] == "ok"
+        assert seen == [CHAT_ID]
+        assert reader.calls[-1]["chat_id"] == CHAT_ID
+        assert reader.calls[-1]["budget_enforced"] is enforced
+
+    @pytest.mark.asyncio
+    async def test_cursor_reaches_reader_and_bypasses_reuse(self, monkeypatch):
+        """Opaque continuation cursor передаётся, а не теряется в Router."""
+        from services import source_reader as sr
+
+        async def _predicate(chat_id=None):
+            return True
+
+        monkeypatch.setattr(sr, "budget_limits_enforced", _predicate)
+        reader = _RecordingSourceReader()
+        await self._router(reader).dispatch(
+            "read_source_code",
+            {"operation": "locate", "repo": "owner/repo",
+             "query": "some.marker", "cursor": "opaque-token",
+             "claim": {"entity": "e", "relation": "spec"}}, _ctx())
+        assert reader.calls[-1]["cursor"] == "opaque-token"
