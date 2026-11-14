@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE; PM NEXT live-flag reconciliation ses_e2466fc41ffe29CK1Vz4tDm4SW
-Join barriers: Reviewer ONTO-A r1 -> PM binding; NEXT live-flag reconciliation -> gates; next code slice ONTO-B after ONTO-A approval
+Active lanes: Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE
+Join barriers: Reviewer ONTO-A r1 -> PM binds O-01/O-02; next code slice ONTO-B after ONTO-A approval
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
-Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02 at REVIEW or Needs Fixes; (2) M1/NEXT2 and VMQ-V verdicts -> PM deploy-state binding; (3) ONTO-B (O-03) then M2/MEM.
+Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:35:00+12:00
+Updated: 2026-11-15T09:42:00+12:00
 
 ## Facts
 
@@ -51,3 +51,7 @@ Builder probe-bc9c1876f7 closed (removed=1; its 5 checks are preserved in the co
 ## VMQ binding result (2026-11-15)
 
 PM bound on c97c06e4: 70 required rows -> 58 PENDING, 6 REVIEW, 6 VERIFIED. New VERIFIED: M-01..M-03 and VMQ-NEXT-02/05 (deployed-delta review D6580668..., exact 34/30/447 + 161/295/20, mutations load-bearing). New REVIEW: V-01..V-04 and VMQ-A-01 (VMQ-V review 999e492a..., 48 tests, three mutations; real voice/production delivery absent). Gates: plan 0, review/deploy VMQ-A 0, review/deploy/release VMQ-M1 0; VMQ-V review red only on its four live requirements; NEXT-02/05 initially carried a stale live_required=true/preprod and made the MEM-NEXT gate red on live evidence. PM is reconciling that flag with the frozen quality contract (copy-based paired measurement; no live production requirement) or will downgrade the rows if the contract actually requires live evidence. Top-level map candidate/deployed = c97c06e4, preserving 709865f6/952b9ebd history. plan.md §14 pin drift corrected with a dated note.
+
+## NEXT live-flag reconciliation (2026-11-15)
+
+PM read the frozen quality contract end-to-end: architecture-next2-quality.md requires a paired read-only DB-copy measurement (lines 20-34, 48-54, 68, 76-78), not live production telemetry; the acceptance texts for NEXT-02/05 are copy-based too. Therefore live_required was set false (live_when kept as history) with a live_required_reconciliation_2026_11_15 block and no fake postrelease_wait; NEXT-02/05 stay VERIFIED. Production scope limitation (real archive/effective flags/postdeploy timings not measured) is recorded honestly and no production quality claim is made. Gates after reconciliation: review MEM-NEXT errors=3 (only NEXT-01/03/04), deploy/release errors=31 (28 dependency closures + the same three), no live-evidence errors; plan 0.
