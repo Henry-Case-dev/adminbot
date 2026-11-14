@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Builder M2 ses_e240beff2ffe8z9Ya6y7nfS2xh
-Join barriers: Builder M2 (M-04/M-05/O-04) -> Reviewer -> PM bind; then MEM evidence/MEM-TIME
+Active lanes: Builder M2 delivery repair ses_e240beff2ffe8z9Ya6y7nfS2xh
+Join barriers: Builder M2 delivery repair -> Reviewer full M2 delta -> PM bind; then MEM evidence/MEM-TIME
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:26:15+12:00
+Updated: 2026-11-15T09:40:00+12:00
 
 ## Facts
 
@@ -85,3 +85,7 @@ PM bound O-03 at REVIEW on code d15b13da (tip 64dab0eb, base d67262cb/code 8cb9e
 ## M2 contract confirmed; Builder started (2026-11-15)
 
 Architect: ARCH_REUSE_CONFIRMED for M2 (sha 1ac37764...). Single services/mca_retrieval_context.py::retrieve(); EpisodeView/LongitudinalView are logical read-only projections of existing episode/story/coverage contracts; semantic definitions/relations are hints only; no second router/search/DB/LLM/embedding pipeline; M-04/M-05/O-04 covered. Write scope mca_retrieval_context.py + tests/test_memory_unified_retrieval.py; direct_context_composer unchanged unless a proven delivery gap; database.py only with a proven schema gap (none now). M2 must complete before MEM; no parallel writes to mca_retrieval_context.py. Safe order ONTO-A -> ONTO-B -> M2; O-01/O-02 and O-03 have independent approvals. Builder M2 started on branch vmq/m2 from 64dab0eb.
+
+## M2 candidate and delivery gap (2026-11-15)
+
+Builder implemented M2 on vmq/m2 from 64dab0eb: code 69ea617c, tip a82a9319. Additive include_overview in the single retrieve(); EvidenceBundle slots coverage/independent_periods/counterexamples/limitations/episode_refs/semantic_hints; semantic definitions/relations as hints; repeated meme one independent support; no second bundle/store/DDL; 15 focused + 833 affected passed, 4 mutations killed; DB/WAL/counts unchanged, cross-chat isolation verified. Honest scope gap: the live Writer bundle path (direct_chat_service._build_evidence_bundle / _bundle_scoped_slice) did not consume the overview, and tool_router._memory_lookup_unified did not request include_overview; the person-overview tool already uses the same retrieve(). Orchestrator approved the minimal serialized repair in only tool_router.py + direct_chat_service.py (same single RetrievalResult, no second retrieval/bundle/store/DDL; ordinary path byte-identical) with e2e/one-route/negative tests; direct_context_composer.py stays unchanged unless proven to be the actual seam. Builder is implementing it; Reviewer will review the full M2 delta after.
