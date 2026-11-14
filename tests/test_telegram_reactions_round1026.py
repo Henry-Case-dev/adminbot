@@ -530,7 +530,7 @@ class TestBoundaries:
     def test_canon_twelve_and_version(self):
         # SELF-DIAG-01 D3/D5-D6: канон → 18 (+inspect_runtime, +prompt_readback).
         assert len(TOOL_CALLING_TOOLS) == 18
-        assert APP_VERSION == "2.58.202"
+        assert APP_VERSION == "2.58.203"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY
