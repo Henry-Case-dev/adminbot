@@ -1,0 +1,3376 @@
+{
+  "schema": "smart-live-canary/2",
+  "harness_version": "1.3.0",
+  "harness": "smart_live_canary",
+  "harness_sha256": "39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119",
+  "harness_identity": {
+    "path": "/tmp/smart_live_canary.py",
+    "sha256": "39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119",
+    "git_repo": null,
+    "git_relative": null,
+    "git_head": null,
+    "tracked": null,
+    "blob_matches_head": null,
+    "dirty_vs_head": null,
+    "note": "harness file is outside a Git repository"
+  },
+  "started_at": "2026-11-14T15:31:16+00:00",
+  "finished_at": "2026-11-14T15:33:23+00:00",
+  "host": {
+    "platform": "Linux-6.8.0-31-generic-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "pid": 842100,
+    "euid": 0
+  },
+  "repo": {
+    "root": "<repo>",
+    "head": "0beed63df8037002ccfaacef019b8ea948d957f6",
+    "branch": "release/smart-corrective-01",
+    "origin": "https://github.com/Henry-Case-dev/adminbot",
+    "app_version": "2.58.202",
+    "manifest_present": true,
+    "manifest": {
+      "schema": 1,
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "version": "2.58.202",
+      "deployed_at": "2026-11-14T15:14:42.974638Z",
+      "effect": "deploy",
+      "previous_sha": "409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9",
+      "release_branch": "release/smart-corrective-01",
+      "dirty_tracked": false
+    },
+    "harness_sha256": "39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119",
+    "clean_tracked": true,
+    "dirty_tracked": false
+  },
+  "flags": {
+    "allow_provider_calls": true,
+    "max_provider_calls": 5,
+    "offline": false,
+    "checkup_unit": "admin_bot",
+    "checks": [
+      "effective_config",
+      "control_loop_off",
+      "caps_on_and_override",
+      "evidence_payload",
+      "capacity_scenarios",
+      "local_source_read",
+      "external_reads",
+      "external_scenarios",
+      "external_natural_request",
+      "diagnostic_variants",
+      "checkup_real",
+      "direct_continuation",
+      "i1_spool",
+      "i2_stream",
+      "k3_settings",
+      "l8_rollup"
+    ]
+  },
+  "provider_calls": {
+    "used": 4,
+    "denied": 0
+  },
+  "summary": {
+    "checks": 16,
+    "observed": 12,
+    "production_observed": 12,
+    "not_observed": 4,
+    "error": 0,
+    "by_evidence_class": {
+      "plumbing": 4,
+      "production": 12,
+      "unavailable": 0
+    },
+    "failed_assertions": 0
+  },
+  "checks": [
+    {
+      "id": "effective_config",
+      "title": "Effective config: budgets, caps, model capacity",
+      "req_ids": [
+        "SXR-L1-01",
+        "SXR-K3-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real env/settings + read-only PG bot_settings/chat_profiles",
+      "production_observed": true,
+      "summary": "master budgets OFF во всех реальных чатах, скрытого enforcement нет, capacity-резолвер доступен",
+      "details": {
+        "effective": {},
+        "checks": [],
+        "env": {
+          "BUDGETS_ENABLED": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "TOOL_CHAIN_LIMITS_ENABLED": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "MCA_TOOL_MAX_TOTAL_CALLS": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "MCA_TOOL_MAX_METERED_CALLS": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "MCA_TOOL_MAX_SAME_CALL": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "CHAT_UNKNOWN_MODEL_WINDOW": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "MODEL_CAPACITY_RESOLVER_ENABLED": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "SOURCE_READ_ENABLED": {
+            "in_process_env": false,
+            "in_env_file": false,
+            "value": null
+          },
+          "LLM_MODEL_NAME": {
+            "in_process_env": true,
+            "in_env_file": true,
+            "value": "deepseek-v4-flash"
+          },
+          "LLM_BASE_URL": {
+            "in_process_env": true,
+            "in_env_file": true,
+            "value": "https://nano-gpt.com/api/v1"
+          },
+          "LLM_FALLBACK_MODEL": {
+            "in_process_env": true,
+            "in_env_file": true,
+            "value": "deepseek-v4-flash"
+          },
+          "LLM_FALLBACK_BASE_URL": {
+            "in_process_env": true,
+            "in_env_file": true,
+            "value": "https://api.deepseek.com"
+          },
+          "POSTGRES_DSN": {
+            "in_process_env": true,
+            "in_env_file": true
+          },
+          "DB_PATH": {
+            "in_process_env": true,
+            "in_env_file": true,
+            "value": "local_database.db"
+          },
+          "ADMINBOT_DEPLOYER": {
+            "in_process_env": false,
+            "in_env_file": false
+          }
+        },
+        "factory": {
+          "BUDGETS_ENABLED": true,
+          "TOOL_CHAIN_LIMITS_ENABLED": true,
+          "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+          "MCA_TOOL_MAX_METERED_CALLS": 0,
+          "MCA_TOOL_MAX_SAME_CALL": 0,
+          "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0,
+          "CHAT_UNKNOWN_MODEL_WINDOW": 1000000,
+          "MODEL_CAPACITY_RESOLVER_ENABLED": true,
+          "SOURCE_READ_ENABLED": true
+        },
+        "persisted_layer_loaded": true,
+        "master_global": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "real_chats": [
+          "chat-39b94607",
+          "chat-bb8fd239",
+          "chat-316e52ba"
+        ],
+        "master_per_chat": [
+          {
+            "chat": "chat-c29f51e6",
+            "budgets": {
+              "budgets_enabled": false,
+              "source": "chat",
+              "stale": false,
+              "known": true
+            },
+            "chain_limits": {
+              "budgets_enabled": false,
+              "limits_enforced": false,
+              "max_total_calls": 0,
+              "max_metered_calls": 0,
+              "max_same_call": 0,
+              "fuse_seconds": 0.0
+            }
+          },
+          {
+            "chat": "chat-f42f8a1b",
+            "budgets": {
+              "budgets_enabled": false,
+              "source": "chat",
+              "stale": false,
+              "known": true
+            },
+            "chain_limits": {
+              "budgets_enabled": false,
+              "limits_enforced": false,
+              "max_total_calls": 0,
+              "max_metered_calls": 0,
+              "max_same_call": 0,
+              "fuse_seconds": 0.0
+            }
+          },
+          {
+            "chat": "chat-e6b88c2c",
+            "budgets": {
+              "budgets_enabled": false,
+              "source": "global",
+              "stale": false,
+              "known": true
+            },
+            "chain_limits": {
+              "budgets_enabled": false,
+              "limits_enforced": false,
+              "max_total_calls": 0,
+              "max_metered_calls": 0,
+              "max_same_call": 0,
+              "fuse_seconds": 0.0
+            }
+          }
+        ],
+        "budget_flag_contract": {
+          "key": "budgets_enabled",
+          "resolver": "services.budget_gate.resolve_budgets().as_meta()",
+          "source_priority": "chat override → global → settings.BUDGETS_ENABLED"
+        },
+        "master_per_chat_flags": [
+          {
+            "chat": "chat-c29f51e6",
+            "budgets_enabled": false,
+            "source": "chat",
+            "known": true
+          },
+          {
+            "chat": "chat-f42f8a1b",
+            "budgets_enabled": false,
+            "source": "chat",
+            "known": true
+          },
+          {
+            "chat": "chat-e6b88c2c",
+            "budgets_enabled": false,
+            "source": "global",
+            "known": true
+          }
+        ],
+        "chain_limits_global": {
+          "budgets_enabled": true,
+          "limits_enforced": true,
+          "max_total_calls": 0,
+          "max_metered_calls": 0,
+          "max_same_call": 0,
+          "fuse_seconds": 0.0
+        },
+        "chat_model": {
+          "base_url_host": "nano-gpt.com",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "fallback_model": "deepseek-flash",
+          "fallback_configured": true
+        },
+        "capacity_legacy": {
+          "value": 1000000,
+          "source": "unknown_fallback"
+        },
+        "capacity_async": {
+          "provider": "nanogpt",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "effective_window": 1048576,
+          "declared_window": 1048576,
+          "runtime_window": null,
+          "max_output_tokens": 32768,
+          "source": "provider_catalog",
+          "confidence": "verified",
+          "override_value": null,
+          "proven_limit": null,
+          "clamped_by_proven_limit": false,
+          "fallback_used": false
+        },
+        "effective_window": [
+          1000000,
+          "unknown_fallback"
+        ],
+        "possible_env_overrides": {},
+        "unexpected_errors": [],
+        "assertions": [
+          {
+            "name": "persisted_config_readable",
+            "ok": true,
+            "detail": "PG config layer read (read-only)"
+          },
+          {
+            "name": "real_chats_discovered",
+            "ok": true,
+            "detail": "count=3"
+          },
+          {
+            "name": "master_global_known",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'source': 'global', 'stale': False, 'known': True}"
+          },
+          {
+            "name": "master_global_off",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'source': 'global', 'stale': False, 'known': True}"
+          },
+          {
+            "name": "chat_budgets_off:chat-39b94607",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'source': 'chat', 'stale': False, 'known': True}"
+          },
+          {
+            "name": "chat_budgets_off:chat-bb8fd239",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'source': 'chat', 'stale': False, 'known': True}"
+          },
+          {
+            "name": "chat_budgets_off:chat-316e52ba",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'source': 'global', 'stale': False, 'known': True}"
+          },
+          {
+            "name": "chain_limits_global_no_caps",
+            "ok": true,
+            "detail": "{'budgets_enabled': True, 'limits_enforced': True, 'max_total_calls': 0, 'max_metered_calls': 0, 'max_same_call': 0, 'fuse_seconds': 0.0}"
+          },
+          {
+            "name": "chain_limits_global_no_fuse",
+            "ok": true,
+            "detail": "{'budgets_enabled': True, 'limits_enforced': True, 'max_total_calls': 0, 'max_metered_calls': 0, 'max_same_call': 0, 'fuse_seconds': 0.0}"
+          },
+          {
+            "name": "legacy_unknown_not_16384",
+            "ok": true,
+            "detail": "legacy=1000000"
+          },
+          {
+            "name": "no_unexpected_errors",
+            "ok": true,
+            "detail": ""
+          }
+        ]
+      },
+      "duration_s": 1.19
+    },
+    {
+      "id": "control_loop_off",
+      "title": "Tool loop OFF: >4 rounds, >6 calls, 3-in-round",
+      "req_ids": [
+        "SXR-L1-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): OFF-контракт подтверждён: 5 раундов, 7 вызовов (3 в одном раунде), все получили результат, cap-скипов нет",
+      "details": {
+        "self_identity": {
+          "source": "local",
+          "ref_source": "deployed_sha",
+          "verification": "verified_running",
+          "deployed_matches_checkout": true,
+          "repo": "Henry-Case-dev/adminbot",
+          "ref": "",
+          "note": "читается проверенный локальный код работающей версии: deployed SHA совпадает с checkout"
+        },
+        "effective_limits": {
+          "budgets_enabled": false,
+          "limits_enforced": false,
+          "max_total_calls": 0,
+          "max_metered_calls": 0,
+          "max_same_call": 0,
+          "fuse_seconds": 0.0
+        },
+        "budgets_enabled_for_chat": false,
+        "loop": {
+          "total": 7,
+          "statuses": {
+            "ok": 7
+          },
+          "chain_denied": 0,
+          "duplicates": 0,
+          "sequence": {
+            "requested": 7,
+            "tool_messages": 7,
+            "missing_tool_messages": [],
+            "every_call_got_result": true,
+            "source": "scripted_llm"
+          },
+          "reasons": [],
+          "rounds_used": 5,
+          "degraded": false,
+          "reason": "ok",
+          "finalize_mode": "",
+          "final_chars": 43,
+          "llm_rounds": 5,
+          "scripted_round_sizes": [
+            3,
+            1,
+            1,
+            2,
+            0
+          ],
+          "metered_envelopes": 7,
+          "evidence_window_entries": 7
+        },
+        "assertions": [
+          {
+            "name": "budgets_effectively_off",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'limits_enforced': False, 'max_total_calls': 0, 'max_metered_calls': 0, 'max_same_call': 0, 'fuse_seconds': 0.0}"
+          },
+          {
+            "name": "no_volume_caps",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'limits_enforced': False, 'max_total_calls': 0, 'max_metered_calls': 0, 'max_same_call': 0, 'fuse_seconds': 0.0}"
+          },
+          {
+            "name": "rounds_gt_4",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "calls_gt_6",
+            "ok": true,
+            "detail": "7"
+          },
+          {
+            "name": "three_calls_in_one_round",
+            "ok": true,
+            "detail": "[3, 1, 1, 2, 0]"
+          },
+          {
+            "name": "multi_call_single_round",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "every_call_got_result",
+            "ok": true,
+            "detail": "{'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}"
+          },
+          {
+            "name": "no_chain_cap_skip",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "no_duplicate_skips",
+            "ok": true,
+            "detail": "{'total': 7, 'statuses': {'ok': 7}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}, 'reasons': []}"
+          },
+          {
+            "name": "usage_accounting_preserved",
+            "ok": true,
+            "detail": "{'metered': 7, 'total': 7}"
+          },
+          {
+            "name": "not_degraded",
+            "ok": true,
+            "detail": "ok"
+          },
+          {
+            "name": "final_answer_present",
+            "ok": true,
+            "detail": "canary final answer: все фрагменты получены"
+          },
+          {
+            "name": "no_network_needed",
+            "ok": true,
+            "detail": "[{'tool': 'read_source_code', 'stage': 'fetch', 'effective_limit': 200000, 'limit_source': 'window', 'used': 424, 'total': 3630, 'truncated': True, 'why': 'over_window', 'retrievable_remainder': 3616, 'unit': 'lines', 'candidates_total': 0, 'candidates_kept': 0, 'window_source': 'unknown_fallback', 'capacity_source': 'window', 'turn_capped': False, 'source_read_level': 'selected', 'ver…[clipped]"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 2.995
+    },
+    {
+      "id": "caps_on_and_override",
+      "title": "Budgets ON defaults + operator override",
+      "req_ids": [
+        "SXR-L1-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): budgets ON без политики не режет; операторский override даёт структурные cap/same_call ответы; значения восстановлены",
+      "details": {
+        "restored_from": {
+          "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+          "MCA_TOOL_MAX_METERED_CALLS": 0,
+          "MCA_TOOL_MAX_SAME_CALL": 0,
+          "TOOL_CHAIN_LIMITS_ENABLED": true,
+          "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0
+        },
+        "budgets_on_factory_caps": {
+          "total": 7,
+          "statuses": {
+            "ok": 7
+          },
+          "chain_denied": 0,
+          "duplicates": 0,
+          "sequence": {
+            "requested": 7,
+            "tool_messages": 7,
+            "missing_tool_messages": [],
+            "every_call_got_result": true,
+            "source": "scripted_llm"
+          },
+          "reasons": [],
+          "rounds_used": 5,
+          "degraded": false,
+          "reason": "ok",
+          "llm_rounds": 5
+        },
+        "budgets_on_override": {
+          "total": 6,
+          "statuses": {
+            "ok": 4,
+            "denied": 2
+          },
+          "chain_denied": 2,
+          "duplicates": 1,
+          "sequence": {
+            "requested": 6,
+            "tool_messages": 3,
+            "missing_tool_messages": [
+              "cap_3",
+              "cap_4",
+              "cap_repeat"
+            ],
+            "every_call_got_result": false,
+            "source": "scripted_llm"
+          },
+          "reasons": [
+            "chain_call_limit"
+          ],
+          "rounds_used": 2,
+          "degraded": true,
+          "reason": "chain_call_limit",
+          "finalize_mode": "llm",
+          "text": "canary final answer",
+          "llm_rounds": 2
+        },
+        "restored_after": {
+          "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+          "MCA_TOOL_MAX_METERED_CALLS": 0,
+          "MCA_TOOL_MAX_SAME_CALL": 0,
+          "TOOL_CHAIN_LIMITS_ENABLED": true,
+          "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0
+        },
+        "budgets_after_restore": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "assertions": [
+          {
+            "name": "on_factory_caps_no_skip",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "on_factory_caps_no_duplicates",
+            "ok": true,
+            "detail": "{'total': 7, 'statuses': {'ok': 7}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}, 'reasons': []}"
+          },
+          {
+            "name": "on_factory_caps_rounds_gt_4",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "on_factory_caps_every_call_result",
+            "ok": true,
+            "detail": "{'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}"
+          },
+          {
+            "name": "on_factory_caps_not_degraded",
+            "ok": true,
+            "detail": "ok"
+          },
+          {
+            "name": "override_policy_seen",
+            "ok": true,
+            "detail": "['chain_call_limit']"
+          },
+          {
+            "name": "override_every_call_has_result",
+            "ok": true,
+            "detail": "{'envelopes': 6, 'requested': 6, 'sequence': {'requested': 6, 'tool_messages': 3, 'missing_tool_messages': ['cap_3', 'cap_4', 'cap_repeat'], 'every_call_got_result': False, 'source': 'scripted_llm'}}"
+          },
+          {
+            "name": "override_degraded_honestly",
+            "ok": true,
+            "detail": "chain_call_limit"
+          },
+          {
+            "name": "override_no_hidden_exception",
+            "ok": true,
+            "detail": "canary final answer"
+          },
+          {
+            "name": "override_limits_meta",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "settings_restored",
+            "ok": true,
+            "detail": "{'before': {'MCA_TOOL_MAX_TOTAL_CALLS': 0, 'MCA_TOOL_MAX_METERED_CALLS': 0, 'MCA_TOOL_MAX_SAME_CALL': 0, 'TOOL_CHAIN_LIMITS_ENABLED': True, 'MCA_TOOL_CHAIN_TIMEOUT_SECONDS': 0.0}, 'after': {'MCA_TOOL_MAX_TOTAL_CALLS': 0, 'MCA_TOOL_MAX_METERED_CALLS': 0, 'MCA_TOOL_MAX_SAME_CALL': 0, 'TOOL_CHAIN_LIMITS_ENABLED': True, 'MCA_TOOL_CHAIN_TIMEOUT_SECONDS': 0.0}}"
+          },
+          {
+            "name": "tool_loop_settings_restored",
+            "ok": true,
+            "detail": "Settings"
+          },
+          {
+            "name": "budget_gate_restored",
+            "ok": true,
+            "detail": "budgets_enabled"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 1.782
+    },
+    {
+      "id": "evidence_payload",
+      "title": "Evidence 13.5k chars: delivery, tail, honesty",
+      "req_ids": [
+        "SXR-L2-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): 13 500 симв. доставлены целиком под реальную ёмкость, хвост сохранён; при малом окне — честная обрезка без заявления о полном чтении",
+      "details": {
+        "stage_budget": {
+          "context_window": 1048576,
+          "output_reserve": 104857,
+          "effective_input_budget": 820625,
+          "source": "provider_catalog"
+        },
+        "capacity": {
+          "source": "auto_budget",
+          "input_budget_tokens": 820625,
+          "evidence_capacity_chars": 3282500
+        },
+        "full_capacity": {
+          "delivered_chars": 13499,
+          "source_chars": 13500,
+          "source_stripped_chars": 13499,
+          "capacity_chars": 3282500,
+          "complete": true,
+          "limitations": [],
+          "tail_present": true,
+          "payload_chars": 13618
+        },
+        "multi_source": {
+          "blocks": 3,
+          "delivered": [
+            45,
+            43,
+            45
+          ],
+          "complete": true,
+          "all_markers": true
+        },
+        "tight_capacity": {
+          "cap": 900,
+          "delivered_chars": 900,
+          "truncated": true,
+          "complete": false,
+          "limitations": [
+            "fetch_article: результат обрезан (900/13499)"
+          ],
+          "has_truncation_marker": true,
+          "tail_present": false,
+          "claims_full_read": false
+        },
+        "assertions": [
+          {
+            "name": "large_capacity_resolved",
+            "ok": true,
+            "detail": "3282500"
+          },
+          {
+            "name": "full_source_delivered",
+            "ok": true,
+            "detail": "delivered=13499 source=13499"
+          },
+          {
+            "name": "tail_preserved",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "full_pack_complete",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "no_false_truncation",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "multi_source_blocks",
+            "ok": true,
+            "detail": "{'blocks': 3, 'delivered': [45, 43, 45], 'complete': True, 'all_markers': True}"
+          },
+          {
+            "name": "multi_source_all_delivered",
+            "ok": true,
+            "detail": "{'blocks': 3, 'delivered': [45, 43, 45], 'complete': True, 'all_markers': True}"
+          },
+          {
+            "name": "tight_truncated_honestly",
+            "ok": true,
+            "detail": "{'cap': 900, 'delivered_chars': 900, 'truncated': True, 'complete': False, 'limitations': ['fetch_article: результат обрезан (900/13499)'], 'has_truncation_marker': True, 'tail_present': False, 'claims_full_read': False}"
+          },
+          {
+            "name": "tight_no_full_read_claim",
+            "ok": true,
+            "detail": "{'cap': 900, 'delivered_chars': 900, 'truncated': True, 'complete': False, 'limitations': ['fetch_article: результат обрезан (900/13499)'], 'has_truncation_marker': True, 'tail_present': False, 'claims_full_read': False}"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 0.005
+    },
+    {
+      "id": "capacity_scenarios",
+      "title": "Eight capacity scenarios on one resolver",
+      "req_ids": [
+        "SXR-L3-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real resolver + provider catalog; one scenario injected in-memory",
+      "production_observed": true,
+      "summary": "единый resolver: current/<1M/>1M/unknown/switch/fallback/catalog-down/overflow наблюдались, 1M не выдан за verified",
+      "details": {
+        "scenarios": {
+          "current_model": {
+            "provider": "nanogpt",
+            "model": "z-ai/glm-5.3-flash-uncensored",
+            "effective_window": 1048576,
+            "declared_window": 1048576,
+            "runtime_window": null,
+            "max_output_tokens": 32768,
+            "source": "provider_catalog",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "known_under_1m": {
+            "provider": "nanogpt",
+            "model": "gpt-4o-mini",
+            "effective_window": 128000,
+            "declared_window": 128000,
+            "runtime_window": null,
+            "max_output_tokens": 16384,
+            "source": "provider_catalog",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "known_over_1m": {
+            "provider": "nanogpt",
+            "model": "gemini-2.5-pro",
+            "effective_window": 1048576,
+            "declared_window": 1048576,
+            "runtime_window": null,
+            "max_output_tokens": 65536,
+            "source": "provider_catalog",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "unknown_custom": {
+            "provider": "nanogpt",
+            "model": "canary/custom-unknown-7f3a",
+            "effective_window": 1000000,
+            "declared_window": null,
+            "runtime_window": null,
+            "max_output_tokens": null,
+            "source": "estimated_unknown",
+            "confidence": "estimated",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "model_switch": {
+            "model": "gpt-4o-mini",
+            "context_window": 128000,
+            "effective_input_budget": 100173,
+            "source": "provider_catalog"
+          },
+          "fallback_model": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "effective_window": 131072,
+            "declared_window": 131072,
+            "runtime_window": null,
+            "max_output_tokens": null,
+            "source": "verified_registry",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "catalog_unavailable": {
+            "provider": "nanogpt",
+            "model": "z-ai/glm-5.3-flash-uncensored",
+            "effective_window": 1000000,
+            "declared_window": null,
+            "runtime_window": null,
+            "max_output_tokens": null,
+            "source": "estimated_unknown",
+            "confidence": "estimated",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false,
+            "simulated": "catalog_adapters_returned_none"
+          },
+          "context_overflow": {
+            "parsed": {
+              "code": "context_length_exceeded",
+              "structured": true,
+              "limit_tokens": 131072,
+              "requested_tokens": 140000,
+              "model": "z-ai/glm-5.3-flash-uncensored"
+            },
+            "noted": true,
+            "plan": {
+              "reason": "proven_limit_recorded",
+              "limit_tokens": 131072,
+              "budget_tokens": 110413,
+              "output_reserve": 4096,
+              "attempt": 1,
+              "max_attempts": 1,
+              "uncertain": false
+            }
+          }
+        },
+        "chat_model": {
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "base_host": "nano-gpt.com",
+          "resolver_enabled": true,
+          "live_precedence": true
+        },
+        "assertions": [
+          {
+            "name": "resolver_enabled",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "current_model_resolved",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'z-ai/glm-5.3-flash-uncensored', 'effective_window': 1048576, 'declared_window': 1048576, 'runtime_window': None, 'max_output_tokens': 32768, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "known_under_1m_resolved",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gpt-4o-mini', 'effective_window': 128000, 'declared_window': 128000, 'runtime_window': None, 'max_output_tokens': 16384, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "known_under_1m_below_1m",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gpt-4o-mini', 'effective_window': 128000, 'declared_window': 128000, 'runtime_window': None, 'max_output_tokens': 16384, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "big_window_resolved",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gemini-2.5-pro', 'effective_window': 1048576, 'declared_window': 1048576, 'runtime_window': None, 'max_output_tokens': 65536, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "big_window_at_least_1m",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gemini-2.5-pro', 'effective_window': 1048576, 'declared_window': 1048576, 'runtime_window': None, 'max_output_tokens': 65536, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "unknown_not_verified",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'canary/custom-unknown-7f3a', 'effective_window': 1000000, 'declared_window': None, 'runtime_window': None, 'max_output_tokens': None, 'source': 'estimated_unknown', 'confidence': 'estimated', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "unknown_not_claimed_1m_as_proof",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'canary/custom-unknown-7f3a', 'effective_window': 1000000, 'declared_window': None, 'runtime_window': None, 'max_output_tokens': None, 'source': 'estimated_unknown', 'confidence': 'estimated', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "catalog_down_honest",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'z-ai/glm-5.3-flash-uncensored', 'effective_window': 1000000, 'declared_window': None, 'runtime_window': None, 'max_output_tokens': None, 'source': 'estimated_unknown', 'confidence': 'estimated', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False, 'simulated': 'catalog_adapters_returned_none'}"
+          },
+          {
+            "name": "fallback_resolved",
+            "ok": true,
+            "detail": "{'provider': 'deepseek', 'model': 'deepseek-flash', 'effective_window': 131072, 'declared_window': 131072, 'runtime_window': None, 'max_output_tokens': None, 'source': 'verified_registry', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "context_overflow_parsed",
+            "ok": true,
+            "detail": "{'parsed': {'code': 'context_length_exceeded', 'structured': True, 'limit_tokens': 131072, 'requested_tokens': 140000, 'model': 'z-ai/glm-5.3-flash-uncensored'}, 'noted': True, 'plan': {'reason': 'proven_limit_recorded', 'limit_tokens': 131072, 'budget_tokens': 110413, 'output_reserve': 4096, 'attempt': 1, 'max_attempts': 1, 'uncertain': False}}"
+          },
+          {
+            "name": "context_overflow_plan",
+            "ok": true,
+            "detail": "{'reason': 'proven_limit_recorded', 'limit_tokens': 131072, 'budget_tokens': 110413, 'output_reserve': 4096, 'attempt': 1, 'max_attempts': 1, 'uncertain': False}"
+          },
+          {
+            "name": "context_overflow_model_identity",
+            "ok": true,
+            "detail": "{'code': 'context_length_exceeded', 'structured': True, 'limit_tokens': 131072, 'requested_tokens': 140000, 'model': 'z-ai/glm-5.3-flash-uncensored'}"
+          }
+        ]
+      },
+      "duration_s": 0.651
+    },
+    {
+      "id": "local_source_read",
+      "title": "Local own-code read with deployed identity",
+      "req_ids": [
+        "SXR-L4-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real deployed-tree read via production read_source_code",
+      "production_observed": true,
+      "summary": "локальный verified-источник прочитан без GitHub; repo/commit/path совпадают с deployed SHA",
+      "details": {
+        "runtime_identity": {
+          "source": "local",
+          "ref_source": "deployed_sha",
+          "verification": "verified_running",
+          "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "checkout_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "deployed_matches_checkout": true,
+          "revision_kind": "checkout",
+          "repo": "Henry-Case-dev/adminbot",
+          "note": "читается проверенный локальный код работающей версии: deployed SHA совпадает с checkout",
+          "selection_reason": ""
+        },
+        "repo": {
+          "head": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "branch": "release/smart-corrective-01",
+          "app_version": "2.58.202",
+          "manifest_present": true,
+          "manifest_deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "manifest_version": "2.58.202",
+          "manifest_dirty_tracked": false
+        },
+        "payload": {
+          "status": "ok",
+          "stage": "fetch",
+          "verified": true,
+          "source_kind": "file",
+          "network_calls": 0,
+          "repo": "Henry-Case-dev/adminbot",
+          "commit": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "path": "services/tool_loop.py",
+          "line_range": [
+            26,
+            2419
+          ],
+          "snippet_chars": 114954,
+          "read_level": "selected",
+          "error": null,
+          "symbol_present": true
+        },
+        "evidence_limits": [
+          {
+            "tool": "read_source_code",
+            "stage": "fetch",
+            "effective_limit": 200000,
+            "limit_source": "window",
+            "used": 114954,
+            "total": 2419,
+            "truncated": false,
+            "why": "",
+            "retrievable_remainder": 0,
+            "unit": "lines",
+            "candidates_total": 0,
+            "candidates_kept": 0,
+            "window_source": "unknown_fallback",
+            "capacity_source": "window",
+            "turn_capped": false,
+            "source_read_level": "selected",
+            "verified": true,
+            "budgets_enforced": false,
+            "budget_scope_chat": 0,
+            "budget_policy_failed": false,
+            "network_calls": 0
+          }
+        ],
+        "assertions": [
+          {
+            "name": "local_source_selected",
+            "ok": true,
+            "detail": "local"
+          },
+          {
+            "name": "local_source_verified",
+            "ok": true,
+            "detail": "verified_running"
+          },
+          {
+            "name": "deployed_sha_matches_checkout",
+            "ok": true,
+            "detail": "True"
+          },
+          {
+            "name": "manifest_matches_deployed_sha",
+            "ok": true,
+            "detail": "{'manifest': '0beed63df8037002ccfaacef019b8ea948d957f6', 'identity': '0beed63df8037002ccfaacef019b8ea948d957f6'}"
+          },
+          {
+            "name": "git_head_matches_deployed",
+            "ok": true,
+            "detail": "{'head': '0beed63df8037002ccfaacef019b8ea948d957f6', 'deployed': '0beed63df8037002ccfaacef019b8ea948d957f6'}"
+          },
+          {
+            "name": "local_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0beed63df8037002ccfaacef019b8ea948d957f6', 'path': 'services/tool_loop.py', 'line_range': [26, 2419], 'snippet_chars': 114954, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_verified_in_prod",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0beed63df8037002ccfaacef019b8ea948d957f6', 'path': 'services/tool_loop.py', 'line_range': [26, 2419], 'snippet_chars': 114954, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_no_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0beed63df8037002ccfaacef019b8ea948d957f6', 'path': 'services/tool_loop.py', 'line_range': [26, 2419], 'snippet_chars': 114954, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_symbol_present",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0beed63df8037002ccfaacef019b8ea948d957f6', 'path': 'services/tool_loop.py', 'line_range': [26, 2419], 'snippet_chars': 114954, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_commit_matches_deployed",
+            "ok": true,
+            "detail": "{'payload': '0beed63df8037002ccfaacef019b8ea948d957f6', 'deployed': '0beed63df8037002ccfaacef019b8ea948d957f6'}"
+          },
+          {
+            "name": "local_read_repo_matches_self",
+            "ok": true,
+            "detail": "{'payload': 'Henry-Case-dev/adminbot', 'identity': 'Henry-Case-dev/adminbot'}"
+          },
+          {
+            "name": "local_read_uses_canonical_path",
+            "ok": true,
+            "detail": "services/tool_loop.py"
+          }
+        ]
+      },
+      "duration_s": 0.192
+    },
+    {
+      "id": "external_reads",
+      "title": "External GitHub read + SSRF refusal",
+      "req_ids": [
+        "SXR-F2-01",
+        "SXR-F4-01",
+        "SXR-L5-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real public network read + real SafeFetcher policy",
+      "production_observed": true,
+      "summary": "публичный GitHub: реальный сетевой read (README + файл исходника с verified-идентичностью); запрещённые назначения отклонены без сетевых вызовов, SafeFetcher даёт destination_blocked/metadata_endpoint_blocked; 404 отдан фактической причиной",
+      "details": {
+        "offline": false,
+        "scenario": {
+          "readme_url": "https://github.com/octocat/Hello-World/blob/master/README",
+          "source_repo": "octocat/Spoon-Knife",
+          "source_ref": "main",
+          "source_path": "index.html",
+          "verified_contract": "SourceReader._read_payload: verified=True только для source_kind=file (README доставляется с verified=False по инварианту V1)"
+        },
+        "public_read": {
+          "status": "ok",
+          "stage": "fetch",
+          "verified": false,
+          "network_calls": 4,
+          "repo": "octocat/Hello-World",
+          "commit": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+          "path": "README",
+          "snippet_chars": 12,
+          "file_total_lines": 1,
+          "source_kind": "readme",
+          "read_level": "parsed",
+          "provider": "github",
+          "error": null
+        },
+        "public_source_read": {
+          "status": "ok",
+          "stage": "fetch",
+          "verified": true,
+          "network_calls": 4,
+          "repo": "octocat/Spoon-Knife",
+          "commit": "d0dd1f61b33d64e29d8bc1372a94ef6a2fee76a9",
+          "path": "index.html",
+          "snippet_chars": 354,
+          "file_total_lines": 20,
+          "source_kind": "file",
+          "read_level": "parsed",
+          "provider": "github",
+          "error": null
+        },
+        "ssrf_refusals": [
+          {
+            "target": "loopback",
+            "source": "tool_path",
+            "status": "unsupported",
+            "stage": "discover",
+            "code": "provider_unconfigured",
+            "detail": "host_not_supported",
+            "retryable": false,
+            "network_calls": 0
+          },
+          {
+            "target": "metadata",
+            "source": "tool_path",
+            "status": "unsupported",
+            "stage": "discover",
+            "code": "provider_unconfigured",
+            "detail": "host_not_supported",
+            "retryable": false,
+            "network_calls": 0
+          },
+          {
+            "target": "loopback_direct",
+            "source": "safe_fetcher",
+            "status": "blocked",
+            "code": "destination_blocked",
+            "stage": "resolve",
+            "retryable": false
+          },
+          {
+            "target": "metadata_direct",
+            "source": "safe_fetcher",
+            "status": "blocked",
+            "code": "metadata_endpoint_blocked",
+            "stage": "resolve",
+            "retryable": false
+          }
+        ],
+        "external_failure": {
+          "status": "error",
+          "stage": "fetch",
+          "code": "source_missing",
+          "retryable": false
+        },
+        "assertions": [
+          {
+            "name": "public_external_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'file_total_lines': 1, 'source_kind': 'readme', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'file_total_lines': 1, 'source_kind': 'readme', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_content",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'file_total_lines': 1, 'source_kind': 'readme', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_identity",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'file_total_lines': 1, 'source_kind': 'readme', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_readme_honest_unverified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'file_total_lines': 1, 'source_kind': 'readme', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_source_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'network_calls': 4, 'repo': 'octocat/Spoon-Knife', 'commit': 'd0dd1f61b33d64e29d8bc1372a94ef6a2fee76a9', 'path': 'index.html', 'snippet_chars': 354, 'file_total_lines': 20, 'source_kind': 'file', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_source_read_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'network_calls': 4, 'repo': 'octocat/Spoon-Knife', 'commit': 'd0dd1f61b33d64e29d8bc1372a94ef6a2fee76a9', 'path': 'index.html', 'snippet_chars': 354, 'file_total_lines': 20, 'source_kind': 'file', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_source_read_content",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'network_calls': 4, 'repo': 'octocat/Spoon-Knife', 'commit': 'd0dd1f61b33d64e29d8bc1372a94ef6a2fee76a9', 'path': 'index.html', 'snippet_chars': 354, 'file_total_lines': 20, 'source_kind': 'file', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'network_calls': 4, 'repo': 'octocat/Spoon-Knife', 'commit': 'd0dd1f61b33d64e29d8bc1372a94ef6a2fee76a9', 'path': 'index.html', 'snippet_chars': 354, 'file_total_lines': 20, 'source_kind': 'file', 'read_level': 'parsed', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "ssrf_loopback_refused",
+            "ok": true,
+            "detail": "{'tool_path': [{'target': 'loopback', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'detail': 'host_not_supported', 'retryable': False, 'network_calls': 0}, {'target': 'metadata', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'detail': 'host_not_supported', 'retryable': False…[clipped]"
+          },
+          {
+            "name": "ssrf_metadata_refused",
+            "ok": true,
+            "detail": "{'tool_path': [{'target': 'loopback', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'detail': 'host_not_supported', 'retryable': False, 'network_calls': 0}, {'target': 'metadata', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'detail': 'host_not_supported', 'retryable': False…[clipped]"
+          },
+          {
+            "name": "ssrf_policy_direct",
+            "ok": true,
+            "detail": "[{'target': 'loopback_direct', 'source': 'safe_fetcher', 'status': 'blocked', 'code': 'destination_blocked', 'stage': 'resolve', 'retryable': False}, {'target': 'metadata_direct', 'source': 'safe_fetcher', 'status': 'blocked', 'code': 'metadata_endpoint_blocked', 'stage': 'resolve', 'retryable': False}]"
+          },
+          {
+            "name": "external_failure_honest",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'fetch', 'code': 'source_missing', 'retryable': False}"
+          }
+        ]
+      },
+      "duration_s": 2.385
+    },
+    {
+      "id": "external_scenarios",
+      "title": "F4: public repo, symbol search, link read, related sources, factual refusal, no separate command",
+      "req_ids": [
+        "SXR-F4-01",
+        "SXR-F2-01",
+        "SXR-L5-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real public GitHub read/search/link/follow-up + factual refusal",
+      "production_observed": true,
+      "summary": "публичный репозиторий прочитан по ветке (verified, точный commit); поиск символа дал тот же commit и файл; чтение по blob-ссылке дало ту же идентичность; переход к связанным источникам — реальное чтение смежного файла; недоступный репозиторий назван фактической причиной; отдельной GitHub-команды нет (один tool, три операции)",
+      "details": {
+        "offline": false,
+        "scenario": {
+          "repo": "githubtraining/hellogitworld",
+          "branch": "master",
+          "chain_path": "src/test/java/com/github/AppTest.java",
+          "chain_sibling": "src/main/java/com/github/App.java",
+          "search_symbol": "main",
+          "search_expect_path": "src/main/java/com/github/App.java",
+          "missing_repo": "githubtraining/canary-does-not-exist-7f3a",
+          "call_budget_policy": "реальные запросы минимизированы: commit/verified_url берутся из уже полученного ответа, повторные запросы с теми же аргументами кэшируются в пределах прогона"
+        },
+        "chain_read": {
+          "status": "ok",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "path": "src/test/java/com/github/AppTest.java",
+          "verified": true,
+          "source_kind": "file",
+          "network_calls": 5,
+          "snippet_chars": 749,
+          "verified_url": "https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43",
+          "sibling_paths": [
+            "src/main/java/com/github/App.java"
+          ],
+          "verified_sibling_paths": [
+            "src/main/java/com/github/App.java"
+          ],
+          "distinct_verified_sibling": true,
+          "files_read": 2,
+          "has_primary": true
+        },
+        "related_sources": {
+          "verified_sibling_paths": [
+            "src/main/java/com/github/App.java"
+          ],
+          "expected_sibling_present": true,
+          "files_read": 2
+        },
+        "symbol_search": {
+          "status": "ok",
+          "stage": "locator",
+          "path": "src/main/java/com/github/App.java",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "verified": true,
+          "source_kind": "file",
+          "symbol": "main",
+          "symbol_found": true,
+          "line_range": [
+            1,
+            17
+          ],
+          "snippet_chars": 215,
+          "network_calls": 11,
+          "candidate_paths": [],
+          "path_matches": true,
+          "commit_matches": true
+        },
+        "link_url_present": true,
+        "link_read": {
+          "status": "ok",
+          "stage": "fetch",
+          "path": "src/test/java/com/github/AppTest.java",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "verified": true,
+          "source_kind": "file",
+          "snippet_chars": 749,
+          "network_calls": 4,
+          "path_matches": true,
+          "commit_matches": true
+        },
+        "missing_repo": {
+          "status": "error",
+          "stage": "discover",
+          "code": "source_missing",
+          "detail": "repo_not_found",
+          "http": 404,
+          "retryable": false,
+          "network_calls": 1,
+          "factual": true,
+          "not_read": true,
+          "no_retries": true
+        },
+        "capability": {
+          "tool_name": "read_source_code",
+          "tool_operations": [
+            "discover",
+            "locate",
+            "read"
+          ],
+          "tool_count": 18,
+          "github_like_tools": [
+            "read_source_code"
+          ],
+          "command_triggers": 15,
+          "github_like_commands": [],
+          "single_tool": true,
+          "operations_cover": true,
+          "no_separate_command": true
+        },
+        "network_calls_total": 21,
+        "assertions": [
+          {
+            "name": "external_public_repo_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_branch_read_identity",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_branch_read_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_read_uses_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_related_sources_read",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_symbol_search_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 11, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_found_path",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 11, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_symbol_found",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 11, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_exact_commit",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 11, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 11, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_link_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'path': 'src/test/java/com/github/AppTest.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 749, 'network_calls': 4, 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_link_read_identity",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'path': 'src/test/java/com/github/AppTest.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 749, 'network_calls': 4, 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_link_read_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'path': 'src/test/java/com/github/AppTest.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 749, 'network_calls': 4, 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_missing_repo_factual",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'discover', 'code': 'source_missing', 'detail': 'repo_not_found', 'http': 404, 'retryable': False, 'network_calls': 1, 'factual': True, 'not_read': True, 'no_retries': True}"
+          },
+          {
+            "name": "external_missing_repo_not_read",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'discover', 'code': 'source_missing', 'detail': 'repo_not_found', 'http': 404, 'retryable': False, 'network_calls': 1, 'factual': True, 'not_read': True, 'no_retries': True}"
+          },
+          {
+            "name": "external_missing_repo_no_retries",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'discover', 'code': 'source_missing', 'detail': 'repo_not_found', 'http': 404, 'retryable': False, 'network_calls': 1, 'factual': True, 'not_read': True, 'no_retries': True}"
+          },
+          {
+            "name": "external_capability_single_tool",
+            "ok": true,
+            "detail": "{'tool_name': 'read_source_code', 'tool_operations': ['discover', 'locate', 'read'], 'tool_count': 18, 'github_like_tools': ['read_source_code'], 'command_triggers': 15, 'github_like_commands': [], 'single_tool': True, 'operations_cover': True, 'no_separate_command': True}"
+          },
+          {
+            "name": "external_capability_three_operations",
+            "ok": true,
+            "detail": "{'tool_name': 'read_source_code', 'tool_operations': ['discover', 'locate', 'read'], 'tool_count': 18, 'github_like_tools': ['read_source_code'], 'command_triggers': 15, 'github_like_commands': [], 'single_tool': True, 'operations_cover': True, 'no_separate_command': True}"
+          },
+          {
+            "name": "external_capability_no_command",
+            "ok": true,
+            "detail": "{'tool_name': 'read_source_code', 'tool_operations': ['discover', 'locate', 'read'], 'tool_count': 18, 'github_like_tools': ['read_source_code'], 'command_triggers': 15, 'github_like_commands': [], 'single_tool': True, 'operations_cover': True, 'no_separate_command': True}"
+          },
+          {
+            "name": "external_scenarios_network_observed",
+            "ok": true,
+            "detail": "21"
+          }
+        ]
+      },
+      "duration_s": 3.121
+    },
+    {
+      "id": "external_natural_request",
+      "title": "F4: natural external-code request via Direct L1 (one provider call)",
+      "req_ids": [
+        "SXR-F4-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real provider decision + real source-read execution",
+      "production_observed": true,
+      "summary": "естественный запрос о внешнем коде: L1 выбрал capability source_code, production tool реально прочитал файл на GitHub (verified, точный path)",
+      "details": {
+        "query": "Наткнулся на репозиторий githubtraining/hellogitworld. Посмотри по исходникам, что делает метод main в файле src/main/java/com/github/App.java, и ответь коротко по делу.",
+        "repo": "githubtraining/hellogitworld",
+        "path": "src/main/java/com/github/App.java",
+        "offline": false,
+        "decision": {
+          "action": "reply",
+          "tool_policy": "auto",
+          "capabilities_needed": [
+            "source_code"
+          ],
+          "execution_mode": "simple_tools",
+          "execution_mode_source": "derived",
+          "response_act": "research",
+          "raw_chars": 839
+        },
+        "selected_tool": "read_source_code",
+        "dispatched_arguments": {
+          "operation": "read",
+          "repo": "githubtraining/hellogitworld",
+          "ref": "master",
+          "path": "src/main/java/com/github/App.java"
+        },
+        "tool_execution": {
+          "status": "ok",
+          "stage": "fetch",
+          "repo": "githubtraining/hellogitworld",
+          "path": "src/main/java/com/github/App.java",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "verified": true,
+          "source_kind": "file",
+          "snippet_chars": 215,
+          "network_calls": 4,
+          "error": null
+        },
+        "provider_calls": {
+          "used": 1,
+          "denied": 0,
+          "max_provider_calls": 5
+        },
+        "assertions": [
+          {
+            "name": "natural_request_provider_call",
+            "ok": true,
+            "detail": "{'used': 1, 'denied': 0, 'max_provider_calls': 5}"
+          },
+          {
+            "name": "natural_request_decision_parsed",
+            "ok": true,
+            "detail": "{'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'research', 'raw_chars': 839}"
+          },
+          {
+            "name": "natural_request_selected_source_tool",
+            "ok": true,
+            "detail": "{'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'research', 'raw_chars': 839}"
+          },
+          {
+            "name": "natural_request_tool_executed",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'repo': 'githubtraining/hellogitworld', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 215, 'network_calls': 4, 'error': None}"
+          },
+          {
+            "name": "natural_request_tool_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'repo': 'githubtraining/hellogitworld', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 215, 'network_calls': 4, 'error': None}"
+          },
+          {
+            "name": "natural_request_tool_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'repo': 'githubtraining/hellogitworld', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 215, 'network_calls': 4, 'error': None}"
+          }
+        ]
+      },
+      "duration_s": 16.137
+    },
+    {
+      "id": "diagnostic_variants",
+      "title": "Seven diagnostic/finalization variants",
+      "req_ids": [
+        "SXR-L6-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): все 7 вариантов сохраняют полученные данные, различают отказы и не публикуют бессмысленную заглушку при наличии evidence",
+      "details": {
+        "variants": {
+          "all_sources": {
+            "text_chars": 39,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "execute_web_search",
+              "fact_check"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "ok": 2
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": []
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: подтверждено обоими источниками"
+          },
+          "one_failed": {
+            "text_chars": 52,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "execute_web_search",
+              "fetch_article"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "ok": 1,
+                "error": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "provider_unavailable"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: один источник подтверждён, второй недоступен"
+          },
+          "github_blocked_local_ok": {
+            "text_chars": 59,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "read_source_code"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "error": 1,
+                "ok": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "destination_blocked"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: удалённый источник заблокирован, локальный прочитан"
+          },
+          "local_down_remote_ok": {
+            "text_chars": 48,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "read_source_code"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "error": 1,
+                "ok": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "local_source_unavailable"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: локальный недоступен, удалённый прочитан"
+          },
+          "investigation_impossible": {
+            "text_chars": 531,
+            "degraded": true,
+            "reason": "llm_error",
+            "finalize_mode": "structured_partial",
+            "tool_calls": 1,
+            "tool_names": [
+              "execute_web_search"
+            ],
+            "envelopes": {
+              "total": 1,
+              "statuses": {
+                "error": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 1,
+                "tool_messages": 1,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "provider_unavailable"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "Исследование остановлено: провайдер модели прервал исследование технической ошибкой (llm_error). Это частичный результат: финальный LLM-вызов недоступен (empty), ниже собраны только фактически полученные данные. Запрос:"
+          },
+          "final_llm_unavailable": {
+            "text_chars": 1087,
+            "degraded": true,
+            "reason": "no_progress",
+            "finalize_mode": "structured_partial",
+            "tool_calls": 1,
+            "tool_names": [
+              "execute_web_search"
+            ],
+            "envelopes": {
+              "total": 3,
+              "statuses": {
+                "ok": 3
+              },
+              "chain_denied": 0,
+              "duplicates": 2,
+              "sequence": {
+                "requested": 3,
+                "tool_messages": 3,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": []
+            },
+            "fallback_phrase": false,
+            "text_head": "Исследование остановлено: новые данные перестали поступать (no_progress). Это частичный результат: финальный LLM-вызов недоступен (LLMError), ниже собраны только фактически полученные данные. Запрос: canary diagnostic v"
+          },
+          "technical_deadline": {
+            "text_chars": 34,
+            "degraded": true,
+            "reason": "chain_timeout",
+            "finalize_mode": "llm",
+            "tool_calls": 2,
+            "tool_names": [
+              "execute_web_search"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "ok": 2
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": []
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: данные собраны до дедлайна"
+          }
+        },
+        "shared_mechanism": "7 вариантов исполнены единым production tool-loop (services.tool_loop.chat_with_tools) с контролируемой инъекцией LLM/роутера; имена инструментов покрывают поиск (execute_web_search), фактчек (fact_check) и чтение источника (read_source_code).",
+        "assertions": [
+          {
+            "name": "v1_text",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v1_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v1_two_calls",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "v2_ok_data_preserved",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'ok': 1, 'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['provider_unavailable']}"
+          },
+          {
+            "name": "v2_failure_visible",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'ok': 1, 'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['provider_unavailable']}"
+          },
+          {
+            "name": "v2_text_present",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v2_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v3_local_data_preserved",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'error': 1, 'ok': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['destination_blocked']}"
+          },
+          {
+            "name": "v3_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v4_remote_data_preserved",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'error': 1, 'ok': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['local_source_unavailable']}"
+          },
+          {
+            "name": "v4_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v5_honest_status",
+            "ok": true,
+            "detail": "{'text_chars': 531, 'degraded': True, 'reason': 'llm_error', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 1, 'statuses': {'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 1, 'tool_messages': 1, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v5_no_fake_success",
+            "ok": true,
+            "detail": "Исследование остановлено: провайдер модели прервал исследование технической ошибкой (llm_error). Это частичный результат: финальный LLM-вызов недоступен (empty), ниже собраны только фактически полученные данные. Запрос:"
+          },
+          {
+            "name": "v5_no_meaningless_stub",
+            "ok": true,
+            "detail": "{'text_chars': 531, 'degraded': True, 'reason': 'llm_error', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 1, 'statuses': {'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 1, 'tool_messages': 1, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v6_structured_partial",
+            "ok": true,
+            "detail": "{'text_chars': 1087, 'degraded': True, 'reason': 'no_progress', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 3, 'statuses': {'ok': 3}, 'chain_denied': 0, 'duplicates': 2, 'sequence': {'requested': 3, 'tool_messages': 3, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v6_data_preserved",
+            "ok": true,
+            "detail": "{'text_chars': 1087, 'degraded': True, 'reason': 'no_progress', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 3, 'statuses': {'ok': 3}, 'chain_denied': 0, 'duplicates': 2, 'sequence': {'requested': 3, 'tool_messages': 3, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v6_no_stub",
+            "ok": true,
+            "detail": "{'text_chars': 1087, 'degraded': True, 'reason': 'no_progress', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 3, 'statuses': {'ok': 3}, 'chain_denied': 0, 'duplicates': 2, 'sequence': {'requested': 3, 'tool_messages': 3, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v7_deadline_reason",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "v7_degraded_honestly",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "v7_data_preserved",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "v7_no_stub",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "seven_variants_executed",
+            "ok": true,
+            "detail": "7"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 0.511
+    },
+    {
+      "id": "checkup_real",
+      "title": "Real checkup: journal, identity, manifest, report",
+      "req_ids": [
+        "SXR-H3-01",
+        "SXR-H4-01",
+        "SXR-L7-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real systemd journal + deployed identity + real checkup report",
+      "production_observed": true,
+      "summary": "журнал unit прочитан, бот не root, manifest/runtime/checkout согласованы; отчёт чекапа построен",
+      "details": {
+        "logs": {
+          "chars": 8933,
+          "used_fallback": false,
+          "log_state": "ok",
+          "journal_state": "ok"
+        },
+        "service": {
+          "MainPID": "837957",
+          "ExecMainStartTimestamp": "Sat 2026-11-14 15:14:44 UTC",
+          "ExecMainStartTimestampMonotonic": "242920570213",
+          "User": "adminbot",
+          "ActiveState": "active"
+        },
+        "process_owner": {
+          "Name": "python",
+          "Uid": "999 999 999 999",
+          "Gid": "987 987 987 987"
+        },
+        "harness_uid": 0,
+        "harness_not_root_note": "харнесс может быть запущен от root (DevOps); проверяется unit-процесс бота, а не процесс харнесса",
+        "deploy_identity": {
+          "code": "verified_deployed",
+          "reason": "",
+          "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "checkout_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "process_started_at": "2026-11-14T15:14:44.901158Z",
+          "deployed_at": "2026-11-14T15:14:42.974638Z",
+          "effect": "deploy",
+          "previous_sha": "409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9",
+          "version_provenance": {
+            "runtime": "2.58.202",
+            "manifest": "2.58.202",
+            "consistent": true
+          },
+          "conflict": [],
+          "local_source_verification": "verified_deployed",
+          "dirty": false,
+          "upstream_head": {
+            "sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+            "ref": "refs/remotes/origin/release/smart-corrective-01",
+            "observed_at": "2026-11-14T15:14:42.864080Z",
+            "reason": ""
+          },
+          "branch": "release/smart-corrective-01"
+        },
+        "manifest": {
+          "schema": 1,
+          "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "version": "2.58.202",
+          "deployed_at": "2026-11-14T15:14:42.974638Z",
+          "effect": "deploy",
+          "previous_sha": "409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9",
+          "release_branch": "release/smart-corrective-01",
+          "dirty_tracked": false
+        },
+        "runtime_version": "2.58.202",
+        "self_repo_identity": {
+          "source": "local",
+          "ref_source": "deployed_sha",
+          "verification": "verified_running",
+          "repo": "Henry-Case-dev/adminbot",
+          "ref": "",
+          "deployed_matches_checkout": true,
+          "note": "читается проверенный локальный код работающей версии: deployed SHA совпадает с checkout"
+        },
+        "facts": {
+          "facts_chars": 3830,
+          "bundle_status": "degraded",
+          "coverage_ok": null,
+          "coverage_failed": null,
+          "coverage_missing": null,
+          "sections": [
+            "access",
+            "chat_scope",
+            "claims",
+            "code_lookup_attempted",
+            "commits_since_deploy",
+            "coverage",
+            "git_head_sha",
+            "git_metadata_attempted",
+            "latency_ms",
+            "not_checked",
+            "observed_at",
+            "reason_code",
+            "redaction",
+            "request",
+            "request_id",
+            "runtime",
+            "runtime_sha",
+            "schema",
+            "scope",
+            "source_verified",
+            "sources",
+            "status"
+          ]
+        },
+        "provider_call": {
+          "allowed": true,
+          "used_total": 2,
+          "denied_total": 0
+        },
+        "report": {
+          "chars": 2372,
+          "telemetry": {
+            "prompt_source": "default",
+            "prompt_hash": "966c5fef52a8e264",
+            "prompt_version_used": "default:966c5fef52a8",
+            "prompt_chars": 3453,
+            "latency_ms": 81209,
+            "report_chars": 2372,
+            "metrics_included": true,
+            "input_truncated": false,
+            "used_fallback": false
+          },
+          "head": "Читал systemd-журнал юнита admin_bot: окно 300 секунд, прочитано 300 строк из 300, совпало 13. Источник живой, state=ok, так что это не отчёт по пустому логу. И сразу неприятное: процесс python[837957] работает с uid=0, то есть от root. Для сервиса, который ловит картинки из чата, это не…[clipped]"
+        },
+        "assertions": [
+          {
+            "name": "journal_read_ok",
+            "ok": true,
+            "detail": "{'chars': 8933, 'used_fallback': False, 'log_state': 'ok', 'journal_state': 'ok'}"
+          },
+          {
+            "name": "journal_not_fallback_only",
+            "ok": true,
+            "detail": "{'chars': 8933, 'used_fallback': False, 'log_state': 'ok', 'journal_state': 'ok'}"
+          },
+          {
+            "name": "service_active",
+            "ok": true,
+            "detail": "{'MainPID': '837957', 'ExecMainStartTimestamp': 'Sat 2026-11-14 15:14:44 UTC', 'ExecMainStartTimestampMonotonic': '242920570213', 'User': 'adminbot', 'ActiveState': 'active'}"
+          },
+          {
+            "name": "service_pid_present",
+            "ok": true,
+            "detail": "{'MainPID': '837957', 'ExecMainStartTimestamp': 'Sat 2026-11-14 15:14:44 UTC', 'ExecMainStartTimestampMonotonic': '242920570213', 'User': 'adminbot', 'ActiveState': 'active'}"
+          },
+          {
+            "name": "bot_not_root",
+            "ok": true,
+            "detail": "{'uid': '999', 'service_user': 'adminbot'}"
+          },
+          {
+            "name": "runtime_identity_verified",
+            "ok": true,
+            "detail": "verified_deployed"
+          },
+          {
+            "name": "runtime_sha_matches_checkout",
+            "ok": true,
+            "detail": "{'deployed': '0beed63df8037002ccfaacef019b8ea948d957f6', 'checkout': '0beed63df8037002ccfaacef019b8ea948d957f6'}"
+          },
+          {
+            "name": "deploy_manifest_exists",
+            "ok": true,
+            "detail": "release.json"
+          },
+          {
+            "name": "manifest_valid",
+            "ok": true,
+            "detail": "{'schema': 1, 'deployed_sha': '0beed63df8037002ccfaacef019b8ea948d957f6', 'version': '2.58.202', 'deployed_at': '2026-11-14T15:14:42.974638Z', 'effect': 'deploy', 'previous_sha': '409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9', 'release_branch': 'release/smart-corrective-01', 'dirty_tracked': False}"
+          },
+          {
+            "name": "manifest_matches_process",
+            "ok": true,
+            "detail": "{'manifest': '0beed63df8037002ccfaacef019b8ea948d957f6', 'process': '0beed63df8037002ccfaacef019b8ea948d957f6'}"
+          },
+          {
+            "name": "manifest_matches_checkout",
+            "ok": true,
+            "detail": "{'manifest': '0beed63df8037002ccfaacef019b8ea948d957f6', 'checkout': '0beed63df8037002ccfaacef019b8ea948d957f6'}"
+          },
+          {
+            "name": "manifest_version_matches_runtime",
+            "ok": true,
+            "detail": "{'manifest': '2.58.202', 'runtime': '2.58.202'}"
+          },
+          {
+            "name": "checkup_local_source_usable",
+            "ok": true,
+            "detail": "local"
+          },
+          {
+            "name": "runtime_facts_collected",
+            "ok": true,
+            "detail": "{'facts_chars': 3830, 'bundle_status': 'degraded', 'coverage_ok': None, 'coverage_failed': None, 'coverage_missing': None, 'sections': ['access', 'chat_scope', 'claims', 'code_lookup_attempted', 'commits_since_deploy', 'coverage', 'git_head_sha', 'git_metadata_attempted', 'latency_ms', 'not_checked', 'observed_at', 'reason_code', 'redaction', 'request', 'request_id', 'runtime', 'runtim…[clipped]"
+          },
+          {
+            "name": "facts_bundle_present",
+            "ok": true,
+            "detail": "{'facts_chars': 3830, 'bundle_status': 'degraded', 'coverage_ok': None, 'coverage_failed': None, 'coverage_missing': None, 'sections': ['access', 'chat_scope', 'claims', 'code_lookup_attempted', 'commits_since_deploy', 'coverage', 'git_head_sha', 'git_metadata_attempted', 'latency_ms', 'not_checked', 'observed_at', 'reason_code', 'redaction', 'request', 'request_id', 'runtime', 'runtim…[clipped]"
+          },
+          {
+            "name": "checkup_report_present",
+            "ok": true,
+            "detail": "{'chars': 2372, 'telemetry': {'prompt_source': 'default', 'prompt_hash': '966c5fef52a8e264', 'prompt_version_used': 'default:966c5fef52a8', 'prompt_chars': 3453, 'latency_ms': 81209, 'report_chars': 2372, 'metrics_included': True, 'input_truncated': False, 'used_fallback': False}, 'head': 'Читал systemd-журнал юнита admin_bot: окно 300 секунд, прочитано 300 строк из 300, совпало 13. Ис…[clipped]"
+          },
+          {
+            "name": "checkup_report_not_stub",
+            "ok": true,
+            "detail": "Читал systemd-журнал юнита admin_bot: окно 300 секунд, прочитано 300…[clipped]"
+          }
+        ]
+      },
+      "duration_s": 81.841
+    },
+    {
+      "id": "direct_continuation",
+      "title": "Direct L1 decision + real tool execution",
+      "req_ids": [
+        "SXR-L7-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real provider L1 decision + real read_source_code continuation",
+      "production_observed": true,
+      "summary": "L1 Planner принял независимые формулировки; решение LLM и реальный read-only tool-вызов зафиксированы; remainder/cursor и следующий диапазон реально дочитаны",
+      "details": {
+        "formulations": [
+          {
+            "query": "Проверь по исходникам нашего проекта, что делает функция resolve_capacity: нужен ли для ответа сам код?",
+            "provider_call": true,
+            "plan": {
+              "action": "reply",
+              "tool_policy": "auto",
+              "capabilities_needed": [
+                "source_code"
+              ],
+              "execution_mode": "simple_tools",
+              "execution_mode_source": "derived",
+              "response_act": "research",
+              "raw_chars": 673
+            },
+            "selected_tool": "read_source_code",
+            "tool_execution": {
+              "status": "ok",
+              "verified": true,
+              "network_calls": 0,
+              "line_range": [
+                26,
+                2419
+              ],
+              "snippet_chars": 114954,
+              "error": null
+            }
+          },
+          {
+            "query": "Хочу понять, как в нашем коде устроен resolve_capacity — посмотри файл, где он объявлен, и скажи по факту.",
+            "provider_call": true,
+            "plan": {
+              "action": "reply",
+              "tool_policy": "auto",
+              "capabilities_needed": [
+                "source_code"
+              ],
+              "execution_mode": "simple_tools",
+              "execution_mode_source": "derived",
+              "response_act": "explanation",
+              "raw_chars": 678
+            },
+            "selected_tool": "read_source_code",
+            "tool_execution": {
+              "status": "ok",
+              "verified": true,
+              "network_calls": 0,
+              "line_range": [
+                26,
+                2419
+              ],
+              "snippet_chars": 114954,
+              "error": null
+            }
+          }
+        ],
+        "continuation": {
+          "file": "services/tool_router.py",
+          "first": {
+            "status": "ok",
+            "network_calls": 0,
+            "line_range": [
+              1,
+              3975
+            ],
+            "snippet_chars": 199973,
+            "file_total_lines": 6584,
+            "verified": true,
+            "truncated": true,
+            "why": "over_window",
+            "retrievable_remainder_lines": 2609,
+            "next_line_start": 3976,
+            "error": null
+          },
+          "second": {
+            "status": "ok",
+            "network_calls": 0,
+            "line_range": [
+              3976,
+              4016
+            ],
+            "snippet_chars": 2091,
+            "head": "aliases = getattr(self.deps, \"aliases\", None) if aliases is not None: return aliases try: from services.summ…[clipped]",
+            "error": null
+          },
+          "remainder_ok": true,
+          "next_range_ok": true,
+          "continuation_ok": true
+        },
+        "provider_calls": {
+          "used": 4,
+          "denied": 0,
+          "allowed_flag": true
+        },
+        "assertions": [
+          {
+            "name": "continuation_remainder_reported",
+            "ok": true,
+            "detail": "{'file': 'services/tool_router.py', 'first': {'status': 'ok', 'network_calls': 0, 'line_range': [1, 3975], 'snippet_chars': 199973, 'file_total_lines': 6584, 'verified': True, 'truncated': True, 'why': 'over_window', 'retrievable_remainder_lines': 2609, 'next_line_start': 3976, 'error': None}, 'second': {'status': 'ok', 'network_calls': 0, 'line_range': [3976, 4016], 'snippet_chars': 2…[clipped]"
+          },
+          {
+            "name": "continuation_next_range_read",
+            "ok": true,
+            "detail": "{'file': 'services/tool_router.py', 'first': {'status': 'ok', 'network_calls': 0, 'line_range': [1, 3975], 'snippet_chars': 199973, 'file_total_lines': 6584, 'verified': True, 'truncated': True, 'why': 'over_window', 'retrievable_remainder_lines': 2609, 'next_line_start': 3976, 'error': None}, 'second': {'status': 'ok', 'network_calls': 0, 'line_range': [3976, 4016], 'snippet_chars': 2…[clipped]"
+          },
+          {
+            "name": "provider_call_performed",
+            "ok": true,
+            "detail": "{'used': 4, 'denied': 0, 'allowed_flag': True}"
+          },
+          {
+            "name": "llm_decision_parsed",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "llm_decision_has_capabilities",
+            "ok": true,
+            "detail": "[{'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'research', 'raw_chars': 673}, {'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'explanation', 'ra…[clipped]"
+          },
+          {
+            "name": "tool_actually_executed",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "tool_execution_ok",
+            "ok": true,
+            "detail": "[{'status': 'ok', 'verified': True, 'network_calls': 0, 'line_range': [26, 2419], 'snippet_chars': 114954, 'error': None}, {'status': 'ok', 'verified': True, 'network_calls': 0, 'line_range': [26, 2419], 'snippet_chars': 114954, 'error': None}]"
+          },
+          {
+            "name": "continuation_still_ok",
+            "ok": true,
+            "detail": "{'file': 'services/tool_router.py', 'first': {'status': 'ok', 'network_calls': 0, 'line_range': [1, 3975], 'snippet_chars': 199973, 'file_total_lines': 6584, 'verified': True, 'truncated': True, 'why': 'over_window', 'retrievable_remainder_lines': 2609, 'next_line_start': 3976, 'error': None}, 'second': {'status': 'ok', 'network_calls': 0, 'line_range': [3976, 4016], 'snippet_chars': 2…[clipped]"
+          }
+        ]
+      },
+      "duration_s": 13.976
+    },
+    {
+      "id": "i1_spool",
+      "title": "I1 journal/spool read-only observation",
+      "req_ids": [
+        "SXR-I1-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real read-only SQLite attempt rows + real journal window",
+      "production_observed": true,
+      "summary": "журнал попыток доступен, последняя попытка читается, spool пуст (идемпотентный дренаж), маркеров недоступности журнала нет",
+      "details": {
+        "sqlite_readable": true,
+        "attempt_table_exists": true,
+        "attempt_query_error": null,
+        "attempts": {
+          "table": "meme_initiative_attempt",
+          "total": 34901,
+          "last_ts": 1794670389
+        },
+        "last_attempts": [
+          {
+            "attempt_id": "cf5a04f413d7472ba4f674f439c43a3b",
+            "chat": "chat-f42f8a1b",
+            "ts": 1794670389,
+            "stage": "considered",
+            "outcome": "passed",
+            "reason_code": "",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {},
+            "detail": ""
+          },
+          {
+            "attempt_id": "1a47e5b2f30a477bbdedbe9b567bfcbf",
+            "chat": "chat-f42f8a1b",
+            "ts": 1794670389,
+            "stage": "skipped",
+            "outcome": "skipped",
+            "reason_code": "daily_quota_reached",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {
+              "attempt_mode": "automatic",
+              "mode": "automatic"
+            },
+            "detail": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}"
+          },
+          {
+            "attempt_id": "eb9a66812e11435c8ca45f7f34a1d5e4",
+            "chat": "chat-c29f51e6",
+            "ts": 1794670389,
+            "stage": "considered",
+            "outcome": "passed",
+            "reason_code": "",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {},
+            "detail": ""
+          },
+          {
+            "attempt_id": "f52c3ddbd4174f26985a2334357be286",
+            "chat": "chat-c29f51e6",
+            "ts": 1794670389,
+            "stage": "skipped",
+            "outcome": "skipped",
+            "reason_code": "daily_quota_reached",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {
+              "attempt_mode": "automatic",
+              "mode": "automatic"
+            },
+            "detail": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}"
+          },
+          {
+            "attempt_id": "8992fd0685424836a1e4ec2452da8fc6",
+            "chat": "chat-f42f8a1b",
+            "ts": 1794670307,
+            "stage": "considered",
+            "outcome": "passed",
+            "reason_code": "",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {},
+            "detail": ""
+          }
+        ],
+        "last_attempt_display": {
+          "mode": null,
+          "visible_ts": 1794670389,
+          "outcome": "passed",
+          "reason_code": "",
+          "stage": "considered"
+        },
+        "spool": {
+          "exists": false,
+          "rows": 0,
+          "bad_rows": 0,
+          "file": "local_database.db.attempts.pending.jsonl"
+        },
+        "journal_markers_in_window": {
+          "journal_spooled": 0,
+          "attempt_lost": 0,
+          "journal_read_failed": 0,
+          "operational_error": 0
+        },
+        "assertions": [
+          {
+            "name": "sqlite_readable",
+            "ok": true,
+            "detail": "read-only SQLite DB must be readable"
+          },
+          {
+            "name": "attempt_table_present",
+            "ok": true,
+            "detail": "{'table': 'meme_initiative_attempt', 'total': 34901, 'last_ts': 1794670389}"
+          },
+          {
+            "name": "attempt_query_ok",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "attempt_aggregate_readable",
+            "ok": true,
+            "detail": "{'aggregate_rows': 1, 'summary': {'c': 34901, 'last_ts': 1794670389, 'last_stage': 'summary'}, 'query_error': None}"
+          },
+          {
+            "name": "attempt_rows_present",
+            "ok": true,
+            "detail": "{'table': 'meme_initiative_attempt', 'total': 34901, 'last_ts': 1794670389}"
+          },
+          {
+            "name": "last_attempt_state_present",
+            "ok": true,
+            "detail": "[{'attempt_id': 'cf5a04f413d7472ba4f674f439c43a3b', 'chat': 'chat-bb8fd239', 'ts': 1794670389, 'stage': 'considered', 'outcome': 'passed', 'reason_code': '', 'limit_source': '', 'limit_value': None, 'facts': {}, 'detail': ''}]"
+          },
+          {
+            "name": "spool_drained",
+            "ok": true,
+            "detail": "{'exists': False, 'rows': 0, 'bad_rows': 0, 'file': 'local_database.db.attempts.pending.jsonl'}"
+          },
+          {
+            "name": "journal_window_readable",
+            "ok": true,
+            "detail": "{'log_state': 'ok', 'journal_state': 'ok', 'chars': 8933}"
+          },
+          {
+            "name": "journal_write_healthy",
+            "ok": true,
+            "detail": "{'journal_spooled': 0, 'attempt_lost': 0, 'journal_read_failed': 0, 'operational_error': 0}"
+          },
+          {
+            "name": "accumulated_rows_preserved",
+            "ok": true,
+            "detail": "{'total': 34901, 'markers': {'journal_spooled': 0, 'attempt_lost': 0, 'journal_read_failed': 0, 'operational_error': 0}}"
+          },
+          {
+            "name": "last_attempt_displayable",
+            "ok": true,
+            "detail": "{'mode': None, 'visible_ts': 1794670389, 'outcome': 'passed', 'reason_code': '', 'stage': 'considered'}"
+          }
+        ]
+      },
+      "duration_s": 0.012
+    },
+    {
+      "id": "i2_stream",
+      "title": "I2 fresh stream cursor/lag read-only observation",
+      "req_ids": [
+        "SXR-I2-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real read-only SQLite durable payload/cursors/backlog",
+      "production_observed": true,
+      "summary": "durable cursor/scope, backlog, измеренный lag и терминальные drain-циклы прочитаны без записи",
+      "details": {
+        "job_kind": "experience.review",
+        "sqlite_readable": true,
+        "recent_jobs": [
+          {
+            "job_id": "0f3f1c476c5242e684…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794670188,
+            "finished_at": 1794670394,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2053231,
+              "fresh_stream_pending_rows": 8275,
+              "semantic_batches_run": 6,
+              "semantic_budget_exhausted": 1,
+              "semantic_candidates": 13,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 17,
+              "semantic_llm_unavailable": 0,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {
+                "low_confidence": 1,
+                "hearsay_or_joke": 2,
+                "dispute": 1
+              },
+              "semantic_rejected": 4,
+              "semantic_rows_eligible": 249,
+              "semantic_rows_ineligible": 51,
+              "semantic_rows_read": 300,
+              "semantic_scanned": 52,
+              "semantic_selected": 249,
+              "semantic_throughput_rows": 300,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "dd6b17feff974593ab…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794668730,
+            "finished_at": 1794668922,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2053467,
+              "fresh_stream_pending_rows": 8523,
+              "semantic_batches_run": 10,
+              "semantic_budget_exhausted": 1,
+              "semantic_candidates": 17,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 29,
+              "semantic_llm_unavailable": 0,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {
+                "hearsay_or_joke": 8,
+                "semantic_parse_error": 1,
+                "low_confidence": 2,
+                "dispute": 1
+              },
+              "semantic_rejected": 12,
+              "semantic_rows_eligible": 442,
+              "semantic_rows_ineligible": 58,
+              "semantic_rows_read": 500,
+              "semantic_scanned": 50,
+              "semantic_selected": 442,
+              "semantic_throughput_rows": 500,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "d15beedd0a3a4dacb4…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794667830,
+            "finished_at": 1794668030,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2053931,
+              "fresh_stream_pending_rows": 8973,
+              "semantic_batches_run": 10,
+              "semantic_budget_exhausted": 1,
+              "semantic_candidates": 21,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 29,
+              "semantic_llm_unavailable": 0,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 2,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {
+                "dispute": 4,
+                "hearsay_or_joke": 1,
+                "semantic_parse_error": 1,
+                "low_confidence": 2
+              },
+              "semantic_rejected": 8,
+              "semantic_rows_eligible": 442,
+              "semantic_rows_ineligible": 58,
+              "semantic_rows_read": 500,
+              "semantic_scanned": 11,
+              "semantic_selected": 442,
+              "semantic_throughput_rows": 500,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "fd679aad42864fc4a2…[clipped]",
+            "status": "completed",
+            "attempt": 3,
+            "created_at": 1794665130,
+            "finished_at": 1794667113,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 3,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2054407,
+              "fresh_stream_pending_rows": 9462,
+              "semantic_batches_run": 10,
+              "semantic_budget_exhausted": 1,
+              "semantic_candidates": 27,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 34,
+              "semantic_llm_unavailable": 2,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {
+                "low_confidence": 4,
+                "dispute": 1,
+                "hearsay_or_joke": 2
+              },
+              "semantic_rejected": 7,
+              "semantic_rows_eligible": 548,
+              "semantic_rows_ineligible": 52,
+              "semantic_rows_read": 600,
+              "semantic_scanned": 57,
+              "semantic_selected": 548,
+              "semantic_throughput_rows": 500,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "638522e5dff24ba49c…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794663243,
+            "finished_at": 1794663340,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2054851,
+              "fresh_stream_pending_rows": 9905,
+              "semantic_batches_run": 2,
+              "semantic_budget_exhausted": 0,
+              "semantic_candidates": 7,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 8,
+              "semantic_llm_unavailable": 1,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {
+                "semantic_parse_error": 1
+              },
+              "semantic_rejected": 1,
+              "semantic_rows_eligible": 136,
+              "semantic_rows_ineligible": 20,
+              "semantic_rows_read": 156,
+              "semantic_scanned": 23,
+              "semantic_selected": 136,
+              "semantic_throughput_rows": 106,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          }
+        ],
+        "progress_snapshot": {
+          "backlog_rows": 8275,
+          "backlog_chats": 1,
+          "pending_rows": 8275,
+          "pending_chats": 1,
+          "actionable_rows": 8275,
+          "actionable_chats": 1,
+          "lag_seconds": 124250291,
+          "lag_seconds_source": "cursor_distance",
+          "deferred_chats": 0,
+          "watermark": 2407766,
+          "lag_rows": 2053231,
+          "lag_chats": 1,
+          "lag_actionable_rows": 2053231,
+          "lag_actionable_chats": 1,
+          "lag_source": "cursor_distance",
+          "lag_measured_at": 1794670189,
+          "lag_partial": false
+        },
+        "semantic_backlog": {
+          "rows": 2053231,
+          "chats": 1
+        },
+        "cursors": [
+          {
+            "chat": "chat-f42f8a1b",
+            "cursor": 21244,
+            "max_id": 2407779,
+            "rows_after_cursor": 2053231,
+            "oldest_after_cursor": 1670419898,
+            "cursor_lag_consistent": true
+          },
+          {
+            "chat": "chat-c29f51e6",
+            "cursor": 2407582,
+            "max_id": 2407582,
+            "rows_after_cursor": 0,
+            "oldest_after_cursor": null,
+            "cursor_lag_consistent": true
+          },
+          {
+            "chat": "chat-e6b88c2c",
+            "cursor": 2407145,
+            "max_id": 2407145,
+            "rows_after_cursor": 0,
+            "oldest_after_cursor": null,
+            "cursor_lag_consistent": true
+          }
+        ],
+        "watermark": 2407766,
+        "last_semantic_ts": {
+          "-1002661910336": 1794670189,
+          "5885953495": 1794636244,
+          "-1004482340693": 1794663244
+        },
+        "measured_lag_payload": {
+          "available": true,
+          "rows": 2053231,
+          "worst_rows": 2053231,
+          "partial": false,
+          "age_seconds": 124250291,
+          "ts": 1794670189
+        },
+        "recomputed_lag_rows": 2053231,
+        "reason_codes": {
+          "scope": "global",
+          "generated_at": 1794670402,
+          "window_seconds": 604800,
+          "items": [
+            {
+              "event": "activated",
+              "count_window": 4267,
+              "windows": {
+                "24h": 357,
+                "7d": 4267,
+                "30d": 4270
+              },
+              "last_ts": 1794668922,
+              "last_outcome": "success",
+              "last_reason": "activated"
+            },
+            {
+              "event": "experience_recorded",
+              "count_window": 1607,
+              "windows": {
+                "24h": 376,
+                "7d": 1607,
+                "30d": 2292
+              },
+              "last_ts": 1794668922,
+              "last_outcome": "success",
+              "last_reason": "experience_recorded"
+            },
+            {
+              "event": "feedback_linked",
+              "count_window": 1546,
+              "windows": {
+                "24h": 383,
+                "7d": 1546,
+                "30d": 1558
+              },
+              "last_ts": 1794670337,
+              "last_outcome": "success",
+              "last_reason": "feedback_linked"
+            },
+            {
+              "event": "lesson_proposed",
+              "count_window": 984,
+              "windows": {
+                "24h": 120,
+                "7d": 984,
+                "30d": 987
+              },
+              "last_ts": 1794668922,
+              "last_outcome": "success",
+              "last_reason": "lesson_proposed"
+            },
+            {
+              "event": "validation_passed",
+              "count_window": 982,
+              "windows": {
+                "24h": 120,
+                "7d": 982,
+                "30d": 985
+              },
+              "last_ts": 1794668922,
+              "last_outcome": "success",
+              "last_reason": "validation_passed"
+            },
+            {
+              "event": "suspended",
+              "count_window": 784,
+              "windows": {
+                "24h": 141,
+                "7d": 784,
+                "30d": 784
+              },
+              "last_ts": 1794666100,
+              "last_outcome": "skipped",
+              "last_reason": "suspended"
+            },
+            {
+              "event": "validation_failed",
+              "count_window": 408,
+              "windows": {
+                "24h": 32,
+                "7d": 408,
+                "30d": 408
+              },
+              "last_ts": 1794614799,
+              "last_outcome": "failed",
+              "last_reason": "validation_failed"
+            },
+            {
+              "event": "retrieved",
+              "count_window": 292,
+              "windows": {
+                "24h": 33,
+                "7d": 292,
+                "30d": 599
+              },
+              "last_ts": 1794656944,
+              "last_outcome": "skipped",
+              "last_reason": "retrieval_empty"
+            },
+            {
+              "event": "superseded",
+              "count_window": 52,
+              "windows": {
+                "24h": 6,
+                "7d": 52,
+                "30d": 52
+              },
+              "last_ts": 1794662542,
+              "last_outcome": "success",
+              "last_reason": "superseded"
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "name": "sqlite_readable",
+            "ok": true,
+            "detail": "read-only SQLite DB must be readable"
+          },
+          {
+            "name": "review_job_present",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "durable_payload_present",
+            "ok": true,
+            "detail": "21"
+          },
+          {
+            "name": "cursor_identity_present",
+            "ok": true,
+            "detail": "3"
+          },
+          {
+            "name": "cursor_scope_chat",
+            "ok": true,
+            "detail": "['chat-bb8fd239', 'chat-39b94607', 'chat-316e52ba']"
+          },
+          {
+            "name": "lag_measurement_available",
+            "ok": true,
+            "detail": "{'available': True, 'rows': 2053231, 'worst_rows': 2053231, 'partial': False, 'age_seconds': 124250291, 'ts': 1794670189}"
+          },
+          {
+            "name": "cursor_lag_recomputed",
+            "ok": true,
+            "detail": "[{'chat': 'chat-bb8fd239', 'cursor': 21244, 'max_id': 2407779, 'rows_after_cursor': 2053231, 'oldest_after_cursor': 1670419898, 'cursor_lag_consistent': True}, {'chat': 'chat-39b94607', 'cursor': 2407582, 'max_id': 2407582, 'rows_after_cursor': 0, 'oldest_after_cursor': None, 'cursor_lag_consistent': True}, {'chat': 'chat-316e52ba', 'cursor': 2407145, 'max_id': 2407145, 'rows_after_cur…[clipped]"
+          },
+          {
+            "name": "progress_matches_measured",
+            "ok": true,
+            "detail": "{'snapshot': 2053231, 'recomputed': 2053231}"
+          },
+          {
+            "name": "drain_cycles_recorded",
+            "ok": true,
+            "detail": "[{'job_id': '0f3f1c476c5242e684…[clipped]', 'status': 'completed', 'attempt': 1, 'created_at': 1794670188, 'finished_at': 1794670394, 'counters': {'archive_directions': 0, 'archive_llm_unavailable': 0, 'archive_rows_scanned': 0, 'archive_skipped_fresh_backlog': 1, 'archive_write_failures': 0, 'fresh_stream_lag_rows': 2053231, 'fresh_stream_pending_rows': 8275, 'semantic_batches_run': 6…[clipped]"
+          }
+        ]
+      },
+      "duration_s": 1.717
+    },
+    {
+      "id": "k3_settings",
+      "title": "Persisted settings/models/prompts not overwritten",
+      "req_ids": [
+        "SXR-K3-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real read-only PG bot_settings/chat_profiles",
+      "production_observed": true,
+      "summary": "persisted настройки, модели, prompts и chat-overrides не перезаписаны; исправления не в OFF/SHADOW",
+      "details": {
+        "baseline": {
+          "source": "release-evidence/2.58.200/deploy.md",
+          "deployed_version": "2.58.200",
+          "deploy_at_utc": "2026-11-14T05:18:47+00:00",
+          "bot_settings_total": 548,
+          "chat_profiles_max_updated_at": "2026-11-13T11:07:51+00:00",
+          "override_key_counts": [
+            5,
+            8,
+            31
+          ],
+          "protected_settings": {
+            "flags.budgets_enabled": {
+              "value": false,
+              "updated_date": "2026-10-25"
+            },
+            "models.llm_model_name": {
+              "value": null,
+              "updated_date": "2026-11-11"
+            },
+            "models.llm_base_url": {
+              "value": null,
+              "updated_date": "2026-09-12"
+            }
+          },
+          "allowed_new_prompt_keys": [
+            "prompts.factcheck_subject_system_prompt"
+          ]
+        },
+        "settings_total": 548,
+        "settings_by_category": {
+          "keys": 18,
+          "models": 67,
+          "flags": 110,
+          "limits": 231,
+          "reactions": 39,
+          "memory": 43,
+          "prompts": 29,
+          "content": 7,
+          "temporal": 4
+        },
+        "protected_settings": {
+          "flags.budgets_enabled": {
+            "present": true,
+            "updated_at": "2026-10-25T06:13:07.439995+00:00",
+            "updated_date_matches": true
+          },
+          "models.llm_model_name": {
+            "present": true,
+            "updated_at": "2026-11-11T12:04:22.696731+00:00",
+            "updated_date_matches": true
+          },
+          "models.llm_base_url": {
+            "present": true,
+            "updated_at": "2026-09-12T05:43:07.884798+00:00",
+            "updated_date_matches": true
+          }
+        },
+        "protected_values": {
+          "flags.budgets_enabled": false,
+          "models.llm_model_name": "z-ai/glm-5.3-flash-uncensored",
+          "models.llm_base_url": "https://nano-gpt.com/api/v1"
+        },
+        "chat_profiles": {
+          "chats": 3,
+          "override_counts": [
+            5,
+            8,
+            32
+          ],
+          "max_updated_at": "2026-11-14T15:14:52.896133+00:00",
+          "rows": [
+            {
+              "chat": "chat-e6b88c2c",
+              "updated_at": "2026-10-28T08:54:24.139196+00:00",
+              "override_count": 5
+            },
+            {
+              "chat": "chat-f42f8a1b",
+              "updated_at": "2026-11-14T15:14:52.896133+00:00",
+              "override_count": 32
+            },
+            {
+              "chat": "chat-c29f51e6",
+              "updated_at": "2026-11-11T13:14:05.843018+00:00",
+              "override_count": 8
+            }
+          ],
+          "attribution": {
+            "baseline_max_updated_at": "2026-11-13T11:07:51+00:00",
+            "post_deploy_changes": [
+              {
+                "chat": "chat-f42f8a1b",
+                "updated_at": "2026-11-14T15:14:52.896133+00:00",
+                "override_count": 32
+              }
+            ],
+            "attributed": [
+              {
+                "chat": "chat-f42f8a1b",
+                "updated_at": "2026-11-14T15:14:52.896133+00:00",
+                "override_count": 32,
+                "provenance": {
+                  "source": "prompt_activations",
+                  "kind": "manual_rollback",
+                  "outcome": "applied",
+                  "detail_code": "activate:manual",
+                  "block_id": "checkup.base.system",
+                  "scope": "chat",
+                  "actor_present": true,
+                  "created_at": "2026-11-14T15:14:52.896133+00:00"
+                }
+              }
+            ],
+            "unattributed": [],
+            "ok": true,
+            "window_s": 300.0
+          },
+          "provenance_errors": {},
+          "provenance_source": "prompt_activations (kind=manual_edit/manual_* — правки владельца) + chat_lore_history(field=chat_params, changed_by≠NULL); запись релиза/миграции такого следа не оставляет"
+        },
+        "prompts": {
+          "count": 29,
+          "changed_after_deploy": [],
+          "allowed_new": [
+            "prompts.factcheck_subject_system_prompt"
+          ]
+        },
+        "feature_switches": {
+          "MODEL_CAPACITY_RESOLVER_ENABLED": true,
+          "SOURCE_READ_ENABLED": true,
+          "TOOL_CHAIN_LIMITS_ENABLED": true
+        },
+        "assertions": [
+          {
+            "name": "persisted_config_readable",
+            "ok": true,
+            "detail": "PG bot_settings/chat_profiles read-only"
+          },
+          {
+            "name": "settings_not_deleted",
+            "ok": true,
+            "detail": "{'now': 548, 'baseline': 548}"
+          },
+          {
+            "name": "protected_present:flags.budgets_enabled",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-10-25T06:13:07.439995+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_not_rewritten:flags.budgets_enabled",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-10-25T06:13:07.439995+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_present:models.llm_model_name",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-11-11T12:04:22.696731+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_not_rewritten:models.llm_model_name",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-11-11T12:04:22.696731+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_present:models.llm_base_url",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-09-12T05:43:07.884798+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_not_rewritten:models.llm_base_url",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-09-12T05:43:07.884798+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "budgets_flag_persisted_false",
+            "ok": true,
+            "detail": "False"
+          },
+          {
+            "name": "provenance_readable",
+            "ok": true,
+            "detail": "{}"
+          },
+          {
+            "name": "override_counts_unchanged",
+            "ok": true,
+            "detail": "{'now': [5, 8, 32], 'baseline': [5, 8, 31], 'delta': 1, 'no_reduction': True, 'attribution_ok': True, 'attributed': [{'chat': 'chat-bb8fd239', 'updated_at': '2026-11-14T15:14:52.896133+00:00', 'override_count': 32, 'provenance': {'source': 'prompt_activations', 'kind': 'manual_rollback', 'outcome': 'applied', 'detail_code': 'activate:manual', 'block_id': 'checkup.base.system', 'scope':…[clipped]"
+          },
+          {
+            "name": "chat_profiles_unchanged_since_baseline",
+            "ok": true,
+            "detail": "{'now_max_updated_at': '2026-11-14T15:14:52.896133+00:00', 'baseline_max_updated_at': '2026-11-13T11:07:51+00:00', 'post_deploy_changes': [{'chat': 'chat-bb8fd239', 'updated_at': '2026-11-14T15:14:52.896133+00:00', 'override_count': 32}], 'attributed_owner_edits': [{'chat': 'chat-bb8fd239', 'updated_at': '2026-11-14T15:14:52.896133+00:00', 'override_count': 32, 'provenance': {'source':…[clipped]"
+          },
+          {
+            "name": "prompts_not_overwritten",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "fixes_not_shadowed",
+            "ok": true,
+            "detail": "{'MODEL_CAPACITY_RESOLVER_ENABLED': True, 'SOURCE_READ_ENABLED': True, 'TOOL_CHAIN_LIMITS_ENABLED': True}"
+          }
+        ]
+      },
+      "duration_s": 0.006
+    },
+    {
+      "id": "l8_rollup",
+      "title": "I1–I6 structured rollup (no new behavior)",
+      "req_ids": [
+        "SXR-L8-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "rollup over production-observed I1/I2 facts",
+      "production_observed": true,
+      "summary": "I1/I2 наблюдены (3 пунктов observed, 0 not_observed, 3 not_run); свод без нового поведения",
+      "details": {
+        "items": {
+          "I1_journal_and_spool": {
+            "status": "observed",
+            "cause_evidence": {
+              "attempts_total": 34901,
+              "journal_markers": {
+                "journal_spooled": 0,
+                "attempt_lost": 0,
+                "journal_read_failed": 0,
+                "operational_error": 0
+              }
+            },
+            "fix_evidence": {
+              "last_attempt_display": {
+                "mode": null,
+                "visible_ts": 1794670389,
+                "outcome": "passed",
+                "reason_code": "",
+                "stage": "considered"
+              },
+              "spool_rows": 0,
+              "spool_bad_rows": 0,
+              "accumulated_rows_preserved": 34901
+            },
+            "invariants": "attempt rows readable; spool drained without loss"
+          },
+          "I2_fresh_stream": {
+            "status": "observed",
+            "cause_evidence": {
+              "job_kind": "experience.review",
+              "payload_lag": {
+                "available": true,
+                "rows": 2053231,
+                "worst_rows": 2053231,
+                "partial": false,
+                "age_seconds": 124250291,
+                "ts": 1794670189
+              }
+            },
+            "fix_evidence": {
+              "cursor_count": 3,
+              "recomputed_lag_rows": 2053231,
+              "drain_jobs": 5
+            },
+            "invariants": "cursor identity/scope, backlog, lag recomputation"
+          },
+          "I3_lesson_rejected": {
+            "status": "not_run",
+            "reason": "в этом canary нет разрешённого/запрещённого lesson-сценария; факт не наблюдён"
+          },
+          "I4_reason_codes": {
+            "status": "observed",
+            "evidence": {
+              "scope": "global",
+              "generated_at": 1794670402,
+              "window_seconds": 604800,
+              "items": [
+                {
+                  "event": "activated",
+                  "count_window": 4267,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794668922,
+                  "last_outcome": "success",
+                  "last_reason": "activated"
+                },
+                {
+                  "event": "experience_recorded",
+                  "count_window": 1607,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794668922,
+                  "last_outcome": "success",
+                  "last_reason": "experience_recorded"
+                },
+                {
+                  "event": "feedback_linked",
+                  "count_window": 1546,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794670337,
+                  "last_outcome": "success",
+                  "last_reason": "feedback_linked"
+                },
+                {
+                  "event": "lesson_proposed",
+                  "count_window": 984,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794668922,
+                  "last_outcome": "success",
+                  "last_reason": "lesson_proposed"
+                },
+                {
+                  "event": "validation_passed",
+                  "count_window": 982,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794668922,
+                  "last_outcome": "success",
+                  "last_reason": "validation_passed"
+                },
+                {
+                  "event": "suspended",
+                  "count_window": 784,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794666100,
+                  "last_outcome": "skipped",
+                  "last_reason": "suspended"
+                },
+                {
+                  "event": "validation_failed",
+                  "count_window": 408,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794614799,
+                  "last_outcome": "failed",
+                  "last_reason": "validation_failed"
+                },
+                {
+                  "event": "retrieved",
+                  "count_window": 292,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794656944,
+                  "last_outcome": "skipped",
+                  "last_reason": "retrieval_empty"
+                },
+                {
+                  "event": "superseded",
+                  "count_window": 52,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794662542,
+                  "last_outcome": "success",
+                  "last_reason": "superseded"
+                }
+              ]
+            },
+            "invariants": "unmapped codes classification (read-only snapshot)"
+          },
+          "I5_incidents": {
+            "status": "not_run",
+            "reason": "инцидентные сценарии требуют управляемого отказа; в canary не исполнялись"
+          },
+          "I6_events": {
+            "status": "not_run",
+            "reason": "событийный путь мемов/инициативы проверяется I1; отдельный I6-сценарий не исполнялся"
+          }
+        },
+        "rollup": {
+          "observed": 3,
+          "not_observed": 0,
+          "not_run": 3,
+          "related_checks": {
+            "i1": "observed",
+            "i2": "observed",
+            "k3": "observed",
+            "diagnostic_variants": "not_observed"
+          }
+        },
+        "no_new_behavior": true,
+        "input_evidence_classes": {
+          "i1": "production",
+          "i2": "production"
+        }
+      },
+      "duration_s": 0.0
+    }
+  ],
+  "notes": [
+    "canary не отправляет Telegram-сообщений и не пишет конфигурацию",
+    "production code paths emit in-memory telemetry only; durable mca_events/execution-graph writes are not flushed by this process",
+    "observed != VERIFIED: acceptability решается requirement map после независимой проверки Reviewer"
+  ]
+}

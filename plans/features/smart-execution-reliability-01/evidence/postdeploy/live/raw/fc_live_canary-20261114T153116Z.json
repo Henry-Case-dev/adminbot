@@ -1,0 +1,3682 @@
+{
+  "schema": "fc-live-canary/v1",
+  "harness": "fc_live_canary",
+  "harness_version": "1.3.0",
+  "harness_sha256": "391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c",
+  "expected_harness_sha256": "391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c",
+  "harness_sha256_preflight": {
+    "requested": true,
+    "ok": true,
+    "expected": "391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c",
+    "actual": "391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c",
+    "reason": ""
+  },
+  "started_at": "2026-11-14T15:33:27.001318+00:00",
+  "repo_root": "/var/www/admin_bot",
+  "allow_provider_calls": true,
+  "offline": false,
+  "max_provider_calls": 60,
+  "python": "3.12.3",
+  "checks": [
+    {
+      "id": "ordinary_factcheck",
+      "req_ids": [
+        "SFC-12-02",
+        "SFC-7-06",
+        "SFC-13-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "production_evidence": true,
+      "summary": "Обычный фактчек прошёл полный путь: маршрут, поиск, evidence, ответ.",
+      "details": {
+        "run": {
+          "name": "ordinary_factcheck",
+          "status": "observed",
+          "error": null,
+          "duration_s": 115.201,
+          "outcome": "verdict",
+          "correlation_id": "43c4b0e8fc0e4c65801e9676ad73478e",
+          "subject": {
+            "version": "cs1",
+            "origin": "material",
+            "resolved_by": "material",
+            "note": "",
+            "fingerprint": "b1ef64387c58e67e492cd53cf5f986aba72ddb16b910ffb3923673d93c144397",
+            "material_tg_message_id": 900101,
+            "request_tg_message_id": 900102,
+            "has_request": false,
+            "has_material_part": true,
+            "has_request_part": false,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 235,
+            "material_chars": 235,
+            "text_overlaps_material": 1.0,
+            "text_is_material": true,
+            "text_preview": "Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. Утверждение, что стену видно из космоса невооружённым…"
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 235,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 3,
+            "needs_web": true,
+            "claims": 2,
+            "intents": [
+              "entity_check",
+              "entity_check",
+              "numeric_verification"
+            ],
+            "query_previews": [
+              "великая китайская стена нынешнем виде основном построена династии",
+              "утверждение стену видно космоса невооружённым глазом многократно опровергалось",
+              "великая китайская стена нынешнем виде основном построена династии 21 тыс"
+            ],
+            "subject_origin": "material",
+            "subject_fingerprint": true,
+            "claim_anchors": 2
+          },
+          "retrieval": {
+            "total_claims": 2,
+            "claims_searched": 2,
+            "claims_with_direct_evidence": 2,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 3,
+            "stale_sources_dropped": 0,
+            "refine_calls": 1,
+            "queries_attempted": 3,
+            "queries_used": 3,
+            "budget_exhausted": false,
+            "stop_reason": "paths_exhausted",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 50,
+            "opened": 0,
+            "claim_units": 2,
+            "refs": 4,
+            "evidence_chars": 1600,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 4,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 23065,
+            "search_text_portions": 1,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "великая китайская стена нынешнем виде основном построена династии",
+              "великая китайская стена нынешнем виде основном построена династии 21 тыс",
+              "утверждение стену видно космоса невооружённым глазом многократно опровергалось"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 2,
+                "candidates": 30,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "insufficient_evidence",
+                "budget_exhausted": false,
+                "citation_ids": 3
+              },
+              {
+                "claim_id": "c2",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 1
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 235,
+            "material_chars": 235,
+            "request_chars": 0,
+            "subject_origin": "material",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "current",
+            "reason_code": "",
+            "parts": 2,
+            "uncertainty_keys": [
+              "basis",
+              "dates_unresolved",
+              "summary"
+            ],
+            "has_ambiguity_note": false,
+            "inference_gap": true,
+            "counterpoint": true,
+            "evidence_rows_delivered": 4,
+            "evidence_delivered_chars": 1600,
+            "fallback_used": false,
+            "verdict_text_chars": 943,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "success",
+                "reason": "unified_retrieval"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "validated"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "success"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 3,
+            "provider_attempts": 3,
+            "provider_failures": 0,
+            "documents_retrieved": 50,
+            "queries_with_results": 3,
+            "extract_attempts": 4,
+            "extract_successes": 0,
+            "extract_failures": 4,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 3,
+            "relevant_evidence_count": 4,
+            "citable_evidence_count": 4,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "paths_exhausted",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "ok",
+            "technical_reason": "",
+            "attempted_queries": [
+              "великая китайская стена нынешнем виде основном построена династии",
+              "великая китайская стена нынешнем виде основном построена династии 21 тыс",
+              "утверждение стену видно космоса невооружённым глазом многократно опровергалось"
+            ],
+            "evidence_delivery": {
+              "total_rows": 4,
+              "delivered_rows": 4,
+              "total_chars": 1600,
+              "delivered_chars": 1600,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 2,
+            "claims_searched": 2,
+            "claims_with_direct_evidence": 2,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 1,
+            "stop_reason": "paths_exhausted",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 1806,
+            "preview": "<b>Недостаточно данных для проверки</b> Вердикт: данных недостаточно для уверенного вывода. Утверждения: • Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. — данных недостаточно • Утверждение, что стену видно из космоса невооружённым глазом, многократно опровергалось. — подтверждается Источники: https://provereno.media/blog/2021/06/16/pravda-li-chto-velikuju-kitajskuju-stenu-vidno-iz-kosmosa-nevooruzhennym-glazom, https://baike.baidu.com/ru/item/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F%20%D1%81%D1%82%D0%B5%D0%BD%D0%B0%20%D0%B4%D0%B8%D0%BD%D0%B0%D1%81%D1%82%D0%B8%D0%B8%20%D0%9C%D0%B8%D0%BD/1044390, https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F_%D0%9A%D0%B8%D1%82%D0%B0%D0%B9%D1%81%D0%BA%D0%B0%D1%8F_%D1%81%D1%82%D0%B5%D0%BD%D0%B0 Пересказ не публикую: в нём были чис…",
+            "reply_targets": [
+              900101
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 4,
+            "ledger_rows": 1,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900102,
+              "target_tg_message_id": 900101
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-47bad8450baa495a",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "current",
+            "reason": null,
+            "claim_chars": 235,
+            "evidence_chars": 1600
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 3,
+            "search_calls": 6,
+            "page_fetch_calls": 8,
+            "total": 17,
+            "this_run": {
+              "llm": 3,
+              "search": 6,
+              "fetch": 8
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_validator",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": ""
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO"
+            }
+          ],
+          "admission": {},
+          "transport": "real"
+        },
+        "assertions": {
+          "request_accepted": true,
+          "target_resolved": true,
+          "subject_is_material": true,
+          "subject_not_lost_with_empty_hint": true,
+          "search_relates_to_material": true,
+          "claim_units_present": true,
+          "queries_attempted": true,
+          "evidence_collected": true,
+          "evidence_chars_substantive": true,
+          "substantive_answer": true,
+          "route_recorded": true,
+          "stop_reason_expected": true,
+          "delivery_event_present": true,
+          "db_rows_bound_to_run": true,
+          "db_rows_match_delivered": true,
+          "delivery_budget_consistent": true,
+          "not_a_technical_deadline_answer": true
+        },
+        "db_binding": {
+          "scope": {
+            "trigger_tg_message_id": 900102,
+            "target_tg_message_id": 900101
+          },
+          "runs_for_scope": 1,
+          "scope_unique": true,
+          "durable_run_id": "tfr-47bad8450baa495a",
+          "pipeline_run_id": "43c4b0e8fc0e4c65801e9676ad73478e",
+          "binding_rule": "durable run_id is generated by release code (tfr-<hex>); the run is bound by chat_id+trigger+target",
+          "delivered_rows": 4,
+          "db_evidence_rows": 4,
+          "db_evidence_chars": 1600,
+          "db_claim_chars": 235,
+          "db_error": null
+        },
+        "evidence_threshold_chars": 500,
+        "bundle": {
+          "request_correlation_id": "43c4b0e8fc0e4c65801e9676ad73478e",
+          "route": "envelope_temporal",
+          "subject": {
+            "version": "cs1",
+            "origin": "material",
+            "resolved_by": "material",
+            "note": "",
+            "fingerprint": "b1ef64387c58e67e492cd53cf5f986aba72ddb16b910ffb3923673d93c144397",
+            "material_tg_message_id": 900101,
+            "request_tg_message_id": 900102,
+            "has_request": false,
+            "has_material_part": true,
+            "has_request_part": false,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 235,
+            "material_chars": 235,
+            "text_overlaps_material": 1.0,
+            "text_is_material": true,
+            "text_preview": "Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. Утверждение, что стену видно из космоса невооружённым…"
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 235,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "queries": [
+            "великая китайская стена нынешнем виде основном построена династии",
+            "великая китайская стена нынешнем виде основном построена династии 21 тыс",
+            "утверждение стену видно космоса невооружённым глазом многократно опровергалось"
+          ],
+          "candidates": 50,
+          "opened": 0,
+          "claim_units": 2,
+          "evidence_chars": 1600,
+          "stop_reason": "paths_exhausted",
+          "delivered_rows": 4,
+          "db_evidence_rows": 4,
+          "delivered_chars": 1806,
+          "budget_state": {
+            "budgets_state": {
+              "budgets_enabled": false,
+              "source": "global",
+              "stale": false,
+              "known": true
+            },
+            "limits": {
+              "budgets_enabled": false,
+              "budget_source": "global",
+              "budget_known": true,
+              "base_seconds": null,
+              "max_seconds": null,
+              "refine_calls": null,
+              "total_queries": null,
+              "search_text_chars": null,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": null,
+              "excerpt_chars": null,
+              "sources": {
+                "flags.budgets_enabled": "global",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            }
+          },
+          "model_capacity": {
+            "primary": {
+              "channel": "primary",
+              "model": "z-ai/glm-5.3-flash-uncensored",
+              "window_tokens": 1000000,
+              "window_source": "unknown_fallback",
+              "evidence_budget_chars": 800000,
+              "output_reserve_tokens": 100000
+            },
+            "fallback": {
+              "channel": "fallback",
+              "model": "deepseek-flash",
+              "window_tokens": 131072,
+              "window_source": "model_map",
+              "evidence_budget_chars": 104857,
+              "output_reserve_tokens": 13107
+            }
+          },
+          "answer_preview": "<b>Недостаточно данных для проверки</b> Вердикт: данных недостаточно для уверенного вывода. Утверждения: • Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. — данных недостаточно • Утверждение, что стену видно из космоса невооружённым глазом, многократно опровергалось. — подтверждается Источники: https://provereno.media/blog/2021/06/16/pravda-li-chto-velikuju-kitajskuju-stenu-vidno-iz-kosmosa-nevooruzhennym-glazom, https://baike.baidu.com/ru/item/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F%20%D1%81%D1%82%D0%B5%D0%BD%D0%B0%20%D0%B4%D0%B8%D0%BD%D0%B0%D1%81%D1%82%D0%B8%D0%B8%20%D0%9C%D0%B8%D0%BD/1044390, https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F_%D0%9A%D0%B8%D1%82%D0%B0%D0%B9%D1%81%D0%BA%D0%B0%D1%8F_%D1%81%D1%82%D0%B5%D0%BD%D0%B0 Пересказ не публикую: в нём были чис…",
+          "durable": {
+            "run_row": true,
+            "run_id": "tfr-47bad8450baa495a",
+            "reason": null,
+            "ledger_rows": 1,
+            "ledger_gate": true
+          }
+        }
+      },
+      "duration_s": 115.203
+    },
+    {
+      "id": "multipart_and_short_reply",
+      "req_ids": [
+        "SFC-12-02"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "production_evidence": true,
+      "summary": "Многосоставное сообщение и контекстная короткая реплика сохранили предмет проверки и evidence.",
+      "details": {
+        "multipart": {
+          "name": "multipart",
+          "status": "observed",
+          "error": null,
+          "duration_s": 65.546,
+          "outcome": "verdict",
+          "correlation_id": "290fadaef0b447ceb5abb3d7dc961e09",
+          "subject": {
+            "version": "cs1",
+            "origin": "material",
+            "resolved_by": "material",
+            "note": "",
+            "fingerprint": "c5fa190a6b9890b6390f50fa6c37c323dcbb885599ba3e0d8f396d1dd0c12144",
+            "material_tg_message_id": 900111,
+            "request_tg_message_id": 900112,
+            "has_request": false,
+            "has_material_part": true,
+            "has_request_part": false,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 200,
+            "material_chars": 200,
+            "text_overlaps_material": 1.0,
+            "text_is_material": true,
+            "text_preview": "В 1969 году человек впервые высадился на Луну. Эйфелева башня была построена к Всемирной выставке 1889 года в Париже. Байкал — самое глубокое озеро на Земле. Пингвины обитают только в Южном полушарии."
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 200,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 4,
+            "needs_web": true,
+            "claims": 4,
+            "intents": [
+              "entity_check",
+              "entity_check",
+              "entity_check",
+              "entity_check"
+            ],
+            "query_previews": [
+              "1969 году человек впервые высадился луну 1969",
+              "Париже эйфелева башня была построена всемирной выставке 1889 года 1969",
+              "байкал самое глубокое озеро земле 1969",
+              "пингвины обитают только южном полушарии 1969"
+            ],
+            "subject_origin": "material",
+            "subject_fingerprint": true,
+            "claim_anchors": 4
+          },
+          "retrieval": {
+            "total_claims": 4,
+            "claims_searched": 4,
+            "claims_with_direct_evidence": 3,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 6,
+            "stale_sources_dropped": 0,
+            "refine_calls": 0,
+            "queries_attempted": 4,
+            "queries_used": 4,
+            "budget_exhausted": false,
+            "stop_reason": "paths_exhausted",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 76,
+            "opened": 0,
+            "claim_units": 4,
+            "refs": 8,
+            "evidence_chars": 2268,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 8,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 25010,
+            "search_text_portions": 1,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "1969 году человек впервые высадился луну 1969",
+              "париже эйфелева башня была построена всемирной выставке 1889 года 1969",
+              "байкал самое глубокое озеро земле 1969",
+              "пингвины обитают только южном полушарии 1969"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "insufficient_evidence",
+                "budget_exhausted": false,
+                "citation_ids": 0
+              },
+              {
+                "claim_id": "c2",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 3
+              },
+              {
+                "claim_id": "c3",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              },
+              {
+                "claim_id": "c4",
+                "queries": 1,
+                "candidates": 16,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 3
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 200,
+            "material_chars": 200,
+            "request_chars": 0,
+            "subject_origin": "material",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "old_but_valid",
+            "reason_code": "",
+            "parts": 4,
+            "uncertainty_keys": [
+              "dates_unresolved",
+              "summary"
+            ],
+            "has_ambiguity_note": false,
+            "inference_gap": false,
+            "counterpoint": true,
+            "evidence_rows_delivered": 8,
+            "evidence_delivered_chars": 2268,
+            "fallback_used": false,
+            "verdict_text_chars": 1338,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "success",
+                "reason": "unified_retrieval"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "validated"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "success"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 4,
+            "provider_attempts": 4,
+            "provider_failures": 0,
+            "documents_retrieved": 76,
+            "queries_with_results": 4,
+            "extract_attempts": 8,
+            "extract_successes": 0,
+            "extract_failures": 8,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 6,
+            "relevant_evidence_count": 8,
+            "citable_evidence_count": 8,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "paths_exhausted",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "ok",
+            "technical_reason": "",
+            "attempted_queries": [
+              "1969 году человек впервые высадился луну 1969",
+              "париже эйфелева башня была построена всемирной выставке 1889 года 1969",
+              "байкал самое глубокое озеро земле 1969",
+              "пингвины обитают только южном полушарии 1969"
+            ],
+            "evidence_delivery": {
+              "total_rows": 8,
+              "delivered_rows": 8,
+              "total_chars": 2268,
+              "delivered_chars": 2268,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 4,
+            "claims_searched": 4,
+            "claims_with_direct_evidence": 3,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 0,
+            "stop_reason": "paths_exhausted",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 2418,
+            "preview": "<b>Недостаточно данных для проверки</b> Тут смешная ситуация. Из четырёх утверждений три подтверждены наглухо: Эйфелева башня действительно строилась под Всемирную выставку 1889 года (несколько независимых источников, открытие 15 марта 1889-го), Байкал - самое глубокое озеро (остальные, кроме Танганьики, до тысячи метров не дотягивают, у Байкала ~1642), пингвины живут только в Южном полушарии. Тут не к чему придраться. А вот лунная высадка формально осталась без подтверждения - не потому что кто-то её опроверг, а потому что поиск просто не нашёл подходящих источников по этому пункту. Опровержения нет, противоречий нет, просто дырка в покрытии. Это как если бы суд признал человека не виновным, потому что свидетели в зал не дошли, а не потому что алиби железное. Разница принципиальная. Так что общий вердикт \"данных недостаточно\" - это не сомнение в том, что в 1969-м на Луну кто-то садился.…",
+            "reply_targets": [
+              900111
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 8,
+            "ledger_rows": 2,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900112,
+              "target_tg_message_id": 900111
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-a4d8217dcf1d434c",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "old_but_valid",
+            "reason": null,
+            "claim_chars": 200,
+            "evidence_chars": 2268
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 6,
+            "search_calls": 14,
+            "page_fetch_calls": 21,
+            "total": 41,
+            "this_run": {
+              "llm": 3,
+              "search": 8,
+              "fetch": 13
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_validator",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": ""
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO"
+            }
+          ],
+          "admission": {},
+          "transport": "real"
+        },
+        "short_reply": {
+          "name": "short_reply",
+          "status": "observed",
+          "error": null,
+          "duration_s": 99.728,
+          "outcome": "verdict",
+          "correlation_id": "5bc93f8571f04e3a9c3bb9ea4ae143e2",
+          "subject": {
+            "version": "cs1",
+            "origin": "material",
+            "resolved_by": "llm",
+            "note": "",
+            "fingerprint": "fd41406875eda16f5a9f15d8f5189d7254c67d725416752e02f6d73b241b38a8",
+            "material_tg_message_id": 900122,
+            "request_tg_message_id": 900123,
+            "has_request": true,
+            "has_material_part": true,
+            "has_request_part": false,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 94,
+            "material_chars": 94,
+            "text_overlaps_material": 1.0,
+            "text_is_material": true,
+            "text_preview": "Байкал — самое глубокое озеро на Земле, его максимальная глубина составляет около 1642 метров."
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 94,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 2,
+            "needs_web": true,
+            "claims": 1,
+            "intents": [
+              "entity_check",
+              "numeric_verification"
+            ],
+            "query_previews": [
+              "байкал самое глубокое озеро земле его максимальная глубина",
+              "байкал самое глубокое озеро земле его максимальная глубина 1642 м"
+            ],
+            "subject_origin": "material",
+            "subject_fingerprint": true,
+            "claim_anchors": 1
+          },
+          "retrieval": {
+            "total_claims": 1,
+            "claims_searched": 1,
+            "claims_with_direct_evidence": 1,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 5,
+            "stale_sources_dropped": 0,
+            "refine_calls": 1,
+            "queries_attempted": 2,
+            "queries_used": 2,
+            "budget_exhausted": false,
+            "stop_reason": "paths_exhausted",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 40,
+            "opened": 0,
+            "claim_units": 1,
+            "refs": 1,
+            "evidence_chars": 400,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 1,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 11573,
+            "search_text_portions": 1,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "байкал самое глубокое озеро земле его максимальная глубина",
+              "байкал самое глубокое озеро земле его максимальная глубина 1642 м"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 2,
+                "candidates": 40,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "insufficient_evidence",
+                "budget_exhausted": false,
+                "citation_ids": 1
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 94,
+            "material_chars": 94,
+            "request_chars": 12,
+            "subject_origin": "material",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason_code": "",
+            "parts": 1,
+            "uncertainty_keys": [
+              "basis",
+              "dates_unresolved",
+              "summary"
+            ],
+            "has_ambiguity_note": false,
+            "inference_gap": true,
+            "counterpoint": true,
+            "evidence_rows_delivered": 1,
+            "evidence_delivered_chars": 400,
+            "fallback_used": false,
+            "verdict_text_chars": 956,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "success",
+                "reason": "unified_retrieval"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "validated"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "success"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 2,
+            "provider_attempts": 2,
+            "provider_failures": 0,
+            "documents_retrieved": 40,
+            "queries_with_results": 2,
+            "extract_attempts": 1,
+            "extract_successes": 0,
+            "extract_failures": 1,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 5,
+            "relevant_evidence_count": 1,
+            "citable_evidence_count": 1,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "paths_exhausted",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "ok",
+            "technical_reason": "",
+            "attempted_queries": [
+              "байкал самое глубокое озеро земле его максимальная глубина",
+              "байкал самое глубокое озеро земле его максимальная глубина 1642 м"
+            ],
+            "evidence_delivery": {
+              "total_rows": 1,
+              "delivered_rows": 1,
+              "total_chars": 400,
+              "delivered_chars": 400,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 1,
+            "claims_searched": 1,
+            "claims_with_direct_evidence": 1,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 1,
+            "stop_reason": "paths_exhausted",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 1125,
+            "preview": "<b>Недостаточно данных для проверки</b> А это точно? Короче: скорее да, но по бумагам не докажешь. Суть такая. Проверка нашла источник, где Байкал фигурирует с средней глубиной 744 метра и формулировкой, что кроме него на Земле только два озера глубже тысячи метров. Это само по себе очень красноречиво: когда твоё СРЕДНЕЕ значение глубже, чем чужие МАКСИМУМЫ, ты не просто глубокое озеро, ты в другой лиге. Претендентов на титул, судя по этим данным, всего два, и Байкал в списке первый. Но вот саму цифру 1642 метра источник напрямую не называет. Поэтому честный ответ такой: что Байкал - самое глубокое озеро, это подтверждается косвенно и практически неоспоримо. А вот точное число - это как раз то место, где в литературе гуляют близкие значения (1637, 1642 - зависит от методики промеров), и в присланных материалах прямой выдержки с цифрой нет. Так что формулировка с \"около\" - самое правильно…",
+            "reply_targets": [
+              900122
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 1,
+            "ledger_rows": 3,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900123,
+              "target_tg_message_id": 900122
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-489db78795d44a77",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason": null,
+            "claim_chars": 94,
+            "evidence_chars": 400
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 10,
+            "search_calls": 18,
+            "page_fetch_calls": 23,
+            "total": 51,
+            "this_run": {
+              "llm": 4,
+              "search": 4,
+              "fetch": 2
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_validator",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": ""
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO"
+            }
+          ],
+          "admission": {},
+          "transport": "real"
+        },
+        "assertions": {
+          "multipart_queries_ge_2": true,
+          "multipart_parts_kept": true,
+          "multipart_evidence": true,
+          "multipart_stop_reason_expected": true,
+          "short_subject_kept_material": true,
+          "short_search_relates_to_material": true,
+          "short_evidence_collected": true,
+          "short_answer_delivered": true,
+          "short_not_generic_clarification_only": true
+        },
+        "bundle": {
+          "multipart": {
+            "claim_units": 4,
+            "queries": 4,
+            "parts": 4,
+            "evidence_chars": 2268,
+            "stop_reason": "paths_exhausted",
+            "delivered_chars": 2418
+          },
+          "short_reply": {
+            "subject": {
+              "version": "cs1",
+              "origin": "material",
+              "resolved_by": "llm",
+              "note": "",
+              "fingerprint": "fd41406875eda16f5a9f15d8f5189d7254c67d725416752e02f6d73b241b38a8",
+              "material_tg_message_id": 900122,
+              "request_tg_message_id": 900123,
+              "has_request": true,
+              "has_material_part": true,
+              "has_request_part": false,
+              "has_form_request": false,
+              "has_text": true,
+              "text_chars": 94,
+              "material_chars": 94,
+              "text_overlaps_material": 1.0,
+              "text_is_material": true,
+              "text_preview": "Байкал — самое глубокое озеро на Земле, его максимальная глубина составляет около 1642 метров."
+            },
+            "queries": [
+              "байкал самое глубокое озеро земле его максимальная глубина",
+              "байкал самое глубокое озеро земле его максимальная глубина 1642 м"
+            ],
+            "evidence_chars": 400,
+            "stop_reason": "paths_exhausted",
+            "delivered_chars": 1125,
+            "answer_preview": "<b>Недостаточно данных для проверки</b> А это точно? Короче: скорее да, но по бумагам не докажешь. Суть такая. Проверка нашла источник, где Байкал фигурирует с средней глубиной 744 метра и формулировкой, что кроме него на Земле только два озера глубже тысячи метров. Это само по себе очень красноречиво: когда твоё СРЕДНЕЕ значение глубже, чем чужие МАКСИМУМЫ, ты не просто глубокое озеро, ты в другой лиге. Претендентов на титул, судя по этим данным, всего два, и Байкал в списке первый. Но вот саму цифру 1642 метра источник напрямую не называет. Поэтому честный ответ такой: что Байкал - самое глубокое озеро, это подтверждается косвенно и практически неоспоримо. А вот точное число - это как раз то место, где в литературе гуляют близкие значения (1637, 1642 - зависит от методики промеров), и в присланных материалах прямой выдержки с цифрой нет. Так что формулировка с \"около\" - самое правильно…"
+          }
+        }
+      },
+      "duration_s": 165.277
+    },
+    {
+      "id": "budget_scenarios",
+      "req_ids": [
+        "SFC-12-07",
+        "SFC-5-10"
+      ],
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "production_evidence": false,
+      "summary": "Сценарии A–J: OFF не ограничивает, ON даёт новые заводские значения, сохранённые настройки уважаются, скрытых старых cap нет, части/результаты/выдача не теряются.",
+      "details": {
+        "scenarios": {
+          "effective_production": {
+            "synthetic_chat": {
+              "budgets_state": {
+                "budgets_enabled": false,
+                "source": "global",
+                "stale": false,
+                "known": true
+              },
+              "limits": {
+                "budgets_enabled": false,
+                "budget_source": "global",
+                "budget_known": true,
+                "base_seconds": null,
+                "max_seconds": null,
+                "refine_calls": null,
+                "total_queries": null,
+                "search_text_chars": null,
+                "page_size": 20,
+                "claim_portion": 32,
+                "primary_fetches": null,
+                "excerpt_chars": null,
+                "sources": {
+                  "flags.budgets_enabled": "global",
+                  "limits.factcheck_claim_portion": "default",
+                  "limits.factcheck_excerpt_chars": "default",
+                  "limits.factcheck_max_queries_total": "default",
+                  "limits.factcheck_page_size": "default",
+                  "limits.factcheck_primary_fetches": "default",
+                  "limits.factcheck_refine_calls": "default",
+                  "limits.factcheck_retrieval_seconds": "default",
+                  "limits.factcheck_retrieval_seconds_max": "default",
+                  "limits.factcheck_search_text_chars": "default"
+                }
+              }
+            },
+            "real_chats": [
+              {
+                "chat": "chat-1",
+                "budgets_state": {
+                  "budgets_enabled": false,
+                  "source": "chat",
+                  "stale": false,
+                  "known": true
+                },
+                "factcheck_limits": {
+                  "budgets_enabled": false,
+                  "budget_source": "chat",
+                  "budget_known": true,
+                  "base_seconds": null,
+                  "max_seconds": null,
+                  "refine_calls": null,
+                  "total_queries": null,
+                  "search_text_chars": null,
+                  "page_size": 20,
+                  "claim_portion": 32,
+                  "primary_fetches": null,
+                  "excerpt_chars": null,
+                  "sources": {
+                    "flags.budgets_enabled": "chat",
+                    "limits.factcheck_claim_portion": "default",
+                    "limits.factcheck_excerpt_chars": "default",
+                    "limits.factcheck_max_queries_total": "default",
+                    "limits.factcheck_page_size": "default",
+                    "limits.factcheck_primary_fetches": "default",
+                    "limits.factcheck_refine_calls": "default",
+                    "limits.factcheck_retrieval_seconds": "default",
+                    "limits.factcheck_retrieval_seconds_max": "default",
+                    "limits.factcheck_search_text_chars": "default"
+                  }
+                }
+              },
+              {
+                "chat": "chat-2",
+                "budgets_state": {
+                  "budgets_enabled": false,
+                  "source": "chat",
+                  "stale": false,
+                  "known": true
+                },
+                "factcheck_limits": {
+                  "budgets_enabled": false,
+                  "budget_source": "chat",
+                  "budget_known": true,
+                  "base_seconds": null,
+                  "max_seconds": null,
+                  "refine_calls": null,
+                  "total_queries": null,
+                  "search_text_chars": null,
+                  "page_size": 20,
+                  "claim_portion": 32,
+                  "primary_fetches": null,
+                  "excerpt_chars": null,
+                  "sources": {
+                    "flags.budgets_enabled": "chat",
+                    "limits.factcheck_claim_portion": "default",
+                    "limits.factcheck_excerpt_chars": "default",
+                    "limits.factcheck_max_queries_total": "default",
+                    "limits.factcheck_page_size": "default",
+                    "limits.factcheck_primary_fetches": "default",
+                    "limits.factcheck_refine_calls": "default",
+                    "limits.factcheck_retrieval_seconds": "default",
+                    "limits.factcheck_retrieval_seconds_max": "default",
+                    "limits.factcheck_search_text_chars": "default"
+                  }
+                }
+              },
+              {
+                "chat": "chat-3",
+                "budgets_state": {
+                  "budgets_enabled": false,
+                  "source": "global",
+                  "stale": false,
+                  "known": true
+                },
+                "factcheck_limits": {
+                  "budgets_enabled": false,
+                  "budget_source": "global",
+                  "budget_known": true,
+                  "base_seconds": null,
+                  "max_seconds": null,
+                  "refine_calls": null,
+                  "total_queries": null,
+                  "search_text_chars": null,
+                  "page_size": 20,
+                  "claim_portion": 32,
+                  "primary_fetches": null,
+                  "excerpt_chars": null,
+                  "sources": {
+                    "flags.budgets_enabled": "global",
+                    "limits.factcheck_claim_portion": "default",
+                    "limits.factcheck_excerpt_chars": "default",
+                    "limits.factcheck_max_queries_total": "default",
+                    "limits.factcheck_page_size": "default",
+                    "limits.factcheck_primary_fetches": "default",
+                    "limits.factcheck_refine_calls": "default",
+                    "limits.factcheck_retrieval_seconds": "default",
+                    "limits.factcheck_retrieval_seconds_max": "default",
+                    "limits.factcheck_search_text_chars": "default"
+                  }
+                }
+              }
+            ],
+            "global": {
+              "budgets_enabled": false,
+              "source": "global",
+              "stale": false,
+              "known": true
+            }
+          },
+          "A_simple_early_finish": {
+            "observed": true,
+            "duration_s": 115.201,
+            "budget_seconds": null,
+            "stop_reason": "paths_exhausted",
+            "budget_exhausted": false,
+            "queries_attempted": 3
+          },
+          "B_off_limits": {
+            "production_effective": {
+              "budgets_enabled": false,
+              "budget_source": "global",
+              "budget_known": true,
+              "base_seconds": null,
+              "max_seconds": null,
+              "refine_calls": null,
+              "total_queries": null,
+              "search_text_chars": null,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": null,
+              "excerpt_chars": null,
+              "sources": {
+                "flags.budgets_enabled": "global",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            },
+            "production_off_applicable": true,
+            "off_contract": {
+              "budgets_enabled": false,
+              "budget_source": "canary_off",
+              "budget_known": true,
+              "base_seconds": null,
+              "max_seconds": null,
+              "refine_calls": null,
+              "total_queries": null,
+              "search_text_chars": null,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": null,
+              "excerpt_chars": null,
+              "sources": {
+                "flags.budgets_enabled": "canary_off",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            },
+            "budgets_enabled": false,
+            "deadline_none": true,
+            "caps_none": true,
+            "budget_for_claims": null
+          },
+          "B_off_runs_past_old_limits": {
+            "queries_planned": 6,
+            "queries_attempted": 6,
+            "budget_seconds": null,
+            "stop_reason": "sufficient_evidence",
+            "no_cap": true
+          },
+          "C_on_new_factory_values": {
+            "resolved": {
+              "budgets_enabled": true,
+              "budget_source": "default",
+              "budget_known": true,
+              "base_seconds": 120.0,
+              "max_seconds": 600.0,
+              "refine_calls": 24,
+              "total_queries": 64,
+              "search_text_chars": 100000,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": 2,
+              "excerpt_chars": 600,
+              "sources": {
+                "flags.budgets_enabled": "default",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            },
+            "matches_new_factory": true,
+            "mismatched": {},
+            "hidden_old_caps": {},
+            "on_budget_seconds_claims3": 240.0,
+            "on_override_meta": {
+              "budgets_enabled": true,
+              "budget_source": "canary_on",
+              "budget_known": true,
+              "base_seconds": 120.0,
+              "max_seconds": 600.0,
+              "refine_calls": 24,
+              "total_queries": 64,
+              "search_text_chars": 100000,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": 2,
+              "excerpt_chars": 600,
+              "sources": {
+                "flags.budgets_enabled": "canary_on",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            }
+          },
+          "D_saved_setting_honoured": {
+            "state": {
+              "budgets_enabled": true,
+              "source": "chat",
+              "stale": false,
+              "known": true
+            },
+            "base_seconds": 300.0,
+            "total_queries": 100,
+            "source": "chat",
+            "limit_sources": {
+              "flags.budgets_enabled": "chat",
+              "limits.factcheck_claim_portion": "default",
+              "limits.factcheck_excerpt_chars": "default",
+              "limits.factcheck_max_queries_total": "chat",
+              "limits.factcheck_page_size": "default",
+              "limits.factcheck_primary_fetches": "default",
+              "limits.factcheck_refine_calls": "default",
+              "limits.factcheck_retrieval_seconds": "chat",
+              "limits.factcheck_retrieval_seconds_max": "default",
+              "limits.factcheck_search_text_chars": "default"
+            },
+            "honoured": true,
+            "real_saved_overrides": [
+              {
+                "chat": "chat-1",
+                "saved_keys": {
+                  "flags.budgets_enabled": "chat"
+                },
+                "applied_values": {
+                  "flags.budgets_enabled": false
+                },
+                "budgets_enabled": false
+              },
+              {
+                "chat": "chat-2",
+                "saved_keys": {
+                  "flags.budgets_enabled": "chat"
+                },
+                "applied_values": {
+                  "flags.budgets_enabled": false
+                },
+                "budgets_enabled": false
+              }
+            ]
+          },
+          "E_off_saved_limit_not_enforced": {
+            "state": {
+              "budgets_enabled": false,
+              "source": "chat",
+              "stale": false,
+              "known": true
+            },
+            "base_seconds": null,
+            "total_queries": null,
+            "search_text_chars": null,
+            "queries_planned": 10,
+            "queries_attempted": 10,
+            "budget_exhausted": false,
+            "not_enforced": true
+          },
+          "F_evidence_over_8000": {
+            "synthetic_total_chars": 16000,
+            "synthetic_delivered_chars": 16000,
+            "synthetic_rows": 4,
+            "no_8000_cap": true,
+            "real_route_evidence_budget_chars": 800000,
+            "real_run_delivered_chars": 1600
+          },
+          "G_more_than_8_parts": {
+            "sentences": 16,
+            "parts": 16,
+            "portion_size": 32,
+            "text_preserved": true,
+            "no_8_silent_cap": true
+          },
+          "H_more_than_4_results": {
+            "page_size_default": 20,
+            "candidates_default": 10,
+            "refs_default": 10,
+            "candidates_with_explicit_4": 4,
+            "refs_with_explicit_4": 4,
+            "not_truncated_to_4": true,
+            "explicit_page_size_honoured": true,
+            "default_page_size_is_20": true
+          },
+          "I_continuation_available": {
+            "portions_model": {
+              "portions": 3,
+              "portion_chars": 100000,
+              "lossless": true,
+              "first_portion_chars": 100000
+            },
+            "on_total_chars": 1260148,
+            "on_portions": 13,
+            "on_lossless": true,
+            "on_truncated_flag": true,
+            "on_truncated_matches_portions": true,
+            "off_portions": 1,
+            "off_total_chars": 1260148,
+            "off_lossless": true,
+            "budget_off_single_portion": true
+          },
+          "J_physical_limit": {
+            "real_route": {
+              "channel": "primary",
+              "model": "z-ai/glm-5.3-flash-uncensored",
+              "window_tokens": 1000000,
+              "window_source": "unknown_fallback",
+              "evidence_budget_chars": 800000,
+              "output_reserve_tokens": 100000
+            },
+            "model_capacity_source": "unknown_fallback",
+            "small_route_delivered_rows": 1,
+            "small_route_truncated": [
+              "ev-1"
+            ],
+            "small_route_remainder": 3,
+            "remainder_preserved": true,
+            "block_present": true,
+            "total_recomputed": 4
+          }
+        },
+        "assertions": {
+          "B_off_no_deadline": true,
+          "B_off_runs_full_plan": true,
+          "C_new_factory_values": true,
+          "C_no_hidden_old_caps": true,
+          "D_saved_setting": true,
+          "E_off_not_enforced": true,
+          "F_evidence_gt_8000": true,
+          "G_parts_gt_8": true,
+          "H_results_gt_4": true,
+          "I_continuation": true,
+          "J_physical_limit": true
+        },
+        "evidence_classes": {
+          "assertions": "plumbing",
+          "note": "B–J используют контролируемые двойники транспорта; production-наблюдения — effective_production (PG read-only) и значения из ordinary_factcheck, они не подменяются двойниками.",
+          "effective_production": "production (read-only PG snapshot)",
+          "ordinary_run_values": "production when ordinary_factcheck observed"
+        },
+        "A_note": "A требует реального прогона; наблюдается в ordinary_factcheck (см. scenarios.A_*)"
+      },
+      "duration_s": 0.038
+    },
+    {
+      "id": "metric_distinguishability",
+      "req_ids": [
+        "SFC-13-03"
+      ],
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "production_evidence": false,
+      "summary": "Метрики различают ранний успех, отсутствие прогресса, отказ провайдера, техдедлайн, бюджетный предел и скрытый enforcement; частичный результат не выдаётся за аварию.",
+      "details": {
+        "controlled": {
+          "sufficient_evidence": {
+            "stop_reason": "sufficient_evidence",
+            "retrieval_class": "ok",
+            "queries_attempted": 2,
+            "queries_used": 2,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 3,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 2,
+              "provider_attempts": 2,
+              "provider_failures": 0,
+              "documents_retrieved": 6,
+              "queries_with_results": 2,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 3,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "sufficient_evidence",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "ok",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "no_progress": {
+            "stop_reason": "no_progress",
+            "retrieval_class": "no_usable_results",
+            "queries_attempted": 3,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 3,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 0,
+              "documents_retrieved": 0,
+              "queries_with_results": 0,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 3,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "no_progress",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "no_usable_results",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary claim 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "no_usable_results": {
+            "stop_reason": "paths_exhausted",
+            "retrieval_class": "no_usable_results",
+            "queries_attempted": 3,
+            "queries_used": 3,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 0,
+              "documents_retrieved": 3,
+              "queries_with_results": 3,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "paths_exhausted",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "no_usable_results",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary claim 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "providers_unavailable": {
+            "stop_reason": "providers_unavailable",
+            "retrieval_class": "search_failed",
+            "queries_attempted": 3,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "provider_failures": 3,
+            "empty_results": 0,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 3,
+              "documents_retrieved": 0,
+              "queries_with_results": 0,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "providers_unavailable",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "search_failed",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary claim 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "technical_limit": {
+            "stop_reason": "technical_limit",
+            "retrieval_class": "search_failed",
+            "queries_attempted": 3,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "provider_failures": 3,
+            "empty_results": 0,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 3,
+              "documents_retrieved": 0,
+              "queries_with_results": 0,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "technical_limit",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "search_failed",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary claim 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "budget_exhausted": {
+            "stop_reason": "budget_exhausted",
+            "retrieval_class": "ok",
+            "queries_attempted": 1,
+            "queries_used": 1,
+            "budget_exhausted": true,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 3,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 1,
+              "provider_attempts": 1,
+              "provider_failures": 0,
+              "documents_retrieved": 3,
+              "queries_with_results": 1,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 3,
+              "citable_evidence_count": 0,
+              "budget_exhausted": true,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "budget_exhausted",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "ok",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "budget_on_with_room": {
+            "stop_reason": "sufficient_evidence",
+            "retrieval_class": "ok",
+            "queries_attempted": 2,
+            "queries_used": 2,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 3,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 2,
+              "provider_attempts": 2,
+              "provider_failures": 0,
+              "documents_retrieved": 6,
+              "queries_with_results": 2,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 3,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "sufficient_evidence",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "ok",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "unexplained_stop_marker": {
+            "stop_reason": "unexplained_stop",
+            "diagnostics": {
+              "source_query_count": 1,
+              "provider_attempts": 0,
+              "provider_failures": 0,
+              "documents_retrieved": 0,
+              "queries_with_results": 1,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "unexplained_stop",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "no_usable_results",
+              "technical_reason": "",
+              "attempted_queries": [],
+              "evidence_delivery": {}
+            },
+            "is_not_deadline": true
+          },
+          "partial_not_technical": {
+            "retrieval_class": "ok",
+            "caveat": "",
+            "technical_reasons": [
+              "deadline_exceeded",
+              "provider_unavailable",
+              "source_missing"
+            ],
+            "marked_technical": false
+          }
+        },
+        "distinct_stop_reasons": {
+          "sufficient_evidence": "sufficient_evidence",
+          "no_progress": "no_progress",
+          "no_usable_results": "paths_exhausted",
+          "providers_unavailable": "providers_unavailable",
+          "technical_limit": "technical_limit",
+          "budget_exhausted": "budget_exhausted",
+          "budget_on_with_room": "sufficient_evidence",
+          "unexplained_stop_marker": "unexplained_stop"
+        },
+        "distinct_count": 7,
+        "assertions": {
+          "early_success_distinct": true,
+          "no_progress_distinct": true,
+          "provider_failure_distinct": true,
+          "technical_deadline_distinct": true,
+          "budget_on_limit_distinct": true,
+          "hidden_enforcement_marker_exposed": true,
+          "partial_not_technical": true,
+          "at_least_5_distinct_states": true
+        },
+        "observed_real_run": {
+          "available": true,
+          "stop_reason": "paths_exhausted",
+          "retrieval_class": "ok",
+          "budget_exhausted": false,
+          "provider_failures": 0,
+          "fetch_skipped_deadline": 0,
+          "delivered_chars": 1806,
+          "marked_as_timeout": false
+        }
+      },
+      "duration_s": 0.006
+    },
+    {
+      "id": "original_production_scenario",
+      "req_ids": [
+        "SFC-12-09"
+      ],
+      "status": "error",
+      "evidence_class": "production",
+      "production_evidence": false,
+      "summary": "Отклонения исходного сценария: direct_answer_on_question, ambiguity_acknowledged",
+      "details": {
+        "run": {
+          "name": "original_production_scenario",
+          "status": "observed",
+          "error": null,
+          "duration_s": 12.753,
+          "outcome": "verdict",
+          "correlation_id": "06d1cba09af5435e9e6dc8f385fdfb13",
+          "subject": {
+            "version": "cs1",
+            "origin": "mixed",
+            "resolved_by": "llm",
+            "note": "",
+            "fingerprint": "d3e7f1e60552a7fc0cf0d9ec8f179ed4e01b8ed6e4202e84d96ec893adf73763",
+            "material_tg_message_id": 900131,
+            "request_tg_message_id": 900132,
+            "has_request": true,
+            "has_material_part": true,
+            "has_request_part": true,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 420,
+            "material_chars": 134,
+            "text_overlaps_material": 0.833,
+            "text_is_material": false,
+            "text_preview": "она распространена во многих странах Африки и Ближнего Востока, и на её сохранение повлияли США Распространено ли женское обрезание во многих странах Африки и Ближнего Востока, и есть ли страны с этой…"
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 134,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 2,
+            "needs_web": true,
+            "claims": 2,
+            "intents": [
+              "entity_check",
+              "entity_check"
+            ],
+            "query_previews": [
+              "Распространено она распространена во многих странах африки ближнего востока",
+              "Франция Великобритания Германия реально страны этой традицией которые не влияли"
+            ],
+            "subject_origin": "mixed",
+            "subject_fingerprint": true,
+            "claim_anchors": 2
+          },
+          "retrieval": {
+            "total_claims": 2,
+            "claims_searched": 2,
+            "claims_with_direct_evidence": 2,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 8,
+            "stale_sources_dropped": 0,
+            "refine_calls": 0,
+            "queries_attempted": 2,
+            "queries_used": 2,
+            "budget_exhausted": false,
+            "stop_reason": "sufficient_evidence",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 40,
+            "opened": 0,
+            "claim_units": 2,
+            "refs": 3,
+            "evidence_chars": 1200,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 0,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 13203,
+            "search_text_portions": 1,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "распространено она распространена во многих странах африки ближнего востока",
+              "франция великобритания германия реально страны этой традицией которые не влияли"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 1
+              },
+              {
+                "claim_id": "c2",
+                "queries": 1,
+                "candidates": 20,
+                "opened": 0,
+                "search_status": "searched",
+                "outcome": "confirmed",
+                "budget_exhausted": false,
+                "citation_ids": 2
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 420,
+            "material_chars": 134,
+            "request_chars": 127,
+            "subject_origin": "mixed",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason_code": "temporal_fallback_mode",
+            "parts": 2,
+            "uncertainty_keys": [],
+            "has_ambiguity_note": false,
+            "inference_gap": false,
+            "counterpoint": false,
+            "evidence_rows_delivered": 3,
+            "evidence_delivered_chars": 1200,
+            "fallback_used": true,
+            "verdict_text_chars": 52,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "success",
+                "reason": "unified_retrieval"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "success"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success",
+                "reason": "temporal_fallback_mode"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "skipped",
+                "reason": "temporal_fallback_mode"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 2,
+            "provider_attempts": 2,
+            "provider_failures": 0,
+            "documents_retrieved": 40,
+            "queries_with_results": 2,
+            "extract_attempts": 0,
+            "extract_successes": 0,
+            "extract_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 8,
+            "relevant_evidence_count": 3,
+            "citable_evidence_count": 3,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "sufficient_evidence",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "ok",
+            "technical_reason": "temporal_fallback_mode",
+            "attempted_queries": [
+              "распространено она распространена во многих странах африки ближнего востока",
+              "франция великобритания германия реально страны этой традицией которые не влияли"
+            ],
+            "evidence_delivery": {
+              "total_rows": 3,
+              "delivered_rows": 3,
+              "total_chars": 1200,
+              "delivered_chars": 1200,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 2,
+            "claims_searched": 2,
+            "claims_with_direct_evidence": 2,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 0,
+            "stop_reason": "sufficient_evidence",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 412,
+            "preview": "<b>Недостаточно данных для проверки</b> Недостаточно данных для полной проверки утверждения. Источники: 1. <a href=\"https://edinstvo-news.ru/exclusive/29962-startuet-mezhdunarodnyj-proekt-brics-news.html\">edinstvo-news.ru</a> — пересказ 2. <a href=\"https://www.cbinsights.com/company/manybot\">cbinsights.com</a> — пересказ 3. <a href=\"https://www.cbinsights.com/company/whatshelp\">cbinsights.com</a> — пересказ",
+            "reply_targets": [
+              900131
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 3,
+            "ledger_rows": 4,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900132,
+              "target_tg_message_id": 900131
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-16aa40a0cffd40c5",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason": "temporal_fallback_mode",
+            "claim_chars": 420,
+            "evidence_chars": 1200
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 11,
+            "search_calls": 22,
+            "page_fetch_calls": 27,
+            "total": 60,
+            "this_run": {
+              "llm": 1,
+              "search": 4,
+              "fetch": 4
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "failed",
+              "level": "WARN"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "failed",
+              "level": "WARN"
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": ""
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO"
+            }
+          ],
+          "admission": {},
+          "transport": "real"
+        },
+        "assertions": {
+          "material_kept": true,
+          "user_question_identified": true,
+          "search_built_from_question": true,
+          "relevant_sources_researched": true,
+          "no_old_budget_early_stop": true,
+          "direct_answer_on_question": false,
+          "answer_not_a_harness_echo": true,
+          "ambiguity_acknowledged": false
+        },
+        "bundle": {
+          "request_correlation_id": "06d1cba09af5435e9e6dc8f385fdfb13",
+          "route": "envelope_temporal",
+          "subject": {
+            "version": "cs1",
+            "origin": "mixed",
+            "resolved_by": "llm",
+            "note": "",
+            "fingerprint": "d3e7f1e60552a7fc0cf0d9ec8f179ed4e01b8ed6e4202e84d96ec893adf73763",
+            "material_tg_message_id": 900131,
+            "request_tg_message_id": 900132,
+            "has_request": true,
+            "has_material_part": true,
+            "has_request_part": true,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 420,
+            "material_chars": 134,
+            "text_overlaps_material": 0.833,
+            "text_is_material": false,
+            "text_preview": "она распространена во многих странах Африки и Ближнего Востока, и на её сохранение повлияли США Распространено ли женское обрезание во многих странах Африки и Ближнего Востока, и есть ли страны с этой…"
+          },
+          "queries": [
+            "распространено она распространена во многих странах африки ближнего востока",
+            "франция великобритания германия реально страны этой традицией которые не влияли"
+          ],
+          "opened": 0,
+          "refs": 3,
+          "evidence_chars": 1200,
+          "stop_reason": "sufficient_evidence",
+          "factual_verdict": "insufficient_evidence",
+          "reason_code": "temporal_fallback_mode",
+          "plain_conclusion": "<b>Недостаточно данных для проверки</b> Недостаточно данных для полной проверки утверждения. Источники: 1. <a href=\" — пересказ 2. <a href=\" — пересказ 3. <a href=\" — пересказ",
+          "answer_preview": "<b>Недостаточно данных для проверки</b> Недостаточно данных для полной проверки утверждения. Источники: 1. <a href=\"https://edinstvo-news.ru/exclusive/29962-startuet-mezhdunarodnyj-proekt-brics-news.html\">edinstvo-news.ru</a> — пересказ 2. <a href=\"https://www.cbinsights.com/company/manybot\">cbinsights.com</a> — пересказ 3. <a href=\"https://www.cbinsights.com/company/whatshelp\">cbinsights.com</a> — пересказ",
+          "question_places": [
+            "Великобритания",
+            "Германия",
+            "США",
+            "Франция"
+          ],
+          "answer_mentions_question_places": [],
+          "answer_place_like_tokens": [],
+          "ambiguity": {
+            "uncertainty_keys": [],
+            "inference_gap": false,
+            "counterpoint": false
+          },
+          "no_prebaked_country_list": {
+            "prebaked_list_used": false,
+            "harness_removed_countries": false,
+            "answer_not_a_harness_echo": true,
+            "explanation": "Запрос отправлен ровно текстом пользователя; список стран и политический вывод харнесс не формирует и не подмешивает; ответ не повторяет входной материал/вопрос харнесса."
+          }
+        }
+      },
+      "duration_s": 12.754
+    },
+    {
+      "id": "production_smoke",
+      "req_ids": [
+        "SFC-14-03"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "production_evidence": true,
+      "summary": "Production smoke: identity/health сходятся, короткий фактчек дошёл до ответа.",
+      "details": {
+        "identity": {
+          "repo_root": "/var/www/admin_bot",
+          "git_head": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "git_head_source": "deploy_identity",
+          "branch": "release/smart-corrective-01",
+          "dirty": false,
+          "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+          "manifest": {
+            "path": ".deploy/release.json",
+            "present": true,
+            "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+            "version": "2.58.202",
+            "deployed_at": "2026-11-14T15:14:42.974638Z",
+            "effect": "deploy"
+          },
+          "app_version_runtime": "2.58.202",
+          "identity_code": "local_unverified",
+          "identity_reason": "no_process_start",
+          "version_provenance": {
+            "runtime": "2.58.202",
+            "manifest": "2.58.202",
+            "consistent": true
+          },
+          "upstream_head": {
+            "sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+            "ref": "refs/remotes/origin/release/smart-corrective-01",
+            "observed_at": "2026-11-14T15:14:42.864080Z",
+            "reason": ""
+          },
+          "service_started_at": "Sat 2026-11-14 15:14:44 UTC",
+          "process_started_source": "systemctl ActiveEnterTimestamp",
+          "sources": [
+            "release_manifest",
+            "git_head",
+            "git_cli",
+            "runtime_app_version"
+          ],
+          "conflict": []
+        },
+        "health": {
+          "url": "http://127.0.0.1:8000/healthz",
+          "http": 200,
+          "version": "2.58.202",
+          "status": "ok",
+          "body": null,
+          "duration_ms": 11,
+          "ok": true
+        },
+        "identity_assertions": {
+          "git_head_present": true,
+          "manifest_present": true,
+          "manifest_sha_matches_head": true,
+          "deployed_sha_matches_head": true,
+          "app_version_matches_manifest": true,
+          "health_200": true,
+          "health_version_matches": true,
+          "v2_pipeline_state_known": true,
+          "v2_pipeline_effective": true
+        },
+        "run_assertions": {
+          "answer_delivered": true,
+          "route_recorded": true,
+          "not_timeout_answer": true
+        },
+        "run": {
+          "name": "production_smoke",
+          "status": "observed",
+          "error": null,
+          "duration_s": 0.006,
+          "outcome": "verdict",
+          "correlation_id": "499b83fe7ef74058bdba2add714c959a",
+          "subject": {
+            "version": "cs1",
+            "origin": "material",
+            "resolved_by": "material",
+            "note": "",
+            "fingerprint": "5ebe1ba488d4c694cb6fb30ebd4ff0ff173f5efba129fe46d8b231a73e4e97c6",
+            "material_tg_message_id": 900141,
+            "request_tg_message_id": 900142,
+            "has_request": false,
+            "has_material_part": true,
+            "has_request_part": false,
+            "has_form_request": false,
+            "has_text": true,
+            "text_chars": 121,
+            "material_chars": 121,
+            "text_overlaps_material": 1.0,
+            "text_is_material": true,
+            "text_preview": "На уровне моря вода закипает при температуре около 100 градусов Цельсия, а с ростом высоты температура кипения снижается."
+          },
+          "publication": {
+            "target_source": "stored_reply",
+            "augmented": false,
+            "reply_to_tg_id": false,
+            "claim_anchor_author": true,
+            "text_chars": 121,
+            "media_dependency": "none",
+            "has_image": false,
+            "image_count": 0
+          },
+          "plan": {
+            "queries": 2,
+            "needs_web": true,
+            "claims": 1,
+            "intents": [
+              "entity_check",
+              "numeric_verification"
+            ],
+            "query_previews": [
+              "Цельсия уровне моря вода закипает температуре около 100 градусов",
+              "уровне моря вода закипает температуре около 100 градусов 100 градусов"
+            ],
+            "subject_origin": "material",
+            "subject_fingerprint": true,
+            "claim_anchors": 1
+          },
+          "retrieval": {
+            "total_claims": 1,
+            "claims_searched": 0,
+            "claims_with_direct_evidence": 0,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "off_topic_sources_dropped": 0,
+            "stale_sources_dropped": 0,
+            "refine_calls": 1,
+            "queries_attempted": 2,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "stop_reason": "providers_unavailable",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "planner_version": "fp4",
+            "candidates": 0,
+            "opened": 0,
+            "claim_units": 1,
+            "refs": 0,
+            "evidence_chars": 0,
+            "provider_failures": 2,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "fetch_errors": 0,
+            "fetch_skipped_deadline": 0,
+            "fetch_skipped_budget": 0,
+            "budget_seconds": null,
+            "search_text_chars": 0,
+            "search_text_portions": 0,
+            "search_text_truncated": false,
+            "attempted_queries": [
+              "цельсия уровне моря вода закипает температуре около 100 градусов",
+              "уровне моря вода закипает температуре около 100 градусов 100 градусов"
+            ],
+            "per_claim": [
+              {
+                "claim_id": "c1",
+                "queries": 2,
+                "candidates": 0,
+                "opened": 0,
+                "search_status": "provider_failed",
+                "outcome": "not_checked_technical",
+                "budget_exhausted": false,
+                "citation_ids": 0
+              }
+            ]
+          },
+          "envelope": {
+            "claim_chars": 121,
+            "material_chars": 121,
+            "request_chars": 0,
+            "subject_origin": "material",
+            "requested_mode": "contextual",
+            "date_source": "unknown",
+            "target_tg_present": true,
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason_code": "provider_unavailable",
+            "parts": 1,
+            "uncertainty_keys": [
+              "retrieval_state"
+            ],
+            "has_ambiguity_note": false,
+            "inference_gap": false,
+            "counterpoint": false,
+            "evidence_rows_delivered": 0,
+            "evidence_delivered_chars": 0,
+            "fallback_used": true,
+            "verdict_text_chars": 254,
+            "stage_trace": [
+              {
+                "stage": "target_resolve",
+                "outcome": "success"
+              },
+              {
+                "stage": "origin_date_resolve",
+                "outcome": "success",
+                "reason": "temporal_date_unknown"
+              },
+              {
+                "stage": "claim_decompose",
+                "outcome": "success"
+              },
+              {
+                "stage": "temporal_search",
+                "outcome": "skipped",
+                "reason": "temporal_insufficient_evidence"
+              },
+              {
+                "stage": "evidence_validate",
+                "outcome": "skipped",
+                "reason": "temporal_insufficient_evidence"
+              },
+              {
+                "stage": "verdict",
+                "outcome": "success",
+                "reason": "provider_unavailable"
+              },
+              {
+                "stage": "verbalize",
+                "outcome": "skipped",
+                "reason": "temporal_fallback_mode"
+              }
+            ]
+          },
+          "diagnostics": {
+            "source_query_count": 2,
+            "provider_attempts": 2,
+            "provider_failures": 2,
+            "documents_retrieved": 0,
+            "queries_with_results": 0,
+            "extract_attempts": 0,
+            "extract_successes": 0,
+            "extract_failures": 0,
+            "empty_results": 0,
+            "irrelevant_results": 0,
+            "off_topic_sources_dropped": 0,
+            "relevant_evidence_count": 0,
+            "citable_evidence_count": 0,
+            "budget_exhausted": false,
+            "fetch_skipped_deadline": 0,
+            "stop_reason": "providers_unavailable",
+            "fetch_skipped_budget": 0,
+            "retrieval_class": "search_failed",
+            "technical_reason": "provider_unavailable",
+            "attempted_queries": [
+              "цельсия уровне моря вода закипает температуре около 100 градусов",
+              "уровне моря вода закипает температуре около 100 градусов 100 градусов"
+            ],
+            "evidence_delivery": {
+              "total_rows": 0,
+              "delivered_rows": 0,
+              "total_chars": 0,
+              "delivered_chars": 0,
+              "budget_chars": 800000,
+              "limited": false,
+              "degraded_capacity": false,
+              "truncated": 0,
+              "remainder": 0,
+              "route": {
+                "channel": "primary",
+                "model": "z-ai/glm-5.3-flash-uncensored",
+                "window_tokens": 1000000,
+                "window_source": "unknown_fallback",
+                "evidence_budget_chars": 800000,
+                "output_reserve_tokens": 100000
+              }
+            }
+          },
+          "claims_event": {
+            "total_claims": 1,
+            "claims_searched": 0,
+            "claims_with_direct_evidence": 0,
+            "claims_partial": 0,
+            "claims_unchecked_due_to_deadline": 0,
+            "claims_unchecked_due_to_budget": 0,
+            "refine_calls": 1,
+            "stop_reason": "providers_unavailable",
+            "budgets_enabled": false,
+            "budget_source": "global",
+            "verdict_route": "envelope_temporal"
+          },
+          "delivered": {
+            "chunks": 1,
+            "chars": 302,
+            "preview": "<b>Проверка не завершена: поиск недоступен</b> Проверку не удалось выполнить: поисковые сервисы не ответили. Это технический сбой, а не отсутствие фактов. Технически не проверено: На уровне моря вода закипает при температуре около 100 градусов Цельсия, а с ростом высоты температура кипения снижается.",
+            "reply_targets": [
+              900141
+            ]
+          },
+          "db": {
+            "run_row": true,
+            "evidence_rows": 0,
+            "ledger_rows": 5,
+            "ledger_gate": true,
+            "scope": {
+              "trigger_tg_message_id": 900142,
+              "target_tg_message_id": 900141
+            },
+            "runs_for_scope": 1,
+            "scope_unique": true,
+            "run_id": "tfr-af1d4d7c32b84d3e",
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "reason": "provider_unavailable",
+            "claim_chars": 121,
+            "evidence_chars": 0
+          },
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 11,
+            "search_calls": 22,
+            "page_fetch_calls": 27,
+            "total": 60,
+            "this_run": {
+              "llm": 0,
+              "search": 0,
+              "fetch": 0
+            }
+          },
+          "events": [
+            {
+              "event_name": "factcheck_target",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_claim_anchors",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_run",
+              "outcome": "skipped",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "skipped",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "skipped",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verdict",
+              "outcome": "failed",
+              "level": "WARN"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_temporal",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "temporal_verbalize",
+              "outcome": "failed",
+              "level": "WARN"
+            },
+            {
+              "event_name": "factcheck_diagnostics",
+              "outcome": "skipped",
+              "level": "INFO"
+            },
+            {
+              "event_name": "bot_output_recorded",
+              "outcome": "success",
+              "level": ""
+            },
+            {
+              "event_name": "factcheck_claims",
+              "outcome": "success",
+              "level": "INFO"
+            },
+            {
+              "event_name": "factcheck_admission",
+              "outcome": "success",
+              "level": "INFO"
+            }
+          ],
+          "admission": {},
+          "transport": "real"
+        },
+        "safety": {
+          "telegram_bot_class": "StubBot",
+          "telegram_bot_is_stub": true,
+          "real_telegram_bot_constructed": false,
+          "outbound_calls_recorded": 5,
+          "outbound_delivered_to_telegram": 0,
+          "synthetic_chat_id": "SYNTH_CHAT",
+          "real_chat_history_written": false,
+          "production_pg": {
+            "opened": true,
+            "mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only",
+            "reason": null,
+            "global_count": 548,
+            "chat_count": 3
+          },
+          "config_persisted": false,
+          "in_memory_overrides_restored": false,
+          "shim_events": {
+            "hot_enter": 7,
+            "hot_exit": 6,
+            "chat_enter": 7,
+            "chat_exit": 6
+          },
+          "provider_calls_allowed": true,
+          "provider_calls_total": 60,
+          "provider_call_cap": 60
+        },
+        "effective": {
+          "pipeline_v2_enabled": true,
+          "pipeline_v2": {
+            "known": true,
+            "enabled": true,
+            "reason": "",
+            "source": "hot PG flags.factcheck_pipeline_v2 → env FACTCHECK_PIPELINE_V2_ENABLED → factory"
+          },
+          "temporal_enabled": true,
+          "budgets": {
+            "budgets_state": {
+              "budgets_enabled": false,
+              "source": "global",
+              "stale": false,
+              "known": true
+            },
+            "limits": {
+              "budgets_enabled": false,
+              "budget_source": "global",
+              "budget_known": true,
+              "base_seconds": null,
+              "max_seconds": null,
+              "refine_calls": null,
+              "total_queries": null,
+              "search_text_chars": null,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": null,
+              "excerpt_chars": null,
+              "sources": {
+                "flags.budgets_enabled": "global",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            }
+          }
+        }
+      },
+      "duration_s": 0.006
+    }
+  ],
+  "observability": [
+    {
+      "run": "ordinary_factcheck",
+      "check_id": "ordinary_factcheck",
+      "status": "observed",
+      "evidence_class": "production",
+      "transport": "real",
+      "request_correlation_id": "43c4b0e8fc0e4c65801e9676ad73478e",
+      "route": "envelope_temporal",
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "app_version": "2.58.202",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 3,
+      "candidates": 50,
+      "opened_sources": 0,
+      "claim_units": 2,
+      "evidence_chars": 1600,
+      "evidence_delivered_rows": 4,
+      "evidence_delivered_chars": 1600,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "paths_exhausted",
+      "part_coverage": 2,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "current",
+        "reason_code": "",
+        "delivered_chars": 1806,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Вердикт: данных недостаточно для уверенного вывода. Утверждения: • Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. — данных недостаточно • Утверждение, что стену видно из космоса невооружённым глазом, многократно опровергалось. — подтверждается Источники: https://provereno.media/blog/2021/06/16/pravda-li-chto-velikuju-kitajskuju-stenu-vidno-iz-kosmosa-nevooruzhennym-glazom, https://baike.baidu.com/ru/item/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F%20%D1%81%D1%82%D0%B5%D0%BD%D0%B0%20%D0%B4%D0%B8%D0%BD%D0%B0%D1%81%D1%82%D0%B8%D0%B8%20%D0%9C%D0%B8%D0%BD/1044390, https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F_%D0%9A%D0%B8%D1%82%D0%B0%D0%B9%D1%81%D0%BA%D0%B0%D1%8F_%D1%81%D1%82%D0%B5%D0%BD%D0%B0 Пересказ не публикую: в нём были чис…"
+      }
+    },
+    {
+      "run": "multipart",
+      "check_id": "multipart_and_short_reply",
+      "status": "observed",
+      "evidence_class": "production",
+      "transport": "real",
+      "request_correlation_id": "290fadaef0b447ceb5abb3d7dc961e09",
+      "route": "envelope_temporal",
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "app_version": "2.58.202",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 4,
+      "candidates": 76,
+      "opened_sources": 0,
+      "claim_units": 4,
+      "evidence_chars": 2268,
+      "evidence_delivered_rows": 8,
+      "evidence_delivered_chars": 2268,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "paths_exhausted",
+      "part_coverage": 4,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "old_but_valid",
+        "reason_code": "",
+        "delivered_chars": 2418,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Тут смешная ситуация. Из четырёх утверждений три подтверждены наглухо: Эйфелева башня действительно строилась под Всемирную выставку 1889 года (несколько независимых источников, открытие 15 марта 1889-го), Байкал - самое глубокое озеро (остальные, кроме Танганьики, до тысячи метров не дотягивают, у Байкала ~1642), пингвины живут только в Южном полушарии. Тут не к чему придраться. А вот лунная высадка формально осталась без подтверждения - не потому что кто-то её опроверг, а потому что поиск просто не нашёл подходящих источников по этому пункту. Опровержения нет, противоречий нет, просто дырка в покрытии. Это как если бы суд признал человека не виновным, потому что свидетели в зал не дошли, а не потому что алиби железное. Разница принципиальная. Так что общий вердикт \"данных недостаточно\" - это не сомнение в том, что в 1969-м на Луну кто-то садился.…"
+      }
+    },
+    {
+      "run": "ordinary_factcheck",
+      "check_id": "budget_scenarios",
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "transport": "real",
+      "request_correlation_id": "43c4b0e8fc0e4c65801e9676ad73478e",
+      "route": "envelope_temporal",
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "app_version": "2.58.202",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 3,
+      "candidates": 50,
+      "opened_sources": 0,
+      "claim_units": 2,
+      "evidence_chars": 1600,
+      "evidence_delivered_rows": 4,
+      "evidence_delivered_chars": 1600,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "paths_exhausted",
+      "part_coverage": 2,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "current",
+        "reason_code": "",
+        "delivered_chars": 1806,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Вердикт: данных недостаточно для уверенного вывода. Утверждения: • Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. — данных недостаточно • Утверждение, что стену видно из космоса невооружённым глазом, многократно опровергалось. — подтверждается Источники: https://provereno.media/blog/2021/06/16/pravda-li-chto-velikuju-kitajskuju-stenu-vidno-iz-kosmosa-nevooruzhennym-glazom, https://baike.baidu.com/ru/item/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F%20%D1%81%D1%82%D0%B5%D0%BD%D0%B0%20%D0%B4%D0%B8%D0%BD%D0%B0%D1%81%D1%82%D0%B8%D0%B8%20%D0%9C%D0%B8%D0%BD/1044390, https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F_%D0%9A%D0%B8%D1%82%D0%B0%D0%B9%D1%81%D0%BA%D0%B0%D1%8F_%D1%81%D1%82%D0%B5%D0%BD%D0%B0 Пересказ не публикую: в нём были чис…"
+      }
+    },
+    {
+      "run": "ordinary_factcheck",
+      "check_id": "metric_distinguishability",
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "transport": "real",
+      "request_correlation_id": "43c4b0e8fc0e4c65801e9676ad73478e",
+      "route": "envelope_temporal",
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "app_version": "2.58.202",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 3,
+      "candidates": 50,
+      "opened_sources": 0,
+      "claim_units": 2,
+      "evidence_chars": 1600,
+      "evidence_delivered_rows": 4,
+      "evidence_delivered_chars": 1600,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "paths_exhausted",
+      "part_coverage": 2,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "current",
+        "reason_code": "",
+        "delivered_chars": 1806,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Вердикт: данных недостаточно для уверенного вывода. Утверждения: • Великая Китайская стена в её нынешнем виде в основном построена при династии Мин, а её общая длина с ответвлениями превышает 21 тысячу километров. — данных недостаточно • Утверждение, что стену видно из космоса невооружённым глазом, многократно опровергалось. — подтверждается Источники: https://provereno.media/blog/2021/06/16/pravda-li-chto-velikuju-kitajskuju-stenu-vidno-iz-kosmosa-nevooruzhennym-glazom, https://baike.baidu.com/ru/item/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F%20%D1%81%D1%82%D0%B5%D0%BD%D0%B0%20%D0%B4%D0%B8%D0%BD%D0%B0%D1%81%D1%82%D0%B8%D0%B8%20%D0%9C%D0%B8%D0%BD/1044390, https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%B0%D1%8F_%D0%9A%D0%B8%D1%82%D0%B0%D0%B9%D1%81%D0%BA%D0%B0%D1%8F_%D1%81%D1%82%D0%B5%D0%BD%D0%B0 Пересказ не публикую: в нём были чис…"
+      }
+    },
+    {
+      "run": "original_production_scenario",
+      "check_id": "original_production_scenario",
+      "status": "error",
+      "evidence_class": "production",
+      "transport": "real",
+      "request_correlation_id": "06d1cba09af5435e9e6dc8f385fdfb13",
+      "route": "envelope_temporal",
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "app_version": "2.58.202",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 2,
+      "candidates": 40,
+      "opened_sources": 0,
+      "claim_units": 2,
+      "evidence_chars": 1200,
+      "evidence_delivered_rows": 3,
+      "evidence_delivered_chars": 1200,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "sufficient_evidence",
+      "part_coverage": 2,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "unknown",
+        "reason_code": "temporal_fallback_mode",
+        "delivered_chars": 412,
+        "delivered_preview": "<b>Недостаточно данных для проверки</b> Недостаточно данных для полной проверки утверждения. Источники: 1. <a href=\"https://edinstvo-news.ru/exclusive/29962-startuet-mezhdunarodnyj-proekt-brics-news.html\">edinstvo-news.ru</a> — пересказ 2. <a href=\"https://www.cbinsights.com/company/manybot\">cbinsights.com</a> — пересказ 3. <a href=\"https://www.cbinsights.com/company/whatshelp\">cbinsights.com</a> — пересказ"
+      }
+    },
+    {
+      "run": "production_smoke",
+      "check_id": "production_smoke",
+      "status": "observed",
+      "evidence_class": "production",
+      "transport": "real",
+      "request_correlation_id": "499b83fe7ef74058bdba2add714c959a",
+      "route": "envelope_temporal",
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "app_version": "2.58.202",
+      "effective_budget_state": false,
+      "effective_budget_source": "global",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "global",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": 2,
+      "candidates": 0,
+      "opened_sources": 0,
+      "claim_units": 1,
+      "evidence_chars": 0,
+      "evidence_delivered_rows": 0,
+      "evidence_delivered_chars": 0,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-flash",
+          "window_tokens": 131072,
+          "window_source": "model_map",
+          "evidence_budget_chars": 104857,
+          "output_reserve_tokens": 13107
+        }
+      },
+      "retrieval_stop_reason": "providers_unavailable",
+      "part_coverage": 1,
+      "final_result": {
+        "factual_verdict": "insufficient_evidence",
+        "temporal_status": "unknown",
+        "reason_code": "provider_unavailable",
+        "delivered_chars": 302,
+        "delivered_preview": "<b>Проверка не завершена: поиск недоступен</b> Проверку не удалось выполнить: поисковые сервисы не ответили. Это технический сбой, а не отсутствие фактов. Технически не проверено: На уровне моря вода закипает при температуре около 100 градусов Цельсия, а с ростом высоты температура кипения снижается."
+      }
+    }
+  ],
+  "limitations": [
+    "Harness drives run_factcheck directly (the BinaryHandler seam is not exercised); the deployed v2 code path is identical.",
+    "ToolRouter/tool-loop is not wired (envelope branch does not use it); lore/metric tools are not exercised.",
+    "Media/Vision branches are out of scope for these rows.",
+    "Synthetic chat lives in a temp SQLite DB; production PG is read read-only for effective-state only.",
+    "Real provider answers vary between runs; evidence counts are observed, not fixed.",
+    "Checks with evidence_class=plumbing use scripted transport doubles; they are never production evidence on their own."
+  ],
+  "identity": {
+    "repo_root": "/var/www/admin_bot",
+    "git_head": "0beed63df8037002ccfaacef019b8ea948d957f6",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+    "manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "version": "2.58.202",
+      "deployed_at": "2026-11-14T15:14:42.974638Z",
+      "effect": "deploy"
+    },
+    "app_version_runtime": "2.58.202",
+    "identity_code": "local_unverified",
+    "identity_reason": "no_process_start",
+    "version_provenance": {
+      "runtime": "2.58.202",
+      "manifest": "2.58.202",
+      "consistent": true
+    },
+    "upstream_head": {
+      "sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "ref": "refs/remotes/origin/release/smart-corrective-01",
+      "observed_at": "2026-11-14T15:14:42.864080Z",
+      "reason": ""
+    },
+    "service_started_at": "Sat 2026-11-14 15:14:44 UTC",
+    "process_started_source": "systemctl ActiveEnterTimestamp",
+    "sources": [
+      "release_manifest",
+      "git_head",
+      "git_cli",
+      "runtime_app_version"
+    ],
+    "conflict": []
+  },
+  "health": {
+    "url": "http://127.0.0.1:8000/healthz",
+    "http": 200,
+    "version": "2.58.202",
+    "status": "ok",
+    "body": null,
+    "duration_ms": 11,
+    "ok": true
+  },
+  "candidate_binding": {
+    "harness_path": "/tmp/fc_live_canary.py",
+    "harness_name": "fc_live_canary",
+    "harness_version": "1.3.0",
+    "harness_sha256": "391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c",
+    "harness_sha256_source": "sha256 of this file's bytes",
+    "repo_root": "/var/www/admin_bot",
+    "app_version_runtime": "2.58.202",
+    "git_head": "0beed63df8037002ccfaacef019b8ea948d957f6",
+    "git_head_source": "deploy_identity",
+    "branch": "release/smart-corrective-01",
+    "dirty": false,
+    "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+    "identity_code": "local_unverified",
+    "release_manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "0beed63df8037002ccfaacef019b8ea948d957f6",
+      "version": "2.58.202",
+      "deployed_at": "2026-11-14T15:14:42.974638Z"
+    },
+    "binding_status": "verified",
+    "binding_reasons": [],
+    "binding_rule": "attach this JSON next to the harness file; the harness_sha256 identifies the exact committed harness bytes and git_head/deployed_sha identify the release checkout the run observed"
+  },
+  "effective": {
+    "synthetic_chat": {
+      "budgets_state": {
+        "budgets_enabled": false,
+        "source": "global",
+        "stale": false,
+        "known": true
+      },
+      "limits": {
+        "budgets_enabled": false,
+        "budget_source": "global",
+        "budget_known": true,
+        "base_seconds": null,
+        "max_seconds": null,
+        "refine_calls": null,
+        "total_queries": null,
+        "search_text_chars": null,
+        "page_size": 20,
+        "claim_portion": 32,
+        "primary_fetches": null,
+        "excerpt_chars": null,
+        "sources": {
+          "flags.budgets_enabled": "global",
+          "limits.factcheck_claim_portion": "default",
+          "limits.factcheck_excerpt_chars": "default",
+          "limits.factcheck_max_queries_total": "default",
+          "limits.factcheck_page_size": "default",
+          "limits.factcheck_primary_fetches": "default",
+          "limits.factcheck_refine_calls": "default",
+          "limits.factcheck_retrieval_seconds": "default",
+          "limits.factcheck_retrieval_seconds_max": "default",
+          "limits.factcheck_search_text_chars": "default"
+        }
+      }
+    },
+    "real_chats": [
+      {
+        "chat": "chat-1",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "chat",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "chat",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "chat",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      {
+        "chat": "chat-2",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "chat",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "chat",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "chat",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      },
+      {
+        "chat": "chat-3",
+        "budgets_state": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "factcheck_limits": {
+          "budgets_enabled": false,
+          "budget_source": "global",
+          "budget_known": true,
+          "base_seconds": null,
+          "max_seconds": null,
+          "refine_calls": null,
+          "total_queries": null,
+          "search_text_chars": null,
+          "page_size": 20,
+          "claim_portion": 32,
+          "primary_fetches": null,
+          "excerpt_chars": null,
+          "sources": {
+            "flags.budgets_enabled": "global",
+            "limits.factcheck_claim_portion": "default",
+            "limits.factcheck_excerpt_chars": "default",
+            "limits.factcheck_max_queries_total": "default",
+            "limits.factcheck_page_size": "default",
+            "limits.factcheck_primary_fetches": "default",
+            "limits.factcheck_refine_calls": "default",
+            "limits.factcheck_retrieval_seconds": "default",
+            "limits.factcheck_retrieval_seconds_max": "default",
+            "limits.factcheck_search_text_chars": "default"
+          }
+        }
+      }
+    ],
+    "global": {
+      "budgets_enabled": false,
+      "source": "global",
+      "stale": false,
+      "known": true
+    },
+    "pipeline_v2_enabled": true,
+    "pipeline_v2": {
+      "known": true,
+      "enabled": true,
+      "reason": "",
+      "source": "hot PG flags.factcheck_pipeline_v2 → env FACTCHECK_PIPELINE_V2_ENABLED → factory"
+    },
+    "temporal_factcheck_enabled": true,
+    "pg": {
+      "available": true,
+      "global_count": 548,
+      "chat_count": 3,
+      "reason": null,
+      "read_mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only"
+    },
+    "model_capacity": {
+      "primary": {
+        "channel": "primary",
+        "model": "z-ai/glm-5.3-flash-uncensored",
+        "window_tokens": 1000000,
+        "window_source": "unknown_fallback",
+        "evidence_budget_chars": 800000,
+        "output_reserve_tokens": 100000
+      },
+      "fallback": {
+        "channel": "fallback",
+        "model": "deepseek-flash",
+        "window_tokens": 131072,
+        "window_source": "model_map",
+        "evidence_budget_chars": 104857,
+        "output_reserve_tokens": 13107
+      }
+    }
+  },
+  "finished_at": "2026-11-14T15:38:22.576497+00:00",
+  "duration_s": 293.473,
+  "call_budget": {
+    "allowed": true,
+    "max_calls": 60,
+    "llm_calls": 11,
+    "search_calls": 22,
+    "page_fetch_calls": 27,
+    "total": 60
+  },
+  "safety": {
+    "telegram_bot_class": "StubBot",
+    "telegram_bot_is_stub": true,
+    "real_telegram_bot_constructed": false,
+    "outbound_calls_recorded": 5,
+    "outbound_delivered_to_telegram": 0,
+    "synthetic_chat_id": "SYNTH_CHAT",
+    "real_chat_history_written": false,
+    "production_pg": {
+      "opened": true,
+      "mode": "services.pg_db.PgDatabase pool; transaction(readonly=True); SELECT only",
+      "reason": null,
+      "global_count": 548,
+      "chat_count": 3
+    },
+    "config_persisted": false,
+    "in_memory_overrides_restored": true,
+    "shim_events": {
+      "hot_enter": 7,
+      "hot_exit": 7,
+      "chat_enter": 7,
+      "chat_exit": 7
+    },
+    "provider_calls_allowed": true,
+    "provider_calls_total": 60,
+    "provider_call_cap": 60
+  },
+  "summary": {
+    "observed": 5,
+    "not_observed": 0,
+    "error": 1,
+    "by_evidence_class": {
+      "plumbing": 2,
+      "production": 4,
+      "unavailable": 0
+    },
+    "production_observed": 3
+  }
+}
