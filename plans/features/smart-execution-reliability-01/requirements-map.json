@@ -7459,7 +7459,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -7506,16 +7506,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "MAN-SXR-F4-01-807",
@@ -7529,7 +7531,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -7576,16 +7578,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "MAN-SXR-F4-01-809",
@@ -7599,7 +7603,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -7646,16 +7650,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "MAN-SXR-F4-01-811",
@@ -7669,7 +7675,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -7716,16 +7722,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "MAN-SXR-G1-01-819",
@@ -28172,7 +28180,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28219,16 +28227,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00800",
@@ -28242,7 +28252,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28289,16 +28299,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00801",
@@ -28312,7 +28324,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28359,16 +28371,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00802",
@@ -28382,7 +28396,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28429,16 +28443,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00803",
@@ -28452,7 +28468,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28499,16 +28515,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00804",
@@ -28522,7 +28540,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28569,16 +28587,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00805",
@@ -28592,7 +28612,7 @@
       "acceptance": "В production работают реальные сценарии: публичный репозиторий, поиск файла/символа, чтение по ветке/commit и ссылке, переход к связанным исходникам, естественный запрос о внешнем коде; отдельная команда GitHub не создана; rate limit/private repo возвращаются фактической причиной без обхода прав.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "review",
@@ -28639,16 +28659,18 @@
           "observation": "На 2.58.200 в проде подтверждены только часть сценариев: публичный репозиторий (octocat/Hello-World README, commit 7fd1a60b…, 12 симв., verified=false по инварианту) и чтение файла по ветке/commit через SourceReader (octocat/Spoon-Knife main:index.html, commit d0dd1f61…, 354 симв., verified=true, network_calls=4); реальный внешний отказ отдан фактической причиной (source_missing, retryable=false, без обхода прав). Не наблюдались: поиск файла/символа по внешнему репозиторию, чтение по предоставленной ссылке, переход к связанным исходникам, обычный естественный запрос о коде внешнего проекта, фактический provider rate limit и отказ приватного репозитория. Строка остаётся READY_FOR_LIVE: acceptance требует все перечисленные production-сценарии; одобренный live-canary-plan (§4, волна 4) уже помечал natural-request часть как отложенную.",
           "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-rerun-20261114T083723Z.md",
           "artifact_sha256": "e1450b68912dfd2345e4772ff6c4a64546fb82da03f982d6c6ee3daac717f206"
+        },
+        {
+          "type": "production",
+          "candidate_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "ref": "canary-f4-20261114T095242Z.md §3 external_scenarios; §4 external_natural_request; §5 provider/GitHub/journal/health",
+          "observation": "F4 focused canary 2026-11-14T09:52:42Z на deployed 0e4a144d (release/2.58.200, harness v1.3.0 sha256 39600b90… совпал с одобренным пином; raw JSON sha256 6872d8ed…): external_scenarios — observed/production, 20/20 assertions true, failed=0, error=0: публичный githubtraining/hellogitworld read по ветке master → commit ef7bebf8bdb1919d947afe46ab4b2fb4278039b3, src/test/java/com/github/AppTest.java verified=true, 749 chars, network_calls=5; sibling src/main/java/com/github/App.java verified (files_read=2, distinct_verified_sibling=true); locate symbol main → src/main/java/com/github/App.java, line_range=[1,17], тот же commit, symbol_found=true, 215 chars; blob-ссылка прочитана как файл с тем же commit/path (verified=true, source_kind=file); недоступный githubtraining/canary-does-not-exist-7f3a → HTTP 404, code=source_missing, detail=repo_not_found, retryable=false, no_retries=true, not_read=true, factual=true; один tool read_source_code с operations discover/locate/read, github_like_commands=[], no_separate_command=true. external_natural_request — observed/production, 6/6 assertions true: L1 capabilities_needed=[source_code], selected read_source_code, реальное чтение verified=true с точным repo/path/commit (215 chars), provider calls 1/5, denied 0. Всего GitHub network 13, rate limit не сработал. После прогона: /healthz 200 (2.58.200), unit active MainPID 709883 без рестарта, tracked tree clean, журнал 4 строки — 0 WARN/ERROR/traceback.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/postdeploy/live/canary-f4-20261114T095242Z.md",
+          "artifact_sha256": "c98c0e4d2b3b108c796ccd34d9914e3bafcc868296f97ebe0d61e9ed3ee04754"
         }
       ],
-      "postrelease_wait": {
-        "nonblocking": true,
-        "reason": "Нужен production-деплой: исправление прошло независимое ревью, но на production не выкатывалось; подтверждение устранения destination_blocked/connect и реальные GitHub/provider-сценарии физически возможны только на deployed-кандидате.",
-        "trigger": "Релизный кандидат 2382cc92 (в составе SMART release train) выкачен на production и выполнен реальный GitHub/provider-сценарий на deployed SHA.",
-        "next_check": "Post-deploy smoke: сверить deployed SHA и effective config, прочитать публичный GitHub-репозиторий/файл через read_source_code, убедиться в отсутствии destination_blocked/connect, зафиксировать результат, health и возможность отката.",
-        "owner": "DevOps (деплой и production-сценарий), Builder по дефектам, Reviewer подтверждает evidence",
-        "contract_ref": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md F2 (строки 755-781) и F4 (798-811); plans/features/smart-execution-reliability-01/evidence/binding-f-2382cc92666031ed43f231ab2a27619b089c302f.md §6"
-      }
+      "verified_via": "production 2.58.200 @ 0e4a144d; F4 focused canary 2026-11-14T0952Z"
     },
     {
       "source_id": "L00817",

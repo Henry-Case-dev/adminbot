@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T21:19:12+12:00",
+  "updated": "2026-11-14T22:06:05+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -2180,11 +2180,11 @@
         "core_pending": 0,
         "fc_reqs": 87,
         "fc_pending": 0,
-        "verified": 173,
-        "note": "2026-11-14 focused re-run: F2-01, L5-01, L3-01 and SFC-12-02/7-06/13-01 bound as VERIFIED (80 rows); F4-01 kept unverified (only 2 of 6 scenarios covered; harness extension running). 13 live ids remain: A1-04, F4-01, L1-01, L2-01, L4-01, L6-01, L7-01, L8-01, SFC-5-10, SFC-12-07, SFC-12-09, SFC-13-03, SFC-14-03. SFC-12-09 is a real production deviation under investigation; deploy gates errors=0 both maps.",
+        "verified": 174,
+        "note": "2026-11-14 F4 focused canary bound: SXR-F4-01 11 rows VERIFIED (20/20 + 6/6 assertions; GitHub branch/symbol/link/related/missing + natural request). Parent 174/186; 12 live ids remain: A1-04, L1-01, L2-01, L4-01, L6-01, L7-01, L8-01, SFC-5-10, SFC-12-07, SFC-12-09, SFC-13-03, SFC-14-03. Deploy gates errors=0; release gates only the live class.",
         "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
         "review": 0,
-        "ready_for_live": 13,
+        "ready_for_live": 12,
         "pending": 0,
         "deployed_version": "2.58.200"
       },
