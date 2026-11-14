@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:22:00+12:00
+Updated: 2026-11-15T09:26:00+12:00
 
 ## Facts
 
@@ -46,4 +46,4 @@ Reviewer approved the deployed M1/NEXT2 delta on the exact c97c06e4 tree with VE
 
 ## Housekeeping (2026-11-15)
 
-Builder probe-bc9c1876f7 closed (removed=1; its 5 checks are preserved in the committed verification report). VMQ-V disposable run temp-afd409e420 retained by the tool (removed=0, retained=1; ~1422 files/46 MB; contains a candidate copy plus mutation-source/payload results; tool reports protected/unknown content). The committed VMQ-V review artifact covers the acceptance evidence; the run is reconstructible from git. Recorded retention: owner Reviewer/Orchestrator, reason tool-protected candidate copy, next event after PM binding/next safe checkpoint. The M1/NEXT2 Reviewer's mutation run (probe-74507b48ca with mut-m1/mut-next) is being closed by that Reviewer. Do not force-delete unknown/protected paths.
+Builder probe-bc9c1876f7 closed (removed=1; its 5 checks are preserved in the committed verification report). VMQ-V disposable run temp-afd409e420 retained by the tool (removed=0, retained=1; ~1422 files/46 MB; contains a candidate copy plus mutation-source/payload results; tool reports protected/unknown content). The committed VMQ-V review artifact covers the acceptance evidence; the run is reconstructible from git. Recorded retention: owner Reviewer/Orchestrator, reason tool-protected candidate copy, next event after PM binding/next safe checkpoint. The M1/NEXT2 Reviewer closed probe-74507b48ca (mutation worktrees mut-m1/mut-next removed; run-close removed=1 retained=0). Do not force-delete unknown/protected paths.
