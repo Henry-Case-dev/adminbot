@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE
-Join barriers: Reviewer ONTO-A r1 -> PM binds O-01/O-02; next code slice ONTO-B after ONTO-A approval
+Active lanes: Builder ONTO-A fix ses_e24579defffeIdo5vS5nEZBLdh
+Join barriers: Builder ONTO-A chat_scope fix -> Reviewer r2 -> PM binds O-01/O-02; next ONTO-B
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:42:00+12:00
+Updated: 2026-11-15T09:48:00+12:00
 
 ## Facts
 
@@ -55,3 +55,7 @@ PM bound on c97c06e4: 70 required rows -> 58 PENDING, 6 REVIEW, 6 VERIFIED. New 
 ## NEXT live-flag reconciliation (2026-11-15)
 
 PM read the frozen quality contract end-to-end: architecture-next2-quality.md requires a paired read-only DB-copy measurement (lines 20-34, 48-54, 68, 76-78), not live production telemetry; the acceptance texts for NEXT-02/05 are copy-based too. Therefore live_required was set false (live_when kept as history) with a live_required_reconciliation_2026_11_15 block and no fake postrelease_wait; NEXT-02/05 stay VERIFIED. Production scope limitation (real archive/effective flags/postdeploy timings not measured) is recorded honestly and no production quality claim is made. Gates after reconciliation: review MEM-NEXT errors=3 (only NEXT-01/03/04), deploy/release errors=31 (28 dependency closures + the same three), no live-evidence errors; plan 0.
+
+## ONTO-A review r1 (2026-11-15)
+
+Reviewer r1: Needs Fixes, one real O-01 blocker: classify_entity_type("event", event_time=...) and the analogous fact case returned verified without a chat_id; REQUIRED_TYPE_SIGNALS (services/semantic_contracts.py:124-130) did not require chat_scope. O-02 was confirmed; focused 23 passed, affected 310 passed, UID mutation 3 failed/20 passed. Builder is fixing the chat_scope requirement with honest tentative/unknown semantics, adding positive/negative tests and a mutation, and will hand back for focused r2. This is a candidate-only defect, not a production regression; no map status was changed.
