@@ -166,8 +166,12 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     # каноны и все PREV_CHECKUP_* байт-в-байт → 2cd38b272139.
     assert pr.FACTORY_SET_SHA256_12 == "2cd38b272139"
 
+    # SMART-CORRECTIVE-01 §8.5 / S6-ACTIVATION (15.11.2026): метка бампнута
+    # до checkup-p0-24-10-mixed-state — без бампа релиз видел PLAN_NOOP и
+    # исправленный заводской текст не доходил до действующего глобального
+    # слоя. Байты текста при этом не менялись (печать 3140bb364044).
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
-        "checkup-p0-24-10"
+        "checkup-p0-24-10-mixed-state"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \
         "asap-core-full-v4"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_COMPACT_BLOCK_ID] == \

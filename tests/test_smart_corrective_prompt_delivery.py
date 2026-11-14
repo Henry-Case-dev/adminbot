@@ -19,8 +19,9 @@
     Expression и addendum целиком;
   * слой речи остаётся один: Core → Expression → Style Policy, без второй
     Personality Core/Expression и скрытого подавления мата;
-  * заводская правка не запускает активацию поверх ручной редакции
-    (метка ревизии не менялась), печать содержимого и fingerprint согласованы;
+  * бамп метки заводской ревизии активирует исправленный заводской текст в
+    глобальном слое (метка/печать согласованы), а сохранённую per-chat
+    редакцию владельца защищает сторож §8.1;
   * сохранённая per-chat редакция владельца не заменяется новой заводской
     поставкой даже без явного `baseline_assign` (guard §8.1/AC-19), при этом
     заводская ревизия остаётся в истории, другой чат получает поставку как
@@ -398,24 +399,29 @@ def test_single_speech_layer_no_second_engine(service_env, registry_active):
         assert forbidden not in source, forbidden
 
 
-# ═══ 7. Реестр: правка заводской редакции не трогает ручную ═════════════════
+# ═══ 7. Реестр: бамп метки выпускает исправленную заводскую редакцию ════════
 
-def test_factory_content_fix_does_not_activate_over_owner_edition():
+def test_label_bump_releases_new_factory_edition():
     block_id = "checkup.base.system"
     label, sealed_sha = pr.FACTORY_REVISION_SEALS[block_id]
     assert pr.seal_integrity() == {}
-    assert label == "checkup-p0-24-10"
+    assert label == pr.FACTORY_REVISION_LABELS[block_id]
+    assert label != "checkup-p0-24-10"
     assert sealed_sha == pr.sha12(CHECKUP_SYSTEM_PROMPT)
     assert pr.sealed_factory_revision(block_id) == pr.FACTORY_PREFIX + \
         pr.sha12(label)
-    # Метка не менялась ⇒ деплой видит ту же применённую заводскую ревизию и
-    # не активирует заводской текст поверх сохранённой ручной редакции чата.
+    # Метка сменилась (S6-ACTIVATION): деплой видит новую заводскую ревизию и
+    # активирует исправленный заводской текст в глобальном слое. Сохранённую
+    # ручную редакцию чата защищает сторож §8.1 (раздел 8 этого файла), а не
+    # неизменность метки.
     plan = pr.activation_plan(
         code_label=label, sealed_sha=sealed_sha,
         text_sha12=pr.sha12(CHECKUP_SYSTEM_PROMPT),
-        applied_factory_revision=pr.sealed_factory_revision(block_id),
+        applied_factory_revision=pr.FACTORY_PREFIX
+        + pr.sha12("checkup-p0-24-10"),
         has_import=True)
-    assert plan.action == pr.PLAN_NOOP
+    assert plan.action == pr.PLAN_ACTIVATE
+    assert plan.reason == "new_factory_revision"
 
 
 # ═══ 8. Сохранённая редакция чата не заменяется заводским cutover ═══════════
@@ -609,3 +615,37 @@ def test_preserved_manual_edition_without_override_is_not_replaced(
     manual = _manual_chat_revision(store)
     assert store.revisions[manual.revision_id].body == GUARD_MANUAL
     assert store.revisions[manual.revision_id].retired is False
+
+
+# ═══ 9. Шаг активации: бамп метки доходит до маршрута чекапа ════════════════
+#
+# S6-ACTIVATION: заводской текст был исправлен, но метка не менялась, поэтому
+# релиз видел PLAN_NOOP и глобальный слой оставался со stale Betterstack/401.
+# Ниже — сквозная проверка наблюдаемого исхода: реальный релизный проход с
+# меткой из кода заменяет глобальное значение, и маршрут чекапа без override
+# строит system из исправленной редакции.
+
+def test_label_bump_activation_reaches_checkup_route(service_env,
+                                                     registry_active):
+    from tests.test_evol016_prompt_activation import FakeCache
+
+    store = prp.MemoryPromptJournal()
+    cache = FakeCache({KEY: PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT})
+    try:
+        asyncio.run(prp.apply_release(
+            cache, release_id="deploy-checkup-label", store=store,
+            blocks=["checkup.base.system"]))
+        assert cache.values[KEY] == CHECKUP_SYSTEM_PROMPT
+
+        hot.set_config_cache(FakeHot({KEY: cache.values[KEY]}))
+        chat_params.set_chat_params_cache(FakeChatParams())
+        telemetry: dict = {}
+        system, _ = _checkup(telemetry=telemetry)
+
+        assert "betterstack" not in system.casefold()
+        assert "401" not in system
+        assert "могут быть верны одновременно" in system
+        assert telemetry["prompt_base_hash"] == _sha16(CHECKUP_SYSTEM_PROMPT)
+    finally:
+        pr.set_release_policy_active(False)
+        pr.reset_cache()
