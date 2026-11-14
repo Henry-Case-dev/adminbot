@@ -1,0 +1,2 @@
+﻿FAIL: SC-BUD-PROGRESS: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+stage=review inventory=224 manual=232 scoped=28 errors=1

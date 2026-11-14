@@ -1,0 +1,180 @@
+﻿[
+ {
+  "page": 1,
+  "status": "ok",
+  "outcome": "partial",
+  "path": "services/mca_watchdog.py",
+  "match_count": 1,
+  "materials": {
+   "implementation": 1
+  },
+  "paths": [
+   "services/mca_watchdog.py"
+  ],
+  "files_scanned": 163,
+  "bytes_scanned": 8514059,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 2,
+  "status": "ok",
+  "outcome": "partial",
+  "path": "services/mca_process_registry.py",
+  "match_count": 2,
+  "materials": {
+   "implementation": 1,
+   "mention": 1
+  },
+  "paths": [
+   "services/mca_process_registry.py",
+   "services/source_reader.py"
+  ],
+  "files_scanned": 150,
+  "bytes_scanned": 8501956,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 3,
+  "status": "partial",
+  "outcome": "partial",
+  "path": "",
+  "match_count": 0,
+  "materials": {},
+  "paths": [],
+  "files_scanned": 232,
+  "bytes_scanned": 8711767,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 4,
+  "status": "partial",
+  "outcome": "partial",
+  "path": "",
+  "match_count": 0,
+  "materials": {},
+  "paths": [],
+  "files_scanned": 337,
+  "bytes_scanned": 8415079,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 5,
+  "status": "ok",
+  "outcome": "partial",
+  "path": "tests/test_mca17a_observability_core_round1027.py",
+  "match_count": 1,
+  "materials": {
+   "tests": 1
+  },
+  "paths": [
+   "tests/test_mca17a_observability_core_round1027.py"
+  ],
+  "files_scanned": 318,
+  "bytes_scanned": 8415534,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 6,
+  "status": "ok",
+  "outcome": "partial",
+  "path": "tests/test_smart_corrective_source_reader.py",
+  "match_count": 2,
+  "materials": {
+   "tests": 2
+  },
+  "paths": [
+   "tests/test_smart_corrective_source_reader.py"
+  ],
+  "files_scanned": 383,
+  "bytes_scanned": 8413427,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 7,
+  "status": "partial",
+  "outcome": "partial",
+  "path": "",
+  "match_count": 0,
+  "materials": {},
+  "paths": [],
+  "files_scanned": 170,
+  "bytes_scanned": 8398603,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 8,
+  "status": "partial",
+  "outcome": "partial",
+  "path": "",
+  "match_count": 0,
+  "materials": {},
+  "paths": [],
+  "files_scanned": 422,
+  "bytes_scanned": 8392639,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 9,
+  "status": "ok",
+  "outcome": "partial",
+  "path": "plans/archive/mca-17a-observability-core-round1027/spec.md",
+  "match_count": 2,
+  "materials": {
+   "plans": 2
+  },
+  "paths": [
+   "plans/archive/mca-17a-observability-core-round1027/spec.md",
+   "plans/archive/mca-17c-analytics-matrix-round1047/coverage_matrix.md"
+  ],
+  "files_scanned": 290,
+  "bytes_scanned": 8399188,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ },
+ {
+  "page": 10,
+  "status": "ok",
+  "outcome": "partial",
+  "path": "plans/features/_audit-2026-10-23/prod-checks/raw/main3.txt",
+  "match_count": 4,
+  "materials": {
+   "plans": 4
+  },
+  "paths": [
+   "plans/features/_audit-2026-10-23/prod-checks/raw/main3.txt"
+  ],
+  "files_scanned": 511,
+  "bytes_scanned": 8390753,
+  "complete": false,
+  "reason": "scan_budget",
+  "has_cursor": true,
+  "progress_id": "srp_36dfd0fc40102c33"
+ }
+]
+

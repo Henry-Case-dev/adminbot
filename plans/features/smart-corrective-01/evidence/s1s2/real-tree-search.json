@@ -1,0 +1,171 @@
+﻿{
+ "watchdog": {
+  "query": "watchdog.jobs",
+  "local": {
+   "verification": "running_unverified",
+   "revision": "files-2.58.200",
+   "revision_kind": "files",
+   "version_verified": false
+  },
+  "status": "ok",
+  "outcome": "partial",
+  "path": "services/mca_watchdog.py",
+  "match_line": 154,
+  "match_material": "implementation",
+  "match_count": 1,
+  "line_text": "            db, process_id=\"watchdog.jobs\", pipeline_type=owner,",
+  "files_scanned": 163,
+  "bytes_scanned": 8514059,
+  "complete": false,
+  "probes": [
+   "watchdog.jobs"
+  ],
+  "ranked_materials": {
+   "implementation": 1
+  },
+  "source_selection": {
+   "provider": "local_snapshot",
+   "repo": "Henry-Case-dev/adminbot",
+   "revision": "files-2.58.200",
+   "revision_kind": "files",
+   "verification": "running_unverified",
+   "version_verified": false,
+   "root_source": "runtime_identity",
+   "note": "╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╕╤Б╨┐╨╛╨╗╨╜╤П╨╡╨╝╤Л╨╡ ╤Д╨░╨╣╨╗╤Л ╨┐╤А╨╛╤Ж╨╡╤Б╤Б╨░; ╤Б╨╛╨╛╤В╨▓╨╡╤В╤Б╤В╨▓╨╕╨╡ ╨┤╨╡╨┐╨╗╨╛╨╣-╨▓╨╡╤А╤Б╨╕╨╕ ╨╜╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╛",
+   "fallback": null,
+   "exact_remote_commit_available": "",
+   "requested_ref": "",
+   "requested_commit": "",
+   "checkout_sha": "",
+   "deployed_sha": "",
+   "identity": {
+    "repo": "Henry-Case-dev/adminbot",
+    "ref": "files-2.58.200",
+    "commit": "files-2.58.200",
+    "checkout_sha": ""
+   },
+   "selection_reason": "running_unverified",
+   "outcome": "partial",
+   "query": "watchdog.jobs",
+   "path": "services/mca_watchdog.py",
+   "line_range": [
+    129,
+    329
+   ],
+   "status": "ok"
+  },
+  "provenance": {
+   "provider": "local_snapshot",
+   "endpoint": "local_snapshot",
+   "repo": "Henry-Case-dev/adminbot",
+   "commit": "files-2.58.200",
+   "operation": "locate",
+   "fetched_at": 1794641668,
+   "bytes": 15259,
+   "sha256": "ed36f8c9265b07798dd33b5000e8a683be1221d4f1c228e234767a66eb7efbcf",
+   "read_level": "selected",
+   "network_calls": 0,
+   "local_source_verification": "unknown",
+   "checkout_sha": null,
+   "dirty": null,
+   "deployed_sha": null,
+   "revision_kind": "files",
+   "source_verification": "running_unverified",
+   "version_verified": false,
+   "root_source": "runtime_identity",
+   "runtime_version": "2.58.200",
+   "outcome": "partial",
+   "progress_id": "srp_36dfd0fc40102c33"
+  },
+  "continuation_kind": "content_search",
+  "continuation_remaining": true,
+  "progress_id": "srp_36dfd0fc40102c33",
+  "idempotency_key": "sri_b4473fc4eabceece300b559c",
+  "network_calls": 0
+ },
+ "generic_non_watchdog": {
+  "query": "incident_opened",
+  "local": {
+   "verification": "running_unverified",
+   "revision": "files-2.58.200",
+   "revision_kind": "files",
+   "version_verified": false
+  },
+  "status": "ok",
+  "outcome": "partial",
+  "path": "services/mca_incidents.py",
+  "match_line": 165,
+  "match_material": "implementation",
+  "match_count": 1,
+  "line_text": "              else \"incident_opened\")",
+  "files_scanned": 162,
+  "bytes_scanned": 8447139,
+  "complete": false,
+  "probes": [
+   "incident_opened"
+  ],
+  "ranked_materials": {
+   "implementation": 1
+  },
+  "source_selection": {
+   "provider": "local_snapshot",
+   "repo": "Henry-Case-dev/adminbot",
+   "revision": "files-2.58.200",
+   "revision_kind": "files",
+   "verification": "running_unverified",
+   "version_verified": false,
+   "root_source": "runtime_identity",
+   "note": "╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╕╤Б╨┐╨╛╨╗╨╜╤П╨╡╨╝╤Л╨╡ ╤Д╨░╨╣╨╗╤Л ╨┐╤А╨╛╤Ж╨╡╤Б╤Б╨░; ╤Б╨╛╨╛╤В╨▓╨╡╤В╤Б╤В╨▓╨╕╨╡ ╨┤╨╡╨┐╨╗╨╛╨╣-╨▓╨╡╤А╤Б╨╕╨╕ ╨╜╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╛",
+   "fallback": null,
+   "exact_remote_commit_available": "",
+   "requested_ref": "",
+   "requested_commit": "",
+   "checkout_sha": "",
+   "deployed_sha": "",
+   "identity": {
+    "repo": "Henry-Case-dev/adminbot",
+    "ref": "files-2.58.200",
+    "commit": "files-2.58.200",
+    "checkout_sha": ""
+   },
+   "selection_reason": "running_unverified",
+   "outcome": "partial",
+   "query": "incident_opened",
+   "path": "services/mca_incidents.py",
+   "line_range": [
+    140,
+    350
+   ],
+   "status": "ok"
+  },
+  "provenance": {
+   "provider": "local_snapshot",
+   "endpoint": "local_snapshot",
+   "repo": "Henry-Case-dev/adminbot",
+   "commit": "files-2.58.200",
+   "operation": "locate",
+   "fetched_at": 1794641669,
+   "bytes": 15767,
+   "sha256": "12b25c11248d7aff7757e62e67d7daa6fbd17c26e6ad18b0c331d1ed8d71c208",
+   "read_level": "selected",
+   "network_calls": 0,
+   "local_source_verification": "unknown",
+   "checkout_sha": null,
+   "dirty": null,
+   "deployed_sha": null,
+   "revision_kind": "files",
+   "source_verification": "running_unverified",
+   "version_verified": false,
+   "root_source": "runtime_identity",
+   "runtime_version": "2.58.200",
+   "outcome": "partial",
+   "progress_id": "srp_a646826d44aa5f78"
+  },
+  "continuation_kind": "content_search",
+  "continuation_remaining": true,
+  "progress_id": "srp_a646826d44aa5f78",
+  "idempotency_key": "sri_cc89e9ada0737fba375ab2f2",
+  "network_calls": 0
+ }
+}
+

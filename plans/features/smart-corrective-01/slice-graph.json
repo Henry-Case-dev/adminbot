@@ -5,6 +5,58 @@
   "source": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
   "source_sha256": "8A0239B3E307F284B5DDC5CC9FAF94725E735DEF03DB384AAAABE6E06952AE71",
   "notes": "Mandatory read-only investigation (S0) and frozen architecture contract (S1) precede every code slice. Watchdog uses the Architect S5a→S5b→S5c→S5d order; W-12 production data is an investigation input (S0-PRODDATA), not an implementation blocker. Writers are serialized where scopes overlap.",
+  "slice_candidate_bindings": {
+    "S1-CONTRACT": {
+      "candidate_commit": "91516d55fb2e436337bf76ec23b99d5f27f175da",
+      "base_commit": "13884daa32e5cf2a1c05c5c43188ca299f8179f8",
+      "branch": "sc/corrective-s1s2",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s1s2/implementation.md",
+      "implementation_sha256": "3457121a360587c5c2b3c1eddcf99e6cda74c378f2cc3d5aafaf9d3a93a5415e",
+      "review_path": "plans/features/smart-corrective-01/evidence/s1s2/review-r1.md",
+      "review_sha256": "ff255a009e6cda7027b9f92eca95df2f03eb6476daaebd7ab16b96ca5bce48c3",
+      "status": "REVIEW"
+    },
+    "S2-SOURCEREADER": {
+      "candidate_commit": "91516d55fb2e436337bf76ec23b99d5f27f175da",
+      "base_commit": "13884daa32e5cf2a1c05c5c43188ca299f8179f8",
+      "branch": "sc/corrective-s1s2",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s1s2/implementation.md",
+      "implementation_sha256": "3457121a360587c5c2b3c1eddcf99e6cda74c378f2cc3d5aafaf9d3a93a5415e",
+      "review_path": "plans/features/smart-corrective-01/evidence/s1s2/review-r1.md",
+      "review_sha256": "ff255a009e6cda7027b9f92eca95df2f03eb6476daaebd7ab16b96ca5bce48c3",
+      "status": "REVIEW"
+    },
+    "S3-BUDGET": {
+      "candidate_commit": "163b8ddd567ec60ea8cb3274a37b10e9297bddd7",
+      "base_commit": "13884daa32e5cf2a1c05c5c43188ca299f8179f8",
+      "branch": "sc/corrective-s3",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s3/implementation.md",
+      "implementation_sha256": "564e103b0a7b654022e992a260ab62624a5c0bbc5198d118d32867ea4d998eb9",
+      "review_path": "plans/features/smart-corrective-01/evidence/s3/review-r1.md",
+      "review_sha256": "2be25415e80793515df3e9ee8eded485f274f700c78a2e59ba2c25bf6117987b",
+      "status": "REVIEW"
+    },
+    "S5A-LIFECYCLE": {
+      "candidate_commit": "3ff04f3f6c4476851174e67f1e163db7504a1c9",
+      "base_commit": "13884daa32e5cf2a1c05c5c43188ca299f8179f8",
+      "branch": "sc/corrective-s5a",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s5a/implementation.md",
+      "implementation_sha256": "af78fef075552ddf2127830bc46cd9a7973bfc745680f058dd368ce776ed91e4",
+      "review_path": "plans/features/smart-corrective-01/evidence/s5a/review-r1.md",
+      "review_sha256": "cb7596a128a52da7dce75f9883ad2f2f0a9f13d07694d0b6c55127d53f752361",
+      "status": "REVIEW"
+    },
+    "S5B-RECOVERY": {
+      "candidate_commit": "a515d09da61aef603fb6b92aa3c7b8341fbe421b",
+      "base_commit": "13884daa32e5cf2a1c05c5c43188ca299f8179f8",
+      "branch": "sc/corrective-s5b",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s5b/implementation.md",
+      "implementation_sha256": "90ee337e570248c65f9cd0054e8f041e8e2f793dda19e43b940940ac1b8e670b",
+      "review_path": "plans/features/smart-corrective-01/evidence/s5b/review-r1.md",
+      "review_sha256": "99311a8547d06dd30c4ecffc249ad4e5ab66a7568e6aa294c8412ad6ad2b1ab5",
+      "status": "REVIEW"
+    }
+  },
   "slices": [
     {
       "id": "S0-INVESTIGATE",
