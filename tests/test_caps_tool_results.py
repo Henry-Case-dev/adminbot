@@ -260,8 +260,9 @@ class _FakeAliases:
 class _FakeMemoryDb:
     """Двойник хранилища (SQLite-эквивалент строк), не подмена инструмента."""
 
-    def __init__(self, facts) -> None:
+    def __init__(self, facts, recent=None) -> None:
         self.facts = list(facts)
+        self.recent = list(recent or ())
 
     async def get_user_context_facts(self, chat_id, target_user, limit, now_ts,
                                      user_id=None):
@@ -274,7 +275,7 @@ class _FakeMemoryDb:
         return None
 
     async def get_recent_messages(self, chat_id, limit):
-        return []
+        return self.recent[:limit]
 
     async def search_messages_fts(self, chat_id, match, limit):
         return []
@@ -354,6 +355,58 @@ async def test_user_context_general_messages_are_full() -> None:
     assert len(payload["facts"]) == 10          # было бы ≤5
     assert all(len(f["text"]) >= 502 for f in payload["facts"])
     assert payload["facts"][0]["text"] == ("M" * 500) + "-1"
+
+
+def _recent_row(mid: int, text: str, uid: int = 5) -> dict:
+    return {"id": mid, "text": text, "tg_message_id": 10_000 + mid,
+            "chat_id": -100, "timestamp": 1700000000 + mid,
+            "user_id": uid, "author_name": "Лёха"}
+
+
+@pytest.mark.asyncio
+async def test_user_context_message_fragment_over_400_not_sliced() -> None:
+    """Кандидат единого retrieval несёт ПОЛНЫЙ фрагмент (срез 400 удалён)."""
+    full = "ПЕРВЫЙ-ФРАГМЕНТ " + ("A" * 900) + " КОНЕЦ-ПЕРВОГО"
+    assert len(full) > 400
+    router = _RecordingRouter(ToolDeps(
+        search=MagicMockSearch(), memory=_MemoryRows([]),
+        aliases=_FakeAliases({"5": "Лёха"}),
+        db=_FakeMemoryDb([], recent=[_recent_row(1, full)])))
+    raw = await router.dispatch(
+        "get_user_context",
+        {"person": "Лёха", "purpose": "speech_style", "max_items": 5},
+        ToolContext(-100, "речь", user_id=5))
+    payload = json.loads(raw)
+    texts = [f["text"] for f in payload["facts"]]
+    assert full in texts                      # было бы 400 символов
+    assert len(texts[0]) == len(full)
+    assert "КОНЕЦ-ПЕРВОГО" in raw
+
+
+@pytest.mark.asyncio
+async def test_user_context_many_long_fragments_all_intact() -> None:
+    """Длинный многофрагментный срез: ни один фрагмент не усечён."""
+    fragments = ["".join(f"часть{i}-{j}:" + ("B" * 90) for j in range(1, 5))
+                 + f" ХВОСТ-{i}" for i in range(1, 4)]
+    assert all(len(fragment) > 400 for fragment in fragments)
+    recent = [_recent_row(i, fragment) for i, fragment in
+              enumerate(fragments, start=1)]
+    router = _RecordingRouter(ToolDeps(
+        search=MagicMockSearch(), memory=_MemoryRows([]),
+        aliases=_FakeAliases({"5": "Лёха"}),
+        db=_FakeMemoryDb([], recent=recent)))
+    raw = await router.dispatch(
+        "get_user_context",
+        {"person": "Лёха", "purpose": "speech_style", "max_items": 5},
+        ToolContext(-100, "речь", user_id=5))
+    payload = json.loads(raw)
+    texts = [f["text"] for f in payload["facts"]]
+    assert len(texts) == len(fragments)
+    for fragment in fragments:
+        assert fragment in texts
+    assert len(raw) > 3 * 400
+    for i in range(1, 4):
+        assert f"ХВОСТ-{i}" in raw
 
 
 def test_stats_payload_no_budget_returns_complete_contract() -> None:

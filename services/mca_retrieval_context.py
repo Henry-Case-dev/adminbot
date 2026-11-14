@@ -428,6 +428,10 @@ _CHANNEL_WEIGHTS = {
 }
 _CHANNEL_ORDER = ("exact", "subject", "entity", "lexical", "recent", "vector",
                   "reply_graph", "community", "episode")
+#: SXR-C2 (финальный срез): это ТОЛЬКО граница UI-сниппета поиска памяти
+#: (`memory_contracts.preview_max_chars()`/`memory_search`), а не кап данных
+#: retrieval. Кандидат несёт полный фрагмент источника: срез 400 удалён,
+#: иначе `get_user_context` отдавал бы памяти усечённый текст без пометки.
 _PREVIEW_MAX_CHARS = 400
 #: §7.5: во сколько раз срез `get_recent_messages` шире запрошенного top_k
 #: (bounded: окно чтения конечно и не зависит от корпуса).
@@ -1314,11 +1318,6 @@ def tokenize_query(query: str) -> list[str]:
     return _tokenize(query)
 
 
-def _truncate_preview(text, limit: int = _PREVIEW_MAX_CHARS) -> str:
-    value = str(text or "")
-    return value if len(value) <= limit else value[:limit]
-
-
 def _row_get(row, key, default=None):
     try:
         if isinstance(row, dict):
@@ -2042,7 +2041,7 @@ def _message_candidate(row, channel: str, position: int, resolve_item_id):
         author_id=_row_get(row, "user_id"),
         score=_channel_rank(channel, position), channel=channel,
         revision=(f"tg:{tg_id}" if tg_id is not None else None),
-        preview=_truncate_preview(_row_get(row, "text")),
+        preview=str(_row_get(row, "text") or ""),
         # C5 (D7): speaker сообщения = author; subject-поле честно пусто
         # (subject сообщения — уровень ClaimEnvelope, не re-ranking).
         speaker_entity_id=_row_get(row, "user_id"),
@@ -2075,7 +2074,7 @@ def _fact_candidate(row, channel: str, position: int, resolve_item_id):
         # §7.5 (фикс потери фактов): дедуп по строке факта, а не по `tg:`-
         # представлению источника — иначе 4 факта одного сообщения → 1.
         dedup_id=(f"fact:{fact_id}" if fact_id not in (None, "") else None),
-        preview=_truncate_preview(_row_get(row, "fact")),
+        preview=str(_row_get(row, "fact") or ""),
         # C5 (D7): subject/speaker/provenance — из v17-колонок (§10):
         # факт без subject_ref_id = legacy/unverified → weak hint.
         subject_entity_id=subject_id,
@@ -2204,7 +2203,7 @@ def _fact_meta_candidate(row, position: int, resolve_item_id):
         # канальных конструкторов, — повтор ТОГО ЖЕ факта из другого канала
         # склеивается, разные факты одного сообщения — нет.
         dedup_id=(f"fact:{fact_id}" if fact_id not in (None, "") else None),
-        preview=_truncate_preview(row.get("fact")),
+        preview=str(row.get("fact") or ""),
         subject_entity_id=subject_id,
         speaker_entity_id=row.get("speaker_author_id"),
         assertion_kind=row.get("assertion_kind"),
@@ -2223,7 +2222,7 @@ def _chain_candidate(item, position: int):
         sent_at=int(getattr(item, "ts", 0) or 0),
         author_id=getattr(item, "uid", None),
         score=_channel_rank("reply_graph", position), channel="reply_graph",
-        preview=_truncate_preview(getattr(item, "text", "")))
+        preview=str(getattr(item, "text", "") or ""))
 
 
 # ── MEMORY-06 (§4.4): entity/community каналы — bounded чтение по ID/членству,
@@ -2261,7 +2260,7 @@ def _entity_candidate(row, chat_id: int, position: int) -> RetrievalCandidate:
         id=f"ent:{chat_id}:{node_id}",
         entity_type="entity", entity_id=str(node_id), chat_id=chat_id,
         score=_channel_rank("entity", position), channel="entity",
-        preview=_truncate_preview(_row_get(row, "entity_name")),
+        preview=str(_row_get(row, "entity_name") or ""),
         subject_node_id=(node_id or None),
         provenance_backed=True)
 
@@ -2426,7 +2425,7 @@ def _community_candidate(row, chat_id: int, position: int,
         entity_type="community", entity_id=str(community_id),
         chat_id=chat_id, score=_channel_rank("community", position),
         channel="community",
-        preview=_truncate_preview(_row_get(row, "entity_name")),
+        preview=str(_row_get(row, "entity_name") or ""),
         provenance_backed=meta.status == proven_value,
         community=meta)
 
@@ -2486,7 +2485,7 @@ async def _episode_candidates(db, request: RetrievalRequest,
             sent_at=int(_row_get(row, "last_ts") or 0),
             score=_channel_rank("episode", position) + overlap,
             channel="episode",
-            preview=_truncate_preview(_row_get(row, "topic"))))
+            preview=str(_row_get(row, "topic") or "")))
     return out
 
 
