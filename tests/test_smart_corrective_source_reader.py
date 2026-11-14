@@ -474,6 +474,35 @@ class TestFallback:
         assert second["outcome"] in (sr.OUTCOME_OK, sr.OUTCOME_PARTIAL)
 
     @pytest.mark.asyncio
+    async def test_truncated_local_tree_search_falls_back_to_exact_commit(
+            self, tmp_path):
+        remote = _StubRemote({
+            "services/remote_only.py": "TARGET = 'ledger.reconcile.marker'\n"})
+        identity = _identity(code="local_unverified", checkout=OTHER_SHA,
+                             deployed=SHA, dirty=None)
+        tree = _tree(tmp_path, {"services/aaa_module_0.py": "VALUE = 0\n"})
+
+        class _TruncatedLocal(sr.LocalSnapshotProvider):
+            async def list_tree(self, repo, commit):
+                listing = await super().list_tree(repo, commit)
+                if listing is not None:
+                    listing.truncated = True
+                return listing
+
+        record = _resolve(tree, identity)
+        provider = _TruncatedLocal(
+            tree, repo_origin=REPO,
+            identity_reader=lambda _root: identity, source=record)
+        reader = sr.SourceReader(provider=remote, local_provider=provider,
+                                 repo_origin=REPO)
+        payload = await reader.run(
+            operation=sr.OPERATION_LOCATE, repo=REPO,
+            query="ledger.reconcile.marker", follow=False)
+        assert payload["status"] == sr.STATUS_OK, payload
+        assert payload["provider"] == sr.PROVIDER_GITHUB
+        assert payload["source_selection"]["fallback"]
+
+    @pytest.mark.asyncio
     async def test_permission_denied_is_not_bypassed_by_remote(
             self, tmp_path):
         remote = _StubRemote({".env": "SECRET=1\n"})
