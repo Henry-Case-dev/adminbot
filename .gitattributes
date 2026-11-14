@@ -1,0 +1,2 @@
+# CRLF tolerated for existing blobs; real trailing spaces still flagged.
+* whitespace=cr-at-eol
