@@ -208,3 +208,110 @@ unchanged, не регрессия guard-дополнения. Новых пад
 - Вершина ветки: коммит с этой записью (`docs(release): 2.58.202 guard
   addendum`), он же push-вершина `release/smart-corrective-01`; SHA в handoff.
 - Worktree сохранён для DevOps, пробные прогоны закрыты.
+
+---
+
+# 2.58.203 — label + anchor addendum
+
+Дополнение поезда на базе `0beed63d` (2.58.202, развёрнут). Два среза прошли
+независимое ревью как `Approved` на своих ветках и слиты в тренировочную ветку
+без правок кода.
+
+## 1. Ветки и merge-коммиты
+
+| Срез | Ветка (head) | Код | Merge-коммит |
+|---|---|---|---|
+| S6-ACTIVATION (метка заводской ревизии чекапа) | `sc/corrective-checkup-label` = `fd2b4bb0` | `1a945ec5` | `9b101624` |
+| SFC-12-09 residual (предметный анкер в запросах частей) | `sc/fc-anchor` = `4852c67c` | `b0f6ec79` | `8012ce87` |
+
+Оба merge чисты (`ort`), конфликтов нет. База обоих — `0beed63d`.
+
+## 2. Состав поезда
+
+`git diff --stat 0beed63d..1bdd8507` — **44 файла**, из них рантайм ровно 5:
+
+- `services/prompt_registry.py`, `services/checkup_prompts.py` — S6-ACTIVATION
+  (метка `checkup-p0-24-10-mixed-state`, печать `3140bb364044` сохранена,
+  текст промпта не менялся);
+- `services/factcheck_planner.py`, `services/factcheck_orchestrator.py` —
+  SFC-12-09 residual (полный материал предмета в план + `_material_anchor_terms`
+  / `_with_material_anchor`, `_needs_material_anchor`);
+- `config/settings.py` — только `APP_VERSION` (bump).
+
+Остальное: `plans/docs/param-registry-round1025.meta.md` (bump), 5 файлов
+evidence `plans/features/**`, 33 файла тестов (4 JS-пина, 2 зеркала
+`test_factcheck_subject_contract.py` / `test_s17_subject_acceptance.py`,
+`test_p0_prompts_core.py`, 2 `test_smart_corrective_*`, 24 py-пина версии).
+Других рантайм-файлов в diff нет.
+
+## 3. Bump 2.58.202 → 2.58.203
+
+Коммит `1bdd8507` — `chore(release): 2.58.203`, ровно **30 файлов / 31 строка**
+(тот же набор, что в прошлых bump'ах): `APP_VERSION` + цепочка `Prior 2.58.202`,
+F8-meta, 24 py-пина, 4 JS-регэкспа `2\.58\.203` (`test_webapp_round1026_polygon.py`
+— 2 строки). Заводской текст и печать промптов, owner-значения и фабричные
+настройки не менялись.
+
+## 4. Тесты (main venv, cwd = тренировочный worktree, `1bdd8507`)
+
+| Набор | Результат |
+|---|---|
+| Guard/метка (18 файлов: activation + prompt_delivery + prompt-версии/аудит) | **328 passed, 2 skipped** |
+| Проверка/совместимость промптов (13 файлов) | **331 passed** |
+| Реестр чата/чтение (14 файлов) | **264 passed / 1 failed** (`test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface`) |
+| Активация/история (14 файлов) | **274 passed, 2 skipped / 1 failed** (тот же `test_prompt_field_audit`) |
+| SOUL-1 (6 файлов) | **72 passed** |
+| Зеркала анкера (2 файла) | **112 passed** |
+| planner + orchestrator + acceptance + subject contract | **161 passed** |
+| все `tests/test_*factcheck*.py` + `tests/factcheck_acceptance` | **718 passed** |
+| Sanity: сторож S5A–S5D + `recovery_scope` + S1–S4 | **146 passed** |
+| Pin-guard (24 py-файла) | **856 passed / 4 failed** — ровно известные 4 |
+| JS pin-регэкспы (node, 4 файла) | **4 PASS** |
+| FC live-canary harness `--self-test` (v1.4.0, `16fbae81`, вне поезда) | **self_test_passed=true** |
+| `py_compile` изменённых `.py` (7) | exit 0 |
+
+Известные падения воспроизведены на чистой базе `0beed63d` (отдельный
+detached-worktree, `APP_VERSION = 2.58.202`):
+`pytest tests/test_prompt_field_audit.py tests/test_soul1_registry_completeness.py
+tests/test_tool_coordinator_round1026.py tests/test_unified_image_request_round1026.py`
+→ **6 failed, 100 passed** — та же шестёрка, что на поезде. Новых падений нет.
+
+Природа известных: `test_every_editable_prompt_has_reachable_surface`
+(reachable-surface блок `direct.base.synthesizer`) и
+`test_registry_consumer_pointers_point_at_real_lines` (`lore_worker.py`
+line-pointer) — pre-existing с 2.58.201, не связаны с меткой/анкером;
+pin-guard 4 — канон/`forbidden_paths` в `test_tool_coordinator_round1026.py` и
+`test_unified_image_request_round1026.py`, ошибка в самих тестах-пинах.
+
+## 5. Manifest dry-run
+
+`python tools/release_manifest.py --repo-root . --dry-run` на `1bdd8507`:
+
+```json
+{
+  "deployed_at": "2026-11-14T17:54:02.248037Z",
+  "deployed_sha": "1bdd85079cac9f0ba36c279b5dced4d2505b135d",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": null,
+  "previous_version": null,
+  "release_branch": "release/smart-corrective-01",
+  "schema": 1,
+  "version": "2.58.203"
+}
+```
+
+`.deploy/` не создавался (`--dry-run`). Для DevOps: манифест пишется штатно на
+самом выкате; `deployed_sha` должен совпасть с tip'ом ветки, `dirty_tracked`
+должен остаться `false`.
+
+## 6. Границы
+
+- Прод не трогался; deployed остаётся `0beed63d` / 2.58.202.
+- Схема не менялась (v47, DDL=0); каталог 645/121; новых флагов, настроек,
+  промптов, моделей, агентов и планировщиков нет.
+- Постдэплой-подтверждение (строки `[prompt_release] activation`, новый
+  `factory_revision_applied`, `prompt_source`/`prompt_base_hash` реального
+  чекапа, `factory_superseded_manual` для C2, запросы частей с анкером в
+  живом прогоне) — этап DevOps/live, не этот лейн.
+- Worktree оставлен для DevOps; пробные прогоны закрыты.
