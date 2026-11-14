@@ -35,9 +35,13 @@ from services.checkup_prompts import CHECKUP_SYSTEM_PROMPT
 from services.tool_router import ToolContext, ToolDeps, ToolRouter
 
 CHAT_ID = -1001234567890
-#: sha256 заводского `prompts.checkup_system_prompt` до/после D6 (байты).
+#: sha256 активного заводского `prompts.checkup_system_prompt` (байты).
+#: SELF-DIAG-01 D6: b0c70f974e0e… (3 030 chars). SMART-CORRECTIVE-01 §8.5
+#: (S6-PROMPT, 14.11.2026): активный жанр очищен от устаревшего Betterstack и
+#: получил смысловую границу смешанного состояния → 3140bb364044… (3 462
+#: chars); исторические байты — PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT.
 CHECKUP_SYSTEM_PROMPT_SHA256 = (
-    "b0c70f974e0e7a78da3cb3f9c907a85673431de169d0e25c607d954858b4dfdf")
+    "3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052")
 
 
 def _make_msg(text="чекап", message_id=11, user_id=1, chat_id=CHAT_ID):

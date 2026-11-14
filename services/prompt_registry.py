@@ -436,7 +436,15 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "summary.base.l2_writer": ("summary-l2-writer-p0-factual", "3fce4bcd6370"),
     "summary.cover.style": ("cover-style-default", "19d2dd88086e"),
     "search.base.system": ("search-cfg07a", "3897cc7ad8b0"),
-    "checkup.base.system": ("checkup-p0-24-10", "b0c70f974e0e"),
+    # SMART-CORRECTIVE-01 §8.5 (S6-PROMPT, 14.11.2026): активный заводской
+    # жанр очищен от устаревшего Betterstack и получил смысловую границу
+    # смешанного состояния. Печать содержимого обновлена вместе с текстом;
+    # МЕТКА оставлена прежней ОСОЗНАННО: owner §8.1 запрещает в этом
+    # corrective заменять сохранённую ручную редакцию новой заводской, а
+    # смена метки в EVOL-016 активировала бы заводской текст поверх ручного
+    # значения чата и сняла бы override. Прежние байты —
+    # PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT (история не переписана).
+    "checkup.base.system": ("checkup-p0-24-10", "3140bb364044"),
     "youtube.base.system": ("youtube-cfg07a", "f1bd9dcc9662"),
     "youtube.base.video": ("youtube-video-cfg07a", "8c23609d8433"),
     "web.base.system": ("web-cfg07a", "89a522e5ffa5"),
@@ -2982,7 +2990,12 @@ def factory_set_fingerprint() -> str:
 #: добавлен заводской канон служебной стадии предмета фактчека
 #: ``factcheck.subject`` (S13, печать ``7df7e8752798``); прочие каноны
 #: байт-в-байт. Было ``5c9b8200b681``, стало ``330952838067``.
-FACTORY_SET_SHA256_12 = "330952838067"
+#: SMART-CORRECTIVE-01 §8.5 (S6-PROMPT, 14.11.2026): changed = 1 — активный
+#: заводской жанр ``checkup.base.system`` очищен от устаревшего Betterstack и
+#: получил смысловую границу смешанного состояния (печать ``3140bb364044``);
+#: прочие каноны, включая все PREV_CHECKUP_* и тексты владельца, байт-в-байт.
+#: Было ``330952838067``, стало ``2cd38b272139``.
+FACTORY_SET_SHA256_12 = "2cd38b272139"
 
 
 

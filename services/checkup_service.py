@@ -23,6 +23,19 @@ SELF-DIAG-01 D6 (`SD1-D6-05`, B1): сервис не меняет промпт �
 (source/version/hash) в per-run словарь ``telemetry`` вызывающего; хендлер
 кладёт её в существующий mca-событийный контур. Общего mutable-атрибута
 телеметрии нет: конкурентные чекапы разных чатов не смешиваются.
+
+SMART-CORRECTIVE-01 §8.2/§8.4 (S6-PROMPT, 14.11.2026): база чекапа
+резолвится существующим реестром по порядку chat override → global →
+factory (``prompt_registry.resolve_chat_speech_ex``) для пользовательской
+команды; без ``chat_id`` — прежний global-резолв. Сохранённая владельцем
+per-chat редакция теперь реально доходит до маршрута своего чата, а
+сохранённые значения НЕ перезаписываются. Телеметрия получила additive-ключи
+``prompt_layer``/``prompt_base_hash``/``prompt_base_chars``/``prompt_withheld``/
+``prompt_provenance_reason`` (без текста): по ним проверяется фактическая
+доставка и возможное изменение текста реестром. Смысловое различение
+«чистое свежее окно журналов + активный ERROR-инцидент» и операционные
+маршруты продолжения/частичного отчёта живут в wording промпта/addendum,
+второго движка/регулятора мата/квот инструкций здесь нет.
 """
 import hashlib
 import json
@@ -41,8 +54,7 @@ from services.checkup_prompts import (
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.memory_health import collect_metrics
 from services.prompt_composer import speech_owner_block
-from services.prompt_style_blocks import resolve_prompt, \
-    resolve_prompt_with_source
+from services.prompt_style_blocks import resolve_prompt_with_source
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_xml import escape_xml_text
 from services.token_counter import count_tokens
@@ -92,6 +104,57 @@ _HISTORY_NOTE = (
     "запрос: существующие инструменты дают time_window (события/пробы) и "
     "cursor (продолжение выдачи); сырой текст старше окна в этом запуске "
     "повторно не читается")
+
+#: SMART-CORRECTIVE-01 §8.2 (S6-PROMPT): ключ существующего реестра промптов.
+_CHECKUP_PROMPT_KEY = "prompts.checkup_system_prompt"
+
+
+async def _resolve_checkup_base_prompt(chat_id: int | None) -> tuple:
+    """Базовый жанровый промпт чекапа: chat override → global → factory.
+
+    До S6 резолвился ТОЛЬКО global-слой (`prompt_style_blocks.resolve_prompt*`),
+    поэтому сохранённая владельцем per-chat редакция `prompts.checkup_system_prompt`
+    не применялась на маршруте чекапа (production run A: prompt_source=global).
+    Теперь при наличии ``chat_id`` (пользовательская команда) используется
+    СУЩЕСТВУЮЩИЙ резолвер реестра ``prompt_registry.resolve_chat_speech_ex`` —
+    тот же порядок chat → global → default, что у Direct-канала, включая
+    провенанс/удержание реестра. Без ``chat_id`` (внутренний tool-loop
+    ``get_bot_health``) сохраняется прежний global-резолв: per-chat слой там
+    не читается и поведение не меняется.
+
+    Возвращает ``(effective_text, source, meta)``; ``meta`` — только машинные
+    коды/флаги (без текста промпта): ``prompt_layer`` — фактический слой
+    (``chat|global|default``), ``prompt_withheld`` — значение из PG не стало
+    эффективным слоем (действует заводская редакция), ``prompt_provenance_reason``
+    — код причины. Сам сохранённый текст НЕ пишется и НЕ нормализуется сервисом.
+    """
+    if chat_id is None:
+        effective, source = resolve_prompt_with_source(
+            _CHECKUP_PROMPT_KEY, CHECKUP_SYSTEM_PROMPT)
+        return effective, source, {
+            "prompt_layer": source,
+            "prompt_withheld": False,
+            "prompt_provenance_reason": "",
+        }
+    try:
+        from services import prompt_registry as registry
+        resolved = await registry.resolve_chat_speech_ex(
+            _CHECKUP_PROMPT_KEY, CHECKUP_SYSTEM_PROMPT, chat_id=int(chat_id))
+    except Exception:      # pragma: no cover - резолвер не бросает
+        logger.warning("[checkup] chat prompt resolver failed — global layer "
+                       "| chat=%s", chat_id, exc_info=True)
+        effective, source = resolve_prompt_with_source(
+            _CHECKUP_PROMPT_KEY, CHECKUP_SYSTEM_PROMPT)
+        return effective, source, {
+            "prompt_layer": source,
+            "prompt_withheld": False,
+            "prompt_provenance_reason": "",
+        }
+    return resolved.text, resolved.source, {
+        "prompt_layer": resolved.source,
+        "prompt_withheld": bool(resolved.withheld),
+        "prompt_provenance_reason": str(resolved.provenance_reason or ""),
+    }
 
 
 @dataclass(frozen=True)
@@ -527,16 +590,12 @@ class CheckupService:
         частичный с конкретной причиной. Здоровый чекап без инструментальных
         попыток остаётся одним вызовом модели."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
-        # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
-        system_prompt = resolve_prompt("prompts.checkup_system_prompt",
-                                       CHECKUP_SYSTEM_PROMPT)
-        # SELF-DIAG-01 D6 B1: source — существующий резолвер с провенансом
-        # (`global` только при реальном PG-значении; кодовый канон — `default`).
-        try:
-            _effective, prompt_source = resolve_prompt_with_source(
-                "prompts.checkup_system_prompt", CHECKUP_SYSTEM_PROMPT)
-        except Exception:      # pragma: no cover - резолвер не бросает
-            prompt_source = "default"
+        # SMART-CORRECTIVE-01 §8.2 (S6-PROMPT): база — chat override → global
+        # → factory существующим резолвером реестра; без chat_id — прежний
+        # global-резолв (`prompt_source` = global/default).
+        system_prompt, prompt_source, prompt_meta = \
+            await _resolve_checkup_base_prompt(chat_id)
+        prompt_base_text = str(system_prompt or "")
         max_symbols = hot.get("limits.checkup_max_symbols",
                               settings.CHECKUP_MAX_SYMBOLS)
         max_input = hot.get("limits.checkup_max_input_symbols",
@@ -610,7 +669,11 @@ class CheckupService:
         user = f"<system_logs>{escape_xml_text(body)}</system_logs>"
         # SELF-DIAG-01 D6 B1: телеметрия ФИНАЛЬНОГО system — сразу перед
         # вызовом LLM (после {max_symbols}/owner-block/fallback-notice).
-        prompt_telemetry = self._prompt_telemetry(system, prompt_source)
+        # S6 (§8.2): additive-ключи базы (слой/hash/chars/удержание) — без
+        # текста промпта, только машинные значения.
+        prompt_telemetry = self._prompt_telemetry(
+            system, prompt_source, base_text=prompt_base_text,
+            meta=prompt_meta)
         if telemetry is not None:
             telemetry.update(prompt_telemetry)
         started = time.monotonic()
@@ -729,19 +792,39 @@ class CheckupService:
         return raw
 
     @staticmethod
-    def _prompt_telemetry(system: str, source: str) -> dict:
+    def _prompt_telemetry(system: str, source: str, *,
+                          base_text: str = "", meta: dict | None = None) -> dict:
         """SELF-DIAG-01 D6 B1 (`SD1-D6-05`): source/version/hash ФИНАЛЬНОГО
         system-сообщения — БЕЗ текста. Hash считается по ровно тем байтам,
         которые уходят в LLM (включая `{max_symbols}`, owner-block и
-        fallback-notice), поэтому сверка «до/после релиза» опирается на факт."""
+        fallback-notice), поэтому сверка «до/после релиза» опирается на факт.
+
+        SMART-CORRECTIVE-01 §8.2 (S6-PROMPT): прежние ключи сохранены
+        (`prompt_source/prompt_hash/prompt_version_used/prompt_chars`), добавлены
+        additive-ключи фактического слоя и базы ДО сборки:
+        ``prompt_layer`` (``chat|global|default``), ``prompt_base_hash`` и
+        ``prompt_base_chars`` (резолвнутая сохранённая редакция до подстановки
+        `{max_symbols}`/owner-block/addendum — по ним проверяется, что ушла
+        именно сохранённая редакция), ``prompt_withheld`` и
+        ``prompt_provenance_reason`` (код причины, без текста).
+        """
         text = str(system or "")
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         source = str(source or "default")
+        base = str(base_text or "")
+        base_digest = hashlib.sha256(base.encode("utf-8")).hexdigest()
+        meta = meta or {}
         return {
             "prompt_source": source,
             "prompt_hash": digest[:16],
             "prompt_version_used": f"{source}:{digest[:12]}",
             "prompt_chars": len(text),
+            "prompt_layer": str(meta.get("prompt_layer") or source),
+            "prompt_base_hash": base_digest[:16],
+            "prompt_base_chars": len(base),
+            "prompt_withheld": bool(meta.get("prompt_withheld")),
+            "prompt_provenance_reason": str(
+                meta.get("prompt_provenance_reason") or ""),
         }
 
     @staticmethod
