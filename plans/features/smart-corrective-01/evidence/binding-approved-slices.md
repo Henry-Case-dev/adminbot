@@ -216,3 +216,41 @@ Reviewer отдельно отметил, что исходная формули
 С привязкой S5D все четыре code-среза watchdog-цепочки — **S5A-LIFECYCLE, S5B-RECOVERY, S5C-EVENTS, S5D-OBSERVABILITY — связаны со своими кандидатами на уровне REVIEW**. Join-узел `S5-WATCHDOG` не пишет код; его закрытие/комбинированное ревью и release остаются S8-REVIEW-RELEASE. Ни одна S5-строка не VERIFIED; production-подтверждение — только после деплоя и реальных наблюдений.
 
 `candidate_commit`/`deployed_commit` карты остаются пустыми; S5D — predeploy binding, не production-подтверждение.
+
+## 10. S3B-INPUT (добавлено 2026-11-14, unit `pm-s3b-bind`)
+
+| Поле | Значение |
+|---|---|
+| Код-кандидат / review candidate | `1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977` (ветка HEAD evidence `b04dd8f7`) |
+| База | `7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa` |
+| Ветка / worktree | `sc/corrective-s3b`; `…smart-corrective-01-0097aecc4a7a-21b619c2` |
+| Implementation | `evidence/s3b/implementation.md` `04964a005723e058287471d53bc3badd4d603bf175e53b4cbba89f1915855a00` |
+| Review | `evidence/s3b/review-r1.md` `53679a7c1c6b677bc5ed2ca89e3e40dacf0a3b9b0ac2e2e2e1cf7b1813262a49` |
+| Retention | `evidence/s3b/cleanup-retention.json` `166c3be5b8b9fc379a7e26be942df7861bde3c5cc966ccf346705183e0a1bbc4` |
+
+Артефакты скопированы байт-в-байт из candidate worktree; sha256 источника = sha256 назначения.
+
+### Строки S3B
+
+| Показатель | Значение |
+|---|---:|
+| Required-строк S3B-INPUT | 25 (`SC-INP-*`) |
+| Привязано к кандидату `1bbe767d` (implementation + review) | 25 |
+| `REVIEW` | 25 |
+| `VERIFIED` | 0 |
+| Осталось `PENDING` в S3B | 0 |
+
+### Review-вердикт и гейт
+
+Reviewer: implementation/tests adequate (20/385/650/338/233-9), collector call-site expansion принят как часть S3B, mutation probes не выполнены процедурно (tar/PowerShell), поведенческого дефекта не найдено. **Формальный verdict в артефакте — `Needs Fixes`**, и он обусловлен только candidate-worktree lineage gate (483 ошибки: в worktree отсутствуют master-only owner input/plan docs).
+
+На master owner input `plans/owner_inputs/2026-11-14-smart-corrective-01.md` (sha `8a0239b3…`) и plan docs присутствуют; source-lineage ошибок больше нет. Однако review-гейт по exact candidate возвращает **25 ошибок `missing candidate-bound independent Reviewer approval`**, потому что `Needs Fixes` не входит в допустимые approval-вердикты. Approve не подменялся: записан ровно тот verdict, который есть в артефакте.
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| review | `--stage review --slice S3B-INPUT --candidate 1bbe767d --repo C:\Code\Python\adminbot` | 1 | `errors=25` (`missing candidate-bound independent Reviewer approval`; scoped=25) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+
+Выводы: `evidence/gates/review-S3B-INPUT.txt`, `evidence/gates/plan-after-S3B.txt`.
+
+**Следующее действие:** Reviewer должен переиздать review-артефакт с итоговым `Approved` после подтверждения, что master lineage gate проходит (или явным addendum с approval), после чего PM повторно привяжет review-evidence и review-гейт станет `errors=0`. S3B-строки остаются `REVIEW`, не `VERIFIED`; `candidate_commit`/`deployed_commit` карты пусты.
