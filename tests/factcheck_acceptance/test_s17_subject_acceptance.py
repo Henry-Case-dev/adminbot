@@ -17,6 +17,9 @@ TEST-LIFECYCLE: CONTRACT owner=FACTCHECK-REQUEST-INTEGRITY-v2 §3.3/§4.1-4.5
 * G — просьба о форме не меняет предмет и не добавляет исследований;
 * `_claim_units` не отбрасывает корректный предмет и не теряет остаток
   предмета (условие/вопрос пользователя);
+* SFC-12-09 — вопрос, склеенный с пересказом материала в одно предложение,
+  всё равно получает собственную единицу и поисковый запрос, а обычный
+  фактчек, D и E/F запросы не меняют;
 * cache identity различает предметы и переиспользует подходящий срез;
 * полный текст уточнения не обрезается на durable media-пути.
 
@@ -58,6 +61,7 @@ MIXED_SUBJECT = ("Древняя традиция женского обреза�
 REQUEST_ONLY = ("Есть ли страны, где традиция сохраняется без влияния "
                 "Франции, Великобритании, Германии и США?")
 CONDITION = "Проверить только период 1990–2000 годов"
+MATERIAL_ONE = "Древняя традиция женского обрезания существует тысячи лет."
 
 
 # ── Двойники: LLM/DB/сервис (без сети, без прод-чатов) ───────────────────────
@@ -404,6 +408,97 @@ class TestScenarioGForm:
         assert env.claim_text == MATERIAL
 
 
+# ── SFC-12-09: вопрос, склеенный с пересказом, обязан попасть в поиск ───────
+
+#: Реальный ответ semantic-стадии: пересказ материала БЕЗ терминатора, к
+#: которому вызывающий приклеивает вопрос одним пробелом (567 символов в
+#: production-прогоне 2.58.200, SFC-12-09).
+RETELLING_GLUED = ("Подтверждение тезиса о том, что традиция древняя, "
+                   "она распространена в ряде стран")
+
+
+class TestGluedRequestIntegrity:
+    """SFC-12-09: `_subject_from_decision` склеивает материал/пересказ и
+    `request_part` одиночным пробелом, без границы предложения. Структурно
+    известный вопрос пользователя не должен из-за этого исчезать из плана."""
+
+    def _subject(self):
+        return f"{MATERIAL} {RETELLING_GLUED} {REQUEST_ONLY}"
+
+    def test_question_glued_to_retelling_reaches_plan(self, planner_on):
+        plan = fsp.build_retrieval_plan(
+            _decision([(MATERIAL, "literal")], scope="web"),
+            claim_text=self._subject(), subject_origin="mixed",
+            subject_anchor_tg_message_id=TRIGGER_TG, subject_author="Аня",
+            subject_request_text=REQUEST_ONLY,
+            subject_material_text=MATERIAL)
+        assert plan is not None
+        request_rows = [row for row in plan.claim_anchors
+                        if row.get("origin") == "user_request"
+                        and row.get("anchor_tg_message_id") == TRIGGER_TG]
+        assert request_rows
+        request_ids = {row["claim_id"] for row in request_rows}
+        request_queries = [q for q in plan.queries
+                           if q.claim_id in request_ids]
+        assert request_queries, plan.queries
+        joined = " ".join(q.text.lower() for q in request_queries)
+        # запрос построен из вопроса, а не только из материального пересказа
+        assert "страны" in joined and "франц" in joined
+        # вопрос — отдельная часть плана, материальные части не потеряны
+        assert len(plan.claims) == 3
+        assert len(plan.queries) == 3
+
+    def test_ordinary_factcheck_queries_unchanged(self, planner_on):
+        """Обычный «фактчек» без пользовательского текста: запросы остаются
+        прежними (значения зафиксированы на развёрнутой 2.58.200 линии)."""
+        plan = fsp.build_retrieval_plan(
+            _decision([(MATERIAL, "literal")], scope="web"),
+            claim_text=MATERIAL, subject_origin="material",
+            subject_material_text=MATERIAL)
+        assert plan is not None
+        assert [q.text for q in plan.queries] == [
+            "древняя традиция женского обрезания существует тысячи лет 2016",
+            "распространение влияли франция великобритания германия сша "
+            "германия и сша.",
+            "отчёту 2016 года 87 случаев приходились региона 87% 2016",
+        ]
+
+    @pytest.mark.parametrize(
+        "claim_text, request_part, origin",
+        [
+            # D: условие уже отдельное предложение предмета
+            (MATERIAL_ONE + " " + CONDITION, CONDITION, "mixed"),
+            # E: предмет — самостоятельный вопрос
+            (REQUEST_ONLY, REQUEST_ONLY, "request"),
+            # F: дополнительный факт уже отдельное предложение предмета
+            (MATERIAL_ONE + " Влияла ли Турция.", "Влияла ли Турция.",
+             "mixed"),
+        ],
+        ids=["D-condition", "E-request", "F-expansion"])
+    def test_request_part_already_in_subject_adds_nothing(
+            self, planner_on, claim_text, request_part, origin):
+        """Если часть запроса уже стала предложением предмета (D/E/F),
+        структурная гарантия не создаёт дубль единицы и не меняет запросы."""
+        items = [(MATERIAL_ONE, "literal")] if claim_text != REQUEST_ONLY \
+            else [(MATERIAL, "literal")]
+        with_request = fsp.build_retrieval_plan(
+            _decision(items, scope="web"), claim_text=claim_text,
+            subject_origin=origin,
+            subject_anchor_tg_message_id=TRIGGER_TG, subject_author="Аня",
+            subject_request_text=request_part,
+            subject_material_text=MATERIAL_ONE)
+        without_request = fsp.build_retrieval_plan(
+            _decision(items, scope="web"), claim_text=claim_text,
+            subject_origin=origin,
+            subject_anchor_tg_message_id=TRIGGER_TG, subject_author="Аня",
+            subject_material_text=MATERIAL_ONE)
+        assert with_request is not None and without_request is not None
+        assert [q.text for q in with_request.queries] == [
+            q.text for q in without_request.queries]
+        assert [claim.text for claim in with_request.claims] == [
+            claim.text for claim in without_request.claims]
+
+
 # ── Смысл определяет решение, а не слова ────────────────────────────────────
 
 class TestNoLexicalRouting:
@@ -464,6 +559,39 @@ class TestClaimUnits:
         units = fsp._claim_units([item], paraphrase)
         assert units
         assert "страны без западного влияния" in " ".join(units)
+
+    def test_glued_question_without_terminator_gets_own_unit(self):
+        """SFC-12-09: пересказ БЕЗ терминатора + вопрос пользователя.
+
+        Реальный ответ semantic-стадии склеивает части одним пробелом, поэтому
+        вопрос не становится отдельным предложением предмета. Часть запроса
+        структурно известна вызывающему и обязана получить свою единицу."""
+        subject = f"{MATERIAL} {RETELLING_GLUED} {REQUEST_ONLY}"
+        item = fsg.ClaimItem(
+            text=MATERIAL, claim_type=fsg.CHECKABLE_FACTUAL_CLAIM,
+            verifiable=True, source="literal")
+        units = fsp._claim_units([item], subject, request_text=REQUEST_ONLY)
+        normalized = [" ".join(unit.lower().split()) for unit in units]
+        assert " ".join(REQUEST_ONLY.lower().split()) in normalized
+        # материальные части не потеряны
+        assert any("тысячи лет" in unit for unit in units)
+
+    def test_question_already_a_sentence_is_not_duplicated(self):
+        """Вопрос, уже ставший отдельным предложением предмета, не
+        дублируется структурной гарантией (в т.ч. без завершающей точки)."""
+        item = fsg.ClaimItem(
+            text=MATERIAL, claim_type=fsg.CHECKABLE_FACTUAL_CLAIM,
+            verifiable=True, source="literal")
+        for subject, request_part in (
+                (f"{MATERIAL} {REQUEST_ONLY}", REQUEST_ONLY),
+                (f"{MATERIAL} {REQUEST_ONLY}",
+                 REQUEST_ONLY.rstrip("?"))):
+            units = fsp._claim_units([item], subject,
+                                     request_text=request_part)
+            keys = [" ".join(unit.lower().split()).rstrip(".!?;…")
+                    for unit in units]
+            assert keys.count(
+                " ".join(REQUEST_ONLY.lower().split()).rstrip(".!?;…")) == 1
 
     def test_material_phrase_shared_with_request_is_not_anchored_to_user(self):
         """§4.4: фраза материала, совпавшая со словами запроса, не становится
