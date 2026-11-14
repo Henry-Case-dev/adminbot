@@ -1,0 +1,102 @@
+{
+  "probe": "effective-config-readonly",
+  "repo": "/var/www/admin_bot",
+  "repo_head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+  "dotenv_loaded": true,
+  "settings_default_factcheck_pipeline_v2": false,
+  "env_value_present": false,
+  "env_value": null,
+  "dsn_present": true,
+  "pg_connected": true,
+  "flags": [
+    {
+      "key": "flags.factcheck_enabled",
+      "value": true,
+      "type": "bool",
+      "updated_at": "2026-09-10 17:17:07.780186+00:00"
+    },
+    {
+      "key": "flags.budgets_enabled",
+      "value": false,
+      "type": "bool",
+      "updated_at": "2026-10-25 06:13:07.439995+00:00"
+    },
+    {
+      "key": "flags.factcheck_suitability_gate",
+      "value": false,
+      "type": "bool",
+      "updated_at": "2026-10-20 09:41:26.093986+00:00"
+    },
+    {
+      "key": "flags.factcheck_pipeline_v2",
+      "value": true,
+      "type": "bool",
+      "updated_at": "2026-10-20 09:44:06.723000+00:00"
+    },
+    {
+      "key": "flags.factcheck_wide_context",
+      "value": true,
+      "type": "bool",
+      "updated_at": "2026-10-26 08:29:48.870318+00:00"
+    },
+    {
+      "key": "flags.factcheck_wide_context_default_v1",
+      "value": true,
+      "type": "bool",
+      "updated_at": "2026-10-26 08:29:48.877815+00:00"
+    }
+  ],
+  "chats": [
+    {
+      "chat": "chat-1",
+      "updated_at": "2026-11-11 13:14:05.843018+00:00",
+      "param_key_count": 6,
+      "param_keys": [
+        "gates",
+        "keys",
+        "meta",
+        "overrides",
+        "perm_overrides",
+        "v"
+      ]
+    },
+    {
+      "chat": "chat-2",
+      "updated_at": "2026-11-14 06:11:54.954581+00:00",
+      "param_key_count": 6,
+      "param_keys": [
+        "gates",
+        "keys",
+        "meta",
+        "overrides",
+        "perm_overrides",
+        "v"
+      ]
+    },
+    {
+      "chat": "chat-3",
+      "updated_at": "2026-10-28 08:54:24.139196+00:00",
+      "param_key_count": 6,
+      "param_keys": [
+        "gates",
+        "keys",
+        "meta",
+        "overrides",
+        "perm_overrides",
+        "v"
+      ]
+    }
+  ],
+  "settings_touched_since_deploy": [
+    {
+      "key": "prompts.factcheck_subject_system_prompt",
+      "updated_at": "2026-11-14 05:19:03.548386+00:00"
+    }
+  ],
+  "chat_profiles_touched_since_deploy": [
+    "2026-11-14 06:11:54.954581+00:00"
+  ],
+  "hot_config_loaded": true,
+  "hot_flag_value": true,
+  "effective_pipeline_v2_enabled": true
+}

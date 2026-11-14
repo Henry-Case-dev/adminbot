@@ -1,0 +1,2684 @@
+{
+  "schema": "smart-live-canary/2",
+  "harness_version": "1.1.0",
+  "harness": "smart_live_canary",
+  "harness_sha256": "69349c3b2188615f856c84734f51f6cca377fe6fc2f0efea9cf7ae457ae3f8d8",
+  "harness_identity": {
+    "path": "/tmp/smart_live_canary.py",
+    "sha256": "69349c3b2188615f856c84734f51f6cca377fe6fc2f0efea9cf7ae457ae3f8d8",
+    "git_repo": null,
+    "git_relative": null,
+    "git_head": null,
+    "tracked": null,
+    "blob_matches_head": null,
+    "dirty_vs_head": null,
+    "note": "harness file is outside a Git repository"
+  },
+  "started_at": "2026-11-14T07:32:52+00:00",
+  "finished_at": "2026-11-14T07:33:41+00:00",
+  "host": {
+    "platform": "Linux-6.8.0-31-generic-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "pid": 738548,
+    "euid": 0
+  },
+  "repo": {
+    "root": "<repo>",
+    "head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "branch": "release/2.58.200",
+    "origin": "https://github.com/Henry-Case-dev/adminbot",
+    "app_version": "2.58.200",
+    "manifest_present": true,
+    "manifest": {
+      "schema": 1,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "version": "2.58.200",
+      "deployed_at": "2026-11-14T05:18:53.892873Z",
+      "effect": "deploy",
+      "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "release_branch": "release/2.58.200",
+      "dirty_tracked": false
+    },
+    "harness_sha256": "69349c3b2188615f856c84734f51f6cca377fe6fc2f0efea9cf7ae457ae3f8d8",
+    "clean_tracked": true,
+    "dirty_tracked": false
+  },
+  "flags": {
+    "allow_provider_calls": true,
+    "max_provider_calls": 4,
+    "offline": false,
+    "checkup_unit": "admin_bot",
+    "checks": [
+      "effective_config",
+      "control_loop_off",
+      "caps_on_and_override",
+      "evidence_payload",
+      "capacity_scenarios",
+      "local_source_read",
+      "external_reads",
+      "diagnostic_variants",
+      "checkup_real",
+      "direct_continuation",
+      "i1_spool",
+      "i2_stream",
+      "k3_settings",
+      "l8_rollup"
+    ]
+  },
+  "provider_calls": {
+    "used": 3,
+    "denied": 0
+  },
+  "summary": {
+    "checks": 14,
+    "observed": 7,
+    "production_observed": 7,
+    "not_observed": 6,
+    "error": 1,
+    "by_evidence_class": {
+      "plumbing": 4,
+      "production": 9,
+      "unavailable": 1
+    },
+    "failed_assertions": 5
+  },
+  "checks": [
+    {
+      "id": "effective_config",
+      "title": "Effective config: budgets, caps, model capacity",
+      "req_ids": [
+        "SXR-L1-01",
+        "SXR-K3-01"
+      ],
+      "status": "error",
+      "evidence_class": "unavailable",
+      "evidence_reason": "check raised before production evidence was classified",
+      "production_observed": false,
+      "summary": "проверка упала: KeyError",
+      "details": {
+        "exception": "Traceback (most recent call last): File \"/tmp/smart_live_canary.py\", line 3897, in _run_one outcome = await asyncio.wait_for( ^^^^^^^^^^^^^^^^^^^^^^^ File \"/usr/lib/python3.12/asyncio/tasks.py\", line 520, in wait_for return await fut ^^^^^^^^^ File \"/tmp/smart_live_canary.py\", line 996, in check_effective_config not entry[\"budgets\"][\"enabled\"], ~~~~~~~~~~~~~~~~^^^^^^^^^^^ KeyError: 'enabled'"
+      },
+      "duration_s": 1.711
+    },
+    {
+      "id": "control_loop_off",
+      "title": "Tool loop OFF: >4 rounds, >6 calls, 3-in-round",
+      "req_ids": [
+        "SXR-L1-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): OFF-контракт подтверждён: 5 раундов, 7 вызовов (3 в одном раунде), все получили результат, cap-скипов нет",
+      "details": {
+        "self_identity": {
+          "source": "local",
+          "ref_source": "deployed_sha",
+          "verification": "verified_running",
+          "deployed_matches_checkout": true,
+          "repo": "Henry-Case-dev/adminbot",
+          "ref": "",
+          "note": "читается проверенный локальный код работающей версии: deployed SHA совпадает с checkout"
+        },
+        "effective_limits": {
+          "budgets_enabled": false,
+          "limits_enforced": false,
+          "max_total_calls": 0,
+          "max_metered_calls": 0,
+          "max_same_call": 0,
+          "fuse_seconds": 0.0
+        },
+        "budgets_enabled_for_chat": false,
+        "loop": {
+          "total": 7,
+          "statuses": {
+            "ok": 7
+          },
+          "chain_denied": 0,
+          "duplicates": 0,
+          "sequence": {
+            "requested": 7,
+            "tool_messages": 7,
+            "missing_tool_messages": [],
+            "every_call_got_result": true,
+            "source": "scripted_llm"
+          },
+          "reasons": [],
+          "rounds_used": 5,
+          "degraded": false,
+          "reason": "ok",
+          "finalize_mode": "",
+          "final_chars": 43,
+          "llm_rounds": 5,
+          "scripted_round_sizes": [
+            3,
+            1,
+            1,
+            2,
+            0
+          ],
+          "metered_envelopes": 7,
+          "evidence_window_entries": 7
+        },
+        "assertions": [
+          {
+            "name": "budgets_effectively_off",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'limits_enforced': False, 'max_total_calls': 0, 'max_metered_calls': 0, 'max_same_call': 0, 'fuse_seconds': 0.0}"
+          },
+          {
+            "name": "no_volume_caps",
+            "ok": true,
+            "detail": "{'budgets_enabled': False, 'limits_enforced': False, 'max_total_calls': 0, 'max_metered_calls': 0, 'max_same_call': 0, 'fuse_seconds': 0.0}"
+          },
+          {
+            "name": "rounds_gt_4",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "calls_gt_6",
+            "ok": true,
+            "detail": "7"
+          },
+          {
+            "name": "three_calls_in_one_round",
+            "ok": true,
+            "detail": "[3, 1, 1, 2, 0]"
+          },
+          {
+            "name": "multi_call_single_round",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "every_call_got_result",
+            "ok": true,
+            "detail": "{'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}"
+          },
+          {
+            "name": "no_chain_cap_skip",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "no_duplicate_skips",
+            "ok": true,
+            "detail": "{'total': 7, 'statuses': {'ok': 7}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}, 'reasons': []}"
+          },
+          {
+            "name": "usage_accounting_preserved",
+            "ok": true,
+            "detail": "{'metered': 7, 'total': 7}"
+          },
+          {
+            "name": "not_degraded",
+            "ok": true,
+            "detail": "ok"
+          },
+          {
+            "name": "final_answer_present",
+            "ok": true,
+            "detail": "canary final answer: все фрагменты получены"
+          },
+          {
+            "name": "no_network_needed",
+            "ok": true,
+            "detail": "[{'tool': 'read_source_code', 'stage': 'fetch', 'effective_limit': 200000, 'limit_source': 'window', 'used': 424, 'total': 3621, 'truncated': True, 'why': 'over_window', 'retrievable_remainder': 3607, 'unit': 'lines', 'candidates_total': 0, 'candidates_kept': 0, 'window_source': 'unknown_fallback', 'capacity_source': 'window', 'turn_capped': False, 'source_read_level': 'selected', 'ver…[clipped]"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 2.975
+    },
+    {
+      "id": "caps_on_and_override",
+      "title": "Budgets ON defaults + operator override",
+      "req_ids": [
+        "SXR-L1-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): budgets ON без политики не режет; операторский override даёт структурные cap/same_call ответы; значения восстановлены",
+      "details": {
+        "restored_from": {
+          "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+          "MCA_TOOL_MAX_METERED_CALLS": 0,
+          "MCA_TOOL_MAX_SAME_CALL": 0,
+          "TOOL_CHAIN_LIMITS_ENABLED": true,
+          "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0
+        },
+        "budgets_on_factory_caps": {
+          "total": 7,
+          "statuses": {
+            "ok": 7
+          },
+          "chain_denied": 0,
+          "duplicates": 0,
+          "sequence": {
+            "requested": 7,
+            "tool_messages": 7,
+            "missing_tool_messages": [],
+            "every_call_got_result": true,
+            "source": "scripted_llm"
+          },
+          "reasons": [],
+          "rounds_used": 5,
+          "degraded": false,
+          "reason": "ok",
+          "llm_rounds": 5
+        },
+        "budgets_on_override": {
+          "total": 6,
+          "statuses": {
+            "ok": 4,
+            "denied": 2
+          },
+          "chain_denied": 2,
+          "duplicates": 1,
+          "sequence": {
+            "requested": 6,
+            "tool_messages": 3,
+            "missing_tool_messages": [
+              "cap_3",
+              "cap_4",
+              "cap_repeat"
+            ],
+            "every_call_got_result": false,
+            "source": "scripted_llm"
+          },
+          "reasons": [
+            "chain_call_limit"
+          ],
+          "rounds_used": 2,
+          "degraded": true,
+          "reason": "chain_call_limit",
+          "finalize_mode": "llm",
+          "text": "canary final answer",
+          "llm_rounds": 2
+        },
+        "restored_after": {
+          "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+          "MCA_TOOL_MAX_METERED_CALLS": 0,
+          "MCA_TOOL_MAX_SAME_CALL": 0,
+          "TOOL_CHAIN_LIMITS_ENABLED": true,
+          "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0
+        },
+        "budgets_after_restore": {
+          "budgets_enabled": false,
+          "source": "global",
+          "stale": false,
+          "known": true
+        },
+        "assertions": [
+          {
+            "name": "on_factory_caps_no_skip",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "on_factory_caps_no_duplicates",
+            "ok": true,
+            "detail": "{'total': 7, 'statuses': {'ok': 7}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}, 'reasons': []}"
+          },
+          {
+            "name": "on_factory_caps_rounds_gt_4",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "on_factory_caps_every_call_result",
+            "ok": true,
+            "detail": "{'requested': 7, 'tool_messages': 7, 'missing_tool_messages': [], 'every_call_got_result': True, 'source': 'scripted_llm'}"
+          },
+          {
+            "name": "on_factory_caps_not_degraded",
+            "ok": true,
+            "detail": "ok"
+          },
+          {
+            "name": "override_policy_seen",
+            "ok": true,
+            "detail": "['chain_call_limit']"
+          },
+          {
+            "name": "override_every_call_has_result",
+            "ok": true,
+            "detail": "{'envelopes': 6, 'requested': 6, 'sequence': {'requested': 6, 'tool_messages': 3, 'missing_tool_messages': ['cap_3', 'cap_4', 'cap_repeat'], 'every_call_got_result': False, 'source': 'scripted_llm'}}"
+          },
+          {
+            "name": "override_degraded_honestly",
+            "ok": true,
+            "detail": "chain_call_limit"
+          },
+          {
+            "name": "override_no_hidden_exception",
+            "ok": true,
+            "detail": "canary final answer"
+          },
+          {
+            "name": "override_limits_meta",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "settings_restored",
+            "ok": true,
+            "detail": "{'before': {'MCA_TOOL_MAX_TOTAL_CALLS': 0, 'MCA_TOOL_MAX_METERED_CALLS': 0, 'MCA_TOOL_MAX_SAME_CALL': 0, 'TOOL_CHAIN_LIMITS_ENABLED': True, 'MCA_TOOL_CHAIN_TIMEOUT_SECONDS': 0.0}, 'after': {'MCA_TOOL_MAX_TOTAL_CALLS': 0, 'MCA_TOOL_MAX_METERED_CALLS': 0, 'MCA_TOOL_MAX_SAME_CALL': 0, 'TOOL_CHAIN_LIMITS_ENABLED': True, 'MCA_TOOL_CHAIN_TIMEOUT_SECONDS': 0.0}}"
+          },
+          {
+            "name": "tool_loop_settings_restored",
+            "ok": true,
+            "detail": "Settings"
+          },
+          {
+            "name": "budget_gate_restored",
+            "ok": true,
+            "detail": "budgets_enabled"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 1.717
+    },
+    {
+      "id": "evidence_payload",
+      "title": "Evidence 13.5k chars: delivery, tail, honesty",
+      "req_ids": [
+        "SXR-L2-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): 13 500 симв. доставлены целиком под реальную ёмкость, хвост сохранён; при малом окне — честная обрезка без заявления о полном чтении",
+      "details": {
+        "stage_budget": {
+          "context_window": 1048576,
+          "output_reserve": 104857,
+          "effective_input_budget": 820625,
+          "source": "provider_catalog"
+        },
+        "capacity": {
+          "source": "auto_budget",
+          "input_budget_tokens": 820625,
+          "evidence_capacity_chars": 3282500
+        },
+        "full_capacity": {
+          "delivered_chars": 13499,
+          "source_chars": 13500,
+          "source_stripped_chars": 13499,
+          "capacity_chars": 3282500,
+          "complete": true,
+          "limitations": [],
+          "tail_present": true,
+          "payload_chars": 13618
+        },
+        "multi_source": {
+          "blocks": 3,
+          "delivered": [
+            45,
+            43,
+            45
+          ],
+          "complete": true,
+          "all_markers": true
+        },
+        "tight_capacity": {
+          "cap": 900,
+          "delivered_chars": 900,
+          "truncated": true,
+          "complete": false,
+          "limitations": [
+            "fetch_article: результат обрезан (900/13499)"
+          ],
+          "has_truncation_marker": true,
+          "tail_present": false,
+          "claims_full_read": false
+        },
+        "assertions": [
+          {
+            "name": "large_capacity_resolved",
+            "ok": true,
+            "detail": "3282500"
+          },
+          {
+            "name": "full_source_delivered",
+            "ok": true,
+            "detail": "delivered=13499 source=13499"
+          },
+          {
+            "name": "tail_preserved",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "full_pack_complete",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "no_false_truncation",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "multi_source_blocks",
+            "ok": true,
+            "detail": "{'blocks': 3, 'delivered': [45, 43, 45], 'complete': True, 'all_markers': True}"
+          },
+          {
+            "name": "multi_source_all_delivered",
+            "ok": true,
+            "detail": "{'blocks': 3, 'delivered': [45, 43, 45], 'complete': True, 'all_markers': True}"
+          },
+          {
+            "name": "tight_truncated_honestly",
+            "ok": true,
+            "detail": "{'cap': 900, 'delivered_chars': 900, 'truncated': True, 'complete': False, 'limitations': ['fetch_article: результат обрезан (900/13499)'], 'has_truncation_marker': True, 'tail_present': False, 'claims_full_read': False}"
+          },
+          {
+            "name": "tight_no_full_read_claim",
+            "ok": true,
+            "detail": "{'cap': 900, 'delivered_chars': 900, 'truncated': True, 'complete': False, 'limitations': ['fetch_article: результат обрезан (900/13499)'], 'has_truncation_marker': True, 'tail_present': False, 'claims_full_read': False}"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 0.005
+    },
+    {
+      "id": "capacity_scenarios",
+      "title": "Eight capacity scenarios on one resolver",
+      "req_ids": [
+        "SXR-L3-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real resolver + provider catalog; one scenario injected in-memory",
+      "production_observed": true,
+      "summary": "единый resolver: current/<1M/>1M/unknown/switch/fallback/catalog-down/overflow наблюдались, 1M не выдан за verified",
+      "details": {
+        "scenarios": {
+          "current_model": {
+            "provider": "nanogpt",
+            "model": "z-ai/glm-5.3-flash-uncensored",
+            "effective_window": 1048576,
+            "declared_window": 1048576,
+            "runtime_window": null,
+            "max_output_tokens": 32768,
+            "source": "provider_catalog",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "known_under_1m": {
+            "provider": "nanogpt",
+            "model": "gpt-4o-mini",
+            "effective_window": 128000,
+            "declared_window": 128000,
+            "runtime_window": null,
+            "max_output_tokens": 16384,
+            "source": "provider_catalog",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "known_over_1m": {
+            "provider": "nanogpt",
+            "model": "gemini-2.5-pro",
+            "effective_window": 1048576,
+            "declared_window": 1048576,
+            "runtime_window": null,
+            "max_output_tokens": 65536,
+            "source": "provider_catalog",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "unknown_custom": {
+            "provider": "nanogpt",
+            "model": "canary/custom-unknown-7f3a",
+            "effective_window": 1000000,
+            "declared_window": null,
+            "runtime_window": null,
+            "max_output_tokens": null,
+            "source": "estimated_unknown",
+            "confidence": "estimated",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "model_switch": {
+            "model": "gpt-4o-mini",
+            "context_window": 128000,
+            "effective_input_budget": 100173,
+            "source": "provider_catalog"
+          },
+          "fallback_model": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "effective_window": 131072,
+            "declared_window": 131072,
+            "runtime_window": null,
+            "max_output_tokens": null,
+            "source": "verified_registry",
+            "confidence": "verified",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false
+          },
+          "catalog_unavailable": {
+            "provider": "nanogpt",
+            "model": "z-ai/glm-5.3-flash-uncensored",
+            "effective_window": 1000000,
+            "declared_window": null,
+            "runtime_window": null,
+            "max_output_tokens": null,
+            "source": "estimated_unknown",
+            "confidence": "estimated",
+            "override_value": null,
+            "proven_limit": null,
+            "clamped_by_proven_limit": false,
+            "fallback_used": false,
+            "simulated": "catalog_adapters_returned_none"
+          },
+          "context_overflow": {
+            "parsed": {
+              "code": "context_length_exceeded",
+              "structured": true,
+              "limit_tokens": 131072,
+              "requested_tokens": 140000,
+              "model": "z-ai/glm-5.3-flash-uncensored"
+            },
+            "noted": true,
+            "plan": {
+              "reason": "proven_limit_recorded",
+              "limit_tokens": 131072,
+              "budget_tokens": 110413,
+              "output_reserve": 4096,
+              "attempt": 1,
+              "max_attempts": 1,
+              "uncertain": false
+            }
+          }
+        },
+        "chat_model": {
+          "model": "z-ai/glm-5.3-flash-uncensored",
+          "base_host": "nano-gpt.com",
+          "resolver_enabled": true,
+          "live_precedence": true
+        },
+        "assertions": [
+          {
+            "name": "resolver_enabled",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "current_model_resolved",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'z-ai/glm-5.3-flash-uncensored', 'effective_window': 1048576, 'declared_window': 1048576, 'runtime_window': None, 'max_output_tokens': 32768, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "known_under_1m_resolved",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gpt-4o-mini', 'effective_window': 128000, 'declared_window': 128000, 'runtime_window': None, 'max_output_tokens': 16384, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "known_under_1m_below_1m",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gpt-4o-mini', 'effective_window': 128000, 'declared_window': 128000, 'runtime_window': None, 'max_output_tokens': 16384, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "big_window_resolved",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gemini-2.5-pro', 'effective_window': 1048576, 'declared_window': 1048576, 'runtime_window': None, 'max_output_tokens': 65536, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "big_window_at_least_1m",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'gemini-2.5-pro', 'effective_window': 1048576, 'declared_window': 1048576, 'runtime_window': None, 'max_output_tokens': 65536, 'source': 'provider_catalog', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "unknown_not_verified",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'canary/custom-unknown-7f3a', 'effective_window': 1000000, 'declared_window': None, 'runtime_window': None, 'max_output_tokens': None, 'source': 'estimated_unknown', 'confidence': 'estimated', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "unknown_not_claimed_1m_as_proof",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'canary/custom-unknown-7f3a', 'effective_window': 1000000, 'declared_window': None, 'runtime_window': None, 'max_output_tokens': None, 'source': 'estimated_unknown', 'confidence': 'estimated', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "catalog_down_honest",
+            "ok": true,
+            "detail": "{'provider': 'nanogpt', 'model': 'z-ai/glm-5.3-flash-uncensored', 'effective_window': 1000000, 'declared_window': None, 'runtime_window': None, 'max_output_tokens': None, 'source': 'estimated_unknown', 'confidence': 'estimated', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False, 'simulated': 'catalog_adapters_returned_none'}"
+          },
+          {
+            "name": "fallback_resolved",
+            "ok": true,
+            "detail": "{'provider': 'deepseek', 'model': 'deepseek-flash', 'effective_window': 131072, 'declared_window': 131072, 'runtime_window': None, 'max_output_tokens': None, 'source': 'verified_registry', 'confidence': 'verified', 'override_value': None, 'proven_limit': None, 'clamped_by_proven_limit': False, 'fallback_used': False}"
+          },
+          {
+            "name": "context_overflow_parsed",
+            "ok": true,
+            "detail": "{'parsed': {'code': 'context_length_exceeded', 'structured': True, 'limit_tokens': 131072, 'requested_tokens': 140000, 'model': 'z-ai/glm-5.3-flash-uncensored'}, 'noted': True, 'plan': {'reason': 'proven_limit_recorded', 'limit_tokens': 131072, 'budget_tokens': 110413, 'output_reserve': 4096, 'attempt': 1, 'max_attempts': 1, 'uncertain': False}}"
+          },
+          {
+            "name": "context_overflow_plan",
+            "ok": true,
+            "detail": "{'reason': 'proven_limit_recorded', 'limit_tokens': 131072, 'budget_tokens': 110413, 'output_reserve': 4096, 'attempt': 1, 'max_attempts': 1, 'uncertain': False}"
+          },
+          {
+            "name": "context_overflow_model_identity",
+            "ok": true,
+            "detail": "{'code': 'context_length_exceeded', 'structured': True, 'limit_tokens': 131072, 'requested_tokens': 140000, 'model': 'z-ai/glm-5.3-flash-uncensored'}"
+          }
+        ]
+      },
+      "duration_s": 0.633
+    },
+    {
+      "id": "local_source_read",
+      "title": "Local own-code read with deployed identity",
+      "req_ids": [
+        "SXR-L4-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real deployed-tree read via production read_source_code",
+      "production_observed": true,
+      "summary": "локальный verified-источник прочитан без GitHub; repo/commit/path совпадают с deployed SHA",
+      "details": {
+        "runtime_identity": {
+          "source": "local",
+          "ref_source": "deployed_sha",
+          "verification": "verified_running",
+          "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "checkout_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "deployed_matches_checkout": true,
+          "revision_kind": "checkout",
+          "repo": "Henry-Case-dev/adminbot",
+          "note": "читается проверенный локальный код работающей версии: deployed SHA совпадает с checkout",
+          "selection_reason": ""
+        },
+        "repo": {
+          "head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "branch": "release/2.58.200",
+          "app_version": "2.58.200",
+          "manifest_present": true,
+          "manifest_deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "manifest_version": "2.58.200",
+          "manifest_dirty_tracked": false
+        },
+        "payload": {
+          "status": "ok",
+          "stage": "fetch",
+          "verified": true,
+          "source_kind": "file",
+          "network_calls": 0,
+          "repo": "Henry-Case-dev/adminbot",
+          "commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "path": "services/tool_loop.py",
+          "line_range": [
+            26,
+            1874
+          ],
+          "snippet_chars": 89981,
+          "read_level": "selected",
+          "error": null,
+          "symbol_present": true
+        },
+        "evidence_limits": [
+          {
+            "tool": "read_source_code",
+            "stage": "fetch",
+            "effective_limit": 200000,
+            "limit_source": "window",
+            "used": 89981,
+            "total": 1874,
+            "truncated": false,
+            "why": "",
+            "retrievable_remainder": 0,
+            "unit": "lines",
+            "candidates_total": 0,
+            "candidates_kept": 0,
+            "window_source": "unknown_fallback",
+            "capacity_source": "window",
+            "turn_capped": false,
+            "source_read_level": "selected",
+            "verified": true,
+            "network_calls": 0
+          }
+        ],
+        "assertions": [
+          {
+            "name": "local_source_selected",
+            "ok": true,
+            "detail": "local"
+          },
+          {
+            "name": "local_source_verified",
+            "ok": true,
+            "detail": "verified_running"
+          },
+          {
+            "name": "deployed_sha_matches_checkout",
+            "ok": true,
+            "detail": "True"
+          },
+          {
+            "name": "manifest_matches_deployed_sha",
+            "ok": true,
+            "detail": "{'manifest': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'identity': '0e4a144db476a1535ae3a2b79a7cce30354ad866'}"
+          },
+          {
+            "name": "git_head_matches_deployed",
+            "ok": true,
+            "detail": "{'head': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'deployed': '0e4a144db476a1535ae3a2b79a7cce30354ad866'}"
+          },
+          {
+            "name": "local_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'path': 'services/tool_loop.py', 'line_range': [26, 1874], 'snippet_chars': 89981, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_verified_in_prod",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'path': 'services/tool_loop.py', 'line_range': [26, 1874], 'snippet_chars': 89981, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_no_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'path': 'services/tool_loop.py', 'line_range': [26, 1874], 'snippet_chars': 89981, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_symbol_present",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': True, 'source_kind': 'file', 'network_calls': 0, 'repo': 'Henry-Case-dev/adminbot', 'commit': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'path': 'services/tool_loop.py', 'line_range': [26, 1874], 'snippet_chars': 89981, 'read_level': 'selected', 'error': None, 'symbol_present': True}"
+          },
+          {
+            "name": "local_read_commit_matches_deployed",
+            "ok": true,
+            "detail": "{'payload': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'deployed': '0e4a144db476a1535ae3a2b79a7cce30354ad866'}"
+          },
+          {
+            "name": "local_read_repo_matches_self",
+            "ok": true,
+            "detail": "{'payload': 'Henry-Case-dev/adminbot', 'identity': 'Henry-Case-dev/adminbot'}"
+          },
+          {
+            "name": "local_read_uses_canonical_path",
+            "ok": true,
+            "detail": "services/tool_loop.py"
+          }
+        ]
+      },
+      "duration_s": 0.192
+    },
+    {
+      "id": "external_reads",
+      "title": "External GitHub read + SSRF refusal",
+      "req_ids": [
+        "SXR-F2-01",
+        "SXR-F4-01",
+        "SXR-L5-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "production",
+      "evidence_reason": "real network/SafeFetcher path observed; contract failed",
+      "production_observed": false,
+      "summary": "внешние чтения/SSRF не подтверждены: public_external_read_verified, ssrf_loopback_refused, ssrf_metadata_refused",
+      "details": {
+        "offline": false,
+        "public_read": {
+          "status": "ok",
+          "stage": "fetch",
+          "verified": false,
+          "network_calls": 4,
+          "repo": "octocat/Hello-World",
+          "commit": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+          "path": "README",
+          "snippet_chars": 12,
+          "source_kind": "readme",
+          "provider": "github",
+          "error": null
+        },
+        "ssrf_refusals": [
+          {
+            "target": "loopback",
+            "source": "tool_path",
+            "status": "unsupported",
+            "stage": "discover",
+            "code": "provider_unconfigured",
+            "retryable": false,
+            "network_calls": 0
+          },
+          {
+            "target": "metadata",
+            "source": "tool_path",
+            "status": "unsupported",
+            "stage": "discover",
+            "code": "provider_unconfigured",
+            "retryable": false,
+            "network_calls": 0
+          },
+          {
+            "target": "loopback_direct",
+            "source": "safe_fetcher",
+            "status": "blocked",
+            "code": "destination_blocked",
+            "stage": "resolve",
+            "retryable": false
+          },
+          {
+            "target": "metadata_direct",
+            "source": "safe_fetcher",
+            "status": "blocked",
+            "code": "metadata_endpoint_blocked",
+            "stage": "resolve",
+            "retryable": false
+          }
+        ],
+        "external_failure": {
+          "status": "error",
+          "stage": "fetch",
+          "code": "source_missing",
+          "retryable": false
+        },
+        "assertions": [
+          {
+            "name": "public_external_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'source_kind': 'readme', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'source_kind': 'readme', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_content",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'source_kind': 'readme', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "public_external_read_verified",
+            "ok": false,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'verified': False, 'network_calls': 4, 'repo': 'octocat/Hello-World', 'commit': '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d', 'path': 'README', 'snippet_chars': 12, 'source_kind': 'readme', 'provider': 'github', 'error': None}"
+          },
+          {
+            "name": "ssrf_loopback_refused",
+            "ok": false,
+            "detail": "[{'target': 'loopback', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'retryable': False, 'network_calls': 0}, {'target': 'metadata', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'retryable': False, 'network_calls': 0}, {'target': 'loopback_direct', 'source': 'safe_fetcher',…[clipped]"
+          },
+          {
+            "name": "ssrf_metadata_refused",
+            "ok": false,
+            "detail": "[{'target': 'loopback', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'retryable': False, 'network_calls': 0}, {'target': 'metadata', 'source': 'tool_path', 'status': 'unsupported', 'stage': 'discover', 'code': 'provider_unconfigured', 'retryable': False, 'network_calls': 0}, {'target': 'loopback_direct', 'source': 'safe_fetcher',…[clipped]"
+          },
+          {
+            "name": "ssrf_policy_direct",
+            "ok": true,
+            "detail": "[{'target': 'loopback_direct', 'source': 'safe_fetcher', 'status': 'blocked', 'code': 'destination_blocked', 'stage': 'resolve', 'retryable': False}, {'target': 'metadata_direct', 'source': 'safe_fetcher', 'status': 'blocked', 'code': 'metadata_endpoint_blocked', 'stage': 'resolve', 'retryable': False}]"
+          },
+          {
+            "name": "external_failure_honest",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'fetch', 'code': 'source_missing', 'retryable': False}"
+          }
+        ]
+      },
+      "duration_s": 1.21
+    },
+    {
+      "id": "diagnostic_variants",
+      "title": "Seven diagnostic/finalization variants",
+      "req_ids": [
+        "SXR-L6-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "plumbing",
+      "evidence_reason": "scripted doubles/synthetic input; not production evidence",
+      "production_observed": false,
+      "summary": "plumbing-контракт подтверждён; production-путь не наблюдался (scripted doubles/синтетический вход): все 7 вариантов сохраняют полученные данные, различают отказы и не публикуют бессмысленную заглушку при наличии evidence",
+      "details": {
+        "variants": {
+          "all_sources": {
+            "text_chars": 39,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "execute_web_search",
+              "fact_check"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "ok": 2
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": []
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: подтверждено обоими источниками"
+          },
+          "one_failed": {
+            "text_chars": 52,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "execute_web_search",
+              "fetch_article"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "ok": 1,
+                "error": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "provider_unavailable"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: один источник подтверждён, второй недоступен"
+          },
+          "github_blocked_local_ok": {
+            "text_chars": 59,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "read_source_code"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "error": 1,
+                "ok": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "destination_blocked"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: удалённый источник заблокирован, локальный прочитан"
+          },
+          "local_down_remote_ok": {
+            "text_chars": 48,
+            "degraded": false,
+            "reason": "ok",
+            "finalize_mode": "",
+            "tool_calls": 2,
+            "tool_names": [
+              "read_source_code"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "error": 1,
+                "ok": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "local_source_unavailable"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: локальный недоступен, удалённый прочитан"
+          },
+          "investigation_impossible": {
+            "text_chars": 531,
+            "degraded": true,
+            "reason": "llm_error",
+            "finalize_mode": "structured_partial",
+            "tool_calls": 1,
+            "tool_names": [
+              "execute_web_search"
+            ],
+            "envelopes": {
+              "total": 1,
+              "statuses": {
+                "error": 1
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 1,
+                "tool_messages": 1,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": [
+                "provider_unavailable"
+              ]
+            },
+            "fallback_phrase": false,
+            "text_head": "Исследование остановлено: провайдер модели прервал исследование технической ошибкой (llm_error). Это частичный результат: финальный LLM-вызов недоступен (empty), ниже собраны только фактически полученные данные. Запрос:"
+          },
+          "final_llm_unavailable": {
+            "text_chars": 1087,
+            "degraded": true,
+            "reason": "no_progress",
+            "finalize_mode": "structured_partial",
+            "tool_calls": 1,
+            "tool_names": [
+              "execute_web_search"
+            ],
+            "envelopes": {
+              "total": 3,
+              "statuses": {
+                "ok": 3
+              },
+              "chain_denied": 0,
+              "duplicates": 2,
+              "sequence": {
+                "requested": 3,
+                "tool_messages": 3,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": []
+            },
+            "fallback_phrase": false,
+            "text_head": "Исследование остановлено: новые данные перестали поступать (no_progress). Это частичный результат: финальный LLM-вызов недоступен (LLMError), ниже собраны только фактически полученные данные. Запрос: canary diagnostic v"
+          },
+          "technical_deadline": {
+            "text_chars": 34,
+            "degraded": true,
+            "reason": "chain_timeout",
+            "finalize_mode": "llm",
+            "tool_calls": 2,
+            "tool_names": [
+              "execute_web_search"
+            ],
+            "envelopes": {
+              "total": 2,
+              "statuses": {
+                "ok": 2
+              },
+              "chain_denied": 0,
+              "duplicates": 0,
+              "sequence": {
+                "requested": 2,
+                "tool_messages": 2,
+                "missing_tool_messages": [],
+                "every_call_got_result": false,
+                "source": "unavailable_no_scripted_llm"
+              },
+              "reasons": []
+            },
+            "fallback_phrase": false,
+            "text_head": "canary: данные собраны до дедлайна"
+          }
+        },
+        "shared_mechanism": "7 вариантов исполнены единым production tool-loop (services.tool_loop.chat_with_tools) с контролируемой инъекцией LLM/роутера; имена инструментов покрывают поиск (execute_web_search), фактчек (fact_check) и чтение источника (read_source_code).",
+        "assertions": [
+          {
+            "name": "v1_text",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v1_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v1_two_calls",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "v2_ok_data_preserved",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'ok': 1, 'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['provider_unavailable']}"
+          },
+          {
+            "name": "v2_failure_visible",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'ok': 1, 'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['provider_unavailable']}"
+          },
+          {
+            "name": "v2_text_present",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v2_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v3_local_data_preserved",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'error': 1, 'ok': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['destination_blocked']}"
+          },
+          {
+            "name": "v3_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v4_remote_data_preserved",
+            "ok": true,
+            "detail": "{'total': 2, 'statuses': {'error': 1, 'ok': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons': ['local_source_unavailable']}"
+          },
+          {
+            "name": "v4_no_stub",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "v5_honest_status",
+            "ok": true,
+            "detail": "{'text_chars': 531, 'degraded': True, 'reason': 'llm_error', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 1, 'statuses': {'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 1, 'tool_messages': 1, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v5_no_fake_success",
+            "ok": true,
+            "detail": "Исследование остановлено: провайдер модели прервал исследование технической ошибкой (llm_error). Это частичный результат: финальный LLM-вызов недоступен (empty), ниже собраны только фактически полученные данные. Запрос:"
+          },
+          {
+            "name": "v5_no_meaningless_stub",
+            "ok": true,
+            "detail": "{'text_chars': 531, 'degraded': True, 'reason': 'llm_error', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 1, 'statuses': {'error': 1}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 1, 'tool_messages': 1, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v6_structured_partial",
+            "ok": true,
+            "detail": "{'text_chars': 1087, 'degraded': True, 'reason': 'no_progress', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 3, 'statuses': {'ok': 3}, 'chain_denied': 0, 'duplicates': 2, 'sequence': {'requested': 3, 'tool_messages': 3, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v6_data_preserved",
+            "ok": true,
+            "detail": "{'text_chars': 1087, 'degraded': True, 'reason': 'no_progress', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 3, 'statuses': {'ok': 3}, 'chain_denied': 0, 'duplicates': 2, 'sequence': {'requested': 3, 'tool_messages': 3, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v6_no_stub",
+            "ok": true,
+            "detail": "{'text_chars': 1087, 'degraded': True, 'reason': 'no_progress', 'finalize_mode': 'structured_partial', 'tool_calls': 1, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 3, 'statuses': {'ok': 3}, 'chain_denied': 0, 'duplicates': 2, 'sequence': {'requested': 3, 'tool_messages': 3, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_…[clipped]"
+          },
+          {
+            "name": "v7_deadline_reason",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "v7_degraded_honestly",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "v7_data_preserved",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "v7_no_stub",
+            "ok": true,
+            "detail": "{'text_chars': 34, 'degraded': True, 'reason': 'chain_timeout', 'finalize_mode': 'llm', 'tool_calls': 2, 'tool_names': ['execute_web_search'], 'envelopes': {'total': 2, 'statuses': {'ok': 2}, 'chain_denied': 0, 'duplicates': 0, 'sequence': {'requested': 2, 'tool_messages': 2, 'missing_tool_messages': [], 'every_call_got_result': False, 'source': 'unavailable_no_scripted_llm'}, 'reasons…[clipped]"
+          },
+          {
+            "name": "seven_variants_executed",
+            "ok": true,
+            "detail": "7"
+          }
+        ],
+        "plumbing_pass": true
+      },
+      "duration_s": 0.503
+    },
+    {
+      "id": "checkup_real",
+      "title": "Real checkup: journal, identity, manifest, report",
+      "req_ids": [
+        "SXR-H3-01",
+        "SXR-H4-01",
+        "SXR-L7-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real systemd journal + deployed identity + real checkup report",
+      "production_observed": true,
+      "summary": "журнал unit прочитан, бот не root, manifest/runtime/checkout согласованы; отчёт чекапа построен",
+      "details": {
+        "logs": {
+          "chars": 2561,
+          "used_fallback": false,
+          "log_state": "ok",
+          "journal_state": "ok"
+        },
+        "service": {
+          "MainPID": "709883",
+          "ExecMainStartTimestamp": "Sat 2026-11-14 05:18:59 UTC",
+          "ExecMainStartTimestampMonotonic": "207175486125",
+          "User": "adminbot",
+          "ActiveState": "active"
+        },
+        "process_owner": {
+          "Name": "python",
+          "Uid": "999 999 999 999",
+          "Gid": "987 987 987 987"
+        },
+        "harness_uid": 0,
+        "harness_not_root_note": "харнесс может быть запущен от root (DevOps); проверяется unit-процесс бота, а не процесс харнесса",
+        "deploy_identity": {
+          "code": "verified_deployed",
+          "reason": "",
+          "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "checkout_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "process_started_at": "2026-11-14T05:18:59.817071Z",
+          "deployed_at": "2026-11-14T05:18:53.892873Z",
+          "effect": "deploy",
+          "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "version_provenance": {
+            "runtime": "2.58.200",
+            "manifest": "2.58.200",
+            "consistent": true
+          },
+          "conflict": [],
+          "local_source_verification": "verified_deployed",
+          "dirty": false,
+          "upstream_head": {
+            "sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+            "ref": "refs/remotes/origin/release/2.58.200",
+            "observed_at": "2026-11-14T05:18:49.265454Z",
+            "reason": ""
+          },
+          "branch": "release/2.58.200"
+        },
+        "manifest": {
+          "schema": 1,
+          "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "version": "2.58.200",
+          "deployed_at": "2026-11-14T05:18:53.892873Z",
+          "effect": "deploy",
+          "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+          "release_branch": "release/2.58.200",
+          "dirty_tracked": false
+        },
+        "runtime_version": "2.58.200",
+        "self_repo_identity": {
+          "source": "local",
+          "ref_source": "deployed_sha",
+          "verification": "verified_running",
+          "repo": "Henry-Case-dev/adminbot",
+          "ref": "",
+          "deployed_matches_checkout": true,
+          "note": "читается проверенный локальный код работающей версии: deployed SHA совпадает с checkout"
+        },
+        "facts": {
+          "facts_chars": 3431,
+          "bundle_status": "degraded",
+          "coverage_ok": null,
+          "coverage_failed": null,
+          "coverage_missing": null,
+          "sections": [
+            "access",
+            "chat_scope",
+            "claims",
+            "code_lookup_attempted",
+            "commits_since_deploy",
+            "coverage",
+            "git_head_sha",
+            "git_metadata_attempted",
+            "latency_ms",
+            "not_checked",
+            "observed_at",
+            "reason_code",
+            "redaction",
+            "request",
+            "request_id",
+            "runtime",
+            "runtime_sha",
+            "schema",
+            "scope",
+            "source_verified",
+            "sources",
+            "status"
+          ]
+        },
+        "provider_call": {
+          "allowed": true,
+          "used_total": 1,
+          "denied_total": 0
+        },
+        "report": {
+          "chars": 2395,
+          "telemetry": {
+            "prompt_source": "default",
+            "prompt_hash": "5ea40ee17f3d27fb",
+            "prompt_version_used": "default:5ea40ee17f3d",
+            "prompt_chars": 3021,
+            "latency_ms": 13310,
+            "report_chars": 2395,
+            "metrics_included": true,
+            "input_truncated": false,
+            "used_fallback": false
+          },
+          "head": "Мать-природа отдыхает - за последние пять минут systemd выдал целых три совпадения, и все три это ровные INFO-строчки от vision.media. Ни одного exception, ни одного таймаута, ни единого рвущегося ворнинга. Два с лишним часа до этого окно вообще не поймало ничего подозрительного. Сервак …[clipped]"
+        },
+        "assertions": [
+          {
+            "name": "journal_read_ok",
+            "ok": true,
+            "detail": "{'chars': 2561, 'used_fallback': False, 'log_state': 'ok', 'journal_state': 'ok'}"
+          },
+          {
+            "name": "journal_not_fallback_only",
+            "ok": true,
+            "detail": "{'chars': 2561, 'used_fallback': False, 'log_state': 'ok', 'journal_state': 'ok'}"
+          },
+          {
+            "name": "service_active",
+            "ok": true,
+            "detail": "{'MainPID': '709883', 'ExecMainStartTimestamp': 'Sat 2026-11-14 05:18:59 UTC', 'ExecMainStartTimestampMonotonic': '207175486125', 'User': 'adminbot', 'ActiveState': 'active'}"
+          },
+          {
+            "name": "service_pid_present",
+            "ok": true,
+            "detail": "{'MainPID': '709883', 'ExecMainStartTimestamp': 'Sat 2026-11-14 05:18:59 UTC', 'ExecMainStartTimestampMonotonic': '207175486125', 'User': 'adminbot', 'ActiveState': 'active'}"
+          },
+          {
+            "name": "bot_not_root",
+            "ok": true,
+            "detail": "{'uid': '999', 'service_user': 'adminbot'}"
+          },
+          {
+            "name": "runtime_identity_verified",
+            "ok": true,
+            "detail": "verified_deployed"
+          },
+          {
+            "name": "runtime_sha_matches_checkout",
+            "ok": true,
+            "detail": "{'deployed': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'checkout': '0e4a144db476a1535ae3a2b79a7cce30354ad866'}"
+          },
+          {
+            "name": "deploy_manifest_exists",
+            "ok": true,
+            "detail": "release.json"
+          },
+          {
+            "name": "manifest_valid",
+            "ok": true,
+            "detail": "{'schema': 1, 'deployed_sha': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'version': '2.58.200', 'deployed_at': '2026-11-14T05:18:53.892873Z', 'effect': 'deploy', 'previous_sha': 'd20a7f730715ba9e9cba7673c0557794979be339', 'release_branch': 'release/2.58.200', 'dirty_tracked': False}"
+          },
+          {
+            "name": "manifest_matches_process",
+            "ok": true,
+            "detail": "{'manifest': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'process': '0e4a144db476a1535ae3a2b79a7cce30354ad866'}"
+          },
+          {
+            "name": "manifest_matches_checkout",
+            "ok": true,
+            "detail": "{'manifest': '0e4a144db476a1535ae3a2b79a7cce30354ad866', 'checkout': '0e4a144db476a1535ae3a2b79a7cce30354ad866'}"
+          },
+          {
+            "name": "manifest_version_matches_runtime",
+            "ok": true,
+            "detail": "{'manifest': '2.58.200', 'runtime': '2.58.200'}"
+          },
+          {
+            "name": "checkup_local_source_usable",
+            "ok": true,
+            "detail": "local"
+          },
+          {
+            "name": "runtime_facts_collected",
+            "ok": true,
+            "detail": "{'facts_chars': 3431, 'bundle_status': 'degraded', 'coverage_ok': None, 'coverage_failed': None, 'coverage_missing': None, 'sections': ['access', 'chat_scope', 'claims', 'code_lookup_attempted', 'commits_since_deploy', 'coverage', 'git_head_sha', 'git_metadata_attempted', 'latency_ms', 'not_checked', 'observed_at', 'reason_code', 'redaction', 'request', 'request_id', 'runtime', 'runtim…[clipped]"
+          },
+          {
+            "name": "facts_bundle_present",
+            "ok": true,
+            "detail": "{'facts_chars': 3431, 'bundle_status': 'degraded', 'coverage_ok': None, 'coverage_failed': None, 'coverage_missing': None, 'sections': ['access', 'chat_scope', 'claims', 'code_lookup_attempted', 'commits_since_deploy', 'coverage', 'git_head_sha', 'git_metadata_attempted', 'latency_ms', 'not_checked', 'observed_at', 'reason_code', 'redaction', 'request', 'request_id', 'runtime', 'runtim…[clipped]"
+          },
+          {
+            "name": "checkup_report_present",
+            "ok": true,
+            "detail": "{'chars': 2395, 'telemetry': {'prompt_source': 'default', 'prompt_hash': '5ea40ee17f3d27fb', 'prompt_version_used': 'default:5ea40ee17f3d', 'prompt_chars': 3021, 'latency_ms': 13310, 'report_chars': 2395, 'metrics_included': True, 'input_truncated': False, 'used_fallback': False}, 'head': 'Мать-природа отдыхает - за последние пять минут systemd выдал целых три совпадения, и все три это…[clipped]"
+          },
+          {
+            "name": "checkup_report_not_stub",
+            "ok": true,
+            "detail": "Мать-природа отдыхает - за последние пять минут systemd выдал целых …[clipped]"
+          }
+        ]
+      },
+      "duration_s": 13.54
+    },
+    {
+      "id": "direct_continuation",
+      "title": "Direct L1 decision + real tool execution",
+      "req_ids": [
+        "SXR-L7-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real provider L1 decision + real read_source_code continuation",
+      "production_observed": true,
+      "summary": "L1 Planner принял независимые формулировки; решение LLM и реальный read-only tool-вызов зафиксированы; remainder/cursor и следующий диапазон реально дочитаны",
+      "details": {
+        "formulations": [
+          {
+            "query": "Проверь по исходникам нашего проекта, что делает функция resolve_capacity: нужен ли для ответа сам код?",
+            "provider_call": true,
+            "plan": {
+              "action": "reply",
+              "tool_policy": "auto",
+              "capabilities_needed": [
+                "source_code"
+              ],
+              "execution_mode": "simple_tools",
+              "execution_mode_source": "derived",
+              "response_act": "research",
+              "raw_chars": 620
+            },
+            "selected_tool": "read_source_code",
+            "tool_execution": {
+              "status": "ok",
+              "verified": true,
+              "network_calls": 0,
+              "line_range": [
+                26,
+                1874
+              ],
+              "snippet_chars": 89981,
+              "error": null
+            }
+          },
+          {
+            "query": "Хочу понять, как в нашем коде устроен resolve_capacity — посмотри файл, где он объявлен, и скажи по факту.",
+            "provider_call": true,
+            "plan": {
+              "action": "reply",
+              "tool_policy": "auto",
+              "capabilities_needed": [
+                "source_code"
+              ],
+              "execution_mode": "simple_tools",
+              "execution_mode_source": "derived",
+              "response_act": "explanation",
+              "raw_chars": 595
+            },
+            "selected_tool": "read_source_code",
+            "tool_execution": {
+              "status": "ok",
+              "verified": true,
+              "network_calls": 0,
+              "line_range": [
+                26,
+                1874
+              ],
+              "snippet_chars": 89981,
+              "error": null
+            }
+          }
+        ],
+        "continuation": {
+          "file": "services/tool_router.py",
+          "first": {
+            "status": "ok",
+            "network_calls": 0,
+            "line_range": [
+              1,
+              4000
+            ],
+            "snippet_chars": 199962,
+            "file_total_lines": 6492,
+            "verified": true,
+            "truncated": true,
+            "why": "over_window",
+            "retrievable_remainder_lines": 2492,
+            "next_line_start": 4001,
+            "error": null
+          },
+          "second": {
+            "status": "ok",
+            "network_calls": 0,
+            "line_range": [
+              4001,
+              4041
+            ],
+            "snippet_chars": 1989,
+            "head": "ctx, result, max_items, entity_types=(\"graph_fact\",)) if not facts: return self._memory_lookup_payload( \"ok\"…[clipped]",
+            "error": null
+          },
+          "remainder_ok": true,
+          "next_range_ok": true,
+          "continuation_ok": true
+        },
+        "provider_calls": {
+          "used": 3,
+          "denied": 0,
+          "allowed_flag": true
+        },
+        "assertions": [
+          {
+            "name": "continuation_remainder_reported",
+            "ok": true,
+            "detail": "{'file': 'services/tool_router.py', 'first': {'status': 'ok', 'network_calls': 0, 'line_range': [1, 4000], 'snippet_chars': 199962, 'file_total_lines': 6492, 'verified': True, 'truncated': True, 'why': 'over_window', 'retrievable_remainder_lines': 2492, 'next_line_start': 4001, 'error': None}, 'second': {'status': 'ok', 'network_calls': 0, 'line_range': [4001, 4041], 'snippet_chars': 1…[clipped]"
+          },
+          {
+            "name": "continuation_next_range_read",
+            "ok": true,
+            "detail": "{'file': 'services/tool_router.py', 'first': {'status': 'ok', 'network_calls': 0, 'line_range': [1, 4000], 'snippet_chars': 199962, 'file_total_lines': 6492, 'verified': True, 'truncated': True, 'why': 'over_window', 'retrievable_remainder_lines': 2492, 'next_line_start': 4001, 'error': None}, 'second': {'status': 'ok', 'network_calls': 0, 'line_range': [4001, 4041], 'snippet_chars': 1…[clipped]"
+          },
+          {
+            "name": "provider_call_performed",
+            "ok": true,
+            "detail": "{'used': 3, 'denied': 0, 'allowed_flag': True}"
+          },
+          {
+            "name": "llm_decision_parsed",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "llm_decision_has_capabilities",
+            "ok": true,
+            "detail": "[{'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'research', 'raw_chars': 620}, {'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'explanation', 'ra…[clipped]"
+          },
+          {
+            "name": "tool_actually_executed",
+            "ok": true,
+            "detail": "2"
+          },
+          {
+            "name": "tool_execution_ok",
+            "ok": true,
+            "detail": "[{'status': 'ok', 'verified': True, 'network_calls': 0, 'line_range': [26, 1874], 'snippet_chars': 89981, 'error': None}, {'status': 'ok', 'verified': True, 'network_calls': 0, 'line_range': [26, 1874], 'snippet_chars': 89981, 'error': None}]"
+          },
+          {
+            "name": "continuation_still_ok",
+            "ok": true,
+            "detail": "{'file': 'services/tool_router.py', 'first': {'status': 'ok', 'network_calls': 0, 'line_range': [1, 4000], 'snippet_chars': 199962, 'file_total_lines': 6492, 'verified': True, 'truncated': True, 'why': 'over_window', 'retrievable_remainder_lines': 2492, 'next_line_start': 4001, 'error': None}, 'second': {'status': 'ok', 'network_calls': 0, 'line_range': [4001, 4041], 'snippet_chars': 1…[clipped]"
+          }
+        ]
+      },
+      "duration_s": 26.382
+    },
+    {
+      "id": "i1_spool",
+      "title": "I1 journal/spool read-only observation",
+      "req_ids": [
+        "SXR-I1-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real read-only SQLite attempt rows + real journal window",
+      "production_observed": true,
+      "summary": "журнал попыток доступен, последняя попытка читается, spool пуст (идемпотентный дренаж), маркеров недоступности журнала нет",
+      "details": {
+        "sqlite_readable": true,
+        "attempt_table_exists": true,
+        "attempt_query_error": null,
+        "attempts": {
+          "table": "meme_initiative_attempt",
+          "total": 33198,
+          "last_ts": 1794641344
+        },
+        "last_attempts": [
+          {
+            "attempt_id": "aaf722541375460182bb772277546afc",
+            "chat": "chat-f42f8a1b",
+            "ts": 1794641344,
+            "stage": "considered",
+            "outcome": "passed",
+            "reason_code": "",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {},
+            "detail": ""
+          },
+          {
+            "attempt_id": "024c906b7456421f8e1dd11aa9b50cc4",
+            "chat": "chat-f42f8a1b",
+            "ts": 1794641344,
+            "stage": "skipped",
+            "outcome": "skipped",
+            "reason_code": "cooldown_active",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {
+              "attempt_mode": "automatic",
+              "mode": "automatic"
+            },
+            "detail": "{\"attempt_mode\":\"automatic\",\"mode\":\"automatic\"}"
+          },
+          {
+            "attempt_id": "595f0fcf30e54bc2a73d3467ac49a678",
+            "chat": "chat-c29f51e6",
+            "ts": 1794641344,
+            "stage": "considered",
+            "outcome": "passed",
+            "reason_code": "",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {},
+            "detail": ""
+          },
+          {
+            "attempt_id": "1fdd162bba044d408f57abdfb082a908",
+            "chat": "chat-c29f51e6",
+            "ts": 1794641344,
+            "stage": "skipped",
+            "outcome": "skipped",
+            "reason_code": "no_random_hit",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {
+              "attempt_mode": "automatic",
+              "detail": "{\"random\":{\"attempts\":1,\"deferred\":false,\"draw_id\":\"7e1abb3877da4c36ada65b96ecd56453\",\"fallback_reason\":null,\"hit\":false,\"policy_version\":\"mca10a-v1\",\"probability\":0.05,\"provider\":\"ANU Quantum Numbers\",\"purpose\":\"meme_trigger\",\"reason\":\"random_miss\",\"selected_source\":\"quantum\",\"source\":\"quantum\",\"source_impl\":\"anu-quantum\",\"ts\":1794641344,\"value\":0.204132080078125}}",
+              "mode": "automatic",
+              "publication": {
+                "checked_at": 1794641344,
+                "claim_id": "3ecf0667830b4aebab6ad80d20761f33",
+                "coordination": "ok",
+                "detail": "",
+                "expires_at": null,
+                "holder": "meme_initiative",
+                "holder_kind": "meme_initiative",
+                "interval_seconds": 1800,
+                "last_publish_kind": "meme_initiative",
+                "last_publish_ts": 1794616881,
+                "manual_priority_until": 1794403592,
+                "ok": true,
+                "other_age_seconds": null,
+                "other_kind": "",
+                "reason": "",
+                "state": "released"
+              }
+            },
+            "detail": "{\"attempt_mode\":\"automatic\",\"detail\":\"{\\\"random\\\":{\\\"attempts\\\":1,\\\"deferred\\\":false,\\\"draw_id\\\":\\\"7e1abb3877da4c36ada65b96ecd56453\\\",\\\"fallback_reason\\\":null,\\\"hit\\\":false,\\\"policy_version\\\":\\\"mca10a-v1\\\",\\\"probability\\\":0.05,\\…[clipped]"
+          },
+          {
+            "attempt_id": "31abe982afcb40b39550fa91b227b822",
+            "chat": "chat-f42f8a1b",
+            "ts": 1794641044,
+            "stage": "considered",
+            "outcome": "passed",
+            "reason_code": "",
+            "limit_source": "",
+            "limit_value": null,
+            "facts": {},
+            "detail": ""
+          }
+        ],
+        "last_attempt_display": {
+          "mode": null,
+          "visible_ts": 1794641344,
+          "outcome": "passed",
+          "reason_code": "",
+          "stage": "considered"
+        },
+        "spool": {
+          "exists": false,
+          "rows": 0,
+          "bad_rows": 0,
+          "file": "local_database.db.attempts.pending.jsonl"
+        },
+        "journal_markers_in_window": {
+          "journal_spooled": 0,
+          "attempt_lost": 0,
+          "journal_read_failed": 0,
+          "operational_error": 0
+        },
+        "assertions": [
+          {
+            "name": "sqlite_readable",
+            "ok": true,
+            "detail": "read-only SQLite DB must be readable"
+          },
+          {
+            "name": "attempt_table_present",
+            "ok": true,
+            "detail": "{'table': 'meme_initiative_attempt', 'total': 33198, 'last_ts': 1794641344}"
+          },
+          {
+            "name": "attempt_query_ok",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "name": "attempt_aggregate_readable",
+            "ok": true,
+            "detail": "{'aggregate_rows': 1, 'summary': {'c': 33198, 'last_ts': 1794641344, 'last_stage': 'summary'}, 'query_error': None}"
+          },
+          {
+            "name": "attempt_rows_present",
+            "ok": true,
+            "detail": "{'table': 'meme_initiative_attempt', 'total': 33198, 'last_ts': 1794641344}"
+          },
+          {
+            "name": "last_attempt_state_present",
+            "ok": true,
+            "detail": "[{'attempt_id': 'aaf722541375460182bb772277546afc', 'chat': 'chat-bb8fd239', 'ts': 1794641344, 'stage': 'considered', 'outcome': 'passed', 'reason_code': '', 'limit_source': '', 'limit_value': None, 'facts': {}, 'detail': ''}]"
+          },
+          {
+            "name": "spool_drained",
+            "ok": true,
+            "detail": "{'exists': False, 'rows': 0, 'bad_rows': 0, 'file': 'local_database.db.attempts.pending.jsonl'}"
+          },
+          {
+            "name": "journal_window_readable",
+            "ok": true,
+            "detail": "{'log_state': 'ok', 'journal_state': 'ok', 'chars': 2561}"
+          },
+          {
+            "name": "journal_write_healthy",
+            "ok": true,
+            "detail": "{'journal_spooled': 0, 'attempt_lost': 0, 'journal_read_failed': 0, 'operational_error': 0}"
+          },
+          {
+            "name": "accumulated_rows_preserved",
+            "ok": true,
+            "detail": "{'total': 33198, 'markers': {'journal_spooled': 0, 'attempt_lost': 0, 'journal_read_failed': 0, 'operational_error': 0}}"
+          },
+          {
+            "name": "last_attempt_displayable",
+            "ok": true,
+            "detail": "{'mode': None, 'visible_ts': 1794641344, 'outcome': 'passed', 'reason_code': '', 'stage': 'considered'}"
+          }
+        ]
+      },
+      "duration_s": 0.011
+    },
+    {
+      "id": "i2_stream",
+      "title": "I2 fresh stream cursor/lag read-only observation",
+      "req_ids": [
+        "SXR-I2-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real read-only SQLite durable payload/cursors/backlog",
+      "production_observed": true,
+      "summary": "durable cursor/scope, backlog, измеренный lag и терминальные drain-циклы прочитаны без записи",
+      "details": {
+        "job_kind": "experience.review",
+        "sqlite_readable": true,
+        "recent_jobs": [
+          {
+            "job_id": "caf0b292cc824e8db9…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794640744,
+            "finished_at": 1794640769,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2057759,
+              "fresh_stream_pending_rows": 12816,
+              "semantic_batches_run": 0,
+              "semantic_budget_exhausted": 0,
+              "semantic_candidates": 0,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 0,
+              "semantic_llm_unavailable": 1,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {},
+              "semantic_rejected": 0,
+              "semantic_rows_eligible": 44,
+              "semantic_rows_ineligible": 6,
+              "semantic_rows_read": 50,
+              "semantic_scanned": 6,
+              "semantic_selected": 44,
+              "semantic_throughput_rows": 0,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "25027b95110548cb91…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794639843,
+            "finished_at": 1794639858,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2057753,
+              "fresh_stream_pending_rows": 12810,
+              "semantic_batches_run": 0,
+              "semantic_budget_exhausted": 0,
+              "semantic_candidates": 0,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 0,
+              "semantic_llm_unavailable": 1,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {},
+              "semantic_rejected": 0,
+              "semantic_rows_eligible": 44,
+              "semantic_rows_ineligible": 6,
+              "semantic_rows_read": 50,
+              "semantic_scanned": 3,
+              "semantic_selected": 44,
+              "semantic_throughput_rows": 0,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "0da1e29f5f1e45048f…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794638944,
+            "finished_at": 1794638961,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2057750,
+              "fresh_stream_pending_rows": 12807,
+              "semantic_batches_run": 0,
+              "semantic_budget_exhausted": 0,
+              "semantic_candidates": 0,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 0,
+              "semantic_llm_unavailable": 1,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {},
+              "semantic_rejected": 0,
+              "semantic_rows_eligible": 44,
+              "semantic_rows_ineligible": 6,
+              "semantic_rows_read": 50,
+              "semantic_scanned": 1,
+              "semantic_selected": 44,
+              "semantic_throughput_rows": 0,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "d4f8a314431f443bb3…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794638043,
+            "finished_at": 1794638052,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2057749,
+              "fresh_stream_pending_rows": 12806,
+              "semantic_batches_run": 0,
+              "semantic_budget_exhausted": 0,
+              "semantic_candidates": 0,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 0,
+              "semantic_llm_unavailable": 1,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {},
+              "semantic_rejected": 0,
+              "semantic_rows_eligible": 44,
+              "semantic_rows_ineligible": 6,
+              "semantic_rows_read": 50,
+              "semantic_scanned": 16,
+              "semantic_selected": 44,
+              "semantic_throughput_rows": 0,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          },
+          {
+            "job_id": "e1251a4a91874db1a6…[clipped]",
+            "status": "completed",
+            "attempt": 1,
+            "created_at": 1794637144,
+            "finished_at": 1794637160,
+            "counters": {
+              "archive_directions": 0,
+              "archive_llm_unavailable": 0,
+              "archive_rows_scanned": 0,
+              "archive_skipped_fresh_backlog": 1,
+              "archive_write_failures": 0,
+              "fresh_stream_lag_rows": 2057733,
+              "fresh_stream_pending_rows": 12790,
+              "semantic_batches_run": 0,
+              "semantic_budget_exhausted": 0,
+              "semantic_candidates": 0,
+              "semantic_chats_deferred": 0,
+              "semantic_chats_disabled": 0,
+              "semantic_chats_empty": 0,
+              "semantic_discover_errors": 0,
+              "semantic_discovery_backpressure": 0,
+              "semantic_duplicates": 0,
+              "semantic_extracted": 0,
+              "semantic_llm_unavailable": 1,
+              "semantic_parse_invalid": 0,
+              "semantic_parse_reasons": {},
+              "semantic_parse_valid_empty": 0,
+              "semantic_pending_reconciled": 0,
+              "semantic_read_errors": 0,
+              "semantic_reject_reasons": {},
+              "semantic_rejected": 0,
+              "semantic_rows_eligible": 44,
+              "semantic_rows_ineligible": 6,
+              "semantic_rows_read": 50,
+              "semantic_scanned": 2,
+              "semantic_selected": 44,
+              "semantic_throughput_rows": 0,
+              "semantic_write_failures": 0,
+              "semantic_write_skipped": 0
+            },
+            "has_payload": true
+          }
+        ],
+        "progress_snapshot": {
+          "backlog_rows": 12816,
+          "backlog_chats": 1,
+          "pending_rows": 12816,
+          "pending_chats": 1,
+          "actionable_rows": 12816,
+          "actionable_chats": 1,
+          "lag_seconds": 124220858,
+          "lag_seconds_source": "cursor_distance",
+          "deferred_chats": 0,
+          "watermark": 2407174,
+          "lag_rows": 2057759,
+          "lag_chats": 1,
+          "lag_actionable_rows": 2057759,
+          "lag_actionable_chats": 1,
+          "lag_source": "cursor_distance",
+          "lag_measured_at": 1794640756,
+          "lag_partial": false
+        },
+        "semantic_backlog": {
+          "rows": 2057759,
+          "chats": 1
+        },
+        "cursors": [
+          {
+            "chat": "chat-f42f8a1b",
+            "cursor": 16095,
+            "max_id": 2407194,
+            "rows_after_cursor": 2057779,
+            "oldest_after_cursor": 1670419898,
+            "cursor_lag_consistent": true
+          },
+          {
+            "chat": "chat-c29f51e6",
+            "cursor": 2407127,
+            "max_id": 2407127,
+            "rows_after_cursor": 0,
+            "oldest_after_cursor": null,
+            "cursor_lag_consistent": true
+          },
+          {
+            "chat": "chat-e6b88c2c",
+            "cursor": 2407145,
+            "max_id": 2407145,
+            "rows_after_cursor": 0,
+            "oldest_after_cursor": null,
+            "cursor_lag_consistent": true
+          }
+        ],
+        "watermark": 2407174,
+        "last_semantic_ts": {
+          "-1002661910336": 1794636244,
+          "5885953495": 1794636244,
+          "-1004482340693": 1794634444
+        },
+        "measured_lag_payload": {
+          "available": true,
+          "rows": 2057759,
+          "worst_rows": 2057759,
+          "partial": false,
+          "age_seconds": 124220858,
+          "ts": 1794640756
+        },
+        "recomputed_lag_rows": 2057779,
+        "reason_codes": {
+          "scope": "global",
+          "generated_at": 1794641621,
+          "window_seconds": 604800,
+          "items": [
+            {
+              "event": "activated",
+              "count_window": 4073,
+              "windows": {
+                "24h": 342,
+                "7d": 4073,
+                "30d": 4076
+              },
+              "last_ts": 1794636301,
+              "last_outcome": "success",
+              "last_reason": "activated"
+            },
+            {
+              "event": "experience_recorded",
+              "count_window": 1416,
+              "windows": {
+                "24h": 249,
+                "7d": 1416,
+                "30d": 2095
+              },
+              "last_ts": 1794638052,
+              "last_outcome": "success",
+              "last_reason": "experience_recorded"
+            },
+            {
+              "event": "feedback_linked",
+              "count_window": 1339,
+              "windows": {
+                "24h": 246,
+                "7d": 1339,
+                "30d": 1351
+              },
+              "last_ts": 1794638044,
+              "last_outcome": "success",
+              "last_reason": "feedback_linked"
+            },
+            {
+              "event": "lesson_proposed",
+              "count_window": 910,
+              "windows": {
+                "24h": 65,
+                "7d": 910,
+                "30d": 913
+              },
+              "last_ts": 1794635472,
+              "last_outcome": "success",
+              "last_reason": "lesson_proposed"
+            },
+            {
+              "event": "validation_passed",
+              "count_window": 908,
+              "windows": {
+                "24h": 65,
+                "7d": 908,
+                "30d": 911
+              },
+              "last_ts": 1794635472,
+              "last_outcome": "success",
+              "last_reason": "validation_passed"
+            },
+            {
+              "event": "suspended",
+              "count_window": 727,
+              "windows": {
+                "24h": 108,
+                "7d": 727,
+                "30d": 727
+              },
+              "last_ts": 1794635472,
+              "last_outcome": "skipped",
+              "last_reason": "suspended"
+            },
+            {
+              "event": "validation_failed",
+              "count_window": 408,
+              "windows": {
+                "24h": 72,
+                "7d": 408,
+                "30d": 408
+              },
+              "last_ts": 1794614799,
+              "last_outcome": "failed",
+              "last_reason": "validation_failed"
+            },
+            {
+              "event": "retrieved",
+              "count_window": 296,
+              "windows": {
+                "24h": 49,
+                "7d": 296,
+                "30d": 591
+              },
+              "last_ts": 1794639849,
+              "last_outcome": "skipped",
+              "last_reason": "retrieval_empty"
+            },
+            {
+              "event": "superseded",
+              "count_window": 49,
+              "windows": {
+                "24h": 5,
+                "7d": 49,
+                "30d": 49
+              },
+              "last_ts": 1794634636,
+              "last_outcome": "success",
+              "last_reason": "superseded"
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "name": "sqlite_readable",
+            "ok": true,
+            "detail": "read-only SQLite DB must be readable"
+          },
+          {
+            "name": "review_job_present",
+            "ok": true,
+            "detail": "5"
+          },
+          {
+            "name": "durable_payload_present",
+            "ok": true,
+            "detail": "21"
+          },
+          {
+            "name": "cursor_identity_present",
+            "ok": true,
+            "detail": "3"
+          },
+          {
+            "name": "cursor_scope_chat",
+            "ok": true,
+            "detail": "['chat-bb8fd239', 'chat-39b94607', 'chat-316e52ba']"
+          },
+          {
+            "name": "lag_measurement_available",
+            "ok": true,
+            "detail": "{'available': True, 'rows': 2057759, 'worst_rows': 2057759, 'partial': False, 'age_seconds': 124220858, 'ts': 1794640756}"
+          },
+          {
+            "name": "cursor_lag_recomputed",
+            "ok": true,
+            "detail": "[{'chat': 'chat-bb8fd239', 'cursor': 16095, 'max_id': 2407194, 'rows_after_cursor': 2057779, 'oldest_after_cursor': 1670419898, 'cursor_lag_consistent': True}, {'chat': 'chat-39b94607', 'cursor': 2407127, 'max_id': 2407127, 'rows_after_cursor': 0, 'oldest_after_cursor': None, 'cursor_lag_consistent': True}, {'chat': 'chat-316e52ba', 'cursor': 2407145, 'max_id': 2407145, 'rows_after_cur…[clipped]"
+          },
+          {
+            "name": "progress_matches_measured",
+            "ok": true,
+            "detail": "{'snapshot': 2057759, 'recomputed': 2057779}"
+          },
+          {
+            "name": "drain_cycles_recorded",
+            "ok": true,
+            "detail": "[{'job_id': 'caf0b292cc824e8db9…[clipped]', 'status': 'completed', 'attempt': 1, 'created_at': 1794640744, 'finished_at': 1794640769, 'counters': {'archive_directions': 0, 'archive_llm_unavailable': 0, 'archive_rows_scanned': 0, 'archive_skipped_fresh_backlog': 1, 'archive_write_failures': 0, 'fresh_stream_lag_rows': 2057759, 'fresh_stream_pending_rows': 12816, 'semantic_batches_run': …[clipped]"
+          }
+        ]
+      },
+      "duration_s": 0.278
+    },
+    {
+      "id": "k3_settings",
+      "title": "Persisted settings/models/prompts not overwritten",
+      "req_ids": [
+        "SXR-K3-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "production",
+      "evidence_reason": "real read-only PG bot_settings/chat_profiles; contract failed",
+      "production_observed": false,
+      "summary": "сохранённые настройки/модели/промпты не подтверждены: override_counts_unchanged, chat_profiles_unchanged_since_baseline",
+      "details": {
+        "baseline": {
+          "source": "release-evidence/2.58.200/deploy.md",
+          "deployed_version": "2.58.200",
+          "deploy_at_utc": "2026-11-14T05:18:47+00:00",
+          "bot_settings_total": 548,
+          "chat_profiles_max_updated_at": "2026-11-13T11:07:51+00:00",
+          "override_key_counts": [
+            5,
+            8,
+            31
+          ],
+          "protected_settings": {
+            "flags.budgets_enabled": {
+              "value": false,
+              "updated_date": "2026-10-25"
+            },
+            "models.llm_model_name": {
+              "value": null,
+              "updated_date": "2026-11-11"
+            },
+            "models.llm_base_url": {
+              "value": null,
+              "updated_date": "2026-09-12"
+            }
+          },
+          "allowed_new_prompt_keys": [
+            "prompts.factcheck_subject_system_prompt"
+          ]
+        },
+        "settings_total": 548,
+        "settings_by_category": {
+          "keys": 18,
+          "models": 67,
+          "flags": 110,
+          "limits": 231,
+          "reactions": 39,
+          "memory": 43,
+          "prompts": 29,
+          "content": 7,
+          "temporal": 4
+        },
+        "protected_settings": {
+          "flags.budgets_enabled": {
+            "present": true,
+            "updated_at": "2026-10-25T06:13:07.439995+00:00",
+            "updated_date_matches": true
+          },
+          "models.llm_model_name": {
+            "present": true,
+            "updated_at": "2026-11-11T12:04:22.696731+00:00",
+            "updated_date_matches": true
+          },
+          "models.llm_base_url": {
+            "present": true,
+            "updated_at": "2026-09-12T05:43:07.884798+00:00",
+            "updated_date_matches": true
+          }
+        },
+        "protected_values": {
+          "flags.budgets_enabled": false,
+          "models.llm_model_name": "z-ai/glm-5.3-flash-uncensored",
+          "models.llm_base_url": "https://nano-gpt.com/api/v1"
+        },
+        "chat_profiles": {
+          "chats": 3,
+          "override_counts": [
+            5,
+            8,
+            32
+          ],
+          "max_updated_at": "2026-11-14T06:11:54.954581+00:00"
+        },
+        "prompts": {
+          "count": 29,
+          "changed_after_deploy": [],
+          "allowed_new": [
+            "prompts.factcheck_subject_system_prompt"
+          ]
+        },
+        "feature_switches": {
+          "MODEL_CAPACITY_RESOLVER_ENABLED": true,
+          "SOURCE_READ_ENABLED": true,
+          "TOOL_CHAIN_LIMITS_ENABLED": true
+        },
+        "assertions": [
+          {
+            "name": "persisted_config_readable",
+            "ok": true,
+            "detail": "PG bot_settings/chat_profiles read-only"
+          },
+          {
+            "name": "settings_not_deleted",
+            "ok": true,
+            "detail": "{'now': 548, 'baseline': 548}"
+          },
+          {
+            "name": "protected_present:flags.budgets_enabled",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-10-25T06:13:07.439995+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_not_rewritten:flags.budgets_enabled",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-10-25T06:13:07.439995+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_present:models.llm_model_name",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-11-11T12:04:22.696731+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_not_rewritten:models.llm_model_name",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-11-11T12:04:22.696731+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_present:models.llm_base_url",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-09-12T05:43:07.884798+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "protected_not_rewritten:models.llm_base_url",
+            "ok": true,
+            "detail": "{'present': True, 'updated_at': '2026-09-12T05:43:07.884798+00:00', 'updated_date_matches': True}"
+          },
+          {
+            "name": "budgets_flag_persisted_false",
+            "ok": true,
+            "detail": "False"
+          },
+          {
+            "name": "override_counts_unchanged",
+            "ok": false,
+            "detail": "{'now': [5, 8, 32], 'baseline': [5, 8, 31]}"
+          },
+          {
+            "name": "chat_profiles_unchanged_since_baseline",
+            "ok": false,
+            "detail": "{'now': '2026-11-14T06:11:54.954581+00:00', 'baseline': '2026-11-13T11:07:51+00:00'}"
+          },
+          {
+            "name": "prompts_not_overwritten",
+            "ok": true,
+            "detail": "[]"
+          },
+          {
+            "name": "fixes_not_shadowed",
+            "ok": true,
+            "detail": "{'MODEL_CAPACITY_RESOLVER_ENABLED': True, 'SOURCE_READ_ENABLED': True, 'TOOL_CHAIN_LIMITS_ENABLED': True}"
+          }
+        ]
+      },
+      "duration_s": 0.003
+    },
+    {
+      "id": "l8_rollup",
+      "title": "I1–I6 structured rollup (no new behavior)",
+      "req_ids": [
+        "SXR-L8-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "rollup over production-observed I1/I2 facts",
+      "production_observed": true,
+      "summary": "I1/I2 наблюдены (3 пунктов observed, 0 not_observed, 3 not_run); свод без нового поведения",
+      "details": {
+        "items": {
+          "I1_journal_and_spool": {
+            "status": "observed",
+            "cause_evidence": {
+              "attempts_total": 33198,
+              "journal_markers": {
+                "journal_spooled": 0,
+                "attempt_lost": 0,
+                "journal_read_failed": 0,
+                "operational_error": 0
+              }
+            },
+            "fix_evidence": {
+              "last_attempt_display": {
+                "mode": null,
+                "visible_ts": 1794641344,
+                "outcome": "passed",
+                "reason_code": "",
+                "stage": "considered"
+              },
+              "spool_rows": 0,
+              "spool_bad_rows": 0,
+              "accumulated_rows_preserved": 33198
+            },
+            "invariants": "attempt rows readable; spool drained without loss"
+          },
+          "I2_fresh_stream": {
+            "status": "observed",
+            "cause_evidence": {
+              "job_kind": "experience.review",
+              "payload_lag": {
+                "available": true,
+                "rows": 2057759,
+                "worst_rows": 2057759,
+                "partial": false,
+                "age_seconds": 124220858,
+                "ts": 1794640756
+              }
+            },
+            "fix_evidence": {
+              "cursor_count": 3,
+              "recomputed_lag_rows": 2057779,
+              "drain_jobs": 5
+            },
+            "invariants": "cursor identity/scope, backlog, lag recomputation"
+          },
+          "I3_lesson_rejected": {
+            "status": "not_run",
+            "reason": "в этом canary нет разрешённого/запрещённого lesson-сценария; факт не наблюдён"
+          },
+          "I4_reason_codes": {
+            "status": "observed",
+            "evidence": {
+              "scope": "global",
+              "generated_at": 1794641621,
+              "window_seconds": 604800,
+              "items": [
+                {
+                  "event": "activated",
+                  "count_window": 4073,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794636301,
+                  "last_outcome": "success",
+                  "last_reason": "activated"
+                },
+                {
+                  "event": "experience_recorded",
+                  "count_window": 1416,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794638052,
+                  "last_outcome": "success",
+                  "last_reason": "experience_recorded"
+                },
+                {
+                  "event": "feedback_linked",
+                  "count_window": 1339,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794638044,
+                  "last_outcome": "success",
+                  "last_reason": "feedback_linked"
+                },
+                {
+                  "event": "lesson_proposed",
+                  "count_window": 910,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794635472,
+                  "last_outcome": "success",
+                  "last_reason": "lesson_proposed"
+                },
+                {
+                  "event": "validation_passed",
+                  "count_window": 908,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794635472,
+                  "last_outcome": "success",
+                  "last_reason": "validation_passed"
+                },
+                {
+                  "event": "suspended",
+                  "count_window": 727,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794635472,
+                  "last_outcome": "skipped",
+                  "last_reason": "suspended"
+                },
+                {
+                  "event": "validation_failed",
+                  "count_window": 408,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794614799,
+                  "last_outcome": "failed",
+                  "last_reason": "validation_failed"
+                },
+                {
+                  "event": "retrieved",
+                  "count_window": 296,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794639849,
+                  "last_outcome": "skipped",
+                  "last_reason": "retrieval_empty"
+                },
+                {
+                  "event": "superseded",
+                  "count_window": 49,
+                  "windows": {
+                    "24h": "[depth]",
+                    "7d": "[depth]",
+                    "30d": "[depth]"
+                  },
+                  "last_ts": 1794634636,
+                  "last_outcome": "success",
+                  "last_reason": "superseded"
+                }
+              ]
+            },
+            "invariants": "unmapped codes classification (read-only snapshot)"
+          },
+          "I5_incidents": {
+            "status": "not_run",
+            "reason": "инцидентные сценарии требуют управляемого отказа; в canary не исполнялись"
+          },
+          "I6_events": {
+            "status": "not_run",
+            "reason": "событийный путь мемов/инициативы проверяется I1; отдельный I6-сценарий не исполнялся"
+          }
+        },
+        "rollup": {
+          "observed": 3,
+          "not_observed": 0,
+          "not_run": 3,
+          "related_checks": {
+            "i1": "observed",
+            "i2": "observed",
+            "k3": "not_observed",
+            "diagnostic_variants": "not_observed"
+          }
+        },
+        "no_new_behavior": true,
+        "input_evidence_classes": {
+          "i1": "production",
+          "i2": "production"
+        }
+      },
+      "duration_s": 0.0
+    }
+  ],
+  "notes": [
+    "canary не отправляет Telegram-сообщений и не пишет конфигурацию",
+    "production code paths emit in-memory telemetry only; durable mca_events/execution-graph writes are not flushed by this process",
+    "observed != VERIFIED: acceptability решается requirement map после независимой проверки Reviewer"
+  ]
+}

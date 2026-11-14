@@ -1,0 +1,1539 @@
+{
+  "schema": "fc-live-canary/v1",
+  "harness": "fc_live_canary",
+  "harness_version": "1.1.0",
+  "harness_sha256": "9513548e5830bd442ac0d869e2cd6637f6c18c7f7f6bb1a113aac2dec563cacd",
+  "started_at": "2026-11-14T07:33:48.259276+00:00",
+  "repo_root": "/var/www/admin_bot",
+  "allow_provider_calls": true,
+  "offline": false,
+  "max_provider_calls": 60,
+  "python": "3.12.3",
+  "checks": [
+    {
+      "id": "ordinary_factcheck",
+      "req_ids": [
+        "SFC-12-02",
+        "SFC-7-06",
+        "SFC-13-01"
+      ],
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "production_evidence": false,
+      "summary": "Обычный фактчек не выполнен: pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+      "details": {
+        "run": {
+          "name": "ordinary_factcheck",
+          "status": "not_observed",
+          "error": "pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+          "duration_s": 0.0,
+          "outcome": null,
+          "correlation_id": null,
+          "subject": {},
+          "publication": {},
+          "plan": {},
+          "retrieval": {},
+          "envelope": {},
+          "diagnostics": {},
+          "claims_event": {},
+          "delivered": {},
+          "db": {},
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 0,
+            "search_calls": 0,
+            "page_fetch_calls": 0,
+            "total": 0
+          },
+          "events": [],
+          "admission": {},
+          "transport": "real"
+        }
+      },
+      "duration_s": 0.0
+    },
+    {
+      "id": "multipart_and_short_reply",
+      "req_ids": [
+        "SFC-12-02"
+      ],
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "production_evidence": false,
+      "summary": "Многосоставный/короткий сценарий не выполнен: multipart=pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime); short_reply=pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+      "details": {
+        "multipart": {
+          "name": "multipart",
+          "status": "not_observed",
+          "error": "pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+          "duration_s": 0.0,
+          "outcome": null,
+          "correlation_id": null,
+          "subject": {},
+          "publication": {},
+          "plan": {},
+          "retrieval": {},
+          "envelope": {},
+          "diagnostics": {},
+          "claims_event": {},
+          "delivered": {},
+          "db": {},
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 0,
+            "search_calls": 0,
+            "page_fetch_calls": 0,
+            "total": 0
+          },
+          "events": [],
+          "admission": {},
+          "transport": "real"
+        },
+        "short_reply": {
+          "name": "short_reply",
+          "status": "not_observed",
+          "error": "pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+          "duration_s": 0.0,
+          "outcome": null,
+          "correlation_id": null,
+          "subject": {},
+          "publication": {},
+          "plan": {},
+          "retrieval": {},
+          "envelope": {},
+          "diagnostics": {},
+          "claims_event": {},
+          "delivered": {},
+          "db": {},
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 0,
+            "search_calls": 0,
+            "page_fetch_calls": 0,
+            "total": 0
+          },
+          "events": [],
+          "admission": {},
+          "transport": "real"
+        }
+      },
+      "duration_s": 0.0
+    },
+    {
+      "id": "budget_scenarios",
+      "req_ids": [
+        "SFC-12-07",
+        "SFC-5-10"
+      ],
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "production_evidence": false,
+      "summary": "Сценарии A–J: OFF не ограничивает, ON даёт новые заводские значения, сохранённые настройки уважаются, скрытых старых cap нет, части/результаты/выдача не теряются.",
+      "details": {
+        "scenarios": {
+          "effective_production": {
+            "synthetic_chat": {
+              "budgets_state": {
+                "budgets_enabled": true,
+                "source": "default",
+                "stale": false,
+                "known": true
+              },
+              "limits": {
+                "budgets_enabled": true,
+                "budget_source": "default",
+                "budget_known": true,
+                "base_seconds": 120.0,
+                "max_seconds": 600.0,
+                "refine_calls": 24,
+                "total_queries": 64,
+                "search_text_chars": 100000,
+                "page_size": 20,
+                "claim_portion": 32,
+                "primary_fetches": 2,
+                "excerpt_chars": 600,
+                "sources": {
+                  "flags.budgets_enabled": "default",
+                  "limits.factcheck_claim_portion": "default",
+                  "limits.factcheck_excerpt_chars": "default",
+                  "limits.factcheck_max_queries_total": "default",
+                  "limits.factcheck_page_size": "default",
+                  "limits.factcheck_primary_fetches": "default",
+                  "limits.factcheck_refine_calls": "default",
+                  "limits.factcheck_retrieval_seconds": "default",
+                  "limits.factcheck_retrieval_seconds_max": "default",
+                  "limits.factcheck_search_text_chars": "default"
+                }
+              }
+            },
+            "real_chats": [],
+            "global": {
+              "budgets_enabled": true,
+              "source": "default",
+              "stale": false,
+              "known": true
+            }
+          },
+          "A_simple_early_finish": {
+            "observed": false,
+            "reason": "ordinary run unavailable"
+          },
+          "B_off_limits": {
+            "production_effective": {
+              "budgets_enabled": true,
+              "budget_source": "default",
+              "budget_known": true,
+              "base_seconds": 120.0,
+              "max_seconds": 600.0,
+              "refine_calls": 24,
+              "total_queries": 64,
+              "search_text_chars": 100000,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": 2,
+              "excerpt_chars": 600,
+              "sources": {
+                "flags.budgets_enabled": "default",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            },
+            "production_off_applicable": false,
+            "off_contract": {
+              "budgets_enabled": false,
+              "budget_source": "canary_off",
+              "budget_known": true,
+              "base_seconds": null,
+              "max_seconds": null,
+              "refine_calls": null,
+              "total_queries": null,
+              "search_text_chars": null,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": null,
+              "excerpt_chars": null,
+              "sources": {
+                "flags.budgets_enabled": "canary_off",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            },
+            "budgets_enabled": false,
+            "deadline_none": true,
+            "caps_none": true,
+            "budget_for_claims": null
+          },
+          "B_off_runs_past_old_limits": {
+            "queries_planned": 6,
+            "queries_attempted": 6,
+            "budget_seconds": null,
+            "stop_reason": "sufficient_evidence",
+            "no_cap": true
+          },
+          "C_on_new_factory_values": {
+            "resolved": {
+              "budgets_enabled": true,
+              "budget_source": "default",
+              "budget_known": true,
+              "base_seconds": 120.0,
+              "max_seconds": 600.0,
+              "refine_calls": 24,
+              "total_queries": 64,
+              "search_text_chars": 100000,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": 2,
+              "excerpt_chars": 600,
+              "sources": {
+                "flags.budgets_enabled": "default",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            },
+            "matches_new_factory": true,
+            "mismatched": {},
+            "hidden_old_caps": {},
+            "on_budget_seconds_claims3": 240.0,
+            "on_override_meta": {
+              "budgets_enabled": true,
+              "budget_source": "canary_on",
+              "budget_known": true,
+              "base_seconds": 120.0,
+              "max_seconds": 600.0,
+              "refine_calls": 24,
+              "total_queries": 64,
+              "search_text_chars": 100000,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": 2,
+              "excerpt_chars": 600,
+              "sources": {
+                "flags.budgets_enabled": "canary_on",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            }
+          },
+          "D_saved_setting_honoured": {
+            "state": {
+              "budgets_enabled": true,
+              "source": "chat",
+              "stale": false,
+              "known": true
+            },
+            "base_seconds": 300.0,
+            "total_queries": 100,
+            "source": "chat",
+            "limit_sources": {
+              "flags.budgets_enabled": "chat",
+              "limits.factcheck_claim_portion": "default",
+              "limits.factcheck_excerpt_chars": "default",
+              "limits.factcheck_max_queries_total": "chat",
+              "limits.factcheck_page_size": "default",
+              "limits.factcheck_primary_fetches": "default",
+              "limits.factcheck_refine_calls": "default",
+              "limits.factcheck_retrieval_seconds": "chat",
+              "limits.factcheck_retrieval_seconds_max": "default",
+              "limits.factcheck_search_text_chars": "default"
+            },
+            "honoured": true,
+            "real_saved_overrides": []
+          },
+          "E_off_saved_limit_not_enforced": {
+            "state": {
+              "budgets_enabled": false,
+              "source": "chat",
+              "stale": false,
+              "known": true
+            },
+            "base_seconds": null,
+            "total_queries": null,
+            "search_text_chars": null,
+            "queries_planned": 10,
+            "queries_attempted": 10,
+            "budget_exhausted": false,
+            "not_enforced": true
+          },
+          "F_evidence_over_8000": {
+            "synthetic_total_chars": 16000,
+            "synthetic_delivered_chars": 16000,
+            "synthetic_rows": 4,
+            "no_8000_cap": true,
+            "real_route_evidence_budget_chars": 800000,
+            "real_run_delivered_chars": null
+          },
+          "G_more_than_8_parts": {
+            "sentences": 16,
+            "parts": 16,
+            "portion_size": 32,
+            "text_preserved": true,
+            "no_8_silent_cap": true
+          },
+          "H_more_than_4_results": {
+            "page_size_default": 20,
+            "candidates_default": 10,
+            "refs_default": 10,
+            "candidates_with_explicit_4": 4,
+            "refs_with_explicit_4": 4,
+            "not_truncated_to_4": true,
+            "explicit_page_size_honoured": true,
+            "default_page_size_is_20": true
+          },
+          "I_continuation_available": {
+            "portions_model": {
+              "portions": 3,
+              "portion_chars": 100000,
+              "lossless": true,
+              "first_portion_chars": 100000
+            },
+            "on_total_chars": 1260148,
+            "on_portions": 13,
+            "on_lossless": true,
+            "on_truncated_flag": true,
+            "on_truncated_matches_portions": true,
+            "off_portions": 1,
+            "off_total_chars": 1260148,
+            "off_lossless": true,
+            "budget_off_single_portion": true
+          },
+          "J_physical_limit": {
+            "real_route": {
+              "channel": "primary",
+              "model": "deepseek-v4-flash",
+              "window_tokens": 1000000,
+              "window_source": "unknown_fallback",
+              "evidence_budget_chars": 800000,
+              "output_reserve_tokens": 100000
+            },
+            "model_capacity_source": "unknown_fallback",
+            "small_route_delivered_rows": 1,
+            "small_route_truncated": [
+              "ev-1"
+            ],
+            "small_route_remainder": 3,
+            "remainder_preserved": true,
+            "block_present": true,
+            "total_recomputed": 4
+          }
+        },
+        "assertions": {
+          "B_off_no_deadline": true,
+          "B_off_runs_full_plan": true,
+          "C_new_factory_values": true,
+          "C_no_hidden_old_caps": true,
+          "D_saved_setting": true,
+          "E_off_not_enforced": true,
+          "F_evidence_gt_8000": true,
+          "G_parts_gt_8": true,
+          "H_results_gt_4": true,
+          "I_continuation": true,
+          "J_physical_limit": true
+        },
+        "evidence_classes": {
+          "assertions": "plumbing",
+          "note": "B–J используют контролируемые двойники транспорта; production-наблюдения — effective_production (PG read-only) и значения из ordinary_factcheck, они не подменяются двойниками.",
+          "effective_production": "production (read-only PG snapshot)",
+          "ordinary_run_values": "production when ordinary_factcheck observed"
+        },
+        "A_note": "A требует реального прогона; наблюдается в ordinary_factcheck (см. scenarios.A_*)"
+      },
+      "duration_s": 0.027
+    },
+    {
+      "id": "metric_distinguishability",
+      "req_ids": [
+        "SFC-13-03"
+      ],
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "production_evidence": false,
+      "summary": "Метрики различают ранний успех, отсутствие прогресса, отказ провайдера, техдедлайн, бюджетный предел и скрытый enforcement; частичный результат не выдаётся за аварию.",
+      "details": {
+        "controlled": {
+          "sufficient_evidence": {
+            "stop_reason": "sufficient_evidence",
+            "retrieval_class": "ok",
+            "queries_attempted": 2,
+            "queries_used": 2,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 3,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 2,
+              "provider_attempts": 2,
+              "provider_failures": 0,
+              "documents_retrieved": 6,
+              "queries_with_results": 2,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 3,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "sufficient_evidence",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "ok",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "no_progress": {
+            "stop_reason": "no_progress",
+            "retrieval_class": "no_usable_results",
+            "queries_attempted": 3,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 3,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 0,
+              "documents_retrieved": 0,
+              "queries_with_results": 0,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 3,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "no_progress",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "no_usable_results",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary claim 1",
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "no_usable_results": {
+            "stop_reason": "paths_exhausted",
+            "retrieval_class": "no_usable_results",
+            "queries_attempted": 3,
+            "queries_used": 3,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 0,
+              "documents_retrieved": 3,
+              "queries_with_results": 3,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "paths_exhausted",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "no_usable_results",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary claim 1",
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "providers_unavailable": {
+            "stop_reason": "providers_unavailable",
+            "retrieval_class": "search_failed",
+            "queries_attempted": 3,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "provider_failures": 3,
+            "empty_results": 0,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 3,
+              "documents_retrieved": 0,
+              "queries_with_results": 0,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "providers_unavailable",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "search_failed",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary claim 1",
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "technical_limit": {
+            "stop_reason": "technical_limit",
+            "retrieval_class": "search_failed",
+            "queries_attempted": 3,
+            "queries_used": 0,
+            "budget_exhausted": false,
+            "provider_failures": 3,
+            "empty_results": 0,
+            "refs": 0,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 3,
+              "provider_attempts": 3,
+              "provider_failures": 3,
+              "documents_retrieved": 0,
+              "queries_with_results": 0,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "technical_limit",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "search_failed",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary claim 1",
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "budget_exhausted": {
+            "stop_reason": "budget_exhausted",
+            "retrieval_class": "ok",
+            "queries_attempted": 1,
+            "queries_used": 1,
+            "budget_exhausted": true,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 3,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 1,
+              "provider_attempts": 1,
+              "provider_failures": 0,
+              "documents_retrieved": 3,
+              "queries_with_results": 1,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 3,
+              "citable_evidence_count": 0,
+              "budget_exhausted": true,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "budget_exhausted",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "ok",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "budget_on_with_room": {
+            "stop_reason": "sufficient_evidence",
+            "retrieval_class": "ok",
+            "queries_attempted": 2,
+            "queries_used": 2,
+            "budget_exhausted": false,
+            "provider_failures": 0,
+            "empty_results": 0,
+            "refs": 3,
+            "fetch_skipped_deadline": 0,
+            "technical_reason": "",
+            "diagnostics": {
+              "source_query_count": 2,
+              "provider_attempts": 2,
+              "provider_failures": 0,
+              "documents_retrieved": 6,
+              "queries_with_results": 2,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 3,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "sufficient_evidence",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "ok",
+              "technical_reason": "",
+              "attempted_queries": [
+                "canary evidence query 1",
+                "canary evidence query 2"
+              ],
+              "evidence_delivery": {}
+            }
+          },
+          "unexplained_stop_marker": {
+            "stop_reason": "unexplained_stop",
+            "diagnostics": {
+              "source_query_count": 1,
+              "provider_attempts": 0,
+              "provider_failures": 0,
+              "documents_retrieved": 0,
+              "queries_with_results": 1,
+              "extract_attempts": 0,
+              "extract_successes": 0,
+              "extract_failures": 0,
+              "empty_results": 0,
+              "irrelevant_results": 0,
+              "off_topic_sources_dropped": 0,
+              "relevant_evidence_count": 0,
+              "citable_evidence_count": 0,
+              "budget_exhausted": false,
+              "fetch_skipped_deadline": 0,
+              "stop_reason": "unexplained_stop",
+              "fetch_skipped_budget": 0,
+              "retrieval_class": "no_usable_results",
+              "technical_reason": "",
+              "attempted_queries": [],
+              "evidence_delivery": {}
+            },
+            "is_not_deadline": true
+          },
+          "partial_not_technical": {
+            "retrieval_class": "ok",
+            "caveat": "",
+            "technical_reasons": [
+              "deadline_exceeded",
+              "provider_unavailable",
+              "source_missing"
+            ],
+            "marked_technical": false
+          }
+        },
+        "distinct_stop_reasons": {
+          "sufficient_evidence": "sufficient_evidence",
+          "no_progress": "no_progress",
+          "no_usable_results": "paths_exhausted",
+          "providers_unavailable": "providers_unavailable",
+          "technical_limit": "technical_limit",
+          "budget_exhausted": "budget_exhausted",
+          "budget_on_with_room": "sufficient_evidence",
+          "unexplained_stop_marker": "unexplained_stop"
+        },
+        "distinct_count": 7,
+        "assertions": {
+          "early_success_distinct": true,
+          "no_progress_distinct": true,
+          "provider_failure_distinct": true,
+          "technical_deadline_distinct": true,
+          "budget_on_limit_distinct": true,
+          "hidden_enforcement_marker_exposed": true,
+          "partial_not_technical": true,
+          "at_least_5_distinct_states": true
+        },
+        "observed_real_run": {
+          "available": false
+        }
+      },
+      "duration_s": 0.006
+    },
+    {
+      "id": "original_production_scenario",
+      "req_ids": [
+        "SFC-12-09"
+      ],
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "production_evidence": false,
+      "summary": "Исходный production-сценарий не выполнен: pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+      "details": {
+        "run": {
+          "name": "original_production_scenario",
+          "status": "not_observed",
+          "error": "pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+          "duration_s": 0.0,
+          "outcome": null,
+          "correlation_id": null,
+          "subject": {},
+          "publication": {},
+          "plan": {},
+          "retrieval": {},
+          "envelope": {},
+          "diagnostics": {},
+          "claims_event": {},
+          "delivered": {},
+          "db": {},
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 0,
+            "search_calls": 0,
+            "page_fetch_calls": 0,
+            "total": 0
+          },
+          "events": [],
+          "admission": {},
+          "transport": "real"
+        }
+      },
+      "duration_s": 0.0
+    },
+    {
+      "id": "production_smoke",
+      "req_ids": [
+        "SFC-14-03"
+      ],
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "production_evidence": false,
+      "summary": "Identity снят, но smoke-фактчек не выполнен: pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+      "details": {
+        "identity": {
+          "repo_root": "/var/www/admin_bot",
+          "git_head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "git_head_source": "deploy_identity",
+          "branch": "release/2.58.200",
+          "dirty": false,
+          "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+          "manifest": {
+            "path": ".deploy/release.json",
+            "present": true,
+            "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+            "version": "2.58.200",
+            "deployed_at": "2026-11-14T05:18:53.892873Z",
+            "effect": "deploy"
+          },
+          "app_version_runtime": "2.58.200",
+          "identity_code": "local_unverified",
+          "identity_reason": "no_process_start",
+          "version_provenance": {
+            "runtime": "2.58.200",
+            "manifest": "2.58.200",
+            "consistent": true
+          },
+          "upstream_head": {
+            "sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+            "ref": "refs/remotes/origin/release/2.58.200",
+            "observed_at": "2026-11-14T05:18:49.265454Z",
+            "reason": ""
+          },
+          "service_started_at": "Sat 2026-11-14 05:18:59 UTC",
+          "process_started_source": "systemctl ActiveEnterTimestamp",
+          "sources": [
+            "release_manifest",
+            "git_head",
+            "git_cli",
+            "runtime_app_version"
+          ],
+          "conflict": []
+        },
+        "health": {
+          "url": "http://127.0.0.1:8000/healthz",
+          "http": 200,
+          "version": "2.58.200",
+          "status": "ok",
+          "body": null,
+          "duration_ms": 11,
+          "ok": true
+        },
+        "identity_assertions": {
+          "git_head_present": true,
+          "manifest_present": true,
+          "manifest_sha_matches_head": true,
+          "deployed_sha_matches_head": true,
+          "app_version_matches_manifest": true,
+          "health_200": true,
+          "health_version_matches": true,
+          "v2_pipeline_effective": false
+        },
+        "run_assertions": {},
+        "run": {
+          "name": "production_smoke",
+          "status": "not_observed",
+          "error": "pipeline_v2_disabled_effective (flags.factcheck_pipeline_v2 is OFF in the deployed runtime)",
+          "duration_s": 0.0,
+          "outcome": null,
+          "correlation_id": null,
+          "subject": {},
+          "publication": {},
+          "plan": {},
+          "retrieval": {},
+          "envelope": {},
+          "diagnostics": {},
+          "claims_event": {},
+          "delivered": {},
+          "db": {},
+          "calls": {
+            "allowed": true,
+            "max_calls": 60,
+            "llm_calls": 0,
+            "search_calls": 0,
+            "page_fetch_calls": 0,
+            "total": 0
+          },
+          "events": [],
+          "admission": {},
+          "transport": "real"
+        },
+        "safety": {
+          "telegram_bot_class": "StubBot",
+          "telegram_bot_is_stub": true,
+          "real_telegram_bot_constructed": false,
+          "outbound_calls_recorded": 0,
+          "outbound_delivered_to_telegram": 0,
+          "synthetic_chat_id": "SYNTH_CHAT",
+          "real_chat_history_written": false,
+          "production_pg": {
+            "opened": false,
+            "mode": "not_opened",
+            "reason": "pg read failed: connect() got an unexpected keyword argument 'init'",
+            "global_count": null,
+            "chat_count": null
+          },
+          "config_persisted": false,
+          "in_memory_overrides_restored": false,
+          "shim_events": {
+            "hot_enter": 7,
+            "hot_exit": 6,
+            "chat_enter": 7,
+            "chat_exit": 6
+          },
+          "provider_calls_allowed": true,
+          "provider_calls_total": 0,
+          "provider_call_cap": 60
+        },
+        "effective": {
+          "pipeline_v2_enabled": false,
+          "temporal_enabled": true,
+          "budgets": {
+            "budgets_state": {
+              "budgets_enabled": true,
+              "source": "default",
+              "stale": false,
+              "known": true
+            },
+            "limits": {
+              "budgets_enabled": true,
+              "budget_source": "default",
+              "budget_known": true,
+              "base_seconds": 120.0,
+              "max_seconds": 600.0,
+              "refine_calls": 24,
+              "total_queries": 64,
+              "search_text_chars": 100000,
+              "page_size": 20,
+              "claim_portion": 32,
+              "primary_fetches": 2,
+              "excerpt_chars": 600,
+              "sources": {
+                "flags.budgets_enabled": "default",
+                "limits.factcheck_claim_portion": "default",
+                "limits.factcheck_excerpt_chars": "default",
+                "limits.factcheck_max_queries_total": "default",
+                "limits.factcheck_page_size": "default",
+                "limits.factcheck_primary_fetches": "default",
+                "limits.factcheck_refine_calls": "default",
+                "limits.factcheck_retrieval_seconds": "default",
+                "limits.factcheck_retrieval_seconds_max": "default",
+                "limits.factcheck_search_text_chars": "default"
+              }
+            }
+          }
+        }
+      },
+      "duration_s": 0.0
+    }
+  ],
+  "observability": [
+    {
+      "run": "ordinary_factcheck",
+      "check_id": "ordinary_factcheck",
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "transport": "real",
+      "request_correlation_id": null,
+      "route": null,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "app_version": "2.58.200",
+      "effective_budget_state": true,
+      "effective_budget_source": "default",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "default",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": null,
+      "candidates": null,
+      "opened_sources": null,
+      "claim_units": null,
+      "evidence_chars": null,
+      "evidence_delivered_rows": null,
+      "evidence_delivered_chars": null,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      },
+      "retrieval_stop_reason": null,
+      "part_coverage": null,
+      "final_result": {
+        "factual_verdict": null,
+        "temporal_status": null,
+        "reason_code": null,
+        "delivered_chars": null,
+        "delivered_preview": null
+      }
+    },
+    {
+      "run": "multipart",
+      "check_id": "multipart_and_short_reply",
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "transport": "real",
+      "request_correlation_id": null,
+      "route": null,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "app_version": "2.58.200",
+      "effective_budget_state": true,
+      "effective_budget_source": "default",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "default",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": null,
+      "candidates": null,
+      "opened_sources": null,
+      "claim_units": null,
+      "evidence_chars": null,
+      "evidence_delivered_rows": null,
+      "evidence_delivered_chars": null,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      },
+      "retrieval_stop_reason": null,
+      "part_coverage": null,
+      "final_result": {
+        "factual_verdict": null,
+        "temporal_status": null,
+        "reason_code": null,
+        "delivered_chars": null,
+        "delivered_preview": null
+      }
+    },
+    {
+      "run": "ordinary_factcheck",
+      "check_id": "budget_scenarios",
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "transport": "real",
+      "request_correlation_id": null,
+      "route": null,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "app_version": "2.58.200",
+      "effective_budget_state": true,
+      "effective_budget_source": "default",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "default",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": null,
+      "candidates": null,
+      "opened_sources": null,
+      "claim_units": null,
+      "evidence_chars": null,
+      "evidence_delivered_rows": null,
+      "evidence_delivered_chars": null,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      },
+      "retrieval_stop_reason": null,
+      "part_coverage": null,
+      "final_result": {
+        "factual_verdict": null,
+        "temporal_status": null,
+        "reason_code": null,
+        "delivered_chars": null,
+        "delivered_preview": null
+      }
+    },
+    {
+      "run": "ordinary_factcheck",
+      "check_id": "metric_distinguishability",
+      "status": "observed",
+      "evidence_class": "plumbing",
+      "transport": "real",
+      "request_correlation_id": null,
+      "route": null,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "app_version": "2.58.200",
+      "effective_budget_state": true,
+      "effective_budget_source": "default",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "default",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": null,
+      "candidates": null,
+      "opened_sources": null,
+      "claim_units": null,
+      "evidence_chars": null,
+      "evidence_delivered_rows": null,
+      "evidence_delivered_chars": null,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      },
+      "retrieval_stop_reason": null,
+      "part_coverage": null,
+      "final_result": {
+        "factual_verdict": null,
+        "temporal_status": null,
+        "reason_code": null,
+        "delivered_chars": null,
+        "delivered_preview": null
+      }
+    },
+    {
+      "run": "original_production_scenario",
+      "check_id": "original_production_scenario",
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "transport": "real",
+      "request_correlation_id": null,
+      "route": null,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "app_version": "2.58.200",
+      "effective_budget_state": true,
+      "effective_budget_source": "default",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "default",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": null,
+      "candidates": null,
+      "opened_sources": null,
+      "claim_units": null,
+      "evidence_chars": null,
+      "evidence_delivered_rows": null,
+      "evidence_delivered_chars": null,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      },
+      "retrieval_stop_reason": null,
+      "part_coverage": null,
+      "final_result": {
+        "factual_verdict": null,
+        "temporal_status": null,
+        "reason_code": null,
+        "delivered_chars": null,
+        "delivered_preview": null
+      }
+    },
+    {
+      "run": "production_smoke",
+      "check_id": "production_smoke",
+      "status": "not_observed",
+      "evidence_class": "unavailable",
+      "transport": "real",
+      "request_correlation_id": null,
+      "route": null,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "app_version": "2.58.200",
+      "effective_budget_state": true,
+      "effective_budget_source": "default",
+      "effective_limit_sources": {
+        "flags.budgets_enabled": "default",
+        "limits.factcheck_claim_portion": "default",
+        "limits.factcheck_excerpt_chars": "default",
+        "limits.factcheck_max_queries_total": "default",
+        "limits.factcheck_page_size": "default",
+        "limits.factcheck_primary_fetches": "default",
+        "limits.factcheck_refine_calls": "default",
+        "limits.factcheck_retrieval_seconds": "default",
+        "limits.factcheck_retrieval_seconds_max": "default",
+        "limits.factcheck_search_text_chars": "default"
+      },
+      "queries_executed": null,
+      "candidates": null,
+      "opened_sources": null,
+      "claim_units": null,
+      "evidence_chars": null,
+      "evidence_delivered_rows": null,
+      "evidence_delivered_chars": null,
+      "effective_model_capacity": {
+        "primary": {
+          "channel": "primary",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        },
+        "fallback": {
+          "channel": "fallback",
+          "model": "deepseek-v4-flash",
+          "window_tokens": 1000000,
+          "window_source": "unknown_fallback",
+          "evidence_budget_chars": 800000,
+          "output_reserve_tokens": 100000
+        }
+      },
+      "retrieval_stop_reason": null,
+      "part_coverage": null,
+      "final_result": {
+        "factual_verdict": null,
+        "temporal_status": null,
+        "reason_code": null,
+        "delivered_chars": null,
+        "delivered_preview": null
+      }
+    }
+  ],
+  "limitations": [
+    "Harness drives run_factcheck directly (the BinaryHandler seam is not exercised); the deployed v2 code path is identical.",
+    "ToolRouter/tool-loop is not wired (envelope branch does not use it); lore/metric tools are not exercised.",
+    "Media/Vision branches are out of scope for these rows.",
+    "Synthetic chat lives in a temp SQLite DB; production PG is read read-only for effective-state only.",
+    "Real provider answers vary between runs; evidence counts are observed, not fixed.",
+    "Checks with evidence_class=plumbing use scripted transport doubles; they are never production evidence on their own."
+  ],
+  "identity": {
+    "repo_root": "/var/www/admin_bot",
+    "git_head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "git_head_source": "deploy_identity",
+    "branch": "release/2.58.200",
+    "dirty": false,
+    "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "version": "2.58.200",
+      "deployed_at": "2026-11-14T05:18:53.892873Z",
+      "effect": "deploy"
+    },
+    "app_version_runtime": "2.58.200",
+    "identity_code": "local_unverified",
+    "identity_reason": "no_process_start",
+    "version_provenance": {
+      "runtime": "2.58.200",
+      "manifest": "2.58.200",
+      "consistent": true
+    },
+    "upstream_head": {
+      "sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "ref": "refs/remotes/origin/release/2.58.200",
+      "observed_at": "2026-11-14T05:18:49.265454Z",
+      "reason": ""
+    },
+    "service_started_at": "Sat 2026-11-14 05:18:59 UTC",
+    "process_started_source": "systemctl ActiveEnterTimestamp",
+    "sources": [
+      "release_manifest",
+      "git_head",
+      "git_cli",
+      "runtime_app_version"
+    ],
+    "conflict": []
+  },
+  "health": {
+    "url": "http://127.0.0.1:8000/healthz",
+    "http": 200,
+    "version": "2.58.200",
+    "status": "ok",
+    "body": null,
+    "duration_ms": 11,
+    "ok": true
+  },
+  "candidate_binding": {
+    "harness_path": "/tmp/fc_live_canary.py",
+    "harness_name": "fc_live_canary",
+    "harness_version": "1.1.0",
+    "harness_sha256": "9513548e5830bd442ac0d869e2cd6637f6c18c7f7f6bb1a113aac2dec563cacd",
+    "harness_sha256_source": "sha256 of this file's bytes",
+    "repo_root": "/var/www/admin_bot",
+    "app_version_runtime": "2.58.200",
+    "git_head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "git_head_source": "deploy_identity",
+    "branch": "release/2.58.200",
+    "dirty": false,
+    "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "identity_code": "local_unverified",
+    "release_manifest": {
+      "path": ".deploy/release.json",
+      "present": true,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "version": "2.58.200",
+      "deployed_at": "2026-11-14T05:18:53.892873Z"
+    },
+    "binding_status": "verified",
+    "binding_reasons": [],
+    "binding_rule": "attach this JSON next to the harness file; the harness_sha256 identifies the exact committed harness bytes and git_head/deployed_sha identify the release checkout the run observed"
+  },
+  "effective": {
+    "synthetic_chat": {
+      "budgets_state": {
+        "budgets_enabled": true,
+        "source": "default",
+        "stale": false,
+        "known": true
+      },
+      "limits": {
+        "budgets_enabled": true,
+        "budget_source": "default",
+        "budget_known": true,
+        "base_seconds": 120.0,
+        "max_seconds": 600.0,
+        "refine_calls": 24,
+        "total_queries": 64,
+        "search_text_chars": 100000,
+        "page_size": 20,
+        "claim_portion": 32,
+        "primary_fetches": 2,
+        "excerpt_chars": 600,
+        "sources": {
+          "flags.budgets_enabled": "default",
+          "limits.factcheck_claim_portion": "default",
+          "limits.factcheck_excerpt_chars": "default",
+          "limits.factcheck_max_queries_total": "default",
+          "limits.factcheck_page_size": "default",
+          "limits.factcheck_primary_fetches": "default",
+          "limits.factcheck_refine_calls": "default",
+          "limits.factcheck_retrieval_seconds": "default",
+          "limits.factcheck_retrieval_seconds_max": "default",
+          "limits.factcheck_search_text_chars": "default"
+        }
+      }
+    },
+    "real_chats": [],
+    "global": {
+      "budgets_enabled": true,
+      "source": "default",
+      "stale": false,
+      "known": true
+    },
+    "pipeline_v2_enabled": false,
+    "temporal_factcheck_enabled": true,
+    "pg": {
+      "available": false,
+      "global_count": null,
+      "chat_count": null,
+      "reason": "pg read failed: connect() got an unexpected keyword argument 'init'"
+    },
+    "model_capacity": {
+      "primary": {
+        "channel": "primary",
+        "model": "deepseek-v4-flash",
+        "window_tokens": 1000000,
+        "window_source": "unknown_fallback",
+        "evidence_budget_chars": 800000,
+        "output_reserve_tokens": 100000
+      },
+      "fallback": {
+        "channel": "fallback",
+        "model": "deepseek-v4-flash",
+        "window_tokens": 1000000,
+        "window_source": "unknown_fallback",
+        "evidence_budget_chars": 800000,
+        "output_reserve_tokens": 100000
+      }
+    }
+  },
+  "finished_at": "2026-11-14T07:33:50.638279+00:00",
+  "duration_s": 0.211,
+  "call_budget": {
+    "allowed": true,
+    "max_calls": 60,
+    "llm_calls": 0,
+    "search_calls": 0,
+    "page_fetch_calls": 0,
+    "total": 0
+  },
+  "safety": {
+    "telegram_bot_class": "StubBot",
+    "telegram_bot_is_stub": true,
+    "real_telegram_bot_constructed": false,
+    "outbound_calls_recorded": 0,
+    "outbound_delivered_to_telegram": 0,
+    "synthetic_chat_id": "SYNTH_CHAT",
+    "real_chat_history_written": false,
+    "production_pg": {
+      "opened": false,
+      "mode": "not_opened",
+      "reason": "pg read failed: connect() got an unexpected keyword argument 'init'",
+      "global_count": null,
+      "chat_count": null
+    },
+    "config_persisted": false,
+    "in_memory_overrides_restored": true,
+    "shim_events": {
+      "hot_enter": 7,
+      "hot_exit": 7,
+      "chat_enter": 7,
+      "chat_exit": 7
+    },
+    "provider_calls_allowed": true,
+    "provider_calls_total": 0,
+    "provider_call_cap": 60
+  },
+  "summary": {
+    "observed": 2,
+    "not_observed": 4,
+    "error": 0,
+    "by_evidence_class": {
+      "plumbing": 2,
+      "production": 0,
+      "unavailable": 4
+    },
+    "production_observed": 0
+  }
+}
