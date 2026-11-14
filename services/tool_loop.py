@@ -316,6 +316,459 @@ def _stop_reason_text(reason: str) -> str:
     return _STOP_REASON_TEXT.get(key) or key or "причина не зафиксирована"
 
 
+# ── SMART-CORRECTIVE-01 §4/§6.4: состояние исследования ────────────────────
+# Минимальное расширение СУЩЕСТВУЮЩЕГО ToolLoopResult (без второго
+# agentic-пайплайна/планировщика/LLM-ревьюера):
+# * ``status`` — ``complete | partial | failed``;
+# * ``cause`` — машинный код причины (текст — ``research_cause_text``);
+# * ``continuation`` — доступность/следующее действие/opaque-токен/варианты;
+# * ``evidence_refs`` — refs фактически полученных результатов;
+# * ``gaps`` — структурные незакрытые участки (tool+код, без текстов).
+# Семантика общая: её может использовать любой потребитель tool-loop, а
+# политика «продолжить при неполноте» — явный opt-in
+# (``ensure_research_completion``), поэтому обычные диалоги не переисследуют
+# уже решённую задачу.
+
+RESEARCH_COMPLETE = "complete"
+RESEARCH_PARTIAL = "partial"
+RESEARCH_FAILED = "failed"
+
+#: Причины состояния (машинные коды; пользовательский текст — отдельно).
+RESEARCH_CAUSE_NO_RESEARCH = "no_research_needed"
+RESEARCH_CAUSE_SUFFICIENT = "evidence_sufficient"
+RESEARCH_CAUSE_GAP = "evidence_gap"
+RESEARCH_CAUSE_SOURCE_FAILED = "source_failed"
+RESEARCH_CAUSE_SOURCE_UNAVAILABLE = "source_unavailable"
+RESEARCH_CAUSE_INCOMPLETE = "incomplete_fragment"
+RESEARCH_CAUSE_AMBIGUOUS = "ambiguous_source"
+RESEARCH_CAUSE_NOT_TAKEN = "continuation_not_taken"
+RESEARCH_CAUSE_NO_PROGRESS = "no_progress"
+
+#: Коды причин, которые уже описаны в ``_STOP_REASON_TEXT`` (остановки).
+_RESEARCH_CAUSE_TEXT = {
+    RESEARCH_CAUSE_NO_RESEARCH: "готовых данных достаточно, инструменты "
+                                "не требовались",
+    RESEARCH_CAUSE_SUFFICIENT: "подтверждённых результатов достаточно",
+    RESEARCH_CAUSE_GAP: "остались непроверенные участки исследования",
+    RESEARCH_CAUSE_SOURCE_FAILED: "источник данных отказал",
+    RESEARCH_CAUSE_SOURCE_UNAVAILABLE: "часть источников недоступна",
+    RESEARCH_CAUSE_INCOMPLETE: "часть доказательств получена не полностью",
+    RESEARCH_CAUSE_AMBIGUOUS: "источник не определён однозначно",
+    RESEARCH_CAUSE_NOT_TAKEN: "возможность продолжить исследование "
+                              "не была использована",
+    RESEARCH_CAUSE_NO_PROGRESS: "продолжение не дало новых данных",
+}
+
+#: Признаки payload'а источника/диагностики, по которым видна неполнота
+#: выдачи. Обычные инструменты без таких полей судятся только по статусу.
+_SOURCE_PAYLOAD_KEYS = ("outcome", "continuation", "truncation", "verified",
+                        "match_material", "source_id")
+
+#: ``empty``-коды, которые уже являются содержательным отрицательным ответом
+#: (проверенное отсутствие/неподдерживаемый вид), а не пробелом в данных.
+_CONCLUSIVE_EMPTY_CODES = frozenset({"not_found", "unsupported",
+                                     "stats_unsupported"})
+
+#: Материал, который сам по себе не подтверждает реализацию.
+_NONCONFIRMING_MATERIALS = frozenset({"mention", "other"})
+
+#: ``continuation.options`` — родовые способы продолжения (owner §6.3):
+#: ни один не обязателен, направление выбирает модель.
+_CONTINUATION_OPTION_TEXT = {
+    "refine_query": "уточнить направление поиска или выбрать другой запрос",
+    "other_candidates": "изучить другие найденные пути/кандидаты",
+    "remaining_fragments": "прочитать оставшиеся фрагменты и страницы",
+    "alternate_route": "использовать резервный маршрут/источник, если он есть",
+    "untried_tools": "сопоставить данные с другими доступными инструментами",
+}
+
+#: Порядок выбора главной причины по видам структурных пробелов.
+_GAP_CAUSE_ORDER = (
+    ("failed", RESEARCH_CAUSE_SOURCE_FAILED),
+    ("incomplete", RESEARCH_CAUSE_INCOMPLETE),
+    ("ambiguous", RESEARCH_CAUSE_AMBIGUOUS),
+    ("unavailable", RESEARCH_CAUSE_SOURCE_UNAVAILABLE),
+    ("unconfirmed", RESEARCH_CAUSE_GAP),
+    ("inconclusive", RESEARCH_CAUSE_GAP),
+    ("empty", RESEARCH_CAUSE_GAP),
+)
+
+
+def research_cause_text(cause: str) -> str:
+    """Пользовательское описание причины состояния исследования."""
+    key = str(cause or "")
+    if key in _RESEARCH_CAUSE_TEXT:
+        return _RESEARCH_CAUSE_TEXT[key]
+    return _stop_reason_text(key)
+
+
+def _is_source_payload(data) -> bool:
+    """Payload несёт структурные признаки полноты выдачи источника."""
+    return isinstance(data, dict) and any(key in data
+                                          for key in _SOURCE_PAYLOAD_KEYS)
+
+
+def _payload_outcome(data) -> str:
+    if not isinstance(data, dict):
+        return ""
+    value = data.get("outcome")
+    if value:
+        return str(value)
+    return str(data.get("status") or "")
+
+
+def _payload_continuation(data) -> dict:
+    if not isinstance(data, dict):
+        return {}
+    value = data.get("continuation")
+    return value if isinstance(value, dict) else {}
+
+
+def _payload_remainder_lines(data) -> int:
+    """Сколько строк запрошенного фрагмента осталось доступно (0 = нет)."""
+    if not isinstance(data, dict):
+        return 0
+    truncation = data.get("truncation")
+    if not isinstance(truncation, dict):
+        return 0
+    try:
+        return max(0, int(truncation.get("retrievable_remainder_lines") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _safe_code(value) -> str:
+    """Машинный код/причина в одну строку (R17-safe, без переносов)."""
+    return " ".join(str(value or "").split())[:64]
+
+
+def _truncation_is_open(data, request) -> bool:
+    """Осталась ли запрошенная выдача недополученной (структурно).
+
+    ``over_portion`` — физический предел ОДНОЙ порции: остаток доступен
+    продолжением. Для окна наблюдения остаток вне ``line_end`` запроса не
+    является незавершённым исследованием: модель получила ровно запрошенный
+    диапазон."""
+    if not isinstance(data, dict):
+        return False
+    truncation = data.get("truncation")
+    if not isinstance(truncation, dict) or not truncation.get("truncated"):
+        return False
+    continuation = _payload_continuation(data)
+    if _payload_remainder_lines(data) <= 0 \
+            and not (continuation.get("cursor")
+                     and continuation.get("remaining")):
+        return False
+    if str(truncation.get("why") or "") == "over_portion":
+        return True
+    requested_end = 0
+    if isinstance(request, dict):
+        try:
+            requested_end = int(request.get("line_end") or 0)
+        except (TypeError, ValueError):
+            requested_end = 0
+    if requested_end <= 0:
+        return True
+    delivered = data.get("line_range") or ()
+    try:
+        delivered_end = int(list(delivered)[-1])
+    except (TypeError, ValueError, IndexError):
+        delivered_end = 0
+    return delivered_end < requested_end
+
+
+def _item_confirmed(item) -> bool:
+    """Доставлены ли этим вызовом структурно подтверждённые данные.
+
+    Для обычных инструментов — любой ok/содержательный empty. Для payload'ов
+    источника — только verified-байты либо проверенное отсутствие; «упоминание»
+    или неподтверждённая выдача таковыми не считаются."""
+    if not isinstance(item, dict):
+        return False
+    status = str(item.get("status") or "")
+    code = str(item.get("error_code") or "")
+    if status == tool_result.STATUS_EMPTY:
+        return code in _CONCLUSIVE_EMPTY_CODES
+    if status != tool_result.STATUS_OK:
+        return False
+    data = item.get("data") if isinstance(item.get("data"), dict) else {}
+    if not _is_source_payload(data):
+        return True
+    outcome = _payload_outcome(data)
+    if outcome in ("ambiguous", "not_found"):
+        return outcome == "not_found"
+    return data.get("verified") is True
+
+
+def _research_gaps(items, requests_by_fp=None) -> list[dict]:
+    """Структурные пробелы исследования из envelope-журнала прогона.
+
+    Не анализирует пользовательский/модельный текст: только статусы, коды и
+    поля результата (verified/outcome/continuation/truncation). Дедуп-выдачи
+    не создают новых пробелов. Пробел считается закрытым, если ПОЗЖЕ тот же
+    инструмент доставил структурно подтверждённые данные (единичный отказ или
+    неполный фрагмент не остаются вечным «незавершённым исследованием»)."""
+    entries = [(index, item) for index, item in enumerate(items or ())
+               if isinstance(item, dict) and not item.get("duplicate")]
+    last_confirmed: dict[str, int] = {}
+    for index, item in entries:
+        if _item_confirmed(item):
+            last_confirmed[str(item.get("tool") or "")] = index
+    gaps: list[dict] = []
+    seen: set = set()
+    for index, item in entries:
+        tool = str(item.get("tool") or "")
+        status = str(item.get("status") or "")
+        code = _safe_code(item.get("error_code") or status or "error")
+        data = item.get("data") if isinstance(item.get("data"), dict) else {}
+        gap: dict | None = None
+        if status in (tool_result.STATUS_ERROR, tool_result.STATUS_TIMEOUT,
+                      tool_result.STATUS_CANCELLED):
+            gap = {"kind": "failed", "tool": tool, "code": code,
+                   "retryable": bool(item.get("retryable")), "token": ""}
+        elif status == tool_result.STATUS_DENIED:
+            gap = {"kind": "unavailable", "tool": tool, "code": code,
+                   "retryable": False, "token": ""}
+        elif status == tool_result.STATUS_EMPTY:
+            if code not in _CONCLUSIVE_EMPTY_CODES:
+                gap = {"kind": "empty", "tool": tool, "code": code,
+                       "retryable": False, "token": ""}
+        elif _is_source_payload(data):
+            continuation = _payload_continuation(data)
+            token = str(continuation.get("cursor") or "")
+            outcome = _payload_outcome(data)
+            request = (requests_by_fp or {}).get(
+                str(item.get("args_fingerprint") or ""))
+            if _truncation_is_open(data, request):
+                gap = {"kind": "incomplete", "tool": tool,
+                       "code": _safe_code(continuation.get("reason")
+                                          or (data.get("truncation")
+                                              or {}).get("why")
+                                          or outcome or "incomplete"),
+                       "retryable": False, "token": token}
+            elif outcome == "ambiguous":
+                gap = {"kind": "ambiguous", "tool": tool,
+                       "code": _safe_code(outcome),
+                       "retryable": False, "token": ""}
+            elif outcome != "not_found":
+                if data.get("verified") is True:
+                    material = str(data.get("match_material") or "")
+                    if material in _NONCONFIRMING_MATERIALS \
+                            and outcome == "partial":
+                        gap = {"kind": "inconclusive", "tool": tool,
+                               "code": _safe_code(outcome),
+                               "retryable": False, "token": token}
+                else:
+                    gap = {"kind": "unconfirmed", "tool": tool,
+                           "code": _safe_code(data.get("reason") or outcome
+                                              or "unverified"),
+                           "retryable": False, "token": token}
+        if gap is None:
+            continue
+        if index < last_confirmed.get(tool, -1):
+            continue
+        key = (str(gap.get("kind") or ""), tool,
+               str(gap.get("code") or ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        gaps.append(gap)
+    return gaps
+
+
+def _primary_gap_cause(gaps) -> str:
+    kinds = {str(gap.get("kind") or "") for gap in gaps or ()}
+    for kind, cause in _GAP_CAUSE_ORDER:
+        if kind in kinds:
+            return cause
+    return RESEARCH_CAUSE_GAP
+
+
+def _continuation_options(gaps, attempts, available_tools,
+                          stop_reason: str) -> list[str]:
+    """Родовые способы продолжения при структурных пробелах (owner §6.3).
+
+    Без таблиц «ошибка → инструмент/файл»: варианты выводятся из характера
+    пробела и фактически доступного набора инструментов."""
+    if stop_reason:
+        return []
+    options: list[str] = []
+
+    def _add(option: str) -> None:
+        if option not in options:
+            options.append(option)
+
+    kinds = {str(gap.get("kind") or "") for gap in gaps or ()}
+    if "failed" in kinds:
+        _add("refine_query")
+        _add("alternate_route")
+    if "incomplete" in kinds:
+        _add("remaining_fragments")
+        _add("other_candidates")
+    if kinds & {"ambiguous", "unconfirmed", "inconclusive", "empty"}:
+        _add("refine_query")
+        _add("other_candidates")
+    attempted = {str(item.get("tool") or "") for item in attempts or ()}
+    untried = sorted(name for name in (available_tools or ())
+                     if name and name not in attempted)
+    if untried:
+        _add("untried_tools")
+    return options
+
+
+def _research_state(items, *, stop_reason: str = "", degraded: bool = False,
+                    has_text: bool = False, available_tools=(),
+                    continuation_passes: int = 0,
+                    requests_by_fp=None) -> dict:
+    """Состояние исследования по журналу прогона (структурно, без семантики).
+
+    Суффиксы owner §6.2: отсутствие инструментальных попыток означает, что
+    готовых данных достаточно (``complete``); подтверждённые результаты без
+    структурных пробелов — ``complete``; пробелы — ``partial`` (есть данные)
+    или ``failed`` (данных нет вовсе)."""
+    attempts = [item for item in (items or ())
+                if isinstance(item, dict) and not item.get("duplicate")]
+    gaps = _research_gaps(items, requests_by_fp)
+    usable = [item for item in attempts
+              if str(item.get("status") or "") in (tool_result.STATUS_OK,
+                                                   tool_result.STATUS_EMPTY)
+              or item.get("partial")]
+    confirmed = [item for item in attempts if _item_confirmed(item)]
+    evidence_refs: list[str] = []
+    for item in attempts:
+        for ref in item.get("evidence_refs") or ():
+            text = str(ref or "")
+            if text and text not in evidence_refs:
+                evidence_refs.append(text)
+    reason = str(stop_reason or "")
+    if reason:
+        cause = reason
+    elif not attempts:
+        cause = RESEARCH_CAUSE_NO_RESEARCH
+    elif gaps:
+        cause = _primary_gap_cause(gaps)
+    else:
+        cause = RESEARCH_CAUSE_SUFFICIENT
+    if reason or gaps:
+        status = RESEARCH_PARTIAL if (usable or has_text) else RESEARCH_FAILED
+    else:
+        status = RESEARCH_COMPLETE
+    options = _continuation_options(gaps, attempts, available_tools, reason)
+    available = bool(options) and status == RESEARCH_PARTIAL and not degraded
+    token = ""
+    for gap in gaps:
+        if gap.get("token"):
+            token = str(gap["token"])
+            break
+    return {
+        "status": status,
+        "cause": cause,
+        "continuation": {
+            "available": bool(available),
+            "next_action": ("continue_research" if available
+                            else ("declare_limitation"
+                                  if status == RESEARCH_PARTIAL else "none")),
+            "options": list(options),
+            "token": token,
+        },
+        "evidence_refs": evidence_refs[:8],
+        "gaps": gaps[:8],
+        "confirmed": len(confirmed),
+        "failed": len([item for item in attempts
+                       if str(item.get("status") or "") not in
+                       (tool_result.STATUS_OK, tool_result.STATUS_EMPTY)
+                       and not item.get("partial")]),
+        "attempts": len(attempts),
+        "continuation_passes": int(continuation_passes or 0),
+    }
+
+
+def _research_signature(state) -> tuple:
+    """Отпечаток состояния: повтор того же состояния не предлагаем снова."""
+    value = state if isinstance(state, dict) else {}
+    gaps = list(value.get("gaps") or ())
+    return (str(value.get("status") or ""),
+            str(value.get("cause") or ""),
+            tuple(sorted((str(gap.get("kind") or ""),
+                          str(gap.get("tool") or ""),
+                          str(gap.get("code") or "")) for gap in gaps)))
+
+
+def _gap_line(gap) -> str:
+    """Компактная строка пробела (структурные коды, без текстов/секретов)."""
+    tool = str((gap or {}).get("tool") or "источник")
+    code = str((gap or {}).get("code") or "")
+    kind = str((gap or {}).get("kind") or "")
+    text = {
+        "failed": f"{tool}: отказ ({code})",
+        "unavailable": f"{tool}: недоступен ({code})",
+        "incomplete": f"{tool}: результат неполный ({code})",
+        "ambiguous": f"{tool}: источник не определён однозначно",
+        "unconfirmed": f"{tool}: результат не подтверждён ({code})",
+        "inconclusive": f"{tool}: недостаточно подтверждения ({code})",
+        "empty": f"{tool}: нет данных ({code})",
+    }.get(kind, f"{tool}: {code or 'пробел'}")
+    if (gap or {}).get("retryable"):
+        text += ", транзиентный отказ"
+    return text
+
+
+def _continuation_directive(state) -> str:
+    """Директива продолжения: пробелы + родовые варианты, выбор за моделью.
+
+    Не является вторым пайплайном: это user-сообщение В ТОМ ЖЕ цикле, после
+    которого модель либо продолжает исследование, либо честно объявляет
+    объективную невозможность с конкретной причиной."""
+    continuation = (state or {}).get("continuation") or {}
+    lines = ["<research_continuation>",
+             "Исследование не завершено: "
+             f"{research_cause_text((state or {}).get('cause'))}.",
+             "Неподтверждённые участки (по результатам вызовов):"]
+    for gap in (state or {}).get("gaps") or ():
+        lines.append("- " + _gap_line(gap))
+    options = continuation.get("options") or ()
+    if options:
+        lines.append("Доступные способы продолжения (выбор за тобой; ни один "
+                     "не обязателен):")
+        for option in options:
+            text = _CONTINUATION_OPTION_TEXT.get(str(option), "")
+            if text:
+                lines.append("- " + text)
+    token = str(continuation.get("token") or "")
+    if token:
+        lines.append("Сохранённое продолжение предыдущего результата "
+                     "(тот же вызов с этим cursor): " + token[:400])
+    elif "remaining_fragments" in options:
+        lines.append("Продолжение предыдущего результата — в поле "
+                     "continuation.next_arguments (передай эти аргументы "
+                     "как есть).")
+    lines.append("Не повторяй вызов с теми же аргументами — он вернёт тот "
+                 "же результат.")
+    lines.append("Если продолжение объективно невозможно, ответь окончательно "
+                 "и явно назови конкретную техническую причину и оставшуюся "
+                 "неопределённость.")
+    lines.append("</research_continuation>")
+    return "\n".join(lines)
+
+
+def research_partial_note(state) -> str:
+    """Готовая честная пометка к частичному результату ('' — не нужна).
+
+    Потребитель (например чекап) добавляет её к ответу модели, когда
+    исследование завершилось неполно: отчёт не выдаётся за полный."""
+    if not isinstance(state, dict) \
+            or str(state.get("status") or "") == RESEARCH_COMPLETE:
+        return ""
+    gaps = state.get("gaps") or ()
+    lines = ["Примечание: это частичный результат — "
+             f"{research_cause_text(state.get('cause'))}."]
+    if gaps:
+        shown = "; ".join(_gap_line(gap) for gap in gaps[:3])
+        if len(gaps) > 3:
+            shown += "; и др."
+        lines.append(f"Неподтверждено: {shown}.")
+    return "\n\n" + " ".join(lines)
+
 
 class ToolLoopResult(str):
     """Финальный текст tool-цикла + телеметрия (ADR-1020-7 §1).
@@ -345,13 +798,22 @@ class ToolLoopResult(str):
       аддитивные поля ``category/retryable/duration_ms/usage/
       external_operation_id/evidence_refs/partial``; K1 OFF — прежние
       ключи/статусы байт-в-байт (legacy ``ok/error/skipped``).
+    * ``research_state`` — SMART-CORRECTIVE-01 §4: структурное состояние
+      исследования (``status`` complete|partial|failed, ``cause``,
+      ``continuation`` с ``available``/``next_action``/``options``/``token``,
+      ``evidence_refs``, ``gaps``). Только по статусам/кодам/полям
+      результатов, без анализа текста модели. Общая семантика: потребитель
+      сам решает, продолжать ли (opt-in ``ensure_research_completion``).
+    * ``continuation_offers`` — сколько продолжений было предложено в этом
+      прогоне (прогресс-гейт, без квоты).
 
     Атрибуты не сериализуются и не влияют на строковое равенство.
     """
 
     def __new__(cls, text, *, rounds_used=1, degraded=False, reason="ok",
                 tool_trace=None, tool_context=None, tool_results=None,
-                sent_body=None, finalize_mode=""):
+                sent_body=None, finalize_mode="", research_state=None,
+                continuation_offers=0):
         obj = super().__new__(cls, str(text or ""))
         obj.rounds_used = int(rounds_used)
         obj.degraded = bool(degraded)
@@ -360,6 +822,9 @@ class ToolLoopResult(str):
         obj.tool_trace = list(tool_trace) if tool_trace else []
         obj.tool_context = str(tool_context or "")
         obj.tool_results = list(tool_results) if tool_results else []
+        obj.research_state = (dict(research_state)
+                              if isinstance(research_state, dict) else {})
+        obj.continuation_offers = int(continuation_offers or 0)
         #: UR-F шаг 1 (delivery snapshot, Q1): фактически отправленный body
         #: ФИНАЛЬНОГО ответообразующего раунда (только in-process); None —
         #: доставка не доказана. Дополнительные раунды второй снимок не дают.
@@ -1143,7 +1608,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                           correlation_id: str | None = None,
                           fallback_payload_adapter=None,
                           max_output_tokens: int | None = None,
-                          tool_plan: list[dict] | None = None
+                          tool_plan: list[dict] | None = None,
+                          ensure_research_completion: bool = False
                           ) -> "ToolLoopResult":
     """→ ``ToolLoopResult`` (str) — финальный текст + телеметрия.
 
@@ -1194,7 +1660,28 @@ async def chat_with_tools(llm, messages: list[dict], *,
     failure_policy=optional → limitation, required → честная деградация
     (§19); ``round=0`` в trace/envelope отличает плановые шаги от
     модельных раундов. Re-plan в этой фазе не выполняется.
+
+    SMART-CORRECTIVE-01 §4/§6.4: ``ensure_research_completion`` — явная
+    политика ПОТРЕБИТЕЛЯ (чекап), а не новое поведение всех диалогов. Если
+    модель сама остановилась текстом, а структурное состояние исследования
+    ``partial`` с доступными способами продолжения (незакрытый пробел,
+    частичная выдача, единичный отказ, доступные неиспробованные
+    инструменты), в ЭТОТ ЖЕ цикл добавляется одна директива продолжения
+    (пробелы + родовые варианты, выбор за моделью). Повторные предложения
+    ограничены ПРОГРЕССОМ: новый отпечаток пробелов и новые записи журнала;
+    отсутствие новых данных/повтор того же отпечатка завершает исследование
+    честным partial с причиной. Без этой политики (default) поведение
+    байт-в-байт прежнее, но ``research_state`` доступен потребителю.
     """
+    announced_tools = _plan_announced_tools(tools)
+    completion_enabled = bool(ensure_research_completion)
+    continuation_signatures: set = set()
+    continuation_offers = 0
+    last_offer_journal = -1
+    #: Аргументы запрошенных вызовов по отпечатку (нужны структурной оценке
+    #: полноты выдачи: запрошенный диапазон против доставленного).
+    #: Не логируются.
+    requests_by_fp: dict[str, dict] = {}
     limits = await _resolve_chain_limits(chat_id)
     payload_messages = copy.deepcopy(messages)
     tool_trace: list[dict] = []
@@ -1232,12 +1719,44 @@ async def chat_with_tools(llm, messages: list[dict], *,
     # envelope; §17-бюджеты (total/metered/deadline/dedup/side-effect) общие
     # с модельными раундами ниже. Граф не активируется без явного плана.
     plan_steps = normalize_tool_plan(
-        tool_plan, announced=_plan_announced_tools(tools)) \
-        if tool_plan else []
+        tool_plan, announced=announced_tools) if tool_plan else []
     plan_parts: list[str] = []
     plan_limitations: list[str] = []
 
     # ── SMART-EXECUTION-RELIABILITY-01 §G: общие помощники финализации ─────
+    def _wrap(text, *, degraded: bool = False, reason: str = "ok",
+              finalize_mode: str = "", sent_body=None,
+              rounds: int | None = None) -> "ToolLoopResult":
+        """Единая сборка результата + структурное состояние исследования."""
+        stop = "" if str(reason or "ok") in ("", "ok") else str(reason)
+        state = _research_state(
+            tool_results, stop_reason=stop, degraded=degraded,
+            has_text=bool(str(text or "").strip()),
+            available_tools=announced_tools,
+            continuation_passes=continuation_offers,
+            requests_by_fp=requests_by_fp)
+        if (not degraded and not stop and continuation_signatures
+                and state.get("status") == RESEARCH_PARTIAL
+                and (state.get("continuation") or {}).get("available")):
+            # Продолжение уже предлагалось, но модель всё равно завершила
+            # ответ: причиной partial становится фактическое поведение
+            # (новые данные без закрытия пробела / отказ от продолжения), а
+            # не исходный пробел. Автоматического продолжения больше нет.
+            state["cause"] = (RESEARCH_CAUSE_NO_PROGRESS
+                              if len(tool_results) > last_offer_journal
+                              else RESEARCH_CAUSE_NOT_TAKEN)
+            state["continuation"] = dict(state.get("continuation") or {},
+                                         available=False,
+                                         next_action="declare_limitation")
+        return ToolLoopResult(
+            text, rounds_used=(llm_rounds if rounds is None else rounds),
+            degraded=degraded, reason=reason,
+            tool_trace=tool_trace,
+            tool_context="\n".join(tool_context_parts),
+            tool_results=tool_results, sent_body=sent_body,
+            finalize_mode=finalize_mode, research_state=state,
+            continuation_offers=continuation_offers)
+
     def _remember_terminal(name: str, info: dict) -> None:
         """Запомнить/снять терминальный маршрут по структурному результату.
 
@@ -1327,11 +1846,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
             text = TOOL_LOOP_FALLBACK_PHRASE
         _log_degraded(reason, llm_rounds, tool_trace, text, limits=limits,
                       finalize_mode=mode)
-        return ToolLoopResult(
-            text, rounds_used=llm_rounds, degraded=True, reason=reason,
-            tool_trace=tool_trace,
-            tool_context="\n".join(tool_context_parts),
-            tool_results=tool_results, finalize_mode=mode)
+        return _wrap(text, degraded=True, reason=reason, finalize_mode=mode)
 
     if plan_steps:
         # A9: план ДО исполнения (постфактум-сигнал модельных tool_calls
@@ -1344,6 +1859,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
             arguments = step["arguments"]
             metered = name in METERED_TOOLS
             fp = _args_fingerprint(name, arguments)
+            requests_by_fp.setdefault(fp, dict(arguments)
+                                      if isinstance(arguments, dict) else {})
             # (а) дедуп по нормализованным аргументам + safety-гард side
             # effects — тот же контракт, что в модельных раундах.
             cached_reason = _reuse_reason(
@@ -1556,19 +2073,17 @@ async def chat_with_tools(llm, messages: list[dict], *,
                             correlation_id=correlation_id,
                             fallback_payload_adapter=fallback_payload_adapter,
                             max_output_tokens=max_output_tokens)
-                        return ToolLoopResult(
+                        return _wrap(
                             str(getattr(_plain_completion, "text", "") or ""),
-                            rounds_used=1, tool_results=tool_results,
                             sent_body=getattr(_plain_completion, "sent_body",
-                                              None))
+                                              None), rounds=1)
                     plain = await llm.generate(
                         payload_messages, temperature=temperature,
                         chat_id=chat_id, module=module, step="single",
                         correlation_id=correlation_id,
                         fallback_payload_adapter=fallback_payload_adapter,
                         max_output_tokens=max_output_tokens)
-                    return ToolLoopResult(plain, rounds_used=1,
-                                          tool_results=tool_results)
+                    return _wrap(plain, rounds=1)
                 except NoApiKeyForChat:
                     raise
                 except LLMError as plain_exc:
@@ -1590,17 +2105,46 @@ async def chat_with_tools(llm, messages: list[dict], *,
         if not result.tool_calls:
             text = (result.content or "").strip()
             if text:
+                state = _research_state(
+                    tool_results, has_text=True,
+                    available_tools=announced_tools,
+                    continuation_passes=continuation_offers,
+                    requests_by_fp=requests_by_fp)
+                if (completion_enabled
+                        and state.get("status") == RESEARCH_PARTIAL
+                        and (state.get("continuation") or {}).get("available")):
+                    signature = _research_signature(state)
+                    progressed = len(tool_results) > last_offer_journal
+                    if signature not in continuation_signatures and progressed:
+                        # §4/§6.4: продолжение в ТОМ ЖЕ цикле. Пробелы и
+                        # родовые варианты — данные, направление выбирает
+                        # модель; повторные предложения ограничены прогрессом.
+                        continuation_signatures.add(signature)
+                        continuation_offers += 1
+                        last_offer_journal = len(tool_results)
+                        payload_messages.append({"role": "assistant",
+                                                 "content": text})
+                        payload_messages.append({
+                            "role": "user",
+                            "content": _continuation_directive(state)})
+                        logger.info(
+                            "[tools] research continuation | round=%d | "
+                            "cause=%s | gaps=%d | options=%s | attempts=%d",
+                            round_index + 1, state.get("cause"),
+                            len(state.get("gaps") or ()),
+                            ",".join((state.get("continuation") or {})
+                                     .get("options") or ()) or "-",
+                            int(state.get("attempts") or 0))
+                        round_index += 1
+                        continue
                 logger.info(
-                    "[tools] final round | round=%d | out_chars=%d",
-                    round_index + 1, len(text))
+                    "[tools] final round | round=%d | out_chars=%d | "
+                    "research=%s | cause=%s",
+                    round_index + 1, len(text),
+                    state.get("status"), state.get("cause") or "-")
                 # БЛОК 7.2b (T-1921): страховка tool-пути (idempotent).
-                return ToolLoopResult(strip_reasoning_tags(text),
-                                      rounds_used=llm_rounds,
-                                      tool_trace=tool_trace,
-                                      tool_context="\n".join(tool_context_parts),
-                                      tool_results=tool_results,
-                                      sent_body=getattr(result, "sent_body",
-                                                        None))
+                return _wrap(strip_reasoning_tags(text),
+                             sent_body=getattr(result, "sent_body", None))
             raise LLMBadResponseError("tool loop: empty final answer")
         # SMART-EXECUTION-RELIABILITY-01 §B1: список вызовов НЕ обрезается —
         # все корректно запрошенные вызовы исполняются и получают результат.
@@ -1666,6 +2210,7 @@ async def chat_with_tools(llm, messages: list[dict], *,
                             round_index + 1, tc.name, len(output))
                 continue
             fp = _args_fingerprint(tc.name, arguments)
+            requests_by_fp.setdefault(fp, dict(arguments))
 
             # (б) дедуп по нормализованным аргументам/идентичности операции +
             # safety-гард side effects. Повтор без изменения условий не

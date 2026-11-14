@@ -79,7 +79,14 @@ class CheckupService:
         идёт через ``tool_loop.chat_with_tools`` с объявленными read-only
         диагностическими инструментами; модель сама решает, читать ли код и
         runtime, а результаты возвращаются ей для синтеза. None/пустой набор
-        → прежний одиночный ``generate`` (паритет и офлайн-тесты)."""
+        → прежний одиночный ``generate`` (паритет и офлайн-тесты).
+
+        SMART-CORRECTIVE-01 §4: для чекапа явно включается политика
+        завершения исследования (``ensure_research_completion``) — при
+        структурном пробеле модель получает продолжение в том же цикле, а
+        если продолжение невозможно/исчерпано, ответ помечается как
+        частичный с конкретной причиной. Здоровый чекап без инструментальных
+        попыток остаётся одним вызовом модели."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
         # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
         system_prompt = resolve_prompt("prompts.checkup_system_prompt",
@@ -154,11 +161,22 @@ class CheckupService:
             if isinstance(tool_runtime, dict) else None
         _tool_ctx = (tool_runtime or {}).get("ctx") \
             if isinstance(tool_runtime, dict) else None
+        # SMART-CORRECTIVE-01 §4: честная пометка частичного исследования
+        # ('' — исследование завершено содержательно либо ответ уже
+        # деградирован финальной фазой tool-loop с собственной причиной).
+        research_note = ""
         if _tool_schemas and _router is not None and _tool_ctx is not None:
             # SELF-DIAG-01 corrective (§3): ОДИН существующий tool-loop.
             # Рантайм-факты/логи уже в сообщениях; модель решает, какие
             # инструменты вызвать; результаты возвращаются ей же.
-            from services.tool_loop import chat_with_tools
+            # SMART-CORRECTIVE-01 §4: чекап — диагностическое исследование,
+            # поэтому потребитель явно включает политику завершения: модель,
+            # остановившаяся текстом при структурном пробеле, получает
+            # продолжение в ТОМ ЖЕ цикле либо возвращает честный partial.
+            from services.tool_loop import (
+                chat_with_tools,
+                research_partial_note,
+            )
             loop_result = await chat_with_tools(
                 self.llm,
                 [{"role": "system", "content": system},
@@ -166,13 +184,17 @@ class CheckupService:
                 tools=list(_tool_schemas), router=_router, ctx=_tool_ctx,
                 chat_id=chat_id, module="checkup",
                 correlation_id=str(
-                    (tool_runtime or {}).get("correlation_id") or ""))
+                    (tool_runtime or {}).get("correlation_id") or ""),
+                ensure_research_completion=True)
             raw = str(loop_result)
+            research_state = (getattr(loop_result, "research_state", None)
+                              or {})
             if telemetry is not None:
                 research_tools = [
                     str(entry.get("tool") or "")
                     for entry in (loop_result.tool_results or ())
                     if isinstance(entry, dict)]
+                continuation = research_state.get("continuation") or {}
                 telemetry.update({
                     "research_rounds": int(loop_result.rounds_used or 0),
                     "research_calls": len(loop_result.tool_results or ()),
@@ -180,7 +202,25 @@ class CheckupService:
                         sorted({name for name in research_tools if name})),
                     "research_degraded": bool(loop_result.degraded),
                     "research_reason": str(loop_result.reason or "ok"),
+                    "research_status": str(research_state.get("status") or ""),
+                    "research_cause": str(research_state.get("cause") or ""),
+                    "research_continuations": int(
+                        getattr(loop_result, "continuation_offers", 0) or 0),
+                    "research_confirmed": int(
+                        research_state.get("confirmed") or 0),
+                    "research_unresolved": len(
+                        research_state.get("gaps") or ()),
+                    "research_evidence_ref_count": len(
+                        research_state.get("evidence_refs") or ()),
+                    "research_continuation_available": bool(
+                        continuation.get("available")),
                 })
+            # Честный частичный результат: свободный ответ модели при
+            # незакрытом структурном пробеле помечается причиной и
+            # неподтверждёнными участками. Деградированные ответы уже
+            # получают причину в финальной фазе tool-loop (не дублируем).
+            if not loop_result.degraded:
+                research_note = research_partial_note(research_state)
         else:
             raw = await self.llm.generate(
                 [
@@ -206,6 +246,12 @@ class CheckupService:
             # Epic 60 (65.1, T-469): пустой ответ → молчание + 🗿 (хендлер
             # ничего не шлёт). Ветка хендлера ДО except LLMError.
             raise LLMBadResponseError("checkup: empty answer")
+        # SMART-CORRECTIVE-01 §4/§6.3: модель сама направляла исследование,
+        # но структурный пробел остался — отчёт не выдаётся за полный.
+        # Пометка добавляется ДО единственного outbound-прохода стиля, чтобы
+        # действующие настройки чата применялись к финальному тексту целиком.
+        if research_note:
+            raw = raw.rstrip() + research_note
         # P0-CHECKUP (24.10.2026, addendum §5): исходящий Checkup-текст
         # проходит ДЕЙСТВУЮЩИЙ outbound Style Policy (dash.hard.factory,
         # настройки чата) — тот же единственный проход, что у Direct, без
