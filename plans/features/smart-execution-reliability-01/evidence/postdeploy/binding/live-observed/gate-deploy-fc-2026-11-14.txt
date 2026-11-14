@@ -1,0 +1,1 @@
+﻿stage=deploy inventory=396 manual=380 scoped=705 errors=0

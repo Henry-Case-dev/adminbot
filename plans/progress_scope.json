@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T19:10:54+12:00",
+  "updated": "2026-11-14T21:19:12+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -2176,15 +2176,15 @@
         "total_rows": 186,
         "core_reqs": 99,
         "core_review": 0,
-        "core_ready_for_live": 11,
+        "core_ready_for_live": 7,
         "core_pending": 0,
         "fc_reqs": 87,
         "fc_pending": 0,
-        "verified": 167,
-        "note": "2026-11-14 acceptance resumed: evidence rebound to deployed 0e4a144d; deploy gates errors=0 both maps; 167 of 186 unique mandatory ids VERIFIED at deploy level (H3/H4/I1/I2/K3 bound from the DevOps observability batch; 695d4627 + e0de4057); 19 live ids remain READY_FOR_LIVE (11 SMART + 8 FC) for harness/live runs; release gate red only on those. Corrective smart-corrective-01 registered at queue 2 and under investigation.",
+        "verified": 173,
+        "note": "2026-11-14 focused re-run: F2-01, L5-01, L3-01 and SFC-12-02/7-06/13-01 bound as VERIFIED (80 rows); F4-01 kept unverified (only 2 of 6 scenarios covered; harness extension running). 13 live ids remain: A1-04, F4-01, L1-01, L2-01, L4-01, L6-01, L7-01, L8-01, SFC-5-10, SFC-12-07, SFC-12-09, SFC-13-03, SFC-14-03. SFC-12-09 is a real production deviation under investigation; deploy gates errors=0 both maps.",
         "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
         "review": 0,
-        "ready_for_live": 19,
+        "ready_for_live": 13,
         "pending": 0,
         "deployed_version": "2.58.200"
       },
