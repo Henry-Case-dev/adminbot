@@ -82,7 +82,7 @@ S0-INVESTIGATE (read-only)
 | `S0-PRODDATA` | S0 | `investigation/production/**` | Production-данные §4 для шести инцидентов; W-12 = NEEDS_PRODUCTION_DATA до данных; не блокирует W-01…W-11 |
 | `S1-CONTRACT` | S0 | `architecture-plan.md` | Заморожены 6 контрактов из §3; у каждого dependent slice есть интерфейс и запреты §10.3 |
 | `S2-SOURCEREADER` | S1 | `services/source_reader.py`, source-reader тесты | `watchdog.jobs` находится в `services/mca_watchdog.py`; поиск идёт за top-3; классы результатов различаются |
-| `S3-BUDGET` | S1 | `services/tool_router.py`, `worker_budget.py`, budget/tool_router тесты | `chat_id`/`budget_enforced` доходят до `SourceReader`; effective policy = резолвер чата; OFF без скрытых потолков |
+| `S3-BUDGET` | S1 | `services/tool_router.py`, `services/worker_budget.py`, `services/tool_schemas.py` (scoped: optional `cursor` for `read_source_code`), budget/tool_router тесты | `chat_id`/`budget_enforced` доходят до `SourceReader`; effective policy = резолвер чата; OFF без скрытых потолков; модель может передать continuation `cursor` |
 | `S4-COMPLETION` | S1, S2, S3 | `services/tool_loop.py`, `checkup_service.py`, checkup/tool-loop тесты | После нерелевантного первого результата исследование продолжается; иначе — честный partial с причиной |
 | `S3B-INPUT` | S4 | `checkup_service.py`, `settings.py`, checkup-тесты | Факт за 12 000 символов/квотой метрик доходит до payload; 7 видов ограничений различимы; настройки не перезаписаны |
 | `S6-PROMPT` | S3B | `checkup_prompts.py`, `prompt_registry.py`, `checkup_service.py`, тесты промпта | Effective prompt = сохранённая редакция владельца (hash/bytes); addendum согласован; Betterstack удалён только из active |
@@ -94,6 +94,16 @@ S0-INVESTIGATE (read-only)
 | `S8-REVIEW-RELEASE` | все, включая S0-PRODDATA | `evidence/**`, `release-evidence/**` | AC-01…AC-24 на одном deployed SHA; identity, config, canary, rollback |
 
 Параллельность по умолчанию: **3 writer-lane** — `S2`, `S3`, `S5A` (непересекающиеся файлы). `S0-PRODDATA` — read-only. `S4` стартует после S2+S3; `S3B`/`S6` сериализованы из-за `checkup_service.py`; `S5B`→`S5C`→`S5D` сериализованы из-за `task_supervisor.py`/`mca_watchdog.py`.
+
+### S3-BUDGET scope expansion (bookkeeping)
+
+`services/tool_schemas.py` добавлен в write-scope `S3-BUDGET` как раскрытое минимальное расширение:
+
+- изменение ровно одно — опциональное строковое свойство `cursor` для `read_source_code` (тот же паттерн, что у `get_recent_history`/`inspect_runtime`); `required` остаётся `["operation"]`, `additionalProperties` — `false`;
+- причина: Router уже принимал и передавал continuation cursor, но строгий провайдер не давал модели передать необъявленный аргумент; без этого контракт продолжения S1 был бы мёртвым;
+- файл **не принадлежал ни одному срезу графа**; расширение выдано отдельным указанием, ограничено одним свойством и ревьюируется как часть S3-BUDGET, отдельный срез не создаётся;
+- evidence: `plans/features/smart-corrective-01/evidence/s3/implementation.md` (ветка `sc/corrective-s3`, code candidate `163b8ddd567ec60ea8cb3274a37b10e9297bddd7`; в текущем checkout master файл может отсутствовать);
+- статусы не менялись: S3-строки остаются `PENDING`, расширение не является доказательством приёмки.
 
 ### Нумерация
 
@@ -154,7 +164,7 @@ S0 считается завершённым только когда:
 |---|---|---|---|
 | `SC-INV-*`, `SC-REP-*`, `SC-WD-W12` | production logs/DB/tool traces (read-only) | — | `investigation/` |
 | `SC-SRC-*`, `SC-SEARCH-*` | `services/source_reader.py` | `tests/test_evol_source_reader.py`, `tests/test_smart_c1_source_reader_limits.py`, `tests/test_smart_e_local_first_source.py` | `evidence/s2/` |
-| `SC-BUD-*` | `services/tool_router.py`, `services/worker_budget.py` | `tests/test_tool_router.py`, `tests/test_budget_unlimited_round1019.py` | `evidence/s3/` |
+| `SC-BUD-*` | `services/tool_router.py`, `services/worker_budget.py`, `services/tool_schemas.py` (optional `cursor` only) | `tests/test_tool_router.py`, `tests/test_budget_unlimited_round1019.py`, `tests/test_tool_schemas.py` | `evidence/s3/` |
 | `SC-CMP-*` | `services/tool_loop.py`, `services/checkup_service.py` | `tests/test_checkup_service.py`, `tests/test_checkup_contract.py`, `tests/test_tool_loop.py` | `evidence/s4/` |
 | `SC-INP-*` | `services/checkup_service.py`, `services/settings.py` | `tests/test_checkup_service.py` | `evidence/s5/` |
 | `SC-PRM-*` | `services/checkup_prompts.py`, `services/prompt_registry.py`, `services/checkup_service.py` | `tests/test_checkup_prompts.py` | `evidence/s6/` |

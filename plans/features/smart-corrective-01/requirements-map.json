@@ -1212,7 +1212,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-FIND-01_295",
@@ -1227,7 +1228,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-FIND-02_296",
@@ -1242,7 +1244,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-FIND-03_297",
@@ -1257,7 +1260,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-FIX_299",
@@ -1272,7 +1276,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-RESOLVER_305",
@@ -1287,7 +1292,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-NOSECOND_307",
@@ -1302,7 +1308,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-CONTEXT_318",
@@ -1317,7 +1324,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-NOCROSS_320",
@@ -1332,7 +1340,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-NOIMPLICIT_322",
@@ -1347,7 +1356,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-RELATED_324",
@@ -1362,7 +1372,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-NOTINF_337",
@@ -1377,7 +1388,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-SAFETY_339",
@@ -1392,7 +1404,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-GUARD_341",
@@ -1407,7 +1420,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-PROGRESS_343",
@@ -1422,7 +1436,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-BUD-PARTIAL_345",
@@ -1437,7 +1452,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "MANUAL_SC-CMP-TOOLLOOP_351",
@@ -5190,7 +5206,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00312",
@@ -5205,7 +5222,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00313",
@@ -5220,7 +5238,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00314",
@@ -5235,7 +5254,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00315",
@@ -5250,7 +5270,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00316",
@@ -5265,7 +5286,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00326",
@@ -5295,7 +5317,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00331",
@@ -5310,7 +5333,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00332",
@@ -5325,7 +5349,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00333",
@@ -5340,7 +5365,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00334",
@@ -5355,7 +5381,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00335",
@@ -5370,7 +5397,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "source_id": "L00347",
@@ -7283,5 +7311,21 @@
         "applies_to": "все postdeploy real-LLM canaries (AC-01..AC-24): провайдер доступен, но класс отказа HTTP 200 + пустой content сохраняется, поэтому canary обязан допускать fallback/retry"
       }
     ]
+  },
+  "slice_notes": {
+    "S3-BUDGET": {
+      "scope_expansion": {
+        "file": "services/tool_schemas.py",
+        "change": "optional string property `cursor` for read_source_code; required stays [operation], additionalProperties stays false",
+        "reason": "модель должна иметь возможность передать continuation cursor, который Router уже принимает и передаёт в SourceReader",
+        "ownership": "файл был вне write-scope всех срезов; расширение выдано отдельным указанием и ограничено одним свойством",
+        "review": "ревьюируется как часть S3-BUDGET, отдельного среза не создаётся",
+        "branch": "sc/corrective-s3",
+        "candidate_commit": "163b8ddd567ec60ea8cb3274a37b10e9297bddd7",
+        "evidence": "plans/features/smart-corrective-01/evidence/s3/implementation.md",
+        "evidence_presence": "файл находится на ветке sc/corrective-s3; в текущем checkout master может отсутствовать"
+      },
+      "note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
+    }
   }
 }

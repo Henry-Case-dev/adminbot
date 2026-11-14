@@ -63,7 +63,8 @@
         "services/worker_budget.py",
         "tests/test_tool_router.py",
         "tests/test_budget_unlimited_round1019.py",
-        "tests/test_smart_corrective_budget_policy.py"
+        "tests/test_smart_corrective_budget_policy.py",
+        "services/tool_schemas.py"
       ],
       "acceptance": "На сквозном пути chat_id и budget_enforced доходят от ToolRouter до SourceReader; effective policy совпадает с единым резолвером чата; при OFF отсутствуют скрытые искусственные потолки, а реальные предохранители сохранены.",
       "risk": "R1",
@@ -72,7 +73,19 @@
         "S2-SOURCEREADER",
         "S5A-LIFECYCLE"
       ],
-      "why_one_slice": "Одна причина — разрыв наследования effective policy в конкретном вызове; доказательство одно: фактически применённая политика."
+      "why_one_slice": "Одна причина — разрыв наследования effective policy в конкретном вызове; доказательство одно: фактически применённая политика.",
+      "scope_expansion": {
+        "file": "services/tool_schemas.py",
+        "change": "optional string property `cursor` for read_source_code; required stays [operation], additionalProperties stays false",
+        "reason": "модель должна иметь возможность передать continuation cursor, который Router уже принимает и передаёт в SourceReader",
+        "ownership": "файл был вне write-scope всех срезов; расширение выдано отдельным указанием и ограничено одним свойством",
+        "review": "ревьюируется как часть S3-BUDGET, отдельного среза не создаётся",
+        "branch": "sc/corrective-s3",
+        "candidate_commit": "163b8ddd567ec60ea8cb3274a37b10e9297bddd7",
+        "evidence": "plans/features/smart-corrective-01/evidence/s3/implementation.md",
+        "evidence_presence": "файл находится на ветке sc/corrective-s3; в текущем checkout master может отсутствовать"
+      },
+      "scope_note": "services/tool_schemas.py добавлен в write-scope S3-BUDGET: опциональное свойство `cursor` для `read_source_code` (required=[operation], additionalProperties=false) — model-visible контракт продолжения S1. Файл не принадлежал ни одному срезу графа; расширение минимальное, раскрыто в S3 implementation evidence и ревьюируется как часть S3."
     },
     {
       "id": "S4-COMPLETION",
