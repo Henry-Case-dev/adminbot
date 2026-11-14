@@ -954,6 +954,21 @@ TOOL_READ_SOURCE_CODE = {
                     "description": ("Optional language hint (java, python, go…) "
                                     "- used only to rank candidates."),
                 },
+                # SMART-CORRECTIVE-01 S3-BUDGET (§1 контракта): continuation
+                # возвращается в `continuation.next_arguments.cursor`, поэтому
+                # opaque-токен обязан быть объявлен и для модели, иначе строгий
+                # провайдер/`additionalProperties=false` не даёт его передать.
+                # Как у `get_recent_history`/`inspect_runtime`: только возврат
+                # токена из предыдущего результата, не изобретать.
+                "cursor": {
+                    "type": "string",
+                    "description": ("Opaque continuation token from a previous "
+                                    "result's continuation.next_arguments."
+                                    "cursor. Pass it back unchanged with the "
+                                    "same repo/ref/query/symbol to read the "
+                                    "next portion; omit it for a fresh request "
+                                    "and never invent one."),
+                },
             },
             "required": ["operation"],
             "additionalProperties": False,

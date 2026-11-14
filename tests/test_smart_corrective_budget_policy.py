@@ -646,3 +646,58 @@ class TestContinuationWiring:
         assert second["status"] == sr.STATUS_OK, second
         returned = {item["path"] for item in second.get("matches") or ()}
         assert "services/aaa_module_0.py" not in returned
+
+
+class TestModelVisibleSchema:
+    """Континуация — исполнимый tool-контракт, а не только payload.
+
+    Строгий провайдер (`additionalProperties=false`) не даёт модели передать
+    необъявленный аргумент, поэтому opaque cursor обязан быть в схеме, а
+    `continuation.next_arguments` — целиком состоять из объявленных полей.
+    """
+
+    def test_schema_declares_optional_cursor(self):
+        from services import tool_schemas
+        params = tool_schemas.TOOL_READ_SOURCE_CODE["function"]["parameters"]
+        props = params["properties"]
+        assert props["cursor"]["type"] == "string"
+        assert "continuation" in props["cursor"]["description"]
+        # Свежий запрос не обязан передавать cursor и не меняет required.
+        assert params["required"] == ["operation"]
+        assert params["additionalProperties"] is False
+        for name in ("url", "repo", "query", "ref", "path", "symbol",
+                     "line_start", "line_end", "follow", "language", "cursor"):
+            assert name in props, name
+
+    @pytest.mark.asyncio
+    async def test_continuation_next_arguments_are_declared_and_continue(
+            self, tmp_path, monkeypatch):
+        """next_arguments ⊆ schema properties и реально продолжают поиск."""
+        from services import tool_schemas
+        _set_policy(monkeypatch, global_value=True)
+        budget = len("MARKER = 'ledger.reconcile.marker'\n".encode()) + 1
+        monkeypatch.setattr(sr, "content_scan_budget_bytes", lambda: budget)
+        reader = _local_reader(tmp_path, _search_files())
+        router = _router(reader)
+        ctx = ToolContext(CHAT_INHERIT, "q")
+        first = await _dispatch(router, ctx, {
+            "operation": "locate", "repo": REPO,
+            "query": "ledger.reconcile.marker", "follow": False})
+        next_args = dict((first.get("continuation") or {})
+                         .get("next_arguments") or {})
+        assert next_args.get("cursor")
+        declared = set(tool_schemas.TOOL_READ_SOURCE_CODE["function"]
+                       ["parameters"]["properties"])
+        assert set(next_args) <= declared, set(next_args) - declared
+        # Свежий запрос без cursor: прежняя первая страница, не reuse.
+        assert first["outcome"] == sr.OUTCOME_PARTIAL, first
+        assert first["reused"] is False
+
+        second = await _dispatch(router, ctx,
+                                 dict(next_args, operation="locate"))
+        assert reader.calls[-1]["cursor"] == next_args["cursor"]
+        assert second.get("reused") is not True
+        assert second["progress_id"] == first["progress_id"]
+        assert second["status"] == sr.STATUS_OK, second
+        delivered = {item["path"] for item in second.get("matches") or ()}
+        assert "services/aaa_module_0.py" not in delivered
