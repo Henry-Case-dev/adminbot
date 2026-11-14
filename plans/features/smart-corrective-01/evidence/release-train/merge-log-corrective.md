@@ -142,3 +142,69 @@ dry-run повторён на итоговой вершине ветки: `versi
   (из них код/тесты — 72 файла, `10417/359`; остальное — evidence `plans/**`).
 - Worktree остаётся зарегистрированным до деплоя (нужен DevOps). Пробные
   прогоны закрыты, evidence перенесён в репозиторий.
+
+## 11. Addendum 2.58.202 — guard S6 «сохранённая редакция чата»
+
+Ветка `sc/corrective-s6-guard` (head `703b2877`, код `a8b6197f`) — прямой
+потомок `409f4e8a` (2.58.201, развёрнут). Merge: **`f08d4996`**
+(`merge(release-train): smart-corrective-01 S6 prompt guard, saved chat edition
+over factory cutover (code a8b6197f)`), конфликтов нет.
+
+Содержимое merge (7 файлов, 558+/11-): `services/prompt_release_policy.py`
+(живая ручная ревизия адресата + `read_live_manual_revision` + код
+`factory_superseded_manual`), `docs/prompt-versioning-contract.md`,
+`tests/test_smart_corrective_prompt_delivery.py`, `tests/test_prompt_baseline.py`,
+`tests/test_evol016_prompt_activation.py`, evidence `s6-prompt-guard/*`.
+Текст и метки заводских промптов не менялись; каталог 645/121, схема v47,
+DDL=0.
+
+Bump 2.58.201 → 2.58.202: **`a476818d`**, тот же набор — 30 файлов / 31 строка
+(`APP_VERSION` + релизная заметка 2.58.202 с `Prior 2.58.201`, F8-meta,
+24 py-пина, 4 JS-регекспа `2\.58\.202`).
+
+### Тесты (main venv, дерево поезда)
+
+| Набор | Результат |
+|---|---|
+| Guard/S6 (17 файлов: prompt_delivery + prompt-релиз/история) | **320 passed, 2 skipped** |
+| Чекап/совместимость промптов (13 файлов) | **331 passed** |
+| Регрессия/смежные (14 файлов) | **264 passed / 1 failed** (`test_prompt_field_audit::test_every_editable_prompt_has_reachable_surface`) |
+| Базовая линия/активация (14 файлов) | **274 passed, 2 skipped / 1 failed** (тот же `test_prompt_field_audit`) |
+| Sanity: сторож S5A-D + инциденты + FC SFC-12-09 + tool-loop/router + source reader + selfdiag research | **328 passed** |
+| Pin-guard (24 py-пина) | **856 passed / 4 failed** — те же 4 известных |
+| JS pin-харнессы (node, 4) | **4 PASS** |
+| `py_compile` изменённых `.py` (4) | exit 0; `git diff --check` — 0 |
+
+### Сверка pre-existing падений (на `409f4e8a`, чистое дерево)
+
+`pytest tests/test_prompt_field_audit.py tests/test_soul1_registry_completeness.py`
+→ `2 failed, 25 passed`: `test_every_editable_prompt_has_reachable_surface`
+(reachable-surface учёт `direct.base.synthesizer`) и
+`test_registry_consumer_pointers_point_at_real_lines` (`lore_worker.py`
+line-pointer). Оба падения воспроизведены на развёрнутой вершине 2.58.201 —
+unchanged, не регрессия guard-дополнения. Новых падений: **0**.
+
+### Manifest dry-run (чистое дерево, `a476818d`)
+
+```json
+{
+  "deployed_at": "2026-11-14T14:41:28.271291Z",
+  "deployed_sha": "a476818de5b60ccf18b00709e4c02bc7fec099eb",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": null,
+  "previous_version": null,
+  "release_branch": "release/smart-corrective-01",
+  "schema": 1,
+  "version": "2.58.202"
+}
+```
+
+### Итог дополнения
+
+- Merge-коммит: `f08d4996`; bump-коммит: `a476818d`.
+- Кумулятивно от `409f4e8a`: 37 файлов, 589+/42- (код/тесты — 34 файла,
+  354+/41-; остальное — evidence `plans/**`).
+- Вершина ветки: коммит с этой записью (`docs(release): 2.58.202 guard
+  addendum`), он же push-вершина `release/smart-corrective-01`; SHA в handoff.
+- Worktree сохранён для DevOps, пробные прогоны закрыты.
