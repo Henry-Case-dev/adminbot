@@ -1052,3 +1052,48 @@ Merged `prompt_release_policy.py` preserves pinned/baseline precedence, live man
 
 ### Controlled deployment and postdeploy
 Approved only for controlled deployment of exact tip `0beed63d`. Postdeploy obligations remain: DevOps data-only reactivation of `rev:d31300ef35a0`; checkup in the affected chat with `prompt_source=chat`, 12,469 chars and hash prefix `31d17506...`; clean SFC-12-09; watchdog events; remaining parent live rows. These are not owner QA assignments. No production access was used. No requirements are marked `VERIFIED`; final release acceptance remains pending.
+
+## Delta integration review 2.58.203
+
+- Candidate: `e650f2b854755743f2a750024a1f184d2a802e30` (`2.58.203`), base `0beed63d` (`2.58.202`).
+- Verdict: **Needs Fixes**. The requested allowlist union has no path outlier, but the exact merged train has a reproducible label-suite failure.
+
+### Diff audit
+The exact `git diff --name-only 0beed63d..e650f2b8` contains **45 paths**, not 44. The 45 paths classify into: label slice (6 paths), anchor slice (8 paths), standard 30-file bump set, and the train merge-log evidence path. `outliers=[]`; all runtime paths are exactly the five declared files: `services/prompt_registry.py`, `services/checkup_prompts.py`, `services/factcheck_planner.py`, `services/factcheck_orchestrator.py`, and `config/settings.py`. The 30 bump files match the standard bump set; no DDL/database migration path is present. The 45-versus-44 count is a reporting discrepancy, not an unexplained path.
+
+Runtime blob comparison: `prompt_registry.py` and `checkup_prompts.py` match the approved label head `fd2b4bb0`; `factcheck_planner.py`, `factcheck_orchestrator.py`, and the anchor evidence/test files match the approved anchor head `4852c67c`; `config/settings.py` matches bump `1bdd8507`. The merged label changes the checkup label/seal to `checkup-p0-24-10-mixed-state` without changing factory prompt bytes. The planner adds the material anchor for glued SFC-12-09 requests; the existing prompt guard remains unchanged.
+
+### Test validity and observed blocker
+Executed on exact train worktree: `pytest tests/test_smart_corrective_checkup_label_activation.py tests/test_smart_corrective_prompt_delivery.py tests/test_p0_prompts_core.py -q` -> **36 passed, 1 failed**.
+
+Blocking failure: `tests/test_p0_prompts_core.py::test_pr01_saved_and_effective_match_registered_revision` at the assertion `assert eff.source == "global"` (test line 199). Observed: `eff.source == "default"`, `eff.withheld == true` path, warning `persisted speech value withheld ... reason=provenance_missing ... stored_sha=3140bb364044 ... stored_chars=3462`. This is an exact-candidate failure in the label-focused suite and leaves the effective global prompt contract unproven/failed. Owner: Builder. Minimal correction: reconcile the new label/seal with the provenance registration/effective_prompt path so the saved registered factory value remains `source=global`, `withheld=false`, `provenance_reason=attested`; then rerun this focused suite and the candidate-bound label/anchor suites.
+
+### Evidence pillars
+- Implementation: inspected merged label/seal, planner anchor ordering and five runtime files; allowlist union has no outlier.
+- Test validity: focused assertions are meaningful (effective source, withholding, revision and text), and the failure is not vacuous.
+- Independent challenge: ran the merged label-focused suite on exact `e650f2b8`; the provenance failure reproduced. Approval is stopped; full pin and production checks are not treated as approval evidence.
+
+### Remaining checks and postdeploy obligations
+Anchor and full pin suites were not used to waive this blocker. The planned postdeploy obligations remain unchanged: prompt release log/factory activation; chat without override with factory 3,462 chars and no Betterstack; affected manual chat with `factory_superseded_manual` and unchanged SHA; clean isolated SFC-12-09 (20 calls); `production_smoke` (12 calls) with harness v1.4.0 SHA `afcd6ee0`; watchdog events; remaining parent live rows. No requirements are marked `VERIFIED`; no production access was used.
+
+### Next action
+Builder fixes the provenance/effective-global regression at the narrow prompt registration path. Reviewer then reruns the failed assertion plus label/anchor focused suites and the exact candidate diff/evidence binding. Do not deploy until the failure is cleared.
+
+## Delta review 2.58.203 correction (test isolation)
+
+- Candidate: `c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5` (`2.58.203`), base `e650f2b8`; verdict: **Approved for controlled deployment**. This is review-stage approval only; requirements remain unverified and production was not accessed.
+
+### Implementation
+The exact delta is test/evidence-only: five changed paths, with an empty `git diff e650f2b8..c97c06e4 -- services/ config/ handlers/ web/`. Runtime remains `APP_VERSION=2.58.203`, label `checkup-p0-24-10-mixed-state`, factory seal `fac:3140bb364044(<label>)`, and `seal_integrity() == {}`. The inspected fixtures reset release-policy state, retired blocks, cache and `prompt_factory._HISTORY_FROZEN` on entry and teardown; the p0 fixture explicitly establishes pre-cutover state.
+
+### Test validity
+Focused command on exact tip: `39 passed in 6.60s`. The prior `test_pr01_saved_and_effective_match_registered_revision` now passes. The two provenance tests assert real effective output: registry-written value has `source=global`, `withheld=false`, `provenance_reason=attested`, expected revision/factory identity and exact text; unregistered value has `source=default`, `withheld=true`, `provenance_reason=provenance_missing`, matching withheld SHA and factory fallback. Fixture teardown is unconditional via pytest yield-finalizer. Additional label suite: `9 passed`; anchor-related acceptance/contract checks: `112 passed`.
+
+### Independent challenge
+A disposable git-archive mutation replacing the registry-written factory value with `MUTATED_UNREGISTERED_FACTORY_VALUE` made `test_new_label_factory_value_is_attested_for_effective_prompt` fail at its expected revision assertion (`act:fdb7540c2416` vs `act:3140bb364044`), while the other 8 label tests passed; this confirms the attestation test is load-bearing and the withheld path remains green. A separate mutation of the entry reset did not reproduce the order-dependent failure (`39 passed`), so that specific negative is not claimed as reproduced; the original failure remains candidate-bound evidence. The attempted Windows `tar` pipeline was aborted and not treated as evidence.
+
+### Regression and remaining evidence
+Focused p0/label/delivery command is green. Anchor acceptance/contract checks are green (`112 passed`). The previously known pin baseline (`856/4`) and known pre-existing pair were not rerun after the correction; no new pin result is claimed. No runtime or production check was required for this test-only delta. Postdeploy obligations remain: prompt release log/factory activation; affected manual chat provenance (`chat/12,469/31d17506/withheld=false`); chat without override (`factory/3,462`, no Betterstack); clean isolated SFC-12-09 (20 calls); `production_smoke` (12 calls) with harness `afcd6ee0`; watchdog events; remaining parent live rows. No requirements are marked `VERIFIED`.
+
+### Next action
+DevOps may proceed with controlled deployment of exact candidate `c97c06e4`; preserve the train worktree. After deployment, collect the listed production evidence and run the release gate. Builder/Reviewer must revisit only if a postdeploy obligation fails.

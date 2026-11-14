@@ -87,3 +87,36 @@ Per-check admissibility: external_scenarios is admissible for the focused produc
 Remaining blocker: none for external_scenarios harness admissibility. external_natural_request remains intentionally unverified because it requires a real provider call; this is a postdeploy/live evidence condition, not a harness defect. 
  
 SMART verdict: admissible for the focused production run (external_scenarios plus later external_natural_request under its explicit provider gate). No requirements were marked VERIFIED.
+
+## Audit r5 (FC harness v1.4.0 cap/proxies)
+
+Candidate `16fbae81fffec1baa8a4eca3763812d4ce205a2f` (master); `fc_live_canary.py` v1.4.0. Exact harness SHA256: `afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1`, independently matched with `Get-FileHash`. Release application worktree: `13884daa32e5cf2a1c05c5c43188ca299f8179f8`. No production access, provider/paid calls, Bot sends, or PG writes were used.
+
+### Implementation
+
+Inspected the cap path around `fc_live_canary.py:1649-1770`, scenario consumers around `2670-2816`, and proxy predicates around `2819-2964`. `run_scenario` reserves the documented measured `CHECK_CALL_COSTS` plus answer-stage margin before starting; insufficient remaining budget returns `provider_budget_insufficient` without starting the pipeline. A cap reached during execution is represented separately as `provider_cap_reached`, with denied-call count/kinds and `evidence_class=unavailable`; the message explicitly says it is **not a product verdict**. Provider failure remains a distinct state. Raw event fields (`finish_reason`, `reason_code`, `decision`, `fallback_used`, `error_code`) are retained. `material_kept` requires both subject overlap >= 0.6 and actual material-anchor usage; `_answer_stage_reached` requires verdict and verbalize stages and rejects `temporal_fallback_mode`; country matching uses stems; honest direct negative answers are accepted while the generic fallback template is rejected.
+
+### Test validity
+
+Read S19-S21 bodies and assertions. S19 asserts red/green cap controls, `provider_budget_insufficient` versus `provider_cap_reached`, unavailable evidence class, and cap-not-provider-failure semantics. S20 asserts nominative/genitive/instrumental country forms, unrelated-country rejection, honest-negative acceptance, fallback-template rejection, and independent anchor defect/fix/weak-presence cases. S21 asserts the defective bundle fails `material_kept`, `answer_stage_completed`, and `direct_answer_on_question`, while the corrected bundle passes all assertions. The release-worktree self-test exited `0` with `self_test_passed=true`; dry-run exited `0`; offline exited `0` with 6 checks, 2 observed, 4 not observed, 0 errors, and 0 production observations. These self-tests are plumbing evidence, not production acceptance.
+
+### Independent challenge
+
+A disposable byte-level mutation changed only the S20 defect control from requiring `anchor_used is False` to `anchor_used is True`. The mutated self-test exited `1`, with `S20_answer_measurement_predicates.ok=false` while the fixed-anchor control remained true; this demonstrates the anchor predicate is non-vacuous. The exact preflight mismatch was also exercised with a 64-zero expected SHA: exit `2`, `checks=[]`, reason `harness_sha256_mismatch`, and no `pg` or `provider_calls` fields. The first probe invocation from the allocated run directory failed only because a relative script path was resolved against the run directory; it was immediately corrected from the repository root and is not a candidate behavior result.
+
+### Admissibility and ledger disposition
+
+| Mandatory item | Status | Evidence / limitation |
+|---|---|---|
+| Cap is measurement state, not product verdict | REVIEW-VERIFIED / admissible | Implementation audit + S19 + independent preflight; no live provider run in r5 |
+| `provider_budget_insufficient` vs `provider_cap_reached` vs provider failure | REVIEW-VERIFIED / admissible | `run_scenario`, S19 and distinct machine fields inspected |
+| SFC-12-09 material overlap plus actual anchor | REVIEW-VERIFIED / admissible | `_material_anchor_usage`, S20/S21, mutation flip |
+| Answer stage excludes `temporal_fallback_mode` | REVIEW-VERIFIED / admissible | `_answer_stage_reached`, S20/S21 assertions |
+| Country stems / honest negative / fallback rejection | REVIEW-VERIFIED / admissible | S20 assertions and source audit |
+| Preflight SHA binding | REVIEW-VERIFIED / admissible | Exact candidate SHA, exit-2 mismatch with zero checks and no PG/provider fields |
+| `original_production_scenario` live acceptance | UNVERIFIED | No production/provider calls by instruction; requires clean isolated run with cap 20 |
+| `production_smoke` live acceptance | UNVERIFIED | No production/provider calls by instruction; requires clean isolated run with cap 12 |
+
+`REVIEW-VERIFIED / admissible` above means the harness mechanism is accepted for the requested controlled production rerun; it does not mark any product requirement `VERIFIED`. The two production checks remain `UNVERIFIED` until their real isolated runs produce candidate-bound evidence.
+
+**Verdict: admissible for the clean isolated runs** `--checks original_production_scenario --max-provider-calls 20` and `--checks production_smoke --max-provider-calls 12`. No harness blocker found. No requirements were marked `VERIFIED`.
