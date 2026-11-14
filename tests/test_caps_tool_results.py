@@ -477,6 +477,61 @@ async def test_youtube_transcript_full_without_factory_cap(monkeypatch) -> None:
     assert YouTubeTranscriptEngine._format(segments, None) == full
 
 
+class _CappingTranscriptEngine:
+    """Провайдер-двойник: уважает переданный лимит (как реальный движок)."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.calls: list = []
+
+    async def fetch_transcript(self, video_id, max_symbols=None,
+                               on_retry=None):
+        self.calls.append((video_id, max_symbols))
+        return self.text if not max_symbols else self.text[:max_symbols]
+
+
+@pytest.mark.asyncio
+async def test_youtube_transcript_handler_no_20000_cap(monkeypatch) -> None:
+    """``_YT_TRANSCRIPT_CAP=20000`` удалён: субтитры идут целиком, а
+    Telegram-доставка по-прежнему чанкуется (реальный ``send_chunked_reply``)."""
+    import types
+    from unittest.mock import AsyncMock
+
+    from handlers import youtube as yt
+    from services import smartmodule_utils as smu
+
+    transcript = "".join(
+        f"фраза{i:05d} " + ("С" * 150) + "\n" for i in range(1, 160)
+    ) + "ХВОСТ-СУБТИТРОВ"
+    assert len(transcript) > 20000
+    engine = _CappingTranscriptEngine(transcript)
+    monkeypatch.setattr(yt, "_service",
+                        types.SimpleNamespace(engine=engine))
+    monkeypatch.setattr(yt, "_media_memory", None)
+    monkeypatch.setattr(yt, "_media_db", None)
+    monkeypatch.setattr(smu.asyncio, "sleep", AsyncMock())
+    bot = AsyncMock()
+    message = types.SimpleNamespace(
+        chat=types.SimpleNamespace(id=-100),
+        message_id=11,
+        from_user=types.SimpleNamespace(
+            id=1, first_name="Тест", last_name=None, username="test"),
+        reply_to_message=None)
+    request = yt._VideoRequest(kind="youtube", mode="transcript",
+                               url=None, video_id="vid-sxr", media=None,
+                               source=message)
+    await yt._process_youtube_transcript(bot, message, request)
+
+    assert engine.calls == [("vid-sxr", None)]     # было бы (vid, 20000)
+    sent = [call.args[1] for call in bot.send_message.await_args_list]
+    assert len(sent) > 3                           # чанкинг работает
+    delivered = "".join(sent)
+    assert "ХВОСТ-СУБТИТРОВ" in delivered          # хвост за 20000 доставлен
+    for index in (1, 80, 159):
+        assert f"фраза{index:05d}" in delivered
+    assert delivered.count("фраза") == 159
+
+
 class _FakeDownloader:
     def __init__(self, path) -> None:
         self.path = path

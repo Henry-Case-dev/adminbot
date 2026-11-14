@@ -222,8 +222,9 @@ def _safe_exc_text(exc: BaseException, *, limit: int = 200) -> str:
     return raw[:limit] or type(exc).__name__
 
 
-# Раунд 3 (3.2, T-690): cap субтитров YouTube для mode=transcript.
-_YT_TRANSCRIPT_CAP = 20000
+# Раунд 3 (3.2, T-690): субтитры YouTube для mode=transcript отдаются
+# ЦЕЛИКОМ (SXR-C2: искусственный cap 20000 удалён; Telegram-чанкинг —
+# существующий `_send_transcript_reply`/`send_chunked_reply`).
 # Ссылочные ветки качают «в тихую» в 360p (без probe-меню 4e).
 _URL_QUALITY = "360"
 # Лейблы в мультимодальном запросе (R17: URL/подпись в логах НЕ светятся).
@@ -1278,8 +1279,8 @@ async def _process_url_media(bot, message: types.Message,
 
 async def _process_youtube_transcript(bot, message: types.Message,
                                       request: _VideoRequest) -> None:
-    """«транскрипт <yt-url>»: субтитры текстом (cap 20000) — ЗАМЕНА прежнего
-    «каскад-выжимки» (отметить юзеру, T-699). Субтитры недоступны →
+    """«транскрипт <yt-url>»: субтитры текстом без искусственного cap — ЗАМЕНА
+    прежней «каскад-выжимки» (отметить юзеру, T-699). Субтитры недоступны →
     скачивание (yt-dlp/cobalt, 360) → STT (timeout 120) → текст кружков.
     STT пуст/недоступен → пул 5.11. Память (FR-B7): только факт;
     ответный кеш не существует (EVOL-031) — результат не воспроизводится."""
@@ -1293,7 +1294,7 @@ async def _process_youtube_transcript(bot, message: types.Message,
         try:
             async with typing_active(bot, chat_id):
                 transcript = await _service.engine.fetch_transcript(
-                    video_id, _YT_TRANSCRIPT_CAP, on_retry=None)
+                    video_id, on_retry=None)
         except Exception:
             # Движок исчерпан (нет субтитров/приватность/сеть) → скачать → STT
             logger.warning(

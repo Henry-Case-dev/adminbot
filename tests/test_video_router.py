@@ -270,7 +270,7 @@ class TestYoutubeTranscriptMode:
         msg = _msg(text=f"Бот, транскрипт https://youtu.be/{YT_ID}")
         await yt.youtube_handler(msg, bot=bot)
         svc.engine.fetch_transcript.assert_awaited_once_with(
-            YT_ID, 20000, on_retry=None)
+            YT_ID, on_retry=None)
         sent = bot.send_message.await_args
         assert sent.args[1] == ("<b>Вася</b> 🗣: "
                                 "<i>[00:01] привет мир</i>")
