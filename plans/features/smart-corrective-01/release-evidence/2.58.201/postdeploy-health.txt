@@ -1,0 +1,59 @@
+POST-DEPLOY HEALTH — SMART-CORRECTIVE-01 / 2.58.201
+====================================================
+
+Timestamp (post_state) 2026-11-14T13:50:31Z
+HEAD                   409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9
+BRANCH                 release/smart-corrective-01
+APP_VERSION            2.58.201
+TRACKED_DIRTY          0
+UNTRACKED              только .cache/
+
+HTTP HEALTH
+-----------
+local   http://127.0.0.1:8000/healthz
+        200 {"status":"ok","version":"2.58.201"}   (3-й poll после restart)
+
+public  https://admin-bot.duckdns.org/healthz
+        200 {"status":"ok","version":"2.58.201"}   (1-й poll после restart)
+
+SYSTEMD
+-------
+unit                    admin_bot
+ActiveState             active
+MainPID                 819657
+ExecMainStartTimestamp  Sat 2026-11-14 13:50:27 UTC
+restart rc              0
+
+MANIFEST
+--------
+409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9 / 2.58.201
+previous 0e4a144db476a1535ae3a2b79a7cce30354ad866 / 2.58.200
+release_branch release/smart-corrective-01
+dirty_tracked false
+
+JOURNAL (as adminbot, rc=0)
+---------------------------
+window                  since 2026-11-14T13:50:27Z (process start)
+lines                   157
+Traceback               0
+ERROR                   0
+CRITICAL                0
+WARNING                 1
+
+Единственный WARNING:
+  services.summary_memory - WARNING - SmartModule: embedding generation not
+  serviceable | index=smart_archive | status=superseded |
+  gen_fp=2d0efab0e817 new_fp=2d0efab0e817 — FTS-only (A06) | build pending —
+  source empty (nothing to vectorize)
+
+Это существующее FTS-only предупреждение; traceback/ERROR/CRITICAL нет.
+
+DISK
+----
+pre   /dev/vda1 103083636 71219292 26605392 73% /
+post  /dev/vda1 103083636 71218840 26605844 73% /
+      свободно 26 605 844 KB ≈ 25.4 GiB
+
+ROLLBACK STATE
+--------------
+Не требуется: все обязательные post-checks и verify (VERIFY_RC=0) прошли.

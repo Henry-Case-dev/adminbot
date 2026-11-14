@@ -1,0 +1,8 @@
+deploy_gate_ref=plans/features/smart-corrective-01/evidence/gates/deploy-corrective-409f4e8a-r2.txt
+deploy_gate_result=stage=deploy inventory=224 manual=232 scoped=384 errors=0
+candidate=409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9
+candidate_version=2.58.201
+candidate_pre_bump=051ab76ae51bf0f2cdf7783187756518782b6ab0
+parent_smart_gate=plans/features/smart-corrective-01/evidence/gates/deploy-parent-smart-0e4a144d-r2.txt errors=0
+parent_fc_gate=plans/features/smart-corrective-01/evidence/gates/deploy-parent-fc-0e4a144d-r2.txt errors=0
+integration_review=plans/features/smart-corrective-01/evidence/release-train/integration-review.md Approved for controlled deployment of 409f4e8a

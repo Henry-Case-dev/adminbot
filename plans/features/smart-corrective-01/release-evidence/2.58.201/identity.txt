@@ -1,0 +1,52 @@
+DEPLOYED IDENTITY — SMART-CORRECTIVE-01 / 2.58.201
+==================================================
+
+HEAD                409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9
+BRANCH              release/smart-corrective-01
+APP_VERSION         2.58.201
+PRE_BUMP_CODE       051ab76ae51bf0f2cdf7783187756518782b6ab0
+DEPLOYED_AT         2026-11-14T13:50:26.020167Z
+PROCESS_STARTED_AT  2026-11-14T13:50:27Z
+UNIT                admin_bot (active)
+MAIN_PID            819657
+EXEC_MAIN_START     Sat 2026-11-14 13:50:27 UTC
+CHECKOUT_DIRTY      false
+TRACKED_TREE        clean
+
+MANIFEST (.deploy/release.json)
+-------------------------------
+{
+  "deployed_at": "2026-11-14T13:50:26.020167Z",
+  "deployed_sha": "409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+  "previous_version": "2.58.200",
+  "release_branch": "release/smart-corrective-01",
+  "schema": 1,
+  "version": "2.58.201"
+}
+
+services.deploy_identity.collect_identity
+-----------------------------------------
+code                     verified_deployed
+reason                   (empty)
+deployed_sha             409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9
+checkout_sha             409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9
+dirty                    false
+local_source_verification verified_deployed
+process_started_at       2026-11-14T13:50:27Z
+deployed_at              2026-11-14T13:50:26.020167Z
+version_provenance       runtime=2.58.201, manifest=2.58.201, consistent=true
+previous_sha             0e4a144db476a1535ae3a2b79a7cce30354ad866
+previous_version         2.58.200
+upstream_head            refs/remotes/origin/release/smart-corrective-01
+                         409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9
+sources                  release_manifest, git_head, git_cli,
+                         runtime_app_version, process_start
+conflict                 []
+schema                   1
+repo_origin              Henry-Case-dev/adminbot
+
+IDENTITY ASSERTION      verified_deployed
+EVIDENCE CLASS          production (deployed checkout + manifest + runtime)
