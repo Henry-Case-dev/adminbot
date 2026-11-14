@@ -3975,6 +3975,24 @@
           "observation": "Ручная редакция владельца найдена: CHAT_C2, 12 469 chars, sha256_16 31d175065461, manual_edit, 06:11:54Z, rev:d31300ef35a0. Она учтена как факт и НЕ записывается как доставленная: применяемый слой — global (3 030 chars, b0c70f974e0e), CheckupService не читает chat override; в CHAT_DM8 override отсутствует.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-OWNER; investigation fact preserved; review-r1 §Implementation",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-OWNER в implementation.md; investigation fact сохранён, S6 delivery не переписывает выводы.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
         }
       ],
       "evidence_state": "PRODUCTION_FACT_CONFIRMED",
@@ -3992,8 +4010,27 @@
       "acceptance": "Новая редакция сохраняет и усиливает жанр язвительного, резкого технического разбора обнаруженных косяков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-GENRE; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-GENRE в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-PRESERVE_474",
@@ -4007,7 +4044,7 @@
       "acceptance": "Сохранённое владельцем значение prompts.checkup_system_prompt не переписывается, не сокращается, не заменяется заводским и не изменяется при миграциях или деплое в рамках этого corrective.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "REVIEW",
       "evidence": [
         {
           "type": "production",
@@ -4017,6 +4054,24 @@
           "observation": "На 2026-11-14 06:40 сохранённое значение не изменялось: corrective-сеанс был read-only, деплоя не было, global row остаётся с updated 2026-10-31T12:26:32Z, C2 override — с manual_edit 06:11:54Z. Сохранность при будущем деплое corrective-релиза не доказана и остаётся обязательной для S6/S8.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-PRESERVE; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-PRESERVE в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
         }
       ],
       "evidence_state": "PENDING_AT_DEPLOY",
@@ -4034,8 +4089,27 @@
       "acceptance": "Требование сохранения относится к текущей задаче и текущей ручной редакции владельца и не превращено в глобальный запрет будущих согласованных изменений промптов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SCOPE; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-SCOPE в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOTHIRD_478",
@@ -4049,8 +4123,27 @@
       "acceptance": "Не создана третья версия текста для пользователя под видом исправления доставки промпта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOTHIRD; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOTHIRD в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-VERSION_482",
@@ -4074,6 +4167,24 @@
           "observation": "Установлено по сохранённой телеметрии: запуск A использовал prompt_source=global, prompt_hash=ccaf4803efe2ff79, prompt_version_used=global:ccaf4803efe2, prompt_chars=9 966; global row prompts.checkup_system_prompt — 3 030 chars, sha256_16 b0c70f974e0e, updated 2026-10-31T12:26:32Z, factory revision checkup-p0-24-10; CHAT_DM8 override отсутствует. Ручная редакция владельца лежит в CHAT_C2 (12 469 chars, sha 31d175065461, manual_edit 06:11:54Z, rev:d31300ef35a0), это не DM и она создана после обоих запусков; CheckupService (services/checkup_service.py:85-95) читает только global слой. Вывод: сохранённая владельцем редакция НЕ была применённым слоем на маршруте чекапа.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-VERSION; investigation fact preserved; review-r1 §Implementation",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-VERSION в implementation.md; investigation fact сохранён, S6 delivery не переписывает выводы.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
         }
       ],
       "evidence_state": "PRODUCTION_FACT_CONFIRMED",
@@ -4101,6 +4212,24 @@
           "observation": "Использованы prompt_source/prompt_hash/prompt_version_used/prompt_chars из checkup_triggered.source_ref_json, строка bot_settings prompts.checkup_system_prompt и chat_profiles overrides; дополнительно l1.prompt_layers и style policy revision g13.548c080d50c8 (source global). Для run B точные ревизии/хэши невосстановимы — usage_json обрезан 2 000 символами.",
           "artifact_path": "plans/features/smart-corrective-01/investigation/production-runs-and-incidents.md",
           "artifact_sha256": "47049fa82a39dd134a1ec70f95987250c5dd18b502b7a73666b19e3508954118"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-TELEMETRY; investigation fact preserved; review-r1 §Implementation",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-TELEMETRY в implementation.md; investigation fact сохранён, S6 delivery не переписывает выводы.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
         }
       ],
       "evidence_state": "PRODUCTION_FACT_CONFIRMED"
@@ -4117,8 +4246,27 @@
       "acceptance": "Наличие фразы в Python-константе, админке или preview не считается доказательством реальной доставки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOTPROOF; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOTPROOF в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ],
       "evidence_state": "REVIEW_RULE",
       "production_finding": "Production-факт подтверждает актуальность правила: admin-редакция (CHAT_C2, 12 469 chars) не является доставленной."
     },
@@ -4134,8 +4282,27 @@
       "acceptance": "Чекап не приобретает вторую независимую Personality Core.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOCORE2; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOCORE2 в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOMATRIX_514",
@@ -4149,8 +4316,27 @@
       "acceptance": "Отдельная система регулирования мата для чекапа не создаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOMATRIX; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOMATRIX в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOEXPR2_516",
@@ -4164,8 +4350,27 @@
       "acceptance": "Вторая копия Expression не добавлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOEXPR2; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOEXPR2 в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOFLATTEN_518",
@@ -4179,8 +4384,27 @@
       "acceptance": "Общий речевой слой не стирает специфический жанр чекапа и не заменяет его нейтральным голосом технического ассистента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOFLATTEN; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOFLATTEN в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-MATSET_520",
@@ -4194,8 +4418,27 @@
       "acceptance": "Настройки допустимости мата соблюдаются; ограничение конкретного Expression не уничтожает язвительность и жёсткость технического разбора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-MATSET; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-MATSET в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOWORDS_522",
@@ -4209,8 +4452,27 @@
       "acceptance": "Наличие конкретных матерных слов не требуется независимо от настроек речи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOWORDS; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOWORDS в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOSUPPRESS_524",
@@ -4224,8 +4486,27 @@
       "acceptance": "При разрешённой лексике мат не подавляется искусственными техническими ограничениями, противоречивыми инструкциями или скрытыми постпроцессорами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOSUPPRESS; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOSUPPRESS в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-CLEANLOG_538",
@@ -4239,8 +4520,27 @@
       "acceptance": "Чистое свежее окно журналов не отменяет резкий технический разбор существенных обнаруженных проблем.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CLEANLOG; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-CLEANLOG в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-BOTH_540",
@@ -4254,8 +4554,27 @@
       "acceptance": "При работающей инфраструктуре и наличии активных ERROR-инцидентов чекап корректно отражает оба факта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-BOTH; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-BOTH в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOACTIVEFALSE_542",
@@ -4269,8 +4588,27 @@
       "acceptance": "Активная историческая запись не выдаётся за доказательство продолжающегося в данный момент падения компонента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOACTIVEFALSE; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOACTIVEFALSE в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOSOFT_544",
@@ -4284,8 +4622,27 @@
       "acceptance": "Доказанный инженерный косяк не смягчается только потому, что остальная система функционирует.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOSOFT; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOSOFT в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-NOINVENT_546",
@@ -4299,8 +4656,27 @@
       "acceptance": "Технические проблемы не выдумываются ради жанра.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-NOINVENT; prompt/checkup contract suites",
+          "observation": "Кандидат 5d2eb427: row-level evidence SC-PRM-NOINVENT в implementation.md; focused/contract suites passed, 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-STALE-01_550",
@@ -4314,8 +4690,27 @@
       "acceptance": "Проверены активные заводские промпты, служебные addendum и fallback notice чекапа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-STALE-01; active/historical contour tests",
+          "observation": "Кандидат 5d2eb427: active/historical prompt contour SC-PRM-STALE-01 подтверждён; Betterstack/401 удалены только из active, PREV_* сохранён.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-STALE-02_552",
@@ -4329,8 +4724,27 @@
       "acceptance": "Устаревшие инструкции про Betterstack удалены из действующего контура, если интеграция уже удалена согласно SELF-DIAG.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-STALE-02; active/historical contour tests",
+          "observation": "Кандидат 5d2eb427: active/historical prompt contour SC-PRM-STALE-02 подтверждён; Betterstack/401 удалены только из active, PREV_* сохранён.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-STALE-03_554",
@@ -4344,8 +4758,27 @@
       "acceptance": "Исторические версии промптов и архивные доказательства не переписаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-STALE-03; active/historical contour tests",
+          "observation": "Кандидат 5d2eb427: active/historical prompt contour SC-PRM-STALE-03 подтверждён; Betterstack/401 удалены только из active, PREV_* сохранён.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-STALE-04_556",
@@ -4359,8 +4792,27 @@
       "acceptance": "При исправлении заводской редакции реестр и контроль версий работают корректно; ручное сохранённое значение владельца не подменяется новой заводской редакцией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-STALE-04; active/historical contour tests",
+          "observation": "Кандидат 5d2eb427: active/historical prompt contour SC-PRM-STALE-04 подтверждён; Betterstack/401 удалены только из active, PREV_* сохранён.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-ADD-CHECK_558",
@@ -4374,8 +4826,27 @@
       "acceptance": "CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM проверен отдельно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-CHECK; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-CHECK подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-ADD-NODUP_568",
@@ -4389,8 +4860,27 @@
       "acceptance": "Весь жанровый промпт не дублируется в служебном addendum.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-NODUP; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-NODUP подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_SC-PRM-ADD-NOEXTRA_570",
@@ -4404,8 +4894,27 @@
       "acceptance": "Не добавлены обязательное LLM-перефразирование, словари ругательств, искусственные проверки количества мата и шаблонные вставки «токсичных» фраз.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-NOEXTRA; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-NOEXTRA подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "MANUAL_CTX_574",
@@ -9844,8 +10353,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-01; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-01 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00487",
@@ -9859,8 +10387,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-02; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-02 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00488",
@@ -9874,8 +10421,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-03; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-03 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00489",
@@ -9889,8 +10455,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-04; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-04 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00490",
@@ -9904,8 +10489,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-05; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-05 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00491",
@@ -9919,8 +10523,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-06; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-06 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00492",
@@ -9934,8 +10557,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-07; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-07 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00493",
@@ -9949,8 +10591,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 8.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-08; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-08 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00494",
@@ -9964,8 +10625,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 9.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-09; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-09 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00495",
@@ -9979,8 +10659,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 10.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-10; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-10 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00496",
@@ -9994,8 +10693,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 11.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-11; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-11 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00497",
@@ -10009,8 +10727,27 @@
       "acceptance": "Проверка реальной доставки промпта включает пункт. Пункт 12.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-CHECK-12; tests/test_smart_corrective_prompt_delivery.py + updated checkup tests",
+          "observation": "Кандидат 5d2eb427: prompt delivery/composition row SC-PRM-CHECK-12 подтверждён focused 16 tests + 344/451/264 suites; 5 mutations killed.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00503",
@@ -10039,8 +10776,27 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-LAYER-01; tests/test_smart_corrective_prompt_delivery.py (single speech layer)",
+          "observation": "Кандидат 5d2eb427: слой речи SC-PRM-LAYER-01 подтверждён тестами единственного speech layer и полной system composition.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00508",
@@ -10054,8 +10810,27 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-LAYER-02; tests/test_smart_corrective_prompt_delivery.py (single speech layer)",
+          "observation": "Кандидат 5d2eb427: слой речи SC-PRM-LAYER-02 подтверждён тестами единственного speech layer и полной system composition.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00509",
@@ -10069,8 +10844,27 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-LAYER-03; tests/test_smart_corrective_prompt_delivery.py (single speech layer)",
+          "observation": "Кандидат 5d2eb427: слой речи SC-PRM-LAYER-03 подтверждён тестами единственного speech layer и полной system composition.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00510",
@@ -10084,8 +10878,27 @@
       "acceptance": "Действующая архитектура речи сохраняет слой. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-LAYER-04; tests/test_smart_corrective_prompt_delivery.py (single speech layer)",
+          "observation": "Кандидат 5d2eb427: слой речи SC-PRM-LAYER-04 подтверждён тестами единственного speech layer и полной system composition.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00526",
@@ -10114,8 +10927,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-01; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-01 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00531",
@@ -10129,8 +10961,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-02; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-02 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00532",
@@ -10144,8 +10995,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-03; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-03 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00533",
@@ -10159,8 +11029,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-04; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-04 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00534",
@@ -10174,8 +11063,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-05; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-05 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00535",
@@ -10189,8 +11097,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 6.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-06; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-06 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00536",
@@ -10204,8 +11131,27 @@
       "acceptance": "Чекап различает смысловое состояние. Пункт 7.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-SEM-07; prompt/addendum assertions",
+          "observation": "Кандидат 5d2eb427: смысловое поведение SC-PRM-SEM-07 подтверждено prompt/addendum assertions; mixed-state формулировки без нового механизма.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00548",
@@ -10234,8 +11180,27 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-01; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-01 подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00563",
@@ -10249,8 +11214,27 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-02; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-02 подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00564",
@@ -10264,8 +11248,27 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 3.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-03; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-03 подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00565",
@@ -10279,8 +11282,27 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 4.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-04; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-04 подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00566",
@@ -10294,8 +11316,27 @@
       "acceptance": "Операционная инструкция addendum согласована с новым поведением инструментов: пункт. Пункт 5.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 implementation.md — implementation.md row table SC-PRM-ADD-05; addendum assertions",
+          "observation": "Кандидат 5d2eb427: addendum-инструкция SC-PRM-ADD-05 подтверждена тестами test_addendum_states_new_tool_behaviour / no-dup/no-extra.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+          "artifact_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+          "ref": "S6 review-r1.md §Implementation/§Test validity/§Executed checks/§Independent falsification/§Acceptance ledger (lines 13-87): Approved for exact candidate 5d2eb427; 5 independent mutations killed; two pre-existing failures reproduced on base.",
+          "observation": "Reviewer independently inspected prompt delivery/registry/checkup composition, read 16 new + 5 updated test bodies, and killed 5 mutations; chat precedence, saved-bytes preservation, telemetry, active-vs-historical contour, addendum, single speech layer and PLAN_NOOP verified. Rows and AC-15/AC-19-mapped obligations accepted at REVIEW only; not VERIFIED. Postdeploy checkup in a chat with the saved edition remains the live proof.",
+          "artifact_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+          "artifact_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480"
+        }
+      ]
     },
     {
       "source_id": "L00572",
@@ -12464,6 +13505,13 @@
         "evidence_presence": "файл находится на ветке sc/corrective-s3b; в текущем checkout master может отсутствовать"
       },
       "note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
+    },
+    "S6-PROMPT": {
+      "linked_acceptance": [
+        "AC-15",
+        "AC-19"
+      ],
+      "note": "S6-PROMPT represents prompt delivery/preservation obligations for AC-15/AC-19 at REVIEW level. AC-15/AC-19 themselves remain S8-REVIEW-RELEASE/PENDING, live_required=postdeploy; the postdeploy checkup in the saved-edition chat is their live proof. No VERIFIED."
     }
   },
   "slice_candidate_bindings": {
@@ -12594,6 +13642,20 @@
       "review_blocker": "",
       "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists.",
       "review_note": "R2 approval after master lineage fix: R1 Needs Fixes was lineage-only (483 errors in candidate worktree); R2 verified owner-input sha on master and approved exact candidate for predeploy review."
+    },
+    "S6-PROMPT": {
+      "slice": "S6-PROMPT",
+      "candidate_commit": "5d2eb427c5ebc0efa49012a6c8bc963c7fac0605",
+      "base_commit": "b04dd8f7c0122346034b241c3a8c26fbdf0b0511",
+      "branch": "sc/corrective-s6",
+      "worktree": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-e7b064d8",
+      "implementation_path": "plans/features/smart-corrective-01/evidence/s6/implementation.md",
+      "implementation_sha256": "5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e",
+      "review_path": "plans/features/smart-corrective-01/evidence/s6/review-r1.md",
+      "review_sha256": "3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480",
+      "status": "REVIEW",
+      "review_verdict": "Approved",
+      "note": "Slice-level predeploy binding only; map candidate_commit stays empty until the release train candidate exists. AC-15/AC-19 remain S8/postdeploy rows; S6 prompt obligations are REVIEW."
     }
   }
 }

@@ -276,3 +276,48 @@ R2 подтвердил: R1 `Needs Fixes` был только candidate-worktree
 | plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
 
 Выводы: `evidence/gates/review-S3B-INPUT.txt` (R2, overwrite), `evidence/gates/plan-after-S3B.txt`. S3B остаётся REVIEW-уровнем; production/final VERIFIED не заявляется.
+
+## 11. S6-PROMPT (добавлено 2026-11-15, unit `pm-s6-bind`)
+
+| Поле | Значение |
+|---|---|
+| Код-кандидат / review candidate | `5d2eb427c5ebc0efa49012a6c8bc963c7fac0605` (ветка HEAD evidence `717bcc61`) |
+| База | `b04dd8f7c0122346034b241c3a8c26fbdf0b0511` |
+| Ветка / worktree | `sc/corrective-s6`; `…smart-corrective-01-0097aecc4a7a-e7b064d8` |
+| Implementation | `evidence/s6/implementation.md` `5202bab726118e14b90888d9576b9581dd28100e01af48f7048da1b3d3c37e4e` |
+| Review | `evidence/s6/review-r1.md` `3bee7545007cd782184acfb903da83cdb181639ebb550d13679ba2e1152ab480` |
+
+Артефакты скопированы байт-в-байт из candidate worktree; sha256 источника = sha256 назначения. Отдельного retention-файла в S6 нет; implementation/review на него не ссылаются.
+
+### Строки S6
+
+| Показатель | Значение |
+|---|---:|
+| Required-строк S6-PROMPT | 55 (`SC-PRM-*`) |
+| Привязано к кандидату `5d2eb427` (implementation + review) | 55 |
+| `REVIEW` | 52 |
+| `VERIFIED` (ранее подтверждённые investigation-строки `SC-PRM-OWNER`/`VERSION`/`TELEMETRY`) | 3 |
+| Осталось `PENDING` в S6 | 0 |
+
+`VERIFIED`-строки не понижались: это investigation-факты на 2.58.200, их evidence сохранено; S6 implementation/review evidence добавлено, но новых VERIFIED нет. Остальные 52 строки переведены `PENDING → REVIEW`.
+
+### AC-15/AC-19
+
+S6-строки, представляющие prompt delivery/preservation, приняты на REVIEW. Сами `AC-15` и `AC-19` остаются строками `S8-REVIEW-RELEASE`/`PENDING` с `live_required=postdeploy`: их live-proof — реальный postdeploy-чекап в чате с сохранённой редакцией владельца и effective telemetry/provenance. В map добавлен `slice_notes["S6-PROMPT"].linked_acceptance = ["AC-15","AC-19"]`; status AC-строк не подменялся на REVIEW/VERIFIED.
+
+### Review-вердикт
+
+`review-r1.md`: **Approved for predeploy review of exact candidate `5d2eb427`**, S6 rows and AC-15/AC-19-mapped obligations at REVIEW only. Проверены chat precedence → global → factory, отсутствие записи сохранённых байт, телеметрия без prompt text, active-vs-historical контур (Betterstack/401 удалены только из active), addendum, один speech layer, seal integrity/`PLAN_NOOP`. 5 независимых мутаций каждая уронила целевой тест; 16 focused + 344/451/264 suites; два pre-existing failure (`prompt_field_audit`, `soul1_registry_completeness`) воспроизведены на базе.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| review | `--stage review --slice S6-PROMPT --candidate 5d2eb427 --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=55) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+
+Выводы: `evidence/gates/review-S6-PROMPT.txt`, `evidence/gates/plan-after-S6.txt`.
+
+### Состояние corrective
+
+С S6 все code-срезы SMART-CORRECTIVE-01 — S1/S2, S3, S3B, S4, S5A–S5D, S6 — связаны со своими кандидатами на уровне REVIEW. Остаются join-узел `S5-WATCHDOG` и `S8-REVIEW-RELEASE` (единый release train, фактический deployed SHA, production canaries, AC-15/AC-19 live checkup). Ни одна S6-строка не VERIFIED; `candidate_commit`/`deployed_commit` карты пусты.
