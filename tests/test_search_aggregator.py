@@ -101,11 +101,13 @@ class TestCascade:
         assert result == "Тайтл 1\nСнипет 1\nhttps://t.example/1\n\nТайтл 2\nСнипет 2\nhttps://t.example/2"
 
     @pytest.mark.asyncio
-    async def test_truncation_to_max_symbols(self, monkeypatch):
+    async def test_max_symbols_is_not_a_hard_trim(self, monkeypatch):
+        """SXR-C2-01: исторический ``max_symbols`` больше не режет выдачу —
+        потребитель получает весь ответ провайдера (URL/хвост не теряются)."""
         aggregator, requests = _make_aggregator(_json_handler(TAVILY_HITS), monkeypatch)
         result = await aggregator.search("запрос", 30)
-        assert len(result) == 30
-        assert result == "Тайтл 1\nСнипет 1\nhttps://t.example/1"[:30]
+        assert len(result) > 30
+        assert result == "Тайтл 1\nСнипет 1\nhttps://t.example/1\n\nТайтл 2\nСнипет 2\nhttps://t.example/2"
 
     @pytest.mark.asyncio
     async def test_tavily_timeout_falls_back_to_exa(self, monkeypatch):
