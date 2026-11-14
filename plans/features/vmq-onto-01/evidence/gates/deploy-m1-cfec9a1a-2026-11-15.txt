@@ -1,0 +1,9 @@
+﻿# VMQ-ONTO-01 gate: deploy-VMQ-M1-cfec9a1a
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence
+# exit: 0
+# note: финальный прогон после правок карты 2026-11-15 (сверка выложенной линии)
+
+stage=deploy inventory=380 manual=69 scoped=3 errors=0
+

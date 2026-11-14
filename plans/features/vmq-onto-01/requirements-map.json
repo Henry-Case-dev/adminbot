@@ -18,7 +18,30 @@
     "artifact_path": "plans/features/self-diag-01/release-258198/deploy.md",
     "artifact_sha256": "10922ad3c61643ad8be668b1ede193eca3256731b87fdee9239207efae6f5130",
     "scope_effect": "Привязка читается как «на какой прод-базе сняты evidence 13.11.2026» (кандидат c0de0c2b для NEXT-02/05, controlled positive case для NEXT-03/04), а не как приёмка строк: ни одна строка VMQ этим полем не закрывается, DDL на проде не выполнялся.",
-    "not_an_owner_input": "это факт производства, а не новое требование владельца"
+    "not_an_owner_input": "это факт производства, а не новое требование владельца",
+    "superseded_for_current_reading_by": "current_production_2026_11_15 — снимок 13.11.2026 (2.58.198 @ 23477658) верен на свою дату; текущий прод 2.58.203 @ c97c06e4. Блок не переписан."
+  },
+  "current_production_2026_11_15": {
+    "version": "2.58.203",
+    "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "deployed_commit_short": "c97c06e4",
+    "branch": "release/smart-corrective-01",
+    "schema": 47,
+    "ddl": 0,
+    "rollback_target": "0beed63df8037002ccfaacef019b8ea948d957f6 (2.58.202)",
+    "recorded_at": "2026-11-15",
+    "why_here": "Текущая производственная привязка карты — 2.58.203 @ c97c06e4 (линия SMART-CORRECTIVE-01, построена из 2.58.198 @ 23477658 через 2.58.199..2.58.203). Верхнеуровневый deployed_commit 952b9ebd (2.58.187) и снимок current_production_2026_11_13 (2.58.198) НЕ переписаны: это исторические записи своих ступеней и предки текущего прода. candidate_commit 709865f6 по-прежнему принадлежит замороженному слайсу VMQ-MEM-TIME и этой записью не переоценивается.",
+    "vmq_code_in_this_line": "да: cfec9a1a (VMQ-M1) и 96c8bc72 (VMQ-MEM-NEXT) — предки c97c06e4 через поезд 2.58.199 (слияния 0187debf/116cf02a и 7c5669e5/d62514d9). Код VMQ впервые оказался в production не позднее 2.58.200 @ 0e4a144d (14.11.2026 05:18:47Z, база/откат 2.58.199 d20a7f73). Подробности, blob-идентичность и поздние SMART-дельты — reconciliation_2026_11_15.",
+    "source": [
+      "plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md (кандидат c97c06e4, 2.58.203, previous 0beed63d, DDL 0, v47)",
+      "plans/features/smart-corrective-01/release-evidence/2.58.203/postdeploy-health.txt",
+      "plans/features/smart-execution-reliability-01/release-evidence/2.58.200/deploy.md (выкат 2.58.200 @ 0e4a144d, база 2.58.199 d20a7f73)",
+      "plans/workflow_state.md:10,15 (production 2.58.203 at c97c06e4)"
+    ],
+    "artifact_path": "plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md",
+    "artifact_sha256": "1f6d3c9e4a404341b090c0de6d07e39742cf304197d9c8355778d7aa983afecc",
+    "scope_effect": "Привязка читается как «на какой прод-базе снят baseline после выката», а не как приёмка строк: ни одна строка VMQ этим полем не закрывается.",
+    "not_an_owner_input": "факт производства, а не новое требование владельца"
   },
   "candidate_note": "candidate_commit обозначает кандидата в ревью: замороженный кандидат слайса VMQ-MEM-TIME 709865f6 (ветка vmq/time-bias, цепочка 31991b6f -> 81d98530 -> 709865f6, линия прода 92070d0e). deployed_commit = 0fed5845 (2.58.183) с 11.11.2026: слайс впервые вышел в 2.58.182 (446cbf0b) и остаётся на проде в 2.58.183, единственное отличие которой — перенос stem_word и таблиц окончаний в нейтральный services/text_morphology.py с байт-идентичным поведением (раздел deployment_evidence.follow_up_2_58_183). Каждая запись evidence несёт собственный candidate_commit, поэтому привязки слайса к 709865f6 не переоцениваются и не переносятся, а все девять строк VMQ-TIME-01..09 остаются PENDING. [2026-11-11: верхнеуровневый deployed_commit переведён на 952b9ebd (2.58.187, следующая ступень памяти); привязки слайса VMQ-MEM-TIME к 709865f6 и запись follow_up_2_58_183 сохранены без переоценки — см. deployment_evidence.follow_up_2_58_187.]",
   "deployment_note_2_58_183": {
@@ -726,6 +749,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "M-01",
+      "deployed_line_2026_11_15": "кандидат cfec9a1a — предок выложенного c97c06e4 (2.58.203, не позднее 2.58.200 @ 0e4a144d); services/mca_episodes.py (8dff1cd0) и тест M1 (904f88dc) побайтово равны кандидату. Статус REVIEW сохранён по делу: нет фокусных прогонов на точном дереве c97c06e4 и нет одобрения Reviewer на позднюю SMART-дельту f6db0913 с привязкой к c97c06e4. Подробности и рецепт — reconciliation_2026_11_15",
       "slice": "VMQ-M1",
       "acceptance": "Эпизоды строятся по связной Reply-ветке, авторам и временной близости: давние семантически близкие, но независимые реплики не сливаются в одно событие; каждый эпизод имеет ordered_message_refs и source_revision_fingerprint, сверяемые с исходными сообщениями.",
       "live_required": false,
@@ -819,6 +843,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "M-02",
+      "deployed_line_2026_11_15": "кандидат cfec9a1a — предок выложенного c97c06e4 (2.58.203); контракт эпизодов и тест M1 байт-идентичны кандидату, поздняя дельта f6db0913 касается только терминальной записи backfill-задачи. Статус REVIEW сохранён: нет фокусных прогонов на дереве c97c06e4 и одобрения Reviewer на дельту с привязкой к c97c06e4; широкое покрытие production-архива по-прежнему не заявляется (engineering.md §8.1-§8.2, extended_by VMQ-MEM-02)",
       "slice": "VMQ-M1",
       "acceptance": "Тематическая линия охватывает несколько независимых эпизодов за разные годы и несёт supporting и counterexample ссылки; на золотых примерах видно покрытие лет и отсутствие выдуманных событий.",
       "live_required": false,
@@ -912,6 +937,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "M-03",
+      "deployed_line_2026_11_15": "кандидат cfec9a1a — предок выложенного c97c06e4 (2.58.203); путь M-03 (process_rechecks_with_status, RecheckAssemblyError, reason=assemble_failed) в позднем диффе не участвует, services/mca_episodes.py и тест M1 байт-идентичны кандидату. Отдельный риск: коммит f6db0913 (S5A/W-07) меняет правило терминальной записи backfill-задачи в services/mca_episode_jobs.py — fencing-токен и запрет перезаписи финализированной строки. Поэтому REVIEW, а не VERIFIED: нужен прогон на точном дереве c97c06e4 и одобрение Reviewer на дельту",
       "slice": "VMQ-M1",
       "acceptance": "Продольное представление субъекта собирается инкрементально и версионируемо: edit/delete/rebuild переводят в stale только связанные derived-записи и не выдают удалённое как живой факт.",
       "live_required": false,
@@ -4006,6 +4032,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "VMQ-NEXT-02",
+      "deployed_line_2026_11_15": "кандидат 96c8bc72 — предок выложенного c97c06e4 (2.58.203, не позднее 2.58.200 @ 0e4a144d); в services/mca_retrieval_context.py после кандидата изменился только срез превью (9b64f2c3, SXR-C2), отбор/пороги §2/порядок/дедуп не менялись, тест test_memory_period_vector_leg.py (e532c29d) байт-идентичен. Статус REVIEW сохранён: нет фокусных прогонов на дереве c97c06e4 и одобрения Reviewer на дельту с привязкой к c97c06e4; scoped release-гейт среза останется красным по замыканию зависимостей",
       "slice": "VMQ-MEM-NEXT",
       "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
       "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §2 и §5",
@@ -4585,6 +4612,7 @@
       "disposition": "required",
       "reason": "",
       "req_id": "VMQ-NEXT-05",
+      "deployed_line_2026_11_15": "кандидат 96c8bc72 — предок выложенного c97c06e4 (2.58.203); аддитивные knn_ms/fts_ms в коде присутствуют и в проде, поздняя дельта 9b64f2c3 (снятие среза превью) тайминги и их поля не меняет. Статус REVIEW сохранён: замер кандидата не переносится на выложенную линию автоматически, постдеп-замер на реальном трафике ещё не снимался, одобрения Reviewer на дельту с привязкой к c97c06e4 нет",
       "slice": "VMQ-MEM-NEXT",
       "stage": "VMQ-MEM-NEXT (2.58.187 @ 952b9ebd)",
       "stage_design_ref": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage-design.md §1 и §5",
@@ -11615,10 +11643,29 @@
       "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
       "base_version": "2.58.198",
       "branch": "vmq/m1",
-      "deployed": false,
+      "deployed": true,
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed_commit_short": "c97c06e4",
+      "deployed_version": "2.58.203",
+      "deployed_recorded_at": "2026-11-15",
+      "deployed_previous_value": "false (13.11.2026 — кандидат тогда не был влит в релизную линию; значение изменено по факту ancestry, запись о прежнем состоянии сохранена здесь)",
+      "deployment": {
+        "how": "ветка vmq/m1 влита в поезд 2.58.199: 0187debf (код) + 116cf02a (docs/binding), версия поезда d20a7f73; далее 2.58.200..2.58.203",
+        "first_production_at_latest": "2.58.200 @ 0e4a144db476a1535ae3a2b79a7cce30354ad866, выкат 2026-11-14 05:18:47Z",
+        "current_production": "2.58.203 @ c97c06e4, ветка release/smart-corrective-01",
+        "ancestry_check": "git merge-base --is-ancestor cfec9a1a c97c06e4 → 0",
+        "code_identity": "services/mca_episodes.py 8dff1cd0 и tests/test_vmq_m1_episode_contract.py 904f88dc побайтово равны кандидату; services/mca_episode_jobs.py ad3699bf → 5350657b (+15/-3, S5A/W-07 fencing, коммит f6db0913 через слияние c98d7389)",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/gates/lineage-c97c06e4-2026-11-15.md",
+          "plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md",
+          "plans/features/smart-execution-reliability-01/release-evidence/2.58.200/deploy.md",
+          "requirements-map.json#reconciliation_2026_11_15"
+        ]
+      },
       "status": "REVIEW",
       "recorded_at": "2026-11-13",
-      "why_review_not_verified": "Кандидат слайса не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки M-01..M-03 остаются REVIEW с candidate-bound независимым ревью и привязкой к cfec9a1a.",
+      "why_review_not_verified": "[историческая причина, 13.11.2026] Кандидат слайса не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки M-01..M-03 остаются REVIEW с candidate-bound независимым ревью и привязкой к cfec9a1a.",
+      "reason_current_2026_11_15": "Причина сменилась: кандидат ВЫЛОЖЕН (предок c97c06e4), но VERIFIED по-прежнему не ставится — нет фокусных прогонов на точном дереве c97c06e4 и нет одобрения Reviewer на позднюю SMART-дельту (f6db0913) с привязкой к c97c06e4. Гейт сопоставляет evidence[].candidate_commit с кандидатом буквально, поэтому перенос статуса без этих двух артефактов был бы выдуманным доказательством. Рецепт перевода — reconciliation_2026_11_15.promotion_recipe.",
       "review": {
         "path": "plans/features/vmq-onto-01/evidence/vmq-m/review-m1-cfec9a1a.md",
         "sha256": "9d13f70718d500b059c2ca0fa156d5f60e8d7876723cb07d615bc8b2e37ab163",
@@ -11728,6 +11775,41 @@
         "still_missing": "(1) кандидат не влит в release-линию; (2) выкладки и postdeploy-наблюдения не было",
         "previous_note": "прежнее поле deploy_readiness (13.11.2026, до eb6c5ef2) называло блокером замыкание VMQ-ONTO-A/VMQ-A; это утверждение устарело и оставлено только как история в gate.deploy",
         "verdict": "готов к release handoff, не готов считаться VERIFIED"
+      },
+      "gates_2026_11_15": {
+        "plan": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage plan --repo . --strict-evidence",
+          "output": "stage=plan inventory=380 manual=69 scoped=0 errors=0",
+          "exit": 0,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/plan-2026-11-15.txt"
+        },
+        "review_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence",
+          "output": "stage=review inventory=380 manual=69 scoped=3 errors=0",
+          "exit": 0,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-m1-cfec9a1a-2026-11-15.txt",
+          "note": "перепрогон на сверенной карте: прежний результат 13.11.2026 не изменился"
+        },
+        "deploy_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M1 --candidate cfec9a1a5ef5f78599529e9ee9394d28355b34eb --repo . --strict-evidence",
+          "output": "stage=deploy inventory=380 manual=69 scoped=3 errors=0",
+          "exit": 0,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-m1-cfec9a1a-2026-11-15.txt",
+          "what_it_does_not_mean": "это допуск по структуре и доказательствам на одобренного кандидата, а не приёмка на выложенной линии: кандидат c97c06e4 не совпадает с reviewed candidate"
+        },
+        "review_deployed_candidate_diagnostic": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M1 --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence",
+          "output": [
+            "FAIL: candidate mismatch; map candidate_commit must match --candidate",
+            "FAIL: M-01: no evidence bound to reviewed candidate",
+            "FAIL: M-02: no evidence bound to reviewed candidate",
+            "FAIL: M-03: no evidence bound to reviewed candidate",
+            "stage=review inventory=380 manual=69 scoped=3 errors=4"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-m1-c97c06e4-diagnostic-2026-11-15.txt",
+          "reading": "Ожидаемо красный диагностический прогон: он фиксирует ровно то, чего не хватает для VERIFIED на выложенной линии (привязка к c97c06e4), и не является оценкой качества M1"
+        }
       }
     },
     "next2": {
@@ -11742,10 +11824,29 @@
       "base_commit": "234776589c934024ed0e8dceba189fb9d70d3215",
       "base_version": "2.58.198",
       "branch": "vmq/next2-final",
-      "deployed": false,
+      "deployed": true,
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed_commit_short": "c97c06e4",
+      "deployed_version": "2.58.203",
+      "deployed_recorded_at": "2026-11-15",
+      "deployed_previous_value": "false (13.11.2026 — кандидат тогда не был влит в релизную линию; значение изменено по факту ancestry, запись о прежнем состоянии сохранена здесь)",
+      "deployment": {
+        "how": "ветка vmq/next2-final влита в поезд 2.58.199: 7c5669e5 (код) + d62514d9 (docs/bindings), версия поезда d20a7f73; далее 2.58.200..2.58.203",
+        "first_production_at_latest": "2.58.200 @ 0e4a144db476a1535ae3a2b79a7cce30354ad866, выкат 2026-11-14 05:18:47Z",
+        "current_production": "2.58.203 @ c97c06e4, ветка release/smart-corrective-01",
+        "ancestry_check": "git merge-base --is-ancestor 96c8bc72 c97c06e4 → 0",
+        "code_identity": "services/mca_retrieval_context.py 11043683 → a523dd51 (+11/-12, SXR-C2: снят срез превью 400 символов, коммит 9b64f2c3); tests/test_memory_period_vector_leg.py e532c29d побайтово равен кандидату; отбор, пороги §2 и аддитивные knn_ms/fts_ms в диффе не участвуют",
+        "evidence_refs": [
+          "plans/features/vmq-onto-01/evidence/gates/lineage-c97c06e4-2026-11-15.md",
+          "plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md",
+          "plans/features/smart-execution-reliability-01/release-evidence/2.58.200/deploy.md",
+          "requirements-map.json#reconciliation_2026_11_15"
+        ]
+      },
       "status": "REVIEW",
       "recorded_at": "2026-11-13",
-      "why_review_not_verified": "Кандидат не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки остаются REVIEW с candidate-bound независимым ревью и привязкой к 96c8bc72.",
+      "why_review_not_verified": "[историческая причина, 13.11.2026] Кандидат не выложен в production. VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате; до релиза строки остаются REVIEW с candidate-bound независимым ревью и привязкой к 96c8bc72.",
+      "reason_current_2026_11_15": "Причина сменилась: кандидат ВЫЛОЖЕН (предок c97c06e4), но VERIFIED по-прежнему не ставится — нет фокусных прогонов на точном дереве c97c06e4 и нет одобрения Reviewer на позднюю SMART-дельту 9b64f2c3 (снятие среза превью) с привязкой к c97c06e4. Дополнительно: scoped release-гейт среза останется красным по замыканию зависимостей (MEM-TIME→MEM→M2 не VERIFIED) независимо от качества NEXT-02/05. Постдеп-замер NEXT-05 на проде технически возможен (поля knn_ms/fts_ms пришли с 96c8bc72) и ещё не снимался.",
       "review": {
         "path": "plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/review-next2-final-96c8bc72.md",
         "sha256": "709db8cc4d8fa012a124a5b82724533e63295b153d3d7cb91798250e32bf49ce",
@@ -11930,6 +12031,27 @@
           ],
           "conclusion": "Требования покрытия и граф ищутся по одному id среза; множественный --slice не поддерживается. Совмещённый гейт не проводился и не имитируется: M1 и NEXT-02 проверены по отдельности (M1 deploy зелёный, NEXT-02 review-часть зелёная внутри среза)."
         }
+      },
+      "gates_2026_11_15": {
+        "review_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate",
+            "FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "stage=review inventory=380 manual=69 scoped=5 errors=3"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-next2-96c8bc72-2026-11-15.txt",
+          "reading": "Не изменилось после сверки: NEXT-02 и NEXT-05 проходят (candidate-bound реализация + approval), три красные строки — реальные остатки среза"
+        },
+        "deploy_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence",
+          "output_summary": "stage=deploy inventory=380 manual=69 scoped=5 errors=34",
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-next2-96c8bc72-2026-11-15.txt",
+          "why_red": "31 ошибка — замыкание зависимостей графа (VMQ-A-01, M-01..M-03/M-04..M-05/O-04, VMQ-MEM-01..08, VMQ-TIME-01..09, O-01..O-03, V-01..V-04 не VERIFIED) плюс те же три остатка среза; это структурное «срез не выпускается отдельно от незавершённых зависимостей», а не провал качества NEXT-02/05"
+        }
       }
     }
   },
@@ -11962,6 +12084,7 @@
     "action": "Предложение PM: отдать в release-линию два готовых кандидата — VMQ-M1 cfec9a1a (M-01..M-03 REVIEW, scoped deploy-гейт зелёный после снятия ложного ребра M1 → ONTO-A) и VMQ-MEM-NEXT 96c8bc72 (NEXT-02/05 REVIEW). Остальные строки среза VMQ-MEM-NEXT остаются открытыми: NEXT-01 (postrelease-наблюдение), NEXT-03 (нет candidate-bound approval на 96c8bc72), NEXT-04 (нет положительного архивного случая).",
     "why": "Оба кандидата прошли независимое ревью и не имеют обязательных блокеров; дальнейшее ожидание не добавляет доказательств. Решение о выпуске и его порядок — за Orchestrator/DevOps; PM задачу не диспетчеризует.",
     "not_this": "не DONE эпика и не закрытие 54 REAL_GAP-строк",
+    "superseded_2026_11_15": "Устарело по факту: оба кандидата уже в выложенной линии 2.58.203 (слияния 0187debf/7c5669e5 через поезд 2.58.199, первая выкладка не позднее 2.58.200 @ 0e4a144d). Отдельный release handoff для них не нужен; см. reconciliation_2026_11_15 и next_actions_2026_11_15.",
     "previous_field": "next_executable_2026_11_13 оставлен без изменений как историческая запись"
   },
   "bookkeeping_corrections_2026_11_13": {
@@ -12004,5 +12127,383 @@
         "evidence": "git checkout a3492925 -- plans/features/vmq-onto-01/evidence/vmq-mem/next-stage/next2final-*"
       }
     ]
+  },
+  "reconciliation_2026_11_15": {
+    "recorded_at": "2026-11-15",
+    "scope": "карта + evidence/gates; код, тесты, прод, очередь и progress_scope.json не менялись",
+    "trigger": "указание владельца продолжать проект и фактическая линия прода 2.58.203: карта держала deployed=false у двух одобренных кандидатов, а их код уже в production",
+    "artifact_path": "plans/features/vmq-onto-01/evidence/gates/lineage-c97c06e4-2026-11-15.md",
+    "artifact_sha256": "ede021ae4995232de6ea06ca156e431673ae9f5454527f91e92d0c97415bcf13",
+    "ancestry": {
+      "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "how_checked": "git merge-base --is-ancestor <candidate> c97c06e4 → exit 0 для обоих; git log --merges --ancestry-path <candidate>..c97c06e4 даёт кратчайшие слияния; blob-sha файлов слайсов сверены git rev-parse <rev>:<path>",
+      "m1": {
+        "candidate_commit": "cfec9a1a5ef5f78599529e9ee9394d28355b34eb",
+        "is_ancestor_of_deployed": true,
+        "merge_commits": [
+          {
+            "commit": "0187debf",
+            "subject": "merge(vmq/m1): episode/period contract, M-03 recheck failure (cfec9a1a)"
+          },
+          {
+            "commit": "116cf02a",
+            "subject": "merge(vmq/m1 docs): M-03 evidence + binding (d2c95ca2)"
+          }
+        ],
+        "train_version_commit": "d20a7f730715ba9e9cba7673c0557794979be339 (2.58.199, bump APP_VERSION и пинов)",
+        "first_production_at_latest": "2.58.200 @ 0e4a144db476a1535ae3a2b79a7cce30354ad866 (выкат 2026-11-14 05:18:47Z, база/откат 2.58.199)"
+      },
+      "next2": {
+        "candidate_commit": "96c8bc7279c5a83afedeb9f38724006e83eaceab",
+        "is_ancestor_of_deployed": true,
+        "merge_commits": [
+          {
+            "commit": "7c5669e5",
+            "subject": "merge(vmq/next2-final): period-only FTS section alignment + NEXT-05 timings (96c8bc72)"
+          },
+          {
+            "commit": "d62514d9",
+            "subject": "merge(vmq/next2-final docs): NEXT-02 evidence + bindings (a3492925)"
+          }
+        ],
+        "train_version_commit": "d20a7f730715ba9e9cba7673c0557794979be339 (2.58.199)",
+        "first_production_at_latest": "2.58.200 @ 0e4a144d (та же выкладка)"
+      }
+    },
+    "code_identity": {
+      "identical_to_candidate": {
+        "services/mca_episodes.py": "8dff1cd0 на cfec9a1a и на c97c06e4",
+        "tests/test_vmq_m1_episode_contract.py": "904f88dc на cfec9a1a и на c97c06e4",
+        "tests/test_memory_period_vector_leg.py": "e532c29d на 96c8bc72 и на c97c06e4"
+      },
+      "changed_after_candidate": {
+        "services/mca_episode_jobs.py": "ad3699bf (cfec9a1a) → 5350657b (c97c06e4), +15/-3",
+        "services/mca_retrieval_context.py": "11043683 (96c8bc72) → a523dd51 (c97c06e4), +11/-12"
+      },
+      "schema": "user_version=47 и DDL=0 на выкате 2.58.203; новых миграций относительно 23477658 нет (services/database.py +4 строки — только элемент закрытого набора BOT_OUTPUT_KINDS, DDL не меняется)"
+    },
+    "later_smart_deltas": {
+      "episode_jobs_fencing": {
+        "file": "services/mca_episode_jobs.py",
+        "commit": "f6db0913 fix(s5a): truthful watchdog takeover outcome and incident lifecycle",
+        "merged_by": "c98d7389 merge(release-train): smart-corrective-01 watchdog chain S5A-S5D",
+        "change": "S5A/W-07: EpisodesBackfillRunner._finish/_run передают fencing_token владения в TaskJobStore.finish; терминальная запись без токена разрешена только из активного состояния",
+        "untouched": "services/mca_episodes.py (8dff1cd0) и tests/test_vmq_m1_episode_contract.py (904f88dc) побайтово равны кандидату; путь M-03 (process_rechecks_with_status, RecheckAssemblyError, reason=assemble_failed) в диффе не участвует",
+        "interaction_with_acceptance": "M-01/M-02 не затронуты (другой файл, байт-идентичен). Для M-03 адресный риск: если проверка опирается на повторную терминальную запись уже финализированной строки задачи, новое правило её отклонит; закрывается прогоном на выложенном дереве, а не рассуждением",
+        "column_preexists": "колонка task_jobs.fencing_token существует и на базе 23477658 (v14), DDL не добавлялся"
+      },
+      "retrieval_preview_cap": {
+        "file": "services/mca_retrieval_context.py",
+        "commit": "9b64f2c3 fix(mca): full retrieval fragments instead of 400-char preview slice (SXR-C2)",
+        "merged_by": "прямой коммит релизного поезда (родитель 8277d33c), далее 2.58.200..203",
+        "change": "удалены _truncate_preview и срез 400 символов; семь конструкторов кандидатов отдают preview целиком",
+        "untouched": "отбор, пороги §2 (≥ 2 основы), порядок обхода каналов, дедуп, аддитивные knn_ms/fts_ms и тайминги периодного вызова — в диффе только срез превью",
+        "interaction_with_acceptance": "NEXT-02 (доказанные качественные инварианты) и NEXT-05 (аддитивные тайминги, p95) измерялись на кандидате с прежним срезом; объём доставляемого текста изменился, механизм отбора нет. Поведение на выложенной линии подтверждается прогоном, цифры кандидата не переносятся автоматически",
+        "new_opportunity": "поля knn_ms/fts_ms теперь существуют в проде (пришли с 96c8bc72); на 2.58.198 их не было. Постдеп-замер NEXT-05 технически возможен, но ещё не снимался"
+      }
+    },
+    "what_is_proven": [
+      "код cfec9a1a и 96c8bc72 физически находится в production 2.58.203 (ancestry + blob-идентичность трёх из пяти файлов слайсов)",
+      "поздние SMART-дельты локализованы двумя коммитами и двумя файлами; M-01/M-02 и тестовые файлы слайсов не затронуты",
+      "схема и DDL на выкате не менялись (v47, DDL 0); тестовые файлы слайсов в проде байт-идентичны кандидатам",
+      "две поздние дельты не вводят новых порогов, квот и не ослабляют отбор: fencing относится к владению задачей, SXR-C2 снимает кап превью"
+    ],
+    "what_is_not_proven": [
+      "фокусные наборы M1/NEXT2 не перезапущены на точном дереве c97c06e4: прогоны 13.11.2026 относятся к кандидатам на их собственных базах",
+      "нет одобрения Reviewer на дельту выложенной линии (f6db0913, 9b64f2c3) с привязкой к c97c06e4",
+      "production-поведение строк не наблюдалось: NEXT-01 по-прежнему ждёт реального хода с непустой векторной ногой",
+      "VMQ-MEM/VMQ-MEM-TIME измерения на выложенной линии не снимались (baseline «после» от 2.58.180/2.58.187 остаётся историческим)"
+    ],
+    "gate_mechanics": {
+      "bound_evidence": "requirements_gate.bound_evidence() сопоставляет evidence[].candidate_commit с --candidate строковым равенством, поэтому «строки в проде» ≠ «строки прошли гейт на проде»",
+      "review_deploy": "кандидат среза берётся из slice_candidate_bindings (по id среза, затем по префиксу label или совпадению candidate_commit)",
+      "release_delivery": "дополнительно требуются совпадение верхнеуровневых candidate_commit/deployed_commit с аргументами и deployed == candidate",
+      "scoped_closure": "scoped deploy/delivery/release проверяет замыкание зависимостей: у VMQ-M1 depends_on=[] (может стать зелёным), у VMQ-MEM-NEXT цепочка MEM-TIME→MEM→M2 не VERIFIED (останется красным по структуре)",
+      "diagnostic_run": "review --slice VMQ-M1 --candidate c97c06e4 сейчас: FAIL candidate mismatch + три FAIL «no evidence bound to reviewed candidate», scoped=3 errors=4 — точное описание недостающей привязки, а не провал качества"
+    },
+    "gate_artifacts_2026_11_15": [
+      "plans/features/vmq-onto-01/evidence/gates/plan-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-m1-cfec9a1a-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-m1-cfec9a1a-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-next2-96c8bc72-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-next2-96c8bc72-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-m1-c97c06e4-diagnostic-2026-11-15.txt"
+    ],
+    "promotion_recipe": [
+      "Builder: фокусные прогоны на дереве c97c06e4 (test_vmq_m1_episode_contract.py и test_memory_period_vector_leg.py + затронутые соседние наборы), артефакт с SHA дерева и счётчиками",
+      "Reviewer: подтверждение, что поздние дельты не ломают M-03 failure path, NEXT-02 отбор и аддитивные тайминги NEXT-05; вердикт Approved с candidate_commit=c97c06e4",
+      "PM: evidence-записи с candidate_commit=c97c06e4 (реализация + ревью) в строки, перевод строк в VERIFIED, перенос slice_candidate_bindings на candidate_commit=c97c06e4 с сохранением reviewed_candidate_commit, подъём верхнеуровневых candidate_commit/deployed_commit до c97c06e4 с сохранением истории 709865f6/952b9ebd, затем release-гейт"
+    ],
+    "rows_state_2026_11_15": {
+      "M-01": "REVIEW (кандидат в проде, поведенческое подтверждение на выложенном дереве отсутствует)",
+      "M-02": "REVIEW (то же)",
+      "M-03": "REVIEW (то же; отдельный риск — fencing-правило терминальной записи)",
+      "VMQ-NEXT-02": "REVIEW (то же; изменился объём превью, механизм отбора нет)",
+      "VMQ-NEXT-05": "REVIEW (то же; поля таймингов в проде появились, постдеп-замер не снимался)",
+      "VMQ-NEXT-01": "PENDING (ждёт реального хода с непустой векторной ногой; postrelease-классификация потребует явного одобрения Reviewer на deferral)",
+      "VMQ-NEXT-03": "REVIEW без привязки к одобренному кандидату: подтверждён только controlled-кейс; нужен candidate-bound случай на выложенной линии",
+      "VMQ-NEXT-04": "PENDING (нет положительного архивного лексического случая)"
+    },
+    "status_effect": "Ни одна строка не переведена в VERIFIED: 63 PENDING / 6 REVIEW / 1 VERIFIED сохранены. Изменены только привязки (deployed=true, deployed_commit=c97c06e4) и добавлены ссылки на линию; статусная семантика REVIEW не размывается.",
+    "not_reopened": [
+      "SMART-CORRECTIVE-01 и SELF-DIAG-01 не переоткрываются, их evidence не трогались",
+      "замороженный кандидат VMQ-MEM-TIME 709865f6 не переоценивается; девять строк TIME-01..09 остаются PENDING",
+      "очередь и progress_scope.json не изменялись: это делает Orchestrator"
+    ],
+    "external_blockers": [
+      {
+        "id": "EXT-IBM-QPU",
+        "rows": [
+          "Q-04",
+          "QM-08"
+        ],
+        "statement": "реальная проверка IBM hardware QPU требует token/instance владельца и доступной квоты Open Plan; до этого Q-04 и QM-08 остаются PENDING + blocked_external=true, симулятор не засчитывается",
+        "not_blocking_this_line": "остальные провайдеры, пул, fallback, purity и replay реализуемы и проверяемы сейчас; линия памяти/ONTO от этого не зависит"
+      }
+    ]
+  },
+  "next_actions_2026_11_15": {
+    "recorded_at": "2026-11-15",
+    "basis": "очередь: VMQ-ONTO-01 — позиция 5, владелец назвал VMQ следующей задачей; slice-graph.json (VMQ-ONTO-A depends_on [VMQ-A]; VMQ-ONTO-B depends_on [VMQ-ONTO-A]; VMQ-M2 depends_on [VMQ-M1, VMQ-ONTO-B, VMQ-V]) + plan.md §2",
+    "open_rows": {
+      "total_required": 70,
+      "pending": 63,
+      "review": 6,
+      "verified": 1,
+      "by_slice": {
+        "VMQ-A": [
+          "VMQ-A-01"
+        ],
+        "VMQ-V": [
+          "V-01",
+          "V-02",
+          "V-03",
+          "V-04"
+        ],
+        "VMQ-ONTO-A": [
+          "O-01",
+          "O-02"
+        ],
+        "VMQ-ONTO-B": [
+          "O-03"
+        ],
+        "VMQ-M1": [
+          "M-01",
+          "M-02",
+          "M-03"
+        ],
+        "VMQ-M2": [
+          "M-04",
+          "M-05",
+          "O-04"
+        ],
+        "VMQ-MEM": [
+          "VMQ-MEM-01",
+          "VMQ-MEM-02",
+          "VMQ-MEM-03",
+          "VMQ-MEM-04",
+          "VMQ-MEM-05",
+          "VMQ-MEM-06",
+          "VMQ-MEM-07",
+          "VMQ-MEM-08"
+        ],
+        "VMQ-MEM-TIME": [
+          "VMQ-TIME-01",
+          "VMQ-TIME-02",
+          "VMQ-TIME-03",
+          "VMQ-TIME-04",
+          "VMQ-TIME-05",
+          "VMQ-TIME-06",
+          "VMQ-TIME-07",
+          "VMQ-TIME-08",
+          "VMQ-TIME-09"
+        ],
+        "VMQ-MEM-NEXT": [
+          "VMQ-NEXT-01",
+          "VMQ-NEXT-02",
+          "VMQ-NEXT-03",
+          "VMQ-NEXT-04",
+          "VMQ-NEXT-05"
+        ],
+        "VMQ-Q0": [
+          "Q-01",
+          "Q-02",
+          "Q-07",
+          "Q-08",
+          "QM-01",
+          "QM-02",
+          "QM-03",
+          "QM-04",
+          "QM-05",
+          "QM-06",
+          "QM-09"
+        ],
+        "VMQ-Q0-IBM": [
+          "Q-03",
+          "Q-04",
+          "Q-05",
+          "Q-06",
+          "QM-07",
+          "QM-08"
+        ],
+        "VMQ-Q1": [
+          "I-01",
+          "I-02",
+          "I-03",
+          "I-04",
+          "I-05",
+          "I-06",
+          "Q-09"
+        ],
+        "VMQ-O": [
+          "S-01",
+          "S-02",
+          "S-03"
+        ],
+        "VMQ-U": [
+          "U-01",
+          "U-02"
+        ],
+        "VMQ-R": [
+          "R-01",
+          "R-02",
+          "R-03",
+          "R-04"
+        ]
+      },
+      "verified_rows": [
+        "VMQ-GROUNDS-01"
+      ]
+    },
+    "actions": [
+      {
+        "id": "ACT-2026-11-15-1",
+        "slice": "VMQ-ONTO-A",
+        "rows": [
+          "O-01",
+          "O-02"
+        ],
+        "owner": "Architect (подтвердить заморозку contracts в architecture-onto-ab.md) → Builder → Reviewer",
+        "why_now": "единственный срез без незакрытых зависимостей, который открывает всю полосу ONTO→M2; O-01/O-02 — REAL_GAP на проде (services/semantic_contracts.py отсутствует)",
+        "write_scope": [
+          "services/semantic_contracts.py",
+          "services/message_identity.py",
+          "services/summary_aliases.py",
+          "tests/test_semantic_contracts.py"
+        ],
+        "evidence_needed": "unit/integration на типизированных контрактах и разрешении неоднозначности (типы user/topic/event/fact, отказ от нового хранилища) + независимый Reviewer; отдельного preprod-прогона контракт не требует",
+        "depends_on": "реализация — нет (VMQ-A выполнен Architect'ом); scoped deploy/release-гейт среза потребует VERIFIED по VMQ-A-01 — закрывается действием ACT-2026-11-15-2",
+        "risk": "R1",
+        "next_role": "Architect"
+      },
+      {
+        "id": "ACT-2026-11-15-2",
+        "slice": "VMQ-A + VMQ-V (только привязка доказательств, кода не требуется)",
+        "rows": [
+          "VMQ-A-01",
+          "V-01",
+          "V-02",
+          "V-03",
+          "V-04"
+        ],
+        "owner": "Reviewer (независимая проверка на exact candidate c97c06e4) → PM (биндинг строк)",
+        "why_now": "код и тесты уже на выложенной линии: audit-head.md (VMQ-A-01), services/voice_transcripts.py, handlers/voice_transcription.py, services/database.py::set_smart_message_transcript, tests/test_vmq_v_voice_writer.py (36 тестов по V-01..V-04). Пять строк PENDING закрываются проверкой, а не разработкой; VMQ-A-01 к тому же является зависимостью deploy-гейта ONTO-A и M2",
+        "write_scope": [
+          "plans/features/vmq-onto-01/audit-head.md (обновить пин версии 2.58.168 → c97c06e4)",
+          "plans/features/vmq-onto-01/evidence/gates/",
+          "plans/features/vmq-onto-01/requirements-map.json (строки)"
+        ],
+        "evidence_needed": "candidate-bound артефакт Reviewer на c97c06e4 с ссылками на файлы/тесты; evidence/vmq-v/*.json не обязательны, если проверка идёт на exact candidate (plan.md §14 п.2); голосовые события снимает агент read-only, не владелец",
+        "depends_on": [],
+        "risk": "R1",
+        "next_role": "Reviewer"
+      },
+      {
+        "id": "ACT-2026-11-15-3",
+        "slice": "VMQ-MEM + VMQ-MEM-TIME (+ постдеп-часть VMQ-NEXT-05)",
+        "rows": [
+          "VMQ-MEM-01",
+          "VMQ-MEM-02",
+          "VMQ-MEM-03",
+          "VMQ-MEM-04",
+          "VMQ-MEM-07",
+          "VMQ-TIME-01",
+          "VMQ-TIME-02",
+          "VMQ-TIME-03",
+          "VMQ-TIME-04",
+          "VMQ-TIME-05",
+          "VMQ-TIME-06",
+          "VMQ-TIME-07",
+          "VMQ-TIME-08"
+        ],
+        "owner": "Builder (read-only harness на копии прод-БД, дерево c97c06e4) → Reviewer (независимое повторное измерение)",
+        "why_now": "это доказательная работа, а не разработка: код выложен, baseline «после» на выложенной линии не снимался с 2.58.180/2.58.187. Матрица пяти классов, машинный трейс retrieve(), четыре метрики и паритет формулировок закрывают 5 строк VMQ-MEM; повторное измерение годового охвата закрывает TIME-01..08. Дополнительно: на проде впервые есть knn_ms/fts_ms — можно снять NEXT-05 на реальном трафике",
+        "write_scope": [
+          "plans/features/vmq-onto-01/evidence/vmq-mem/",
+          "plans/features/vmq-onto-01/evidence/vmq-mem/time/"
+        ],
+        "evidence_needed": "formulation-class-matrix.json, run-retrieval-trace.json, metrics-comparison.json, протокол creative-not-proof-guard.md, независимое сравнение Reviewer на реальном архиве; для TIME — матрица до/после и подтверждённая первопричина",
+        "depends_on": "технических блокеров нет; нужна копия прод-БД (read-only) и существующий harness в evidence/vmq-mem/. Не отправлять сообщения в живые чаты",
+        "risk": "R2",
+        "next_role": "Builder"
+      }
+    ],
+    "serial_successors": [
+      {
+        "slice": "VMQ-ONTO-B",
+        "rows": [
+          "O-03"
+        ],
+        "after": "VMQ-ONTO-A (общий services/semantic_contracts.py — параллельная запись запрещена)",
+        "owner": "Builder → Reviewer"
+      },
+      {
+        "slice": "VMQ-M2",
+        "rows": [
+          "M-04",
+          "M-05",
+          "O-04"
+        ],
+        "after": "VMQ-ONTO-B + подтверждённые строки VMQ-M1 (EpisodeView уже в проде) + VMQ-V",
+        "owner": "Builder + Architect → Reviewer",
+        "write_scope_note": "services/mca_retrieval_context.py — тот же файл, что у VMQ-MEM-NEXT; после связывания строк NEXT2 конфликт владения снимается, но параллельная запись с VMQ-MEM/TIME-измерением запрещена"
+      }
+    ],
+    "agent_owned_observations": [
+      {
+        "rows": [
+          "VMQ-NEXT-01"
+        ],
+        "trigger": "первый реальный ход с period_vector_leg=ok и vector_rows>=1, плюс operative-ход для паритета",
+        "owner": "DevOps (read-only журнал/mca_events) → Reviewer",
+        "note": "владелец не привлекается; postrelease-классификация возможна только с явным одобрением Reviewer на deferral"
+      },
+      {
+        "rows": [
+          "VMQ-NEXT-03"
+        ],
+        "trigger": "candidate-bound controlled positive case на выложенной линии (сейчас подтверждён только кейс fact:2242 на c0de0c2b)",
+        "owner": "Builder (read-only на копии прод-БД) → Reviewer"
+      },
+      {
+        "rows": [
+          "VMQ-NEXT-04"
+        ],
+        "trigger": "положительный лексический случай в архиве (10 кандидатов и top-64 старых строк дали shared=1)",
+        "owner": "Builder (read-only) → Reviewer"
+      }
+    ],
+    "real_blockers": [
+      {
+        "id": "EXT-IBM-QPU",
+        "rows": [
+          "Q-04",
+          "QM-08"
+        ],
+        "statement": "нужны IBM API token/instance и доступная квота Open Plan; без них строки остаются PENDING + blocked_external=true, симулятор не засчитывается",
+        "everything_else_runnable": "остальные 68 обязательных строк не заблокированы этим: очередь VMQ исполняема сейчас"
+      }
+    ],
+    "not_created": "новых требований и новых срезов это не создаёт: действия ссылаются на существующие row IDs, write_scope срезов и план §14"
   }
 }

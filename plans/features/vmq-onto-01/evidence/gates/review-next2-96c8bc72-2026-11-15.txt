@@ -1,0 +1,12 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-MEM-NEXT-96c8bc72
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM-NEXT --candidate 96c8bc7279c5a83afedeb9f38724006e83eaceab --repo . --strict-evidence
+# exit: 1
+# note: финальный прогон после правок карты 2026-11-15 (сверка выложенной линии)
+
+FAIL: VMQ-NEXT-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-NEXT-03: no evidence bound to reviewed candidate
+FAIL: VMQ-NEXT-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+stage=review inventory=380 manual=69 scoped=5 errors=3
+
