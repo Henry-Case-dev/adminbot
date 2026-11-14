@@ -9,10 +9,11 @@
 - Базовая линия: `release/2.58.200` @ `13884daa32e5cf2a1c05c5c43188ca299f8179f8`
   (код = deployed `0e4a144db476a1535ae3a2b79a7cce30354ad866` + release docs).
 - Рабочая ветка: `sc/corrective-s1s2`.
-- Code candidate commit: `86872aac1f75a1367b6dadb905a8213d40680e9f`.
-- Test-only additions + эта evidence-запись: коммит после code candidate в той же ветке
+- Code candidate commit (production state): `f007da3314685a86346739db5329a904a5d48093`
+  (implementation `86872aac` + диагностическое удаление candidate-sample cap).
+- Test-only additions + эта evidence-запись: коммиты после code candidate в той же ветке
   (final branch HEAD сообщается Orchestrator; расхождение — только tests/evidence,
-  production-код остаётся `86872aac`).
+  production-код остаётся `f007da33`).
 - Worktree:
   `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-corrective-01-0097aecc4a7a-90a1abda`
   (managed `WorkspaceData/worktrees`, registered как `s1s2-source`).
