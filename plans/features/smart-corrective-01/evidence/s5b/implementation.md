@@ -215,3 +215,97 @@ deadline_bounded}`. Per-job identity в событии и fingerprint `kind` (W-
   DevOps при выкате (S8), не в этой полосе.
 * Для строк S5B `live_required=false`; production-доступа не было. S5C/S5D и
   S8 остаются открытыми.
+
+## 7. F-S5B-01 fix (Reviewer blocker, review-r1)
+
+**Finding (review-r1, verdict Needs Fixes).** `TaskJobStore.takeover_stale`
+проверял `delivery_unknown` ТОЛЬКО в `reason_code`. Точный repro ревью на
+scratch-SQLite: job с checkpoint, stale heartbeat, истёкшим `deadline_at`,
+`reason_code=NULL`, `error_code='delivery_unknown'` → проходил
+`takeover_stale(include_overdue=True)` как `recovered/requeued/worker_lost`;
+строка становилась `queued`, `error_code` обнулялся (ветка requeue), маркер
+S5A терялся, `next_retry_at` заполнялся — неопределённая доставка/платное
+действие могли повториться. Регресс S5A-гарантии в новом overdue-пути.
+
+**Fix commit:** `a515d09da61aef603fb6b92aa3c7b8341fbe421b`.
+- Новый `TaskJobStore.has_delivery_unknown(row)` — единая проверка маркера в
+  ОБОИХ durable-полях (`reason_code` ИЛИ `error_code`).
+- `takeover_stale` (обычный путь И `include_overdue`): маркер читается через
+  helper; `revoke_reason = 'delivery_unknown'` (маркер нормализуется в
+  `reason_code`, `error_code` не трогается), исход `no_change` /
+  `action=reconcile_required`, requeue/`next_retry_at`/терминал не
+  выполняются.
+- `recover_stale` (scoped lease revocation, S5B/W-04): SELECT читает
+  `error_code`; при маркере в любом поле `reason_code` сохраняется/
+  нормализуется в `delivery_unknown` — ни один consumer не остаётся с
+  «worker_lost».
+- Мёртвая локальная `previous_reason` удалена.
+
+### Аудит асимметрии (оба поля) по всем recovery-путям, затронутым S5B
+
+| Путь | file:line | Проверка маркера |
+|---|---|---|
+| `takeover_stale` (normal + overdue) | `task_supervisor.py:435-447,863-890` | **исправлено**: helper, оба поля |
+| `recover_stale` (scoped W-04) | `task_supervisor.py:758,777` | **исправлено**: SELECT error_code + helper |
+| Примитивы `mark_running`/`finish(queued,running)`/`requeue`/`set_next_retry` | `task_supervisor.py:430-432,640,732,1105,1127` | SQL-guard обоих полей (S5A, без изменений) |
+| Generic `recover_job` | `mca_watchdog.py:576-581` | reason ИЛИ error (S5A) |
+| Media `recover_job` / `_bump_fence_and_requeue` / `watchdog_sweep` | `media_readiness.py:1727-1731,1635-1668,1803` | перечитывает stored-строку, оба поля; requeue/set_next_retry под SQL-guard |
+| Vision backfill re-arm | `mca_vision.py:4692-4703` | allowlist причин исключает `delivery_unknown` + `requeue` под SQL-guard |
+| Control-plane retry/resume | `mca_trace.py:511-520` | оба поля (S5A F-S5A-03) |
+| Cover recovery | `cover_style_jobs.py:3682-3690` | отказ `requeue` отменяет стадию |
+| Meme deferred | `meme_initiative.py:3001-3020` | interrupted → терминал `failed` без повтора; `_wait` под requeue-guard |
+| Overdue/queued диагностика (S5B) | `mca_watchdog.py:overdue_jobs/classify_queued_jobs` | read-only, переходов не делает |
+
+### RED → GREEN доказательство регрессии
+
+* RED (fix откачен через `git stash push -- services/task_supervisor.py`):
+  `test_error_only_delivery_unknown_blocks_overdue_takeover` →
+  `AssertionError: assert 'recovered' == 'no_change'` (`1 failed, 17 deselected`).
+* GREEN после фикса: тот же тест проходит; в наборе `18 passed`.
+
+Тест покрывает точную последовательность ревью: прямой
+`takeover_stale(stale_after_seconds=60, retry_delay_seconds=15,
+include_overdue=True)` → `outcome=no_change`, `action=reconcile_required`,
+`reason=delivery_unknown`; строка `interrupted`, маркер в ОБОИХ полях,
+`next_retry_at IS NULL`, `fencing_token+1`; полный `wd.sweep` не
+восстанавливает строку; `wd.recover_job` → `reconcile_required`; scoped
+`recover_stale(kinds=vision)` сохраняет маркер и `mr.recover_job` не
+возобновляет вторую строку.
+
+### Прогоны после фикса
+
+```text
+$ pytest tests/test_smart_corrective_recovery_scope.py -q
+18 passed in 11.91s
+
+$ pytest tests/test_smart_corrective_recovery_scope.py \
+    tests/test_smart_corrective_watchdog_lifecycle.py -q
+46 passed in 16.13s
+
+$ pytest tests/test_smart_corrective_watchdog_lifecycle.py \
+    tests/test_smart_exec_learning_incidents.py \
+    tests/test_mca17a_observability_core_round1027.py \
+    tests/test_mca01_tx_task_supervisor_round1027.py \
+    tests/test_smart_corrective_recovery_scope.py -q
+1 failed, 151 passed in 35.20s
+# единственный провал — pre-existing census test_write_points_go_through_single_writer
+# (воспроизведён на чистой базе e360738b, см. §3)
+
+$ pytest -k "incident or watchdog or takeover or recover_stale or task_jobs" tests -q
+91 passed, 21144 deselected in 71.90s
+
+$ pytest tests/test_evol_vision_sync_core.py tests/test_evol_vision_sync_wave2.py \
+    tests/test_p0_vision_fix_core.py tests/test_mca19_block_c_round1043.py \
+    tests/test_media_execution_asap32.py -q
+181 passed in 31.95s
+```
+
+**Гарантия.** Строка с маркером `delivery_unknown` только в `error_code`
+(или только в `reason_code`, или в обоих) не может быть возвращена в работу
+через `takeover_stale(include_overdue=True)`: исход `no_change` /
+`reconcile_required`, маркер сохраняется в обоих полях, `next_retry_at` не
+ставится, `fencing_token` растёт, строка остаётся `interrupted`.
+Все поведения S5B (scope, heartbeat, progress/overdue, queued-диагностика) и
+S5A-guards не изменены; DDL/флагов/настроек нет. Строки карты НЕ переводятся в
+VERIFIED этим документом — независимая проверка остаётся за Reviewer.
+
