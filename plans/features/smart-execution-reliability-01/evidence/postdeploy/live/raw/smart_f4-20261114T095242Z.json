@@ -1,0 +1,384 @@
+{
+  "schema": "smart-live-canary/2",
+  "harness_version": "1.3.0",
+  "harness": "smart_live_canary",
+  "harness_sha256": "39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119",
+  "harness_identity": {
+    "path": "/tmp/smart_live_canary.py",
+    "sha256": "39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119",
+    "git_repo": null,
+    "git_relative": null,
+    "git_head": null,
+    "tracked": null,
+    "blob_matches_head": null,
+    "dirty_vs_head": null,
+    "note": "harness file is outside a Git repository"
+  },
+  "started_at": "2026-11-14T09:52:42+00:00",
+  "finished_at": "2026-11-14T09:52:49+00:00",
+  "host": {
+    "platform": "Linux-6.8.0-31-generic-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "pid": 769263,
+    "euid": 0
+  },
+  "repo": {
+    "root": "<repo>",
+    "head": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "branch": "release/2.58.200",
+    "origin": "https://github.com/Henry-Case-dev/adminbot",
+    "app_version": "2.58.200",
+    "manifest_present": true,
+    "manifest": {
+      "schema": 1,
+      "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+      "version": "2.58.200",
+      "deployed_at": "2026-11-14T05:18:53.892873Z",
+      "effect": "deploy",
+      "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "release_branch": "release/2.58.200",
+      "dirty_tracked": false
+    },
+    "harness_sha256": "39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119",
+    "clean_tracked": true,
+    "dirty_tracked": false
+  },
+  "flags": {
+    "allow_provider_calls": true,
+    "max_provider_calls": 5,
+    "offline": false,
+    "checkup_unit": "admin_bot",
+    "checks": [
+      "external_scenarios",
+      "external_natural_request"
+    ]
+  },
+  "provider_calls": {
+    "used": 1,
+    "denied": 0
+  },
+  "summary": {
+    "checks": 2,
+    "observed": 2,
+    "production_observed": 2,
+    "not_observed": 0,
+    "error": 0,
+    "by_evidence_class": {
+      "plumbing": 0,
+      "production": 2,
+      "unavailable": 0
+    },
+    "failed_assertions": 0
+  },
+  "checks": [
+    {
+      "id": "external_scenarios",
+      "title": "F4: public repo, symbol search, link read, related sources, factual refusal, no separate command",
+      "req_ids": [
+        "SXR-F4-01",
+        "SXR-F2-01",
+        "SXR-L5-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real public GitHub read/search/link/follow-up + factual refusal",
+      "production_observed": true,
+      "summary": "публичный репозиторий прочитан по ветке (verified, точный commit); поиск символа дал тот же commit и файл; чтение по blob-ссылке дало ту же идентичность; переход к связанным источникам — реальное чтение смежного файла; недоступный репозиторий назван фактической причиной; отдельной GitHub-команды нет (один tool, три операции)",
+      "details": {
+        "offline": false,
+        "scenario": {
+          "repo": "githubtraining/hellogitworld",
+          "branch": "master",
+          "chain_path": "src/test/java/com/github/AppTest.java",
+          "chain_sibling": "src/main/java/com/github/App.java",
+          "search_symbol": "main",
+          "search_expect_path": "src/main/java/com/github/App.java",
+          "missing_repo": "githubtraining/canary-does-not-exist-7f3a",
+          "call_budget_policy": "реальные запросы минимизированы: commit/verified_url берутся из уже полученного ответа, повторные запросы с теми же аргументами кэшируются в пределах прогона"
+        },
+        "chain_read": {
+          "status": "ok",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "path": "src/test/java/com/github/AppTest.java",
+          "verified": true,
+          "source_kind": "file",
+          "network_calls": 5,
+          "snippet_chars": 749,
+          "verified_url": "https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43",
+          "sibling_paths": [
+            "src/main/java/com/github/App.java"
+          ],
+          "verified_sibling_paths": [
+            "src/main/java/com/github/App.java"
+          ],
+          "distinct_verified_sibling": true,
+          "files_read": 2,
+          "has_primary": true
+        },
+        "related_sources": {
+          "verified_sibling_paths": [
+            "src/main/java/com/github/App.java"
+          ],
+          "expected_sibling_present": true,
+          "files_read": 2
+        },
+        "symbol_search": {
+          "status": "ok",
+          "stage": "locator",
+          "path": "src/main/java/com/github/App.java",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "verified": true,
+          "source_kind": "file",
+          "symbol": "main",
+          "symbol_found": true,
+          "line_range": [
+            1,
+            17
+          ],
+          "snippet_chars": 215,
+          "network_calls": 3,
+          "candidate_paths": [],
+          "path_matches": true,
+          "commit_matches": true
+        },
+        "link_url_present": true,
+        "link_read": {
+          "status": "ok",
+          "stage": "fetch",
+          "path": "src/test/java/com/github/AppTest.java",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "verified": true,
+          "source_kind": "file",
+          "snippet_chars": 749,
+          "network_calls": 4,
+          "path_matches": true,
+          "commit_matches": true
+        },
+        "missing_repo": {
+          "status": "error",
+          "stage": "discover",
+          "code": "source_missing",
+          "detail": "repo_not_found",
+          "http": 404,
+          "retryable": false,
+          "network_calls": 1,
+          "factual": true,
+          "not_read": true,
+          "no_retries": true
+        },
+        "capability": {
+          "tool_name": "read_source_code",
+          "tool_operations": [
+            "discover",
+            "locate",
+            "read"
+          ],
+          "tool_count": 18,
+          "github_like_tools": [
+            "read_source_code"
+          ],
+          "command_triggers": 15,
+          "github_like_commands": [],
+          "single_tool": true,
+          "operations_cover": true,
+          "no_separate_command": true
+        },
+        "network_calls_total": 13,
+        "assertions": [
+          {
+            "name": "external_public_repo_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_branch_read_identity",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_branch_read_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_read_uses_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_related_sources_read",
+            "ok": true,
+            "detail": "{'status': 'ok', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'path': 'src/test/java/com/github/AppTest.java', 'verified': True, 'source_kind': 'file', 'network_calls': 5, 'snippet_chars': 749, 'verified_url': 'https://github.com/githubtraining/hellogitworld/blob/ef7bebf8bdb1919d947afe46ab4b2fb4278039b3/src/test/java/com/github/AppTest.java#L1-L43', 'sibling_paths': ['src/main…[clipped]"
+          },
+          {
+            "name": "external_symbol_search_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 3, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_found_path",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 3, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_symbol_found",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 3, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_exact_commit",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 3, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_symbol_search_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'locator', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'symbol': 'main', 'symbol_found': True, 'line_range': [1, 17], 'snippet_chars': 215, 'network_calls': 3, 'candidate_paths': [], 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_link_read_ok",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'path': 'src/test/java/com/github/AppTest.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 749, 'network_calls': 4, 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_link_read_identity",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'path': 'src/test/java/com/github/AppTest.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 749, 'network_calls': 4, 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_link_read_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'path': 'src/test/java/com/github/AppTest.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 749, 'network_calls': 4, 'path_matches': True, 'commit_matches': True}"
+          },
+          {
+            "name": "external_missing_repo_factual",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'discover', 'code': 'source_missing', 'detail': 'repo_not_found', 'http': 404, 'retryable': False, 'network_calls': 1, 'factual': True, 'not_read': True, 'no_retries': True}"
+          },
+          {
+            "name": "external_missing_repo_not_read",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'discover', 'code': 'source_missing', 'detail': 'repo_not_found', 'http': 404, 'retryable': False, 'network_calls': 1, 'factual': True, 'not_read': True, 'no_retries': True}"
+          },
+          {
+            "name": "external_missing_repo_no_retries",
+            "ok": true,
+            "detail": "{'status': 'error', 'stage': 'discover', 'code': 'source_missing', 'detail': 'repo_not_found', 'http': 404, 'retryable': False, 'network_calls': 1, 'factual': True, 'not_read': True, 'no_retries': True}"
+          },
+          {
+            "name": "external_capability_single_tool",
+            "ok": true,
+            "detail": "{'tool_name': 'read_source_code', 'tool_operations': ['discover', 'locate', 'read'], 'tool_count': 18, 'github_like_tools': ['read_source_code'], 'command_triggers': 15, 'github_like_commands': [], 'single_tool': True, 'operations_cover': True, 'no_separate_command': True}"
+          },
+          {
+            "name": "external_capability_three_operations",
+            "ok": true,
+            "detail": "{'tool_name': 'read_source_code', 'tool_operations': ['discover', 'locate', 'read'], 'tool_count': 18, 'github_like_tools': ['read_source_code'], 'command_triggers': 15, 'github_like_commands': [], 'single_tool': True, 'operations_cover': True, 'no_separate_command': True}"
+          },
+          {
+            "name": "external_capability_no_command",
+            "ok": true,
+            "detail": "{'tool_name': 'read_source_code', 'tool_operations': ['discover', 'locate', 'read'], 'tool_count': 18, 'github_like_tools': ['read_source_code'], 'command_triggers': 15, 'github_like_commands': [], 'single_tool': True, 'operations_cover': True, 'no_separate_command': True}"
+          },
+          {
+            "name": "external_scenarios_network_observed",
+            "ok": true,
+            "detail": "13"
+          }
+        ]
+      },
+      "duration_s": 3.727
+    },
+    {
+      "id": "external_natural_request",
+      "title": "F4: natural external-code request via Direct L1 (one provider call)",
+      "req_ids": [
+        "SXR-F4-01"
+      ],
+      "status": "observed",
+      "evidence_class": "production",
+      "evidence_reason": "real provider decision + real source-read execution",
+      "production_observed": true,
+      "summary": "естественный запрос о внешнем коде: L1 выбрал capability source_code, production tool реально прочитал файл на GitHub (verified, точный path)",
+      "details": {
+        "query": "Наткнулся на репозиторий githubtraining/hellogitworld. Посмотри по исходникам, что делает метод main в файле src/main/java/com/github/App.java, и ответь коротко по делу.",
+        "repo": "githubtraining/hellogitworld",
+        "path": "src/main/java/com/github/App.java",
+        "offline": false,
+        "decision": {
+          "action": "reply",
+          "tool_policy": "auto",
+          "capabilities_needed": [
+            "source_code"
+          ],
+          "execution_mode": "simple_tools",
+          "execution_mode_source": "derived",
+          "response_act": "research",
+          "raw_chars": 672
+        },
+        "selected_tool": "read_source_code",
+        "dispatched_arguments": {
+          "operation": "read",
+          "repo": "githubtraining/hellogitworld",
+          "ref": "master",
+          "path": "src/main/java/com/github/App.java"
+        },
+        "tool_execution": {
+          "status": "ok",
+          "stage": "fetch",
+          "repo": "githubtraining/hellogitworld",
+          "path": "src/main/java/com/github/App.java",
+          "commit": "ef7bebf8bdb1919d947afe46ab4b2fb4278039b3",
+          "verified": true,
+          "source_kind": "file",
+          "snippet_chars": 215,
+          "network_calls": 4,
+          "error": null
+        },
+        "provider_calls": {
+          "used": 1,
+          "denied": 0,
+          "max_provider_calls": 5
+        },
+        "assertions": [
+          {
+            "name": "natural_request_provider_call",
+            "ok": true,
+            "detail": "{'used': 1, 'denied': 0, 'max_provider_calls': 5}"
+          },
+          {
+            "name": "natural_request_decision_parsed",
+            "ok": true,
+            "detail": "{'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'research', 'raw_chars': 672}"
+          },
+          {
+            "name": "natural_request_selected_source_tool",
+            "ok": true,
+            "detail": "{'action': 'reply', 'tool_policy': 'auto', 'capabilities_needed': ['source_code'], 'execution_mode': 'simple_tools', 'execution_mode_source': 'derived', 'response_act': 'research', 'raw_chars': 672}"
+          },
+          {
+            "name": "natural_request_tool_executed",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'repo': 'githubtraining/hellogitworld', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 215, 'network_calls': 4, 'error': None}"
+          },
+          {
+            "name": "natural_request_tool_verified",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'repo': 'githubtraining/hellogitworld', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 215, 'network_calls': 4, 'error': None}"
+          },
+          {
+            "name": "natural_request_tool_network",
+            "ok": true,
+            "detail": "{'status': 'ok', 'stage': 'fetch', 'repo': 'githubtraining/hellogitworld', 'path': 'src/main/java/com/github/App.java', 'commit': 'ef7bebf8bdb1919d947afe46ab4b2fb4278039b3', 'verified': True, 'source_kind': 'file', 'snippet_chars': 215, 'network_calls': 4, 'error': None}"
+          }
+        ]
+      },
+      "duration_s": 3.638
+    }
+  ],
+  "notes": [
+    "canary не отправляет Telegram-сообщений и не пишет конфигурацию",
+    "production code paths emit in-memory telemetry only; durable mca_events/execution-graph writes are not flushed by this process",
+    "observed != VERIFIED: acceptability решается requirement map после независимой проверки Reviewer"
+  ]
+}
