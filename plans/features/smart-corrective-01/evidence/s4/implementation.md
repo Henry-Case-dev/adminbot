@@ -78,10 +78,23 @@ Production:
 - Публичные хелперы: `research_cause_text(cause)`,
   `research_partial_note(state)`; константы `RESEARCH_COMPLETE`,
   `RESEARCH_PARTIAL`, `RESEARCH_FAILED`.
-- S6/DevOps: телеметрия чекапа (ключи выше) — в существующем
-  `checkup_triggered.source_ref_json`; новых событий/словарей нет.
-- S3B/lifecycle: `research_state` не вводит второго планировщика; при
-  необходимости использовать те же поля, а не копировать логику.
+- S6/DevOps: телеметрия чекапа — существующий
+  `checkup_triggered.source_ref_json`, аддитивные ключи
+  `research_status`, `research_cause`, `research_continuations`,
+  `research_confirmed`, `research_unresolved`,
+  `research_evidence_ref_count`, `research_continuation_available`
+  (старые `research_rounds/calls/tools/degraded/reason` сохранены). Новых
+  событий, REASON_CODES и словарей нет; effective-state проверяется на
+  production-эталоне при приёмке.
+- S3B/lifecycle: `research_state` не вводит второго планировщика;
+  использовать те же поля, а не копировать логику. Решение о «продолжать
+  или честно завершить» принимает потребитель исследования; S3B не должен
+  передавать `ensure_research_completion=True`, если он не владеет
+  диагностическим исследованием (иначе обычные lifecycle-диалоги начнут
+  переисследовать решённые задачи). Для уже решённой задачи состояние
+  `complete` — признак «повторный research не нужен».
+- Единая точка продолжения — `chat_with_tools`; не создавать параллельный
+  цикл, отдельный реестр пробелов или второй reviewer ответа.
 
 ## Семантические правила (наблюдаемые)
 
@@ -146,52 +159,59 @@ Probe: `red_probe.py` (временный run, закрыт после пром�
 публикуется, отчёт помечен как частичный с причиной; здоровый чекап остался
 двумя вызовами без пометки.
 
-## Тесты и фактические результаты (worktree, offline/test fixtures)
+## Тесты и фактические результаты (main venv, worktree, offline/test fixtures)
+
+Интерпретатор: `C:\Code\Python\adminbot\.venv\Scripts\python.exe`
+(Python 3.12.0, pytest 9.1.1) — штатное окружение репозитория.
 
 ```
-py -3 -m pytest tests/test_smart_corrective_completion.py -q
-=> 11 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest \
+  tests/test_smart_corrective_completion.py -q
+=> 11 passed in 3.34s
 
-py -3 -m pytest tests/test_smart_corrective_completion.py \
-  tests/test_tool_loop.py tests/test_checkup_service.py \
-  tests/test_checkup_contract.py tests/test_selfdiag_corrective_research.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest \
+  tests/test_smart_corrective_completion.py tests/test_tool_loop.py \
+  tests/test_checkup_service.py tests/test_checkup_contract.py \
+  tests/test_checkup_handlers.py tests/test_checkup_prompts.py \
+  tests/test_p0_checkup_core_contract.py tests/test_selfdiag_corrective_research.py \
   tests/test_smart_exec_selfdiag.py tests/test_smart_exec_evidence.py \
-  tests/test_smart_g_finalize_round1114.py tests/test_smart_exec_ab_round1114.py \
+  tests/test_smart_g_finalize_round1114.py tests/test_smart_exec_ab_round1114.py -q
+=> 267 passed in 11.40s
+
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest \
   tests/test_mca11_tool_result_round1028.py \
   tests/test_mca11_chain_stages_round1028.py tests/test_agentic_ai_round1020.py \
   tests/test_agentic_events_round1026.py tests/test_mca23_phase2.py \
   tests/test_smoke_round1016_tool_loop.py tests/test_factcheck_service.py \
-  tests/test_factcheck_tools_round1020.py -q
-=> 438 passed, 3 warnings (known pytest timeout-config warning)
+  tests/test_factcheck_tools_round1020.py tests/test_prompt_readback.py \
+  tests/test_tool_schemas.py tests/test_mca19_block_g_round1043.py \
+  tests/test_mca20_integration_round1045.py tests/test_direct_chat.py \
+  tests/test_asap7_direct_l1.py tests/test_decision_making_round1026.py -q
+=> 650 passed in 27.92s
 
-py -3 -m pytest tests/test_tool_router.py \
-  tests/test_smart_corrective_budget_policy.py \
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest \
+  tests/test_tool_router.py tests/test_smart_corrective_budget_policy.py \
   tests/test_smart_corrective_source_reader.py tests/test_evol_source_reader.py \
   tests/test_smart_e_local_first_source.py tests/test_smart_c1_source_reader_limits.py \
-  tests/test_diagnostic_policy.py tests/test_diagnostic_probes.py -q
-=> 368 passed, 1 failed (pre-existing, см. ограничения)
+  tests/test_diagnostic_policy.py -q
+=> 301 passed in 7.57s
 
-py -3 -m pytest tests/test_prompt_readback.py tests/test_tool_schemas.py \
-  tests/test_mca19_block_g_round1043.py tests/test_mca20_integration_round1045.py \
-  tests/test_direct_chat.py tests/test_asap7_direct_l1.py \
-  tests/test_decision_making_round1026.py -q
-=> 410 passed
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m pytest \
+  tests/test_tool_coordinator_round1026.py tests/test_er65_sent_segment_snapshot.py \
+  tests/test_direct_fallback_recompose_asap32.py tests/test_diagnostic_probes.py -q
+=> 9 failed, 132 passed (ровно те же 9 падений на чистой базовой линии
+   sc/corrective-s3 тем же интерпретатором: 9 failed, 132 passed — см. ограничения)
 
-py -3 -m pytest tests/test_checkup_handlers.py tests/test_checkup_prompts.py \
-  tests/test_p0_checkup_core_contract.py tests/test_self_diag_golden.py \
-  tests/test_caps_tool_results.py tests/test_er08_limits_context.py \
-  tests/test_smartmodule_phrases.py tests/test_tool_calling_round1015.py \
-  tests/test_tool_coordinator_round1026.py tests/test_direct_chat_handlers.py \
-  tests/test_er65_sent_segment_snapshot.py tests/test_payload_builder.py \
-  tests/test_p0b_current_question_priority.py \
-  tests/test_direct_fallback_recompose_asap32.py \
-  tests/test_memory_lookup_round1026.py tests/test_token_analytics_round1023.py -q
-=> 653 passed, 8 failed (все 8 идентичны на чистой базовой линии
-   `sc/corrective-s3`: см. ограничения)
-
-py -3 -m py_compile services/tool_loop.py services/checkup_service.py
+C:\Code\Python\adminbot\.venv\Scripts\python.exe -m py_compile \
+  services/tool_loop.py services/checkup_service.py
 => OK
 ```
+
+Те же затронутые наборы ранее прогонялись системным `py -3` с теми же
+результатами для S4-файлов (438/410/368 passed), различий между
+интерпретаторами в затронутых тестах не выявлено; падения
+`tool_coordinator/er65/direct_fallback/diagnostic_probes` идентичны на базе
+в обоих окружениях.
 
 ### Что именно проверяют новые тесты (наблюдаемое поведение)
 
@@ -223,6 +243,8 @@ py -3 -m py_compile services/tool_loop.py services/checkup_service.py
 | `SC-CMP-CONT-04` | REVIEW | `test_incomplete_fragment_continues_from_next_arguments`: `continuation.next_arguments` → реальный `line_start` второго вызова |
 | `SC-CMP-CONT-05` | REVIEW | options `alternate_route`; `test_single_transient_failure_allows_continuation` (повтор маршрута после транзиентного отказа) |
 | `SC-CMP-CONT-06` | REVIEW | `test_unavailable_source_allows_other_declared_tool`: runtime-инструмент как кросс-проверка/резервный источник; директива «сопоставить данные с другими доступными инструментами» |
+| `SC-BUD-PROGRESS` | REVIEW (S4-часть; остальное S3) | Семантика «продолжение по прогрессу» после S3-политики: `_research_state`/`_research_signature` + `last_offer_journal` — продолжение предлагается только при новых записях журнала и новом отпечатке пробелов. `test_irrelevant_first_result_gets_continuation` (новые данные → продолжение), `test_repeated_same_failure_offers_only_once` (повтор с новыми аргументами, тот же пробел → ровно один offer, затем `partial/no_progress`), `test_model_declines_continuation_and_partial_is_marked` (нет новых данных → `partial/continuation_not_taken`). Никаких новых квот раундов/вызовов не введено: гейт — фактический прогресс данных. |
+| `SC-BUD-PARTIAL` | REVIEW (S4-часть; остальное S3) | `test_incomplete_fragment_continues_from_next_arguments` (продолжение реально исполняется с `line_start` из `continuation.next_arguments`), `test_denied_only_path_returns_partial_with_cause` (честный partial-отчёт с причиной и неподтверждённой областью), `test_partial_keeps_results_refs_and_text` (собранные данные/provenance сохранены, текст модели не подменён). |
 
 Все строки — `REVIEW` (кандидат), не `VERIFIED`: независимое ревью и
 production-эталон впереди.
@@ -243,8 +265,9 @@ production-эталон впереди.
    состояние `partial/source_unavailable` и пометку в отчёте: это осознанно
    (SC-CMP-DONE-04 «недоступные сведения должны быть обозначены»), а не
    дефект продолжения.
-4. **Предсуществующие падения тестов на базовой линии** (не связаны с S4,
-   воспроизведены на чистом `sc/corrective-s3`):
+4. **Предсуществующие падения тестов на базовой линии** (не связаны с S4;
+   одним и тем же main venv воспроизведены на чистом `sc/corrective-s3`:
+   `9 failed, 132 passed` — ровно столько же, сколько на кандидате):
    - `tests/test_diagnostic_probes.py::TestValidation::test_time_window_is_bounded`
      — тест использовал дату `2026-11-14T00:00:00Z` как «будущую»; на
      2026-11-14 она больше не в будущем (время-зависимый тест, `BACKLOG_ONLY`);
@@ -265,15 +288,18 @@ production-эталон впереди.
 - `tests/test_diagnostic_probes.py::test_time_window_is_bounded` —
   время-зависимый тест истёк 2026-11-14; нужно отдельное исправление
   теста (не входит в write-scope S4).
-- 8 предсуществующих падений вне write-scope (см. п.4) — для общего прогона
-  релизного поезда.
+- 9 предсуществующих падений вне write-scope (см. п.4) — для общего прогона
+  релизного поезда; на базе и на кандидате одинаково.
 
 ## Хозяйство (workspace)
 
 - Worktree `s4-completion` остаётся зарегистрированным для review
-  (commit `8ccd0730`); удаление/закрытие — после join и переноса
-  доказательств.
+  (ветка `sc/corrective-s4`; code `8ccd0730`, docs `4d279cd9` / обновление
+  evidence этим коммитом); удаление/закрытие — после join и переноса
+  доказательств. Явно удержан через `cleanup-retention.json`
+  (`unit-check`: `handoff_accounted=true`, `unaccounted_count=0`).
 - Один probe-run (`probe-c3dcc5de1a`, kind=probe, unit=s4-completion)
   содержал RED/GREEN probe и логи; результаты промоутированы в этот файл,
-  run закрыт `run-close` (см. отчёт агенту).
+  run закрыт `run-close --confirmed-idle --confirmed-evidence --apply`
+  (`removed=1; retained=0`).
 - Временных копий репозитория/зависимостей не создавалось.
