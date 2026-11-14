@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T18:58:50+12:00",
+  "updated": "2026-11-14T19:10:54+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -73,10 +73,10 @@
       "progress": {
         "total_rows": 384,
         "unique_req_ids": 367,
-        "verified": 0,
-        "pending": 384,
+        "verified": 18,
+        "pending": 366,
         "slices": 14,
-        "note": "2026-11-14: production investigation complete (both checkup runs + six watchdog incidents + effective flags); PM binding evidence to S0/W-12; implementation S1+S2 (SourceReader contract/content search/fallback) and S5A (watchdog lifecycle) running on branches from release/2.58.200. Parent live rows L1/L2/L4/L6/L7 are revalidated on the corrective release."
+        "note": "2026-11-14: production investigation bound (commit 4e26e2ec): 18/384 required rows VERIFIED from observed production facts; 366 PENDING (implementation S1-S6 + AC); AC-15 recorded as NOT met on 2.58.200 (global prompt layer used; owner chat edit not the layer CheckupService reads); 10 unrecoverable items listed without fabrication. S1+S2 and S5A implementation running."
       }
     },
     {

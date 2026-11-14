@@ -18,10 +18,11 @@ Review: harness audit Needs Fixes (fixes running); corrective implementation not
 Deployment: parent 2.58.200 verified engineering delivery; corrective not implemented
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted (384 required / 367 ids / 14 slices, plan gate 0); global aggregate 4385/7264 requirements, 322/599 slices
-Updated: 2026-11-14T18:59:40+12:00
+Updated: 2026-11-14T19:10:54+12:00
 
 ## Facts
 
+- PM bound the production investigation to the corrective map (commit 4e26e2ec): 18/384 required rows VERIFIED from observed facts (both run identities/followup/consistency, investigation mandate/no-guess/no-invent/existence, W-12 data, run failure/stop/essence, prompt version/telemetry/owner fact); 366 PENDING. Ten items recorded as unrecoverable without fabrication (tool args/query/symbol for run A, inferred 141-line path, prompt revision/hash for B clipped by usage_json cap, pre-cleanup texts, trace_id NULL, successful tool calls not emitted, takeover payload without job ids, media running rows without consumer, per-sweep incident history, prompt text not copied). AC-15 recorded as NOT met on 2.58.200: global prompt layer used, owner chat edit not the layer CheckupService reads; owner value not marked delivered. Map slice naming: prompt-delivery = S6-PROMPT, completion = S4-COMPLETION (dispatch S3/S4/S6 by map ids).
 - Owner corrective scope: fix the live checkup self-research defect (SourceReader full local-first fallback, content-based search, effective budget propagation, checkup completion/input completeness, prompt delivery verification) and the watchdog incident contour; mandatory read-only investigation of both production runs before implementation; no duplicate epic, no queue restart.
 - Parent 2.58.200 engineering delivery evidence stays valid and must not be rewritten; the discovered defect is not VERIFIED until fix evidence exists.
 - Parent live rows impacted by this defect (H3/H4/L7/M3, possibly L1-L3/L6) must be revalidated on the corrective release; PM is producing the exact reconciliation and must not change statuses.
