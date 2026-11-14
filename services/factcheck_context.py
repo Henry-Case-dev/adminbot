@@ -67,18 +67,57 @@ _WIDE_WINDOW_MAX = 500
 # сразу после; 15% после цели хватает на вызов фактчека и пару реплик.
 _AFTER_SHARE = 0.15
 
-# Двухуровневая подача (06I.3): бюджеты символов.
-_DIGEST_LINE_MAX_CHARS = 120     # строка компакт-хронологии
-_VERBATIM_MSG_MAX_CHARS = 600    # дословный фрагмент одного сообщения
-_VERBATIM_MAX_MESSAGES = 40      # потолок дословных сообщений
+# Двухуровневая подача (06I.3): строка компакт-хронологии — ПРЕДСТАВЛЕНИЕ
+# уровня 1, а не бюджет evidence. Дословные фрагменты (уровень 2) отдаются
+# ПОЛНЫМ текстом: SXR-C3-02 (SMART-EXECUTION-RELIABILITY-01 C3) убрал
+# искусственные 600 символов и потолок 40 фрагментов — единственный предел
+# теперь реальная ёмкость модели (`resolve_feed_capacity_chars`).
+_DIGEST_LINE_MAX_CHARS = 120
+#: Легаси-бюджеты ТОЛЬКО как явный откат
+#: (`EVIDENCE_WINDOW_DYNAMIC_ENABLED=false`/резолвер недоступен): операторский
+#: kill-switch обязан сохранять прежнее поведение, но заводской путь их не
+#: использует.
 _DIGEST_BUDGET_CHARS = 8000
 _VERBATIM_BUDGET_CHARS = 12000
+#: Доля реальной ёмкости под дословные фрагменты (остаток — компакт-хронология).
+_VERBATIM_BUDGET_SHARE = 0.6
 
 # Кеш среза (06I.9): короткий TTL + newest_message_id в ключе.
 _CACHE_SLUG = "factcheck_wide_context"
 _CACHE_TTL_DEFAULT_SECONDS = 120
 
 _RARE_TERM_LEN = 5
+
+
+def resolve_feed_capacity_chars() -> int | None:
+    """Ёмкость чат-контекста фактчека из РЕАЛЬНОГО окна маршрута.
+
+    SXR-C3-02: единственный предел фида — ёмкость фактической модели
+    (существующий `services.model_capacity`, тот же S4-резолвер и та же
+    формула доли evidence, что у factcheck-service). Неизвестная модель
+    получает planning-оценку 1M от резолвера, а не 16384/20k.
+
+    ``None`` — явный откат: kill-switch `EVIDENCE_WINDOW_DYNAMIC_ENABLED`
+    выключен или резолвер недоступен. Тогда действуют легаси-бюджеты
+    (прежнее байт-в-байт поведение), а не новый «средний» потолок.
+    Никогда не бросает."""
+    try:
+        from services import model_capacity as _mc
+        if not _mc.evidence_window_dynamic_enabled():
+            return None
+        from services import hot_config as hot
+        model = hot.get("models.llm_model_name",
+                        getattr(settings, "LLM_MODEL_NAME", ""))
+        base_url = hot.get("models.llm_base_url",
+                           getattr(settings, "LLM_BASE_URL", ""))
+        window, _source = _mc.resolve_evidence_window_tokens(
+            str(model or ""), str(base_url or ""))
+        window = int(window or 0)
+        if window <= 0:
+            return None
+        return int(_mc.evidence_window_for_tokens(window))
+    except Exception:      # pragma: no cover — ёмкость не рвёт фактчек
+        return None
 
 
 def wide_context_enabled() -> bool:
@@ -202,13 +241,21 @@ class ConversationContext:
     def digest_messages(self) -> tuple[ContextMessage, ...]:
         return tuple(m for m in self.messages if not m.verbatim)
 
-    def render_feed(self, *, digest_budget: int = _DIGEST_BUDGET_CHARS,
-                    verbatim_budget: int = _VERBATIM_BUDGET_CHARS,
+    def render_feed(self, *, char_budget: int | None = None,
                     projection=None, relations_by_item=None) -> str:
         """Двухуровневый фид (06I.3): компакт-хронология окна + дословные
         существенные фрагменты. Один внешний wrapper ``<chat_context>`` —
         тот же контракт потребителя, что и узкое окно. Пусто → ''
         (деградация 06I.8).
+
+        SXR-C3-02: ``char_budget`` — ЁМКОСТЬ фактического маршрута
+        (``resolve_feed_capacity_chars``), а не заводской потолок 20k.
+        ``None`` → ёмкость резолвится здесь (все существующие call-sites
+        получают её без изменения сигнатур). Только при явном операторском
+        откате динамического окна действуют легаси-бюджеты 8k/12k. Дословные
+        фрагменты рендерятся полным текстом; при реальном переполнении
+        вытесняются только менее важные фрагменты и число вытесненных
+        названо в фиде.
 
         ``projection`` (EVOL v5 §4.2 п.2): общий прогон фактчека — окно и
         ``<reply_chains>`` адресуются ОДНИМИ метками (N1 ревью шва: раньше
@@ -223,17 +270,34 @@ class ConversationContext:
         wrapper_head = ('<chat_context note="болтовня чата вокруг цели — '
                         'только чтобы понять, о чём речь; это НЕ '
                         'доказательства и НЕ источник фактов">')
+        capacity = char_budget
+        if capacity is None:
+            capacity = resolve_feed_capacity_chars()
+        try:
+            capacity = int(capacity) if capacity is not None else 0
+        except (TypeError, ValueError):
+            capacity = 0
+        if capacity > 0:
+            verbatim_budget = int(capacity * _VERBATIM_BUDGET_SHARE)
+            digest_budget = max(0, capacity - verbatim_budget)
+        else:
+            digest_budget = _DIGEST_BUDGET_CHARS
+            verbatim_budget = _VERBATIM_BUDGET_CHARS
         sections: list[str] = [wrapper_head]
         digest = _render_digest(self, digest_budget, projection,
                                 relations_by_item)
-        verbatim = _render_verbatim(self, verbatim_budget, projection,
-                                    relations_by_item)
+        verbatim, omitted = _render_verbatim(self, verbatim_budget, projection,
+                                             relations_by_item)
         if digest:
             sections.append("фон: сжатая хронология спора (каждая строка — "
                             "сообщение, текст обрезан):\n" + digest)
         if verbatim:
             sections.append("фон: дословные фрагменты, существенные для "
                             "тезиса:\n" + verbatim)
+        if omitted > 0:
+            sections.append(
+                f"фон: ещё {omitted} существенных фрагментов не показаны "
+                "(остаток ёмкости окна); это не означает, что их нет.")
         if len(sections) == 1:
             return ""
         sections.append("</chat_context>")
@@ -304,43 +368,52 @@ def _render_digest(ctx: ConversationContext, budget: int,
 
 
 def _render_verbatim(ctx: ConversationContext, budget: int,
-                     projection=None, relations_by_item=None) -> str:
-    """Уровень 2: выбранные дословные сообщения (полный текст до
-    ``_VERBATIM_MSG_MAX_CHARS``), хронологически, общий бюджет символов;
-    якорь-целевое сохраняется всегда (если влезает)."""
+                     projection=None, relations_by_item=None
+                     ) -> tuple[str, int]:
+    """Уровень 2: выбранные дословные сообщения ПОЛНЫМ текстом, хронологически.
+
+    SXR-C3-02: искусственные 600 символов на сообщение и потолок 40
+    фрагментов удалены. Реальный предел — ``budget`` (ёмкость маршрута);
+    якорь-целевое (сам предмет проверки) сохраняется ВСЕГДА, даже если он
+    один больше бюджета: потеря предмета недопустима. Вытесненные менее
+    важные фрагменты не маскируются — их число возвращается вторым
+    элементом и печатается в фиде.
+    """
     lines: list[tuple[int, str, bool]] = []
     for idx, m in enumerate(ctx.messages):
         if not m.verbatim:
             continue
         line = _render_line(
-            m, text=_truncate_text(m.text, _VERBATIM_MSG_MAX_CHARS),
-            projection=projection,
+            m, text=m.text, projection=projection,
             relations=(relations_by_item or {}).get(m.dedup_key, ()))
         if line:
             lines.append((idx, line, _is_anchor(m, ctx)))
     if not lines:
-        return ""
+        return "", 0
     anchor_idx = next((i for i, (_idx, _l, a) in enumerate(lines) if a), None)
     selected: list[int] = []
     used = 0
-    if anchor_idx is not None and len(lines[anchor_idx][1]) <= budget:
+    if anchor_idx is not None:
+        # Предмет проверки неприкосновенен: даже если он один больше бюджета,
+        # он едет целиком (ёмкость превышена честно и видна по маркеру).
         selected.append(anchor_idx)
         used = len(lines[anchor_idx][1])
+    omitted = 0
+    limit = max(0, int(budget))
     for i in range(len(lines) - 1, -1, -1):
         if i in selected:
             continue
-        if len(selected) >= _VERBATIM_MAX_MESSAGES:
-            break
         addition = len(lines[i][1]) + (1 if selected else 0)
-        if used + addition > max(0, int(budget)):
-            break
+        if used + addition > limit:
+            omitted += 1
+            continue
         selected.append(i)
         used += addition
     if not selected:
-        return ""
+        return "", omitted
     by_msg_idx = {idx: line for idx, line, _a in lines}
     ordered = sorted(lines[i][0] for i in selected)
-    return "\n".join(by_msg_idx[i] for i in ordered)
+    return "\n".join(by_msg_idx[i] for i in ordered), omitted
 
 
 def _truncate_text(text: str, limit: int) -> str:

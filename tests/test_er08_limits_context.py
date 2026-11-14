@@ -600,7 +600,10 @@ class TestL1PackageLosses:
         plan = plan[:plan.index("async def _attach_l1_plan_meta")]
         assert "await self._resolve_turn_slot_meta(" in plan
         assert "budget_tokens=_l1_budget" in plan
-        assert "cap_chars=_l1.message_cap_chars(_l1_budget)" in plan
+        # SXR-C2-01: L1 получает тот же полный вопрос, что Writer; отдельного
+        # символьного капа вопроса в L1-пути больше нет.
+        assert "current_question=self._render_current_question(" in plan
+        assert "cap_chars=" not in plan
         init = text[text.index("async def plan_initiative_decision"):]
         init = init[:init.index("async def generate_initiative_reply")]
         assert "await self._resolve_turn_slot_meta(" in init

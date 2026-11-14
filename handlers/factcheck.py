@@ -475,20 +475,22 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
 
 
 def _clamp_window(before, after) -> tuple[int, int]:
-    """Границы окна: неотрицательные int, сумма ``before + after`` ≤
-    FACTCHECK_CONTEXT_TOTAL_CAP (жёсткий код-кап, ADR-1023-2; при переполнении
-    срезаем ``after``). Якорь БД добавляет сверх капа (R1023F2-06: фактический
-    максимум строк = cap + 1)."""
-    cap = int(getattr(settings, "FACTCHECK_CONTEXT_TOTAL_CAP", 40) or 40)
+    """Границы узкого окна: только неотрицательные int.
+
+    SXR-C2-01 (SMART-EXECUTION-RELIABILITY-01 C2): код-кап
+    ``FACTCHECK_CONTEXT_TOTAL_CAP = 40`` удалён — он обрывал достаточный
+    набор контекста независимо от бюджетов. Настроенные оператором
+    ``before/after`` (hot-ключи ``limits.factcheck_context_before/after``)
+    действуют как есть; при реальном переполнении окна модели упаковку
+    делает ёмкостный фид (`factcheck_context.render_feed`), а не скрытый
+    потолок. Замена одного произвольного числа другим не вводится.
+    Якорь БД добавляется сверх окна (R1023F2-06).
+    """
     try:
         b = max(0, int(before or 0))
         a = max(0, int(after or 0))
     except (TypeError, ValueError):
         return 0, 0
-    if b > cap:
-        b = cap
-    if b + a > cap:
-        a = max(0, cap - b)
     return b, a
 
 

@@ -207,6 +207,7 @@ from services.token_counter import (
     count_tokens,
     estimation_method,
     has_protected_spans,
+    protected_spans,
     resolve_chat_limit,
     resolve_context_tokens,
     safe_budget,
@@ -637,9 +638,9 @@ def _segment_json(text: str) -> list | None:
 # больше не запускает исторический поиск. Инструмент `dig_into_lore` и его
 # контракт в каноне промпта сохранены — вызывает его модель по смыслу
 # (capability `historical_search`), а не словарь маркеров.
-# Потолок инжекта <dig_result> (спека §3.2.3; dig уже режет 3500 сам —
-# страховка для остальных dig-совместимых блоков: stats-хинт, capability-блок).
-_DIG_RESULT_MAX_CHARS = 3600
+# SXR-C3-02: мёртвый символьный потолок `<dig_result>` (3600) удалён —
+# инжект не режется этой веткой; evidence/контекст ограничивает общий
+# композер по реальному окну.
 # S10.20-10: лимит Telegram-сообщения — HTML-история шлётся разметкой только
 # если экранированный текст влезает в ОДИН чанк (иначе чанкинг мог порвать
 # тег → TelegramBadRequest → дубль текста plain-фолбэком).
@@ -5825,7 +5826,6 @@ class DirectChatService:
             # (PG-кастом не правится) и model-слот max_tokens.
             response_plan = None
             extent_block = ""
-            longform_max_tokens = None
             if direct_l1_on and l1_plan is not None:
                 # ── ASAP 7 (F1, §1.8): semantic план от L1; явная форма
                 # пользователя — дет. override ПОСЛЕ L1 поверх semantic
@@ -5845,8 +5845,6 @@ class DirectChatService:
                     system_prompt = (system_prompt + "\n\n"
                                      + extent_block)
                 if response_plan.is_longform():
-                    longform_max_tokens = \
-                        _extent.longform_max_output_tokens()
                     if not _composer_on:
                         system_prompt, _scrubbed = _extent.scrub_for_plan(
                             system_prompt, response_plan)
@@ -6257,7 +6255,6 @@ class DirectChatService:
                             fallback_meta=_fallback_meta,
                             time_line=time_line_plan,
                             tool_schemas=_l1_tool_schemas,
-                            longform_max_tokens=longform_max_tokens,
                             required_caps=tuple(getattr(
                                 _evidence_decision, "required_caps", ())
                                 or ()),
@@ -6309,6 +6306,19 @@ class DirectChatService:
                                 _tool_plan = None
                             if not _tool_plan:
                                 _tool_plan = None
+                        # SXR-C3-02 / UR-19.2: выход tool-цикла — физически
+                        # допустимый max_output фактической модели, а не
+                        # семантический longform-4096. Неизвестный ресурс →
+                        # None (ключа нет, дефолт провайдера).
+                        _tool_out_tokens = \
+                            await _extent.writer_max_output_tokens(
+                                model=str(getattr(self.llm, "_chat_model", "")
+                                          or ""),
+                                base_url=str(getattr(self.llm, "_base_url", "")
+                                             or ""),
+                                input_tokens=sum(
+                                    count_tokens(str(m.get("content") or ""))
+                                    for m in payload))
                         raw = await chat_with_tools(
                             self.llm, payload,
                             tools=active_tools(bool(lore_enabled),
@@ -6318,7 +6328,7 @@ class DirectChatService:
                             module="direct_chat",
                             correlation_id=correlation_id,
                             fallback_payload_adapter=_fb_adapter,
-                            max_output_tokens=longform_max_tokens,
+                            max_output_tokens=_tool_out_tokens,
                             tool_plan=_tool_plan)
                         # UR-F шаг 1: receipt финального ответообразующего
                         # вызова (body после primary/fallback); continuation
@@ -6652,8 +6662,10 @@ class DirectChatService:
                     _ev_budget = _dx.l2_evidence_budget_chars(
                         _fallback_meta.get("l2_input_budget"),
                         other_chars=_ev_others)
-                    _ev_cap = (_ev_budget if _ev_budget is not None
-                               else _l1.evidence_max_chars())
+                    # SXR-C3-02: нет бюджета композера → 0 = «без
+                    # искусственного среза» (D1: неизвестная модель
+                    # планируется как 1M); legacy-потолок 4000 удалён.
+                    _ev_cap = (_ev_budget if _ev_budget is not None else 0)
                     # P0-HA SEGMENTS (архконтракт §2): накопление находок
                     # сегментов ДО упаковки — блок @@HISTORY_COVERAGE встаёт
                     # головой в существующий EvidenceSource истории (сырой
@@ -7815,11 +7827,11 @@ class DirectChatService:
             _ttrace.note_clock_stage(correlation_id, "l1")
         context_text = _l1.build_l1_context(
             query=query,
+            # SXR-C2-01: L1 получает ПОЛНЫЙ текст вопроса — тот же, что
+            # Writer (расхождение L1/Writer устранено). Режет только
+            # `_cap_context` при фактическом переполнении бюджета L1.
             current_question=self._render_current_question(
-                message, extra_markers=extra_media_markers,
-                # ER-08: исходное сообщение — внутри бюджета L1, а не 800
-                # символов Writer-пути.
-                cap_chars=_l1.message_cap_chars(_l1_budget)),
+                message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
             window=window, speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
@@ -8041,6 +8053,28 @@ class DirectChatService:
         except Exception:      # pragma: no cover - защитная ветка
             return 0
 
+    async def _writer_evidence_capacity(self, *, stage: str,
+                                        other_chars: int = 0) -> int:
+        """Емкость evidence Writer'а по РЕАЛЬНОМУ окну стадии (SXR-C3-02).
+
+        Тот же единый резолвер/формула, что у Direct-пакета: входной бюджет
+        стадии минус прочие блоки. ``0`` — ёмкость резолвится как
+        неизвестная → packer отдаёт материал без искусственного среза
+        (D1: planning-оценка 1M, не legacy 4000). Никогда не бросает."""
+        try:
+            base_url = (str(getattr(self.llm, "_base_url", "") or "")
+                        or str(getattr(settings, "LLM_BASE_URL", "") or ""))
+            model = (str(getattr(self.llm, "_chat_model", "") or "")
+                     or str(getattr(settings, "LLM_MODEL_NAME", "") or ""))
+            result = await _auto_budget.resolve_stage_budget(
+                str(stage or "initiative.l2"), base_url=base_url, model=model,
+                mandatory_tokens=0, policy_raw=-1)
+            cap = _dx.l2_evidence_budget_chars(
+                result.effective_input_budget, other_chars=other_chars)
+            return int(cap or 0)
+        except Exception:      # pragma: no cover — ёмкость не рвёт ход
+            return 0
+
     def _evidence_reuse_pack(self, decision, *, l1_plan, response_plan,
                              chat_id, capacity_chars: int = 0):
         """Пакет из уже прочитанного источника при qualified reuse (§3.4).
@@ -8063,8 +8097,9 @@ class DirectChatService:
                 return None
             pack = _dx.build_reuse_evidence_pack(
                 records, response_plan,
-                capacity_chars=int(capacity_chars or 0)
-                or _l1.evidence_max_chars())
+                # SXR-C3-02: 0 = без искусственного среза; реальный бюджет
+                # передаёт caller (`l2_input_budget`), legacy 4000 удалён.
+                capacity_chars=int(capacity_chars or 0))
             return pack if str(getattr(pack, "text", "") or "") else None
         except Exception:      # pragma: no cover - защитная ветка
             logger.debug("[direct] reuse pack failed", exc_info=True)
@@ -8368,7 +8403,7 @@ class DirectChatService:
                              temperature, chat_id: int,
                              correlation_id, l1_plan, response_plan,
                              fallback_meta: dict, time_line: str,
-                             tool_schemas, longform_max_tokens=None,
+                             tool_schemas,
                              required_caps=(), explicit_request: bool = False,
                              route: str = "direct"):
         """ЕДИНЫЙ живой tool-этап Direct и Initiative (UR-03/UR-06, BGS-01).
@@ -8559,15 +8594,22 @@ class DirectChatService:
             hist.append((src, header))
         if not hist:
             return None
-        slot = (max(500, int(slot_chars)) if slot_chars
-                else _dx.DEFAULT_EVIDENCE_CAP_CHARS)
+        try:
+            slot = max(500, int(slot_chars or 0))
+        except (TypeError, ValueError):
+            slot = 0
         last_header = hist[-1][1]
         has_next = _ha_int(last_header.get("has_next"), 0) == 1
         delivered_chars = sum(len(getattr(s, "content", "") or "")
                               for s, _ in hist)
         available = _ha_int(bound.get("available"), 0)
-        if not has_next and delivered_chars <= slot:
+        if not has_next and (slot <= 0 or delivered_chars <= slot):
             return None              # короткий путь: ровно текущее поведение
+        if slot <= 0:
+            # SXR-C3-02: реальный слот неизвестен (0 = без искусственного
+            # среза). Нарезка «по нулевому бюджету» резала бы каждый сегмент
+            # вслепую — остаётся существующий cursor/страничный путь волны 2.
+            return None
         if has_next and not self._history_tail_reader_ready():
             return None              # хвост недочитываем → паритет волны 2
 
@@ -10294,12 +10336,11 @@ class DirectChatService:
                         l2 = await self.db.get_summary_level(chat_id, 2)
                         if l2 is not None and (l2["summary"] or "").strip():
                             level2_text = str(l2["summary"]).strip()
-                            cap2 = int(await _cp_g(
-                                chat_id, "limits.chat_level2_max_chars",
-                                hot.get("limits.chat_level2_max_chars",
-                                        settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
-                            if cap2 and len(level2_text) > cap2:
-                                level2_text = level2_text[:cap2]
+                            # SXR-C3-02: символьный кап L2-пересказа
+                            # (`chat_level2_max_chars`, заводской 1500)
+                            # удалён — секционный бюджет не уничтожает
+                            # доступный контекст; реальное окно режет
+                            # существующий композер, а не эта ветка.
                             parts["head_lines"].append(
                                 "широкий фон: пересказ, не источник: "
                                 + level2_text)
@@ -11902,23 +11943,24 @@ class DirectChatService:
                          exc_info=True)
 
     def _render_current_question(self, message, extra_markers=(),
-                                 cap_chars: int | None = None,
                                  projection=None) -> str:
-        """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
-        текущего сообщения после среза обращения «бот(@ник):»; cap
-        limits.chat_current_question_max_chars (default 800); НЕ режется
-        бюджетом (kind вне лимитов). Пустой после среза — без блока.
+        """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — ПОЛНЫЙ
+        текст текущего сообщения после среза обращения «бот(@ник):»; НЕ
+        режется ни символьным капом, ни бюджетом секций (kind вне лимитов).
+        Пустой после среза — без блока.
 
-        ER-08 (02.11.2026): ``cap_chars`` — явный кап вызывающего (L1 берёт
-        его из своего бюджета: исходное сообщение — главный носитель claim'ов
-        и контрдоводов, 800 символов резали его вслепую). ``None`` → прежний
-        путь байт-в-байт (Writer/прочие потребители не меняются).
+        SXR-C2-01 (SMART-EXECUTION-RELIABILITY-01 C2): искусственный потолок
+        800 символов (`CHAT_CURRENT_QUESTION_MAX_CHARS`) и замена его другим
+        числом удалены. Исходное сообщение — главный носитель claim'ов,
+        цитат и контрдоводов; полный текст доезжает и до L1, и до Writer
+        (устранено расхождение L1/Writer). Единственный предел — физический
+        лимит Telegram-сообщения и реальное окно модели, которое режет
+        существующий композер, а не эта ветка.
 
         Раунд 10.24 (F13, ADR-1024-14 D3): к тексту дописываются медиа-маркеры
         нативного медиа самого сообщения и ``reply_to_message`` (``tg:<id>``).
-        При пустом тексте с медиа блок не пуст; при непустом — текст усекается
-        до резерва под суффикс, маркер гарантированно выживает. Флаг OFF или
-        отсутствие медиа → ровно прежний ``stripped[:cap]`` (байт-в-байт).
+        При пустом тексте с медиа блок не пуст; маркеры добавляются к полному
+        тексту (прежний резерв под суффикс больше не нужен).
 
         ADD-TR.2 (ADTR-ENTRY, 19.10.2026): текст = text ИЛИ caption подписи
         (``_message_user_text``) — подпись photo/document-image доходит до
@@ -11967,45 +12009,12 @@ class DirectChatService:
                     markers.append(extra_text)
         if not stripped and not markers:
             return ""
-        cap = int(hot.get("limits.chat_current_question_max_chars",
-                          settings.CHAT_CURRENT_QUESTION_MAX_CHARS) or 0) \
-            or 800
-        if cap_chars is not None:
-            try:
-                override = int(cap_chars)
-            except (TypeError, ValueError):
-                override = 0
-            if override > cap:
-                cap = override
+        # SXR-C2-01: полный текст без символьного потолка; медиа-маркеры —
+        # отдельный машинный суффикс, они не вытесняют и не режут вопрос.
+        body = stripped
         if markers:
             suffix = " ".join(markers)
-            room = max(0, cap - len(suffix) - 1)
-            if room:
-                if len(stripped) > room:
-                    # ASAP3 §2: вопрос пользователя длиннее cap — потеря не
-                    # молчит (R17: только числа, текст сообщения не логируем).
-                    logger.warning(
-                        "direct: current question truncated | chat=%s | "
-                        "chars=%d -> %d | cap=%d",
-                        getattr(message, "chat_id", None), len(stripped),
-                        room, cap)
-                body = stripped[:room] + (" " + suffix if stripped else suffix)
-            else:
-                # ASAP3 §2 (#11): маркеры заняли весь cap — текст вопроса не
-                # входит вовсе; потеря не молчит (R17: только числа).
-                logger.warning(
-                    "direct: current question dropped | chat=%s | chars=%d | "
-                    "cap=%d | markers=%d",
-                    getattr(message, "chat_id", None), len(stripped), cap,
-                    len(markers))
-                body = suffix
-        else:
-            if len(stripped) > cap:
-                logger.warning(
-                    "direct: current question truncated | chat=%s | "
-                    "chars=%d -> %d | cap=%d",
-                    getattr(message, "chat_id", None), len(stripped), cap, cap)
-            body = stripped[:cap]
+            body = f"{stripped} {suffix}".strip() if stripped else suffix
         return (f"<Current_Question>\n"
                 f"{escape_xml_text(body)}\n"
                 f"</Current_Question>")
@@ -13430,6 +13439,17 @@ class DirectChatService:
         if (mca_gates.adaptive_context_budget_enabled() and limit_tokens > 0
                 and isinstance(block, str) and has_protected_spans(block)
                 and count_tokens(block) > limit_tokens):
+            # SXR-C3-02: сначала пробуем ПОЛНЫЙ лимит. Резерв 48 токенов
+            # нужен только если защищённые спаны реально не переживают
+            # усечение; иначе он молча отнимал 48 токенов у контекста
+            # (повторное усечение уже усечённого).
+            full = self._truncate_block_raw(block, limit_tokens, kind)
+            try:
+                missing = [s for s in protected_spans(block) if s not in full]
+            except Exception:      # pragma: no cover - защитная ветка
+                missing = []
+            if not missing:
+                return full
             reserve = _PROTECTED_SPAN_RESERVE_BUDGET
             base = self._truncate_block_raw(
                 block, max(1, limit_tokens - reserve), kind)
@@ -15009,15 +15029,8 @@ class DirectChatService:
                         l2 = await self.db.get_summary_level(chat_id, 2)
                         if l2 is not None and (l2["summary"] or "").strip():
                             level2_text = str(l2["summary"]).strip()
-                            cap2 = int(await _cp_g(
-                                chat_id, "limits.chat_level2_max_chars",
-                                hot.get("limits.chat_level2_max_chars",
-                                        settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
-                            if cap2 and len(level2_text) > cap2:
-                                logger.warning(
-                                    "direct: level2 capped to %d chars | chat=%s",
-                                    cap2, chat_id)
-                                level2_text = level2_text[:cap2]
+                            # SXR-C3-02: символьный кап L2 удалён — секция
+                            # едет полной, реальное окно режет композер.
                     except Exception:
                         logger.warning(
                             "direct: level2 read failed — without L2 row "
@@ -15923,9 +15936,19 @@ class DirectChatService:
             # остаётся только Writer'у).
             _init_search_query = _evp.claims_query(_initiative_decision)
             _init_router = getattr(self, "tool_router", None)
+            # SXR-C3-02: evidence-бюджет инициативы — по РЕАЛЬНОМУ окну
+            # writer-стадии, а не legacy 4000. Считается один раз и
+            # используется tool-фазой, reuse и финальным пакетом.
+            _init_ev_others = _dx.measure_nonevidence_chars(
+                plan_block=str(plan_block or ""),
+                user_blocks=list(user_blocks or ()),
+                character=str(persona_block or ""))
+            _init_ev_cap = await self._writer_evidence_capacity(
+                stage="initiative.l2",
+                other_chars=_init_ev_others + _EVIDENCE_NOTE_RESERVE_CHARS)
             _init_tool_ctx = ToolContext(
                 chat_id, _goal_query, correlation_id=correlation_id)
-            _init_tool_ctx.evidence_budget_chars = _l1.evidence_max_chars()
+            _init_tool_ctx.evidence_budget_chars = _init_ev_cap
             # §1.6/§3.4 (волна 3): тот же claim-key и тот же reuse, что в
             # Direct — инициатива не отдельный контур.
             _init_tool_ctx.claim_keys = list(getattr(
@@ -15936,7 +15959,7 @@ class DirectChatService:
             _init_reuse = (_reuse_fn(
                 _initiative_decision, l1_plan=plan,
                 response_plan=response_plan, chat_id=chat_id,
-                capacity_chars=_l1.evidence_max_chars())
+                capacity_chars=_init_ev_cap)
                 if _reuse_fn is not None else None)
             # §3.4 (review-fix 5): reuse-выдержка — база пакета, но tool-фаза
             # для НЕ-сетевых инструментов исполняется и здесь (тот же
@@ -15983,7 +16006,7 @@ class DirectChatService:
                     if _init_raw is not None:
                         _initiative_pack = _dx.build_evidence_pack(
                             _init_raw, response_plan,
-                            capacity_chars=_l1.evidence_max_chars(),
+                            capacity_chars=_init_ev_cap,
                             prepend_sources=(list(getattr(
                                 _init_reuse, "sources", ()) or ())
                                 if _init_reuse is not None else ()))

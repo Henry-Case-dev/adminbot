@@ -427,11 +427,11 @@ class TestEvidencePack:
         assert len(small.text) < len(large.text)
 
     def test_l2_evidence_budget_formula(self):
-        # Окно 8000 токенов, прочие блоки ~4000 токенов, резерв 512 →
-        # evidence ≤ 40% окна (3200) и ≤ 8000-4000-512 (3488).
+        # SXR-C3-02: потолок 40% окна удалён — evidence получает весь
+        # остаток реального входного бюджета (8000-4000 = 4000 токенов).
         budget = _dx.l2_evidence_budget_chars(8000, other_chars=16000)
-        assert budget == 3200 * 4
-        # None (окно неизвестно) → legacy-поведение вызывающего.
+        assert budget == 4000 * 4
+        # None (окно неизвестно) → вызывающий передаёт 0 = без среза.
         assert _dx.l2_evidence_budget_chars(None, other_chars=0) is None
 
 

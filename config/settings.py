@@ -2824,9 +2824,10 @@ class Settings:
     # одноразовой миграции значения в BEFORE, активный код читает эти два.
     FACTCHECK_CONTEXT_BEFORE: int = _env_int_min("FACTCHECK_CONTEXT_BEFORE", 6, 0)
     FACTCHECK_CONTEXT_AFTER: int = _env_int_min("FACTCHECK_CONTEXT_AFTER", 6, 0)
-    # Жёсткий суммарный потолок окна (сообщений) — код-кап, НЕ настройка:
-    # ClassVar → вне каталога/UI (Δ каталога ровно +2). Ограничивает стоимость.
-    FACTCHECK_CONTEXT_TOTAL_CAP: ClassVar[int] = 40
+    # SXR-C2-01 (SMART-EXECUTION-RELIABILITY-01 C2): жёсткий суммарный
+    # код-кап FACTCHECK_CONTEXT_TOTAL_CAP=40 удалён — окно задаётся только
+    # операторскими before/after; реальное переполнение окна модели режет
+    # ёмкостный фид фактчека, а не скрытая константа.
     # CFG-06 W1 (06I.2): широкий адаптивный контекст фактчека 200–500.
     # Решение владельца 25.10.2026: default ON (пустая цель ОБЯЗАНА смотреть
     # окружение; флаг — откат без рестарта). Hot-ключ отката:

@@ -111,16 +111,20 @@ class TestGetMessagesAround:
         assert out == [{"fallback": True}]
 
     @pytest.mark.asyncio
-    async def test_cap_plus_anchor_max_rows(self, db):
-        """R1023F2-06: кап = before+after, якорь сверх → максимум cap+1."""
+    async def test_no_total_cap_keeps_configured_window(self, db):
+        """SXR-C2-01: код-кап 40 удалён — окно = настроенные before/after.
+
+        Заводской путь широкого контекста идёт через ёмкостный фид; узкий
+        fallback получает ровно то, что задал оператор (здесь 1000+1000), а
+        не 40. БД отдаёт доступные строки вокруг якоря.
+        """
         from handlers import factcheck as fc
-        from config.settings import settings as s
         await _seed(db, [(i, f"м{i}") for i in range(1, 61)])
         b, a = fc._clamp_window(1000, 1000)
-        assert b + a == s.FACTCHECK_CONTEXT_TOTAL_CAP
+        assert (b, a) == (1000, 1000)
         rows = await db.get_messages_around(CHAT_ID, 41, b, a)   # якорь id=41
-        assert len(rows) == s.FACTCHECK_CONTEXT_TOTAL_CAP + 1
-        assert rows[-1]["text"] == "м41"
+        assert len(rows) == 60                                  # все доступные
+        assert any(r["text"] == "м41" for r in rows)            # якорь на месте
 
 
 # ── format_chat_context + reply_chains ──────────────────────────────────────
@@ -435,18 +439,15 @@ class TestHandlerWindow:
         assert fc._clamp_window(None, None) == (0, 0)
         assert fc._clamp_window("x", "y") == (0, 0)
 
-    def test_clamp_total_cap(self):
+    def test_clamp_has_no_total_cap(self):
+        """SXR-C2-01: суммарного потолка больше нет — окно как задано."""
         from handlers import factcheck as fc
-        from config.settings import settings as s
-        cap = s.FACTCHECK_CONTEXT_TOTAL_CAP
-        b, a = fc._clamp_window(25, 25)
-        assert (b, a) == (25, cap - 25)
-        assert b + a <= cap
-        b, a = fc._clamp_window(1000, 1000)
-        assert (b, a) == (cap, 0)
+        assert fc._clamp_window(25, 25) == (25, 25)
+        assert fc._clamp_window(1000, 1000) == (1000, 1000)
 
     @pytest.mark.asyncio
-    async def test_fetch_uses_clamped_bidir_window(self, monkeypatch):
+    async def test_fetch_uses_configured_bidir_window(self, monkeypatch):
+        """SXR-C2-01: узкое fallback-окно получает ровно before/after."""
         from handlers import factcheck as fc
 
         class _DB:
@@ -464,7 +465,7 @@ class TestHandlerWindow:
         monkeypatch.setattr(fc, "_db", db)
         out = await fc._fetch_chat_context(
             CHAT_ID, 25, 25, target_tg_message_id=30, trigger_message_id=31)
-        assert db.calls == [(CHAT_ID, 30, 25, 15)]
+        assert db.calls == [(CHAT_ID, 30, 25, 25)]
         assert "якорь" in out
 
     @pytest.mark.asyncio
@@ -713,8 +714,9 @@ class TestCatalogDelta:
         assert Settings.FACTCHECK_CONTEXT_BEFORE == 6
         assert Settings.FACTCHECK_CONTEXT_AFTER == 6
 
-    def test_total_cap_is_code_classvar_not_catalog(self):
-        assert settings.FACTCHECK_CONTEXT_TOTAL_CAP == 40
+    def test_total_cap_removed_not_catalog(self):
+        """SXR-C2-01: кап не существует ни как ClassVar, ни в каталоге."""
+        assert not hasattr(settings, "FACTCHECK_CONTEXT_TOTAL_CAP")
         field_names = {f.name for f in dataclasses.fields(Settings)}
         assert "FACTCHECK_CONTEXT_TOTAL_CAP" not in field_names
         assert pc.get("FACTCHECK_CONTEXT_TOTAL_CAP") is None

@@ -2163,17 +2163,14 @@ class TestCrossCutting:
         assert await cur.fetchall() == []
 
     def test_e05_no_artificial_instruction_quota_in_markers(self):
-        """Cross-cutting (Addendum #3): маркер медиа и honest-строки — данные,
-        не квоты инструкций; cap Current_Question — лимит данных вопроса с
-        ГАРАНТИРОВАННЫМ выживанием маркера; инструкции не сокращаются."""
-        cap = int(settings.CHAT_CURRENT_QUESTION_MAX_CHARS or 800)
+        """Cross-cutting (Addendum #3 + SXR-C2-01): маркер медиа и honest-
+        строки — данные, не квоты инструкций; полный текст вопроса сохраняется
+        вместе с маркером (символьного потолка 800 больше нет)."""
         marker = "[медиа: photo tg:1]"
-        suffix = " ".join([marker])
-        room = max(0, cap - len(suffix) - 1)
-        assert room > 0                         # маркер всегда помещается
-        long_text = "х" * (cap + 500)
-        body = long_text[:room] + " " + suffix
-        assert len(body) <= cap and marker in body
+        long_text = "х" * 3500
+        body = f"{long_text} {marker}"
+        assert body.startswith(long_text) and marker in body
+        assert len(body) >= 3500                # вопрос не срезан
         # honest-строки — различимые факты состояний, не один шаблон:
         lines = set(mca_vision.ANALYSIS_FAILURE_LINES.values()) | {
             mca_vision.PENDING_LINE, mca_vision.NO_TEXT_LINE,
