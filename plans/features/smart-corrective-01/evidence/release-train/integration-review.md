@@ -990,3 +990,65 @@ Train `409f4e8a` may proceed to controlled deployment only after PM binds this a
 ## Blocking handoff
 
 PM/Orchestrator must bind rows/evidence, reconcile 119 gate errors, rerun deploy-stage gate and only then authorize controlled deployment. Do not mark rows `VERIFIED`.
+
+## Delta integration review 2.58.202
+
+- **Candidate/base:** `release/smart-corrective-01` tip `0beed63df8037002ccfaacef019b8ea948d957f6` (`2.58.202`), base `409f4e8a` (`2.58.201`). Train worktree was retained for DevOps.
+- **Verdict:** **Needs Fixes** for the exact combined artifact. The approved guard semantics themselves remain intact, but the requested diff-scope invariant is not satisfied by the candidate as reviewed.
+
+### Diff audit
+
+`git diff 409f4e8a..0beed63d` contains 38 paths. The guard paths are present and the 30-file version-bump set is present, but the diff also includes the following versioned test files outside the explicitly named guard files: `tests/test_decision_making_round1026.py`, `tests/test_image_context_memory_round1026.py`, `tests/test_mca17c_invariants_round1047.py`, `tests/test_round1025_f8_registry.py`, `tests/test_scope_selector_round1025.py`, `tests/test_summary_deploy_round1026.py`, `tests/test_summary_fact_package.py`, `tests/test_summary_logging_runid.py`, `tests/test_summary_publish_integration_round1026.py`, `tests/test_summary_test_run.py`, `tests/test_telegram_reactions_round1026.py`, `tests/test_tool_coordinator_round1026.py`, `tests/test_unified_image_request_round1026.py`, `tests/test_webapp_design_tokens_round1025.py`, `tests/test_webapp_f11_round1025.py`, `tests/test_webapp_f6_round1025.py`, `tests/test_webapp_f7_round1025.py`, `tests/test_webapp_f9_round1025.py`, `tests/test_webapp_hotfix10_round1025.py`, `tests/test_webapp_hotfix6_round1025.py`, `tests/test_webapp_hotfix7_round1025.py`, `tests/test_webapp_hotfix8_round1025.py`, `tests/test_webapp_hotfix9_round1025.py`, `tests/test_webapp_round1026_polygon.py` and four JS test files. These must be explicitly justified as the intended version-bump set or removed from this release train.
+
+No changes were observed in `services/database.py` or `migrate_history`; the inspected metadata retains schema v47, DDL=0, REGISTRY=645 and GROUPS=121. No factory prompt text/label change was observed in the guard diff.
+
+### Guard merge semantics
+
+`services/prompt_release_policy.py` in the merged tip retains the approved ordering: explicit pinned/baseline handling precedes the manual-revision guard. The guard queries live `origin='manual' AND retired=false` state, preserves the chat bytes/override, records `factory_superseded_manual`, and writes the factory revision to history. The baseline test keeps the old behavior when no saved manual revision exists. This matches the approved guard branch evidence (`s6-prompt-guard/review-r1.md`, approved code `a8b6197f`) and no new semantic drift was found.
+
+### Version bump and manifest
+
+`APP_VERSION` and the registry metadata are `2.58.202`; the metadata reports REGISTRY 645 / GROUPS 121. The train manifest evidence reports version `2.58.202`, `deployed_sha=0beed63d` and `dirty=false`. The version bump itself is consistent with the prior release format, subject to resolving the diff-scope finding above.
+
+### Checks executed/reused
+
+- Executed on the train: `pytest tests/test_smart_corrective_prompt_delivery.py tests/test_prompt_baseline.py tests/test_evol016_prompt_activation.py -q` → **69 passed, 1 skipped**.
+- Executed pin-related subset: `tests/test_tool_coordinator_round1026.py tests/test_unified_image_request_round1026.py tests/test_round1025_f8_registry.py` → **104 passed, 4 failed**. The failures are the existing forbidden-diff/canon checks against the broad historical baseline, not the guard tests; they nevertheless prevent claiming the requested pin guard as green on this exact train.
+- Reused from candidate-bound guard review: guard/S6 **320 passed, 2 skipped**; checkup/prompt **331 passed**; regression **264 passed, 1 pre-existing failure**; baseline **274 passed, 2 skipped, 1 pre-existing failure**; sanity **328**; JS **4**. The full pin **856/4** claim was not independently rerun in this delta review.
+- The guard review's pre-existing `prompt_field_audit` and `soul1_registry_completeness` observations remain separate and were not treated as new delta failures.
+
+### Independent falsification
+
+The focused guard tests on the merged train passed. The approved guard review's disposable mutation evidence remains candidate-lineage evidence: disabling only the guard caused exactly the three guard tests to fail while two unrelated cases stayed green. A fresh mutation copy was not retained/run after the diff-scope blocker was observed; this claim is therefore reused, not newly executed for the combined tip.
+
+### Deploy/postdeploy obligations
+
+Even after the scope correction, deployment must retain these unresolved obligations: DevOps data-only reactivation of `rev:d31300ef35a0`; a checkup in the affected chat confirming `prompt_source=chat`, 12,469 chars and hash prefix `31d17506`; clean SFC-12-09; watchdog events; and the remaining parent live rows. No requirement is marked `VERIFIED` and no production access was used.
+
+### Blocking handoff
+
+**Owner: PM/Orchestrator + DevOps.** First reconcile the 38-path delta against the declared guard plus version-bump allowlist and remove or explicitly bind every unexpected path. Then rerun the full train pin guard and the candidate-bound deploy gate. Minimum recheck: exact diff allowlist passes, pin suite has no new failure, and deploy gate remains `errors=0`. Do not deploy or mark requirements `VERIFIED` before that recheck.
+
+## Delta integration review 2.58.202 - scope blocker resolved
+
+- Exact candidate: `0beed63df8037002ccfaacef019b8ea948d957f6` (`2.58.202`).
+- Base: `409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9` (`2.58.201`).
+- Verdict: **Approved for controlled deployment** of this exact combined artifact. Predeploy approval only; no requirement is marked `VERIFIED`.
+
+### Diff audit
+`git diff --name-only 409f4e8a..0beed63d` returned exactly 38 paths. All belong to the declared union: 7 guard paths, 30 version-bump paths, and 1 train merge-log path. `outliers=[]`; `missing_expected_bump=[]`.
+
+The 30 bump paths are exactly the file set reported by both `git show --stat a476818d` and `git show --stat 051ab76a` (30 files, 31 insertions, 31 deletions). Every bump path at `0beed63d` has the same Git blob as at `a476818d` (`bump_blob_mismatches=[]`). Every non-evidence guard path matches approved guard head `703b2877` (`guard_blob_mismatches=[]`). `review-r1.md` remains master binding evidence and is intentionally absent from the train.
+
+### Pin and guard checks
+The four pin failures are known base failures: canon 17 versus 18, canonical tool description/order with extra `inspect_runtime`, forbidden-diff allowlist, and web-diff allowlist. They reproduce on/reported for base `409f4e8a` and are not introduced by this merge or bump. Train subset: 104 passed, 4 failed. Focused merged guard tests: 69 passed, 1 skipped. Reused guard evidence: 320 passed/2 skipped; checkup/prompt 331 passed; regression 264 passed/1 pre-existing failure; baseline 274 passed/2 skipped/1 pre-existing failure; sanity 328; JS 4.
+
+### Semantics and evidence
+Merged `prompt_release_policy.py` preserves pinned/baseline precedence, live manual revision filtering (`origin=manual`, `retired=false`), chat bytes/override preservation, factory history insertion and `factory_superseded_manual`. No factory prompt text/label changed; schema v47, DDL=0, catalog 645/121.
+
+- Implementation: exact 38-path union and per-file blob equality checked against `703b2877`, `a476818d` and `051ab76a`.
+- Test validity: assertions cover journal state, bytes, history, diagnostics, isolation and restart no-op; known baseline reds were not relabeled as passes.
+- Independent challenge: merged guard suite passed; prior disposable mutation disabled only the guard and failed exactly three guard tests; pin reds reproduced as base-class failures.
+
+### Controlled deployment and postdeploy
+Approved only for controlled deployment of exact tip `0beed63d`. Postdeploy obligations remain: DevOps data-only reactivation of `rev:d31300ef35a0`; checkup in the affected chat with `prompt_source=chat`, 12,469 chars and hash prefix `31d17506...`; clean SFC-12-09; watchdog events; remaining parent live rows. These are not owner QA assignments. No production access was used. No requirements are marked `VERIFIED`; final release acceptance remains pending.
