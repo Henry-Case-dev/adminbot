@@ -145,6 +145,20 @@ def _candidate_bytes(path: str) -> bytes:
     return (root / path).read_bytes()
 
 
+def _candidate_line(*needles: str) -> int:
+    """Номер (1-based) первой строки кандидата, содержащей все needles.
+
+    Real-path тесты читают файл кандидата настоящим SourceReader; привязка к
+    фиксированному номеру ломалась бы от любого законного изменения размера
+    файла, не проверяя при этом ничего содержательного.
+    """
+    text = _candidate_bytes("services/checkup_service.py").decode("utf-8")
+    for index, line in enumerate(text.splitlines(), 1):
+        if all(needle in line for needle in needles):
+            return index
+    raise AssertionError(f"anchor not found in candidate: {needles}")
+
+
 def _snapshot_repo(tmp_path):
     """Мини-снимок кандидата с РЕАЛЬНЫМ git-коммитом и manifest identity.
 
@@ -189,13 +203,15 @@ class _RealPathLLM:
     результаты — настоящий код (`chat_with_tools` + ToolRouter + SourceReader
     + DiagnosticCollector + policy)."""
 
-    def __init__(self, *, final_text=None):
+    def __init__(self, *, final_text=None, line_start=None, line_end=None):
+        first = _candidate_line("if telemetry is not None")
         self._results = [
             LLMChatResult(content=None, tool_calls=[
                 _tc("real-read", "read_source_code", {
                     "operation": "read",
                     "path": "services/checkup_service.py",
-                    "line_start": 150, "line_end": 175}),
+                    "line_start": int(line_start or first),
+                    "line_end": int(line_end or first)}),
                 _tc("real-runtime", "inspect_runtime", {
                     "area": "logs", "probe": "logs.window",
                     "scope": "instance"}),
@@ -424,7 +440,8 @@ class TestCheckupResearchLoop:
             assert source_result["verified"] is True, source_result
             assert source_result["commit"] == sha
             assert source_result["path"] == "services/checkup_service.py"
-            assert source_result["line_range"] == [150, 175]
+            anchor = _candidate_line("if telemetry is not None")
+            assert source_result["line_range"] == [anchor, anchor]
             assert "if telemetry is not None" in source_result["snippet"]
             identity_out = source_result["repo_identity"]
             assert identity_out["ref_source"] == "deployed_sha"
@@ -522,13 +539,15 @@ class TestContinuationContext:
                 if step == "orchestrator":
                     self.orchestrator_calls += 1
                     if self.orchestrator_calls == 1:
+                        anchor = _candidate_line(
+                            "if telemetry is not None")
                         return json.dumps({
                             "action": "call_tool",
                             "tool": "read_source_code",
                             "arguments": {
                                 "operation": "read",
                                 "path": "services/checkup_service.py",
-                                "line_start": 150, "line_end": 175},
+                                "line_start": anchor, "line_end": anchor},
                             "reason": "verify implementation",
                             "evidence_goal": "checkup tool loop"},
                             ensure_ascii=False)
@@ -538,8 +557,8 @@ class TestContinuationContext:
                     joined = "\n".join(str(m.get("content") or "")
                                        for m in messages)
                     self.tool_ready = "if telemetry is not None" in joined
-                    return ("По прочитанному коду: на строке 150 виден "
-                            "tool-loop чекапа." if self.tool_ready
+                    return ("По прочитанному коду: в чекапе виден "
+                            "tool-loop." if self.tool_ready
                             else "Код прочитать не удалось.")
                 return "ok"
 
@@ -596,8 +615,8 @@ class TestContinuationContext:
             await asyncio.sleep(0)
             sent = [str(c.args[1]) for c in bot.send_message.await_args_list
                     if len(c.args) > 1]
-            assert any("на строке 150" in text for text in sent), sent
-            answer = next(text for text in sent if "на строке 150" in text)
+            assert any("в чекапе виден" in text for text in sent), sent
+            answer = next(text for text in sent if "в чекапе виден" in text)
             assert "пришли" not in answer.lower()
             assert "github" not in answer.lower()
             assert "репозитор" not in answer.lower()
@@ -722,15 +741,16 @@ class TestContinuationContext:
                     diagnostic_research=identity)
                 router = ToolRouter(ToolDeps(
                     search=None, memory=None, aliases=None))
+                anchor = _candidate_line("if telemetry is not None")
                 out = await router.dispatch(
                     "read_source_code",
                     {"operation": "read",
                      "path": "services/checkup_service.py",
-                     "line_start": 150, "line_end": 175}, reader_ctx)
+                     "line_start": anchor, "line_end": anchor}, reader_ctx)
                 payload = json.loads(out)
                 assert payload["status"] == "ok"
                 assert payload["path"] == "services/checkup_service.py"
-                assert payload["line_range"] == [150, 175]
+                assert payload["line_range"] == [anchor, anchor]
                 assert payload["repo_identity"]["ref_source"] == "deployed_sha"
             finally:
                 hot.set_config_cache(None)

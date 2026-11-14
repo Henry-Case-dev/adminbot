@@ -1,0 +1,9 @@
+[
+  {
+    "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-68195166",
+    "owner": "Builder (S4-COMPLETION) / Reviewer",
+    "reason": "Active implementation worktree for independent review; branch sc/corrective-s4 (code candidate 8ccd0730; see implementation.md).",
+    "evidence": "plans/features/smart-corrective-01/evidence/s4/implementation.md",
+    "next_event": "After Reviewer joins the exact candidate and evidence is transferred; then unit-close may remove the clean integrated worktree."
+  }
+]

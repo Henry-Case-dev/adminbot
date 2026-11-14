@@ -787,6 +787,13 @@ class DiagnosticCollector:
         который отдал логи (``last_state``), без второго чтения журнала.
         Отчёт получает явное различие: проверенный ноль в прочитанном окне,
         наблюдённые проблемы или неизвестность при недоступном журнале.
+
+        SMART-CORRECTIVE-01 §7 (F-S3B-01): объём facts-блока определяется тем
+        же операторским резолвом, что и вход чекапа
+        (``_facts_budget_chars``): budgets ON → сохранённый
+        ``limits.checkup_max_input_symbols``; budgets OFF → без символьной
+        обрезки фактов (``0``), физическую ёмкость применяет сборщик входа
+        чекапа. Отдельного искусственного потолка фактов нет.
         """
         log_state = str(log_state or "").strip().lower()
         journal_state = str(journal_state or "").strip().lower()
@@ -891,7 +898,8 @@ class DiagnosticCollector:
                              observations=observations,
                              identity=self._identity_record(now))
         facts_text = bundle.render_facts_text(
-            result["bundle"], max_chars=int(self.limits.max_facts_chars))
+            result["bundle"],
+            max_chars=await self._facts_budget_chars(chat_id))
         # SXR-H1-02/H5: если явный бюджет фактов отсёк хвост, агрегат
         # not_checked не должен исчезнуть вместе с ним: модель обязана
         # видеть, что именно осталось непроверенным. Строка дописывается
@@ -903,3 +911,35 @@ class DiagnosticCollector:
             facts_text = (facts_text + "\n[facts_unknown] not_checked="
                           + ",".join(unchecked)[:400])
         return result["bundle"], facts_text
+
+    async def _facts_budget_chars(self, chat_id: int | None) -> int:
+        """SMART-CORRECTIVE-01 §7 (S3B-INPUT, F-S3B-01): ёмкость facts-блока.
+
+        Один и тот же операторский резолв, что у входа чекапа
+        (`services.budget_gate` → `limits.checkup_max_input_symbols`):
+
+        * effective budgets ON  → сохранённое операторское значение;
+          искусственного отдельного потолка фактов (прежние 3000) больше нет;
+          общий payload дополнительно раскладывается сборщиком входа чекапа;
+        * budgets OFF → ``0``: символьной обрезки фактов нет, доказательства
+          не теряются; физическую ёмкость модели применяет
+          `services/checkup_service` к общему payload по значимости.
+
+        Потолки самих probes (`ProbeLimits`, per-probe caps, окно журнала)
+        остаются как есть — это отдельный safety/physical слой. Новых
+        констант не вводится; ошибка резолвера → консервативная ON-семантика
+        (существующий fail-open `budget_gate`).
+        """
+        try:
+            from services import budget_gate
+            budgets_on = bool(await budget_gate.budgets_enabled(chat_id))
+        except Exception:      # pragma: no cover - резолвер не бросает
+            budgets_on = True
+        if not budgets_on:
+            return 0
+        try:
+            value = int(hot.get("limits.checkup_max_input_symbols",
+                                settings.CHECKUP_MAX_INPUT_SYMBOLS))
+        except (TypeError, ValueError):
+            value = int(settings.CHECKUP_MAX_INPUT_SYMBOLS)
+        return max(1, value)

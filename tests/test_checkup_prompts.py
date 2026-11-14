@@ -29,6 +29,7 @@ from services.checkup_prompts import (
     CHECKUP_FALLBACK_NOTICE,
     CHECKUP_SYSTEM_PROMPT,
     PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT,
     PREV_CHECKUP_P0_SYSTEM_PROMPT,
     PREV_CHECKUP_R1021_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
@@ -63,10 +64,50 @@ def _sut_block(text: str) -> str:
 
 
 class TestTargetEdition:
-    def test_base_is_owner_text_byte_exact(self):
-        """Заводская база = §2 исходника байт-в-байт (не пересказ)."""
-        base = CHECKUP_SYSTEM_PROMPT[: -len(STYLE_BLOCKS_SUFFIX)]
+    def test_prev_edition_is_owner_text_byte_exact(self):
+        """ПРЕЖНЯЯ заводская база = §2 исходника байт-в-байт (история цела).
+
+        SMART-CORRECTIVE-01 §8.5: исторические байты прода 2.58.200 не
+        переписаны — они сохранены как ``PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT``.
+        """
+        base = PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT[: -len(STYLE_BLOCKS_SUFFIX)]
         assert base == _target_edition_from_source()
+        assert len(PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT) == 3030
+        assert hashlib.sha256(
+            PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT.encode("utf-8")
+        ).hexdigest()[:16] == "b0c70f974e0e7a78"
+
+    def test_active_edition_is_documented_stale_fix_only(self):
+        """Активная редакция = тот же owner-текст + только §8.5-правки.
+
+        Доказывает, что «доставка промпта» не подменена третьим текстом:
+        отличия ровно два и оба — удаление устаревшего Betterstack/401 и
+        смысловая граница смешанного состояния (§8.4/§8.5).
+        """
+        source = _target_edition_from_source()
+        expected = source.replace(
+            "по переданным логам Betterstack или локальным журналам и "
+            "метрикам",
+            "по переданным логам, локальным журналам и метрикам",
+        ).replace(
+            "Если облачный источник логов вернул 401, это отказ авторизации, "
+            "а не доказательство общего отказа провайдера.",
+            "Чистое свежее окно журналов не отменяет уже обнаруженный "
+            "существенный инженерный косяк и не означает, что активных "
+            "ERROR-инцидентов нет: рабочая инфраструктура и активный "
+            "инцидент могут быть верны одновременно, отражай оба факта. "
+            "Активная историческая запись сама по себе не доказывает, что "
+            "компонент падает прямо сейчас, а доказанный косяк не "
+            "смягчается тем, что остальная система работает. Если источник "
+            "данных этого запуска недоступен, это отказ конкретного "
+            "источника, а не доказательство отказа всей системы или "
+            "отсутствия других маршрутов диагностики.",
+        )
+        active_base = CHECKUP_SYSTEM_PROMPT[: -len(STYLE_BLOCKS_SUFFIX)]
+        assert active_base == expected
+        # Betterstack как источник больше не упоминается в АКТИВНОМ жанре.
+        assert "betterstack" not in CHECKUP_SYSTEM_PROMPT.casefold()
+        assert "401" not in CHECKUP_SYSTEM_PROMPT
 
     def test_canon_is_target_plus_existing_style_suffix(self):
         """Жанр + ЕДИНЫЙ существующий суффикс A/B, без копии блоков внутрь."""

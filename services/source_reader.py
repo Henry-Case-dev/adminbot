@@ -57,9 +57,30 @@ STATUS_OK = "ok"
 STATUS_AMBIGUOUS = "ambiguous"
 STATUS_NOT_FOUND = "not_found"
 STATUS_UNSUPPORTED = "unsupported"
+STATUS_PARTIAL = "partial"
 STATUS_ERROR = "error"
 STATUSES = frozenset({STATUS_OK, STATUS_AMBIGUOUS, STATUS_NOT_FOUND,
-                      STATUS_UNSUPPORTED, STATUS_ERROR})
+                      STATUS_UNSUPPORTED, STATUS_PARTIAL, STATUS_ERROR})
+
+# ── канонический класс результата (SMART-CORRECTIVE-01 §1) ──────────────────
+# `status` остаётся прежним закрытым набором для существующих потребителей
+# (`tool_result.classify_output` и др.). Новый `outcome` структурно различает
+# классы, которые раньше смешивались в `not_found`/`error`/`unsupported`.
+OUTCOME_OK = "ok"
+OUTCOME_AMBIGUOUS = "ambiguous"
+OUTCOME_NOT_FOUND = "not_found"
+OUTCOME_SEARCH_FAILED = "search_failed"
+OUTCOME_PARTIAL = "partial"
+OUTCOME_SOURCE_UNAVAILABLE = "source_unavailable"
+OUTCOME_PERMISSION_DENIED = "permission_denied"
+OUTCOME_PROVIDER_LIMIT = "provider_limit"
+OUTCOME_REVISION_MISMATCH = "revision_mismatch"
+OUTCOME_UNSUPPORTED = "unsupported"
+OUTCOMES = frozenset({
+    OUTCOME_OK, OUTCOME_AMBIGUOUS, OUTCOME_NOT_FOUND, OUTCOME_SEARCH_FAILED,
+    OUTCOME_PARTIAL, OUTCOME_SOURCE_UNAVAILABLE, OUTCOME_PERMISSION_DENIED,
+    OUTCOME_PROVIDER_LIMIT, OUTCOME_REVISION_MISMATCH, OUTCOME_UNSUPPORTED,
+})
 
 # ── стадии (§1.2.5: стадии различимы в диагностике) ─────────────────────────
 STAGE_DISCOVER = "discover"
@@ -83,6 +104,38 @@ KIND_ISSUE = "issue"
 KIND_PULL = "pull"
 KIND_RELEASE = "release"
 KIND_OTHER = "other"
+
+# ── класс материала найденного совпадения (SMART-CORRECTIVE-01 §4.3) ────────
+# Результат поиска различает реализацию, вызывающий код, тесты, документацию,
+# планы, миграционные материалы, скрипты развёртывания и упоминания. Это
+# структурная классификация пути/строки, а не таблица известных инцидентов.
+MATERIAL_IMPLEMENTATION = "implementation"
+MATERIAL_CALLER = "caller"
+MATERIAL_TESTS = "tests"
+MATERIAL_DOCUMENTATION = "documentation"
+MATERIAL_PLANS = "plans"
+MATERIAL_MIGRATION = "migration"
+MATERIAL_DEPLOY_SCRIPT = "deploy_script"
+MATERIAL_MENTION = "mention"
+MATERIAL_OTHER = "other"
+MATERIALS = frozenset({
+    MATERIAL_IMPLEMENTATION, MATERIAL_CALLER, MATERIAL_TESTS,
+    MATERIAL_DOCUMENTATION, MATERIAL_PLANS, MATERIAL_MIGRATION,
+    MATERIAL_DEPLOY_SCRIPT, MATERIAL_MENTION, MATERIAL_OTHER,
+})
+#: Порядок выдачи: сначала производственный код, затем проверочные/служебные
+#: материалы. Тесты, документация и скрипты НЕ исключаются из результата.
+_MATERIAL_SEARCH_ORDER = {
+    MATERIAL_IMPLEMENTATION: 0,
+    MATERIAL_CALLER: 1,
+    MATERIAL_TESTS: 2,
+    MATERIAL_MIGRATION: 3,
+    MATERIAL_DEPLOY_SCRIPT: 4,
+    MATERIAL_DOCUMENTATION: 5,
+    MATERIAL_PLANS: 6,
+    MATERIAL_OTHER: 7,
+    MATERIAL_MENTION: 8,
+}
 
 # ── провайдер/эндпоинты (id вызова, НЕ URL с токенами) ──────────────────────
 PROVIDER_GITHUB = "github"
@@ -131,6 +184,9 @@ ERR_UNSUPPORTED_KIND = "unsupported"
 ERR_PATH_DENIED = "path_denied"
 #: Пустой файл — это НЕ «файла нет»: отдельная машинная причина.
 ERR_EMPTY_CONTENT = "empty_content"
+#: Запрошенная точная ревизия не совпала с тем, что отдал выбранный источник.
+#: Telemetry использует существующий код `source_revision_changed` (§5).
+ERR_REVISION_MISMATCH = "revision_mismatch"
 
 #: payload-код → существующий `mca_events.REASON_CODES` (§5):
 #: `no_relevant_results` — payload-код, в словаре ему соответствует
@@ -154,6 +210,9 @@ _REASON_FOR_CODE = {
     # Denied-path — отказ политики, а не «файла нет»; существующий код
     # словаря `permission_denied` (новых telemetry-кодов не вводится).
     ERR_PATH_DENIED: "permission_denied",
+    # Точная ревизия не совпала с запрошенной — существующий код
+    # `source_revision_changed` (0 новых telemetry-кодов).
+    ERR_REVISION_MISMATCH: "source_revision_changed",
 }
 
 # ── предохранители ──────────────────────────────────────────────────────────
@@ -178,8 +237,35 @@ _DEFAULT_MAX_FILE_BYTES = 2_000_000
 _MAX_REF_CANDIDATES = 4
 #: Сколько кандидатов-репозиториев показывать при неоднозначности (§3: ≤3).
 _MAX_CANDIDATES = 3
-#: Сколько путей-кандидатов отбирает локатор (§3: ≤3).
-_MAX_LOCATOR_PATHS = 3
+# SMART-CORRECTIVE-01: фиксированный потолок локатора `_MAX_LOCATOR_PATHS = 3`
+# удалён. Поиск идёт по содержимому всей доступной ревизии; порционная выдача
+# и продолжение описаны в `_content_search`/`continuation`, а не top-N.
+#: Физический предел байтов, прочитанных ОДНИМ вызовом поиска по содержимому
+#: (CPU/память/сеть). Не является потолком полноты: при исчерпании возвращается
+#: честный `partial` + opaque cursor для продолжения с места остановки.
+_CONTENT_SCAN_BUDGET_BYTES = 8 * 1024 * 1024
+#: Предел символов, отданных в одном ответе для списка совпадений (payload).
+#: Не top-N: недоданные совпадения доступны через `continuation.cursor`.
+_CONTENT_MATCH_DELIVERY_CHARS = 60_000
+#: Длина строки совпадения/контекста в списке `matches` (payload).
+_CONTENT_MATCH_LINE_CHARS = 400
+#: Сколько раз повторять ОДНО чтение файла при временном отказе провайдера.
+_CONTENT_READ_RETRIES = 1
+#: Текстовые расширения поиска по содержимому: исходники + документация/планы/
+#: конфиги/скрипты. Это форма файла, а не словарь имён проекта.
+_SEARCHABLE_TEXT_EXTS = frozenset({
+    ".java", ".kt", ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs",
+    ".rb", ".php", ".cs", ".c", ".h", ".hpp", ".cc", ".cpp", ".scala",
+    ".swift", ".m", ".lua",
+    ".md", ".rst", ".txt", ".json", ".yaml", ".yml", ".toml", ".ini",
+    ".cfg", ".conf", ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd",
+    ".sql", ".xml", ".html", ".css", ".gradle", ".properties", ".env",
+})
+#: Имена файлов без расширения, которые являются текстовыми материалами.
+_SEARCHABLE_FILENAMES = frozenset({
+    "Dockerfile", "Makefile", "Procfile", "Jenkinsfile", "Vagrantfile",
+    "docker-compose.yml", "docker-compose.yaml",
+})
 #: Локальная карта: предохранитель обхода (не квота инструкций/чтения).
 _LOCAL_TREE_MAX_ENTRIES = 20_000
 #: Каталоги инструментов/зависимостей: в git-дереве репозитория их нет, а
@@ -273,6 +359,28 @@ def max_file_bytes() -> int:
     """Предел байтов ОДНОГО файла — реальная память/транспорт (§C1 438)."""
     return _bounded_int("SOURCE_READ_MAX_FILE_BYTES", _DEFAULT_MAX_FILE_BYTES,
                         64 * 1024 * 1024)
+
+
+def content_scan_budget_bytes() -> int:
+    """Физический предел сканирования содержимого за один вызов.
+
+    Это не semantic top-N: при исчерпании поиск не обрывается, а возвращает
+    `partial` + cursor и продолжается следующим вызовом с того же места.
+    ``SOURCE_READ_CONTENT_SCAN_BYTES`` позволяет оператору уменьшить/увеличить
+    физический бюджет; мусор/0 → заводское значение.
+    """
+    raw = os.environ.get("SOURCE_READ_CONTENT_SCAN_BYTES")
+    default = int(globals().get("_CONTENT_SCAN_BUDGET_BYTES",
+                                _CONTENT_SCAN_BUDGET_BYTES) or 0)
+    if raw is None:
+        return max(64 * 1024, default)
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        value = 0
+    if value <= 0:
+        return max(64 * 1024, default)
+    return min(value, 256 * 1024 * 1024)
 
 
 def github_token() -> str:
@@ -2469,7 +2577,8 @@ class SourceReader:
                   symbol: Any = "", line_start=None, line_end=None,
                   follow=None, language: Any = "", budget_chars: int = 0,
                   context_query: Any = "", chat_id: int | None = None,
-                  budget_enforced: bool | None = None) -> dict:
+                  budget_enforced: bool | None = None,
+                  cursor: Any = "") -> dict:
         """Один вызов инструмента → payload Evidence Contract (§1.1).
 
         Все аргументы, кроме ``operation``, опциональны и могут быть выведены
@@ -2484,6 +2593,32 @@ class SourceReader:
         started = time.monotonic()
         state = _RunState(operation=str(operation or OPERATION_READ).lower(),
                           budget_chars=int(budget_chars or 0))
+        # Opaque continuation: проверяется по identity (repo/commit/query/symbol);
+        # несовпадение — честный revision_mismatch, а не чтение чужой ревизии.
+        decoded_cursor = _cursor_decode(cursor)
+        if decoded_cursor is not None:
+            state.cursor = decoded_cursor
+            if decoded_cursor.get("kind") == "content_search":
+                repo = repo or decoded_cursor.get("repo") or ""
+                query = query or decoded_cursor.get("query") or ""
+                symbol = symbol or decoded_cursor.get("symbol") or ""
+        elif str(cursor or "").strip():
+            state.cursor = {"kind": "invalid"}
+        state.query = str(query or context_query or "").strip()[:500]
+        state.requested_ref_original = str(ref or "").strip()
+        state.requested_commit = (
+            state.requested_ref_original.lower()
+            if re.fullmatch(r"[0-9a-fA-F]{40}",
+                            state.requested_ref_original or "")
+            else "")
+        if decoded_cursor is not None and decoded_cursor.get("progress_id"):
+            # Продолжение того же исследования: progress id не меняется от
+            # того, что cursor сам передал repo/ref.
+            state.progress_id = str(decoded_cursor.get("progress_id") or "")
+        else:
+            state.progress_id = _progress_id(
+                state.operation, repo, state.requested_ref_original, path,
+                state.query, symbol)
         state.budget_enforced = (bool(budget_enforced)
                                  if budget_enforced is not None
                                  else await budget_limits_enforced(chat_id))
@@ -2515,6 +2650,25 @@ class SourceReader:
         payload["network_calls"] = used
         payload["network_calls_total"] = self._network_calls()
         payload.setdefault("provenance", {})["network_calls"] = used
+        # Канонический класс + стабильные идентификаторы (SMART-CORRECTIVE-01).
+        payload["outcome"] = str(payload.get("outcome")
+                                or _outcome_for_status(
+                                    str(payload.get("status") or "")))
+        payload["partial"] = bool(
+            payload.get("partial")
+            or payload["outcome"] == OUTCOME_PARTIAL)
+        payload["operation"] = state.operation
+        payload["query"] = state.query
+        payload["progress_id"] = state.progress_id
+        payload["idempotency_key"] = _idempotency_key(payload)
+        provenance = payload.setdefault("provenance", {})
+        provenance.update({
+            "repo": str(payload.get("repo") or ""),
+            "commit": str(payload.get("commit") or ""),
+            "operation": state.operation,
+            "outcome": payload["outcome"],
+            "progress_id": state.progress_id,
+        })
         payload["source_selection"] = self._source_selection(state, payload)
         return payload
 
@@ -2522,6 +2676,10 @@ class SourceReader:
     async def _run(self, state: "_RunState", *, url, repo, query, ref, path,
                    symbol, line_start, line_end, follow, language,
                    context_query) -> dict:
+        if isinstance(state.cursor, dict) and state.cursor.get("kind") \
+                not in (None, "content_search"):
+            raise SourceFetchError(ERR_REVISION_MISMATCH, STAGE_DISCOVER,
+                                   detail="cursor_invalid")
         if not source_read_enabled():
             raise SourceFetchError(ERR_DISABLED, STAGE_DISCOVER,
                                    detail="kill_switch")
@@ -2555,6 +2713,28 @@ class SourceReader:
             return stop
         state.provider = provider or self.provider
         state.repo = info.full_name
+        cursor_state = (state.cursor
+                        if isinstance(state.cursor, dict) else None)
+        if cursor_state is not None:
+            cursor_provider = str(cursor_state.get("provider") or "")
+            current_provider = self._provider_name(state)
+            if (cursor_provider == PROVIDER_GITHUB
+                    and current_provider != PROVIDER_GITHUB):
+                remote = self.provider
+                if getattr(remote, "name", "") == PROVIDER_GITHUB:
+                    state.provider = remote
+                    ref = str(cursor_state.get("commit") or "")
+                    if state.remote_fallback is None:
+                        state.remote_fallback = {
+                            "from": current_provider,
+                            "reason": "continuation_provider",
+                            "commit": ref,
+                        }
+            elif (cursor_provider == PROVIDER_LOCAL
+                  and current_provider != PROVIDER_LOCAL):
+                raise SourceFetchError(
+                    ERR_REVISION_MISMATCH, STAGE_DISCOVER,
+                    detail="cursor_provider_unavailable")
         # Приватный доступ (авторизация использована) → reuse только внутри чата
         # (§3.3: публичный документ можно, приватный контекст — нет).
         state.repo_scope = ("chat"
@@ -2679,7 +2859,7 @@ class SourceReader:
                            runner_up: dict, candidates: list) -> dict:
         """Неоднозначность — НЕ выбор за пользователя: один вопрос (§3)."""
         payload = self._payload(
-            state, STATUS_AMBIGUOUS,
+            state, STATUS_AMBIGUOUS, outcome=OUTCOME_AMBIGUOUS,
             reason="ambiguous_identity",
             question=(f"Уточни, какой репозиторий нужен: "
                       f"{top['repo'].full_name} или "
@@ -2833,7 +3013,27 @@ class SourceReader:
         provider = state.provider or self.provider
         raw_ref = str(ref or "").strip()
         if re.fullmatch(r"[0-9a-fA-F]{40}", raw_ref or ""):
-            return raw_ref.lower()
+            wanted = raw_ref.lower()
+            if getattr(provider, "name", "") == PROVIDER_LOCAL:
+                # Локальное дерево отдаёт только собственный revision-токен:
+                # другой commit — не commit-pinned чтение. Это availability,
+                # а не отказ безопасности: допустим ровно один remote-поход.
+                resolved = await provider.resolve_commit(info.full_name, wanted)
+                if resolved is None:
+                    deployed = self._deployed_sha_hint()
+                    detail = ("commit_not_available"
+                              if deployed and wanted == deployed
+                              else "requested_commit_unavailable")
+                    raise SourceFetchError(
+                        ERR_REVISION_MISMATCH, STAGE_FETCH,
+                        retryable=False, detail=detail)
+                if str(resolved).lower() != wanted:
+                    raise SourceFetchError(
+                        ERR_REVISION_MISMATCH, STAGE_FETCH,
+                        detail="commit_mismatch")
+                return wanted
+            # GitHub: commit закреплён самим запросом; ветка не подставляется.
+            return wanted
         wanted = raw_ref or info.default_branch or ""
         if not wanted:
             raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_FETCH,
@@ -2846,6 +3046,10 @@ class SourceReader:
         if not commit:
             raise SourceFetchError(ERR_SOURCE_MISSING, STAGE_FETCH, http=404,
                                    detail="ref_not_found")
+        commit = str(commit).lower()
+        if state.requested_commit and commit != state.requested_commit:
+            raise SourceFetchError(ERR_REVISION_MISMATCH, STAGE_FETCH,
+                                   detail="commit_mismatch")
         return commit
 
     # -- одно чтение файла ----------------------------------------------
@@ -2957,63 +3161,730 @@ class SourceReader:
     async def _locate_in_tree(self, state: "_RunState", info, *, parsed,
                               ref_hint: str, path_hint: str, symbol: str,
                               query: str) -> dict:
-        commit = await self._commit_for(state, info, ref_hint)
+        """Локатор: реальный поиск по содержимому доступной ревизии.
+
+        SMART-CORRECTIVE-01 §3–§4: фиксированный top-3 удалён. Сначала по
+        дереву ранжируются пути (подсказка), затем байты каждого доступного
+        текстового файла проверяются на реальные вхождения. Класс материала
+        (implementation/caller/tests/docs/plans/migration/deploy/mention)
+        входит в результат. Физический бюджет сканирования не является
+        semantic top-N: исчерпание даёт `partial` + opaque cursor, а не
+        молчаливое «не найдено». Local→remote fallback — ровно один раз и
+        только по точному deployed commit.
+        """
+        try:
+            commit = await self._commit_for(state, info, ref_hint)
+        except SourceFetchError as exc:
+            if (str(exc.detail or "") in LOCAL_FALLBACK_DETAILS
+                    and self._maybe_switch_to_remote(
+                        state, info, reason=exc.detail or exc.code)):
+                commit = await self._commit_for(
+                    state, info, state.requested_ref or ref_hint)
+            else:
+                raise
         state.stage = STAGE_LOCATOR
-        listing = await state.provider.list_tree(info.full_name, commit)
-        if listing is None:
-            return self._payload(state, STATUS_NOT_FOUND,
-                                 repo=info.full_name, commit=commit,
-                                 reason="tree_unavailable")
-        if listing.truncated:
-            state.not_checked_reason = "tree_truncated"
-        ranked = rank_paths(listing, query=query, symbol=symbol,
-                            path=path_hint, language=info.language)
+        cursor = state.cursor if isinstance(state.cursor, dict) else None
+        if cursor is not None:
+            if cursor.get("kind") != "content_search":
+                raise SourceFetchError(ERR_REVISION_MISMATCH, STAGE_LOCATOR,
+                                       detail="cursor_kind_mismatch")
+            if (str(cursor.get("repo") or "") != info.full_name
+                    or str(cursor.get("commit") or "") != commit):
+                raise SourceFetchError(ERR_REVISION_MISMATCH, STAGE_LOCATOR,
+                                       detail="cursor_revision_mismatch")
+        switched = False
+        while True:
+            list_error: SourceFetchError | None = None
+            listing = None
+            try:
+                listing = await state.provider.list_tree(info.full_name, commit)
+            except SourceFetchError as exc:
+                list_error = exc
+            if list_error is not None or listing is None:
+                if not switched and self._maybe_switch_to_remote(
+                        state, info,
+                        reason=("tree_unavailable" if list_error is None
+                                else list_error.code)):
+                    switched = True
+                    cursor = None
+                    state.cursor = None
+                    commit = await self._commit_for(
+                        state, info, state.requested_ref or ref_hint)
+                    continue
+                if list_error is not None:
+                    raise list_error
+                return self._payload(
+                    state, STATUS_ERROR, outcome=OUTCOME_SOURCE_UNAVAILABLE,
+                    repo=info.full_name, commit=commit,
+                    reason="tree_unavailable", error=ERR_PROVIDER_UNAVAILABLE,
+                    error_detail=SourceFetchError(
+                        ERR_PROVIDER_UNAVAILABLE, STAGE_LOCATOR,
+                        retryable=True, detail="tree_unavailable").to_payload())
+            if listing.truncated:
+                state.not_checked_reason = "tree_truncated"
+            result = await self._content_search(
+                state, info, listing=listing, commit=commit, query=query,
+                symbol=symbol, path_hint=path_hint, parsed=parsed, cursor=cursor)
+            if self._search_needs_remote(state, result, listing):
+                if self._maybe_switch_to_remote(
+                        state, info,
+                        reason=(result.reason or "local_search_inconclusive")):
+                    switched = True
+                    cursor = None
+                    state.cursor = None
+                    commit = await self._commit_for(
+                        state, info, state.requested_ref or ref_hint)
+                    continue
+            break
+        return self._content_search_payload(
+            state, info, commit=commit, result=result, query=query,
+            symbol=symbol)
+
+    def _search_needs_remote(self, state: "_RunState",
+                             result: "_ContentSearchResult",
+                             listing: TreeListing) -> bool:
+        """Нужен ли ровно один remote-поход за точным deployed commit.
+
+        Только для локального источника и только когда локальный маршрут
+        объективно не даёт достоверного результата: технический отказ,
+        недоступное/усечённое дерево, неверифицированный snapshot. Отказ
+        безопасности (`permission_denied`) сюда не входит и не обходится.
+        """
+        if getattr(state.provider, "name", "") != PROVIDER_LOCAL:
+            return False
+        if state.remote_fallback is not None:
+            return False
+        if result.error is not None:
+            if result.error.code in _PERMISSION_CODES:
+                return False
+            return not result.has_implementation
+        if result.complete:
+            if result.has_implementation:
+                return False
+            if listing.truncated:
+                return True
+            return not self._local_version_verified()
+        return bool(listing.truncated and not result.has_implementation)
+
+    async def _content_search(self, state: "_RunState", info, *,
+                              listing: TreeListing, commit: str, query: str,
+                              symbol: str, path_hint: str, parsed,
+                              cursor: dict | None) -> "_ContentSearchResult":
+        """Поиск по содержимому дерева с порционной выдачей и продолжением.
+
+        Порядок — структурный: производственный код, вызывающий код, тесты,
+        миграции, deploy-скрипты, документация, планы, прочее. Внутри класса
+        используется существующий `rank_paths()` (подсказка по пути/символу).
+        """
+        result = _ContentSearchResult()
+        fragment = _traceback_fragment(query)
+        if fragment is not None:
+            return await self._traceback_search(
+                state, info, listing=listing, commit=commit,
+                fragment=fragment, path_hint=path_hint, parsed=parsed,
+                cursor=cursor)
+        probes = tuple(_search_probes(query, symbol, query))
+        result.probes = probes
+        required = str(symbol or "").strip()
+        order = _search_scan_order(listing, query=query, symbol=symbol,
+                                   path=path_hint,
+                                   language=getattr(info, "language", ""))
         if parsed is not None and parsed.kind == KIND_DIRECTORY and parsed.path:
             prefix = parsed.path.rstrip("/") + "/"
-            ranked = [entry for entry in ranked
-                      if entry.path.startswith(prefix)] or ranked
-        state.files_considered = len(ranked)
-        if not ranked:
-            _emit_stage(STAGE_LOCATOR, "failed",
-                        reason_code=_REASON_FOR_CODE[ERR_SOURCE_MISSING],
-                        extra={"network_calls": self._request_calls(state)})
-            return self._payload(state, STATUS_NOT_FOUND,
-                                 repo=info.full_name, commit=commit,
-                                 reason="no_path_match")
-        for entry in ranked[:_MAX_LOCATOR_PATHS]:
+            scoped = [item for item in order
+                      if item[0].path.startswith(prefix)]
+            if scoped:
+                order = scoped
+        result.candidate_paths = [entry.path for entry, _material in order]
+        state.files_considered = len(order)
+        result.truncated_tree = bool(listing.truncated)
+        if not probes and not required:
+            # Нечего искать по содержимому: это не «поиск провалился», а
+            # отсутствие пригодной пробы. Путь/символ уже дали кандидатов.
+            result.complete = True
+            result.reason = "no_search_probes"
+            return result
+        start_index = 0
+        resume_path = ""
+        resume_line = 0
+        if cursor is not None:
+            start_index = max(0, int(cursor.get("scan_index") or 0))
+            resume_path = str(cursor.get("resume_path") or "")
+            resume_line = max(0, int(cursor.get("resume_line") or 0))
+        budget = content_scan_budget_bytes()
+        result.budget_bytes = int(budget)
+        delivered_chars = 0
+        index = start_index
+        scanned_bytes = 0
+        stopped = False
+        complete = True
+        reason = ""
+        while index < len(order):
+            entry, _material = order[index]
             if self._exhausted(state):
-                state.not_checked_reason = "budget"
+                complete, reason = False, "budget"
+                break
+            if scanned_bytes >= budget:
+                complete, reason = False, "scan_budget"
                 break
             try:
-                source_file = await state.provider.read_file(
+                source_file = await self._read_search_file(
+                    state, info, commit, entry)
+            except SourceFetchError as exc:
+                if exc.code in _PERMISSION_CODES or exc.code == ERR_PATH_DENIED:
+                    result.skipped["denied"] = (
+                        int(result.skipped.get("denied", 0)) + 1)
+                    index += 1
+                    resume_path, resume_line = "", 0
+                    continue
+                if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND,
+                                ERR_EMPTY_CONTENT) \
+                        or exc.code in _SEARCH_SIZE_CODES:
+                    if (exc.code in _SEARCH_SIZE_CODES
+                            or str(exc.detail or "") == "file_too_large"):
+                        result.skipped["oversized"] = (
+                            int(result.skipped.get("oversized", 0)) + 1)
+                    elif exc.code == ERR_SOURCE_MISSING:
+                        result.skipped["missing"] = (
+                            int(result.skipped.get("missing", 0)) + 1)
+                    else:
+                        result.skipped["unreadable"] = (
+                            int(result.skipped.get("unreadable", 0)) + 1)
+                    index += 1
+                    resume_path, resume_line = "", 0
+                    continue
+                result.error = exc
+                complete, reason = False, exc.code
+                break
+            if source_file is None:
+                result.skipped["missing"] = (
+                    int(result.skipped.get("missing", 0)) + 1)
+                index += 1
+                resume_path, resume_line = "", 0
+                continue
+            if not source_file.data:
+                result.skipped["empty"] = (
+                    int(result.skipped.get("empty", 0)) + 1)
+                index += 1
+                resume_path, resume_line = "", 0
+                continue
+            scanned_bytes += len(source_file.data)
+            state.files_read += 1
+            result.files_scanned += 1
+            decoded = decode_source_bytes(source_file.data)
+            if not decoded.ok:
+                result.skipped["not_text"] = (
+                    int(result.skipped.get("not_text", 0)) + 1)
+                index += 1
+                resume_path, resume_line = "", 0
+                continue
+            text = decoded.text
+            if required and required not in text:
+                index += 1
+                resume_path, resume_line = "", 0
+                continue
+            lines = split_lines(text)
+            first_line = (max(1, resume_line)
+                          if resume_path == entry.path else 1)
+            file_had_match = False
+            for line_number, line in enumerate(lines, 1):
+                if line_number < first_line:
+                    continue
+                if required and required not in line:
+                    continue
+                matched = [probe for probe in probes if probe in line]
+                if not matched and required:
+                    matched = [required]
+                if not matched:
+                    continue
+                role = _code_role_for_line(entry.path, line, matched, required)
+                line_text = strip_line_ending(line)[:_CONTENT_MATCH_LINE_CHARS]
+                result.matches.append(_ContentMatch(
+                    path=entry.path, line=line_number, material=role,
+                    probes=tuple(matched),
+                    score=float(_content_match_score(matched, line, required)),
+                    line_text=line_text))
+                file_had_match = True
+                delivered_chars += len(line_text)
+                if delivered_chars >= _CONTENT_MATCH_DELIVERY_CHARS:
+                    result.next_index = index
+                    result.resume_path = entry.path
+                    result.resume_line = line_number + 1
+                    complete, reason = False, "delivery_chunk"
+                    stopped = True
+                    break
+            if stopped:
+                if file_had_match:
+                    result.texts[entry.path] = (source_file, decoded)
+                break
+            if file_had_match:
+                result.texts[entry.path] = (source_file, decoded)
+            index += 1
+            resume_path, resume_line = "", 0
+        result.bytes_scanned = scanned_bytes
+        result.complete = bool(complete and not stopped)
+        if result.complete and result.truncated_tree:
+            result.complete = False
+            reason = reason or "tree_truncated"
+        gaps = (int(result.skipped.get("oversized", 0))
+                + int(result.skipped.get("missing", 0))
+                + int(result.skipped.get("read_errors", 0)))
+        if gaps and result.complete:
+            # Часть перечисленных файлов физически не прочитана: это не
+            # достоверное отсутствие совпадения, а честный неполный результат.
+            result.complete = False
+            reason = reason or "read_gaps"
+        result.reason = reason or ("no_content_match"
+                                   if not result.matches else "")
+        if result.complete:
+            result.next_index = len(order)
+        elif not stopped:
+            result.next_index = index
+        if result.reason == "tree_truncated" and not result.next_index < len(order):
+            # Дерево физически усечено провайдером: продолжения нет, но это
+            # честно помечено в результате.
+            result.next_index = len(order)
+        return result
+
+    async def _traceback_search(self, state: "_RunState", info, *,
+                                listing: TreeListing, commit: str,
+                                fragment: dict, path_hint: str, parsed,
+                                cursor: dict | None) -> "_ContentSearchResult":
+        """Поиск multi-line traceback-фрагмента как непрерывного блока строк.
+
+        Одиночный generic-token (`x.py`, имя функции) НЕ подтверждает
+        фрагмент: результат обязан остаться non-confirming. Блок сравнивается
+        после безопасной нормализации (`\\r`, trailing whitespace); ведущие
+        отступы исходника сохраняются. Найденный диапазон/число строк входят
+        в payload; исходный файл — в `texts` для точного среза.
+        """
+        result = _ContentSearchResult()
+        result.traceback = {
+            "detected": True,
+            "fragment_verified": False,
+            "code_line_count": int(fragment.get("code_line_count") or 0),
+            "expected_path": str(fragment.get("expected_path") or ""),
+            "matched_line_count": 0,
+            "matched_range": [],
+            "expected_path_match": False,
+            "reason": "",
+        }
+        code_lines = list(fragment.get("code_lines") or [])
+        if len(code_lines) < 2:
+            result.complete = True
+            result.reason = "traceback_fragment_not_multiline"
+            result.traceback["reason"] = result.reason
+            result.candidate_paths = [entry.path for entry, _material
+                                      in _search_scan_order(
+                                          listing, query="", symbol="",
+                                          path=path_hint,
+                                          language=getattr(info, "language", ""))]
+            return result
+        expected_path = str(fragment.get("expected_path") or "")
+        order = _search_scan_order(listing, query="", symbol="",
+                                   path=path_hint,
+                                   language=getattr(info, "language", ""))
+        if expected_path:
+            # Подсказка из `File "..."` используется ТОЛЬКО для порядка обхода.
+            expected = expected_path.replace("\\", "/").lstrip("./")
+            expected_name = expected.rsplit("/", 1)[-1]
+            order.sort(key=lambda item: (
+                0 if (item[0].path == expected
+                      or item[0].path.endswith("/" + expected)
+                      or item[0].path.rsplit("/", 1)[-1] == expected_name)
+                else 1,
+                item[0].path))
+        if parsed is not None and parsed.kind == KIND_DIRECTORY and parsed.path:
+            prefix = parsed.path.rstrip("/") + "/"
+            scoped = [item for item in order
+                      if item[0].path.startswith(prefix)]
+            if scoped:
+                order = scoped
+        result.candidate_paths = [entry.path for entry, _material in order]
+        state.files_considered = len(order)
+        result.truncated_tree = bool(listing.truncated)
+        start_index = 0
+        if cursor is not None:
+            start_index = max(0, int(cursor.get("scan_index") or 0))
+        budget = content_scan_budget_bytes()
+        result.budget_bytes = int(budget)
+        index = start_index
+        scanned_bytes = 0
+        complete = True
+        reason = ""
+        while index < len(order):
+            entry, _material = order[index]
+            if self._exhausted(state):
+                complete, reason = False, "budget"
+                break
+            if scanned_bytes >= budget:
+                complete, reason = False, "scan_budget"
+                break
+            try:
+                source_file = await self._read_search_file(
+                    state, info, commit, entry)
+            except SourceFetchError as exc:
+                if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND,
+                                ERR_EMPTY_CONTENT) \
+                        or exc.code in _SEARCH_SIZE_CODES:
+                    if (exc.code in _SEARCH_SIZE_CODES
+                            or str(exc.detail or "") == "file_too_large"):
+                        result.skipped["oversized"] = (
+                            int(result.skipped.get("oversized", 0)) + 1)
+                    elif exc.code == ERR_SOURCE_MISSING:
+                        result.skipped["missing"] = (
+                            int(result.skipped.get("missing", 0)) + 1)
+                    else:
+                        result.skipped["unreadable"] = (
+                            int(result.skipped.get("unreadable", 0)) + 1)
+                    index += 1
+                    continue
+                result.error = exc
+                complete, reason = False, exc.code
+                break
+            if source_file is None or not source_file.data:
+                result.skipped["missing" if source_file is None else "empty"] = (
+                    int(result.skipped.get(
+                        "missing" if source_file is None else "empty", 0)) + 1)
+                index += 1
+                continue
+            scanned_bytes += len(source_file.data)
+            state.files_read += 1
+            result.files_scanned += 1
+            decoded = decode_source_bytes(source_file.data)
+            if not decoded.ok:
+                result.skipped["not_text"] = (
+                    int(result.skipped.get("not_text", 0)) + 1)
+                index += 1
+                continue
+            source_lines = [_normalize_fragment_line(line)
+                            for line in split_lines(decoded.text)]
+            matched_range = _find_contiguous_block(source_lines, code_lines)
+            if matched_range is not None:
+                start, end = matched_range
+                first_line = source_lines[start - 1] if start > 0 else ""
+                role = _code_role_for_line(entry.path, first_line,
+                                           [first_line], "")
+                block_text = "\n".join(
+                    source_lines[start - 1:end])[:_CONTENT_MATCH_DELIVERY_CHARS]
+                result.matches.append(_ContentMatch(
+                    path=entry.path, line=int(start), material=role,
+                    probes=tuple(code_lines),
+                    score=float(100 + len(code_lines)), line_text=block_text,
+                    line_end=int(end), matched_line_count=len(code_lines)))
+                result.texts[entry.path] = (source_file, decoded)
+                result.traceback.update({
+                    "fragment_verified": True,
+                    "matched_line_count": len(code_lines),
+                    "matched_range": [int(start), int(end)],
+                    "expected_path_match": bool(
+                        expected_path and _traceback_path_matches(
+                            entry.path, expected_path)),
+                    "reason": "traceback_fragment_confirmed",
+                })
+                complete = True
+                reason = "traceback_fragment_confirmed"
+                result.next_index = len(order)
+                break
+            # Диагностика non-confirming совпадений: отдельные строки блока
+            # присутствуют, но непрерывного блока нет. В `matches` они НЕ
+            # попадают и фрагмент не подтверждают.
+            matched_lines = [number for number, line in enumerate(
+                source_lines, 1) if line in code_lines]
+            if matched_lines:
+                result.partial_matches.append({
+                    "path": entry.path,
+                    "matched_lines": len(matched_lines),
+                    "code_lines": len(code_lines),
+                    "lines": matched_lines[:20],
+                    "confirmed": False,
+                })
+            index += 1
+        result.bytes_scanned = scanned_bytes
+        result.complete = bool(complete)
+        if not result.matches and result.complete and result.truncated_tree:
+            result.complete = False
+            reason = reason or "tree_truncated"
+        gaps = (int(result.skipped.get("oversized", 0))
+                + int(result.skipped.get("missing", 0)))
+        if gaps and not result.matches and result.complete:
+            result.complete = False
+            reason = reason or "read_gaps"
+        result.reason = reason or (
+            "traceback_fragment_not_confirmed" if not result.matches else "")
+        if not result.matches and result.traceback is not None:
+            result.traceback["reason"] = result.reason
+        if not result.matches and (
+                result.complete or result.reason == "tree_truncated"):
+            result.next_index = len(order)
+        elif not result.matches:
+            result.next_index = index
+        return result
+
+    async def _read_search_file(self, state: "_RunState", info, commit: str,
+                                entry: TreeEntry):
+        """Одно чтение для поиска: bounded retry только для временных отказов."""
+        attempt = 0
+        while True:
+            try:
+                return await state.provider.read_file(
                     info.full_name, commit, entry.path, blob_sha=entry.sha,
                     **self._service_read_hints(state.provider))
             except SourceFetchError as exc:
-                if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND):
+                if (attempt < _CONTENT_READ_RETRIES and exc.retryable
+                        and exc.code not in (ERR_RATE_LIMIT, ERR_AUTH_FAILED)):
+                    attempt += 1
                     continue
                 raise
-            if source_file is None or not source_file.data:
-                continue
-            state.files_read += 1
-            decoded = decode_source_bytes(source_file.data)
-            lines = split_lines(decoded.text)
-            symbol_line = locate_symbol_line(lines, symbol) if symbol else 0
-            if decoded.ok and symbol and not symbol_line:
-                continue
-            return self._read_payload(state, info=info, commit=commit,
-                                      path=entry.path, source_file=source_file,
-                                      decoded=decoded, symbol=symbol,
-                                      symbol_line=symbol_line,
-                                      stage=STAGE_LOCATOR,
-                                      ref_kind=_ref_kind(state.requested_ref))
+
+    def _content_search_payload(self, state: "_RunState", info, *,
+                                commit: str, result: "_ContentSearchResult",
+                                query: str, symbol: str) -> dict:
+        """Структурированный результат поиска с provenance и continuation."""
+        base: dict = {
+            "repo": info.full_name,
+            "commit": commit,
+            "query": str(query or state.query or "")[:500],
+            "content_search": result.as_metadata(),
+            "candidate_paths_total": len(result.candidate_paths),
+        }
+        ordered = result.ordered()
+        if result.error is not None and not ordered:
+            outcome = _outcome_for_error_code(result.error.code)
+            if (state.requested_commit
+                    and result.error.detail in ("commit_not_available",
+                                                "local_revision_mismatch")):
+                outcome = OUTCOME_REVISION_MISMATCH
+            payload = self._payload(
+                state,
+                STATUS_UNSUPPORTED if outcome == OUTCOME_UNSUPPORTED
+                else STATUS_ERROR,
+                outcome=outcome, error=result.error.code,
+                reason=result.reason or result.error.code,
+                error_detail=result.error.to_payload(), **base)
+            payload["not_checked"]["reason"] = (
+                payload["not_checked"].get("reason")
+                or result.reason or result.error.code)
+            if result.traceback is not None:
+                payload["traceback"] = dict(result.traceback)
+            payload["continuation"] = _continuation_payload(
+                kind="content_search", remaining=True, cursor="",
+                reason=payload["not_checked"]["reason"],
+                progress_id=state.progress_id)
+            return payload
+        if result.traceback is not None:
+            if (result.traceback.get("fragment_verified")
+                    and result.matches):
+                return self._traceback_confirmed_payload(
+                    state, info, commit=commit, result=result, base=base,
+                    query=query)
+            return self._traceback_unconfirmed_payload(
+                state, info, commit=commit, result=result, base=base,
+                query=query, symbol=symbol)
+        if ordered:
+            provider_name = self._provider_name(state)
+            local = self._local_verification(state)
+            bytes_verified = bool(
+                provider_name == PROVIDER_GITHUB
+                or _local_bytes_verified(local, commit))
+            payload: dict | None = None
+            primary = ordered[0]
+            for candidate in ordered:
+                pair = result.texts.get(candidate.path)
+                if not pair:
+                    continue
+                source_file, decoded = pair
+                built = self._read_payload(
+                    state, info=info, commit=commit, path=candidate.path,
+                    source_file=source_file, decoded=decoded, symbol=symbol,
+                    symbol_line=candidate.line, stage=STAGE_LOCATOR,
+                    ref_kind=_ref_kind(state.requested_ref))
+                if built.get("status") == STATUS_OK:
+                    payload, primary = built, candidate
+                    break
+            if payload is not None:
+                payload.update(base)
+                payload["matches"] = result.matches_payload(
+                    verified=bytes_verified, repo=info.full_name,
+                    commit=commit, local=provider_name == PROVIDER_LOCAL)
+                payload["match_count"] = len(result.matches)
+                payload["match_material"] = primary.material
+                payload["match_line"] = primary.line
+                payload["ranked_materials"] = result.material_counts()
+                if result.error is not None:
+                    payload["error"] = result.error.code
+                    payload["error_detail"] = result.error.to_payload()
+                    payload["reason"] = result.reason or result.error.code
+                    payload["outcome"] = OUTCOME_PARTIAL
+                    payload["partial"] = True
+                    payload["continuation"] = _continuation_payload(
+                        kind="content_search", remaining=True, cursor="",
+                        reason=payload["reason"],
+                        progress_id=state.progress_id)
+                elif not result.complete:
+                    payload["outcome"] = OUTCOME_PARTIAL
+                    payload["partial"] = True
+                    payload["continuation"] = self._scan_continuation(
+                        state, info, commit, result, query=query,
+                        symbol=symbol)
+                _emit_stage(STAGE_LOCATOR, "success",
+                            extra={"network_calls": self._request_calls(state),
+                                   "files_read": state.files_read,
+                                   "verified": bool(payload.get("verified")),
+                                   "match_count": len(result.matches)})
+                return payload
+        if not result.complete:
+            payload = self._payload(
+                state, STATUS_PARTIAL, outcome=OUTCOME_PARTIAL,
+                reason=result.reason or "search_incomplete", **base)
+            payload["not_checked"]["reason"] = (
+                result.reason or "search_incomplete")
+            payload["continuation"] = self._scan_continuation(
+                state, info, commit, result, query=query, symbol=symbol)
+            return payload
+        state.not_checked_reason = state.not_checked_reason or "no_content_match"
+        payload = self._payload(
+            state, STATUS_NOT_FOUND, outcome=OUTCOME_NOT_FOUND,
+            reason="no_content_match", **base)
+        payload["not_checked"]["reason"] = "no_content_match"
         _emit_stage(STAGE_LOCATOR, "success",
                     extra={"network_calls": self._request_calls(state),
-                           "files_read": state.files_read, "verified": False})
-        payload = self._payload(state, STATUS_NOT_FOUND, repo=info.full_name,
-                                commit=commit, reason="symbol_not_found")
-        payload["candidate_paths"] = [entry.path
-                                     for entry in ranked[:_MAX_LOCATOR_PATHS * 2]]
+                           "files_read": state.files_read, "verified": False,
+                           "match_count": 0})
         return payload
+
+    def _traceback_confirmed_payload(self, state: "_RunState", info, *,
+                                     commit: str,
+                                     result: "_ContentSearchResult",
+                                     base: dict, query: str) -> dict:
+        """Payload подтверждённого непрерывного traceback-блока."""
+        match = result.ordered()[0]
+        pair = result.texts.get(match.path)
+        if not pair:
+            return self._traceback_unconfirmed_payload(
+                state, info, commit=commit, result=result, base=base,
+                query=query, symbol="")
+        source_file, decoded = pair
+        old_start, old_end = state.line_start, state.line_end
+        state.line_start = int(match.line)
+        state.line_end = int(match.line_end or match.line)
+        try:
+            payload = self._read_payload(
+                state, info=info, commit=commit, path=match.path,
+                source_file=source_file, decoded=decoded, symbol="",
+                symbol_line=int(match.line), stage=STAGE_LOCATOR,
+                ref_kind=_ref_kind(state.requested_ref))
+        finally:
+            state.line_start, state.line_end = old_start, old_end
+        payload.update(base)
+        provider_name = self._provider_name(state)
+        local = self._local_verification(state)
+        bytes_verified = bool(
+            provider_name == PROVIDER_GITHUB
+            or _local_bytes_verified(local, commit))
+        payload["traceback"] = dict(result.traceback or {})
+        payload["traceback"]["fragment_verified"] = True
+        payload["matched_line_count"] = int(match.matched_line_count or 1)
+        payload["matches"] = result.matches_payload(
+            verified=bytes_verified, repo=info.full_name, commit=commit,
+            local=provider_name == PROVIDER_LOCAL)
+        payload["match_count"] = 1
+        payload["match_material"] = match.material
+        payload["match_line"] = int(match.line)
+        payload["ranked_materials"] = result.material_counts()
+        delivered_end = int((payload.get("line_range") or [0, 0])[-1])
+        if delivered_end >= int(match.line_end or match.line):
+            # Запрошен именно этот непрерывный блок; строки после него — не
+            # «недоданный остаток» фрагмента. Полная доставка блока = ok.
+            payload["truncation"] = {
+                "truncated": False, "why": "",
+                "effective_limit": int(state.budget_chars or 0),
+                "limit_source": "traceback_fragment",
+                "retrievable_remainder_lines": 0,
+            }
+            payload["outcome"] = OUTCOME_OK
+            payload["partial"] = False
+            payload["continuation"] = {}
+        elif payload.get("outcome") != OUTCOME_PARTIAL:
+            payload["outcome"] = OUTCOME_PARTIAL
+            payload["partial"] = True
+        _emit_stage(STAGE_LOCATOR, "success",
+                    extra={"network_calls": self._request_calls(state),
+                           "files_read": state.files_read,
+                           "verified": bool(payload.get("verified")),
+                           "traceback_fragment": True,
+                           "match_count": 1})
+        return payload
+
+    def _traceback_unconfirmed_payload(self, state: "_RunState", info, *,
+                                       commit: str,
+                                       result: "_ContentSearchResult",
+                                       base: dict, query: str,
+                                       symbol: str) -> dict:
+        """Честный non-confirming результат для traceback-фрагмента.
+
+        Одиночные строки/token могут присутствовать, но без непрерывного
+        блока фрагмент НЕ подтверждён: top-level `verified=false`, нет
+        `path`/`match_line`, outcome `partial` с конкретной причиной.
+        """
+        reason = (result.reason or "traceback_fragment_not_confirmed")
+        payload = self._payload(
+            state, STATUS_PARTIAL, outcome=OUTCOME_PARTIAL,
+            reason=reason, verified=False, **base)
+        traceback = dict(result.traceback or {})
+        traceback["fragment_verified"] = False
+        traceback["matched_line_count"] = 0
+        traceback["matched_range"] = []
+        traceback["reason"] = reason
+        traceback["partial_matches"] = list(result.partial_matches)
+        payload["traceback"] = traceback
+        payload["matches"] = []
+        payload["match_count"] = 0
+        payload["matched_line_count"] = 0
+        payload["not_checked"]["reason"] = reason
+        if not result.complete:
+            payload["continuation"] = self._scan_continuation(
+                state, info, commit, result, query=query, symbol=symbol)
+        else:
+            payload["continuation"] = _continuation_payload(
+                kind="content_search", remaining=False, cursor="",
+                reason=reason, progress_id=state.progress_id)
+        _emit_stage(STAGE_LOCATOR, "skipped",
+                    reason_code=_REASON_FOR_CODE[ERR_NO_RESULTS],
+                    extra={"network_calls": self._request_calls(state),
+                           "files_read": state.files_read,
+                           "traceback_fragment": False,
+                           "partial_matches": len(result.partial_matches)})
+        return payload
+
+    def _scan_continuation(self, state: "_RunState", info, commit: str,
+                           result: "_ContentSearchResult", *,
+                           query: str, symbol: str) -> dict:
+        """Opaque cursor продолжения поиска (тот же identity/ревизия)."""
+        if not result.complete and result.next_index < len(result.candidate_paths):
+            token = _cursor_encode({
+                "v": 1, "kind": "content_search",
+                "progress_id": state.progress_id,
+                "repo": info.full_name, "commit": commit,
+                "provider": self._provider_name(state),
+                "query": str(query or state.query or "")[:500],
+                "symbol": str(symbol or ""),
+                "scan_index": int(result.next_index),
+                "resume_path": str(result.resume_path or ""),
+                "resume_line": int(result.resume_line or 0),
+            })
+            return _continuation_payload(
+                kind="content_search", cursor=token, remaining=True,
+                reason=result.reason or "search_incomplete",
+                next_arguments={"repo": info.full_name, "ref": commit,
+                                "query": str(query or state.query or ""),
+                                "symbol": str(symbol or ""),
+                                "cursor": token},
+                progress_id=state.progress_id)
+        return _continuation_payload(
+            kind="content_search", cursor="", remaining=False,
+            reason=result.reason or "tree_truncated",
+            progress_id=state.progress_id)
 
     # -- follow-up: релевантная цепочка без потолка количества -----------
     async def _followup(self, state: "_RunState", *, info, payload: dict,
@@ -3063,6 +3934,16 @@ class SourceReader:
             })
             if untried:
                 payload["not_checked"]["untried_paths"] = untried[:5]
+            if incomplete:
+                payload["outcome"] = OUTCOME_PARTIAL
+                payload["partial"] = True
+                if not isinstance(payload.get("continuation"), dict) \
+                        or not payload["continuation"]:
+                    payload["continuation"] = _continuation_payload(
+                        kind="followup", remaining=True, cursor="",
+                        reason=reason or "followup_incomplete",
+                        next_arguments=({"path": untried[0]} if untried else {}),
+                        progress_id=state.progress_id)
             return payload
 
         # Без идентификаторов в теле обходить нечего: это не «не смогли
@@ -3265,6 +4146,17 @@ class SourceReader:
         if provider_name == PROVIDER_LOCAL:
             _apply_local_provenance(payload, local)
         payload["source_id"] = _source_id(info.full_name, commit, path)
+        if truncated and next_line_start:
+            payload["outcome"] = OUTCOME_PARTIAL
+            payload["partial"] = True
+            payload["continuation"] = _continuation_payload(
+                kind="file_lines", remaining=True, reason="over_portion",
+                next_arguments={"repo": info.full_name,
+                                "ref": commit,
+                                "path": path,
+                                "line_start": int(next_line_start),
+                                "follow": False},
+                progress_id=state.progress_id)
         _emit_stage(stage, "success",
                     extra={"verified": verified,
                            "files_read": state.files_read,
@@ -3357,6 +4249,18 @@ class SourceReader:
         if provider_name == PROVIDER_LOCAL:
             _apply_local_provenance(payload, local)
         payload["source_id"] = _source_id(info.full_name, commit, path)
+        if window.truncated:
+            next_line = int(window.line_range[1]) + 1
+            payload["outcome"] = OUTCOME_PARTIAL
+            payload["partial"] = True
+            payload["continuation"] = _continuation_payload(
+                kind="file_lines", remaining=True,
+                reason=window.why or "evidence_window",
+                next_arguments={"repo": info.full_name,
+                                "ref": commit,
+                                "path": path, "line_start": next_line,
+                                "follow": False},
+                progress_id=state.progress_id)
         _emit_stage(stage, "success",
                     extra={"verified": verified,
                            "files_read": state.files_read,
@@ -3377,7 +4281,7 @@ class SourceReader:
         не-UTF-8 содержимое, пустой файл, каталог, symlink/submodule
         называются своими причинами; `verified` всегда False."""
         payload = self._payload(
-            state, STATUS_UNSUPPORTED,
+            state, STATUS_UNSUPPORTED, outcome=OUTCOME_UNSUPPORTED,
             repo=info.full_name, commit=commit, path=path,
             source_kind=(KIND_DIRECTORY if reason == "path_is_directory"
                          else _kind_for_path(path)),
@@ -3412,6 +4316,10 @@ class SourceReader:
             else PROVIDER_LOCAL
         payload: dict = {
             "status": status,
+            "outcome": _outcome_for_status(status),
+            "partial": status == STATUS_PARTIAL,
+            "operation": state.operation,
+            "query": state.query,
             "stage": state.stage,
             "verified": False,
             "host": host,
@@ -3430,6 +4338,14 @@ class SourceReader:
             "symbol": "",
             "symbol_found": False,
             "parameter_only": False,
+            "matches": [],
+            "match_count": 0,
+            "ranked_materials": {},
+            "content_search": {},
+            "candidate_paths_total": 0,
+            "progress_id": state.progress_id,
+            "idempotency_key": "",
+            "continuation": {},
             "truncation": {
                 "truncated": False, "why": "",
                 "effective_limit": int(state.budget_chars or 0),
@@ -3454,6 +4370,9 @@ class SourceReader:
             "provenance": {
                 "provider": provider_name,
                 "endpoint": "",
+                "repo": state.repo,
+                "commit": "",
+                "operation": state.operation,
                 "fetched_at": 0,
                 "bytes": 0,
                 "sha256": "",
@@ -3517,6 +4436,27 @@ class SourceReader:
                 deployed if (provider_name == PROVIDER_LOCAL
                              and deployed
                              and revision != deployed) else ""),
+            # SMART-CORRECTIVE-01 §1: identity выбранного источника и запроса.
+            "requested_ref": (state.requested_ref_original
+                              or state.requested_ref),
+            "requested_commit": state.requested_commit,
+            "checkout_sha": (str((local or self._local_source or {}).get(
+                "checkout_sha") or "")
+                if provider_name == PROVIDER_LOCAL else ""),
+            "deployed_sha": deployed or "",
+            "identity": {
+                "repo": repo,
+                "ref": revision,
+                "commit": revision,
+                "checkout_sha": (str((local or self._local_source or {}).get(
+                    "checkout_sha") or "")
+                    if provider_name == PROVIDER_LOCAL else ""),
+            },
+            "selection_reason": (
+                f"fallback:{fallback.get('from')}:{fallback.get('reason')}"
+                if fallback else verification),
+            "outcome": str(payload.get("outcome") or ""),
+            "query": str(payload.get("query") or ""),
             "path": str(payload.get("path") or ""),
             "line_range": list(payload.get("line_range") or []),
             "status": str(payload.get("status") or ""),
@@ -3545,10 +4485,13 @@ class SourceReader:
         конвейере не требуется. Полная запись Evidence Contract (code/stage/
         http/retryable/detail) лежит рядом в `error_detail`."""
         payload = self._payload(state, STATUS_ERROR,
+                                outcome=_outcome_for_error(exc, state),
                                 error=exc.code, reason=exc.code,
                                 error_detail=exc.to_payload())
         if state.not_checked_reason:
             payload["not_checked"]["reason"] = state.not_checked_reason
+        elif exc.detail:
+            payload["not_checked"]["reason"] = exc.code
         _emit_stage(exc.stage, "failed", reason_code=exc.reason_code,
                     extra={"http": exc.http,
                            "network_calls": self._request_calls(state),
@@ -3578,6 +4521,17 @@ class _RunState:
     provider: Any = None
     local_identity: dict | None = None
     requested_ref: str = ""
+    #: Исходный ref запроса (до fallback) — для provenance/source selection.
+    requested_ref_original: str = ""
+    #: 40-hex commit, если запрос требовал точную ревизию (revision_mismatch).
+    requested_commit: str = ""
+    #: Запрос/кандидат исследования (echo в payload + cursor identity).
+    query: str = ""
+    #: Стабильные идентификаторы прогресса/идемпотентности.
+    progress_id: str = ""
+    idempotency_key: str = ""
+    #: Раскодированный continuation cursor (opaque для модели).
+    cursor: dict | None = None
     line_start: int | None = None
     line_end: int | None = None
     files_considered: int = 0
@@ -3612,6 +4566,542 @@ class _RunState:
                 "depth": int(self.limit_depth),
                 "requests": int(self.limit_requests),
                 "budgets_enforced": bool(self.budget_enforced)}
+
+
+@dataclass
+class _ContentMatch:
+    """Одно подтверждённое байтами вхождение в файл ревизии."""
+
+    path: str
+    line: int
+    material: str
+    probes: tuple[str, ...] = ()
+    score: float = 0.0
+    line_text: str = ""
+    line_end: int = 0
+    matched_line_count: int = 0
+
+
+@dataclass
+class _ContentSearchResult:
+    """Результат порции поиска по содержимому + состояние продолжения."""
+
+    matches: list[_ContentMatch] = field(default_factory=list)
+    texts: dict[str, tuple] = field(default_factory=dict)
+    probes: tuple[str, ...] = ()
+    files_scanned: int = 0
+    bytes_scanned: int = 0
+    budget_bytes: int = 0
+    complete: bool = True
+    reason: str = ""
+    error: SourceFetchError | None = None
+    next_index: int = 0
+    resume_path: str = ""
+    resume_line: int = 0
+    skipped: dict = field(default_factory=dict)
+    candidate_paths: list[str] = field(default_factory=list)
+    truncated_tree: bool = False
+    traceback: dict | None = None
+    partial_matches: list[dict] = field(default_factory=list)
+
+    @property
+    def has_implementation(self) -> bool:
+        return any(match.material in (MATERIAL_IMPLEMENTATION, MATERIAL_CALLER)
+                   for match in self.matches)
+
+    def ordered(self) -> list[_ContentMatch]:
+        return sorted(
+            self.matches,
+            key=lambda match: (_MATERIAL_SEARCH_ORDER.get(match.material, 9),
+                               -float(match.score or 0.0), match.path,
+                               match.line))
+
+    def material_counts(self) -> dict:
+        counts: dict[str, int] = {}
+        for match in self.matches:
+            counts[match.material] = counts.get(match.material, 0) + 1
+        return counts
+
+    def as_metadata(self) -> dict:
+        return {
+            "probes": list(self.probes),
+            "files_scanned": int(self.files_scanned),
+            "bytes_scanned": int(self.bytes_scanned),
+            "scan_budget_bytes": int(self.budget_bytes),
+            "complete": bool(self.complete),
+            "reason": str(self.reason or ""),
+            "skipped": dict(self.skipped),
+            "tree_truncated": bool(self.truncated_tree),
+            "candidates_total": len(self.candidate_paths),
+            "traceback": dict(self.traceback) if self.traceback else None,
+            "partial_matches": list(self.partial_matches),
+            "error": ({"code": self.error.code,
+                       "detail": self.error.detail,
+                       "retryable": bool(self.error.retryable)}
+                      if self.error is not None else None),
+        }
+
+    def matches_payload(self, *, verified: bool, repo: str, commit: str,
+                        local: bool) -> list[dict]:
+        payload: list[dict] = []
+        for match in self.ordered():
+            line_end = int(match.line_end or match.line)
+            line_range = [int(match.line), line_end]
+            url = ""
+            if verified:
+                url = (_local_verified_url(repo, commit, match.path, line_range)
+                       if local else
+                       _verified_url(repo, commit, match.path, line_range))
+            payload.append({
+                "path": match.path,
+                "line": int(match.line),
+                "line_end": line_end,
+                "line_range": line_range,
+                "material": match.material,
+                "probes": list(match.probes),
+                "score": round(float(match.score or 0.0), 3),
+                "line_text": match.line_text,
+                "matched_line_count": int(match.matched_line_count or 1),
+                "verified": bool(verified),
+                "verified_url": url,
+                "source_id": _source_id(repo, commit, match.path),
+            })
+        return payload
+
+
+# ── поиск по содержимому: пробы, классы материала, cursor ────────────────────
+
+_QUOTED_PROBE_RE = re.compile(r"[\"'`]([^\"'`\n]{3,200})[\"'`]")
+_DOTTED_PROBE_RE = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
+#: Traceback-фрагмент: заголовок/кадр/исключение — только маркеры, не пробы.
+_TRACEBACK_HEADER_RE = re.compile(
+    r"^\s*Traceback \(most recent call last\):\s*$")
+_TRACEBACK_FILE_RE = re.compile(
+    r'^\s*File\s+"([^"]+)"(?:,\s*line\s+\d+)?(?:,\s*in\s+.*)?\s*$')
+_TRACEBACK_EXC_RE = re.compile(
+    r"^\s*[A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning|Interrupt|"
+    r"Exit|StopIteration):(?:\s|$)")
+_TRACEBACK_NOTE_RE = re.compile(
+    r"^\s*(?:During handling of the above exception|"
+    r"The above exception was the direct cause)")
+
+
+def _normalize_fragment_line(line: str) -> str:
+    """Безопасная нормализация строки фрагмента: только ``\\r`` и хвост."""
+    return strip_line_ending(str(line or "")).rstrip()
+
+
+def _traceback_fragment(text: str) -> dict | None:
+    """Разобрать multi-line traceback-фрагмент без generic-token матчинга.
+
+    Возвращает ``{"code_lines": [...], "expected_path": ..., ...}`` только
+    если фрагмент действительно похож на traceback и содержит >=2 строки
+    исходного кода. Строки кода нормализуются только по ``\\r`` и trailing
+    whitespace; ведущие отступы сохраняются (это часть исходника).
+    """
+    raw = str(text or "")
+    if "\n" not in raw and "\r" not in raw:
+        return None
+    lines = [_normalize_fragment_line(line)
+             for line in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if len(lines) < 2:
+        return None
+    has_traceback_marker = False
+    expected_path = ""
+    code_lines: list[str] = []
+    for line in lines:
+        if _TRACEBACK_HEADER_RE.match(line) or _TRACEBACK_NOTE_RE.match(line):
+            has_traceback_marker = True
+            continue
+        file_match = _TRACEBACK_FILE_RE.match(line)
+        if file_match:
+            has_traceback_marker = True
+            expected_path = str(file_match.group(1) or "").strip()
+            continue
+        if (_TRACEBACK_EXC_RE.match(line)
+                and not line[:1].isspace()):
+            continue
+        if line.strip():
+            code_lines.append(line)
+    if not has_traceback_marker or not code_lines:
+        return None
+    return {
+        "code_lines": code_lines,
+        "code_line_count": len(code_lines),
+        "expected_path": expected_path,
+        "raw_line_count": len(lines),
+    }
+
+
+def _find_contiguous_block(source_lines: list[str],
+                           block_lines: list[str]) -> tuple[int, int] | None:
+    """1-based диапазон первого непрерывного блока или None."""
+    size = len(block_lines)
+    if size < 2 or len(source_lines) < size:
+        return None
+    for index in range(0, len(source_lines) - size + 1):
+        if all(source_lines[index + offset] == block_lines[offset]
+               for offset in range(size)):
+            return index + 1, index + size
+    return None
+
+
+def _traceback_path_matches(path: str, expected: str) -> bool:
+    """Совпадает ли путь файла с подсказкой `File "..."` (только диагностика)."""
+    wanted = str(expected or "").replace("\\", "/").lstrip("./")
+    text = str(path or "").replace("\\", "/").lstrip("./")
+    if not wanted or not text:
+        return False
+    return (text == wanted or text.endswith("/" + wanted)
+            or text.rsplit("/", 1)[-1] == wanted.rsplit("/", 1)[-1])
+
+
+#: Отказы политики/прав: никогда не обходятся remote-поиском.
+_PERMISSION_CODES = frozenset({
+    "auth_failed", "path_denied", "destination_blocked",
+    "metadata_endpoint_blocked", "scheme_not_allowed", "credentials_in_url",
+    "redirect_blocked",
+})
+#: Физический размер файла/порции: файл пропускается с явным счётчиком
+#: `oversized`, а не выдаётся за отсутствие совпадения.
+_SEARCH_SIZE_CODES = frozenset({
+    "too_many_bytes", "decompressed_too_large", "file_too_large",
+})
+
+
+def _search_probes(query: str, symbol: str, context_query: str) -> list[str]:
+    """Литеральные пробы запроса: exact strings/symbols/ids/keys/traceback.
+
+    Это не таблица команд и не keyword-роутинг: из формулировки извлекаются
+    только реальные литералы (кавычки, dotted identifiers, идентификаторы,
+    raw-фрагмент без пробелов). Направление исследования по-прежнему выбирает
+    модель через ``query``/``symbol``.
+    """
+    out: list[str] = []
+
+    def add(value) -> None:
+        text = str(value or "").strip()
+        if len(text) < 3 or "\n" in text or "\r" in text:
+            return
+        if text not in out:
+            out.append(text)
+
+    add(symbol)
+    raw_query = str(query or "")
+    dotted: list[str] = []
+    for match in _QUOTED_PROBE_RE.finditer(raw_query):
+        add(match.group(1))
+    for match in _DOTTED_PROBE_RE.finditer(raw_query):
+        add(match.group(0))
+        dotted.append(match.group(0))
+    for match in _IDENTIFIER_RE.finditer(raw_query):
+        token = match.group(0)
+        if len(token) >= 4 or "_" in token:
+            add(token)
+    raw = raw_query.strip()
+    if raw and len(raw) <= 200 and not re.search(r"\s", raw):
+        # Точная строка/ключ/событие/traceback-фрагмент без пробелов. Обычная
+        # фраза не превращается в литерал.
+        add(raw)
+    ctx = str(context_query or "")
+    if ctx and ctx != raw_query:
+        for match in _DOTTED_PROBE_RE.finditer(ctx):
+            add(match.group(0))
+            dotted.append(match.group(0))
+        for match in _IDENTIFIER_RE.finditer(ctx):
+            token = match.group(0)
+            if len(token) >= 4 or "_" in token:
+                add(token)
+    # Dotted-идентификатор (`watchdog.jobs`) — уже точная проба: его отдельные
+    # компоненты (`watchdog`, `jobs`) не добавляются как самостоятельные, иначе
+    # результат заполняется случайными упоминаниями общих слов.
+    if dotted:
+        strong = {item for item in dotted if item in out}
+        out = [item for item in out
+               if item == str(symbol or "").strip()
+               or item in strong
+               or (item not in strong
+                   and not any(item != probe and item in probe
+                               for probe in strong))]
+    return out
+
+
+def _path_parts(path: str) -> list[str]:
+    return [part.casefold() for part in
+            str(path or "").replace("\\", "/").strip("/").split("/") if part]
+
+
+def _material_for_path(path: str) -> str:
+    """Класс материала по структуре пути (без словаря известных модулей)."""
+    parts = _path_parts(path)
+    if not parts:
+        return MATERIAL_OTHER
+    name = parts[-1]
+    ext = ("." + name.rsplit(".", 1)[-1]) if "." in name else ""
+    dirs = parts[:-1]
+    if (any(part in {"test", "tests", "spec", "specs", "__tests__"}
+            for part in dirs)
+            or name.startswith("test_")
+            or name.endswith(("_test.py", "_test.go", ".test.js", ".spec.js",
+                              ".test.ts", ".spec.ts", ".test.tsx"))):
+        return MATERIAL_TESTS
+    if any(part in {"plans", "plan", "roadmap"} for part in dirs):
+        return MATERIAL_PLANS
+    if (any(part in {"migration", "migrations", "migrate"}
+            for part in dirs)
+            or name.startswith(("migrate_", "migration_"))):
+        return MATERIAL_MIGRATION
+    if (any(part in {"deploy", "deployment", "deployments", ".github",
+                     "ci", ".gitlab-ci"} for part in dirs)
+            or name.startswith("deploy_")
+            or name in {"dockerfile", "makefile", "jenkinsfile", "procfile"}):
+        return MATERIAL_DEPLOY_SCRIPT
+    if (any(part in {"docs", "doc", "documentation"} for part in dirs)
+            or ext in {".md", ".rst", ".txt"}):
+        return MATERIAL_DOCUMENTATION
+    if ext in _SOURCE_EXTS:
+        return MATERIAL_IMPLEMENTATION
+    return MATERIAL_OTHER
+
+
+def _is_searchable_path(path: str) -> bool:
+    """Текстовый материал, который стоит проверять по содержимому."""
+    parts = _path_parts(path)
+    if not parts:
+        return False
+    if any(part in _LOCAL_TREE_SKIP_DIRS for part in parts[:-1]):
+        return False
+    name = parts[-1]
+    if name in _SEARCHABLE_FILENAMES or name.startswith("dockerfile"):
+        return True
+    ext = ("." + name.rsplit(".", 1)[-1]) if "." in name else ""
+    return ext in _SEARCHABLE_TEXT_EXTS
+
+
+def _is_comment_line(line: str) -> bool:
+    stripped = str(line or "").strip()
+    return bool(stripped) and stripped.startswith(
+        ("#", "//", "/*", "*", "--", '"""', "'''"))
+
+
+def _looks_like_definition(line: str, token: str) -> bool:
+    """Синтаксическая форма определения символа/ключа (не словарь имён)."""
+    text = str(line or "").strip()
+    token = str(token or "").strip()
+    if not text or not token:
+        return False
+    esc = re.escape(token)
+    patterns = (
+        rf"^(?:async\s+)?def\s+{esc}\b",
+        rf"^class\s+{esc}\b",
+        rf"^(?:const|let|var|static|final|public|private|protected|export|"
+        rf"readonly)\s+.*\b{esc}\b",
+        rf"^{esc}\s*(?::[^=]+)?=",
+        rf"^{esc}\s*:",
+        rf"^[\"']{esc}[\"']\s*:",
+        rf"^[\"']{esc}[\"']\s*=",
+        rf"^@?{esc}\s*\(",
+        rf"^\s*{esc}\s*=",
+    )
+    return any(re.match(pattern, text) for pattern in patterns)
+
+
+def _code_role_for_line(path: str, line: str, probes: list[str],
+                        required: str) -> str:
+    """implementation | caller | tests | docs | plans | migration | deploy |
+    mention — по пути и синтаксической форме строки."""
+    material = _material_for_path(path)
+    if material != MATERIAL_IMPLEMENTATION:
+        return material
+    if _is_comment_line(line):
+        return MATERIAL_MENTION
+    tokens = list(probes)
+    if required and required not in tokens:
+        tokens.append(required)
+    for token in tokens:
+        if _looks_like_definition(line, token):
+            return MATERIAL_IMPLEMENTATION
+    stripped = str(line or "").strip()
+    if (re.match(r"^(?:from\s+\S+\s+)?import\s+", stripped)
+            or re.match(r"^(?:const|let|var)\s+.*=\s*require\(", stripped)
+            or re.match(r"^use\s+", stripped)):
+        return MATERIAL_CALLER
+    if any(f"{token}(" in stripped for token in tokens
+           if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", token or "")):
+        return MATERIAL_CALLER
+    if any((f'"{token}"' in line or f"'{token}'" in line)
+           for token in tokens):
+        # Literal event/key/error id, реально использованный в production-коде.
+        return MATERIAL_IMPLEMENTATION
+    return MATERIAL_CALLER
+
+
+def _content_match_score(matched: list[str], line: str, required: str) -> float:
+    score = float(len(matched))
+    for probe in matched:
+        if "." in probe or "_" in probe:
+            score += 2.0
+        if "(" in probe or "->" in probe:
+            score += 1.0
+    if required and required in line:
+        score += 2.0
+    return score
+
+
+def _search_scan_order(listing: TreeListing, *, query: str, symbol: str,
+                       path: str, language: str) -> list[tuple]:
+    """Детерминированный порядок сканирования: код раньше проверок/прозы.
+
+    Внутри класса используется существующий ``rank_paths`` (подсказка, а не
+    потолок полноты: в отличие от прежнего ``ranked[:3]``, проверяются все
+    подходящие текстовые файлы ревизии).
+    """
+    ranked = rank_paths(listing, query=query, symbol=symbol,
+                        path=path, language=language)
+    rank_pos = {entry.path: index for index, entry in enumerate(ranked)}
+    order: list[tuple] = []
+    for entry in listing.entries:
+        if entry.kind not in ("blob", ""):
+            continue
+        if not _is_searchable_path(entry.path):
+            continue
+        if path_is_denied(entry.path):
+            # Denylist — не «нет файла» и не повод для remote-обхода.
+            continue
+        material = _material_for_path(entry.path)
+        order.append((_MATERIAL_SEARCH_ORDER.get(material, 9),
+                      rank_pos.get(entry.path, 10 ** 9),
+                      entry.path, entry, material))
+    order.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [(item[3], item[4]) for item in order]
+
+
+def _cursor_encode(payload: dict) -> str:
+    """Opaque cursor: JSON + digest, без секретов и путей хоста."""
+    data = dict(payload or {})
+    raw = json.dumps(data, ensure_ascii=True, sort_keys=True,
+                     separators=(",", ":"))
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    packed = json.dumps({"d": digest, "p": data}, ensure_ascii=True,
+                        sort_keys=True, separators=(",", ":"))
+    return base64.urlsafe_b64encode(packed.encode("utf-8")).decode(
+        "ascii").rstrip("=")
+
+
+def _cursor_decode(token) -> dict | None:
+    """Проверка целостности/формы cursor; пусто → None."""
+    text = str(token or "").strip()
+    if not text:
+        return None
+    try:
+        padded = text + "=" * (-len(text) % 4)
+        packed = base64.urlsafe_b64decode(padded.encode("ascii"))
+        obj = json.loads(packed.decode("utf-8"))
+        data = obj.get("p") if isinstance(obj, dict) else None
+        digest = str(obj.get("d") or "") if isinstance(obj, dict) else ""
+        if not isinstance(data, dict):
+            return None
+        raw = json.dumps(data, ensure_ascii=True, sort_keys=True,
+                         separators=(",", ":"))
+        expected = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+        if digest != expected or int(data.get("v") or 0) != 1:
+            return None
+        return data
+    except Exception:
+        return None
+
+
+def _continuation_payload(*, kind: str, cursor: str = "", remaining: bool,
+                          reason: str = "",
+                          next_arguments: dict | None = None,
+                          progress_id: str = "") -> dict:
+    return {
+        "kind": str(kind or ""),
+        "cursor": str(cursor or ""),
+        "remaining": bool(remaining),
+        "reason": str(reason or "")[:80],
+        "next_arguments": dict(next_arguments or {}),
+        "progress_id": str(progress_id or ""),
+    }
+
+
+def _progress_id(operation: str, repo, ref, path, query, symbol) -> str:
+    raw = "|".join(str(item or "") for item in
+                   (operation, repo, ref, path, query, symbol))
+    return "srp_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _idempotency_key(payload: dict) -> str:
+    """Стабильный ключ ЭТОЙ порции результата (одинаковый вызов → тот же key)."""
+    basis = {
+        key: payload.get(key) for key in
+        ("operation", "provider", "repo", "ref", "commit", "path", "symbol",
+         "line_range", "query", "outcome", "progress_id", "reused")
+    }
+    continuation = payload.get("continuation")
+    basis["cursor"] = (continuation.get("cursor")
+                       if isinstance(continuation, dict) else "")
+    raw = json.dumps(basis, ensure_ascii=True, sort_keys=True, default=str)
+    return "sri_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+
+def _outcome_for_status(status: str) -> str:
+    text = str(status or "").strip().lower()
+    return {
+        STATUS_OK: OUTCOME_OK,
+        STATUS_AMBIGUOUS: OUTCOME_AMBIGUOUS,
+        STATUS_NOT_FOUND: OUTCOME_NOT_FOUND,
+        STATUS_UNSUPPORTED: OUTCOME_UNSUPPORTED,
+        STATUS_PARTIAL: OUTCOME_PARTIAL,
+        STATUS_ERROR: OUTCOME_SEARCH_FAILED,
+    }.get(text, OUTCOME_SEARCH_FAILED)
+
+
+def _outcome_for_error(exc: SourceFetchError, state: "_RunState") -> str:
+    detail = str(exc.detail or "")
+    code = str(exc.code or "")
+    if code == ERR_REVISION_MISMATCH:
+        return OUTCOME_REVISION_MISMATCH
+    if state.requested_commit and detail in (
+            "commit_not_available", "commit_mismatch",
+            "local_revision_mismatch", "requested_commit_unavailable"):
+        return OUTCOME_REVISION_MISMATCH
+    if detail in ("deployed_revision_unknown", "root_missing", "no_revision",
+                  "tree_unavailable"):
+        return OUTCOME_SOURCE_UNAVAILABLE
+    if code in _PERMISSION_CODES or code == ERR_DISABLED:
+        return OUTCOME_PERMISSION_DENIED
+    if code in (ERR_RATE_LIMIT, ERR_TIMEOUT):
+        return OUTCOME_PROVIDER_LIMIT
+    if code in (ERR_PROVIDER_UNAVAILABLE, ERR_PROVIDER_UNCONFIGURED):
+        return OUTCOME_SOURCE_UNAVAILABLE
+    if code in (ERR_SOURCE_MISSING, ERR_NO_RESULTS):
+        return OUTCOME_NOT_FOUND
+    if code in (ERR_UNSUPPORTED_KIND, ERR_EMPTY_CONTENT):
+        return OUTCOME_UNSUPPORTED
+    return OUTCOME_SEARCH_FAILED
+
+
+def _outcome_for_error_code(code: str) -> str:
+    text = str(code or "")
+    if text == ERR_REVISION_MISMATCH:
+        return OUTCOME_REVISION_MISMATCH
+    if text in _PERMISSION_CODES or text == ERR_DISABLED:
+        return OUTCOME_PERMISSION_DENIED
+    if text in (ERR_RATE_LIMIT, ERR_TIMEOUT):
+        return OUTCOME_PROVIDER_LIMIT
+    if text in (ERR_PROVIDER_UNAVAILABLE, ERR_PROVIDER_UNCONFIGURED):
+        return OUTCOME_SOURCE_UNAVAILABLE
+    if text in (ERR_SOURCE_MISSING, ERR_NO_RESULTS):
+        return OUTCOME_NOT_FOUND
+    if text in (ERR_UNSUPPORTED_KIND, ERR_EMPTY_CONTENT):
+        return OUTCOME_UNSUPPORTED
+    return OUTCOME_SEARCH_FAILED
 
 
 # ── ранжирование (только реальные сигналы, без словарей имён) ──────────────
@@ -3855,7 +5345,17 @@ def _source_id(repo: str, commit: str, path: str) -> str:
 __all__ = [
     "STATUSES", "STAGES", "OPERATIONS", "SUPPORTED_HOSTS",
     "STATUS_OK", "STATUS_AMBIGUOUS", "STATUS_NOT_FOUND", "STATUS_UNSUPPORTED",
-    "STATUS_ERROR", "PROVIDER_GITHUB", "PROVIDER_LOCAL", "PROVIDERS",
+    "STATUS_PARTIAL", "STATUS_ERROR",
+    "OUTCOMES", "OUTCOME_OK", "OUTCOME_AMBIGUOUS", "OUTCOME_NOT_FOUND",
+    "OUTCOME_SEARCH_FAILED", "OUTCOME_PARTIAL",
+    "OUTCOME_SOURCE_UNAVAILABLE", "OUTCOME_PERMISSION_DENIED",
+    "OUTCOME_PROVIDER_LIMIT", "OUTCOME_REVISION_MISMATCH",
+    "OUTCOME_UNSUPPORTED",
+    "MATERIALS", "MATERIAL_IMPLEMENTATION", "MATERIAL_CALLER",
+    "MATERIAL_TESTS", "MATERIAL_DOCUMENTATION", "MATERIAL_PLANS",
+    "MATERIAL_MIGRATION", "MATERIAL_DEPLOY_SCRIPT", "MATERIAL_MENTION",
+    "MATERIAL_OTHER",
+    "PROVIDER_GITHUB", "PROVIDER_LOCAL", "PROVIDERS",
     "REPO_ORIGIN_SETTING_KEY", "DEFAULT_REPO_ORIGIN", "SourceFetchError",
     "RepoInfo", "TreeEntry", "TreeListing", "SourceFile", "ParsedSourceUrl",
     "SourceProvider", "GitHubProvider", "LocalSnapshotProvider",
@@ -3880,5 +5380,6 @@ __all__ = [
     "LOCAL_VERIFICATION_UNAVAILABLE",
     "LOCAL_REVISION_CHECKOUT", "LOCAL_REVISION_DEPLOYED_FILES",
     "LOCAL_REVISION_FILES", "LOCAL_REVISION_NONE",
-    "ERR_EMPTY_CONTENT", "ERR_PATH_DENIED",
+    "ERR_EMPTY_CONTENT", "ERR_PATH_DENIED", "ERR_REVISION_MISMATCH",
+    "content_scan_budget_bytes",
 ]

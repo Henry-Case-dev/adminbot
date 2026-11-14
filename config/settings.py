@@ -2262,9 +2262,18 @@ class Settings:
     # НЕ time-format). <0 → дефолт 300.0 (WARNING). 0 = выключен.
     CHECKUP_COOLDOWN_SECONDS: float = _env_float_min("CHECKUP_COOLDOWN_SECONDS", 300.0, 0.0)
     # Лимит ОТВЕТА LLM, символы; <100 → дефолт 3000 (WARNING).
+    # SMART-CORRECTIVE-01 §7 (S3B-INPUT): это ЖЕЛАЕМЫЙ объём пользовательского
+    # отчёта (`{max_symbols}` промпта). Он не ограничивает сбор данных,
+    # payload и исследование — раньше, позже и сейчас это разные лимиты.
     CHECKUP_MAX_SYMBOLS: int = _env_int_min("CHECKUP_MAX_SYMBOLS", 3000, 100)
     # ── Checkup 400 (Epic 49, Section 57.5) ──
-    # Потолок user-входа (<system_logs>) в символах после scrub C0; <1000 → 12000 (WARNING).
+    # ОПЕРАТОРСКИЙ потолок user-входа (<system_logs>), символы; <1000 → 12000
+    # (WARNING). SMART-CORRECTIVE-01 §7 (S3B-INPUT): действует только при
+    # effective `flags.budgets_enabled=true`; при OFF доказательства не режутся
+    # по старому лимиту. Всегда дополнительно действует физическая ёмкость
+    # модели (`services/model_capacity`), а при переполнении сохраняются
+    # существенные факты и честно называется доступный остаток. Сохранённые
+    # значения владельца не перезаписываются.
     CHECKUP_MAX_INPUT_SYMBOLS: int = _env_int_min("CHECKUP_MAX_INPUT_SYMBOLS", 12000, 1000)
     # ── SELF-DIAG-01 D1: локальный источник логов чекапа ──
     # Окно чтения журнала (строк); <10 → дефолт 300.

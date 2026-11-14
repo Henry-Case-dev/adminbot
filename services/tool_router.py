@@ -3342,6 +3342,46 @@ class ToolRouter:
 
     # ── read_source_code (EVOL-SRC-READER, W6) ───────────────────────────
 
+    #: Атрибут ``ToolContext``: резолв effective-политики бюджетов на ход.
+    #: Один резолв на контекст: nested/repeat/fallback-вызовы инструмента
+    #: получают ту же политику, что и остальной контур этого хода.
+    BUDGET_POLICY_ATTR = "_tool_budget_policy"
+
+    async def _budget_policy(self, ctx) -> dict:
+        """Effective ``flags.budgets_enabled`` для области этого вызова.
+
+        SMART-CORRECTIVE-01 §3: единственный резолвер — существующий
+        ``source_reader.budget_limits_enforced`` (→ ``services.budget_gate``:
+        chat override → global → заводской default). Второй механизм ON/OFF
+        не создаётся, предикат не дублируется.
+
+        Область исполнения — ``ToolContext.chat_id``: она передаётся и в
+        резолвер, и в ``SourceReader``. Политика кэшируется на КОНТЕКСТЕ ХОДА
+        и инвалидируется при смене scope, поэтому настройка одного чата не
+        может достаться другому. Отсутствие chat_id не подменяется
+        безусловным ON/OFF: резолвер читается для ``None`` (глобальный слой),
+        как и до этой правки в самом SourceReader.
+        """
+        from services import source_reader as _sr
+        scope = getattr(ctx, "chat_id", None)
+        cached = getattr(ctx, self.BUDGET_POLICY_ATTR, None)
+        if isinstance(cached, dict) and cached.get("scope") == scope:
+            return cached
+        try:
+            enforced = bool(await _sr.budget_limits_enforced(scope))
+            failed = False
+        except Exception:      # pragma: no cover - предикат сам не бросает
+            logger.warning("[tools] budget policy resolve failed | chat=%s",
+                           scope, exc_info=True)
+            enforced, failed = False, True
+        policy = {"scope": scope, "enforced": enforced, "failed": failed,
+                  "resolver": "source_reader.budget_limits_enforced"}
+        try:
+            setattr(ctx, self.BUDGET_POLICY_ATTR, policy)
+        except Exception:      # pragma: no cover - frozen-контекст/заглушка
+            pass
+        return policy
+
     async def _read_source_code(self, arguments: dict,
                                 ctx: ToolContext) -> str:
         """Проверенное чтение исходников → JSON Evidence Contract (§1.1).
@@ -3433,13 +3473,23 @@ class ToolRouter:
         reader = self._source_reader()
         claim_keys = self._claim_keys(ctx, args)
         chat_id = getattr(ctx, "chat_id", None)
+        # SMART-CORRECTIVE-01 §3: effective-политика бюджетов читается ОДИН
+        # раз на контекст и передаётся в SourceReader ЯВНО (chat_id +
+        # budget_enforced). Вложенный инструмент больше не резолвит политику
+        # без контекста конкретного чата (SC-BUD-FIX/SC-BUD-RESOLVER).
+        budget = await self._budget_policy(ctx)
+        # Opaque continuation cursor (S1-контракт): передаётся как есть.
+        cursor = str(args.get("cursor") or "").strip()
         scope = "chat" if _sr.github_token() else "public"
         identity = self._source_identity(url=url, repo=repo, ref=ref,
                                          path=path, symbol=symbol)
         bypass = self._reuse_bypass(args, ctx)
         # Reuse — про ПРОЧИТАННЫЙ источник: discovery всегда ищет заново
         # (дешёвый вызов, а «найденный ранее репозиторий» может устареть).
-        reuse_allowed = operation in (_sr.OPERATION_READ, _sr.OPERATION_LOCATE)
+        # Продолжение (cursor) reuse НЕ использует: иначе модель получила бы
+        # уже выданную первую порцию вместо следующего диапазона.
+        reuse_allowed = (operation in (_sr.OPERATION_READ, _sr.OPERATION_LOCATE)
+                         and not cursor)
         if claim_keys and not bypass and reuse_allowed:
             reused = self._source_reuse_payload(
                 reader, claim_keys, identity=identity, scope=scope,
@@ -3455,10 +3505,14 @@ class ToolRouter:
                         "used": int(reused.get("snippet_chars") or 0),
                         "total": int(reused.get("file_total_lines") or 0),
                         "truncated": False, "why": "",
-                        "retrievable_remainder": 0, "unit": "chars"})
+                        "retrievable_remainder": 0, "unit": "chars",
+                        "budgets_enforced": bool(budget["enforced"]),
+                        "budget_scope_chat": budget["scope"]})
                 logger.info("[tools] read_source_code reuse | read=%s | "
-                            "chars=%d", reused.get("read_level"),
-                            int(reused.get("snippet_chars") or 0))
+                            "chars=%d | budgets_on=%s",
+                            reused.get("read_level"),
+                            int(reused.get("snippet_chars") or 0),
+                            bool(budget["enforced"]))
                 return json.dumps(reused, ensure_ascii=False)
         payload = await reader.run(
             operation=operation, url=url, repo=repo, query=query, ref=ref,
@@ -3466,7 +3520,9 @@ class ToolRouter:
             line_end=line_end, follow=args.get("follow"),
             language=str(args.get("language") or ""),
             budget_chars=int(window.effective_limit or 0),
-            context_query=str(getattr(ctx, "query", "") or ""))
+            context_query=str(getattr(ctx, "query", "") or ""),
+            chat_id=chat_id, budget_enforced=bool(budget["enforced"]),
+            cursor=cursor)
         truncation = payload.get("truncation") or {}
         if isinstance(truncation, dict) and truncation:
             # Источник лимита — существующее окно (`call_budget|window|legacy`),
@@ -3494,6 +3550,9 @@ class ToolRouter:
                    "turn_capped": window.turn_capped,
                    "source_read_level": payload.get("read_level") or "",
                    "verified": bool(payload.get("verified")),
+                   "budgets_enforced": bool(budget["enforced"]),
+                   "budget_scope_chat": budget["scope"],
+                   "budget_policy_failed": bool(budget.get("failed")),
                    "network_calls": int(payload.get("network_calls") or 0)})
         # §3.3/§3.5: запомнить ПРОЧИТАННЫЙ источник под claim-key. Повторный
         # read той же идентичности = reuse (0 сетевых вызовов); изменённый
@@ -3529,11 +3588,13 @@ class ToolRouter:
                 "retryable": bool(error.get("retryable")),
             })
         logger.info("[tools] read_source_code | op=%s | status=%s | stage=%s "
-                    "| verified=%s | lines=%s | files=%s | calls=%s",
+                    "| verified=%s | lines=%s | files=%s | calls=%s | "
+                    "budgets_on=%s | chat=%s",
                     operation, payload.get("status"), payload.get("stage"),
                     bool(payload.get("verified")),
                     payload.get("line_range"), len(payload.get("files") or ()),
-                    payload.get("network_calls"))
+                    payload.get("network_calls"), bool(budget["enforced"]),
+                    budget["scope"])
         if diag_ctx is not None:
             requested_repo = repo
             if not requested_repo and url:
@@ -3607,6 +3668,17 @@ class ToolRouter:
             # Метаданные ДОСТАВЛЕННОГО фрагмента: без них reuse-ответ врал бы
             # «truncated=false, остаток 0» (§1.1 «объём/обрезка»).
             "delivered_chars": int(payload.get("snippet_chars") or 0),
+            # SMART-CORRECTIVE-01 §1: identity/continuation результата — reuse
+            # обязан отдавать ТО ЖЕ исследование (outcome/progress/next page),
+            # а не только текст.
+            "outcome": str(payload.get("outcome") or ""),
+            "partial": bool(payload.get("partial")),
+            "query": str(payload.get("query") or ""),
+            "operation": str(payload.get("operation") or ""),
+            "progress_id": str(payload.get("progress_id") or ""),
+            "idempotency_key": str(payload.get("idempotency_key") or ""),
+            "continuation": dict(payload.get("continuation") or {}),
+            "source_selection": dict(payload.get("source_selection") or {}),
             "truncated": bool(truncation.get("truncated")),
             "why": str(truncation.get("why") or ""),
             "effective_limit": int(truncation.get("effective_limit") or 0),
@@ -3753,6 +3825,18 @@ class ToolRouter:
                     "network_calls": 0,
                     "latency_ms": 0,
                     "operation": operation,
+                    # SMART-CORRECTIVE-01 §1: reuse возвращает identity того же
+                    # исследования — outcome/partial/progress/continuation и
+                    # provenance выбора источника (не только текст фрагмента).
+                    "outcome": str(pointer.get("outcome") or "ok"),
+                    "partial": bool(pointer.get("partial")),
+                    "query": str(pointer.get("query") or ""),
+                    "progress_id": str(pointer.get("progress_id") or ""),
+                    "idempotency_key": str(pointer.get("idempotency_key")
+                                            or ""),
+                    "continuation": dict(pointer.get("continuation") or {}),
+                    "source_selection": dict(
+                        pointer.get("source_selection") or {}),
                     "provenance": {
                         "provider": str(pointer.get("provider") or "github"),
                         "endpoint": "reuse",
@@ -3761,6 +3845,14 @@ class ToolRouter:
                         "sha256": str(pointer.get("sha256") or ""),
                         "read_level": record.read_level,
                         "network_calls": 0,
+                        # Те же identity-поля, что SourceReader кладёт в
+                        # provenance живого чтения (§1): reuse не меняет
+                        # семантику результата.
+                        "repo": str(pointer.get("repo") or ""),
+                        "commit": str(pointer.get("commit") or ""),
+                        "operation": operation,
+                        "outcome": str(pointer.get("outcome") or "ok"),
+                        "progress_id": str(pointer.get("progress_id") or ""),
                     },
                 }
         except Exception:      # pragma: no cover - reuse не рвёт инструмент

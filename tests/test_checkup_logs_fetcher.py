@@ -507,21 +507,23 @@ class TestNoBetterStackInCheckupRuntime:
 
     @pytest.mark.asyncio
     async def test_bare_checkup_uses_same_prompt_key(self, monkeypatch):
-        """Промпт-ключ и его байты не меняются: чекup идёт через
-        resolve_prompt("prompts.checkup_system_prompt", CHECKUP_SYSTEM_PROMPT)."""
+        """Промпт-ключ и его байты не меняются: внутренний чекап (без chat_id)
+        идёт через resolve_prompt_with_source("prompts.checkup_system_prompt",
+        CHECKUP_SYSTEM_PROMPT); пользовательский маршрут с chat_id резолвится
+        тем же ключом через реестр (S6-PROMPT)."""
         from services import checkup_service as svc_mod
         from services.checkup_prompts import CHECKUP_SYSTEM_PROMPT
         from services.checkup_service import CheckupService
 
         seen = {}
-        real_resolve = svc_mod.resolve_prompt
+        real_resolve = svc_mod.resolve_prompt_with_source
 
         def spy(key, default):
             seen["key"] = key
             seen["default"] = default
             return real_resolve(key, default)
 
-        monkeypatch.setattr(svc_mod, "resolve_prompt", spy)
+        monkeypatch.setattr(svc_mod, "resolve_prompt_with_source", spy)
         llm = MagicMock()
         llm.generate = AsyncMock(return_value="отчёт")
         fetcher = _fetcher(runner=_journal_runner(out=""))

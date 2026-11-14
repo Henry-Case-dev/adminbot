@@ -209,8 +209,10 @@ class TestEpic49ScrubAndTruncate:
 
     @pytest.mark.asyncio
     async def test_input_truncated_with_warning(self, make_service, caplog):
-        """#5: вход 12001+ симв → user ≤ CHECKUP_MAX_INPUT_SYMBOLS, WARNING,
-        кириллица цела."""
+        """S3B-INPUT: вход больше ёмкости → голова длинной строки сохранена,
+        честная метка об остатке на месте, WARNING с фактическими числами,
+        кириллица цела. Прежнее «обрезать ровно по N без следа» заменено
+        контрактом §7.2 (structure + continuation)."""
         import logging
 
         limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
@@ -219,8 +221,15 @@ class TestEpic49ScrubAndTruncate:
         with caplog.at_level(logging.WARNING):
             await service.checkup(logs, used_fallback=False)
         user = llm.generate.await_args.args[0][1]["content"]
-        assert user == f"<system_logs>{'я' * limit}</system_logs>"
-        assert any("[checkup] input truncated" in r.message for r in caplog.records)
+        assert user.startswith("<system_logs>я")
+        assert user.endswith("</system_logs>")
+        assert "[checkup-input-truncated] section=logs" in user
+        assert "omitted_lines=1" in user
+        assert "partial_lines=1" in user
+        body = user[len("<system_logs>"):-len("</system_logs>")]
+        assert len(body) <= limit
+        assert any("[checkup] input truncated" in r.message
+                   for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_within_limit_unchanged(self, make_service):
@@ -317,8 +326,9 @@ class TestEpic61HotfixMetricsBudget:
     @pytest.mark.asyncio
     async def test_long_logs_metrics_survive_within_limit(self, mem_db, caplog):
         """(а): логи ~20.5к → <memory_health> в payload ЦЕЛИКОМ (закрывающий
-        тег на месте), логи ужаты ровно до бюджета (лимит соблюдён ДО escape:
-        сам escape раздувает только теги секции и логи из «я» не содержит)."""
+        тег на месте), payload в пределах ёмкости; S3B-INPUT: длинная строка
+        логов сохранена головой с честной меткой об остатке вместо немой
+        обрезки по символам."""
         import logging
 
         await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
@@ -329,13 +339,10 @@ class TestEpic61HotfixMetricsBudget:
         assert "&lt;memory_health&gt;" in user
         assert "&lt;/memory_health&gt;" in user      # закрывающий тег на месте
         assert "graph_facts: 1" in user              # содержимое не порезано
-        _, budget = next(r.args for r in caplog.records
-                         if "[checkup] input truncated" in r.message)
-        logs_part = user[len("<system_logs>"):
-                         user.index("&lt;memory_health&gt;") - 2]
-        assert len(logs_part) == budget              # логи ровно по бюджету
-        assert len(user) <= svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS \
-            + len("<system_logs></system_logs>") + 12   # +12: escape тегов
+        assert "[checkup-input-truncated] section=logs" in user
+        assert "continuation=" in user
+        body = user[len("<system_logs>"):-len("</system_logs>")]
+        assert len(body) <= svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
 
     @pytest.mark.asyncio
     async def test_short_logs_no_warning_metrics_present(self, mem_db, caplog):
@@ -351,26 +358,25 @@ class TestEpic61HotfixMetricsBudget:
         assert not any("input truncated" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_disabled_or_no_db_byte_identical_old_behavior(
-            self, mem_db, caplog):
-        """(в): metrics_enabled=False / db=None → payload идентичен эталону
-        старого поведения (в т.ч. при переполнении)."""
+    async def test_disabled_or_no_db_no_metrics_section(self, mem_db, caplog):
+        """(в): metrics_enabled=False / db=None → секции метрик нет; S3B-INPUT:
+        при переполнении сохраняется голова строки и честная метка об остатке."""
         import logging
 
         limit = svc_mod.settings.CHECKUP_MAX_INPUT_SYMBOLS
         logs = "я" * (limit + 500)
-        expected = f"<system_logs>{'я' * limit}</system_logs>"
         for kwargs in ({"db": mem_db, "metrics_enabled": False}, {}):
             llm = MagicMock()
             llm.generate = AsyncMock(return_value="x")
             service = CheckupService(llm, **kwargs)
             with caplog.at_level(logging.WARNING):
                 await service.checkup(logs, used_fallback=False)
-            assert llm.generate.await_args.args[0][1]["content"] == expected
-            # прежний формат WARNING с прежними числами (бюджет = 12000)
-            rec = next(r for r in caplog.records
-                       if "[checkup] input truncated" in r.message)
-            assert rec.args == (len(logs), limit)
+            user = llm.generate.await_args.args[0][1]["content"]
+            assert "memory_health" not in user
+            assert user.startswith("<system_logs>я")
+            assert "[checkup-input-truncated] section=logs" in user
+            assert any("[checkup] input truncated" in r.message
+                       for r in caplog.records)
             caplog.clear()
 
     @pytest.mark.asyncio
@@ -409,8 +415,8 @@ class TestEpic61HotfixMetricsBudget:
 
     @pytest.mark.asyncio
     async def test_truncation_warning_honest_numbers(self, mem_db, caplog):
-        """(е): при переполнении логов WARNING содержит реальные chars и
-        бюджет логов (MAX_INPUT − len(секции метрик)), а не общий лимит."""
+        """(е): WARNING при переполнении содержит фактические исходные символы,
+        итог в пределах ёмкости, число опущенных строк и basis лимита."""
         import logging
 
         await mem_db.insert_graph_fact(-100, "факт", "search_fact", None)
@@ -421,10 +427,12 @@ class TestEpic61HotfixMetricsBudget:
             await service.checkup("я" * logs_len, used_fallback=False)
         rec = next(r for r in caplog.records
                    if "[checkup] input truncated" in r.message)
-        chars, budget = rec.args
+        chars, mapped, omitted, basis, _window, _source = rec.args
         assert chars == logs_len
-        assert limit - 2000 <= budget < limit   # резерв длины секции учтён
+        assert mapped <= limit
+        assert omitted >= 1
+        assert basis in ("operator", "physical", "operator+physical")
         user = llm.generate.await_args.args[0][1]["content"]
         assert "&lt;/memory_health&gt;" in user
-        assert len(user) <= limit \
-            + len("<system_logs></system_logs>") + 12   # +12: escape тегов
+        body = user[len("<system_logs>"):-len("</system_logs>")]
+        assert len(body) <= limit

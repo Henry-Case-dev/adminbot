@@ -223,5 +223,9 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # SMART-EXECUTION-RELIABILITY-01 release train 01 (14.11.2026): +2 блока
     # заводских канонов — direct.tool_finalize (§G) и factcheck.subject (§S13);
     # печать набора переутверждена осознанно → 330952838067.
-    assert pr.FACTORY_SET_SHA256_12 == "330952838067"
+    # SMART-CORRECTIVE-01 §8.5 (S6-PROMPT, 14.11.2026): changed = 1 — активный
+    # жанр checkup.base.system очищен от устаревшего Betterstack и получил
+    # смысловую границу смешанного состояния (печать 3140bb364044); прочие
+    # каноны и все PREV_CHECKUP_* байт-в-байт → 2cd38b272139.
+    assert pr.FACTORY_SET_SHA256_12 == "2cd38b272139"
 
