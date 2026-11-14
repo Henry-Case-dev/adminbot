@@ -521,3 +521,39 @@ Anchor evidence лежит в origin-каталоге `plans/features/smart-exec
 Запись зафиксирована в карте: `deploy_blocker` (candidate, source, sha256 appendix, finding, owner, effect, recheck).
 **`deploy gate errors=0` для `e650f2b8` — это структурная привязка evidence, а не разрешение на выкат.**
 Выкат 2.58.203 допустим только после устранения дефекта, повторного ревью исправленного поезда и перепривязки карты к новому tip.
+
+## 15. Final 2.58.203 rebind c97c06e4 (добавлено 2026-11-15, unit `pm-final-258203`)
+
+| Поле | Значение |
+|---|---|
+| Final train tip | `c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5` (2.58.203; merge `a73ddc7f`) |
+| База / previous binding | `e650f2b854755743f2a750024a1f184d2a802e30` (2.58.203 pre-fix) |
+| Map `candidate_commit` | `c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5` |
+| Map `deployed_commit` | пусто |
+| Appendix | `evidence/release-train/integration-review.md` `11a12ab5a197d27ff44cf9b6fc6fd2626bc6dc9591e921cedcd8a292f26bad68` |
+
+### Rebind
+
+- **1174** evidence-записи на **367** required-строках переведены с `e650f2b8` на `c97c06e4`.
+- `bound_from_candidate = e650f2b8`; цепочка `bound_from_chain` расширена и сохраняет slice candidate → `409f4e8a` → `0beed63d` → `e650f2b8`.
+- `slice_candidate_bindings` не перезаписывались; guard binding S6 не менялся.
+- `deploy_stage_appendix.sha256` обновлён на `11a12ab5…`; `rebound_to`/`delta_approved_candidate = c97c06e4`.
+- Все **136** evidence-записей, ссылающихся на `integration-review.md`, получили `artifact_sha256=11a12ab5…`.
+- `deploy_blocker` очищен (`null`), старый blocker сохранён в `deploy_blocker_history`; добавлен `deploy_blocker_resolution`:
+  - verdict `Approved for controlled deployment`;
+  - reference `evidence/release-train/integration-review.md §Delta review 2.58.203 correction (test isolation)`;
+  - source sha `11a12ab5…`.
+- `deployed_commit` пуст; `delivery_evidence` не добавлялся.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| deploy corrective | `--stage deploy --candidate c97c06e4 --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=384) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+| deploy parent SMART | `--stage deploy --candidate 0e4a144d` (requirements-map.json) | 0 | `errors=0` (scoped=828) |
+| deploy parent FC | `--stage deploy --candidate 0e4a144d` (requirements-map-fc-amendment.json) | 0 | `errors=0` (scoped=705) |
+
+Выводы: `evidence/gates/deploy-corrective-c97c06e4.txt`, `evidence/gates/plan-after-final-c97c06e4.txt`, `evidence/gates/deploy-parent-smart-0e4a144d-final.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-final.txt`.
+
+Итоговые статусы: **355 REVIEW, 26 READY_FOR_LIVE, 3 VERIFIED** (только ранее существовавшие S6 investigation-строки); `PENDING` — 0; новых VERIFIED нет. 2.58.203 delta — test/evidence-only, runtime не менялся; appendix approval разрешает controlled deployment exact `c97c06e4`, production acceptance остаётся postdeploy.
