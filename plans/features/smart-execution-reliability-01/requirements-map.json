@@ -3479,8 +3479,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C2-02-460",
@@ -3709,8 +3764,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C3-01-482",
@@ -3724,8 +3834,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C3-01-484",
@@ -3739,8 +3904,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C3-02-486",
@@ -3754,8 +3974,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C3-02-498",
@@ -3769,8 +4044,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C3-02-500",
@@ -3784,8 +4114,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-C3-02-502",
@@ -3799,8 +4184,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "MAN-SXR-D1-01-512",
@@ -16451,8 +16891,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00450",
@@ -16466,8 +16961,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00451",
@@ -16481,8 +17031,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00452",
@@ -16496,8 +17101,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00453",
@@ -16511,8 +17171,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00454",
@@ -16526,8 +17241,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00455",
@@ -16541,8 +17311,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00456",
@@ -16556,8 +17381,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00457",
@@ -16571,8 +17451,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00458",
@@ -16586,8 +17521,63 @@
       "acceptance": "Проверены и устранены аналогичные потолки всех инструментов: результаты поиска, документы/страницы, фрагменты памяти, OCR/Vision, транскрипты, фактчек, длина сообщений, размер tool result, суммарный объём для модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Аудит всех семейств на точном кандидате: Search, Documents/pages, Memory, OCR/Vision, Transcripts/voice, Factcheck, Direct context/L1/Writer/fallback, Direct YouTube — искусственных потолков не осталось. Опубликованные остатки объяснены: DIG_MAX_SYMBOLS только при explicit policy, vision max_tokens — физический бюджет генерации, voice page 120 — технический с честным window_truncated. Итог: VERIFIED для REVIEW; postdeploy не заявляется.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00470",
@@ -16601,8 +17591,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00474",
@@ -16616,8 +17661,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00475",
@@ -16631,8 +17731,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00476",
@@ -16646,8 +17801,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00477",
@@ -16661,8 +17871,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00478",
@@ -16676,8 +17941,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00479",
@@ -16691,8 +18011,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00480",
@@ -16706,8 +18081,63 @@
       "acceptance": "Для каждого затронутого инструмента прослежены 7 шагов: получено инструментом, вошло в структурированный результат, сохранено в ToolResult/evidence, передано в tool-loop, прошло context composer, оказалось в LLM payload, использовано в финальном ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Transport/real-path уровень: search, YouTube segment formatting, Vision analyze_image_bytes, voice и retrieval пути прогнаны локально; memory — repository/storage doubles, STT — transport stub. Живые провайдеры, Telegram delivery в production, live LLM payload и production effective config — postdeploy-only, не заявлены. Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00488",
@@ -16721,8 +18151,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00489",
@@ -16736,8 +18221,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00490",
@@ -16751,8 +18291,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00491",
@@ -16766,8 +18361,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00492",
@@ -16781,8 +18431,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00493",
@@ -16796,8 +18501,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00494",
@@ -16811,8 +18571,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00495",
@@ -16826,8 +18641,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00496",
@@ -16841,8 +18711,63 @@
       "acceptance": "Устранены искусственные потери в символьных caps, legacy evidence windows, JSON-обрезке, max_input_symbols/max_symbols, резервах секций, повторном усечении, различии L1/Writer и сокращении под fallback; при OFF секционные бюджеты не уничтожают контекст; при реальном окне используется существующая упаковка с возможностью дочитать; новый обязательный этап перефразирования не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "cap-audit-b204c66c.md — APPROVED for REVIEW (финальный аудит потолков на train HEAD)",
+          "observation": "Устранены artificial char/JSON/legacy-window/section-reserve/double-truncation и потери на L1/Writer/fallback; real-window packing/readback и поведение при budgets-OFF покрыты тестами (включая readback). Итог: VERIFIED для REVIEW.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+          "artifact_sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/tool-results/binding-caps-tools-dce227f4.md — tool/search/factcheck/memory/transcripts/vision семейства",
+          "observation": "Посемейные прогоны и аудит: tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314 passed/38 skipped; потолки сняты в перечисленных семействах (артефакт произведён на dce227f4).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "artifact_sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "bound_from_candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/context/binding-caps-context-eab6aefd.md — Direct context/L1/Writer/fallback",
+          "observation": "Контекстные потолки сняты, real-window packing/readback сохранён, артефакт произведён на eab6aefd.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "artifact_sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "bound_from_candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        {
+          "type": "unit",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/binding-caps-final-b6320e59.md — финальные три потолка (reply_text 300, claim 400 display, YouTube 20k)",
+          "observation": "Финальные исправления и мутации на кандидате b6320e59; 36 independent tests (caps_tool_results + caps_context) прошли в ревью; аудит подтвердил отсутствие вызовов в данных.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "artifact_sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "test",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "caps/final/raw/pytest-caps-final.txt — финальный focused прогон",
+          "observation": "Финальный прогон caps-тестов на кандидате (17 tests) зелёный; broad 3523 passed/4 failed/18 errors — все pre-existing (воспроизведены на базе).",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/caps/final/raw/pytest-caps-final.txt",
+          "artifact_sha256": "314b74f3ac5f647bc788f071e4da9879c61a2866a6b68f9b61183ff999854e78",
+          "bound_from_candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        },
+        {
+          "type": "inspection",
+          "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+          "ref": "release-train/merge-log-aca13702.md — состав смердженного поезда",
+          "observation": "Лог смердженного поезда показывает, из каких lane-кандидатов собран train; используется только как провенанс, не как доказательство поведения.",
+          "artifact_path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+          "artifact_sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+        }
+      ]
     },
     {
       "source_id": "L00508",
@@ -27782,7 +29707,7 @@
     "identity": "verified_deployed",
     "note": "2.58.199 is the starting point only; S0 must re-confirm deployed SHA and effective configuration before any change."
   },
-  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9). PM i56 2026-11-14: SXR-I5-01 (10), SXR-I6-01 (10), SXR-I6-02 (6), SXR-I7-01 (5) переведены в REVIEW на кандидате d43fa1fd (tests 58a8f859, evidence c84e77d5, ветка smart/i56-memory-learning) с review-артефактом review-i56-c84e77d5.md и binding-артефактами из ветки (скопированы байт-в-байт). S11 привязан к d43fa1fd; S10 остаётся мульти-кандидатным (I3 d471309a + I5 d43fa1fd, ключ S10-LEARNING-INCIDENTS-I5) — scoped-гейт S10 структурно неприменим. PM s3c2c3 2026-11-14: S3-EVIDENCE перепривязан на 5e87ed48 (base 36dd6b23): C1-01/02/03 получили новые candidate-bound review+unit+test записи с bound_from_candidate=36dd6b23 (lineage), C2-02 переведён в REVIEW. SXR-C2-01/SXR-C3-01/SXR-C3-02 остаются PENDING (integration-required): ревью подтвердило только SourceReader-путь для C3-01 и system-wide непроверенное поведение C2-01/C3-02; авторитетная проверка — интеграционный аудит S12. PM h 2026-11-14: S8-SELFDIAG привязан к d238f808 (evidence head 120517a6, ветка smart/h-selfdiag): H1-01/H1-02/H2-01/H5-01 (37 строк) — REVIEW; H3-01 (10) и H4-01 (10) — READY_FOR_LIVE с postrelease_wait (production journal/service-user и deployed manifest/restart parity). Review-артефакт — транскрипция вердикта Reviewer'а (отмечено в файле). S13 review-артефакт переэмитирован с реальными переносами (sha обновлён в S13-строках).",
+  "status_note": "A: SXR-A1-01, A1-02, A1-03, A2-01..04, A3-01, A3-02, A3-03 — REVIEW с candidate-bound review+implementation evidence на 8fc8b534 (docs 20d5cac9, база d20a7f73, ветка smart/ab); SXR-A1-04 — READY_FOR_LIVE (effective-значения только после релиза, postrelease_wait одобрен Reviewer, owner DevOps). B: SXR-B1-01..06, B2-01, B2-02, B3-01, B4-01, B4-02 — REVIEW на том же кандидате. C1 — REVIEW на 36dd6b23; F — REVIEW (F1-01/F3-01) и READY_FOR_LIVE (F2-01/F4-01: нужен production-деплой). Эпик не DONE, кандидат 8fc8b534 не выкатывался. I1: SXR-I1-01 (20 строк: 10 инвентарных + 10 prose §I1) — READY_FOR_LIVE на кандидате 76d60678 (docs 87df150d, база d20a7f73, ветка smart/i1-journal): Reviewer Approved, F1/F2/F3 закрыты, 7/44/1 pre-existing, мутации ловят F1 и F3; live-подтверждение только postdeploy (postrelease_wait одобрен Reviewer). SXR-I1-02 (3 prose-строки §I1, запреты) существует в additional_requirements (строки 1040/1046/1048) и остаётся PENDING — ссылка среза S9 корректна, книжного пробела нет (см. evidence/i1-pm-reconcile-2026-11-14.md). D (S4-CAPACITY): 10 требований (97 строк) — REVIEW на f55fdc6e (docs 8e48b8cc, база d20a7f73, ветка smart/d-capacity): Reviewer Approved, 116/35/281/476, B1/N1 закрыты; живой каталог/effective values/реальный overflow остаются postdeploy, DONE не отмечен. I2: SXR-I2-01 (13 строк) — READY_FOR_LIVE на 9be4227e (код 3a78f961, тесты 45bfe2a4, база d20a7f73, ветка smart/i2-stream): Reviewer Approved (B1 закрыт, B2 docs закрыт при привязке), 17/29/59/219+1, postrelease_wait одобрен Reviewer; SXR-I2-02 (4 строки) и SXR-I1-02 (3 строки) остаются PENDING. G (S7-FINALIZE): 47 строк (5 требований SXR-G1-01..G5-01) — REVIEW на кандидате cffc9fb2 (docs 9b83863b, база 8fc8b534, ветка smart/g-finalize): Reviewer Approved (review-g-9b83863b.md), 17 G-тестов, мутации 8/17 и 4/17 red с восстановлением, независимый вброс совпал с регенерированным JSONL; реальные provider/Telegram остаются postdeploy, DONE не отмечен. MAP_SYNC_REQUIRED закрыт slice-binding'ом S7-FINALIZE при пустом map-level candidate_commit (тот же механизм, что S4/S9). I4: строки SXR-I4-01/02 (11) переведены из S10 в S9-EVENT-PIPELINE по plan.md и slice-graph и получили REVIEW на кандидате 4bf11400 (docs 42ce5675, база d20a7f73, ветка smart/i4-codes): Reviewer Approved (review-i4-4bf11400.md), 32/80+2/27/20, мутация 3/29 red, RED на базе 22/10; live_required=false, деплоя не было. Ключи S9-EVENT-PIPELINE-I1 и S9-EVENT-PIPELINE-I2 сохраняют привязки I1/I2. E (S5-LOCAL-FIRST): кандидат 18fa4d59 (docs 2d6878bf, HEAD 44258430, база 36dd6b23, ветка smart/e-local) привязан в slice_candidate_bindings; 45 строк SXR-E1-01..E4-01 переведены в REVIEW: review-evidence на review-e-18fa4d59.md (sha256 041c5124…062d; вердикт Approved передан Reviewer в чате и транскрибирован — отмечено в файле) + implementation-evidence binding-e-18fa4d59…md; review-гейт S5-LOCAL-FIRST = 0 ошибок (см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). I3 (S10-LEARNING-INCIDENTS): строки SXR-I3-01 (17) и SXR-I3-02 (3) — REVIEW на d471309a (код 89a37168, база d20a7f73, ветка smart/i3-lessons) с review-i3-89a37168.md и binding-i3-89a37168.md; после binding re-review вердикт Reviewer — Approved (binding), блокер candidate-bound привязки закрыт, поведение подтверждено ранее тремя столпами. Review-evidence перепривязан на обновлённый артефакт (sha256 8b9404…689; указанный в файле 628679… не воспроизводится из байтов файла — см. plans/features/smart-execution-reliability-01/evidence/pm-repin-i3-e-2026-11-14.md). Review-гейт S10 остаётся красным только на соседних строках SXR-I5-01 PENDING (10 строк). Postdeploy-остатки (E: systemd-пользователь и GitHub по deployed commit; I3: восстановление уже лежащих candidate-строк) зафиксированы в binding §8 и не заявляются выполненными; live_required/live_when строк не менялись. PM wave2 2026-11-14: SXR-1-01/SXR-1-02 получили production-доказательства recon'а на deployed d20a7f73 (read-only, artifact-sha256), статус осознанно оставлен PENDING — независимого Reviewer-вердикта по S0 нет; SXR-0-01..04, SXR-I1-02, SXR-I2-02 остаются PENDING, точный список недостающего доказательства — evidence/pm-wave2-2026-11-14.md. PM wave2b 2026-11-14: S0-BASELINE привязан к d20a7f73 и получил независимое ревью (review-s0-d20a7f73.md) — шесть требований VERIFIED на уже развёрнутой базе, нового деплоя не требуется. SXR-I1-02 (3) и SXR-I2-02 (4) переведены в REVIEW на 76d60678/9be4227e со своими review-артефактами и существующими implementation-артефактами. S9 остаётся мульти-кандидатным и проверяется только на map-уровне: разделение на sub-slices проверено и даёт 6 ошибок write-scope в графе (см. evidence/pm-wave2-2026-11-14.md §9). PM i56 2026-11-14: SXR-I5-01 (10), SXR-I6-01 (10), SXR-I6-02 (6), SXR-I7-01 (5) переведены в REVIEW на кандидате d43fa1fd (tests 58a8f859, evidence c84e77d5, ветка smart/i56-memory-learning) с review-артефактом review-i56-c84e77d5.md и binding-артефактами из ветки (скопированы байт-в-байт). S11 привязан к d43fa1fd; S10 остаётся мульти-кандидатным (I3 d471309a + I5 d43fa1fd, ключ S10-LEARNING-INCIDENTS-I5) — scoped-гейт S10 структурно неприменим. PM s3c2c3 2026-11-14: S3-EVIDENCE перепривязан на 5e87ed48 (base 36dd6b23): C1-01/02/03 получили новые candidate-bound review+unit+test записи с bound_from_candidate=36dd6b23 (lineage), C2-02 переведён в REVIEW. SXR-C2-01/SXR-C3-01/SXR-C3-02 остаются PENDING (integration-required): ревью подтвердило только SourceReader-путь для C3-01 и system-wide непроверенное поведение C2-01/C3-02; авторитетная проверка — интеграционный аудит S12. PM h 2026-11-14: S8-SELFDIAG привязан к d238f808 (evidence head 120517a6, ветка smart/h-selfdiag): H1-01/H1-02/H2-01/H5-01 (37 строк) — REVIEW; H3-01 (10) и H4-01 (10) — READY_FOR_LIVE с postrelease_wait (production journal/service-user и deployed manifest/restart parity). Review-артефакт — транскрипция вердикта Reviewer'а (отмечено в файле). S13 review-артефакт переэмитирован с реальными переносами (sha обновлён в S13-строках). PM caps 2026-11-14: SXR-C2-01 (11), SXR-C3-01 (11), SXR-C3-02 (13) переведены в REVIEW на train-кандидате b204c66c (code b6320e59, база d20a7f73) по финальному аудиту cap-audit-b204c66c.md; добавлен ключ S3-EVIDENCE-INTEGRATION. S3 мульти-кандидатен (5e87ed48 + b204c66c) — scoped-гейт только map-level.",
   "slice_candidate_bindings": {
     "S3-EVIDENCE": {
       "slice": "S3-EVIDENCE",
@@ -28552,6 +30477,65 @@
         "реальный production journal под service-user и рестарт — postdeploy (H3)",
         "фактические байты .deploy/release.json после деплоя — postdeploy (H4)",
         "живой Direct continuation без маркерных слов, Telegram delivered=0 с ledger, STT not_checked — postdeploy"
+      ],
+      "deployed": false
+    },
+    "S3-EVIDENCE-INTEGRATION": {
+      "slice": "S3-EVIDENCE",
+      "lane": "C2-01+C3-01+C3-02 (system-wide cap audit)",
+      "covers_req_ids": [
+        "SXR-C2-01",
+        "SXR-C3-01",
+        "SXR-C3-02"
+      ],
+      "scope_note": "S3 многоэтапный: C1-01/02/03 и C2-02 привязаны к 5e87ed48 (binding S3-EVIDENCE), а system-wide C2-01/C3-01/C3-02 — к train-кандидату b204c66c. Scoped-гейт одного кандидата для S3 структурно неприменим — проверка на map-уровне; существующий ключ S3-EVIDENCE не перезаписан. Postdeploy-only: deployed-SHA effective config, реальные провайдеры, live LLM payload, Telegram delivery canary.",
+      "candidate_commit": "b204c66cf92b4b8e530bcdad756ad1d4d6b1a33c",
+      "code": "b6320e59701c02cb305ab5a41c8ab870ac022b81",
+      "evidence": "b6320e59701c02cb305ab5a41c8ab870ac022b81",
+      "base": "d20a7f730715ba9e9cba7673c0557794979be339",
+      "branch": "smart/release-train-01",
+      "review": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/cap-audit-b204c66c.md",
+        "sha256": "c5ce732aa982555fa626bb4cf28fe655f6c542adba9829588c03df54c1d6324e"
+      },
+      "bindings": {
+        "tools": {
+          "path": "plans/features/smart-execution-reliability-01/evidence/caps/tool-results/binding-caps-tools-dce227f4.md",
+          "sha256": "df55ef919346207b3de9c916dd00cf1d0a9a62bc95af6cac04495bf2f0adfaf5",
+          "candidate": "dce227f43e34a9d5ebd070ba5b492d498ac571d8"
+        },
+        "context": {
+          "path": "plans/features/smart-execution-reliability-01/evidence/caps/context/binding-caps-context-eab6aefd.md",
+          "sha256": "b96b86783551a7efa62175d1f0a6b8edd2e5403006712bf5c12adc2551e12d3c",
+          "candidate": "eab6aefdaa1dec9327e972c1b622c0205991b4ef"
+        },
+        "final": {
+          "path": "plans/features/smart-execution-reliability-01/evidence/caps/final/binding-caps-final-b6320e59.md",
+          "sha256": "d1e0d07a10a0d0ab0c461861fee5970b1b0011cf3231b52a249b9f857943ecd8",
+          "candidate": "b6320e59701c02cb305ab5a41c8ab870ac022b81"
+        }
+      },
+      "merge_log": {
+        "path": "plans/features/smart-execution-reliability-01/evidence/release-train/merge-log-aca13702.md",
+        "sha256": "d299a5b1696dfec258921552e536d5ed57586b2757b4f2a7d06195d97893ea38"
+      },
+      "tests": {
+        "independent_36": "36 passed (caps_tool_results + caps_context)",
+        "families": "tool 17, search 53, factcheck 84, memory 306, transcripts 386, vision 314/38 skipped",
+        "affected_428": "428 passed",
+        "broad": "3523 passed, 4 failed, 18 errors — все pre-existing",
+        "diff_check": "пуст (cr-at-eol)"
+      },
+      "covered": [
+        "все восемь семейств проаудитированы: искусственных потолков нет",
+        "memory reply_text полный; claim[:400] — display-only с claim_truncated; YouTube 20k снят, chunking на delivery",
+        "real-window packing/readback и budgets-OFF сохранены; мутации на 300/400/20000 ловятся"
+      ],
+      "partial": [
+        "C3-01 для memory использует repository/storage doubles, STT — transport stub"
+      ],
+      "not_covered": [
+        "deployed-SHA effective config / реальные провайдеры / live LLM payload / Telegram delivery canary — postdeploy"
       ],
       "deployed": false
     }
