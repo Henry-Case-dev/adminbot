@@ -1,0 +1,20 @@
+diff --git a/services/factcheck_service.py b/services/factcheck_service.py
+index 78bba077..142bf3be 100644
+--- a/services/factcheck_service.py
++++ b/services/factcheck_service.py
+@@ -3933,14 +3933,7 @@ class FactCheckService:
+         # ╨▓╨╕╨┤╨╕╤В ╨╕ ╨▓╨╛╨┐╤А╨╛╤Б, ╨╕ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗ (╨╕ ╨┐╤А╨╛╤Б╤М╨▒╤Г ╨╛ ╤Д╨╛╤А╨╝╨╡, ╨╡╤Б╨╗╨╕ ╨╛╨╜╨░ ╨▒╤Л╨╗╨░) тАФ ╨╕╨╜╨░╤З╨╡
+         # ╨╛╨╜ ╨╛╤В╨▓╨╡╤З╨░╨╡╤В ╤В╨╛╨╗╤М╨║╨╛ ╨╜╨░ ╨┐╨╡╤А╨╡╤Д╨╛╤А╨╝╤Г╨╗╨╕╤А╨╛╨▓╨║╤Г ╨╕ ╨▓╤Л╨╜╤Г╨╢╨┤╨╡╨╜ ╨╛╨│╤А╨░╨╜╨╕╤З╨╕╨▓╨░╤В╤М╤Б╤П
+         # ╨╛╨│╨╛╨▓╨╛╤А╨║╨╛╨╣. ╨н╤В╨╛ ╨Ф╨Р╨Э╨Э╨л╨Х ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨╣ ╤Б╤В╨░╨┤╨╕╨╕, ╨░ ╨╜╨╡ ╨╜╨╛╨▓╤Л╨╣ ╨╢╨░╨╜╤А/╤И╨░╨▒╨╗╨╛╨╜.
+-        material = _distinct_text(getattr(env, "material_claim_text", ""),
+-                                  env.claim_text)
+-        if material:
+-            payload["original_material"] = material
+-        request_text = _distinct_text(getattr(env, "request_text", ""),
+-                                      env.claim_text, material)
+-        if request_text:
+-            payload["user_request"] = request_text
++        pass  # MUTATION C
+         form_request = str(getattr(env, "form_request", "") or "").strip()
+         if form_request:
+             payload["requested_form"] = form_request

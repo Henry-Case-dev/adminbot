@@ -1,0 +1,4 @@
+ services/factcheck_renderer.py       |   9 +-
+ services/factcheck_service.py        | 399 +++++++++++++++++++++++++++++++--
+ tests/test_factcheck_finalization.py | 419 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 805 insertions(+), 22 deletions(-)

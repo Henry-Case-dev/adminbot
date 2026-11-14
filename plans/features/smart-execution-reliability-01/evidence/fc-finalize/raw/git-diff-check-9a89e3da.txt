@@ -1,0 +1,93 @@
+services/prompt_registry.py:380: trailing whitespace.
++    # SMART-EXECUTION-RELIABILITY-01 ┬зG: ╤Д╨╕╨╜╨░╨╗╤М╨╜╨░╤П ╤Д╨░╨╖╨░ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╨╛╨│╨╛
+services/prompt_registry.py:381: trailing whitespace.
++    # ╨╕╤Б╤Б╨╗╨╡╨┤╨╛╨▓╨░╨╜╨╕╤П (╨╛╤В╨▓╨╡╤В ╨┐╨╛ ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╜╤Л╨╝ ╨┤╨░╨╜╨╜╤Л╨╝, ╨╛╤В╨║╨░╨╖╤Л/╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╨╛╨╡).
+services/prompt_registry.py:382: trailing whitespace.
++    "direct.tool_finalize": "tool-finalize-g1",
+services/prompt_registry.py:544: trailing whitespace.
++    # SMART-EXECUTION-RELIABILITY-01 ┬зG: ╨╖╨░╨▓╨╛╨┤╤Б╨║╨░╤П ╤А╨╡╨┤╨░╨║╤Ж╨╕╤П ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨╣ ╤Д╨░╨╖╤Л.
+services/prompt_registry.py:545: trailing whitespace.
++    "direct.tool_finalize": ("tool-finalize-g1", "8edac2662468"),
+services/prompt_registry.py:1976: trailing whitespace.
++    # SMART-EXECUTION-RELIABILITY-01 ┬зG (owner 2026-11-14): ╤Д╨╕╨╜╨░╨╗╤М╨╜╨░╤П ╤Д╨░╨╖╨░
+services/prompt_registry.py:1977: trailing whitespace.
++    # ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╨╛╨│╨╛ ╨╕╤Б╤Б╨╗╨╡╨┤╨╛╨▓╨░╨╜╨╕╤П тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ LLM ╤Б╨╛╨▒╨╕╤А╨░╨╡╤В ╨╛╤В╨▓╨╡╤В ╨┐╨╛
+services/prompt_registry.py:1978: trailing whitespace.
++    # ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╜╤Л╨╝ tool-╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░╨╝, ╨╛╤В╨┤╨╡╨╗╤П╤П ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╨╛╨╡ ╨╛╤В ╨│╨╕╨┐╨╛╤В╨╡╨╖ ╨╕
+services/prompt_registry.py:1979: trailing whitespace.
++    # ╨╜╨░╨╖╤Л╨▓╨░╤П ╨╛╤В╨║╨░╨╖╤Л/╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╨╛╨╡ (╨╡╨┤╨╕╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤А╨░╨║╤В ╨▓╤Б╨╡╤Е ╨┐╨╛╤В╤А╨╡╨▒╨╕╤В╨╡╨╗╨╡╨╣ ╤Ж╨╕╨║╨╗╨░).
+services/prompt_registry.py:1980: trailing whitespace.
++    declare_prompt(
+services/prompt_registry.py:1981: trailing whitespace.
++        block_id="direct.tool_finalize",
+services/prompt_registry.py:1982: trailing whitespace.
++        purpose="╨д╨╕╨╜╨░╨╗╤М╨╜╨░╤П ╤Д╨░╨╖╨░ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╨╛╨│╨╛ ╨╕╤Б╤Б╨╗╨╡╨┤╨╛╨▓╨░╨╜╨╕╤П: ╨╛╤В╨▓╨╡╤В ╨┐╨╛ ╤Г╨╢╨╡ "
+services/prompt_registry.py:1983: trailing whitespace.
++                "╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╜╤Л╨╝ ╨┤╨░╨╜╨╜╤Л╨╝, ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╨╛╨╡ ╨╛╤В╨┤╨╡╨╗╨╡╨╜╨╛ ╨╛╤В ╨│╨╕╨┐╨╛╤В╨╡╨╖, "
+services/prompt_registry.py:1984: trailing whitespace.
++                "╨╜╨░╨╖╨▓╨░╨╜╤Л ╨╛╤В╨║╨░╨╖╨░╨▓╤И╨╕╨╡ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╕ ╨╕ ╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╤Л╨╡ ╨╛╨▒╨╗╨░╤Б╤В╨╕.",
+services/prompt_registry.py:1985: trailing whitespace.
++        family="direct", scope="code",
+services/prompt_registry.py:1986: trailing whitespace.
++        code_source="services.tool_loop.TOOL_FINALIZE_PROMPT",
+services/prompt_registry.py:1987: trailing whitespace.
++        consumers=("tool_loop.py:_finalize_from_evidence",),
+services/prompt_registry.py:1988: trailing whitespace.
++        composition_point="direct/tool_finalize",
+services/prompt_registry.py:1989: trailing whitespace.
++        migration="factory", owner_lane="SMART-G", speech=False),
+tests/test_agentic_ai_round1020.py:98: trailing whitespace.
++    async def test_identical_repeats_finalize_without_stub(self):
+tests/test_agentic_ai_round1020.py:99: trailing whitespace.
++        """SMART-EXECUTION-RELIABILITY-01 ┬зB4/┬зG2: ╨┐╤А╨╡╨┤╨╡╨╗╨░ 4 ╤А╨░╤Г╨╜╨┤╨░ ╨╜╨╡╤В; ╨┐╨╛╨▓╤В╨╛╤А
+tests/test_agentic_ai_round1020.py:100: trailing whitespace.
++        ╨╛╨┤╨╕╨╜╨░╨║╨╛╨▓╨╛╨│╨╛ ╨▓╤Л╨╖╨╛╨▓╨░ ╨╜╨╡ ╨┤╨░╤С╤В ╨╜╨╛╨▓╤Л╤Е ╨┤╨░╨╜╨╜╤Л╤Е тЖТ `no_progress`, ╨╜╨╛ ╨╛╤В╨▓╨╡╤В
+tests/test_agentic_ai_round1020.py:101: trailing whitespace.
++        ╤Д╨╛╤А╨╝╨╕╤А╤Г╨╡╤В ╤Д╨╕╨╜╨░╨╗╤М╨╜╨░╤П ╤Д╨░╨╖╨░ ╨┐╨╛ ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╜╤Л╨╝ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░╨╝, ╨░ ╨╜╨╡ ╨╖╨░╨│╨╗╤Г╤И╨║╨░."""
+tests/test_agentic_ai_round1020.py:106: trailing whitespace.
++        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
+tests/test_agentic_ai_round1020.py:107: trailing whitespace.
++        assert str(out) == "plain"                 # ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ LLM ╨┐╨╛ evidence
+tests/test_agentic_ai_round1020.py:108: trailing whitespace.
++        assert out.finalize_mode == "llm"
+tests/test_agentic_ai_round1020.py:116: trailing whitespace.
++    async def test_multi_round_research_finalizes_on_evidence(self):
+tests/test_agentic_ai_round1020.py:118: trailing whitespace.
++        # ╨╛╤Б╤В╨░╨╜╨░╨▓╨╗╨╕╨▓╨░╨╡╤В╤Б╤П ╨┐╨╛ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╨╕╤О ╨┐╤А╨╛╨│╤А╨╡╤Б╤Б╨░. ┬зG3: ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣
+tests/test_agentic_ai_round1020.py:119: trailing whitespace.
++        # ╨┐╤А╨╛╨╝╨╡╨╢╤Г╤В╨╛╤З╨╜╤Л╨╣ ╤В╨╡╨║╤Б╤В ╨Э╨Х ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨╛╨╝ ╤А╨░╨▒╨╛╤В╤Л тАФ ╤Д╨╕╨╜╨░╨╗ ╤Б╤В╤А╨╛╨╕╤В╤Б╤П
+tests/test_agentic_ai_round1020.py:120: trailing whitespace.
++        # ╨┐╨╛ ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╜╤Л╨╝ tool-╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░╨╝, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╤Л.
+tests/test_agentic_ai_round1020.py:132: trailing whitespace.
++        assert out.finalize_mode == "llm"
+tests/test_agentic_ai_round1020.py:133: trailing whitespace.
++        assert str(out) == "plain"
+tests/test_agentic_ai_round1020.py:154: trailing whitespace.
++        # ╨д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ LLM ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ (╤Г ╨┤╨▓╨╛╨╣╨╜╨╕╨║╨░ ╨╜╨╡╤В Writer) тЖТ ╨▒╨╡╨╖╨╛╨┐╨░╤Б╨╜╤Л╨╣
+tests/test_agentic_ai_round1020.py:155: trailing whitespace.
++        # ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╣ partial ╨┐╨╛ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕ ╨┐╨╛╨╗╤Г╤З╨╡╨╜╨╜╤Л╨╝ ╨┤╨░╨╜╨╜╤Л╨╝, ╨╜╨╡ ╨╖╨░╨│╨╗╤Г╤И╨║╨░.
+tests/test_agentic_ai_round1020.py:156: trailing whitespace.
++        assert str(out) != TOOL_LOOP_FALLBACK_PHRASE
+tests/test_agentic_ai_round1020.py:157: trailing whitespace.
++        assert out.finalize_mode == "structured_partial"
+tests/test_agentic_ai_round1020.py:158: trailing whitespace.
++        assert "llm_error" in str(out)
+tests/test_agentic_ai_round1020.py:159: trailing whitespace.
++        assert "execute_web_search" in str(out)
+tests/test_agentic_ai_round1020.py:160: trailing whitespace.
++        assert out.tool_results
+tests/test_tool_calling_round1015.py:598: trailing whitespace.
++        # ┬зG2/┬зG4: ╨┐╤А╨╕ ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╜╤Л╤Е ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░╤Е ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨▓╨╡╤В ╤Б╤В╤А╨╛╨╕╤В╤Б╤П ╨┐╨╛
+tests/test_tool_calling_round1015.py:599: trailing whitespace.
++        # evidence (Writer ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╤Г ╨┤╨▓╨╛╨╣╨╜╨╕╨║╨░ тЖТ ╨▒╨╡╨╖╨╛╨┐╨░╤Б╨╜╤Л╨╣ partial),
+tests/test_tool_calling_round1015.py:600: trailing whitespace.
++        # ╤Б╨░╤А╨║╨░╤Б╤В╨╕╤З╨╜╨░╤П ╨╖╨░╨│╨╗╤Г╤И╨║╨░ ╨╜╨╡ ╨┐╤Г╨▒╨╗╨╕╨║╤Г╨╡╤В╤Б╤П.
+tests/test_tool_calling_round1015.py:601: trailing whitespace.
++        assert out != TOOL_LOOP_FALLBACK_PHRASE
+tests/test_tool_calling_round1015.py:602: trailing whitespace.
++        assert out.finalize_mode == "structured_partial"
+tests/test_tool_calling_round1015.py:603: trailing whitespace.
++        assert "no_progress" in str(out)
+tests/test_tool_calling_round1015.py:604: trailing whitespace.
++        assert out.tool_results
+check-exit=2

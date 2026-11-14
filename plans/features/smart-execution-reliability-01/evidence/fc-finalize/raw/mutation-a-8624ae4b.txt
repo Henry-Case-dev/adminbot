@@ -1,0 +1,5 @@
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:704 mca_event=temporal_verbalize | ts=1794614813 | event_name=temporal_verbalize | outcome=failed | level=WARN | component=turn_payload | stage=temporal_verbalize | trace_id=c3220486d6824028b6641b1a92438511 | chat_id=1 | usage_json={"status": "error", "finish_reason": "verbalize_failed", "clock": {"clock_included": false, "skip_reason": "no_time_block"}, "decision": "verbalize=failed;server_time=snapshot"}
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_finalization.py::test_budget_interruption_keeps_evidence_and_splits_honestly
+1 failed, 1 passed, 10 deselected in 2.87s
