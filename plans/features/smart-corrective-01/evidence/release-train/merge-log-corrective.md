@@ -315,3 +315,76 @@ pin-guard 4 — канон/`forbidden_paths` в `test_tool_coordinator_round1026
   чекапа, `factory_superseded_manual` для C2, запросы частей с анкером в
   живом прогоне) — этап DevOps/live, не этот лейн.
 - Worktree оставлен для DevOps; пробные прогоны закрыты.
+
+---
+
+## 2.58.203 correction: label test isolation
+
+Дельта-ревью забраковало один прогон на типе `e650f2b8`:
+
+```
+pytest tests/test_smart_corrective_checkup_label_activation.py \
+       tests/test_smart_corrective_prompt_delivery.py \
+       tests/test_p0_prompts_core.py -q
+```
+
+→ **1 failed, 36 passed**: `tests/test_p0_prompts_core.py::`
+`test_pr01_saved_and_effective_match_registered_revision`
+(`assert eff.source == "global"` → `'default'`, в логе
+`persisted speech value withheld | reason=provenance_missing`).
+
+Причина — тестовая изоляция, не продукт: релизный тест сквозного сценария
+вызывал `apply_release`, который штатно замораживает `character.prompt_history`
+(`prompt_factory._HISTORY_FROZEN`) и включает релизную политику. Уборка
+происходила только на успешном пути, поэтому в общем прогоне следующий модуль
+проверял pre-cutover провенанс уже замороженным, `_mark_provenance` становился
+no-op, и исправная запись получала ложный `provenance_missing`.
+
+Исправление (`e7ffb02e`, docs `176d3cf5`, merge `a73ddc7f`):
+
+- `tests/test_smart_corrective_prompt_delivery.py` — фикстура `released_history`
+  возвращает глобалы процесса после релизного прохода (в т.ч. при падении);
+- `tests/test_smart_corrective_checkup_label_activation.py` — автопосстановление
+  выставлено и на входе, и на выходе; добавлены 2 durable проверки (attested
+  фабрика под новой меткой для effective-слоя; незарегистрированное значение
+  по-прежнему withheld, шлагбаум не ослаблен);
+- `tests/test_p0_prompts_core.py` — явное pre-cutover состояние на входе.
+
+Продуктовый код не менялся: дельта к `e650f2b8` — 4 файла, только тесты
+(+ `evidence/checkup-label/implementation.md`); рантайм-файлов в дельте нет,
+`APP_VERSION` остаётся **2.58.203**, метка `checkup-p0-24-10-mixed-state`,
+`seal_integrity() = {}`, каталог 645/121.
+
+### Прогоны на типе `a73ddc7f`
+
+| Набор | Результат |
+|---|---|
+| Команда дельта-ревьюера (activation + delivery + p0) | **39 passed** (на `e650f2b8` — 1 failed, 36 passed) |
+| `tests/test_p0_prompts_core.py` отдельно | **9 passed** |
+| Label suite (18 файлов) | **330 passed, 2 skipped** (было 328/2; +2 новые durable проверки) |
+| Зеркала анкера (2 файла) | **112 passed** |
+| planner + orchestrator + acceptance + subject contract | **161 passed** |
+| все `tests/test_*factcheck*.py` + `tests/factcheck_acceptance` | **718 passed** |
+| Pin-guard (24 py-файла) | **856 passed / 4 failed** — те же известные 4 |
+| Известная пара (`prompt_field_audit` + `soul1_registry_completeness`) | **2 failed, 25 passed** — без изменений |
+
+Новых падений нет.
+
+### Manifest dry-run (`a73ddc7f`)
+
+```json
+{
+  "deployed_at": "2026-11-14T18:24:00.579631Z",
+  "deployed_sha": "a73ddc7f5616ed1f88800d9058839e8a6880629e",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": null,
+  "previous_version": null,
+  "release_branch": "release/smart-corrective-01",
+  "schema": 1,
+  "version": "2.58.203"
+}
+```
+
+Прод не трогался; deployed остаётся `0beed63d` / 2.58.202. Схема, каталог,
+флаги и промпты не менялись.
