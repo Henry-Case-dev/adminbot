@@ -3084,8 +3084,14 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                 remaining = max(0, budget - sys_tokens)
                 # UR-C-CLOCK: часы — защищённый блок целиком.
                 clock_parts = [p for p in rest if _CLOCK_BLOCK_OPEN in p]
+                # Текущий запрос — защищённый блок (docstring): он не
+                # вытесняется даже при переполнении; evidence-floor ниже
+                # добавляется ПОСЛЕ него, а не вместо него.
+                question_parts = [p for p in rest
+                                  if "<Current_Question>" in p]
                 plain_parts = [p for p in rest
-                               if _CLOCK_BLOCK_OPEN not in p]
+                               if _CLOCK_BLOCK_OPEN not in p
+                               and "<Current_Question>" not in p]
                 clock_tokens = 0
                 for part in clock_parts:
                     tokens = _safe_count_tokens(part)
@@ -3095,6 +3101,14 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                     else:
                         clock_dropped = True
                 remaining_after_clock = max(0, remaining - clock_tokens)
+                question_tokens = sum(_safe_count_tokens(p)
+                                      for p in question_parts)
+                question_overflow = question_tokens > remaining_after_clock
+                if question_overflow:
+                    capacity_reason = "fallback_window_exceeded"
+                kept.extend(question_parts)
+                remaining_after_clock = max(
+                    0, remaining_after_clock - question_tokens)
                 plain_tokens = sum(_safe_count_tokens(p) for p in plain_parts)
                 # SXR-C3-02: реальная ёмкость делится пропорционально
                 # фактическим размерам evidence и прочих блоков, а не
@@ -3113,6 +3127,15 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                         evidence_alloc = remaining_after_clock
                     evidence_alloc = min(
                         ev_tokens, remaining_after_clock,
+                        max(evidence_alloc,
+                            min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)))
+                # Защищённый минимум tool evidence — ГАРАНТИЯ, а не потолок:
+                # даже если system/часы уже съели окно, минимальный фрагмент
+                # evidence доставляется, а честная CAPACITY-пометка сообщает
+                # о переполнении. Без него восстановление теряло материал.
+                if ev_tokens:
+                    evidence_alloc = min(
+                        ev_tokens,
                         max(evidence_alloc,
                             min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS)))
                 rest_alloc = max(0, remaining_after_clock - evidence_alloc)
@@ -3157,9 +3180,9 @@ def build_l2_fallback_adapter(*, system: str, parts: list[str],
                 else:
                     capacity_reason = "fallback_repacked"
                 if sys_tokens + min(ev_tokens, L2_EVIDENCE_FLOOR_TOKENS) \
-                        > budget:
-                    # Защищённый минимум evidence физически не влезает —
-                    # честный overflow, даже если часть evidence доставлена.
+                        > budget or question_overflow:
+                    # Защищённый минимум evidence/текущий запрос физически не
+                    # влезает — честный overflow, даже если часть доставлена.
                     capacity_reason = "fallback_window_exceeded"
                 elif clock_dropped:
                     capacity_reason = capacity_reason or \

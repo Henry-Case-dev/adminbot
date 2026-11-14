@@ -158,15 +158,20 @@ class TestFallbackCaps:
         assert evidence.strip() in out["messages"][1]["content"]
         assert "обрезано" not in out["messages"][1]["content"]
 
-    def test_fallback_evidence_cut_to_real_remaining_not_fixed_1600(self):
+    def test_fallback_evidence_uses_real_remaining_not_fixed_floor(self):
         evidence = "E" * 8000
         adapter = dx.build_l2_fallback_adapter(
             system="S" * 900, parts=[], evidence=evidence, query="q",
-            fallback_budget_tokens=500)
+            fallback_budget_tokens=2000)
         out = adapter({"messages": []})
         user = out["messages"][1]["content"]
-        # 1600-символьный фиктивный срез удалён: виден реальный остаток окна
-        assert "показано" in user and "токенов" in user
+        import re
+        match = re.search(r"показано (\d+)/(\d+) токенов", user)
+        assert match is not None, user[:400]
+        shown, total = int(match.group(1)), int(match.group(2))
+        # не фиктивный floor 400: используется реальный остаток окна
+        assert shown > 400
+        assert total > shown
         assert evidence not in user
 
     def test_protected_reserve_does_not_double_truncate(self, monkeypatch):
