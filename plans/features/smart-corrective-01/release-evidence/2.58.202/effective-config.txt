@@ -1,0 +1,118 @@
+EFFECTIVE CONFIG — SMART-CORRECTIVE-01 / 2.58.202
+==================================================
+
+APP_VERSION     2.58.202
+SCHEMA          user_version=47
+                pending=[]
+                tables=130
+                schema_migrations rows=36, max_version=47
+
+BUDGETS / CHAIN LIMITS
+----------------------
+global budgets          budgets_enabled=false, source=global, known=true, stale=false
+chat-1 budgets          budgets_enabled=false, source=chat,   known=true, stale=false
+chat-2 budgets          budgets_enabled=false, source=chat,   known=true, stale=false
+chat-3 budgets          budgets_enabled=false, source=global, known=true, stale=false
+
+global chain limits     max_total_calls=0
+                        max_metered_calls=0
+                        max_same_call=0
+                        fuse_seconds=0.0
+                        limits_enforced=true  (при всех нулевых cap — политика не задана)
+
+per-chat chain limits   max_total_calls=0
+                        max_metered_calls=0
+                        max_same_call=0
+                        fuse_seconds=0.0
+                        limits_enforced=false
+
+VERDICT                 budgets OFF everywhere; MCA caps 0; скрытого enforcement нет.
+
+MODEL CAPACITY
+--------------
+chat model              z-ai/glm-5.3-flash-uncensored
+base_url_host           nano-gpt.com
+primary effective       1 048 576 tokens
+primary max output      32 768 tokens
+primary source          provider_catalog
+primary confidence      verified
+declared_window         1 048 576
+runtime_window          null
+override_value          null
+proven_limit            null
+clamped_by_proven_limit false
+fallback_used           false
+fallback model          deepseek-flash (131 072)
+legacy resolver         1 000 000 / unknown_fallback (не выдан за verified)
+capacity_ok             true
+
+OWNER SETTINGS
+--------------
+bot_settings count      548
+bot_settings digest     64243e1e0c90355f2da4fb73e3c6f1a1ce5d38a1781222c4a66bc2e4a44c8bae
+                        (deploy pre == post)
+
+flags.budgets_enabled               false        updated 2026-10-25T06:13:07Z
+flags.factcheck_pipeline_v2         true         updated 2026-10-20T09:44:06Z
+models.llm_model_name                z-ai/glm-5.3-flash-uncensored
+                                                  updated 2026-11-11T12:04:22Z
+models.llm_base_url                  https://nano-gpt.com/api/v1
+                                                  updated 2026-09-12T05:43:07Z
+prompts.checkup_system_prompt        3 030 chars   sha256 b0c70f974e0e7a78da3cb3f9c907a85673431de169d0e25c607d954858b4dfdf
+                                                  updated 2026-10-31T12:26:32Z
+prompts.factcheck_subject_system_prompt
+                                     2 146 chars   sha256 7df7e875279820d0705c75227241aaaf91c845dcb8ef10fd1fcc0b13eecbd653
+                                                  updated 2026-11-14T05:19:03Z
+
+chat_profiles count     3
+chat_profiles digest    6bddf0617e2f41f1c71c1816eb0512d89353d3195003289b63d6ce157671a14c
+                        (deploy pre == post, до data-only reactivation)
+chat-1 overrides        8
+chat-2 overrides        31 до reactivation; после reactivation добавлен
+                        prompts.checkup_system_prompt (32-й ключ)
+chat-3 overrides        5
+
+PROMPT JOURNAL (checkup.base.system)
+------------------------------------
+saved owner edition (manual):
+  revision_id           rev:d31300ef35a0
+  origin                manual
+  scope                 chat (CHAT_C2)
+  body_chars            12 469
+  body_sha256           31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701
+  retired               false
+  actor_present         true
+  created_at            2026-11-14T06:11:54.954581Z
+  before reactivation   inactive; active was factory 2941
+  after reactivation    ACTIVE (activation 2942, kind manual_rollback, applied)
+
+factory edition:
+  revision_id           rev:9ed7b22b0d8c
+  origin                factory
+  scope                 chat
+  body_chars            3 462
+  body_sha256           3140bb36404467973eb4d34afccb5409add55262d251d6d7a60b8df333980052
+  factory_revision      fac:d263c52f7871
+  release_id            evol-016-cutover
+  retired               false
+  active before         yes (activation 2941, deploy_activate, applied)
+  active after          no; bytes unchanged
+
+global prompt setting   3 030 chars, sha256 b0c70f974e0e...
+                        updated 2026-10-31; unchanged by deploy/reactivation
+
+chat override after reactivation
+  present               true
+  chars                 12 469
+  sha256                31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701
+  chat_updated_at       2026-11-14T15:14:52.896133+00:00
+
+VERIFY
+------
+verify.json: ok=true, failed=[]. Mandatory checks true, включая
+schema_user_version_47, schema_pending_empty, budgets_all_off, mca_caps_zero,
+capacity_provider_catalog, identity_verified_deployed,
+manual_checkup_revision_present, manual_checkup_revision_not_retired,
+prompt_revisions_preserved, settings_digest_unchanged, specific_rows_unchanged.
+`profiles_digest_unchanged` записан как informational (pre/post deploy true),
+но не является mandatory: guard-проверка смотрит prompt_revisions/manual.

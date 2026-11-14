@@ -1,0 +1,11 @@
+deploy_gate_ref=plans/features/smart-corrective-01/evidence/gates/deploy-corrective-0beed63d.txt
+deploy_gate_result=stage=deploy inventory=224 manual=232 scoped=384 errors=0
+plan_gate_ref=plans/features/smart-corrective-01/evidence/gates/plan-after-guard-0beed63d.txt
+plan_gate_result=stage=plan inventory=224 manual=232 scoped=0 errors=0
+candidate=0beed63df8037002ccfaacef019b8ea948d957f6
+candidate_version=2.58.202
+candidate_pre_bump=a476818d
+previous_deployed=409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9 (2.58.201)
+integration_review=plans/features/smart-corrective-01/evidence/release-train/integration-review.md
+integration_review_sha256=baaae980d4da2ae91d9f04db68909d248408d009be4a6f3208a76e70aadaed64
+integration_review_verdict=Approved for controlled deployment of 0beed63d (guard-only delta)

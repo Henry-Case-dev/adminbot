@@ -1,0 +1,63 @@
+POST-DEPLOY HEALTH — SMART-CORRECTIVE-01 / 2.58.202
+====================================================
+
+Timestamp (post_state) 2026-11-14T15:14:51Z
+Timestamp (after reactivation) 2026-11-14T15:14:52Z
+HEAD                   0beed63df8037002ccfaacef019b8ea948d957f6
+BRANCH                 release/smart-corrective-01
+APP_VERSION            2.58.202
+TRACKED_DIRTY          0
+UNTRACKED              только .cache/
+
+HTTP HEALTH
+-----------
+local   http://127.0.0.1:8000/healthz
+        200 {"status":"ok","version":"2.58.202"}   (4-й poll после restart)
+
+public  https://admin-bot.duckdns.org/healthz
+        200 {"status":"ok","version":"2.58.202"}   (1-й poll после restart)
+
+after data-only reactivation:
+        local/public 200 2.58.202; рестарт не выполнялся
+
+SYSTEMD
+-------
+unit                    admin_bot
+ActiveState             active
+MainPID                 837957
+ExecMainStartTimestamp  Sat 2026-11-14 15:14:44 UTC
+restart rc              0
+
+MANIFEST
+--------
+0beed63df8037002ccfaacef019b8ea948d957f6 / 2.58.202
+previous 409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9 / 2.58.201
+release_branch release/smart-corrective-01
+dirty_tracked false
+
+JOURNAL (as adminbot, rc=0)
+---------------------------
+window                  since 2026-11-14T15:14:44Z (process start)
+lines                   161
+Traceback               0
+ERROR                   0
+CRITICAL                0
+WARNING                 1
+
+Единственный WARNING:
+  services.summary_memory - WARNING - SmartModule: embedding generation not
+  serviceable | index=smart_archive | status=superseded |
+  gen_fp=2d0efab0e817 new_fp=2d0efab0e817 — FTS-only (A06) | build pending —
+  source empty (nothing to vectorize)
+
+Это существующее FTS-only предупреждение; traceback/ERROR/CRITICAL нет.
+
+DISK
+----
+pre   /dev/vda1 103083636 71261276 26563408 73% /
+post  /dev/vda1 103083636 74153984 23670700 76% /
+      свободно 23 670 700 KB ≈ 22.6 GiB
+
+ROLLBACK STATE
+--------------
+Не требуется: verify.json ok=true, failed=[]; reactivation checks all true.
