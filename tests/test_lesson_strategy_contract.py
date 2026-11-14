@@ -355,6 +355,9 @@ async def test_archive_cursor_durable_across_restart(tmp_path, monkeypatch):
         "memory.experience_fresh_tail_rows": 3,
         "memory.experience_archive_per_run_max": 3,
         "memory.experience_fresh_stream_lag_warn_threshold": 100000,
+        # SXR-I2: тест проверяет приоритет архивного шага над свежим
+        # бэклогом, а не много-батчевый дренаж — проход оставляем одним батчем.
+        "memory.experience_semantic_batches_per_run": 1,
     })
     monkeypatch.setattr(hot_config, "get", fake.get)
     from services import mca_gates

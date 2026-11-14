@@ -262,6 +262,49 @@ class TestIntelFunnels:
             assert '"text"' not in raw
         assert "raw_content" not in raw
 
+    # ── SXR-I2 B1: неизвестный возраст не превращается в ноль ──────────────
+
+    def _set_review_progress(self, client, progress: dict) -> None:
+        for row in client.fake_db.db.task_jobs:
+            if row.get("kind") != "experience.review":
+                continue
+            payload = json.loads(row["payload"])
+            payload["semantic_progress"] = progress
+            row["payload"] = json.dumps(payload)
+
+    def test_lag_seconds_unknown_is_none_not_zero(self, client):
+        """Снимок отдал None/unknown → API тоже None, а не 0."""
+        self._seed(client)
+        self._set_review_progress(client, {
+            "lag_seconds": None, "lag_seconds_source": "unknown",
+            "lag_rows": 5, "lag_source": "pending",
+            "pending_rows": 5, "backlog_rows": 5,
+        })
+        resp = client.get("/api/memory/intel-funnels", headers=_hdr())
+        assert resp.status_code == 200
+        body = resp.json()
+        lag = body["experience"]["semantic_lag"]
+        assert lag["lag_seconds"] is None
+        assert lag["lag_seconds_source"] == "unknown"
+        # та же job-сводка `_latest_job_async`: снимок и API согласованы
+        assert body["experience"]["job"]["semantic_progress"][
+            "lag_seconds"] is None
+
+    def test_lag_seconds_measured_zero_stays_zero(self, client):
+        """Измеренный ноль при cursor_distance остаётся нулём (не None)."""
+        self._seed(client)
+        self._set_review_progress(client, {
+            "lag_seconds": 0, "lag_seconds_source": "cursor_distance",
+            "lag_rows": 0, "lag_source": "cursor_distance",
+        })
+        resp = client.get("/api/memory/intel-funnels", headers=_hdr())
+        body = resp.json()
+        lag = body["experience"]["semantic_lag"]
+        assert lag["lag_seconds"] == 0
+        assert lag["lag_seconds_source"] == "cursor_distance"
+        assert body["experience"]["job"]["semantic_progress"][
+            "lag_seconds"] == 0
+
 
 class TestEmbeddingsGenerationStatus:
     """EMBED-REBUILD-MECHANISM (23.10.2026): `/api/memory/embeddings` отдаёт

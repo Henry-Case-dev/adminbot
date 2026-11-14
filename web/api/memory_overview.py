@@ -41,6 +41,21 @@ memory_overview_router = APIRouter()
 _OBSERVE_JOB_KIND = "initiative.observe"
 _REVIEW_JOB_KIND = "experience.review"
 
+
+def _opt_seconds(value) -> int | None:
+    """Секунды как int | None (SXR-I2 B1).
+
+    ``None`` означает «неизвестно» и НЕ подменяется нулём: иначе UI/API
+    показывают измеренное отсутствие отставания там, где замер недоступен.
+    Измеренный ноль остаётся нулём.
+    """
+    if value is None:
+        return None
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return None
+
 _INITIATIVE_EVENTS = (
     "initiative_observer_scan", "initiative_opportunity",
     "initiative_decided", "initiative_writer_generated",
@@ -134,8 +149,16 @@ async def _latest_job_async(db, kind: str) -> dict | None:
             out["semantic_progress"] = {
                 "backlog_rows": int(progress.get("backlog_rows") or 0),
                 "backlog_chats": int(progress.get("backlog_chats") or 0),
-                "lag_seconds": int(progress.get("lag_seconds") or 0),
+                "lag_seconds": _opt_seconds(progress.get("lag_seconds")),
+                "lag_seconds_source": str(
+                    progress.get("lag_seconds_source") or "unknown"),
                 "deferred_chats": int(progress.get("deferred_chats") or 0),
+                # SXR-I2: измеренное расстояние курсора до данных отдельно от
+                # счётчика pending (иначе реальное отставание скрыто).
+                "lag_rows": int(progress.get("lag_rows") or 0),
+                "lag_chats": int(progress.get("lag_chats") or 0),
+                "pending_rows": int(progress.get("pending_rows") or 0),
+                "lag_source": str(progress.get("lag_source") or "pending"),
             }
     return out
 
@@ -324,13 +347,21 @@ async def memory_intel_funnels(
                 "max_message_id": await _max_smart_message_id(db),
                 "pending": int((review_job or {}).get(
                     "semantic_pending") or 0),
+                # SXR-I2: измеренное расстояние курсора до данных (не
+                # счётчик pending) — реальное отставание fresh-потока.
+                "lag_rows": int(((review_job or {}).get(
+                    "semantic_progress") or {}).get("lag_rows") or 0),
                 # EXP-FIX-02: пропускная способность/лаг дренажа бэклога.
                 "backlog_rows": int(((review_job or {}).get(
                     "semantic_progress") or {}).get("backlog_rows") or 0),
                 "backlog_chats": int(((review_job or {}).get(
                     "semantic_progress") or {}).get("backlog_chats") or 0),
-                "lag_seconds": int(((review_job or {}).get(
-                    "semantic_progress") or {}).get("lag_seconds") or 0),
+                "lag_seconds": _opt_seconds(((review_job or {}).get(
+                    "semantic_progress") or {}).get("lag_seconds")),
+                # F2: явный источник возраста (cursor_distance|pending|unknown).
+                "lag_seconds_source": str(((review_job or {}).get(
+                    "semantic_progress") or {}).get(
+                        "lag_seconds_source") or "unknown"),
                 "deferred_chats": int(((review_job or {}).get(
                     "semantic_progress") or {}).get("deferred_chats") or 0),
             },
