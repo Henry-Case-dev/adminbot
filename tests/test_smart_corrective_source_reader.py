@@ -225,6 +225,10 @@ GENERIC_FILES = {
 
 
 class TestContentSearch:
+    def test_fixed_locator_cap_is_gone(self):
+        """Фиксированный top-3 локатора удалён (не заменён другим top-N)."""
+        assert not hasattr(sr, "_MAX_LOCATOR_PATHS")
+
     @pytest.mark.asyncio
     async def test_identifier_not_a_filename_found_beyond_top_three(
             self, tmp_path):
