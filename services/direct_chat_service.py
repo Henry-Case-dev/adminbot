@@ -14771,37 +14771,25 @@ class DirectChatService:
             return user_blocks
         try:
             # VMQ-M2 (M-04): явное решение L1 «исторический охват» =
-            # overview-путь; bounded-проекция того же `retrieve`. Двойник без
-            # этого поля получает прежнюю форму вызова (compat TypeError).
-            if plan_scope == "historical":
-                try:
-                    block, _hint = await self._build_rag_block(
-                        rag_ctx["chat_id"], rag_ctx["message"],
-                        rag_ctx["global_ctx"],
-                        history_sample=rag_ctx.get("history_sample"),
-                        projection=rag_ctx.get("projection"),
-                        memory_scope=plan_scope,
-                        subject_name=rag_ctx.get("subject_name"),
-                        subject_uid=rag_ctx.get("subject_uid"),
-                        include_overview=True)
-                except TypeError:
-                    block, _hint = await self._build_rag_block(
-                        rag_ctx["chat_id"], rag_ctx["message"],
-                        rag_ctx["global_ctx"],
-                        history_sample=rag_ctx.get("history_sample"),
-                        projection=rag_ctx.get("projection"),
-                        memory_scope=plan_scope,
-                        subject_name=rag_ctx.get("subject_name"),
-                        subject_uid=rag_ctx.get("subject_uid"))
-            else:
+            # overview-путь. Двойник без этого поля получает прежнюю форму
+            # вызова (compat TypeError, overview не запрашивается).
+            _rag_kwargs = {
+                "history_sample": rag_ctx.get("history_sample"),
+                "projection": rag_ctx.get("projection"),
+                "memory_scope": plan_scope,
+                "subject_name": rag_ctx.get("subject_name"),
+                "subject_uid": rag_ctx.get("subject_uid"),
+            }
+            try:
                 block, _hint = await self._build_rag_block(
                     rag_ctx["chat_id"], rag_ctx["message"],
-                    rag_ctx["global_ctx"],
-                    history_sample=rag_ctx.get("history_sample"),
-                    projection=rag_ctx.get("projection"),
-                    memory_scope=plan_scope,
-                    subject_name=rag_ctx.get("subject_name"),
-                    subject_uid=rag_ctx.get("subject_uid"))
+                    rag_ctx["global_ctx"], **_rag_kwargs,
+                    **({"include_overview": True}
+                       if plan_scope == "historical" else {}))
+            except TypeError:
+                block, _hint = await self._build_rag_block(
+                    rag_ctx["chat_id"], rag_ctx["message"],
+                    rag_ctx["global_ctx"], **_rag_kwargs)
         except Exception:
             logger.warning("direct: rag rescope failed — keep auto block | "
                            "policy=%s", plan_scope, exc_info=True)
