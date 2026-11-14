@@ -1,4 +1,4 @@
-﻿services/factcheck_renderer.py
+services/factcheck_renderer.py
 services/factcheck_service.py
 services/prompt_registry.py
 services/tool_loop.py

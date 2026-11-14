@@ -1,4 +1,4 @@
-﻿diff bytes 59093 CR 0 CRLF 0
+diff bytes 59093 CR 0 CRLF 0
 services/factcheck_service.py CRLF 0 LF 4229 sha256 3cbe90711843e69b
 services/factcheck_renderer.py CRLF 0 LF 651 sha256 9c8b82434af8770f
 tests/test_factcheck_finalization.py CRLF 0 LF 419 sha256 a7479bade039f01d

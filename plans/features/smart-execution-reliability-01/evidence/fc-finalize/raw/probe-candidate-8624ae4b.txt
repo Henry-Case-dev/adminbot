@@ -1,4 +1,4 @@
-﻿python.exe : model_capacity: unknown model 'deepseek-v4-flash' тАФ planning window=1000000 (CHAT_UNKNOWN_MODEL_WINDOW, 
+python.exe : model_capacity: unknown model 'deepseek-v4-flash' тАФ planning window=1000000 (CHAT_UNKNOWN_MODEL_WINDOW, 
 estimated, ╨Э╨Х provider-verified); ╤В╨╛╤З╨╜╨╛╨╡ ╨╛╨║╨╜╨╛ ╨┤╨░╤Б╤В ╨║╨░╤В╨░╨╗╨╛╨│ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░/╤А╨╡╨╡╤Б╤В╤А
 строка:1 знак:598
 + ... ONPATH=$wt; & "C:\Code\Python\adminbot\.venv\Scripts\python.exe" "$ev ...

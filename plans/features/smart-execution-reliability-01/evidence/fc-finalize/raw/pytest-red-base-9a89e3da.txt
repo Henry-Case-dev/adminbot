@@ -1,4 +1,4 @@
-﻿.FFFF.FFFF..                                                             [100%]
+.FFFF.FFFF..                                                             [100%]
 ================================== FAILURES ===================================
 ____________ test_related_part_question_sees_material_and_request _____________
 
