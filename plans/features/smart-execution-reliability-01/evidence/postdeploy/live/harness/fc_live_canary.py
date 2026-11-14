@@ -81,7 +81,13 @@ import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 
-HARNESS_VERSION = "1.1.0"
+#: 1.2.0 (2026-11-14): effective-state read moved to the deployed
+#: ``services.pg_db.PgDatabase`` pool (a direct ``asyncpg.connect(init=...)``
+#: is rejected by the deployed asyncpg and silently collapsed the v2 flag to
+#: the factory default); provider checks now report ``unavailable`` with the
+#: exact PG error instead of ``pipeline_v2_disabled_effective`` when the
+#: persisted layer was not read.
+HARNESS_VERSION = "1.2.0"
 HARNESS_NAME = "fc_live_canary"
 
 #: Evidence classes. ``production`` = the verdict is derived from a real
@@ -804,35 +810,51 @@ class Runtime:
 
     # -- read-only PostgreSQL snapshot ------------------------------------
     async def read_pg_snapshot(self) -> None:
+        """Прочитать persisted-слой тем же путём, что и deployed-код.
+
+        Транспорт — deployed ``services.pg_db.PgDatabase`` (asyncpg pool с
+        json/jsonb-кодеками). Прямой ``asyncpg.connect(..., init=...)``
+        несовместим: у ``connect()`` нет параметра ``init`` (он есть только у
+        ``create_pool()``), поэтому такой вызов падал ещё до установки
+        read-only и effective-флаг схлопывался в заводской False.
+
+        Только чтение: SELECT'ы внутри ``transaction(readonly=True)``, DDL/сиды
+        (``PgDatabase.init()``) не вызываются, пакеты не устанавливаются.
+        """
         dsn = os.environ.get("POSTGRES_DSN") or ""
         if not dsn:
-            self.pg = {"available": False, "reason": "POSTGRES_DSN missing"}
+            self.pg = {"available": False, "reason": "POSTGRES_DSN missing",
+                       "read_mode": "not_opened"}
             return
+        pg = None
         try:
-            import asyncpg
-        except Exception as exc:                    # pragma: no cover
-            self.pg = {"available": False,
-                       "reason": f"asyncpg unavailable: {redact(str(exc), 120)}"}
-            return
+            from services.pg_db import PgDatabase
 
-        async def _init(conn):
-            await conn.execute("SET default_transaction_read_only = on")
-
-        conn = None
-        try:
-            conn = await asyncpg.connect(dsn, timeout=15, init=_init)
-            settings_rows = await conn.fetch(
-                "SELECT key, value, category, updated_at FROM bot_settings")
-            profile_rows = await conn.fetch(
-                "SELECT chat_id, chat_params, updated_at FROM chat_profiles")
+            pg = PgDatabase(dsn=dsn)
+            await pg.connect()          # только пул; DDL/сиды НЕ вызываются
+            if pg.pool is None:
+                self.pg = {"available": False,
+                           "reason": "pg pool unavailable (POSTGRES_DSN empty "
+                                     "or create_pool failed)",
+                           "read_mode": "not_opened"}
+                return
+            async with pg.pool.acquire() as conn:
+                async with conn.transaction(readonly=True):
+                    settings_rows = await conn.fetch(
+                        "SELECT key, value, category, updated_at "
+                        "FROM bot_settings")
+                    profile_rows = await conn.fetch(
+                        "SELECT chat_id, chat_params, updated_at "
+                        "FROM chat_profiles")
         except Exception as exc:
             self.pg = {"available": False,
-                       "reason": f"pg read failed: {redact(str(exc), 160)}"}
+                       "reason": f"pg read failed: {redact(str(exc), 160)}",
+                       "read_mode": "not_opened"}
             return
         finally:
-            if conn is not None:
+            if pg is not None:
                 try:
-                    await conn.close()
+                    await pg.close()
                 except Exception:
                     pass
 
@@ -859,6 +881,9 @@ class Runtime:
             "chat_count": len(roots),
             "global_values": globals_map,
             "chat_roots": roots,
+            "read_mode": ("services.pg_db.PgDatabase pool; "
+                          "transaction(readonly=True); SELECT only"),
+            "reason": None,
         }
 
     # -- in-memory overrides ----------------------------------------------
@@ -1087,12 +1112,16 @@ async def snapshot_effective(runtime: Runtime) -> dict:
         except Exception as exc:
             out["global"] = {"error": redact(str(exc), 160)}
         out["pipeline_v2_enabled"] = _pipeline_v2_enabled(runtime)
+        # Внутри шима: значение флага читается из установленного hot-слоя,
+        # а `known` — из факта чтения PG (не из заводского дефолта).
+        out["pipeline_v2"] = effective_pipeline_state(runtime)
     out["temporal_factcheck_enabled"] = _temporal_gate(runtime)
     out["pg"] = {
         "available": bool((runtime.pg or {}).get("available")),
         "global_count": (runtime.pg or {}).get("global_count"),
         "chat_count": (runtime.pg or {}).get("chat_count"),
         "reason": (runtime.pg or {}).get("reason"),
+        "read_mode": (runtime.pg or {}).get("read_mode"),
     }
     return out
 
@@ -1103,6 +1132,32 @@ def _pipeline_v2_enabled(runtime: Runtime) -> bool:
         return bool(runtime.modules.orch.pipeline_v2_enabled())
     except Exception:
         return False
+
+
+def effective_pipeline_state(runtime: Runtime) -> dict:
+    """Состояние master-флага v2 ВМЕСТЕ с достоверностью его источника.
+
+    ``known=False`` ⇔ persisted-слой (PG) не прочитан: тогда любое значение
+    флага было бы заводским дефолтом из ``settings`` и не описывало бы
+    deployed-runtime. Проверки обязаны в этом случае сообщать ``unavailable``
+    с точной ошибкой PG, а НЕ ``pipeline_v2_disabled_effective``: последнее
+    утверждение допустимо только когда PG реально прочитан и значение false.
+    """
+    pg = runtime.pg or {}
+    if not pg.get("available"):
+        reason = str(pg.get("reason") or "PG snapshot not read")
+        if not reason.startswith("pg read failed"):
+            reason = f"pg read failed: {reason}"
+        return {"known": False, "enabled": None,
+                "reason": reason,
+                "source": "unavailable"}
+    return {
+        "known": True,
+        "enabled": _pipeline_v2_enabled(runtime),
+        "reason": "",
+        "source": ("hot PG flags.factcheck_pipeline_v2 → "
+                   "env FACTCHECK_PIPELINE_V2_ENABLED → factory"),
+    }
 
 
 def _temporal_gate(runtime: Runtime) -> bool:
@@ -1447,7 +1502,17 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
             publication={}, plan={}, retrieval={}, envelope={}, diagnostics={},
             claims_event={}, delivered={}, db={}, calls=runtime.budget.as_dict(),
             events=[], transport=transport)
-    if not _pipeline_v2_enabled(runtime):
+    v2_state = effective_pipeline_state(runtime)
+    if not v2_state["known"]:
+        # PG-слой не прочитан: утверждать «флаг выключен» нельзя.
+        return RunBundle(
+            name=name, status="not_observed",
+            error="effective_state_unavailable (" + v2_state["reason"] + ")",
+            duration_s=0.0, outcome=None, correlation_id=None, subject={},
+            publication={}, plan={}, retrieval={}, envelope={},
+            diagnostics={}, claims_event={}, delivered={}, db={},
+            calls=runtime.budget.as_dict(), events=[], transport=transport)
+    if not v2_state["enabled"]:
         return RunBundle(
             name=name, status="not_observed",
             error="pipeline_v2_disabled_effective "
@@ -2574,6 +2639,8 @@ async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
     manifest_sha = ((identity.get("manifest") or {}).get("deployed_sha") or "").lower()
     deployed = (identity.get("deployed_sha") or "").lower()
     version = (identity.get("manifest") or {}).get("version")
+    v2_state = effective.get("pipeline_v2") or {}
+    v2_known = bool(v2_state.get("known"))
     identity_checks = {
         "git_head_present": len(head) == 40,
         "manifest_present": bool((identity.get("manifest") or {}).get("present")),
@@ -2584,7 +2651,11 @@ async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
         "health_200": bool(health.get("ok")),
         "health_version_matches": bool(
             version and str(health.get("version")) == str(version)),
-        "v2_pipeline_effective": bool(effective.get("pipeline_v2_enabled")),
+        # Состояние флага известно только при прочитанном persisted-слое;
+        # иначе это заводской дефолт, а не факт deployed-runtime.
+        "v2_pipeline_state_known": v2_known,
+        "v2_pipeline_effective": bool(v2_state.get("enabled")) if v2_known
+        else False,
     }
     run_checks = {}
     if bundle.status == "observed":
@@ -2617,6 +2688,7 @@ async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
             "safety": _safety_block(runtime),
             "effective": {
                 "pipeline_v2_enabled": effective.get("pipeline_v2_enabled"),
+                "pipeline_v2": effective.get("pipeline_v2"),
                 "temporal_enabled": effective.get("temporal_factcheck_enabled"),
                 "budgets": (effective.get("synthetic_chat") or {}),
             },
@@ -2640,8 +2712,9 @@ def _safety_block(runtime: Runtime) -> dict:
         "real_chat_history_written": False,
         "production_pg": {
             "opened": pg_available,
-            "mode": "read_only (default_transaction_read_only=on)" if pg_available
-            else "not_opened",
+            "mode": str(pg.get("read_mode") or (
+                "read_only (services.pg_db pool; transaction(readonly=True))"
+                if pg_available else "not_opened")),
             "reason": pg.get("reason"),
             "global_count": pg.get("global_count"),
             "chat_count": pg.get("chat_count"),
@@ -3112,31 +3185,231 @@ async def run_self_test(runtime: Runtime, *,
             MATERIAL_TRADITION, MATERIAL_TRADITION, TRIGGER_TRADITION)
         return all(results.values()), {"negative_controls": results}
 
-    guard = _NetworkGuard()
-    with guard:
+    async def _s16_pg_state_semantics():
+        """Preflight-семантика: нет PG → `unavailable`, а не «флаг выключен».
+
+        Positive + negative control: при прочитанном PG и значении false
+        причина обязана быть именно `pipeline_v2_disabled_effective`.
+        """
+        saved_pg = runtime.pg
+        saved_budget = runtime.budget
+        observed: dict = {}
         try:
-            await _step("S0_harness_sha256", _s0_harness_hash)
-            await _step("S1_publication_target", _s1_publication)
-            await _step("S2_material_subject", _s2_subject)
-            await _step("S3_envelope", _s3_envelope)
-            await _step("S4_gate", _s4_gate)
-            await _step("S5_plan", _s5_plan)
-            await _step("S6_off_full_plan", _s6_off_plan)
-            await _step("S7_stop_reasons", _s7_stop_reasons)
-            await _step("S8_evidence_packing", _s8_evidence_packing)
-            await _step("S9_parts", _s9_parts)
-            await _step("S10_results_and_portions", _s10_results_and_portions)
-            await _step("S11_redaction", _s11_redaction)
-            await _step("S12_pipeline_plumbing", _s12_pipeline_plumbing,
-                        timeout=max(step_timeout, 30.0))
-            await _step("S13_factory_values", _s13_factory_values)
-            await _step("S14_assertion_sensitivity",
-                        _s14_assertion_sensitivity)
+            runtime.budget = CallBudget(True, 10 ** 6)
+            runtime.pg = {
+                "available": False,
+                "reason": ("pg read failed: connect() got an unexpected "
+                           "keyword argument 'init'"),
+                "read_mode": "not_opened",
+            }
+            with runtime.hot_shim(), runtime.chat_shim():
+                failed = await run_scenario(
+                    runtime, "self_test_pg_unavailable",
+                    target_key="ordinary_target",
+                    trigger_key="ordinary_trigger",
+                    target_text=MATERIAL_ORDINARY,
+                    trigger_text=TRIGGER_ORDINARY, transport="stub")
+                failed_state = effective_pipeline_state(runtime)
+            observed["pg_unavailable"] = {
+                "status": failed.status, "error": failed.error,
+                "effective_state": failed_state}
+            runtime.pg = {
+                "available": True, "global_count": 0, "chat_count": 0,
+                "global_values": {}, "chat_roots": {},
+                "read_mode": "self_test_synthetic", "reason": None,
+            }
+            with runtime.hot_shim(
+                    extra={"flags.factcheck_pipeline_v2": False}), \
+                    runtime.chat_shim():
+                disabled = await run_scenario(
+                    runtime, "self_test_v2_off",
+                    target_key="ordinary_target",
+                    trigger_key="ordinary_trigger",
+                    target_text=MATERIAL_ORDINARY,
+                    trigger_text=TRIGGER_ORDINARY, transport="stub")
+                disabled_state = effective_pipeline_state(runtime)
+            observed["pg_known_flag_off"] = {
+                "status": disabled.status, "error": disabled.error,
+                "effective_state": disabled_state}
         finally:
+            runtime.pg = saved_pg
+            runtime.budget = saved_budget
+
+        unavailable = observed["pg_unavailable"]
+        disabled = observed["pg_known_flag_off"]
+        unavailable_error = str(unavailable.get("error") or "")
+        disabled_error = str(disabled.get("error") or "")
+        ok = (
+            unavailable["status"] == "not_observed"
+            and unavailable_error.startswith("effective_state_unavailable")
+            and "unexpected keyword argument 'init'" in unavailable_error
+            and "pipeline_v2_disabled_effective" not in unavailable_error
+            and (unavailable.get("effective_state") or {}).get("known") is False
+            and disabled["status"] == "not_observed"
+            and "pipeline_v2_disabled_effective" in disabled_error
+            and "effective_state_unavailable" not in disabled_error
+            and (disabled.get("effective_state") or {}).get("known") is True
+            and (disabled.get("effective_state") or {}).get("enabled") is False)
+        return ok, {"observed": observed}
+
+    async def _s17_pg_read_wiring():
+        """PG-чтение использует deployed `PgDatabase`, только SELECT, read-only.
+
+        Без сети/БД: подменяем класс пула и проверяем ФАКТ вызовов (readonly
+        transaction + отсутствие не-SELECT SQL). Это структурная проверка
+        проводки, а не production-доказательство.
+        """
+        from services import pg_db as _pgdb
+
+        calls: dict = {"sql": [], "readonly": [], "closed": False}
+
+        class _FakeTransaction:
+            def __init__(self, conn, readonly):
+                self.conn = conn
+                self.readonly = readonly
+
+            async def __aenter__(self):
+                calls["readonly"].append(bool(self.readonly))
+                return self.conn
+
+            async def __aexit__(self, *exc_info):
+                return False
+
+        class _FakeConn:
+            async def fetch(self, sql, *params):
+                calls["sql"].append(" ".join(str(sql).split()))
+                if "bot_settings" in sql:
+                    return [{"key": "flags.factcheck_pipeline_v2",
+                             "value": True, "category": "flags",
+                             "updated_at": None}]
+                if "chat_profiles" in sql:
+                    return [{"chat_id": 424242,
+                             "chat_params": {"overrides": {"a": 1}},
+                             "updated_at": None}]
+                return []
+
+            def transaction(self, *, readonly=False):
+                return _FakeTransaction(self, readonly)
+
+        class _FakePool:
+            def acquire(self):
+                class _Ctx:
+                    async def __aenter__(self_inner):
+                        return _FakeConn()
+
+                    async def __aexit__(self_inner, *exc_info):
+                        return False
+
+                return _Ctx()
+
+            async def close(self):
+                calls["closed"] = True
+
+        class _FakePgDatabase:
+            def __init__(self, dsn=None):
+                self.dsn = dsn
+                self.pool = None
+
+            async def connect(self):
+                self.pool = _FakePool()
+
+            async def close(self):
+                calls["closed"] = True
+                self.pool = None
+
+        saved = _pgdb.PgDatabase
+        saved_pg = runtime.pg
+        saved_dsn = os.environ.get("POSTGRES_DSN")
+        os.environ["POSTGRES_DSN"] = "postgresql://canary@fake/db"
+        _pgdb.PgDatabase = _FakePgDatabase
+        observed: dict = {"calls": calls}
+        try:
+            runtime.pg = None
+            await runtime.read_pg_snapshot()
+            observed["pg"] = {
+                "available": (runtime.pg or {}).get("available"),
+                "global_count": (runtime.pg or {}).get("global_count"),
+                "chat_count": (runtime.pg or {}).get("chat_count"),
+                "read_mode": (runtime.pg or {}).get("read_mode"),
+                "reason": (runtime.pg or {}).get("reason"),
+            }
+            observed["global_values"] = dict(
+                (runtime.pg or {}).get("global_values") or {})
+            observed["chat_roots"] = {
+                str(k): v for k, v in
+                ((runtime.pg or {}).get("chat_roots") or {}).items()}
+            # Значение флага читается из установленного hot-слоя: проверяем,
+            # что снимок PG действительно доезжает до effective-состояния.
+            with runtime.hot_shim(), runtime.chat_shim():
+                observed["state"] = effective_pipeline_state(runtime)
+        finally:
+            _pgdb.PgDatabase = saved
+            runtime.pg = saved_pg
+            if saved_dsn is None:
+                os.environ.pop("POSTGRES_DSN", None)
+            else:
+                os.environ["POSTGRES_DSN"] = saved_dsn
+
+        sql = calls["sql"]
+        ok = (
+            observed["pg"]["available"] is True
+            and observed["pg"]["global_count"] == 1
+            and observed["pg"]["chat_count"] == 1
+            and "PgDatabase" in str(observed["pg"]["read_mode"])
+            and calls["readonly"] and all(calls["readonly"])
+            and len(sql) == 2
+            and all(statement.lstrip().upper().startswith("SELECT")
+                    for statement in sql)
+            and observed["global_values"].get(
+                "flags.factcheck_pipeline_v2") is True
+            and "424242" in observed["chat_roots"]
+            and (observed["state"] or {}).get("known") is True
+            and (observed["state"] or {}).get("enabled") is True)
+        return ok, observed
+
+    guard = _NetworkGuard()
+    # Offline self-test никогда не читает PG. Чтобы plumbing-шаги (S12/S16)
+    # исполнялись с ЯВНО объявленным источником effective-состояния, подставляем
+    # синтетический read-only снимок; настоящий PG-слой здесь не открывается.
+    saved_pg = runtime.pg
+    runtime.pg = {
+        "available": True, "global_count": 0, "chat_count": 0,
+        "global_values": {}, "chat_roots": {},
+        "read_mode": "self_test_synthetic (offline self-test: PG not opened)",
+        "reason": None, "source": "self_test_synthetic",
+    }
+    try:
+        with guard:
             try:
-                await asyncio.wait_for(runtime.close_db(), timeout=10.0)
-            except Exception:
-                pass
+                await _step("S0_harness_sha256", _s0_harness_hash)
+                await _step("S1_publication_target", _s1_publication)
+                await _step("S2_material_subject", _s2_subject)
+                await _step("S3_envelope", _s3_envelope)
+                await _step("S4_gate", _s4_gate)
+                await _step("S5_plan", _s5_plan)
+                await _step("S6_off_full_plan", _s6_off_plan)
+                await _step("S7_stop_reasons", _s7_stop_reasons)
+                await _step("S8_evidence_packing", _s8_evidence_packing)
+                await _step("S9_parts", _s9_parts)
+                await _step("S10_results_and_portions",
+                            _s10_results_and_portions)
+                await _step("S11_redaction", _s11_redaction)
+                await _step("S12_pipeline_plumbing", _s12_pipeline_plumbing,
+                            timeout=max(step_timeout, 30.0))
+                await _step("S13_factory_values", _s13_factory_values)
+                await _step("S14_assertion_sensitivity",
+                            _s14_assertion_sensitivity)
+                await _step("S16_pg_state_semantics",
+                            _s16_pg_state_semantics,
+                            timeout=max(step_timeout, 20.0))
+                await _step("S17_pg_read_wiring", _s17_pg_read_wiring)
+            finally:
+                try:
+                    await asyncio.wait_for(runtime.close_db(), timeout=10.0)
+                except Exception:
+                    pass
+    finally:
+        runtime.pg = saved_pg
 
     network = {"guard_armed": bool(guard.ever_armed),
                "attempts": list(guard.hits)[:5]}
@@ -3147,6 +3420,7 @@ async def run_self_test(runtime: Runtime, *,
         "passed": passed,
         "checks": checks,
         "network_guard": network,
+        "pg_snapshot_mode": "self_test_synthetic (PG not opened offline)",
         "duration_s": round(time.perf_counter() - started, 3),
         "bounds": {"step_timeout_s": float(step_timeout),
                    "total_timeout_s": float(total_timeout)},

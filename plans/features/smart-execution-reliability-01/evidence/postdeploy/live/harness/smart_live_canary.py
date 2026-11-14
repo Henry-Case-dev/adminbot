@@ -69,7 +69,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-HARNESS_VERSION = "1.1.0"
+#: 1.2.0 (2026-11-14): r2 corrective — effective_config читает master-флаг
+#: бюджетов по фактическому ключу deployed-резолвера (`budgets_enabled`) и
+#: честно проваливает утверждение на неизвестной форме вместо KeyError;
+#: k3_settings атрибутирует post-deploy изменения профилей по провенансу
+#: (prompt_activations/chat_lore_history) — ручная правка владельца законна,
+#: запись релиза без следа проваливает проверку; external_reads доказывает
+#: verified-идентичность файлом исходника (README по контракту V1 — honest
+#: verified=false) и требует от tool-path отказа БЕЗ сетевого вызова.
+HARNESS_VERSION = "1.2.0"
 SCHEMA = "smart-live-canary/2"
 
 STATUS_OBSERVED = "observed"
@@ -311,6 +319,39 @@ class Asserts:
 
     def report(self) -> list[dict]:
         return list(self.items)
+
+
+#: Ключ master-флага бюджетов в снимке deployed-резолвера
+#: (`services.budget_gate.BudgetState.as_meta()`): ключ называется
+#: ``budgets_enabled``. Имя не угадывается: если deployed-резолвер отдаст
+#: другую форму, проверка обязана провалиться с наблюдаемой формой, а не
+#: упасть с KeyError.
+BUDGET_FLAG_KEY = "budgets_enabled"
+
+
+def _budget_flag(meta_or_state: Any) -> tuple[bool | None, dict]:
+    """Прочитать master-флаг бюджетов из снимка/состояния резолвера.
+
+    Возвращает ``(value, observed)``; ``value is None`` ⇔ документированного
+    ключа в фактической форме нет — тогда ``observed`` несёт реальную форму
+    (тип/ключи) для честного провала утверждения.
+    """
+    meta: Any = meta_or_state
+    if not isinstance(meta, dict):
+        try:
+            meta = meta_or_state.as_meta()
+        except Exception:
+            meta = None
+    if isinstance(meta, dict) and BUDGET_FLAG_KEY in meta:
+        return bool(meta[BUDGET_FLAG_KEY]), {"keys": sorted(map(str, meta))}
+    observed = {
+        "expected_key": BUDGET_FLAG_KEY,
+        "observed_type": type(meta_or_state).__name__,
+    }
+    if isinstance(meta, dict):
+        observed["observed_keys"] = sorted(map(str, meta))
+        observed["observed"] = _clip(json.dumps(meta, default=str), 400)
+    return None, observed
 
 
 def _plumbing_outcome(a: Asserts, details: dict, summary: str) -> CheckOutcome:
@@ -936,6 +977,20 @@ async def check_effective_config(ctx: HarnessContext) -> CheckOutcome:
         except Exception as exc:
             unexpected_errors.append(f"chat_resolve:{type(exc).__name__}")
     details["master_per_chat"] = per_chat
+    details["budget_flag_contract"] = {
+        "key": BUDGET_FLAG_KEY,
+        "resolver": "services.budget_gate.resolve_budgets().as_meta()",
+        "source_priority": "chat override → global → settings.BUDGETS_ENABLED",
+    }
+    details["master_per_chat_flags"] = [
+        {
+            "chat": entry["chat"],
+            "budgets_enabled": _budget_flag(entry.get("budgets"))[0],
+            "source": (entry.get("budgets") or {}).get("source"),
+            "known": (entry.get("budgets") or {}).get("known"),
+        }
+        for entry in per_chat
+    ]
     details["chain_limits_global"] = resolve_chain_limits().as_meta()
 
     # -- model capacity: chat-path model, async catalog + legacy sync ------
@@ -986,14 +1041,28 @@ async def check_effective_config(ctx: HarnessContext) -> CheckOutcome:
     a.expect("real_chats_discovered", bool(chat_ids),
              f"count={len(chat_ids)}")
     if global_state is not None:
-        a.expect("master_global_known", global_state.known,
-                 global_state.as_meta())
-        a.expect("master_global_off", not global_state.enabled,
-                 global_state.as_meta())
+        master_meta = details["master_global"]
+        a.expect("master_global_known", bool(master_meta.get("known")),
+                 master_meta)
+        master_flag, master_observed = _budget_flag(master_meta)
+        if master_flag is None:
+            a.expect(
+                "master_global_off", False,
+                {"reason": "master budget flag key missing in the deployed "
+                           "resolver snapshot", **master_observed})
+        else:
+            a.expect("master_global_off", not master_flag, master_meta)
     for entry in per_chat:
+        chat_flag, chat_observed = _budget_flag(entry.get("budgets"))
+        if chat_flag is None:
+            a.expect(
+                f"chat_budgets_off:{entry['chat']}", False,
+                {"reason": "budget flag key missing in the deployed resolver "
+                           "snapshot", **chat_observed})
+            continue
         a.expect(
             f"chat_budgets_off:{entry['chat']}",
-            not entry["budgets"]["enabled"],
+            not chat_flag,
             entry["budgets"],
         )
     for meta_key in ("chain_limits_global",):
@@ -1885,11 +1954,38 @@ async def check_local_source_read(ctx: HarnessContext) -> CheckOutcome:
 # ═════════════════════════════════════════════════════════════════════════════
 
 
+#: Публичный источник для production-read. README доказывает сеть и
+#: идентичность источника, но по контракту SourceReader (`_read_payload`,
+#: инвариант V1) `verified` выдаётся ТОЛЬКО байтам файла исходника
+#: (`source_kind=file`), поэтому «получение исходников» доказывается отдельным
+#: чтением реального файла того же публичного репозитория.
+PUBLIC_README_URL = "https://github.com/octocat/Hello-World/blob/master/README"
+PUBLIC_SOURCE_REPO = "octocat/Spoon-Knife"
+PUBLIC_SOURCE_REF = "main"
+PUBLIC_SOURCE_PATH = "index.html"
+#: Причины отказа, при которых внешний файл честно назван отсутствующим
+#: (404 — фактическая причина, а не «нет доступа»).
+PUBLIC_MISSING_URL = (
+    "https://github.com/octocat/Hello-World/blob/master/DOES-NOT-EXIST.md")
+
+
 async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
     from services.tool_router import ToolContext, ToolDeps, ToolRouter
 
     a = Asserts()
-    details: dict[str, Any] = {"offline": bool(ctx.args.offline)}
+    details: dict[str, Any] = {
+        "offline": bool(ctx.args.offline),
+        "scenario": {
+            "readme_url": PUBLIC_README_URL,
+            "source_repo": PUBLIC_SOURCE_REPO,
+            "source_ref": PUBLIC_SOURCE_REF,
+            "source_path": PUBLIC_SOURCE_PATH,
+            "verified_contract": (
+                "SourceReader._read_payload: verified=True только для "
+                "source_kind=file (README доставляется с verified=False по "
+                "инварианту V1)"),
+        },
+    }
     if ctx.args.offline:
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
@@ -1911,30 +2007,58 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
                 return {"raw": _clip(out, 300)}
         return {"raw": _clip(out, 300)}
 
-    public = await _dispatch(
-        {"operation": "read",
-         "url": "https://github.com/octocat/Hello-World/blob/master/README"})
-    details["public_read"] = {
-        "status": public.get("status"),
-        "stage": public.get("stage"),
-        "verified": bool(public.get("verified")),
-        "network_calls": int(public.get("network_calls") or 0),
-        "repo": public.get("repo"),
-        "commit": public.get("commit"),
-        "path": public.get("path"),
-        "snippet_chars": int(public.get("snippet_chars") or 0),
-        "source_kind": public.get("source_kind"),
-        "provider": public.get("provider"),
-        "error": public.get("error") if isinstance(public.get("error"), str) else None,
-    }
+    def _payload_view(payload: dict) -> dict:
+        return {
+            "status": payload.get("status"),
+            "stage": payload.get("stage"),
+            "verified": bool(payload.get("verified")),
+            "network_calls": int(payload.get("network_calls") or 0),
+            "repo": payload.get("repo"),
+            "commit": payload.get("commit"),
+            "path": payload.get("path"),
+            "snippet_chars": int(payload.get("snippet_chars") or 0),
+            "file_total_lines": int(payload.get("file_total_lines") or 0),
+            "source_kind": payload.get("source_kind"),
+            "read_level": payload.get("read_level"),
+            "provider": payload.get("provider"),
+            "error": payload.get("error")
+            if isinstance(payload.get("error"), str) else None,
+        }
+
+    public = await _dispatch({"operation": "read", "url": PUBLIC_README_URL})
+    details["public_read"] = _payload_view(public)
     a.expect("public_external_read_ok", public.get("status") == "ok",
              details["public_read"])
     a.expect("public_external_read_network",
              int(public.get("network_calls") or 0) > 0, details["public_read"])
     a.expect("public_external_read_content",
              int(public.get("snippet_chars") or 0) > 0, details["public_read"])
+    a.expect("public_external_read_identity",
+             bool(public.get("repo")) and bool(public.get("commit"))
+             and bool(public.get("path")), details["public_read"])
+    # README — документация, а не исходник: verified=True здесь был бы ложью.
+    a.expect("public_readme_honest_unverified",
+             str(public.get("source_kind") or "") == "readme"
+             and public.get("verified") is False, details["public_read"])
+
+    source = await _dispatch({
+        "operation": "read", "repo": PUBLIC_SOURCE_REPO,
+        "ref": PUBLIC_SOURCE_REF, "path": PUBLIC_SOURCE_PATH})
+    details["public_source_read"] = _payload_view(source)
+    a.expect("public_source_read_ok", source.get("status") == "ok",
+             details["public_source_read"])
+    a.expect("public_source_read_network",
+             int(source.get("network_calls") or 0) > 0,
+             details["public_source_read"])
+    a.expect("public_source_read_content",
+             int(source.get("snippet_chars") or 0) > 0,
+             details["public_source_read"])
     a.expect("public_external_read_verified",
-             bool(public.get("verified")), details["public_read"])
+             bool(source.get("verified"))
+             and str(source.get("source_kind") or "") == "file"
+             and bool(source.get("repo")) and bool(source.get("commit"))
+             and str(source.get("path") or "") == PUBLIC_SOURCE_PATH,
+             details["public_source_read"])
 
     loopback = await _dispatch(
         {"operation": "read", "url": "http://127.0.0.1:9/canary"})
@@ -1952,6 +2076,7 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
             "status": payload.get("status"),
             "stage": payload.get("stage"),
             "code": str(payload.get("error") or err.get("code") or "")[:64],
+            "detail": str(err.get("detail") or "")[:64],
             "retryable": bool(payload.get("retryable", err.get("retryable"))),
             "network_calls": int(payload.get("network_calls") or 0),
         }
@@ -1988,13 +2113,6 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
         except Exception:
             pass
 
-    blocked = [
-        e for e in details["ssrf_refusals"]
-        if e.get("status") in ("blocked", "error")
-        and e.get("code") in (
-            "destination_blocked", "metadata_endpoint_blocked",
-            "redirect_blocked", "invalid_url")
-    ]
     direct_blocked = [
         e for e in details["ssrf_refusals"]
         if e.get("source") == "safe_fetcher" and e.get("status") == "blocked"
@@ -2002,19 +2120,33 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
                               "metadata_endpoint_blocked")
         and e.get("stage") == "resolve"
     ]
+    # `read_source_code` — provider-scoped инструмент (заявлена поддержка
+    # только github): не-GitHub адрес отклоняется на стадии discover ДО любого
+    # соединения (`unsupported/provider_unconfigured`, detail=host_not_supported).
+    # Безопасностное свойство здесь — «отказано и НИ ОДНОГО сетевого вызова»;
+    # точные SSRF-коды доказывает реальный транспорт SafeFetcher ниже.
+    tool_refusals = [e for e in details["ssrf_refusals"]
+                     if e.get("source") == "tool_path"]
     a.expect("ssrf_loopback_refused",
-             any(e["target"] == "loopback" and e["status"] in ("blocked", "error")
-                 for e in details["ssrf_refusals"]),
-             details["ssrf_refusals"])
+             any(e["target"] == "loopback"
+                 and str(e.get("status")) in ("blocked", "error", "unsupported")
+                 and bool(e.get("code"))
+                 and int(e.get("network_calls") or 0) == 0
+                 for e in tool_refusals),
+             {"tool_path": tool_refusals,
+              "safe_fetcher_codes": [e.get("code") for e in direct_blocked]})
     a.expect("ssrf_metadata_refused",
-             any(e["target"] == "metadata" and e["status"] in ("blocked", "error")
-                 for e in details["ssrf_refusals"]),
-             details["ssrf_refusals"])
+             any(e["target"] == "metadata"
+                 and str(e.get("status")) in ("blocked", "error", "unsupported")
+                 and bool(e.get("code"))
+                 and int(e.get("network_calls") or 0) == 0
+                 for e in tool_refusals),
+             {"tool_path": tool_refusals,
+              "safe_fetcher_codes": [e.get("code") for e in direct_blocked]})
     a.expect("ssrf_policy_direct", len(direct_blocked) == 2, direct_blocked)
 
-    missing = await _dispatch(
-        {"operation": "read",
-         "url": "https://github.com/octocat/Hello-World/blob/master/DOES-NOT-EXIST.md"})
+    missing = await _dispatch({"operation": "read",
+                               "url": PUBLIC_MISSING_URL})
     err = missing.get("error_detail")
     if not isinstance(err, dict):
         err = {}
@@ -2040,8 +2172,10 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
         )
     return CheckOutcome(
         STATUS_OBSERVED,
-        "публичный GitHub-файл прочитан по сети через production-путь; "
-        "loopback/metadata заблокированы; 404 отдан фактической причиной",
+        "публичный GitHub: реальный сетевой read (README + файл исходника с "
+        "verified-идентичностью); запрещённые назначения отклонены без "
+        "сетевых вызовов, SafeFetcher даёт destination_blocked/"
+        "metadata_endpoint_blocked; 404 отдан фактической причиной",
         {**details, "assertions": a.report()},
         EVIDENCE_PRODUCTION,
         "real public network read + real SafeFetcher policy",
@@ -3267,6 +3401,154 @@ def _iso(value: Any) -> str:
     return str(value)
 
 
+def _epoch(value: Any) -> float | None:
+    """ISO-строка/datetime → epoch (UTC); неразборчивое → None."""
+    if isinstance(value, _dt.datetime):
+        moment = value if value.tzinfo else value.replace(
+            tzinfo=_dt.timezone.utc)
+        try:
+            return moment.timestamp()
+        except (OverflowError, OSError, ValueError):
+            return None
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed.timestamp()
+
+
+#: Виды записей журнала `prompt_activations`, которые делает человек/владелец
+#: (а не релиз). Только они могут объяснить изменение профиля чата после
+#: deploy-снимка; запись релиза/миграции такого провенанса не имеет.
+K3_OWNER_EDIT_KINDS = frozenset({
+    "manual_edit", "manual_rollback", "manual_forward", "baseline_assign",
+    "baseline_clear", "baseline_restore", "factory_restore",
+    "chat_inherit_reset",
+})
+K3_OWNER_EDIT_OUTCOMES = frozenset({"applied", "recorded"})
+#: Окно атрибуции «запись профиля ↔ провенанс» (значение и профиль пишутся
+#: одной транзакцией, поэтому окно нужно только на рассинхрон часов).
+K3_ATTRIBUTION_WINDOW_S = 300.0
+
+
+def _attribute_profile_writes(
+    profiles: list[dict],
+    activations: list[dict],
+    history: list[dict],
+    *,
+    baseline_max_updated: str,
+    window_s: float = K3_ATTRIBUTION_WINDOW_S,
+) -> dict:
+    """Атрибутировать изменения `chat_profiles` после deploy-снимка.
+
+    Контракт K3 — «deploy не перезаписал сохранённые настройки/модели/промпты».
+    Поэтому изменение профиля (updated_at > baseline-снимка) допустимо ТОЛЬКО
+    при наличии провенанса владельца/пользователя рядом по времени:
+
+    * ``prompt_activations``: ``kind`` из :data:`K3_OWNER_EDIT_KINDS`
+      (для per-chat правки промпта — ``scope='chat'``), либо
+    * ``chat_lore_history``: ``field='chat_params'`` с непустым ``changed_by``
+      (любая иная ручная правка настроек чата).
+
+    Запись релиза/миграции (`deploy_activate`, прямой UPDATE без журнала) не
+    даёт ни одного из этих следов → ``unattributed`` и провал утверждения.
+
+    Чистая функция: строки PG → вердикт, без I/O (тестируется self-test'ом).
+    """
+    baseline_epoch = _epoch(baseline_max_updated)
+    edits: dict[int, list[dict]] = {}
+    for row in activations:
+        chat_id = row.get("chat_id")
+        kind = str(row.get("kind") or "")
+        outcome = str(row.get("outcome") or "")
+        if chat_id is None or kind not in K3_OWNER_EDIT_KINDS:
+            continue
+        if outcome and outcome not in K3_OWNER_EDIT_OUTCOMES:
+            continue
+        stamp = _epoch(row.get("created_at"))
+        if stamp is None:
+            continue
+        edits.setdefault(int(chat_id), []).append({
+            "source": "prompt_activations",
+            "kind": kind,
+            "outcome": outcome or None,
+            "detail_code": str(row.get("detail_code") or ""),
+            "block_id": str(row.get("block_id") or ""),
+            "scope": str(row.get("scope") or ""),
+            "actor_present": bool(str(row.get("actor") or "")),
+            "created_at": _iso(row.get("created_at")),
+            "_epoch": stamp,
+        })
+    for row in history:
+        if str(row.get("field") or "") != "chat_params":
+            continue
+        chat_id = row.get("chat_id")
+        changed_by = row.get("changed_by")
+        if chat_id is None or changed_by in (None, "", 0):
+            continue
+        stamp = _epoch(row.get("created_at"))
+        if stamp is None:
+            continue
+        edits.setdefault(int(chat_id), []).append({
+            "source": "chat_lore_history",
+            "kind": "chat_params",
+            "changed_by_present": True,
+            "created_at": _iso(row.get("created_at")),
+            "_epoch": stamp,
+        })
+
+    post_deploy: list[dict] = []
+    attributed: list[dict] = []
+    unattributed: list[dict] = []
+    for profile in profiles:
+        changed = _epoch(profile.get("updated_at"))
+        if baseline_epoch is not None and changed is not None:
+            is_new = changed > baseline_epoch
+        else:
+            # Неразборчивая метка времени: изменение не доказано ни в одну
+            # сторону → считаем отклонением, атрибуция решает.
+            is_new = bool(profile.get("updated_at")) and (
+                baseline_epoch is None or changed is None)
+        if not is_new:
+            continue
+        entry = {
+            "chat": profile.get("chat") or _chat_ref(profile.get("chat_id")),
+            "updated_at": _iso(profile.get("updated_at")),
+            "override_count": profile.get("override_count"),
+        }
+        post_deploy.append(entry)
+        chat_id = profile.get("chat_id")
+        candidates = edits.get(int(chat_id), []) if chat_id is not None else []
+        match = None
+        if changed is not None:
+            for item in candidates:
+                if abs(item["_epoch"] - changed) <= float(window_s):
+                    match = item
+                    break
+        if match is None:
+            unattributed.append({**entry, "provenance": None,
+                                 "candidates": len(candidates)})
+            continue
+        attributed.append({
+            **entry,
+            "provenance": {k: v for k, v in match.items() if k != "_epoch"},
+        })
+
+    return {
+        "baseline_max_updated_at": baseline_max_updated,
+        "post_deploy_changes": post_deploy,
+        "attributed": attributed,
+        "unattributed": unattributed,
+        "ok": not unattributed,
+        "window_s": float(window_s),
+    }
+
+
 async def check_k3_settings(ctx: HarnessContext) -> CheckOutcome:
     a = Asserts()
     details: dict[str, Any] = {"baseline": K3_BASELINE}
@@ -3333,6 +3615,7 @@ async def check_k3_settings(ctx: HarnessContext) -> CheckOutcome:
         "SELECT chat_id, updated_at, chat_params FROM chat_profiles")
     override_counts: list[int] = []
     max_updated = ""
+    profile_entries: list[dict] = []
     for row in profiles:
         root = row.get("chat_params")
         if isinstance(root, str):
@@ -3341,24 +3624,79 @@ async def check_k3_settings(ctx: HarnessContext) -> CheckOutcome:
             except ValueError:
                 root = {}
         overrides = (root or {}).get("overrides") if isinstance(root, dict) else {}
-        override_counts.append(len(overrides or {}))
+        count = len(overrides or {})
+        override_counts.append(count)
         stamp = _iso(row.get("updated_at"))
         if stamp > max_updated:
             max_updated = stamp
+        profile_entries.append({
+            "chat": _chat_ref(row.get("chat_id")),
+            "chat_id": row.get("chat_id"),
+            "updated_at": stamp,
+            "override_count": count,
+        })
+
+    # Провенанс записей после deploy-снимка: только read-only SELECT'ы.
+    provenance_errors: dict[str, str] = {}
+    try:
+        activations = await ctx.pg_rows(
+            "SELECT block_id, scope, chat_id, kind, outcome, actor, "
+            "detail_code, revision_id, created_at FROM prompt_activations "
+            "ORDER BY activation_id DESC LIMIT 1000")
+    except Exception as exc:                       # noqa: BLE001
+        activations = []
+        provenance_errors["prompt_activations"] = type(exc).__name__
+    try:
+        history = await ctx.pg_rows(
+            "SELECT chat_id, field, changed_by, created_at "
+            "FROM chat_lore_history WHERE field = 'chat_params' "
+            "ORDER BY id DESC LIMIT 1000")
+    except Exception as exc:                       # noqa: BLE001
+        history = []
+        provenance_errors["chat_lore_history"] = type(exc).__name__
+
+    baseline_max_updated = str(K3_BASELINE["chat_profiles_max_updated_at"])
+    attribution = _attribute_profile_writes(
+        profile_entries, activations, history,
+        baseline_max_updated=baseline_max_updated)
     details["chat_profiles"] = {
         "chats": len(profiles),
         "override_counts": sorted(override_counts),
         "max_updated_at": max_updated or None,
+        "rows": [
+            {k: v for k, v in entry.items() if k != "chat_id"}
+            for entry in profile_entries
+        ],
+        "attribution": attribution,
+        "provenance_errors": provenance_errors,
+        "provenance_source": (
+            "prompt_activations (kind=manual_edit/manual_* — правки владельца) "
+            "+ chat_lore_history(field=chat_params, changed_by≠NULL); "
+            "запись релиза/миграции такого следа не оставляет"),
     }
+    a.expect("provenance_readable", not provenance_errors, provenance_errors)
+
+    now_sorted = sorted(override_counts)
+    base_sorted = sorted(int(v) for v in K3_BASELINE["override_key_counts"])
+    no_reduction = (len(now_sorted) == len(base_sorted)
+                    and all(now >= base for now, base
+                            in zip(now_sorted, base_sorted)))
+    delta = sum(now_sorted) - sum(base_sorted)
     a.expect("override_counts_unchanged",
-             sorted(override_counts) == sorted(K3_BASELINE["override_key_counts"]),
-             {"now": sorted(override_counts),
-              "baseline": sorted(K3_BASELINE["override_key_counts"])})
+             no_reduction and (delta == 0 or attribution["ok"]),
+             {"now": now_sorted, "baseline": base_sorted, "delta": delta,
+              "no_reduction": no_reduction,
+              "attribution_ok": attribution["ok"],
+              "attributed": attribution["attributed"],
+              "unattributed": attribution["unattributed"]})
     a.expect("chat_profiles_unchanged_since_baseline",
-             bool(max_updated)
-             and max_updated <= str(K3_BASELINE["chat_profiles_max_updated_at"]),
-             {"now": max_updated or None,
-              "baseline": K3_BASELINE["chat_profiles_max_updated_at"]})
+             attribution["ok"],
+             {"now_max_updated_at": max_updated or None,
+              "baseline_max_updated_at": baseline_max_updated,
+              "post_deploy_changes": attribution["post_deploy_changes"],
+              "attributed_owner_edits": attribution["attributed"],
+              "unattributed": attribution["unattributed"],
+              "attribution_window_s": attribution["window_s"]})
 
     deploy_at = str(K3_BASELINE["deploy_at_utc"])
     prompt_rows = [r for r in rows if str(r.get("category")) == "prompts"]
@@ -3868,6 +4206,95 @@ async def _self_test_body(repo_root: Path) -> int:
     expect("redaction.token", "123456:abcdefghijklmnopqrstuvwxyz0123456789"
            not in _scrub_text(
                "token 123456:abcdefghijklmnopqrstuvwxyz0123456789"))
+
+    # 9) deployed-форма master-флага бюджетов: известная форма читается,
+    # неизвестная — честный провал с наблюдаемой формой (не KeyError).
+    real_meta = {"budgets_enabled": True, "source": "default", "stale": False,
+                 "known": True}
+    flag, _obs = _budget_flag(real_meta)
+    expect("budget_flag.real_shape", flag is True, real_meta)
+    flag_off, _obs = _budget_flag(
+        {"budgets_enabled": False, "source": "chat", "stale": False,
+         "known": True})
+    expect("budget_flag.real_shape_off", flag_off is False, None)
+    missing_flag, missing_obs = _budget_flag({"enabled": True, "source": "x"})
+    expect("budget_flag.unknown_shape_none", missing_flag is None, missing_obs)
+    expect("budget_flag.unknown_shape_reported",
+           missing_obs.get("expected_key") == BUDGET_FLAG_KEY
+           and BUDGET_FLAG_KEY not in (missing_obs.get("observed_keys") or []),
+           missing_obs)
+    retry_flag, _obs = _budget_flag(
+        type("_State", (), {"as_meta": lambda self: dict(real_meta)})())
+    expect("budget_flag.as_meta_supported", retry_flag is True, None)
+    expect("budget_flag.as_meta_broken_none",
+           _budget_flag(type("_B", (), {
+               "as_meta": lambda self: (_ for _ in ()).throw(RuntimeError)})()
+           )[0] is None, None)
+
+    # 10) K3-атрибуция post-deploy правок профиля: ручная правка владельца
+    # законна; изменение без провенанса (запись релиза/миграции) — нет.
+    base_max = "2026-11-13T11:07:51+00:00"
+    owner_profile = [{"chat": "chat-aaaaaaaa", "chat_id": 111,
+                      "updated_at": "2026-11-14T06:11:54.954581+00:00",
+                      "override_count": 32}]
+    owner_activations = [{
+        "block_id": "checkup.base.system", "scope": "chat", "chat_id": 111,
+        "kind": "manual_edit", "outcome": "applied", "actor": "canary-actor",
+        "detail_code": "owner_edit", "revision_id": "act:x",
+        "created_at": "2026-11-14T06:11:54.800000+00:00",
+    }]
+    owner_verdict = _attribute_profile_writes(
+        owner_profile, owner_activations, [], baseline_max_updated=base_max)
+    expect("k3.owner_edit_attributed", owner_verdict["ok"] is True
+           and len(owner_verdict["attributed"]) == 1, owner_verdict)
+    expect("k3.owner_edit_provenance_recorded",
+           owner_verdict["attributed"][0]["provenance"].get("kind")
+           == "manual_edit", owner_verdict["attributed"])
+    unattributed_verdict = _attribute_profile_writes(
+        owner_profile, [], [], baseline_max_updated=base_max)
+    expect("k3.unattributed_write_fails",
+           unattributed_verdict["ok"] is False
+           and len(unattributed_verdict["unattributed"]) == 1,
+           unattributed_verdict)
+    deploy_owned_verdict = _attribute_profile_writes(
+        owner_profile, [{"block_id": "checkup.base.system", "scope": "chat",
+                        "chat_id": 111, "kind": "deploy_activate",
+                        "outcome": "applied", "actor": "",
+                        "detail_code": "deploy", "revision_id": "fac:x",
+                        "created_at": "2026-11-14T06:11:54.900000+00:00"}],
+        [], baseline_max_updated=base_max)
+    expect("k3.deploy_write_not_attributed",
+           deploy_owned_verdict["ok"] is False, deploy_owned_verdict)
+    history_verdict = _attribute_profile_writes(
+        owner_profile, [],
+        [{"chat_id": 111, "field": "chat_params", "changed_by": 777,
+          "created_at": "2026-11-14T06:11:54.900000+00:00"}],
+        baseline_max_updated=base_max)
+    expect("k3.chat_params_history_attributed",
+           history_verdict["ok"] is True
+           and history_verdict["attributed"][0]["provenance"].get("source")
+           == "chat_lore_history", history_verdict)
+    anonymous_history_verdict = _attribute_profile_writes(
+        owner_profile, [],
+        [{"chat_id": 111, "field": "chat_params", "changed_by": None,
+          "created_at": "2026-11-14T06:11:54.900000+00:00"}],
+        baseline_max_updated=base_max)
+    expect("k3.anonymous_history_not_attributed",
+           anonymous_history_verdict["ok"] is False, anonymous_history_verdict)
+    far_edit_verdict = _attribute_profile_writes(
+        owner_profile,
+        [{**owner_activations[0],
+          "created_at": "2026-11-14T04:00:00+00:00"}],
+        [], baseline_max_updated=base_max)
+    expect("k3.out_of_window_edit_not_attributed",
+           far_edit_verdict["ok"] is False, far_edit_verdict)
+    untouched_verdict = _attribute_profile_writes(
+        [{"chat": "chat-bbbbbbbb", "chat_id": 222,
+          "updated_at": "2026-11-13T11:07:51+00:00", "override_count": 8}],
+        [], [], baseline_max_updated=base_max)
+    expect("k3.untouched_profile_ok",
+           untouched_verdict["ok"] is True
+           and not untouched_verdict["post_deploy_changes"], untouched_verdict)
 
     print(f"[self-test] failures={len(failures)}")
     for line in failures:

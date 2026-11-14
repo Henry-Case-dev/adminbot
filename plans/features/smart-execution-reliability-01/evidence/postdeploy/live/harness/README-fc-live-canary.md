@@ -83,8 +83,21 @@ venv/bin/python /tmp/fc_live_canary.py --offline \
 
 Если `POSTGRES_DSN` недоступен, harness честно запишет
 `effective.pg.available=false` и будет считать effective-состояние по
-заводским значениям — это **не** production effective state, и проверки
-`SFC-12-07`/`SFC-5-10`, зависящие от него, будут отмечены как неприменимые.
+заводским значениям — это **не** production effective state. Начиная с
+`harness_version=1.2.0` это не маскируется: `effective.pipeline_v2.known=false`,
+а все provider-проверки получают `not_observed`/`unavailable` с точной
+ошибкой PG (`effective_state_unavailable (pg read failed: …)`). Причина
+`pipeline_v2_disabled_effective` выдаётся **только** когда PG реально прочитан
+и effective-значение флага `false`.
+
+Чтение effective-state идёт тем же путём, что и deployed-код:
+`services.pg_db.PgDatabase(dsn)` → пул asyncpg (json/jsonb-кодеки) →
+`SELECT` внутри `transaction(readonly=True)`. Прямой
+`asyncpg.connect(..., init=...)` невозможен: у `connect()` нет параметра
+`init` (он есть только у `create_pool()`), и такой вызов падал до установки
+read-only — из-за этого прошлый прогон (1.1.0) видел «флаг OFF» на самом деле
+включённого v2. Пакеты не устанавливаются, DDL/сиды (`PgDatabase.init()`) не
+вызываются, запись в PG исключена.
 
 ---
 
@@ -116,10 +129,11 @@ owner source `plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.
 * **Реальная история чатов не пишется.** Синтетический чат
   `SYNTH_CHAT` живёт во временной SQLite-базе, созданной с нуля
   (`DatabaseService.initialize()` в `mkdtemp`); после прогона каталог удаляется.
-* **Production PostgreSQL — только read-only.** `asyncpg` подключается с
-  `default_transaction_read_only=on` и выполняет лишь `SELECT` по
-  `bot_settings` / `chat_profiles` для effective-state. Chat id в отчёте
-  заменены на `chat-1…chat-N`.
+* **Production PostgreSQL — только read-only.** Чтение идёт через deployed
+  `services.pg_db.PgDatabase` (пул asyncpg с json/jsonb-кодеками), а оба
+  `SELECT` по `bot_settings` / `chat_profiles` выполняются внутри
+  `conn.transaction(readonly=True)`. DDL/сиды не вызываются, запись исключена.
+  Chat id в отчёте заменены на `chat-1…chat-N`.
 * **Учётные записи провайдера не засоряются.** У `LLMClient` в инстансе
   отключены `_record_global_usage` / `_record_analytics` /
   `_record_sent_call` / `_record_sent_attempts` (usage/analytics/trace в PG),
@@ -189,8 +203,11 @@ evidence_class=production`; сводка отчёта содержит
 
 * `observed` — прогон выполнен, все встроенные утверждения прошли;
 * `not_observed` — прогон не выполнялся (нет `--allow-provider-calls`,
-  effective `flags.factcheck_pipeline_v2=false`, недоступен PG). Это **не**
-  провал требования, но и **не** доказательство: строка остаётся не
+  effective `flags.factcheck_pipeline_v2=false`, недоступен PG). Причина
+  различается машинно: `effective_state_unavailable (pg read failed: …)` —
+  persisted-слой не прочитан (значение флага неизвестно), а
+  `pipeline_v2_disabled_effective` — PG прочитан и флаг реально `false`.
+  Это **не** провал требования, но и **не** доказательство: строка остаётся не
   подтверждённой;
 * `error` — прогон выполнен, но встроенные утверждения/исключение показывают
   отклонение; список не прошедших пунктов — в `details.assertions`.
@@ -213,7 +230,9 @@ evidence_class=production`; сводка отчёта содержит
 * `effective` — снимок effective-настроек: `synthetic_chat` (как видит новый
   чат), `real_chats` (реальные чаты как `chat-1…N`, включая явно сохранённые
   лимиты и их источники), `global`, `pipeline_v2_enabled`,
-  `temporal_factcheck_enabled`, `model_capacity`.
+  `pipeline_v2 {known,enabled,reason,source}` (достоверность значения флага),
+  `temporal_factcheck_enabled`, `model_capacity`, `pg {available,reason,
+  read_mode}`.
 
 Отчёт также содержит `harness_sha256` (sha256 байт самого файла harness) и
 `candidate_binding`:
@@ -317,9 +336,16 @@ self-hash harness; публикацию/предмет/envelope/гейт/пла�
 `run_factcheck` со стабовым транспортом (маршрут `envelope_temporal`,
 `delivered rows == DB rows` по scope, `claim_chars`, correlation id, события);
 негативные контроли (каждый predicate обязан вернуть `false` на сломанном
-входе); отсутствие сетевых попыток.
+входе); отсутствие сетевых попыток; **S16** — семантику недоступного PG
+(`effective_state_unavailable (pg read failed: …)`, а не
+`pipeline_v2_disabled_effective`) плюс обратный контроль «PG прочитан, флаг
+false → причина именно disabled»; **S17** — проводку PG-чтения (deployed
+`PgDatabase`, ровно два `SELECT`, `transaction(readonly=True)`, нормализация
+`bot_settings`/`chat_profiles`, pool закрыт). Offline self-test не открывает
+настоящую PG: снимок помечен как `self_test_synthetic`, а отчёт содержит
+`pg_snapshot_mode`.
 
-Ожидаемый результат на release-чекауте: `self_test_passed=true` (16/16),
+Ожидаемый результат на release-чекауте: `self_test_passed=true` (18/18),
 `--offline`: `observed=2` (оба `plumbing`), `not_observed=4`,
 `production_observed=0`.
 
@@ -328,7 +354,7 @@ Windows, без сети):
 
 ```text
 py_compile ............................... COMPILE OK
---self-test .............................. self_test_passed=true, 16/16, ~0.25 s
+--self-test .............................. self_test_passed=true, 18/18, ~0.28 s
    S0 harness sha256 ..................... ok
    S1 publication ........................ ok (target_source=stored_reply)
    S2 material subject ................... ok (origin=material)
@@ -347,6 +373,9 @@ py_compile ............................... COMPILE OK
                                                claim_chars=235, 16 mca-событий)
    S13 factory values .................... ok (120/600/24/64/100000/20/32)
    S14 assertion sensitivity ............. ok (13/13 негативных контролей)
+   S16 pg state semantics ................ ok (unavailable с точной ошибкой PG;
+                                               disabled только при прочитанном PG)
+   S17 pg read wiring .................... ok (PgDatabase, 2×SELECT, readonly tx)
    S15 no network attempts ............... ok (guard armed, 0 попыток)
 --offline ................................. observed=2, not_observed=4, errors=0,
                                             production_observed=0,
@@ -362,8 +391,8 @@ py_compile ............................... COMPILE OK
 watchdog не понадобился. Сетевой guard проверен отдельно: `create_connection` и
 `getaddrinfo` бросают `ProviderCallsDisabled` и попадают в `attempts`.
 
-Документированная версия harness (`HARNESS_VERSION=1.1.0`) имеет
-`sha256=9513548e5830bd442ac0d869e2cd6637f6c18c7f7f6bb1a113aac2dec563cacd`;
+Документированная версия harness (`HARNESS_VERSION=1.2.0`) имеет
+`sha256=984dbdf444e13974767e10954e2aa4f69f4f2c921f0c20c0f39892435c05ef2d`;
 фактический хэш запуска всегда указан в `candidate_binding.harness_sha256`
 отчёта (для этой версии файла значения должны совпадать).
 

@@ -74,7 +74,9 @@ Self-test обязан исполняться на deployed-классах 2.58.
 
 ## Версия, self-hash и привязка к candidate
 
-Harness `smart-live-canary/2`, `HARNESS_VERSION=1.1.0`. Каждый JSON-прогон
+Harness `smart-live-canary/2`, `HARNESS_VERSION=1.2.0` (r2: defensive
+`budgets_enabled`, provenance-aware `k3_settings`, `external_reads` доказывает
+verified-файл исходника и отказ tool-path без сети). Каждый JSON-прогон
 содержит:
 
 - `harness_sha256` — sha256 самого исполняемого файла, посчитанный в рантайме;
@@ -100,6 +102,10 @@ venv/bin/python /tmp/smart_live_canary.py \
 показывать `repo.head` = deployed SHA, `repo.app_version` = `2.58.200`,
 `manifest.deployed_sha` = тому же SHA; все три поля входят в JSON.
 
+Документированная версия `HARNESS_VERSION=1.2.0` имеет
+`sha256=21c7ac74dbe139d9784168b93cb0a1a6c7fb7f18c1e17f7aa497d6d12fffd820`
+(именно это значение передаётся в `--expect-harness-sha256`).
+
 Дополнительно: `--checks a,b`, `--check-timeout SEC`, `--db-path PATH`,
 `--checkup-unit admin_bot`, `--chat-id N`.
 
@@ -121,19 +127,19 @@ venv/bin/python /tmp/smart_live_canary.py \
 
 | # | check id | req ids | Наблюдаемый факт |
 |---|----------|---------|------------------|
-| 1 | `effective_config` | SXR-L1-01, SXR-K3-01 | master budgets (global + все реальные чаты), отсутствие env-enforcement, `MCA_TOOL_MAX_*`/fuse, legacy + async provider-catalog capacity для модели чата |
+| 1 | `effective_config` | SXR-L1-01, SXR-K3-01 | master budgets (global + все реальные чаты) по фактическому ключу deployed-резолвера `budgets_enabled` с источником значения, отсутствие env-enforcement, `MCA_TOOL_MAX_*`/fuse, legacy + async provider-catalog capacity для модели чата; неизвестная форма резолвера → честный провал с наблюдаемыми ключами (не `KeyError`) |
 | 2 | `control_loop_off` | SXR-L1-01 | реальный `ToolRouter` + `chat_with_tools`: 5 LLM-раундов, 7 вызовов, 3 в одном раунде, каждый получил `role:"tool"`-результат, cap-скипов нет; сеть заблокирована на время сценария |
 | 3 | `caps_on_and_override` | SXR-L1-01 | in-memory budgets ON: заводские `0`-политики не режут; операторский override даёт `chain_call_limit`/`same_call` со структурным результатом на каждый вызов; значения восстановлены |
 | 4 | `evidence_payload` | SXR-L2-01 | 13 500 симв. несекретного источника под реальную ёмкость L2: доставлено целиком, хвостовой маркер сохранён, 3 связанных источника; при cap 900 — честная обрезка без «полного прочтения» |
 | 5 | `capacity_scenarios` | SXR-L3-01 | 8 сценариев: current / <1M / >1M / unknown custom / switch / fallback / catalog-unavailable (in-memory инъекция) / context-overflow; source/confidence; 1M не выдаётся за verified |
 | 6 | `local_source_read` | SXR-L4-01 | `read_source_code` читает `services/tool_loop.py`: local+verified, `network_calls=0`, repo/commit/path == deployed SHA, git HEAD и `.deploy/release.json` совпадают |
-| 7 | `external_reads` | SXR-F2-01, SXR-F4-01, SXR-L5-01 | публичный GitHub-файл реально прочитан по сети; loopback/169.254.169.254 заблокированы (tool path + прямой `SafeFetcher`, stage=resolve); 404 отдан фактической причиной |
+| 7 | `external_reads` | SXR-F2-01, SXR-F4-01, SXR-L5-01 | публичный GitHub реально прочитан по сети: (а) README — сеть + repo/commit/path identity и честный `verified=false` (по контракту SourceReader V1 `verified` выдаётся только файлу исходника, `source_kind=file`); (б) файл исходника `octocat/Spoon-Knife@main:index.html` — `verified=true`, kind=file, commit/path; (в) loopback/169.254.169.254 отклонены tool-path'ом ДО сети (`network_calls=0`; `read_source_code` — provider-scoped GitHub-инструмент, поэтому причина `unsupported/provider_unconfigured`, detail=host_not_supported); (г) прямой `SafeFetcher` — `destination_blocked`/`metadata_endpoint_blocked`, stage=resolve; (д) 404 отдан фактической причиной |
 | 8 | `diagnostic_variants` | SXR-L6-01 | 7 вариантов на одном `chat_with_tools` (все источники / один отказ / GitHub blocked+local / local down+remote / исследование невозможно / финальный LLM недоступен / technical deadline): данные сохранены, бессмысленная заглушка не публикуется |
 | 9 | `checkup_real` | SXR-H3-01, SXR-H4-01, SXR-L7-01 | реальный journal unit, `MainPID` не root, `deploy.identity` (`verified_deployed`), `.deploy/release.json` ↔ git ↔ процесс, `DiagnosticCollector.collect_for_checkup` и (при разрешении) `CheckupService.checkup` |
 | 10 | `direct_continuation` | SXR-L7-01 | L1 Planner (`prompts.direct_l1_planner_system_prompt`) на двух независимых формулировках: решение LLM (`capabilities_needed`), затем фактический read-only tool-вызов; плюс реальный remainder/cursor и дочитывание следующего диапазона |
 | 11 | `i1_spool` | SXR-I1-01 | read-only SQLite: журнал `meme_initiative_attempt` (агрегат, >0 строк, последняя попытка с outcome/reason_code), spool `*.attempts.pending.jsonl` (0 строк = дренаж), читаемое journal-окно и маркеры недоступности |
 | 11 | `i2_stream` | SXR-I2-01 | durable job payload, cursor/scope по чатам, `semantic_progress_snapshot`, пересчёт lag `id > cursor`, backlog и терминальные drain-циклы |
-| 12 | `k3_settings` | SXR-K3-01 | persisted `bot_settings` (кол-во/ключи/даты), `models.*` и `flags.budgets_enabled`, prompts без перезаписи после deploy, `chat_profiles` и counts override; фиксы не в OFF/SHADOW |
+| 12 | `k3_settings` | SXR-K3-01 | persisted `bot_settings` (кол-во/ключи/даты), `models.*` и `flags.budgets_enabled` (значение + дата записи против deploy-снимка), prompts без перезаписи после deploy, `chat_profiles` и counts override; изменение профиля после deploy-снимка допустимо ТОЛЬКО с провенансом (`prompt_activations` kind=manual_edit/… или `chat_lore_history` field=chat_params с `changed_by`), запись релиза/миграции без следа проваливает проверку; фиксы не в OFF/SHADOW |
 | 13 | `l8_rollup` | SXR-L8-01 | свод I1–I6 только из уже наблюдённых фактов; I3/I5/I6 честно `not_run`, если сценариев не было |
 
 Каждая проверка возвращает `{id, req_ids, status, evidence_class,
@@ -164,13 +170,13 @@ evidence_reason, production_observed, summary, details, duration_s}`.
 | `evidence_payload` | plumbing | production `build_evidence_pack` на синтетическом источнике |
 | `capacity_scenarios` | production онлайн / unavailable offline | реальный resolver + provider-каталог; один сценарий каталога инъецируется in-memory |
 | `local_source_read` | production только при verified deployed identity | реальный `read_source_code` по deployed-дереву, `network_calls=0`, commit/path == deployed SHA |
-| `external_reads` | production онлайн / unavailable offline | реальный публичный GitHub-read по сети + реальный `SafeFetcher` SSRF-полиси |
+| `external_reads` | production онлайн / unavailable offline | реальный публичный GitHub-read по сети (README + verified файл исходника) + реальный `SafeFetcher` SSRF-полиси и отказ tool-path без сетевого вызова |
 | `diagnostic_variants` | plumbing | 7 вариантов production tool-loop с контролируемыми LLM/роутером |
 | `checkup_real` | production при реальном journal / иначе unavailable | systemd unit, `MainPID`, `deploy.identity`, manifest ↔ git ↔ процесс, реальный отчёт чекапа (при provider) |
 | `direct_continuation` | production при реальном provider call / иначе unavailable | решение LLM + реальный tool-вызов; плюс реальный remainder/cursor и дочитывание следующего диапазона |
 | `i1_spool` | production при реальных SQLite-строках / иначе unavailable | журнал попыток, последняя попытка с `outcome/reason_code`, spool, journal-окно |
 | `i2_stream` | production при реальном durable payload / иначе unavailable | durable cursor/scope, backlog, пересчёт lag, терминальные drain-циклы |
-| `k3_settings` | production при PG / иначе unavailable | persisted настройки/модели/prompts/overrides не перезаписаны |
+| `k3_settings` | production при PG / иначе unavailable | persisted настройки/модели/prompts не перезаписаны; post-deploy правки профиля атрибутированы провенансом владельца |
 | `l8_rollup` | production только если I1 и I2 production+observed | свод без нового поведения |
 
 Пустой/недоступный источник не даёт `observed`: `effective_config`,
@@ -280,5 +286,10 @@ python smart_live_canary.py --offline --json-out /tmp/offline.json
 обрезкой, capacity-резолвер (unknown ≠ verified, overflow), два
 finalization-варианта, continuation (реальный remainder + второй диапазон,
 плюс два негативных случая), запрет `observed` для plumbing и redaction.
+Отдельные блоки покрывают r2-правки: `budget_flag.*` (фактический ключ
+`budgets_enabled` читается, неизвестная форма даёт `None` + наблюдаемые ключи,
+сломанный `as_meta` не роняет проверку) и `k3.*` (правка владельца
+атрибутирована; запись без провенанса, `deploy_activate`, анонимная запись
+истории и запись вне окна — проваливают атрибуцию; нетронутый профиль — ок).
 Ожидаемый результат: `failures=0`, код 0, без traceback. Ненулевой код или
 `BLOCKED` означает, что сам harness либо его repo-binding сломан.
