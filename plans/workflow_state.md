@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-14-smart-corrective-01.md (sha 8A0239B3.
 Status: in_progress
 Primary phase: implementation
 Active feature: smart-corrective-01
-Active lanes: Builder S4-COMPLETION ses_e26a4b1b4ffeFTD0LoXC189pRS; Builder S5C-EVENTS ses_e269796daffeO2TuJib6tTmNVe; Builder FC-12-09 fix ses_e26a3efcbffeOoExYR59oJXEWm; Builder F4 harness extension ses_e26fde68affeEDfHv3DBuCZnXD
+Active lanes: Builder S4-COMPLETION ses_e26a4b1b4ffeFTD0LoXC189pRS; Builder S5C-EVENTS ses_e269796daffeO2TuJib6tTmNVe; Builder FC-12-09 fix ses_e26a3efcbffeOoExYR59oJXEWm; PM bind approved slices ses_e26944b69ffekJ59dopmiXZ235; Reviewer harness audit r4 ses_e273b4525ffe47gqf5snOL5IL1
 Join barriers: S4 review; S5C review; F4 harness -> focused re-run; FC-12-09 fix -> review -> clean canary
 Last verified: parent 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad866; healthz 200; schema 47; owner settings preserved. Parent maps 173/186 ids VERIFIED, 13 live; deploy gates errors=0 both maps; release gates red only on the live class.
 Acceptance: parent 186 unique ids - 173 VERIFIED, 13 READY_FOR_LIVE (A1-04, F4-01, L1-01, L2-01, L4-01, L6-01, L7-01, L8-01, SFC-5-10, SFC-12-07, SFC-12-09, SFC-13-03, SFC-14-03), 0 REVIEW/PENDING/FAILED. Corrective map 384 required / 367 ids / 24 AC / 14 slices, plan gate 0.
@@ -15,10 +15,11 @@ Review: S1/S2 Approved; S3 Approved (r2); S5A Approved; S5B Approved (r2, mutati
 Deployment: parent 2.58.200 verified engineering delivery; corrective slices S1/S2, S3, S5A, S5B approved; S4/S5C in progress - no corrective deploy yet
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted; global aggregate 4409/7264 requirements, 324/599 slices
-Updated: 2026-11-14T21:36:46+12:00
+Updated: 2026-11-14T21:47:17+12:00
 
 ## Facts
 
+- F4 harness extension committed 67701e0b (smart_live_canary v1.3.0, sha 39600b90...): new `external_scenarios` exercises the production read_source_code on a public repo - branch read identity/verified/network, related-source followup (AppTest.java -> App.java), symbol locator search with exact commit, blob-link read, factual missing/private repo reason with <=2 calls and no retries, and capability (exactly one source tool, three operations, no GitHub command). `external_natural_request` records one real provider decision + actual tool execution on production only. Local run on deployed code: observed/production, 13 GitHub calls, failed_assertions=0; self-test covers 24 external controls incl. negatives. Reviewer audit r4 is running before the focused production run.
 - Owner corrective scope: fix the live checkup self-research defect (SourceReader full local-first fallback, content-based search, effective budget propagation, checkup completion/input completeness, prompt delivery) and the watchdog incident contour; mandatory read-only investigation before implementation; no duplicate epic, no queue restart. Parent 2.58.200 engineering delivery evidence stays valid and is not rewritten.
 - Production run reconstruction (commit 264b4ab0; report 47049fa8...): run A `чекап` = 7 rounds / 8 tool calls, stop research_reason=ok, NOT limit-stopped; read_source_code returned the same 141-line non-implementation file twice; GitHub never called. Run B reply = 4 rounds / 3 calls; local source_missing/404 did not switch to GitHub (0 network calls); third read returned services/mca_watchdog.py (329 lines); final writer deepseek-flash fallback; exact run-A args are unrecoverable and are not claimed.
 - Watchdog investigation: 11 confirmed defects W-01..W-11 with file:line and local repro probes; W-12 needs production data (meaning of repeats), W-13 not a defect, W-14 backlog. Six incidents: 4 of 6 have terminal jobs (false takeovers); asap8b01 73 repeats / 20 jobs all completed (latest false takeover 06:35:12 on a job completed 06:35:49); qnd.event 18 interrupted worker_lost; 125 WATCHDOG_TAKEOVER events without job ids; effective MCA_JOB_STALE_SECONDS=60, HEARTBEAT=15, progress-stall 600; 8 stale media rows.
