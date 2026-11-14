@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-3aa92750",
+      "owner": "Builder (S6-prompt-guard)",
+      "reason": "Registered Git worktree with branch sc/corrective-s6-guard (commits a8b6197f code + ea1f5a8b evidence); still needed by Reviewer for the exact candidate and by release train for merge. Not disposable before review/merge.",
+      "evidence": "plans/features/smart-corrective-01/evidence/s6-prompt-guard/implementation.md (branch/commit/files/tests matrix)",
+      "next_event": "After Reviewer approval and the release-train merge of sc/corrective-s6-guard, run unit-close --repo C:\\Code\\Python\\adminbot --epic smart-corrective-01 --unit s6-prompt-guard --confirmed-idle --confirmed-evidence --apply (or close the branch worktree after 2.58.202 deploy evidence is promoted)."
+    }
+  ]
+}
