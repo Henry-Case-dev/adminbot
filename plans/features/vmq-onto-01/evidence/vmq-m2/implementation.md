@@ -2,7 +2,9 @@
 
 Дата: 15.11.2026. Ветка `vmq/m2`, база — принятая линия ONTO-B
 `64dab0eb` (код `d15b13da`), которая стоит на ONTO-A `d67262cb`/код
-`8cb9e00d` и production `c97c06e4` (2.58.203). Worktree:
+`8cb9e00d` и production `c97c06e4` (2.58.203). **Code tip:
+`69ea617c7eca06f35dcbef356d784f9775d0b0fc`** (этот evidence-файл обновлён
+следующим docs-коммитом той же ветки). Worktree:
 `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-onto-01-3689dd92710d-612f4000`
 (unit `VMQ-M2`).
 
