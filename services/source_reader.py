@@ -3277,6 +3277,12 @@ class SourceReader:
         используется существующий `rank_paths()` (подсказка по пути/символу).
         """
         result = _ContentSearchResult()
+        fragment = _traceback_fragment(query)
+        if fragment is not None:
+            return await self._traceback_search(
+                state, info, listing=listing, commit=commit,
+                fragment=fragment, path_hint=path_hint, parsed=parsed,
+                cursor=cursor)
         probes = tuple(_search_probes(query, symbol, query))
         result.probes = probes
         required = str(symbol or "").strip()
@@ -3440,6 +3446,181 @@ class SourceReader:
             result.next_index = len(order)
         return result
 
+    async def _traceback_search(self, state: "_RunState", info, *,
+                                listing: TreeListing, commit: str,
+                                fragment: dict, path_hint: str, parsed,
+                                cursor: dict | None) -> "_ContentSearchResult":
+        """Поиск multi-line traceback-фрагмента как непрерывного блока строк.
+
+        Одиночный generic-token (`x.py`, имя функции) НЕ подтверждает
+        фрагмент: результат обязан остаться non-confirming. Блок сравнивается
+        после безопасной нормализации (`\\r`, trailing whitespace); ведущие
+        отступы исходника сохраняются. Найденный диапазон/число строк входят
+        в payload; исходный файл — в `texts` для точного среза.
+        """
+        result = _ContentSearchResult()
+        result.traceback = {
+            "detected": True,
+            "fragment_verified": False,
+            "code_line_count": int(fragment.get("code_line_count") or 0),
+            "expected_path": str(fragment.get("expected_path") or ""),
+            "matched_line_count": 0,
+            "matched_range": [],
+            "expected_path_match": False,
+            "reason": "",
+        }
+        code_lines = list(fragment.get("code_lines") or [])
+        if len(code_lines) < 2:
+            result.complete = True
+            result.reason = "traceback_fragment_not_multiline"
+            result.traceback["reason"] = result.reason
+            result.candidate_paths = [entry.path for entry, _material
+                                      in _search_scan_order(
+                                          listing, query="", symbol="",
+                                          path=path_hint,
+                                          language=getattr(info, "language", ""))]
+            return result
+        expected_path = str(fragment.get("expected_path") or "")
+        order = _search_scan_order(listing, query="", symbol="",
+                                   path=path_hint,
+                                   language=getattr(info, "language", ""))
+        if expected_path:
+            # Подсказка из `File "..."` используется ТОЛЬКО для порядка обхода.
+            expected = expected_path.replace("\\", "/").lstrip("./")
+            expected_name = expected.rsplit("/", 1)[-1]
+            order.sort(key=lambda item: (
+                0 if (item[0].path == expected
+                      or item[0].path.endswith("/" + expected)
+                      or item[0].path.rsplit("/", 1)[-1] == expected_name)
+                else 1,
+                item[0].path))
+        if parsed is not None and parsed.kind == KIND_DIRECTORY and parsed.path:
+            prefix = parsed.path.rstrip("/") + "/"
+            scoped = [item for item in order
+                      if item[0].path.startswith(prefix)]
+            if scoped:
+                order = scoped
+        result.candidate_paths = [entry.path for entry, _material in order]
+        state.files_considered = len(order)
+        result.truncated_tree = bool(listing.truncated)
+        start_index = 0
+        if cursor is not None:
+            start_index = max(0, int(cursor.get("scan_index") or 0))
+        budget = content_scan_budget_bytes()
+        result.budget_bytes = int(budget)
+        index = start_index
+        scanned_bytes = 0
+        complete = True
+        reason = ""
+        while index < len(order):
+            entry, _material = order[index]
+            if self._exhausted(state):
+                complete, reason = False, "budget"
+                break
+            if scanned_bytes >= budget:
+                complete, reason = False, "scan_budget"
+                break
+            try:
+                source_file = await self._read_search_file(
+                    state, info, commit, entry)
+            except SourceFetchError as exc:
+                if exc.code in (ERR_SOURCE_MISSING, ERR_UNSUPPORTED_KIND,
+                                ERR_EMPTY_CONTENT) \
+                        or exc.code in _SEARCH_SIZE_CODES:
+                    if (exc.code in _SEARCH_SIZE_CODES
+                            or str(exc.detail or "") == "file_too_large"):
+                        result.skipped["oversized"] = (
+                            int(result.skipped.get("oversized", 0)) + 1)
+                    elif exc.code == ERR_SOURCE_MISSING:
+                        result.skipped["missing"] = (
+                            int(result.skipped.get("missing", 0)) + 1)
+                    else:
+                        result.skipped["unreadable"] = (
+                            int(result.skipped.get("unreadable", 0)) + 1)
+                    index += 1
+                    continue
+                result.error = exc
+                complete, reason = False, exc.code
+                break
+            if source_file is None or not source_file.data:
+                result.skipped["missing" if source_file is None else "empty"] = (
+                    int(result.skipped.get(
+                        "missing" if source_file is None else "empty", 0)) + 1)
+                index += 1
+                continue
+            scanned_bytes += len(source_file.data)
+            state.files_read += 1
+            result.files_scanned += 1
+            decoded = decode_source_bytes(source_file.data)
+            if not decoded.ok:
+                result.skipped["not_text"] = (
+                    int(result.skipped.get("not_text", 0)) + 1)
+                index += 1
+                continue
+            source_lines = [_normalize_fragment_line(line)
+                            for line in split_lines(decoded.text)]
+            matched_range = _find_contiguous_block(source_lines, code_lines)
+            if matched_range is not None:
+                start, end = matched_range
+                first_line = source_lines[start - 1] if start > 0 else ""
+                role = _code_role_for_line(entry.path, first_line,
+                                           [first_line], "")
+                block_text = "\n".join(
+                    source_lines[start - 1:end])[:_CONTENT_MATCH_DELIVERY_CHARS]
+                result.matches.append(_ContentMatch(
+                    path=entry.path, line=int(start), material=role,
+                    probes=tuple(code_lines),
+                    score=float(100 + len(code_lines)), line_text=block_text,
+                    line_end=int(end), matched_line_count=len(code_lines)))
+                result.texts[entry.path] = (source_file, decoded)
+                result.traceback.update({
+                    "fragment_verified": True,
+                    "matched_line_count": len(code_lines),
+                    "matched_range": [int(start), int(end)],
+                    "expected_path_match": bool(
+                        expected_path and _traceback_path_matches(
+                            entry.path, expected_path)),
+                    "reason": "traceback_fragment_confirmed",
+                })
+                complete = True
+                reason = "traceback_fragment_confirmed"
+                result.next_index = len(order)
+                break
+            # Диагностика non-confirming совпадений: отдельные строки блока
+            # присутствуют, но непрерывного блока нет. В `matches` они НЕ
+            # попадают и фрагмент не подтверждают.
+            matched_lines = [number for number, line in enumerate(
+                source_lines, 1) if line in code_lines]
+            if matched_lines:
+                result.partial_matches.append({
+                    "path": entry.path,
+                    "matched_lines": len(matched_lines),
+                    "code_lines": len(code_lines),
+                    "lines": matched_lines[:20],
+                    "confirmed": False,
+                })
+            index += 1
+        result.bytes_scanned = scanned_bytes
+        result.complete = bool(complete)
+        if not result.matches and result.complete and result.truncated_tree:
+            result.complete = False
+            reason = reason or "tree_truncated"
+        gaps = (int(result.skipped.get("oversized", 0))
+                + int(result.skipped.get("missing", 0)))
+        if gaps and not result.matches and result.complete:
+            result.complete = False
+            reason = reason or "read_gaps"
+        result.reason = reason or (
+            "traceback_fragment_not_confirmed" if not result.matches else "")
+        if not result.matches and result.traceback is not None:
+            result.traceback["reason"] = result.reason
+        if not result.matches and (
+                result.complete or result.reason == "tree_truncated"):
+            result.next_index = len(order)
+        elif not result.matches:
+            result.next_index = index
+        return result
+
     async def _read_search_file(self, state: "_RunState", info, commit: str,
                                 entry: TreeEntry):
         """Одно чтение для поиска: bounded retry только для временных отказов."""
@@ -3484,11 +3665,22 @@ class SourceReader:
             payload["not_checked"]["reason"] = (
                 payload["not_checked"].get("reason")
                 or result.reason or result.error.code)
+            if result.traceback is not None:
+                payload["traceback"] = dict(result.traceback)
             payload["continuation"] = _continuation_payload(
                 kind="content_search", remaining=True, cursor="",
                 reason=payload["not_checked"]["reason"],
                 progress_id=state.progress_id)
             return payload
+        if result.traceback is not None:
+            if (result.traceback.get("fragment_verified")
+                    and result.matches):
+                return self._traceback_confirmed_payload(
+                    state, info, commit=commit, result=result, base=base,
+                    query=query)
+            return self._traceback_unconfirmed_payload(
+                state, info, commit=commit, result=result, base=base,
+                query=query, symbol=symbol)
         if ordered:
             provider_name = self._provider_name(state)
             local = self._local_verification(state)
@@ -3559,6 +3751,110 @@ class SourceReader:
                     extra={"network_calls": self._request_calls(state),
                            "files_read": state.files_read, "verified": False,
                            "match_count": 0})
+        return payload
+
+    def _traceback_confirmed_payload(self, state: "_RunState", info, *,
+                                     commit: str,
+                                     result: "_ContentSearchResult",
+                                     base: dict, query: str) -> dict:
+        """Payload подтверждённого непрерывного traceback-блока."""
+        match = result.ordered()[0]
+        pair = result.texts.get(match.path)
+        if not pair:
+            return self._traceback_unconfirmed_payload(
+                state, info, commit=commit, result=result, base=base,
+                query=query, symbol="")
+        source_file, decoded = pair
+        old_start, old_end = state.line_start, state.line_end
+        state.line_start = int(match.line)
+        state.line_end = int(match.line_end or match.line)
+        try:
+            payload = self._read_payload(
+                state, info=info, commit=commit, path=match.path,
+                source_file=source_file, decoded=decoded, symbol="",
+                symbol_line=int(match.line), stage=STAGE_LOCATOR,
+                ref_kind=_ref_kind(state.requested_ref))
+        finally:
+            state.line_start, state.line_end = old_start, old_end
+        payload.update(base)
+        provider_name = self._provider_name(state)
+        local = self._local_verification(state)
+        bytes_verified = bool(
+            provider_name == PROVIDER_GITHUB
+            or _local_bytes_verified(local, commit))
+        payload["traceback"] = dict(result.traceback or {})
+        payload["traceback"]["fragment_verified"] = True
+        payload["matched_line_count"] = int(match.matched_line_count or 1)
+        payload["matches"] = result.matches_payload(
+            verified=bytes_verified, repo=info.full_name, commit=commit,
+            local=provider_name == PROVIDER_LOCAL)
+        payload["match_count"] = 1
+        payload["match_material"] = match.material
+        payload["match_line"] = int(match.line)
+        payload["ranked_materials"] = result.material_counts()
+        delivered_end = int((payload.get("line_range") or [0, 0])[-1])
+        if delivered_end >= int(match.line_end or match.line):
+            # Запрошен именно этот непрерывный блок; строки после него — не
+            # «недоданный остаток» фрагмента. Полная доставка блока = ok.
+            payload["truncation"] = {
+                "truncated": False, "why": "",
+                "effective_limit": int(state.budget_chars or 0),
+                "limit_source": "traceback_fragment",
+                "retrievable_remainder_lines": 0,
+            }
+            payload["outcome"] = OUTCOME_OK
+            payload["partial"] = False
+            payload["continuation"] = {}
+        elif payload.get("outcome") != OUTCOME_PARTIAL:
+            payload["outcome"] = OUTCOME_PARTIAL
+            payload["partial"] = True
+        _emit_stage(STAGE_LOCATOR, "success",
+                    extra={"network_calls": self._request_calls(state),
+                           "files_read": state.files_read,
+                           "verified": bool(payload.get("verified")),
+                           "traceback_fragment": True,
+                           "match_count": 1})
+        return payload
+
+    def _traceback_unconfirmed_payload(self, state: "_RunState", info, *,
+                                       commit: str,
+                                       result: "_ContentSearchResult",
+                                       base: dict, query: str,
+                                       symbol: str) -> dict:
+        """Честный non-confirming результат для traceback-фрагмента.
+
+        Одиночные строки/token могут присутствовать, но без непрерывного
+        блока фрагмент НЕ подтверждён: top-level `verified=false`, нет
+        `path`/`match_line`, outcome `partial` с конкретной причиной.
+        """
+        reason = (result.reason or "traceback_fragment_not_confirmed")
+        payload = self._payload(
+            state, STATUS_PARTIAL, outcome=OUTCOME_PARTIAL,
+            reason=reason, verified=False, **base)
+        traceback = dict(result.traceback or {})
+        traceback["fragment_verified"] = False
+        traceback["matched_line_count"] = 0
+        traceback["matched_range"] = []
+        traceback["reason"] = reason
+        traceback["partial_matches"] = list(result.partial_matches)
+        payload["traceback"] = traceback
+        payload["matches"] = []
+        payload["match_count"] = 0
+        payload["matched_line_count"] = 0
+        payload["not_checked"]["reason"] = reason
+        if not result.complete:
+            payload["continuation"] = self._scan_continuation(
+                state, info, commit, result, query=query, symbol=symbol)
+        else:
+            payload["continuation"] = _continuation_payload(
+                kind="content_search", remaining=False, cursor="",
+                reason=reason, progress_id=state.progress_id)
+        _emit_stage(STAGE_LOCATOR, "skipped",
+                    reason_code=_REASON_FOR_CODE[ERR_NO_RESULTS],
+                    extra={"network_calls": self._request_calls(state),
+                           "files_read": state.files_read,
+                           "traceback_fragment": False,
+                           "partial_matches": len(result.partial_matches)})
         return payload
 
     def _scan_continuation(self, state: "_RunState", info, commit: str,
@@ -4282,6 +4578,8 @@ class _ContentMatch:
     probes: tuple[str, ...] = ()
     score: float = 0.0
     line_text: str = ""
+    line_end: int = 0
+    matched_line_count: int = 0
 
 
 @dataclass
@@ -4303,6 +4601,8 @@ class _ContentSearchResult:
     skipped: dict = field(default_factory=dict)
     candidate_paths: list[str] = field(default_factory=list)
     truncated_tree: bool = False
+    traceback: dict | None = None
+    partial_matches: list[dict] = field(default_factory=list)
 
     @property
     def has_implementation(self) -> bool:
@@ -4333,6 +4633,8 @@ class _ContentSearchResult:
             "skipped": dict(self.skipped),
             "tree_truncated": bool(self.truncated_tree),
             "candidates_total": len(self.candidate_paths),
+            "traceback": dict(self.traceback) if self.traceback else None,
+            "partial_matches": list(self.partial_matches),
             "error": ({"code": self.error.code,
                        "detail": self.error.detail,
                        "retryable": bool(self.error.retryable)}
@@ -4343,7 +4645,8 @@ class _ContentSearchResult:
                         local: bool) -> list[dict]:
         payload: list[dict] = []
         for match in self.ordered():
-            line_range = [int(match.line), int(match.line)]
+            line_end = int(match.line_end or match.line)
+            line_range = [int(match.line), line_end]
             url = ""
             if verified:
                 url = (_local_verified_url(repo, commit, match.path, line_range)
@@ -4352,11 +4655,13 @@ class _ContentSearchResult:
             payload.append({
                 "path": match.path,
                 "line": int(match.line),
+                "line_end": line_end,
                 "line_range": line_range,
                 "material": match.material,
                 "probes": list(match.probes),
                 "score": round(float(match.score or 0.0), 3),
                 "line_text": match.line_text,
+                "matched_line_count": int(match.matched_line_count or 1),
                 "verified": bool(verified),
                 "verified_url": url,
                 "source_id": _source_id(repo, commit, match.path),
@@ -4369,6 +4674,93 @@ class _ContentSearchResult:
 _QUOTED_PROBE_RE = re.compile(r"[\"'`]([^\"'`\n]{3,200})[\"'`]")
 _DOTTED_PROBE_RE = re.compile(
     r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
+#: Traceback-фрагмент: заголовок/кадр/исключение — только маркеры, не пробы.
+_TRACEBACK_HEADER_RE = re.compile(
+    r"^\s*Traceback \(most recent call last\):\s*$")
+_TRACEBACK_FILE_RE = re.compile(
+    r'^\s*File\s+"([^"]+)"(?:,\s*line\s+\d+)?(?:,\s*in\s+.*)?\s*$')
+_TRACEBACK_EXC_RE = re.compile(
+    r"^\s*[A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning|Interrupt|"
+    r"Exit|StopIteration):(?:\s|$)")
+_TRACEBACK_NOTE_RE = re.compile(
+    r"^\s*(?:During handling of the above exception|"
+    r"The above exception was the direct cause)")
+
+
+def _normalize_fragment_line(line: str) -> str:
+    """Безопасная нормализация строки фрагмента: только ``\\r`` и хвост."""
+    return strip_line_ending(str(line or "")).rstrip()
+
+
+def _traceback_fragment(text: str) -> dict | None:
+    """Разобрать multi-line traceback-фрагмент без generic-token матчинга.
+
+    Возвращает ``{"code_lines": [...], "expected_path": ..., ...}`` только
+    если фрагмент действительно похож на traceback и содержит >=2 строки
+    исходного кода. Строки кода нормализуются только по ``\\r`` и trailing
+    whitespace; ведущие отступы сохраняются (это часть исходника).
+    """
+    raw = str(text or "")
+    if "\n" not in raw and "\r" not in raw:
+        return None
+    lines = [_normalize_fragment_line(line)
+             for line in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if len(lines) < 2:
+        return None
+    has_traceback_marker = False
+    expected_path = ""
+    code_lines: list[str] = []
+    for line in lines:
+        if _TRACEBACK_HEADER_RE.match(line) or _TRACEBACK_NOTE_RE.match(line):
+            has_traceback_marker = True
+            continue
+        file_match = _TRACEBACK_FILE_RE.match(line)
+        if file_match:
+            has_traceback_marker = True
+            expected_path = str(file_match.group(1) or "").strip()
+            continue
+        if (_TRACEBACK_EXC_RE.match(line)
+                and not line[:1].isspace()):
+            continue
+        if line.strip():
+            code_lines.append(line)
+    if not has_traceback_marker or not code_lines:
+        return None
+    return {
+        "code_lines": code_lines,
+        "code_line_count": len(code_lines),
+        "expected_path": expected_path,
+        "raw_line_count": len(lines),
+    }
+
+
+def _find_contiguous_block(source_lines: list[str],
+                           block_lines: list[str]) -> tuple[int, int] | None:
+    """1-based диапазон первого непрерывного блока или None."""
+    size = len(block_lines)
+    if size < 2 or len(source_lines) < size:
+        return None
+    for index in range(0, len(source_lines) - size + 1):
+        if all(source_lines[index + offset] == block_lines[offset]
+               for offset in range(size)):
+            return index + 1, index + size
+    return None
+
+
+def _traceback_path_matches(path: str, expected: str) -> bool:
+    """Совпадает ли путь файла с подсказкой `File "..."` (только диагностика)."""
+    wanted = str(expected or "").replace("\\", "/").lstrip("./")
+    text = str(path or "").replace("\\", "/").lstrip("./")
+    if not wanted or not text:
+        return False
+    return (text == wanted or text.endswith("/" + wanted)
+            or text.rsplit("/", 1)[-1] == wanted.rsplit("/", 1)[-1])
+
+
 #: Отказы политики/прав: никогда не обходятся remote-поиском.
 _PERMISSION_CODES = frozenset({
     "auth_failed", "path_denied", "destination_blocked",

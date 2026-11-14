@@ -48,7 +48,7 @@ def _tree(tmp_path: Path, files: dict[str, str], *, sha: str = SHA,
     for rel, text in {**BASE_FILES, **files}.items():
         target = root.joinpath(*rel.split("/"))
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+        target.write_text(text, encoding="utf-8", newline="")
     git_dir = root / ".git"
     (git_dir / "refs" / "heads").mkdir(parents=True, exist_ok=True)
     (git_dir / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
@@ -383,6 +383,150 @@ class TestContentSearch:
         assert continuation["next_arguments"]["line_start"] == (
             payload["truncation"]["next_line_start"])
         assert continuation["next_arguments"]["path"] == "services/big.py"
+
+
+class TestTracebackFragment:
+    @staticmethod
+    def _query(code_lines: list[str], *, path: str = "services/payments_worker.py",
+               line: int = 40) -> str:
+        return "\n".join([
+            "Traceback (most recent call last):",
+            f'  File "{path}", line {line}, in handle',
+            *code_lines,
+            "KeyError: 'missing'",
+        ])
+
+    @pytest.mark.asyncio
+    async def test_multiline_contiguous_fragment_confirmed_with_range(
+            self, tmp_path):
+        files = {
+            "services/payments_worker.py": (
+                "def handle():\n"
+                "    total = compute(\n"
+                "        value,\n"
+                "        limit)\n"
+                "    return total\n"),
+        }
+        code_lines = [
+            "    total = compute(",
+            "        value,",
+            "        limit)",
+        ]
+        reader, _record, _tree_path, _provider = _reader(tmp_path, files)
+        payload = await reader.run(
+            operation=sr.OPERATION_LOCATE, repo=REPO,
+            query=self._query(code_lines), follow=False)
+        assert payload["status"] == sr.STATUS_OK, payload
+        assert payload["outcome"] == sr.OUTCOME_OK, payload
+        assert payload["verified"] is True
+        assert payload["path"] == "services/payments_worker.py"
+        assert payload["line_range"] == [2, 4]
+        assert payload["matched_line_count"] == 3
+        assert payload["traceback"]["fragment_verified"] is True
+        assert payload["traceback"]["matched_range"] == [2, 4]
+        assert payload["traceback"]["matched_line_count"] == 3
+        assert payload["matches"][0]["line_range"] == [2, 4]
+        assert payload["matches"][0]["matched_line_count"] == 3
+        assert "total = compute(" in payload["snippet"]
+
+    @pytest.mark.asyncio
+    async def test_generic_token_only_does_not_confirm_traceback(
+            self, tmp_path):
+        # Reviewer scenario: file contains generic `x.py`, но непрерывного
+        # traceback-блока нет. Результат НЕ должен быть `ok`/caller.
+        files = {"services/aaa_unrelated.py": 'NAME = "x.py"\nVALUE = 1\n'}
+        code_lines = [
+            "    x.py",
+            "    unrelated_token",
+        ]
+        reader, _record, _tree_path, _provider = _reader(tmp_path, files)
+        payload = await reader.run(
+            operation=sr.OPERATION_LOCATE, repo=REPO,
+            query=self._query(code_lines, path="app/x.py", line=10),
+            follow=False)
+        assert payload["status"] == sr.STATUS_PARTIAL, payload
+        assert payload["outcome"] == sr.OUTCOME_PARTIAL
+        assert payload["verified"] is False
+        assert payload["path"] == ""
+        assert payload["match_count"] == 0
+        assert payload["reason"] == "traceback_fragment_not_confirmed"
+        assert payload["traceback"]["fragment_verified"] is False
+        assert all(item.get("confirmed") is False
+                   for item in payload["traceback"].get("partial_matches", []))
+
+    @pytest.mark.asyncio
+    async def test_reordered_lines_are_near_miss_not_confirmed(
+            self, tmp_path):
+        files = {
+            "services/payments_worker.py": (
+                "def handle():\n"
+                "    alpha = 1\n"
+                "    beta = 2\n"
+                "    gamma = 3\n"),
+        }
+        # Те же строки присутствуют, но в другом порядке — не contiguity.
+        code_lines = [
+            "    alpha = 1",
+            "    gamma = 3",
+            "    beta = 2",
+        ]
+        reader, _record, _tree_path, _provider = _reader(tmp_path, files)
+        payload = await reader.run(
+            operation=sr.OPERATION_LOCATE, repo=REPO,
+            query=self._query(code_lines), follow=False)
+        assert payload["status"] == sr.STATUS_PARTIAL, payload
+        assert payload["outcome"] == sr.OUTCOME_PARTIAL
+        assert payload["traceback"]["fragment_verified"] is False
+        assert payload["match_count"] == 0
+        assert payload["reason"] == "traceback_fragment_not_confirmed"
+        assert payload["traceback"]["partial_matches"]
+        assert payload["traceback"]["partial_matches"][0][
+            "matched_lines"] == 3
+
+    @pytest.mark.asyncio
+    async def test_single_code_line_traceback_is_not_confirmed_by_token(
+            self, tmp_path):
+        files = {"services/aaa_unrelated.py": 'NAME = "x.py"\n'}
+        query = "\n".join([
+            "Traceback (most recent call last):",
+            '  File "x.py", line 10, in <module>',
+            "    x.py",
+        ])
+        reader, _record, _tree_path, _provider = _reader(tmp_path, files)
+        payload = await reader.run(
+            operation=sr.OPERATION_LOCATE, repo=REPO, query=query,
+            follow=False)
+        assert payload["status"] == sr.STATUS_PARTIAL
+        assert payload["outcome"] == sr.OUTCOME_PARTIAL
+        assert payload["path"] == ""
+        assert payload["match_count"] == 0
+        assert payload["reason"] == "traceback_fragment_not_multiline"
+        assert payload["traceback"]["fragment_verified"] is False
+
+    @pytest.mark.asyncio
+    async def test_crlf_and_trailing_whitespace_are_normalized(
+            self, tmp_path):
+        files = {
+            "services/payments_worker.py": (
+                "def handle():\r\n"
+                "    first = 1   \r\n"
+                "    second = 2\t\r\n"
+                "    return first + second\r\n"),
+        }
+        code_lines = [
+            "    first = 1",
+            "    second = 2",
+        ]
+        reader, _record, _tree_path, _provider = _reader(tmp_path, files)
+        payload = await reader.run(
+            operation=sr.OPERATION_LOCATE, repo=REPO,
+            query=self._query(code_lines), follow=False)
+        assert payload["status"] == sr.STATUS_OK, payload
+        assert payload["path"] == "services/payments_worker.py"
+        assert payload["line_range"] == [2, 3]
+        assert payload["matched_line_count"] == 2
+        assert payload["traceback"]["fragment_verified"] is True
+        assert payload["verified"] is True
 
 
 class TestFallback:
