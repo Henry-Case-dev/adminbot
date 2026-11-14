@@ -296,15 +296,32 @@ class TestTwoLevelFeed:
         feed = ctx.render_feed()
         assert "фон: сжатая хронология" in feed
         assert "фон: дословные фрагменты" in feed
-        # компакт-строка обрезана, дословный сегмент почти полон (кап 600)
+        # SXR-C3-02: компакт-строка остаётся представлением уровня 1,
+        # дословный фрагмент отдаётся ПОЛНЫМ текстом (прежний кап 600 удалён).
         digest_part = feed.split("фон: сжатая хронология")[1].split(
             "фон: дословные")[0]
         verbatim_part = feed.split("фон: дословные фрагменты")[1]
         assert "…" in digest_part
-        assert long_text.strip()[:590] in verbatim_part
-        assert "…" in verbatim_part          # 1120 > 600 → честная обрезка
+        assert long_text.strip() in verbatim_part
+        assert "…" not in verbatim_part
         # обычная болтовня — только в хронологии, не в дословных
         assert "болтовня" not in verbatim_part
+
+    @pytest.mark.asyncio
+    async def test_capacity_budget_replaces_fixed_feed_window(self):
+        """SXR-C3-02: суммарный бюджет фида — ёмкость маршрута, не 8k/12k."""
+        rows = [_row(i, "фраза номер %d " % i * 80, tg=100 + i)
+                for i in range(1, 40)]
+        rows.append(_row(40, "целевое сообщение спора", tg=TARGET_TG))
+        db = FakeDB(rows)
+        ctx = await fcx.build_wide_context(
+            db, CHAT_ID, target_tg_message_id=TARGET_TG,
+            trigger_tg_message_id=TRIGGER_TG,
+            claim_text="фраза номер", cache=FakeCache())
+        feed = ctx.render_feed(char_budget=200_000)
+        # 200k ёмкости: сорок фрагментов по ~1k не режутся заводскими 20k.
+        assert len(feed) > 20_000
+        assert "не показаны" not in feed
 
     @pytest.mark.asyncio
     async def test_reply_to_anchor_is_verbatim(self):
