@@ -564,3 +564,165 @@ async def test_voice_bundle_page_full_is_marked_not_exhaustive() -> None:
         _FakeVoiceDb(_voice_rows(5)), chat_id=-100, message=_voice_query(),
         query="эти голосовые")
     assert short.window_truncated is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# C2-01 / C3-01 · OCR/Vision: провайдер-шаг, полный текст, классификация
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _vision_route(*args, **kwargs):
+    from services.mca_vision import VisionRoute
+    return VisionRoute(source="dedicated", base_url="https://vision.example/v1",
+                       model="vlm-1", api_type="openai_compatible",
+                       api_key_present=True, config_revision="rev-1")
+
+
+def _vision_image():
+    from services.mca_vision import DownloadedImage
+    return DownloadedImage(data=b"\x89PNG\r\n\x1a\n" + b"0" * 64,
+                           mime="image/png", declared_mime="image/png",
+                           width=640, height=480, byte_size=72)
+
+
+def _vision_analysis_json(ocr_text: str) -> str:
+    return json.dumps({
+        "ocr_blocks": [{"text": ocr_text, "bbox": [0, 0, 100, 40]}],
+        "visual_description": "скриншот с длинным текстом " + ("D" * 2000),
+        "uncertainty": [],
+        "self_reported_confidence": 0.9}, ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_vision_provider_step_keeps_full_ocr_and_real_limit(
+        monkeypatch) -> None:
+    """Шаг 1: реальный vision-вызов с transport-стабом провайдера отдаёт
+    ПОЛНЫЙ OCR (своего символьного потолка в mca_vision нет), а max_tokens —
+    физический/конфигурационный предел вывода, не «потолок evidence»."""
+    from services import mca_vision
+    long_ocr = ("OCR-LINE-" + "Z" * 5000)
+    seen: list[dict] = []
+
+    async def transport(url, *, payload, headers, timeout):
+        seen.append(payload)
+        return 200, {"choices": [{"message": {
+            "content": _vision_analysis_json(long_ocr)},
+            "finish_reason": "stop"}], "usage": {"total_tokens": 10}}
+
+    monkeypatch.setattr(mca_vision, "api_key_for", lambda route: "test-key")
+    route = _vision_route()
+    analysis = await mca_vision.analyze_image_bytes(
+        _vision_image(), chat_id=-100, route=route, transport=transport)
+    assert analysis.status == "ready"
+    assert analysis.ocr_blocks[0]["text"] == long_ocr     # целиком
+    assert analysis.visual_description.endswith("D" * 2000)
+    payload = seen[0]
+    assert payload["max_tokens"] == mca_vision.resolve_output_token_limit(
+        route)
+    assert payload["max_tokens"] >= mca_vision.OUTPUT_TOKEN_FLOOR
+    # Явная конфигурация администратора уважается (класс: физический предел).
+    monkeypatch.setattr(
+        mca_vision.hot, "get",
+        lambda key, default=None: 8192 if key ==
+        mca_vision.VISION_MAX_OUTPUT_TOKENS_KEY else default)
+    assert mca_vision.resolve_output_token_limit(route) == 8192
+
+
+class _FakeVisionDb:
+    """Durable-строки Vision (SQLite-эквивалент), не подмена парсера."""
+
+    def __init__(self, ocr_text: str) -> None:
+        self.asset = {"asset_id": "asset-1", "asset_kind": "photo",
+                      "tg_message_id": 77, "content_hash": "",
+                      "file_unique_id": "u1"}
+        self.analysis = {
+            "id": 1, "asset_id": "asset-1", "revision": 1,
+            "status": "ready", "completed_at": 1700000000,
+            "access_scope": "chat", "analysis_schema_version": "v1",
+            "quality_profile": "default",
+            "ocr_blocks": json.dumps([{"text": ocr_text,
+                                       "channel": "untrusted_data"}],
+                                     ensure_ascii=False),
+            "visual_description": "описание " + ("D" * 2000),
+            "uncertainty": "[]", "self_reported_confidence": 0.9,
+            "error_reason": ""}
+
+    async def get_media_assets_for_message(self, chat_id, tg_message_id):
+        return [self.asset]
+
+    async def get_ready_analysis(self, asset_id, scope,
+                                 quality_profile=None):
+        return self.analysis
+
+    async def get_smart_message_by_tg_id(self, chat_id, tg_message_id):
+        return {"author_name": "A", "user_id": 5, "timestamp": 1700000000}
+
+
+def _vision_patches(monkeypatch, mca_vision):
+    from services import mca_gates
+    from services.mca_vision import CapabilityVerdict
+    import time as _time
+    monkeypatch.setattr(mca_gates, "vision_enabled", lambda: True)
+    monkeypatch.setattr(mca_gates, "vision_tool_enabled", lambda: True)
+
+    async def _requested(chat_id=None):
+        return True
+
+    monkeypatch.setattr(mca_vision, "resolve_requested", _requested)
+    monkeypatch.setattr(
+        mca_vision, "cached_capability",
+        lambda route: (CapabilityVerdict(capability="ok", reason="",
+                                         image_input=True,
+                                         checked_at=_time.monotonic()),
+                       _time.monotonic()))
+
+    async def _refs(db, **kwargs):
+        return []
+
+    monkeypatch.setattr(mca_vision, "derived_fact_source_refs", _refs)
+
+
+@pytest.mark.asyncio
+async def test_recognize_image_tool_result_and_payload_full_ocr(
+        monkeypatch) -> None:
+    """Шаги 2–7: OCR → recognize_target → recognize_image → tool-loop → payload."""
+    from services import mca_vision
+    long_ocr = ("OCR-" + "Q" * 5000)
+    db = _FakeVisionDb(long_ocr)
+    _vision_patches(monkeypatch, mca_vision)
+    result = await mca_vision.recognize_target(
+        db, chat_id=-100, reply_tg_id=77)
+    assert result["status"] == "ready"
+    assert result["ocr_blocks"][0]["text"] == long_ocr
+
+    router = _RecordingRouter(ToolDeps(
+        search=MagicMockSearch(), memory=_MemoryRows([]), aliases=None,
+        db=db))
+    ctx = ToolContext(-100, "что на фото?")
+    output = await router.dispatch(
+        "recognize_image", {"target": {"chat_id": -100, "message_id": 77}},
+        ctx)
+    payload = json.loads(output)
+    assert payload["ocr_blocks"][0]["text"] == long_ocr
+    assert len(output) > 5000
+    assert "Q" * 5000 in output
+    llm, tool_msg, final = await _run_tool_loop(
+        "recognize_image", {"target": {"chat_id": -100, "message_id": 77}},
+        long_ocr[-24:], router, ctx)
+    assert tool_msg["content"] == output
+    assert final.startswith("Итог: ")
+
+
+@pytest.mark.asyncio
+async def test_vision_media_render_keeps_full_ocr_and_description(
+        monkeypatch) -> None:
+    """Потребительский рендер Vision-контекста не режет OCR/описание."""
+    from services import mca_vision
+    long_ocr = ("SCREEN-" + "W" * 4000)
+    db = _FakeVisionDb(long_ocr)
+    _vision_patches(monkeypatch, mca_vision)
+    data = await mca_vision.render_media_context_async(
+        db, chat_id=-100, tg_message_id=77)
+    assert data is not None
+    assert long_ocr in data["text"]
+    assert long_ocr in data["untrusted_ocr_texts"]
+    assert ("D" * 2000) in data["text"]
