@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-14-smart-corrective-01.md (sha 8A0239B3.
 Status: in_progress
 Primary phase: review
 Active feature: smart-corrective-01
-Active lanes: DevOps deploy 2.58.203 ses_e24a2397affeMXrID64o3L9BQj
-Join barriers: DevOps deploy 2.58.203 (gate 0, map c97c06e4, pin 11a12ab5) -> postdeploy proof (prompt release-log/provenance, clean isolated SFC-12-09 20 + production_smoke 12, watchdog) -> PM live binding -> release/delivery gates
+Active lanes: PM bind live evidence ses_e274b2dd9ffeW0xwwxBOwkh2jG
+Join barriers: PM live binding -> corrective release/delivery gates -> parent live status
 Last verified: parent 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad866; healthz 200; schema 47; owner settings preserved. Parent maps 174/186 ids VERIFIED, 12 live; deploy gates errors=0 both maps; release gates red only on the live class.
 Acceptance: parent 186 unique ids - 174 VERIFIED, 12 READY_FOR_LIVE (A1-04, L1-01, L2-01, L4-01, L6-01, L7-01, L8-01, SFC-5-10, SFC-12-07, SFC-12-09, SFC-13-03, SFC-14-03), 0 REVIEW/PENDING/FAILED. Corrective map 384 required / 367 ids / 24 AC / 14 slices, plan gate 0.
-Next unlocks: (1) DevOps deploy c97c06e4 (2.58.203) with backup/manifest/rollback; (2) (3) postdeploy prompt release-log + bot-like provenance + clean isolated SFC-12-09 (20) and production_smoke (12) with harness afcd6ee0 + watchdog; (4) PM live evidence binding; (5) corrective release + delivery gates, short 9-point report, stop the cycle
+Next unlocks: (1) PM binds live evidence (prompt release/provenance, SFC-12-09 clean run, production_smoke, watchdog) to exact rows; (2) corrective release + delivery gates; (3) short 9-point final report and stop the cycle
 Next execution: awaiting_children
-Review: 2.58.202 deployed; 2.58.203 delta **Approved for controlled deployment** of c97c06e4 (artifact 11a12ab5...; test-only delta, no runtime change; previously failing command 39 passed; independent mutation fails the attestation test); PM rebinding/pin/gate; then deploy 2.58.203, clean isolated runs, prompt proof, binding/gates; parent 174/186; F4 VERIFIED
-Deployment: 2.58.202 at 0beed63d live; 2.58.203 (c97c06e4) approved + gate 0, deploying now (rollback 0beed63d)
+Review: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); delta approved 11a12ab5; prompt release factory_activate 2944 + factory_superseded_manual 2945, manual 12,469/31d17506 preserved, bot-like chat 12,469/withheld=false vs global 3,462/no Betterstack; FC clean cap-40 run observed/production 11/11 + smoke observed; watchdog 22 sweeps with one real recovered takeover; PM binding/gates; parent 174/186
+Deployment: 2.58.203 verified at c97c06e4 (previous 0beed63d/2.58.202, rollback known not executed)
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted; global aggregate 4409/7264 requirements, 324/599 slices
-Updated: 2026-11-15T06:42:00+12:00
+Updated: 2026-11-15T07:24:00+12:00
 
 ## Facts
 
