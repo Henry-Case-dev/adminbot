@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE; PM bind V/VMQ-A + M1/NEXT2 ses_e2466fc41ffe29CK1Vz4tDm4SW
-Join barriers: Reviewer ONTO-A r1 -> PM binding; VMQ-V/VMQ-A and M1/NEXT2 binding now running; next code slice ONTO-B after ONTO-A approval
+Active lanes: Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE; PM NEXT live-flag reconciliation ses_e2466fc41ffe29CK1Vz4tDm4SW
+Join barriers: Reviewer ONTO-A r1 -> PM binding; NEXT live-flag reconciliation -> gates; next code slice ONTO-B after ONTO-A approval
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02 at REVIEW or Needs Fixes; (2) M1/NEXT2 and VMQ-V verdicts -> PM deploy-state binding; (3) ONTO-B (O-03) then M2/MEM.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:26:00+12:00
+Updated: 2026-11-15T09:35:00+12:00
 
 ## Facts
 
@@ -47,3 +47,7 @@ Reviewer approved the deployed M1/NEXT2 delta on the exact c97c06e4 tree with VE
 ## Housekeeping (2026-11-15)
 
 Builder probe-bc9c1876f7 closed (removed=1; its 5 checks are preserved in the committed verification report). VMQ-V disposable run temp-afd409e420 retained by the tool (removed=0, retained=1; ~1422 files/46 MB; contains a candidate copy plus mutation-source/payload results; tool reports protected/unknown content). The committed VMQ-V review artifact covers the acceptance evidence; the run is reconstructible from git. Recorded retention: owner Reviewer/Orchestrator, reason tool-protected candidate copy, next event after PM binding/next safe checkpoint. The M1/NEXT2 Reviewer closed probe-74507b48ca (mutation worktrees mut-m1/mut-next removed; run-close removed=1 retained=0). Do not force-delete unknown/protected paths.
+
+## VMQ binding result (2026-11-15)
+
+PM bound on c97c06e4: 70 required rows -> 58 PENDING, 6 REVIEW, 6 VERIFIED. New VERIFIED: M-01..M-03 and VMQ-NEXT-02/05 (deployed-delta review D6580668..., exact 34/30/447 + 161/295/20, mutations load-bearing). New REVIEW: V-01..V-04 and VMQ-A-01 (VMQ-V review 999e492a..., 48 tests, three mutations; real voice/production delivery absent). Gates: plan 0, review/deploy VMQ-A 0, review/deploy/release VMQ-M1 0; VMQ-V review red only on its four live requirements; NEXT-02/05 initially carried a stale live_required=true/preprod and made the MEM-NEXT gate red on live evidence. PM is reconciling that flag with the frozen quality contract (copy-based paired measurement; no live production requirement) or will downgrade the rows if the contract actually requires live evidence. Top-level map candidate/deployed = c97c06e4, preserving 709865f6/952b9ebd history. plan.md §14 pin drift corrected with a dated note.
