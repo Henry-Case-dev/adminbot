@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d-fb344eff",
+      "owner": "Builder (VMQ-ONTO-A)",
+      "reason": "Clean worktree with branch vmq/onto-a (code a7a576b1, evidence 8258fe69) retained for Reviewer independent review of the exact candidate; not yet integrated into any release line.",
+      "evidence": "plans/features/vmq-onto-01/evidence/onto-a/implementation.md (branch vmq/onto-a)",
+      "next_event": "Release/abandon decision for vmq/onto-a: after Reviewer verdict and merge-or-reject, the owning role runs unit-close/unit-check on VMQ-ONTO-A and removes the worktree."
+    }
+  ]
+}
