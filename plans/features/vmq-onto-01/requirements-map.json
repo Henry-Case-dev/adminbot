@@ -1433,8 +1433,31 @@
       "acceptance": "Семантическая проекция различает user/topic/event/fact и роли speaker/subject по typed-проверкам; тип определяется chat_scope, идентичностью участника и временем, а не совпадением строки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-a/implementation.md §Соответствие приёмке, §RED → GREEN, §R1 corrective, §Затронутые suite",
+          "observation": "Тип выводится из сигналов (chat_scope + participant identity + event_time + statement provenance), а не из совпадения строки: у classify_entity_type нет параметра имени/упоминания; типы ровно user|topic|event|fact (person → rejected, неизвестное → unknown); speaker и subject — разные слоты; времена event_time/asserted_at/observed_at раздельны без подстановок. R1 закрыт: REQUIRED_TYPE_SIGNALS требует chat_scope для всех четырёх типов, конструктор TypedEntityType поднимает ValueError на verified без chat_scope, ветка type-conflict пересчитывает missing. 26 focused passed; RED на pre-fix a7a576b1 — 3 failed (DID NOT RAISE ValueError, unscoped.status == 'verified'); мутация «снять event chat_scope и отключить инвариант» — 3 failed / 23 passed",
+          "type_detail": "candidate-bound unit/integration на exact candidate 8cb9e00d (новая модель + новые тесты; существующий код не менялся)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-a/implementation.md",
+          "artifact_sha256": "52b4f55b40b45c68081f733f73bf71652333dfb91d0db6a36d2033e94cdb6ed3",
+          "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md — R2 focused re-review (candidate 8cb9e00d, tip d67262cb)",
+          "observation": "O-01 Approved на R2: REQUIRED_TYPE_SIGNALS включает chat_scope для всех четырёх типов, конструктор отвергает verified без scope, type-conflict пересчитывает missing; exact focused suite 26 passed, новые тесты покрывают все четыре необвязанных типа, структурную карту сигналов и инвариант конструктора. R1 BLOCKER CLOSED. Affected suite 89/57/164 после R1 не перезапускалась (заявлено самим ревью); кандидат не выложен",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+          "artifact_sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+          "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1463,6 +1486,37 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+        "evidence_tip": "d67262cb491ac558b578340414d604a7caab21c9",
+        "branch": "vmq/onto-a",
+        "base_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed": false,
+        "review": {
+          "r1": {
+            "path": "plans/features/vmq-onto-01/evidence/onto-a/review-r1.md",
+            "sha256": "8fc26f7cd8a89abfe0166da46d575d2358a0a3cebbcf92ef77e175bf09b7f473",
+            "verdict": "Needs Fixes",
+            "finding": "O-01 BLOCKER: verified без chat_scope для event/fact/topic"
+          },
+          "r2": {
+            "path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+            "sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+            "verdict": "Approved",
+            "findings_closed": "R1 blocker closed; type-conflict missing recomputed; O-02 unchanged"
+          }
+        },
+        "known_limitations": [
+          "event_time передаётся вызывающим: поля в nodes/graph_facts нет, event-узел без времени остаётся tentative",
+          "кандидат не выложен: production-поведение не наблюдалось",
+          "интеграции в retrieval нет — это O-04 (M2); relation view/persistence — O-03 (ONTO-B)",
+          "натуральные production-неоднозначности и долговременное качество памяти не проверялись (вне O-01/O-02)",
+          "affected suite 89/57/164 (310 passed) снят на pre-R1 tip a7a576b1 и после коррекции R1 не перезапускался: дифф R1 ограничен новым модулем и его тестами"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате",
+        "owner_action_required": false
       }
     },
     {
@@ -1477,8 +1531,31 @@
       "acceptance": "Alias и обычное существительное не сливаются, два разных человека с одинаковым именем различаются, неоднозначный термин остаётся ambiguous; негативные примеры не дают ложного canonical-объекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-a/implementation.md §Соответствие приёмке, §RED → GREEN, §R1 corrective, §Затронутые suite",
+          "observation": "Alias/имя/casefold-совпадение дают только name_hint + tentative без canonical (hint_ref); нарицательное имя («Папаха») не становится человеком; одинаковые display-name разных людей различаются по chat scope и UID, чужой чат отвергается cross_chat_scope; неоднозначность (casefold_multiple) сохраняется как candidates ≥ 2 без canonical (ambiguous=True); co-mention и пересылка не подтверждают факт. O-02-тесты после коррекции R1 не менялись и остались несущими: мутация UID-доказанности дала 3 failed (включая test_uid_resolution_is_identity_and_name_is_only_hint, test_common_noun_does_not_become_person, test_alias_hint_does_not_merge_with_uid_identity)",
+          "type_detail": "candidate-bound unit/integration на exact candidate 8cb9e00d (новая модель + новые тесты; существующий код не менялся)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-a/implementation.md",
+          "artifact_sha256": "52b4f55b40b45c68081f733f73bf71652333dfb91d0db6a36d2033e94cdb6ed3",
+          "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md — R2 focused re-review (candidate 8cb9e00d, tip d67262cb)",
+          "observation": "O-02 Approved на R2 (без изменений после R1): O-02-тесты остаются load-bearing, набор 26 focused passed; в r1 они были отдельно проверены и признаны состоятельными. Кандидат не выложен, production-поведение не наблюдалось",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+          "artifact_sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+          "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1507,6 +1584,37 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+        "evidence_tip": "d67262cb491ac558b578340414d604a7caab21c9",
+        "branch": "vmq/onto-a",
+        "base_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed": false,
+        "review": {
+          "r1": {
+            "path": "plans/features/vmq-onto-01/evidence/onto-a/review-r1.md",
+            "sha256": "8fc26f7cd8a89abfe0166da46d575d2358a0a3cebbcf92ef77e175bf09b7f473",
+            "verdict": "Needs Fixes",
+            "finding": "O-01 BLOCKER: verified без chat_scope для event/fact/topic"
+          },
+          "r2": {
+            "path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+            "sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+            "verdict": "Approved",
+            "findings_closed": "R1 blocker closed; type-conflict missing recomputed; O-02 unchanged"
+          }
+        },
+        "known_limitations": [
+          "event_time передаётся вызывающим: поля в nodes/graph_facts нет, event-узел без времени остаётся tentative",
+          "кандидат не выложен: production-поведение не наблюдалось",
+          "интеграции в retrieval нет — это O-04 (M2); relation view/persistence — O-03 (ONTO-B)",
+          "натуральные production-неоднозначности и долговременное качество памяти не проверялись (вне O-01/O-02)",
+          "affected suite 89/57/164 (310 passed) снят на pre-R1 tip a7a576b1 и после коррекции R1 не перезапускался: дифф R1 ограничен новым модулем и его тестами"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате",
+        "owner_action_required": false
       }
     },
     {
@@ -12859,6 +12967,108 @@
           "reading": "Структурный допуск по доказательствам; замыкание зависимостей у VMQ-A пусто. VERIFIED строки не заявляется"
         }
       }
+    },
+    "onto_a": {
+      "slice": "VMQ-ONTO-A",
+      "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+      "candidate_short": "8cb9e00d",
+      "evidence_tip": "d67262cb491ac558b578340414d604a7caab21c9",
+      "branch": "vmq/onto-a",
+      "base_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "base_version": "2.58.203",
+      "deployed": false,
+      "deployed_note": "кандидат не выложен; верхнеуровневые candidate_commit/deployed_commit карты остаются c97c06e4 (не переписываются под невыложенную ветку)",
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "rows": [
+        "O-01",
+        "O-02"
+      ],
+      "covered_rows": [
+        "O-01",
+        "O-02"
+      ],
+      "code_scope": [
+        "services/semantic_contracts.py",
+        "tests/test_semantic_contracts.py"
+      ],
+      "contract": {
+        "path": "plans/features/vmq-onto-01/architecture-onto-ab.md",
+        "confirmation": "plans/features/vmq-onto-01/evidence/onto-a-contract-confirmation-2026-11-15.md",
+        "confirmation_sha256": "e5f89d2180d661d7ec7268b574e32f8233537f8bdda6c01f52234d5e9c2910cd",
+        "decision": "ARCH_REUSE_CONFIRMED"
+      },
+      "review": {
+        "r1": {
+          "path": "plans/features/vmq-onto-01/evidence/onto-a/review-r1.md",
+          "sha256": "8fc26f7cd8a89abfe0166da46d575d2358a0a3cebbcf92ef77e175bf09b7f473",
+          "verdict": "Needs Fixes",
+          "candidate": "a7a576b1f1833da7be53f7bd75d25e1eaf815937"
+        },
+        "r2": {
+          "path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+          "sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+          "verdict": "Approved",
+          "candidate": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+          "tip": "d67262cb491ac558b578340414d604a7caab21c9",
+          "ledger": {
+            "O-01": "VERIFIED for REVIEW",
+            "O-02": "VERIFIED for REVIEW",
+            "R1": "blocker CLOSED"
+          }
+        }
+      },
+      "implementation": {
+        "path": "plans/features/vmq-onto-01/evidence/onto-a/implementation.md",
+        "sha256": "52b4f55b40b45c68081f733f73bf71652333dfb91d0db6a36d2033e94cdb6ed3",
+        "origin": "перенесён побайтово из d67262cb (blob 4a67692a) в checkout master для проверяемого artifact_path; содержимое не переписывалось",
+        "files": {
+          "services/semantic_contracts.py": "159e0ec3",
+          "tests/test_semantic_contracts.py": "eb1d16b2"
+        }
+      },
+      "tests": {
+        "focused": "26 passed на exact candidate 8cb9e00d (tests/test_semantic_contracts.py)",
+        "affected": "89 / 57 / 164 = 310 passed — снято на pre-R1 tip a7a576b1; после коррекции R1 не перезапускалось (дифф R1 ограничен новым модулем и его тестами)",
+        "total_with_focused": 336,
+        "red": "3 failed на pre-fix a7a576b1 (test_chat_scope_is_required_for_every_type, test_chat_scope_is_declared_required_for_every_type, test_verified_type_cannot_skip_chat_scope)",
+        "mutation": "независимая мутация Reviewer'а: снят event chat_scope и отключён инвариант → 3 failed / 23 passed",
+        "not_run": "полный suite репозитория не запускался (blast radius ограничен новым модулем); production не задействован"
+      },
+      "ddl": 0,
+      "embeddings": 0,
+      "ddl_evidence": "git diff --name-status c97c06e4..8cb9e00d = только services/semantic_contracts.py (новый), tests/test_semantic_contracts.py (новый), evidence/onto-a/implementation.md, evidence/onto-a/retention.json; services/database.py и миграций нет; PRAGMA user_version=47 не меняется (тест на in-memory БД)",
+      "embeddings_evidence": "модуль не вызывает LLM/embedding/search и не импортирует database/mca_retrieval_context/ai_service (AST- и subprocess-guard в тестах)",
+      "not_covered": [
+        "кандидат не выложен: production-поведение и effective config прода не наблюдались",
+        "event_time caller-supplied: нет поля в схеме, event без времени остаётся tentative",
+        "интеграции в retrieval нет — O-04 (M2), consumption EpisodeView/LongitudinalView и Writer bundle вне среза",
+        "relation view/persistence — O-03 (ONTO-B)",
+        "натуральные production-неоднозначности, долговременное качество памяти и архивное покрытие отношений не измерялись"
+      ],
+      "why_review_not_verified": "Кандидат одобрен независимым Reviewer на predeploy-стадии (R1 blocker закрыт, R2 Approved), но не выложен: VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате. Остаётся RELEASE handoff: влить ветку в release-линию и наблюдать поведение на выложенном SHA.",
+      "next_role": "DevOps (release handoff) после решения Orchestrator",
+      "gate_note": "scoped review-гейт по VMQ-ONTO-A проверяется на candidate 8cb9e00d; deploy-гейт ожидаемо красный на зависимости VMQ-A-01 (REVIEW), а не на привязке",
+      "gates_2026_11_15": {
+        "review_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-ONTO-A --candidate 8cb9e00d38cc59d1ee1b564a824debc47f539003 --repo . --strict-evidence",
+          "output": "stage=review inventory=380 manual=69 scoped=2 errors=0",
+          "exit": 0,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-onto-a-8cb9e00d-2026-11-15.txt",
+          "reading": "Привязка чистая: state REVIEW, candidate-bound implementation evidence и независимый approval сходятся на 8cb9e00d; live-обязательств у строк нет (live_required=false)"
+        },
+        "deploy_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-ONTO-A --candidate 8cb9e00d38cc59d1ee1b564a824debc47f539003 --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED",
+            "stage=deploy inventory=380 manual=69 scoped=2 errors=1"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-onto-a-8cb9e00d-2026-11-15.txt",
+          "reading": "Единственная ошибка — замыкание зависимости VMQ-A (VMQ-A-01 остаётся REVIEW), не дефект привязки ONTO-A. Дополнительно кандидат не выложен, поэтому deploy-стадия физически не применима к нему",
+          "not_a_binding_failure": true
+        }
+      }
     }
   },
   "metric_contract_2026_11_13": {
@@ -13102,14 +13312,17 @@
       "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-2026-11-15.txt",
       "plans/features/vmq-onto-01/evidence/gates/review-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
       "plans/features/vmq-onto-01/evidence/gates/deploy-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
-      "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt"
+      "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-onto-a-8cb9e00d-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-onto-a-8cb9e00d-2026-11-15.txt"
     ],
     "gate_summary_after_binding_2026_11_15": {
       "VMQ-A": "review errors=0, deploy errors=0 — привязка REVIEW чистая",
       "VMQ-V": "review errors=4, deploy errors=5 — только live-доказательства V-01..V-04 и зависимость VMQ-A-01; ошибок привязки нет",
       "VMQ-M1": "review errors=0, deploy errors=0, release errors=0 — срез принят на выложенном кандидате",
       "VMQ-MEM-NEXT": "после live_required_reconciliation_2026_11_15: review/deploy/release красные только на NEXT-01 PENDING, NEXT-03 (нет candidate-bound кейса), NEXT-04 PENDING и на замыкании зависимостей графа; live-ошибки NEXT-02/05 сняты",
-      "plan": "errors=0"
+      "plan": "errors=0",
+      "VMQ-ONTO-A": "review candidate 8cb9e00d errors=0 (привязка чистая); deploy errors=1 — только зависимость VMQ-A-01 (REVIEW). Кандидат не выложен, поэтому VERIFIED не заявляется"
     },
     "live_flags_reconciled_2026_11_15": {
       "rows": [
@@ -13122,7 +13335,10 @@
       "no_postrelease_wait": true,
       "status_effect": "статусы не менялись: NEXT-02/05 остаются VERIFIED; снимается только противоречие между флагом live_required и фактическим контрактом",
       "limitation_kept": "production-архив/effective flags и постдеп-тайминги не измерялись; заявление о качестве продукции не делается"
-    }
+    },
+    "slice_bindings_added_2026_11_15": [
+      "slice_candidate_bindings.onto_a: O-01/O-02 привязаны к невыложенному кандидату 8cb9e00d (ветка vmq/onto-a, tip d67262cb), статус REVIEW"
+    ]
   },
   "next_actions_2026_11_15": {
     "recorded_at": "2026-11-15",
@@ -13389,6 +13605,13 @@
         "VMQ-NEXT-03"
       ],
       "note": "counts посчитаны по карте после биндинга; эпик остаётся открытым"
+    },
+    "open_rows_2026_11_15_onto_a": {
+      "total_required": 70,
+      "pending": 56,
+      "review": 8,
+      "verified": 6,
+      "note": "O-01/O-02 переведены из PENDING в REVIEW после биндинга одобренного кандидата; эпик открыт"
     }
   },
   "candidate_commit_history": [
