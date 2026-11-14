@@ -173,7 +173,9 @@ def test_g_dead_overrides_now_read_per_chat():
     src = open("services/direct_chat_service.py", encoding="utf-8").read()
     assert "budget_tokens = await _budget_gate(" in src
     assert "budget_tokens if budget_tokens is not None" in src
-    assert "cap2 = int(await _cp_g(\n                                chat_id, \"limits.chat_level2_max_chars\"" in src
+    # SXR-C3-02: символьный кап L2 удалён; per-chat чтение остаётся у
+    # бюджета и thread-лимитов.
+    assert "cap2 = int(" not in src
     assert "async def _thread_limit(self, chat_id: int)" in src
     assert "thread_limit=None" in src
 

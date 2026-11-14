@@ -10336,12 +10336,11 @@ class DirectChatService:
                         l2 = await self.db.get_summary_level(chat_id, 2)
                         if l2 is not None and (l2["summary"] or "").strip():
                             level2_text = str(l2["summary"]).strip()
-                            cap2 = int(await _cp_g(
-                                chat_id, "limits.chat_level2_max_chars",
-                                hot.get("limits.chat_level2_max_chars",
-                                        settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
-                            if cap2 and len(level2_text) > cap2:
-                                level2_text = level2_text[:cap2]
+                            # SXR-C3-02: символьный кап L2-пересказа
+                            # (`chat_level2_max_chars`, заводской 1500)
+                            # удалён — секционный бюджет не уничтожает
+                            # доступный контекст; реальное окно режет
+                            # существующий композер, а не эта ветка.
                             parts["head_lines"].append(
                                 "широкий фон: пересказ, не источник: "
                                 + level2_text)
@@ -15030,15 +15029,8 @@ class DirectChatService:
                         l2 = await self.db.get_summary_level(chat_id, 2)
                         if l2 is not None and (l2["summary"] or "").strip():
                             level2_text = str(l2["summary"]).strip()
-                            cap2 = int(await _cp_g(
-                                chat_id, "limits.chat_level2_max_chars",
-                                hot.get("limits.chat_level2_max_chars",
-                                        settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
-                            if cap2 and len(level2_text) > cap2:
-                                logger.warning(
-                                    "direct: level2 capped to %d chars | chat=%s",
-                                    cap2, chat_id)
-                                level2_text = level2_text[:cap2]
+                            # SXR-C3-02: символьный кап L2 удалён — секция
+                            # едет полной, реальное окно режет композер.
                     except Exception:
                         logger.warning(
                             "direct: level2 read failed — without L2 row "

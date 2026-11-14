@@ -2125,10 +2125,10 @@ class TestEpic60RunningSummaryContext:
         assert body.split("\n")[0] == "фон: дословно последние 1 сообщений"
 
     @pytest.mark.asyncio
-    async def test_level2_capped_by_max_chars_keep_head(self, fake_time,
-                                                        monkeypatch):
-        """E2 + SPEECH-P0-A2: кап limits.chat_level2_max_chars — keep-head
-        (начало пересказа держит тему; хвост L2 отбрасывается)."""
+    async def test_level2_not_capped_by_char_budget(self, fake_time,
+                                                   monkeypatch):
+        """SXR-C3-02: L2-пересказ едет ПОЛНЫМ; секционный кап 1500 удалён,
+        упаковку по реальному окну делает композер."""
         import dataclasses as _dc
 
         mod = _dc.replace(settings, CHAT_LEVEL2_MAX_CHARS=40)
@@ -2142,8 +2142,8 @@ class TestEpic60RunningSummaryContext:
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
-        assert "начало-маркер" in body.split("\n")[0]   # keep-head: начало L2
-        assert "конец-маркер" not in body                # хвост обрезан
+        assert "начало-маркер" in body
+        assert "конец-маркер" in body                    # хвост больше не срезан
 
     @pytest.mark.asyncio
     async def test_level2_db_error_fail_open_keeps_l1(self, fake_time, caplog):

@@ -201,8 +201,8 @@ class TestLevel2KeepHead:
         head = "\n".join(parts["head_lines"])
         assert head.split("\n")[0].startswith(
             "широкий фон: пересказ, не источник: ")
-        assert "начало-маркер" in head          # keep-head: начало L2
-        assert "конец-маркер" not in head       # хвост отброшен
+        assert "начало-маркер" in head          # SXR-C3-02: полный L2
+        assert "конец-маркер" in head           # хвост больше не отброшен
         assert "— пересказ, не источник" in head
 
 

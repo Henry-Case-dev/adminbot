@@ -624,7 +624,10 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                     limitations.append(f"{cap}: пустое утверждение")
                     continue
                 index += 1
-                args: dict = {"claim": claim_text[:300]}
+                # SXR-C2-01: claim передаётся ЦЕЛИКОМ — 300-символьный срез
+                # терял хвост утверждения, и инструмент проверял не тот
+                # предмет. Семантический отбор claim'а делает L1.
+                args: dict = {"claim": claim_text}
                 chat_id = getattr(ctx, "chat_id", None)
                 if target_id is not None and chat_id is not None:
                     args["target"] = {"chat_id": int(chat_id),
