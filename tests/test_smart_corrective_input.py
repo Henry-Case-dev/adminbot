@@ -13,6 +13,12 @@
   * фиксированной обрезки memory metrics (прежние 2000) больше нет — секция
     участвует в общей ёмкости, а не отнимает бюджет скрытой константой;
   * сохранённые настройки владельца (hot-значения) не перезаписываются.
+
+F-S3B-01 (тот же §7, diagnostics completeness): `DiagnosticCollector.
+collect_for_checkup` больше не режет facts-блок искусственными 3000
+символами — объём определяется тем же операторским резолвом
+(`budgets ON` → `limits.checkup_max_input_symbols`, `OFF` → без символьного
+потолка), поэтому полезные факты не теряются при сборке payload.
 """
 import asyncio
 import types
@@ -21,7 +27,10 @@ import pytest
 
 from services import budget_gate
 from services import checkup_service as svc_mod
+from services import diagnostic_collector as dc
+from services import evidence_bundle as bundle
 from services import model_capacity
+from services import runtime_probes as rp
 from services.checkup_service import CheckupService
 
 
@@ -410,3 +419,117 @@ class TestToolLoopPayload:
         assert messages[1]["role"] == "user"
         assert "ERROR llm timeout" in messages[1]["content"]
         assert captured_loop["tools"] == runtime["schemas"]
+
+
+# ── 10. F-S3B-01: facts-блок коллектора живёт по той же политике ───────────
+
+def _big_facts(*, keys=40, value_len=400):
+    return {f"cfg_fact_{index:02d}": "v" * value_len
+            for index in range(keys)}
+
+
+def _big_facts_probe(monkeypatch):
+    """Probe-граница: реальный collector/bundle, крупный набор фактов."""
+    facts = _big_facts()
+
+    def _handler(ctx):
+        return rp._observation(
+            "config", status=bundle.STATUS_OK, facts=facts,
+            source_id="probe:config.effective", owner="config")
+
+    big = rp.ProbeSpec("config.effective", "config", "big facts", "",
+                       rp.READ_SCOPE_CURRENT_CHAT, handler=_handler,
+                       source_owner="config")
+    real_get_probe = rp.get_probe
+
+    def _get(probe_id):
+        return (big if probe_id == "config.effective"
+                else real_get_probe(probe_id))
+
+    monkeypatch.setattr(rp, "get_probe", _get)
+    return facts
+
+
+def _collector():
+    class _Fetcher:
+        last_state = "ok"
+        last_journal_state = "ok"
+
+    return dc.DiagnosticCollector(
+        deps=rp.ProbeDeps(logs_fetcher=_Fetcher()),
+        limits=rp.ProbeLimits(
+            probe_timeout_seconds=2.0, max_output_chars=9000,
+            # Прежний искусственный потолок передаётся специально: он больше
+            # не управляет facts-блоком чекапа.
+            max_facts_chars=3000, snapshot_ttl_seconds=5.0))
+
+
+def _collect_facts():
+    collector = _collector()
+    result_bundle, rendered = asyncio.run(collector.collect_for_checkup(
+        logs_text="2026-11-14 ERROR boom\n", used_fallback=False,
+        chat_id=-100, request_id="s3b-facts"))
+    return result_bundle, rendered
+
+
+class TestDiagnosticCollectorFactsBudget:
+    def test_facts_beyond_3000_survive_to_payload_when_budgets_off(
+            self, monkeypatch):
+        _big_facts_probe(monkeypatch)
+        _budgets(monkeypatch, False)
+        _hot(monkeypatch)
+        _capacity(monkeypatch, 131072)
+        _bundle, facts = _collect_facts()
+        assert len(facts) > 3000
+        assert "cfg_fact_00=" in facts and "cfg_fact_39=" in facts
+        assert "[facts_budget_exceeded]" not in facts
+        llm, captured = _llm()
+        _run(CheckupService(llm), facts + "\n2026-11-14 ERROR boom")
+        body = captured["messages"][1]["content"][
+            len("<system_logs>"):-len("</system_logs>")]
+        assert body.startswith("DIAGNOSTIC_EVIDENCE")
+        assert "cfg_fact_39=" in body
+        assert "[facts_budget_exceeded]" not in body
+
+    def test_operator_budget_clips_facts_when_budgets_on(self, monkeypatch):
+        _big_facts_probe(monkeypatch)
+        _budgets(monkeypatch, True)
+        _hot(monkeypatch, {"limits.checkup_max_input_symbols": 1500})
+        result_bundle, facts = _collect_facts()
+        assert "[facts_budget_exceeded]" in facts
+        assert "cfg_fact_39=" not in facts
+        assert len(facts) <= (1500 + len("\n[facts_budget_exceeded]")
+                              + len("\n[facts_unknown] not_checked=") + 400)
+        if result_bundle.not_checked:
+            assert "[facts_unknown] not_checked=" in facts
+
+    def test_owner_operator_value_governs_facts(self, monkeypatch):
+        _big_facts_probe(monkeypatch)
+        _budgets(monkeypatch, True)
+        _hot(monkeypatch, {"limits.checkup_max_input_symbols": 40000})
+        _bundle, facts = _collect_facts()
+        assert "cfg_fact_39=" in facts
+        assert "[facts_budget_exceeded]" not in facts
+
+    def test_facts_structure_and_order_under_physical_overflow(
+            self, monkeypatch):
+        _big_facts_probe(monkeypatch)
+        _budgets(monkeypatch, False)
+        _hot(monkeypatch)
+        _capacity(monkeypatch, 6000)
+        _bundle, facts = _collect_facts()
+        llm, captured = _llm()
+        _run(CheckupService(llm), facts + "\n2026-11-14 ERROR boom")
+        body = captured["messages"][1]["content"][
+            len("<system_logs>"):-len("</system_logs>")]
+        assert body.startswith("DIAGNOSTIC_EVIDENCE")
+        source_lines = set(facts.split("\n"))
+        kept = [line for line in body.split("\n")
+                if line.startswith("    cfg_fact_")]
+        assert 1 <= len(kept) <= 40
+        assert all(line in source_lines for line in kept)   # строки целые
+        indexes = [int(line.split("=", 1)[0].rsplit("_", 1)[1])
+                   for line in kept]
+        assert indexes == sorted(indexes)                   # исходный порядок
+        if "[checkup-input-truncated]" in body:
+            assert len(kept) < 40
