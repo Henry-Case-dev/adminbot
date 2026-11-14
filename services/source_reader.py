@@ -3554,7 +3554,6 @@ class SourceReader:
         payload = self._payload(
             state, STATUS_NOT_FOUND, outcome=OUTCOME_NOT_FOUND,
             reason="no_content_match", **base)
-        payload["candidate_paths"] = list(result.candidate_paths[:20])
         payload["not_checked"]["reason"] = "no_content_match"
         _emit_stage(STAGE_LOCATOR, "success",
                     extra={"network_calls": self._request_calls(state),
