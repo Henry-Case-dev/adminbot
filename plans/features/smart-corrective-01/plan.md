@@ -84,7 +84,7 @@ S0-INVESTIGATE (read-only)
 | `S2-SOURCEREADER` | S1 | `services/source_reader.py`, source-reader тесты | `watchdog.jobs` находится в `services/mca_watchdog.py`; поиск идёт за top-3; классы результатов различаются |
 | `S3-BUDGET` | S1 | `services/tool_router.py`, `services/worker_budget.py`, `services/tool_schemas.py` (scoped: optional `cursor` for `read_source_code`), budget/tool_router тесты | `chat_id`/`budget_enforced` доходят до `SourceReader`; effective policy = резолвер чата; OFF без скрытых потолков; модель может передать continuation `cursor` |
 | `S4-COMPLETION` | S1, S2, S3 | `services/tool_loop.py`, `checkup_service.py`, checkup/tool-loop тесты | После нерелевантного первого результата исследование продолжается; иначе — честный partial с причиной |
-| `S3B-INPUT` | S4 | `checkup_service.py`, `settings.py`, checkup-тесты | Факт за 12 000 символов/квотой метрик доходит до payload; 7 видов ограничений различимы; настройки не перезаписаны |
+| `S3B-INPUT` | S4 | `checkup_service.py`, `settings.py`, `services/diagnostic_collector.py` (scoped: `collect_for_checkup` facts budget call-site), checkup-тесты | Факт за 12 000 символов/квотой метрик доходит до payload; facts-блок следует budget/capacity policy; 7 видов ограничений различимы; настройки не перезаписаны |
 | `S6-PROMPT` | S3B | `checkup_prompts.py`, `prompt_registry.py`, `checkup_service.py`, тесты промпта | Effective prompt = сохранённая редакция владельца (hash/bytes); addendum согласован; Betterstack удалён только из active |
 | `S5A-LIFECYCLE` | S1 | `mca_incidents.py`, `task_supervisor.py`, incident-тесты | Resolved не переоткрывается без evidence; авто-resolve после терминала; fencing; success-событие только при подтверждённом recovery |
 | `S5B-RECOVERY` | S1, S5A | `task_supervisor.py`, `mca_watchdog.py`, `mca_gates.py`, recovery-тесты | Bounded requeue/next_retry_at; owner/kind scope; heartbeat/deadline; queued-сироты и progressless-running различимы |
@@ -104,6 +104,17 @@ S0-INVESTIGATE (read-only)
 - файл **не принадлежал ни одному срезу графа**; расширение выдано отдельным указанием, ограничено одним свойством и ревьюируется как часть S3-BUDGET, отдельный срез не создаётся;
 - evidence: `plans/features/smart-corrective-01/evidence/s3/implementation.md` (ветка `sc/corrective-s3`, code candidate `163b8ddd567ec60ea8cb3274a37b10e9297bddd7`; в текущем checkout master файл может отсутствовать);
 - статусы не менялись: S3-строки остаются `PENDING`, расширение не является доказательством приёмки.
+
+### S3B-INPUT scope expansion (bookkeeping)
+
+`services/diagnostic_collector.py` добавлен в write-scope `S3B-INPUT` как раскрытое минимальное расширение:
+
+- изменение ровно одно — call-site `DiagnosticCollector.collect_for_checkup` передаёт `max_chars` из того же budget/capacity-резолвера, что и остальной чек-ап, вместо искусственного `ProbeLimits.max_facts_chars` (default 3000 символов);
+- причина: owner §7 требует не терять полезные facts diagnostics collector при сборке payload; `render_facts_text(max_chars=0)` уже документирует «искусственного бюджета нет»;
+- `ProbeLimits`, per-probe caps, `max_output_chars` и окно журнала **не изменялись** и остаются safety/physical слоем; второй packing-логики в коллекторе нет;
+- файл **не принадлежал ни одному срезу графа**; расширение выдано отдельным указанием, ограничено call-site и ревьюируется как часть S3B-INPUT, отдельный срез не создаётся;
+- evidence: `plans/features/smart-corrective-01/evidence/s3b/implementation.md` (ветка `sc/corrective-s3b`, code candidate `1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977`, base `7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa`; в текущем checkout master файл может отсутствовать);
+- статусы не менялись: S3B-строки остаются `PENDING`, расширение не является доказательством приёмки.
 
 ### Нумерация
 
@@ -166,7 +177,7 @@ S0 считается завершённым только когда:
 | `SC-SRC-*`, `SC-SEARCH-*` | `services/source_reader.py` | `tests/test_evol_source_reader.py`, `tests/test_smart_c1_source_reader_limits.py`, `tests/test_smart_e_local_first_source.py` | `evidence/s2/` |
 | `SC-BUD-*` | `services/tool_router.py`, `services/worker_budget.py`, `services/tool_schemas.py` (optional `cursor` only) | `tests/test_tool_router.py`, `tests/test_budget_unlimited_round1019.py`, `tests/test_tool_schemas.py` | `evidence/s3/` |
 | `SC-CMP-*` | `services/tool_loop.py`, `services/checkup_service.py` | `tests/test_checkup_service.py`, `tests/test_checkup_contract.py`, `tests/test_tool_loop.py` | `evidence/s4/` |
-| `SC-INP-*` | `services/checkup_service.py`, `services/settings.py` | `tests/test_checkup_service.py` | `evidence/s5/` |
+| `SC-INP-*` | `services/checkup_service.py`, `services/settings.py`, `services/diagnostic_collector.py` (scoped facts-budget call-site) | `tests/test_checkup_service.py`, `tests/test_smart_corrective_input.py` | `evidence/s5/` |
 | `SC-PRM-*` | `services/checkup_prompts.py`, `services/prompt_registry.py`, `services/checkup_service.py` | `tests/test_checkup_prompts.py` | `evidence/s6/` |
 | `SC-WD-W02/W05/W07` | `services/mca_incidents.py`, `services/task_supervisor.py` | `tests/test_smart_exec_learning_incidents.py`, `tests/test_smart_corrective_watchdog_lifecycle.py` | `evidence/s5a/` |
 | `SC-WD-W03/W04/W06/W08/W09` | `services/task_supervisor.py`, `services/mca_watchdog.py`, `services/mca_gates.py` | `tests/test_mca17a_observability_core_round1027.py`, `tests/test_smart_corrective_watchdog_recovery.py` | `evidence/s5b/` |

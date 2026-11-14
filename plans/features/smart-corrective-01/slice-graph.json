@@ -171,7 +171,8 @@
         "services/checkup_service.py",
         "services/settings.py",
         "tests/test_checkup_service.py",
-        "tests/test_smart_corrective_input.py"
+        "tests/test_smart_corrective_input.py",
+        "services/diagnostic_collector.py"
       ],
       "acceptance": "Существенный диагностический факт за прежним пределом 12 000 символов и квоты метрик доходит до payload; семь видов ограничений различимы; сохранённые настройки владельца не перезаписаны.",
       "risk": "R1",
@@ -183,7 +184,21 @@
         "S5D-OBSERVABILITY"
       ],
       "why_one_slice": "Сборка входа и семантика ограничений — одна наблюдаемая единица: что именно попадает в LLM-payload.",
-      "serial_join": "Пишет тот же services/checkup_service.py, что S4; сериализовано зависимостью."
+      "serial_join": "Пишет тот же services/checkup_service.py, что S4; сериализовано зависимостью.",
+      "scope_expansion": {
+        "file": "services/diagnostic_collector.py",
+        "change": "collect_for_checkup passes awaited facts budget (same budget/capacity resolver) instead of ProbeLimits.max_facts_chars=3000",
+        "reason": "owner §7: полезные facts diagnostics collector не должны теряться из-за искусственной символьной квоты; render_facts_text(max_chars=0) уже означает отсутствие искусственного бюджета",
+        "ownership": "файл не принадлежал ни одному срезу slice-graph; расширение выдано отдельным указанием и ограничено call-site",
+        "review": "ревьюируется как часть S3B-INPUT, отдельного среза не создаётся",
+        "probe_limits": "ProbeLimits и per-probe caps не изменялись; остаются safety/physical слоем",
+        "base_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+        "branch": "sc/corrective-s3b",
+        "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
+        "evidence": "plans/features/smart-corrective-01/evidence/s3b/implementation.md",
+        "evidence_presence": "файл находится на ветке sc/corrective-s3b; в текущем checkout master может отсутствовать"
+      },
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "id": "S6-PROMPT",

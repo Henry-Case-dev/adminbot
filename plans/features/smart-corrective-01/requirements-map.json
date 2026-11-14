@@ -3476,7 +3476,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-NOLOSS_426",
@@ -3491,7 +3492,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-REPORT_440",
@@ -3506,7 +3508,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-LOGWINDOW_442",
@@ -3521,7 +3524,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-CHUNKLOSS_444",
@@ -3536,7 +3540,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-FIX_448",
@@ -3551,7 +3556,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-OFF_450",
@@ -3566,7 +3572,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-CAPACITY_452",
@@ -3581,7 +3588,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-PRIORITY_454",
@@ -3596,7 +3604,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-TAIL_456",
@@ -3611,7 +3620,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-NOCONST_458",
@@ -3626,7 +3636,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-NOFULL_460",
@@ -3641,7 +3652,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-SETTINGS_462",
@@ -3656,7 +3668,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-INP-NORESET_464",
@@ -3671,7 +3684,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "MANUAL_SC-PRM-OWNER_470",
@@ -9105,7 +9119,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00420",
@@ -9120,7 +9135,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00421",
@@ -9135,7 +9151,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00422",
@@ -9150,7 +9167,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00428",
@@ -9180,7 +9198,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00433",
@@ -9195,7 +9214,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00434",
@@ -9210,7 +9230,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00435",
@@ -9225,7 +9246,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00436",
@@ -9240,7 +9262,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00437",
@@ -9255,7 +9278,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00438",
@@ -9270,7 +9294,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "scope_note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     },
     {
       "source_id": "L00446",
@@ -11948,6 +11973,22 @@
         "AC-24"
       ],
       "note": "AC-24 связан через SC-WD-W10.linked_acceptance и остаётся строкой S8-REVIEW-RELEASE/PENDING до S8; S5D binding относится к W-10."
+    },
+    "S3B-INPUT": {
+      "scope_expansion": {
+        "file": "services/diagnostic_collector.py",
+        "change": "collect_for_checkup passes awaited facts budget (same budget/capacity resolver) instead of ProbeLimits.max_facts_chars=3000",
+        "reason": "owner §7: полезные facts diagnostics collector не должны теряться из-за искусственной символьной квоты; render_facts_text(max_chars=0) уже означает отсутствие искусственного бюджета",
+        "ownership": "файл не принадлежал ни одному срезу slice-graph; расширение выдано отдельным указанием и ограничено call-site",
+        "review": "ревьюируется как часть S3B-INPUT, отдельного среза не создаётся",
+        "probe_limits": "ProbeLimits и per-probe caps не изменялись; остаются safety/physical слоем",
+        "base_commit": "7c1e1afbc3be4098b260a816ff4c6bf5c68d04aa",
+        "branch": "sc/corrective-s3b",
+        "candidate_commit": "1bbe767d3a060e6b8ab56bbd1ccff1b0f4879977",
+        "evidence": "plans/features/smart-corrective-01/evidence/s3b/implementation.md",
+        "evidence_presence": "файл находится на ветке sc/corrective-s3b; в текущем checkout master может отсутствовать"
+      },
+      "note": "services/diagnostic_collector.py добавлен в write-scope S3B-INPUT: call-site `collect_for_checkup` использует max_chars из того же budget/capacity-резолвера вместо искусственного `ProbeLimits.max_facts_chars` (3000). Файл был вне write-scope всех срезов; изменение минимальное (call-site), probe-лимиты/ProbeLimits не тронуты, ревьюируется как часть S3B-INPUT."
     }
   },
   "slice_candidate_bindings": {
