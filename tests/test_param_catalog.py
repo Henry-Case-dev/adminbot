@@ -400,7 +400,10 @@ class TestPromptsContentPgOnly:
         # MEME-PIPELINE-REFactor-01 P2 (03.11.2026): +2 — prompts.meme_joke и
         # prompts.meme_image (промпты мем-пайплайна; блоки реестра
         # initiative.meme.* были объявлены код-канонами без pg_key) = 28.
-        assert len(prompts) == 28
+        # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): +1 —
+        # prompts.factcheck_subject_system_prompt (предмет фактчека; блок
+        # реестра factcheck.subject) = 29.
+        assert len(prompts) == 29
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None

@@ -236,22 +236,26 @@ Grep-аудит `audit_unregistered_prompt_constants(root)` (эвристика 
   какого-либо блока реестра либо входить в `PROMPT_AUDIT_ALLOWLIST` с
   **непустой причиной**.
 
-Фактический прогон (замер на базовой линии этого кандидата): 312 файлов,
-76 кандидатов — 75 закрыто `code_source`, 1 в allowlist, 0 вне реестра.
-SMART-EXECUTION-RELIABILITY-01 §G добавил один зарегистрированный кандидат
-(`services.tool_loop.TOOL_FINALIZE_PROMPT`, блок `direct.tool_finalize`):
-75 → 76 и 74 → 75. На ветке кандидата параллельные срезы дают 323 файла и
-77 кандидатов (включая `services.prompt_readback.RESOURCE_KIND_PROMPT` вне
-§G) — файловый пин падает громко и не является дельтой §G. Кандидаты
-считаются прогоном `audit_unregistered_prompt_constants` с пустым реестром и
-пустым allowlist (76), затем с реальным allowlist (75), затем на реальном
-реестре (0 нарушений). Эти числа запинены тестом
-`test_grep_audit_counts_are_stable`: смена состава `services/`/`handlers/`
-или реестра роняет тест и заставляет обновить цифры здесь, вместо того чтобы
-тихо сделать документ неверным. В релизной линии 2.58.155 файлов на один
-меньше (293): новый `services/anticliche_sources.py` входит в пакет AC-DATA и
-в тот релиз не включён; на линии evol/impl с AC-DATA замер даёт 294. Число
-кандидатов и результат аудита от этого не меняются (72/71/0, проверено).
+Фактический прогон (замер на релизном кандидате SMART release train 01):
+323 файла, 78 кандидатов — 76 закрыто `code_source`, 2 в allowlist,
+0 вне реестра. Базовые 312 файлов / 76 кандидатов относились к линии до
+SELF-DIAG-01 и SMART-EXECUTION-RELIABILITY-01; §G добавил один
+зарегистрированный кандидат (`services.tool_loop.TOOL_FINALIZE_PROMPT`, блок
+`direct.tool_finalize`), а параллельные срезы кандидата добавили
+`services.prompt_readback.RESOURCE_KIND_PROMPT` (SELF-DIAG-01; это вид ресурса,
+не инструкция модели — поэтому allowlist с причиной) и
+`services.factcheck_orchestrator.FACTCHECK_SUBJECT_SYSTEM_PROMPT` (S13;
+зарегистрирован блоком `factcheck.subject` и ключом каталога
+`prompts.factcheck_subject_system_prompt`). Кандидаты считаются прогоном
+`audit_unregistered_prompt_constants` с пустым реестром и пустым allowlist
+(78), затем с реальным allowlist (76), затем на реальном реестре (0
+нарушений). Эти числа запинены тестом `test_grep_audit_counts_are_stable`:
+смена состава `services/`/`handlers/` или реестра роняет тест и заставляет
+обновить цифры здесь, вместо того чтобы тихо сделать документ неверным. В
+релизной линии 2.58.155 файлов на один меньше (293): новый
+`services/anticliche_sources.py` входит в пакет AC-DATA и в тот релиз не
+включён; на линии evol/impl с AC-DATA замер даёт 294. Число кандидатов и
+результат аудита от этого не меняются (72/71/0, проверено).
 
 Осознанно **не** сканируется (это не шаблоны): f-string сборка запросов,
 тела переписки, tool results. Не аудируются байт-эталоны `PREV_*`/`LEGACY_*`

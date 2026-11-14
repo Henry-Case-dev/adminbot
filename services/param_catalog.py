@@ -1027,6 +1027,18 @@ _PROMPTS: list[tuple] = [
      "в разделе «Критический разнос». Пусто — заводская редакция. Изменения "
      "применяются сразу.",
      "", "verbalizer"),
+    # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): служебная стадия
+    # определения предмета фактчека. Рантайм читает ключ через
+    # `resolve_prompt` (`factcheck_orchestrator`), поэтому он обязан быть в
+    # каталоге: иначе `/api/config` отбивает правку как неизвестный ключ.
+    # Заводской текст — код-канон S13 (значение по умолчанию не дублируется).
+    ("prompts.factcheck_subject_system_prompt",
+     "Системный промпт предмета фактчека",
+     "services.factcheck_orchestrator.FACTCHECK_SUBJECT_SYSTEM_PROMPT",
+     "prompts_factcheck",
+     "Служебная машинная стадия: определяет точный предмет проверки по "
+     "исходному материалу и запросу пользователя (data-only JSON). Пусто — "
+     "заводская редакция. Изменения применяются сразу.", "", "synthesizer"),
     ("prompts.summary_editor_system_prompt", "Legacy Editor",
      "services.summary_prompts.SUMMARY_EDITOR_SYSTEM_PROMPT", "prompts_summary",
      "Legacy fallback, не основной Hybrid writer: сжимает историю в выжимку "

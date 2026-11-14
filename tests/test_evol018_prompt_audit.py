@@ -99,7 +99,11 @@ def test_grep_audit_counts_are_stable():
     # (на проде 2.58.179 фактические 309 против пина 294; на ветке кандидата
     # 312 из-за трёх файлов SELF-DIAG-01 D2 вне этого среза) — зафиксировано
     # ФАКТИЧЕСКОЕ значение релизного дерева: 309 + 3 = 312.
-    assert files == 312, (
+    # SMART release train 01 (14.11.2026): в кандидат вошли SELF-DIAG-01 и
+    # SMART-EXECUTION-RELIABILITY-01 (S13–S16, H и вспомогательные модули):
+    # фактических файлов под аудитом 323 (пин 312 честно падал на ветке,
+    # см. §5 docs/prompt-versioning-contract.md).
+    assert files == 323, (
         f"файлов под аудитом {files}: обновите §5 контракта и этот пин")
     assert files < pr._AUDIT_TREE_MAX_FILES, (
         "потолок _AUDIT_TREE_MAX_FILES срезает обход — «294 файла» тогда "
@@ -122,12 +126,17 @@ def test_grep_audit_counts_are_stable():
     # `direct.tool_finalize`): 75 → 76 (после allowlist 74 → 75). Файловый
     # пин ниже на ветке кандидата видит дрейф параллельных срезов (323 файла
     # и ещё один нерегистрированный кандидат вне §G) — это не дельта G.
-    assert len(every) == 76, (
+    # SMART release train 01 (14.11.2026): в кандидат вошли ветки, добавившие
+    # `services.prompt_readback.RESOURCE_KIND_PROMPT` (H, не инструкция модели —
+    # в allowlist с причиной) и `FACTCHECK_SUBJECT_SYSTEM_PROMPT` (S13,
+    # зарегистрирован блоком `factcheck.subject`): 76 → 78 кандидатов,
+    # после allowlist 75 → 76, вне реестра 0. Файлов под аудитом 312 → 323.
+    assert len(every) == 78, (
         f"кандидатов {len(every)}: обновите §5 контракта и этот пин")
-    assert len(every) - len(after_allowlist) == 1, (
+    assert len(every) - len(after_allowlist) == 2, (
         "кандидатов в allowlist "
         f"{len(every) - len(after_allowlist)}: обновите §5 и этот пин")
-    assert len(after_allowlist) == 75, (
+    assert len(after_allowlist) == 76, (
         f"закрыто code_source {len(after_allowlist)}: обновите §5 и этот пин")
     assert outside == [], (
         "кандидаты вне реестра: " + repr(outside))

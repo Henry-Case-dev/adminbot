@@ -240,6 +240,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # разнос» — дословный текст владельца, редактируемый заводской промпт
     # (PG-ключ prompts.factcheck_critique_directive).
     "factcheck.critique.directive": "factcheck-critique-w5",
+    # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): служебная стадия
+    # предмета фактчека (PG-ключ prompts.factcheck_subject_system_prompt).
+    "factcheck.subject": "factcheck-subject-s13",
     # ASAP W1 (P0-F «точечно», SOUL1-CLOSE-R1 04.3): identity-фраза снята
     # с активного вербализатора фактчека; жанровые правила сохранены.
     # ASAP-FC-VOICE-01 / A (02.11.2026, §1-2 владельца): восстановлен
@@ -418,6 +421,9 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
                                "ed4c7a642804"),
     # EVOL §5 (W5): печать дословной директивы раздела «Критический разнос».
     "factcheck.critique.directive": ("factcheck-critique-w5", "cfcd9009df17"),
+    # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): служебная стадия
+    # предмета проверки; печать = sha12 код-канона S13.
+    "factcheck.subject": ("factcheck-subject-s13", "7df7e8752798"),
     # ASAP-FC-VOICE-01 / A: канон голоса жанра (историческая манера, подача
     # без шаблона, честный входной контракт). Печать = sha12 новых байтов.
     "factcheck.base.verbalizer": ("factcheck-voice-historic-01",
@@ -557,6 +563,9 @@ PROMPT_AUDIT_ALLOWLIST: dict[str, str] = {
     # Ревью F3: текст КНОПКИ подтверждения отправки медиа (UI-лейбл, не
     # инструкция модели; в LLM-запросы не собирается).
     "_QUALITY_PROMPT": "media_send: confirmation button label, not an LLM instruction",
+    # SMART-EXECUTION-RELIABILITY-01 (14.11.2026): вид ресурса prompt_readback
+    # (`RESOURCE_KIND_PROMPT = "prompt"`) — тип ресурса, не инструкция модели.
+    "RESOURCE_KIND_PROMPT": "prompt_readback: resource kind label, not an LLM instruction",
 }
 
 
@@ -1008,6 +1017,18 @@ _PG_BLOCK_META: dict[str, dict] = {
         composition_point="speech_plain/factcheck_critique_section",
         enabled_by="flags.factcheck_critique_section_enabled", speech=True,
         scope="code", owner_lane="W5-EVOL", ui="catalog"),
+    # SMART-EXECUTION-RELIABILITY-01 §S13 (14.11.2026): служебная (машинная)
+    # стадия определения предмета фактчека. Правка — через каталог промптов
+    # (`prompts.factcheck_subject_system_prompt`), код-дефолт — канон S13.
+    "prompts.factcheck_subject_system_prompt": dict(
+        block_id="factcheck.subject", family="factcheck",
+        purpose="Служебная стадия фактчека: определить точный предмет проверки "
+                "по исходному материалу и тексту пользователя (data-only JSON; "
+                "не речь пользователю).",
+        consumers=("factcheck_orchestrator.py:521",),
+        composition_point="machine_json/factcheck_subject",
+        enabled_by="", speech=False, scope="code",
+        owner_lane="W-SMART-S13", ui="catalog"),
     # MEME-PIPELINE-REFactor-01 (§3 ТЗ, P2): два РЕДАКТИРУЕМЫХ промпта
     # мем-пайплайна. До этой полосы блоки объявлялись код-канонами без
     # `pg_key` (`ui="catalog_pending"`): ключей не было в каталоге,
@@ -1986,7 +2007,7 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         code_source="services.tool_loop.TOOL_FINALIZE_PROMPT",
         consumers=("tool_loop.py:_finalize_from_evidence",),
         composition_point="direct/tool_finalize",
-        migration="factory", owner_lane="SMART-G", speech=False),
+        migration="factory", owner_lane="W-SMART-G", speech=False),
     # EVOL §5 (W5, 31.10.2026; review-fix B1/B2): блок
     # ``factcheck.critique.directive`` больше НЕ объявляется здесь — он стал
     # PG-управляемым промптом каталога (``prompts.factcheck_critique_directive``)
@@ -2957,7 +2978,11 @@ def factory_set_fingerprint() -> str:
 #: абзац его контракта (метка ``l1-planner-memory-scope``, печать
 #: ``619290834387``); прочие каноны, включая тексты владельца, байт-в-байт.
 #: Было ``011c83dfac95``, стало ``ae40ca11c77b``.
-FACTORY_SET_SHA256_12 = "5c9b8200b681"
+#: SMART-EXECUTION-RELIABILITY-01 (release train 01, 14.11.2026): changed = 1 —
+#: добавлен заводской канон служебной стадии предмета фактчека
+#: ``factcheck.subject`` (S13, печать ``7df7e8752798``); прочие каноны
+#: байт-в-байт. Было ``5c9b8200b681``, стало ``330952838067``.
+FACTORY_SET_SHA256_12 = "330952838067"
 
 
 
