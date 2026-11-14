@@ -5826,7 +5826,6 @@ class DirectChatService:
             # (PG-кастом не правится) и model-слот max_tokens.
             response_plan = None
             extent_block = ""
-            longform_max_tokens = None
             if direct_l1_on and l1_plan is not None:
                 # ── ASAP 7 (F1, §1.8): semantic план от L1; явная форма
                 # пользователя — дет. override ПОСЛЕ L1 поверх semantic
@@ -5846,8 +5845,6 @@ class DirectChatService:
                     system_prompt = (system_prompt + "\n\n"
                                      + extent_block)
                 if response_plan.is_longform():
-                    longform_max_tokens = \
-                        _extent.longform_max_output_tokens()
                     if not _composer_on:
                         system_prompt, _scrubbed = _extent.scrub_for_plan(
                             system_prompt, response_plan)
@@ -6258,7 +6255,6 @@ class DirectChatService:
                             fallback_meta=_fallback_meta,
                             time_line=time_line_plan,
                             tool_schemas=_l1_tool_schemas,
-                            longform_max_tokens=longform_max_tokens,
                             required_caps=tuple(getattr(
                                 _evidence_decision, "required_caps", ())
                                 or ()),
@@ -6310,6 +6306,19 @@ class DirectChatService:
                                 _tool_plan = None
                             if not _tool_plan:
                                 _tool_plan = None
+                        # SXR-C3-02 / UR-19.2: выход tool-цикла — физически
+                        # допустимый max_output фактической модели, а не
+                        # семантический longform-4096. Неизвестный ресурс →
+                        # None (ключа нет, дефолт провайдера).
+                        _tool_out_tokens = \
+                            await _extent.writer_max_output_tokens(
+                                model=str(getattr(self.llm, "_chat_model", "")
+                                          or ""),
+                                base_url=str(getattr(self.llm, "_base_url", "")
+                                             or ""),
+                                input_tokens=sum(
+                                    count_tokens(str(m.get("content") or ""))
+                                    for m in payload))
                         raw = await chat_with_tools(
                             self.llm, payload,
                             tools=active_tools(bool(lore_enabled),
@@ -6319,7 +6328,7 @@ class DirectChatService:
                             module="direct_chat",
                             correlation_id=correlation_id,
                             fallback_payload_adapter=_fb_adapter,
-                            max_output_tokens=longform_max_tokens,
+                            max_output_tokens=_tool_out_tokens,
                             tool_plan=_tool_plan)
                         # UR-F шаг 1: receipt финального ответообразующего
                         # вызова (body после primary/fallback); continuation
@@ -8394,7 +8403,7 @@ class DirectChatService:
                              temperature, chat_id: int,
                              correlation_id, l1_plan, response_plan,
                              fallback_meta: dict, time_line: str,
-                             tool_schemas, longform_max_tokens=None,
+                             tool_schemas,
                              required_caps=(), explicit_request: bool = False,
                              route: str = "direct"):
         """ЕДИНЫЙ живой tool-этап Direct и Initiative (UR-03/UR-06, BGS-01).
