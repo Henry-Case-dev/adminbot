@@ -20,6 +20,13 @@ TEST-LIFECYCLE: CONTRACT owner=FACTCHECK-REQUEST-INTEGRITY-v2 §3.3/§4.1-4.5
 * SFC-12-09 — вопрос, склеенный с пересказом материала в одно предложение,
   всё равно получает собственную единицу и поисковый запрос, а обычный
   фактчек, D и E/F запросы не меняют;
+* SFC-12-09 residual (`fc-anchor`) — запрос склеенного вопроса несёт
+  предметный анкер ПОЛНОГО материала (вопрос «эта традиция» без названия
+  практики больше не уходит в общий поиск); анкер берётся из материала, а не
+  из списка стран; единица, построенная из вошедшей части материала, тоже
+  получает анкер, когда LLM сузил её до подстроки без темы; обычный фактчек,
+  request-only и материал-без-вопроса запросы не меняют, нерелевантная выдача
+  не подтверждает вопрос;
 * cache identity различает предметы и переиспользует подходящий срез;
 * полный текст уточнения не обрезается на durable media-пути.
 
@@ -497,6 +504,255 @@ class TestGluedRequestIntegrity:
             q.text for q in without_request.queries]
         assert [claim.text for claim in with_request.claims] == [
             claim.text for claim in without_request.claims]
+
+
+# ── SFC-12-09 residual (`fc-anchor`): предметный анкер в запросе вопроса ─────
+
+#: Восстановленный mixed-сценарий live-прогона 153116Z (2.58.202): материал
+#: начинается с названия практики, LLM сузил `material_part` до подстроки БЕЗ
+#: него («она распространена…»), вопрос ссылается на «эту традицию» и
+#: перечисляет страны. Точные границы частей в raw JSON не сохранились
+#: (investigation §8), тексты восстановлены по записанному preview и длинам.
+RECORDED_MATERIAL = ("Женское обрезание — древняя традиция, которая "
+                     "существует уже тысячи лет. Она распространена во многих "
+                     "странах Африки и Ближнего Востока, и на её сохранение "
+                     "повлияли США.")
+RECORDED_MATERIAL_PART = ("Она распространена во многих странах Африки и "
+                          "Ближнего Востока, и на её сохранение повлияли США")
+RECORDED_REQUEST = ("Реально ли есть страны с этой традицией, которые не "
+                    "влияли на её сохранение: Франция, Великобритания и "
+                    "Германия?")
+
+#: Записанные в прогоне 153116Z строки выдачи, по которым claim про вопрос был
+#: помечен «подтверждён»: страницы чат-бот компаний и новость о БРИКС. Ни одна
+#: не является источником по предмету материала.
+RECORDED_IRRELEVANT_RESULTS = (
+    "Manybot — конструктор чат-ботов для Telegram\n"
+    "Платформа для создания ботов для бизнеса и рассылок.\n"
+    "https://cbinsights.com/company/manybot\n\n"
+    "WhatsHelp — чат-боты для WhatsApp\n"
+    "Сервис автоматизации переписки с клиентами.\n"
+    "https://cbinsights.com/company/whatshelp\n\n"
+    "Проект БРИКС обсудили на саммите\n"
+    "Новость о встрече представителей стран объединения.\n"
+    "https://edinstvo-news.ru/brics")
+
+
+def _recorded_subject():
+    """Mixed-предмет из записанного решения LLM (склейка без терминатора)."""
+    return orch._subject_from_decision(
+        material_text=RECORDED_MATERIAL, request_text=RECORDED_REQUEST,
+        material_author="Автор поста", request_author="Аня",
+        material_tg_message_id=TARGET_TG, request_tg_message_id=TRIGGER_TG,
+        decision={"subject": RECORDED_MATERIAL_PART + " " + RECORDED_REQUEST,
+                  "material_part": RECORDED_MATERIAL_PART,
+                  "request_part": RECORDED_REQUEST, "form_request": ""})
+
+
+def _recorded_plan(*, full_material=True):
+    """План ровно так, как его строит оркестратор (опционально без полного
+    материала — вызов прежних версий)."""
+    subject = _recorded_subject()
+    kwargs = {}
+    if full_material:
+        kwargs["subject_full_material_text"] = subject.material_text
+    plan = fsp.build_retrieval_plan(
+        _decision([(RECORDED_MATERIAL, "literal")], scope="web"),
+        claim_text=subject.text, subject_origin=subject.origin,
+        subject_anchor_tg_message_id=subject.request_tg_message_id,
+        subject_author=subject.request_author,
+        subject_request_text=subject.request_part,
+        subject_material_text=subject.material_part, **kwargs)
+    return subject, plan
+
+
+def _question_claim(plan):
+    glued = [claim for claim in plan.claims if claim.from_glued_request]
+    assert len(glued) == 1, plan.claims
+    return glued[0]
+
+
+def _question_queries(plan):
+    claim = _question_claim(plan)
+    return [q for q in plan.queries if q.claim_id == claim.claim_id]
+
+
+class TestMaterialAnchorInQuestionQuery:
+    """SFC-12-09 residual: запрос части, пришедшей из склеенного вопроса,
+    обязан нести предметный анкер материала. Раньше вопрос «эта традиция»
+    уходил в общий поиск и приносил нерелевантные страницы."""
+
+    def test_recorded_question_query_carries_question_and_anchor(
+            self, planner_on):
+        subject, plan = _recorded_plan()
+        assert subject.origin == orch.SUBJECT_ORIGIN_MIXED
+        # вошедшая часть материала темы НЕ содержит — как в прогоне
+        assert "обрезан" not in subject.material_part.lower()
+        assert plan is not None
+        queries = _question_queries(plan)
+        assert queries, plan.queries
+        text = queries[0].text.lower()
+        # термы вопроса (страны) …
+        assert "франц" in text and "герман" in text
+        # … и предметный анкер материала
+        assert "женское" in text and "обрезание" in text
+        # каждое слово запроса взято из входа: списка стран/терминов нет
+        known = f"{RECORDED_MATERIAL} {RECORDED_REQUEST}".lower()
+        assert all(word in known for word in text.split()), text
+
+    def test_anchor_comes_from_full_material(self, planner_on):
+        _, plan = _recorded_plan()
+        assert "обрезание" in _question_queries(plan)[0].text.lower()
+        # без полного материала (вызов прежних версий) план строится, но
+        # темы в анкере нет — именно это и было дефектом
+        _, partial = _recorded_plan(full_material=False)
+        assert partial is not None
+        assert len(partial.queries) == len(plan.queries)
+        assert "обрезание" not in _question_queries(partial)[0].text.lower()
+
+    def test_anchor_terms_are_material_terms_without_country_list(self):
+        anchor = fsp._material_anchor_terms(RECORDED_MATERIAL)
+        assert anchor == ["женское", "обрезание", "древняя"]
+        material_terms = set(fsp._claim_terms(RECORDED_MATERIAL, limit=None))
+        assert set(anchor) <= material_terms
+        # страны вопроса не становятся анкером: анкер берётся из материала
+        assert not {"франция", "великобритания", "германия"} & set(anchor)
+
+    def test_recorded_material_query_carries_anchor(
+            self, planner_on):
+        """Записанный сценарий: ЛЮБАЯ единица, построенная из вошедшей части
+        материала, несёт тему — иначе материальный claim продолжает искать
+        «она распространена…» и получает нерелевантные страницы."""
+        _, plan = _recorded_plan()
+        assert len(plan.claims) == 2, plan.claims
+        material_claim = [c for c in plan.claims
+                          if not c.from_glued_request][0]
+        material_queries = [q for q in plan.queries
+                            if q.claim_id == material_claim.claim_id]
+        assert material_queries, plan.queries
+        text = material_queries[0].text.lower()
+        assert "обрезание" in text and "женское" in text
+        # материальный запрос не смешивается с вопросом
+        assert "франц" not in text
+
+    def test_mixed_material_part_with_topic_is_unchanged(self, planner_on):
+        """Материал, вошедший в предмет целиком, не получает второго анкера:
+        план совпадает с вызовом прежних версий."""
+        subject = orch._subject_from_decision(
+            material_text=RECORDED_MATERIAL, request_text=RECORDED_REQUEST,
+            material_author="Автор поста", request_author="Аня",
+            material_tg_message_id=TARGET_TG, request_tg_message_id=TRIGGER_TG,
+            decision={"subject": RECORDED_MATERIAL + " " + RECORDED_REQUEST,
+                      "material_part": RECORDED_MATERIAL,
+                      "request_part": RECORDED_REQUEST, "form_request": ""})
+        items = [(RECORDED_MATERIAL, "literal")]
+        common = dict(
+            claim_text=subject.text, subject_origin=subject.origin,
+            subject_anchor_tg_message_id=subject.request_tg_message_id,
+            subject_author=subject.request_author,
+            subject_request_text=subject.request_part,
+            subject_material_text=subject.material_part)
+        without = fsp.build_retrieval_plan(_decision(items, scope="web"),
+                                           **common)
+        with_full = fsp.build_retrieval_plan(
+            _decision(items, scope="web"),
+            subject_full_material_text=subject.material_text, **common)
+        assert without is not None and with_full is not None
+        assert [q.text for q in with_full.queries] == [
+            q.text for q in without.queries]
+
+    def test_ordinary_multisentence_material_unchanged(self, planner_on):
+        """Обычный фактчек (материал без вопроса): вторая фраза без названия
+        предмета НЕ получает анкер — поведение прежних версий."""
+        items = [(RECORDED_MATERIAL, "literal")]
+        common = dict(claim_text=RECORDED_MATERIAL, subject_origin="material",
+                      subject_material_text=RECORDED_MATERIAL)
+        baseline = fsp.build_retrieval_plan(_decision(items, scope="web"),
+                                            **common)
+        with_full = fsp.build_retrieval_plan(
+            _decision(items, scope="web"),
+            subject_full_material_text=RECORDED_MATERIAL, **common)
+        assert baseline is not None and with_full is not None
+        assert len(baseline.queries) > 1
+        assert [q.text for q in with_full.queries] == [
+            q.text for q in baseline.queries]
+        # вторая фраза действительно без темы — и всё равно не анкеруется
+        assert any("распространена" in q.text.lower()
+                   for q in baseline.queries)
+
+    def test_material_only_plan_unchanged(self, planner_on):
+        """Негативный случай: в предмете только материал — план прежний."""
+        items = [(RECORDED_MATERIAL, "literal")]
+        baseline = fsp.build_retrieval_plan(
+            _decision(items, scope="web"), claim_text=RECORDED_MATERIAL,
+            subject_origin="material",
+            subject_material_text=RECORDED_MATERIAL)
+        with_full = fsp.build_retrieval_plan(
+            _decision(items, scope="web"), claim_text=RECORDED_MATERIAL,
+            subject_origin="material",
+            subject_material_text=RECORDED_MATERIAL,
+            subject_full_material_text=RECORDED_MATERIAL)
+        assert baseline is not None and with_full is not None
+        assert [q.text for q in with_full.queries] == [
+            q.text for q in baseline.queries]
+        assert not any(claim.from_glued_request for claim in with_full.claims)
+
+    def test_request_only_plan_unchanged(self, planner_on):
+        """Request-only предмет не меняется полным материалом."""
+        items = [(RECORDED_MATERIAL, "literal")]
+        without = fsp.build_retrieval_plan(
+            _decision(items, scope="web"), claim_text=RECORDED_REQUEST,
+            subject_origin="request",
+            subject_anchor_tg_message_id=TRIGGER_TG, subject_author="Аня",
+            subject_request_text=RECORDED_REQUEST,
+            subject_material_text=RECORDED_MATERIAL)
+        with_full = fsp.build_retrieval_plan(
+            _decision(items, scope="web"), claim_text=RECORDED_REQUEST,
+            subject_origin="request",
+            subject_anchor_tg_message_id=TRIGGER_TG, subject_author="Аня",
+            subject_request_text=RECORDED_REQUEST,
+            subject_material_text=RECORDED_MATERIAL,
+            subject_full_material_text=RECORDED_MATERIAL)
+        assert without is not None and with_full is not None
+        assert [q.text for q in with_full.queries] == [
+            q.text for q in without.queries]
+        assert not any(claim.from_glued_request for claim in with_full.claims)
+
+    def test_orchestrator_passes_full_material_to_plan(self):
+        """Шов, где возник дефект: оркестратор обязан передать в план ПОЛНЫЙ
+        материал предмета — иначе анкер брать неоткуда (в прогоне 153116Z
+        передавалась только вошедшая часть без названия практики)."""
+        source = inspect.getsource(orch)
+        assert "subject_full_material_text=str(" in source
+        assert 'getattr(subject, "material_text", "")' in source
+
+    def test_controlled_aggregator_irrelevant_pages_do_not_confirm_question(
+            self, planner_on):
+        """Контролируемая выдача прогона: запрос уходит с темой, а страницы
+        чат-бот компаний не становятся доказательством по вопросу."""
+        _, plan = _recorded_plan()
+        sent: list[str] = []
+
+        class _IrrelevantAggregator:
+            async def search(self, query, max_symbols):
+                sent.append(str(query))
+                return RECORDED_IRRELEVANT_RESULTS
+
+        async def _offline_fetch(url, max_bytes=None, timeout=None):
+            raise RuntimeError("offline test")
+
+        outcome = asyncio.run(fsp.run_retrieval(
+            plan, aggregator=_IrrelevantAggregator(),
+            fetch_text=_offline_fetch))
+        # провайдеру реально ушёл запрос с предметным анкером материала
+        question_requests = [q for q in sent if "франц" in q.lower()]
+        assert question_requests and "обрезание" in question_requests[0].lower()
+        claim = _question_claim(plan)
+        coverage = [row for row in outcome.claims
+                    if row.claim.claim_id == claim.claim_id][0]
+        assert coverage.outcome != fsp.CLAIM_OUTCOME_CONFIRMED
+        assert not coverage.citation_ids
+        assert outcome.off_topic_sources_dropped >= 1
 
 
 # ── Смысл определяет решение, а не слова ────────────────────────────────────
