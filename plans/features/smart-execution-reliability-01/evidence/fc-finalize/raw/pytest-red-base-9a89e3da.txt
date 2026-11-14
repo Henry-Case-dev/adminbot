@@ -1,0 +1,202 @@
+﻿.FFFF.FFFF..                                                             [100%]
+================================== FAILURES ===================================
+____________ test_related_part_question_sees_material_and_request _____________
+
+    @pytest.mark.asyncio
+    async def test_related_part_question_sees_material_and_request():
+        """╨Т╨╛╨┐╤А╨╛╤Б ╨╛ ╤Б╨▓╤П╨╖╨░╨╜╨╜╨╛╨╣ ╤З╨░╤Б╤В╨╕: ╤З╨░╤Б╤В╤М ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В ╨┐╤А╨╕╨╛╤А╨╕╤В╨╡╤В, ╨╜╨╛ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗ ╨╕
+        ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ ╨▓╨╛╨┐╤А╨╛╤Б ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П ╨▓╨╕╨┤╨╜╤Л ╨┐╤А╨╛╨▓╨╡╤А╨║╨╡ ╨╕ ╨▓╨╡╤А╨▒╨░╨╗╨╕╨╖╨░╤В╨╛╤А╤Г; ╨▓╤Л╨▓╨╛╨┤
+        ╨╛╤Б╤В╨░╤С╤В╤Б╤П ╨╛╤В╨▓╨╡╤В╨╛╨╝ ╨╜╨░ ╨▓╨╛╨┐╤А╨╛╤Б."""
+        material = ("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡. ╨Ш╨╜╤Д╨╗╤П╤Ж╨╕╤П ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨╜╨╕╨╖╨║╨╛╨╣. "
+                    "╨С╨╡╨╖╤А╨░╨▒╨╛╤В╨╕╤Ж╨░ ╨╜╨╡ ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╨░╤Б╤М.")
+        subject = "╨Ш╨╜╤Д╨╗╤П╤Ж╨╕╤П ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨╜╨╕╨╖╨║╨╛╨╣."
+        request = "╨┐╤А╨╛╨▓╨╡╤А╤М ╨▓╤В╨╛╤А╨╛╨╡ ╨┐╤А╨╡╨┤╨╗╨╛╨╢╨╡╨╜╨╕╨╡"
+        llm = RecordingLLM(verbalizer="╨Я╨╛ ╨▓╤В╨╛╤А╨╛╨╝╤Г ╨┐╤А╨╡╨┤╨╗╨╛╨╢╨╡╨╜╨╕╤О: ╨╕╨╜╤Д╨╗╤П╤Ж╨╕╤П ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨╜╨╕╨╖╨║╨╛╨╣.")
+        run = await _run(_env(subject, material=material, request_text=request,
+                              form_request="╨║╨╛╤А╨╛╤В╨║╨╛"), llm, refs=[_ref(1)])
+    
+        analyst = llm.payload("temporal_verdict")
+        assert f"<claim>{subject}</claim>" in analyst
+>       assert f"<original_material>{material}</original_material>" in analyst
+E       assert '<original_material>╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡. ╨Ш╨╜╤Д╨╗╤П╤Ж╨╕╤П ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨╜╨╕╨╖╨║╨╛╨╣. ╨С╨╡╨╖╤А╨░╨▒╨╛╤В╨╕╤Ж╨░ ╨╜╨╡ ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╨░╤Б╤М.</original_material>' in '<claim>╨Ш╨╜╤Д╨╗╤П╤Ж╨╕╤П ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨╜╨╕╨╖╨║╨╛╨╣.</claim>\n\n<temporal_context>{"date_source": "telegram_origin", "original_published_... 14.11.2026 05:03, ╨б╤Г╨▒╨▒╨╛╤В╨░ (Asia/Yekaterinburg, UTC+05:00)\nas_of_utc: 2026-11-14T00:03:27+00:00\n</Chat_Time_Context>'
+
+tests\test_factcheck_finalization.py:200: AssertionError
+_________ test_budget_interruption_keeps_evidence_and_splits_honestly _________
+
+    @pytest.mark.asyncio
+    async def test_budget_interruption_keeps_evidence_and_splits_honestly():
+        """╨в╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╛╨╡ ╨┐╤А╨╡╤А╤Л╨▓╨░╨╜╨╕╨╡: ╤Б╨╛╨▒╤А╨░╨╜╨╜╤Л╨╣ evidence ╨╜╨╡ ╨▓╤Л╨▒╤А╨░╤Б╤Л╨▓╨░╨╡╤В╤Б╤П, ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В
+        ╤З╨╡╤Б╤В╨╜╨╛ ╤А╨░╨╖╨┤╨╡╨╗╤С╨╜, ╨░ ╨╜╨╡ ╨╖╨░╨╝╨╡╨╜╤С╨╜ ╤Б╤В╨░╨╜╨┤╨░╤А╤В╨╜╨╛╨╣ ╨╖╨░╨│╨╗╤Г╤И╨║╨╛╨╣."""
+        llm = RecordingLLM(fail_verbalize=True)
+        refs = [_ref(1, support="╨Т╤Л╨┤╨╡╤А╨╢╨║╨░ A: ╨║╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡."),
+                _ref(2, support="╨Т╤Л╨┤╨╡╤А╨╢╨║╨░ B: ╨╕╨╜╤Д╨╗╤П╤Ж╨╕╤П ╨╛╤Б╤В╨░╨╗╨░╤Б╤М ╨╜╨╕╨╖╨║╨╛╨╣."),
+                _ref(3, support="╨Т╤Л╨┤╨╡╤А╨╢╨║╨░ C: ╨▒╨╡╨╖╤А╨░╨▒╨╛╤В╨╕╤Ж╨░ ╨╜╨╡ ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╨░╤Б╤М.")]
+        run = await _run(_env("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡."), llm, refs=refs, budget=True)
+    
+        text = run.verdict_text
+        # 1) ╤Б╨╛╨▒╤А╨░╨╜╨╜╤Л╨╣ evidence ╤Б╨╛╤Е╤А╨░╨╜╤С╨╜ (durable ╤Б╤В╤А╨╛╨║╨╕ ╨┐╤А╨╛╨│╨╛╨╜╨░ ╨╜╨╡ ╨┐╨╛╤В╨╡╤А╤П╨╜╤Л)
+        assert len(run.evidence_rows) == 3
+        # 2) ╤В╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨░╤П ╨│╤А╨░╨╜╨╕╤Ж╨░ ╨╜╨░╨╖╨▓╨░╨╜╨░, ╨░ ╨╜╨╡ ╨╖╨░╨╝╨░╤Б╨║╨╕╤А╨╛╨▓╨░╨╜╨░ ╨┐╨╛╨┤ ┬л╨╜╨╡╤В ╨┤╨░╨╜╨╜╤Л╤Е┬╗
+>       assert "╨▒╤О╨┤╨╢╨╡╤В╨░/╨▓╤А╨╡╨╝╨╡╨╜╨╕" in text
+E       AssertionError: assert '╨▒╤О╨┤╨╢╨╡╤В╨░/╨▓╤А╨╡╨╝╨╡╨╜╨╕' in '╨Э╨╡╨┤╨╛╤Б╤В╨░╤В╨╛╤З╨╜╨╛ ╨┤╨░╨╜╨╜╤Л╤Е ╨┤╨╗╤П ╨┐╨╛╨╗╨╜╨╛╨╣ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П. ╨Ф╨░╤В╨░ ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗╨░: 09.10.2022.'
+
+tests\test_factcheck_finalization.py:230: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:704 mca_event=temporal_verbalize | ts=1794614607 | event_name=temporal_verbalize | outcome=failed | level=WARN | component=turn_payload | stage=temporal_verbalize | trace_id=c8d019433f364fb0b7ab93fed7c16057 | chat_id=1 | usage_json={"status": "error", "finish_reason": "verbalize_failed", "clock": {"clock_included": false, "skip_reason": "no_time_block"}, "decision": "verbalize=failed;server_time=snapshot"}
+__________ test_verbalizer_receives_partial_inventory_not_limit_stub __________
+
+    @pytest.mark.asyncio
+    async def test_verbalizer_receives_partial_inventory_not_limit_stub():
+        """╨Э╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨▓╨╡╤А╨▒╨░╨╗╨╕╨╖╨░╤В╨╛╤А ╨┐╤А╨╕ ╨╜╨╡╨┐╨╛╨╗╨╜╨╛╨╝ ╤А╨░╨╖╨▒╨╛╤А╨╡ ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В ╤З╨╡╤Б╤В╨╜╤Л╨╣ ╨╕╨╜╨▓╨╡╨╜╤В╨░╤А╤М
+        (╤З╤В╨╛ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╛/╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛ + ╤Б╨╛╨▒╤А╨░╨╜╨╜╨╛╨╡), ╨░ ╨╜╨╡ ┬л╨╜╨░╨╖╨╛╨▓╨╕ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨╕╨╡┬╗."""
+        analyst = json.dumps({
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "evaluated_period": {"from": None, "to": None},
+            "reason": None,
+            "parts": [],
+        }, ensure_ascii=False)
+        llm = RecordingLLM(analyst=analyst,
+                           verbalizer="╨з╤В╨╛ ╤Г╨╢╨╡ ╨▓╨╕╨┤╨╜╨╛: ╨║╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡; ╨╛╤Б╤В╨░╨╗╤М╨╜╨╛╨╡ ╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛.")
+        run = await _run(_env("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡."), llm,
+                         refs=[_ref(1), _ref(2)], budget=True)
+        verbl = llm.payload("temporal_verbalize")
+        assert "╨Т╨Х╨а╨Ф╨Ш╨Ъ╨в (JSON):\n" in verbl
+        payload = json.loads(verbl.split("╨Т╨Х╨а╨Ф╨Ш╨Ъ╨в (JSON):\n", 1)[1])
+        partial = payload.get("partial") or {}
+>       assert partial.get("collected"), partial
+E       AssertionError: {}
+E       assert None
+E        +  where None = <built-in method get of dict object at 0x000001E8AE7A9C40>('collected')
+E        +    where <built-in method get of dict object at 0x000001E8AE7A9C40> = {}.get
+
+tests\test_factcheck_finalization.py:262: AssertionError
+_______________ test_technical_part_is_not_reported_as_no_data ________________
+
+    @pytest.mark.asyncio
+    async def test_technical_part_is_not_reported_as_no_data():
+        """╨з╨░╤Б╤В╤М, ╤Г╨┐╨░╨▓╤И╨░╤П ╤В╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕, ╨╜╨░╨╖╤Л╨▓╨░╨╡╤В╤Б╤П ╤В╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕ ╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╨╛╨╣ ╨╕ ╨╜╨╡
+        ╨┐╤А╨╡╨▓╤А╨░╤Й╨░╨╡╤В╤Б╤П ╨▓ ┬л╨┤╨░╨╜╨╜╤Л╤Е ╨╜╨╡╨┤╨╛╤Б╤В╨░╤В╨╛╤З╨╜╨╛┬╗/┬л╨╛╨┐╤А╨╛╨▓╨╡╤А╨│╨╜╤Г╤В╨╛┬╗."""
+        analyst = json.dumps({
+            "factual_verdict": "insufficient_evidence",
+            "temporal_status": "unknown",
+            "evaluated_period": {"from": None, "to": None},
+            "reason": None,
+            "parts": [
+                {"part_id": "p1", "factual_verdict": "insufficient_evidence",
+                 "status_detail": "source_extract_failed",
+                 "text": "╨Ш╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╛╤В╨║╤А╤Л╨╗╤Б╤П.", "evidence_refs": []},
+                {"part_id": "p2", "factual_verdict": "supported",
+                 "text": "╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡.", "evidence_refs": ["ev-1"]},
+            ],
+        }, ensure_ascii=False)
+        llm = RecordingLLM(analyst=analyst, fail_verbalize=True)
+        run = await _run(_env("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡, ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╛╤В╨║╤А╤Л╨╗╤Б╤П."), llm,
+                         refs=[_ref(1)], budget=True)
+        text = run.verdict_text
+>       assert "╨в╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕ ╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛: ╨Ш╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╛╤В╨║╤А╤Л╨╗╤Б╤П." in text
+E       AssertionError: assert '╨в╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕ ╨╜╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛: ╨Ш╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╛╤В╨║╤А╤Л╨╗╤Б╤П.' in '╨Э╨╡╨┤╨╛╤Б╤В╨░╤В╨╛╤З╨╜╨╛ ╨┤╨░╨╜╨╜╤Л╤Е ╨┤╨╗╤П ╨┐╨╛╨╗╨╜╨╛╨╣ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕ ╤Г╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╤П. тАв ╨Ш╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╜╨╡ ╨╛╤В╨║╤А╤Л╨╗╤Б╤П. тАФ ╨┤╨░╨╜╨╜╤Л╤Е ╨╜╨╡╨┤╨╛╤Б╤В╨░╤В╨╛╤З╨╜╨╛ тАв ╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡. тАФ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В╤Б╤П ╨Ф╨░╤В╨░ ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗╨░: 09.10.2022.'
+
+tests\test_factcheck_finalization.py:292: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:704 mca_event=temporal_verbalize | ts=1794614607 | event_name=temporal_verbalize | outcome=failed | level=WARN | component=turn_payload | stage=temporal_verbalize | trace_id=5ac09f34ca1244fda0fe54913304bf17 | chat_id=1 | usage_json={"status": "error", "finish_reason": "verbalize_failed", "clock": {"clock_included": false, "skip_reason": "no_time_block"}, "decision": "verbalize=failed;server_time=snapshot"}
+_________ test_service_enums_ids_and_ocr_context_never_reach_the_user _________
+
+    @pytest.mark.asyncio
+    async def test_service_enums_ids_and_ocr_context_never_reach_the_user():
+        """╨б╨╗╤Г╨╢╨╡╨▒╨╜╤Л╨╡ ╨╝╨╡╤В╨║╨╕/ID/OCR-╨║╨╛╨╜╤В╨╡╨╣╨╜╨╡╤А ╨▓╤Л╤З╨╕╤Й╨░╤О╤В╤Б╤П; ╨╜╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨▓╨╡╤В ╨╛╤Б╤В╨░╤С╤В╤Б╤П."""
+        leak = ("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡ тАФ ╤Н╤В╨╛ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨░╨╡╤В╤Б╤П. "
+                "factual_verdict=insufficient_evidence; ev-1; claim c1; "
+                "<chat_context note=\"OCR dump\">╤Б╤Л╤А╨╛╨╣ OCR-╤В╨╡╨║╤Б╤В ╤Б ╨║╨░╤А╤В╨╕╨╜╨║╨╕"
+                "</chat_context> reason_code=source_missing")
+        llm = RecordingLLM(verbalizer=leak)
+        run = await _run(_env("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡."), llm, refs=[_ref(1)])
+        text = run.verdict_text
+        assert "╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡" in text
+        for forbidden in ("insufficient_evidence", "reason_code", "source_missing",
+                          "ev-1", "claim c1", "chat_context", "OCR"):
+>           assert forbidden not in text
+E           assert 'insufficient_evidence' not in '╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ...urce_missing'
+E             
+E             'insufficient_evidence' is contained here:
+E               l_verdict=insufficient_evidence; ev-1; claim c1; <chat_context note="OCR dump">╤Б╤Л╤А╨╛╨╣ OCR-╤В╨╡╨║╤Б╤В ╤Б ╨║╨░╤А╤В╨╕╨╜╨║╨╕</chat_context> reason_code=source_missing
+E             ?           +++++++++++++++++++++
+
+tests\test_factcheck_finalization.py:321: AssertionError
+___________ test_service_only_answer_is_not_published_as_the_answer ___________
+
+    @pytest.mark.asyncio
+    async def test_service_only_answer_is_not_published_as_the_answer():
+        """╨Ю╤В╨▓╨╡╤В, ╤Б╨╛╤Б╤В╨╛╤П╤Й╨╕╨╣ ╨╕╨╖ ╤Б╨╗╤Г╨╢╨╡╨▒╨╜╨╛╨│╨╛ ╨┤╨░╨╝╨┐╨░, ╨╜╨╡ ╨┐╤Г╨▒╨╗╨╕╨║╤Г╨╡╤В╤Б╤П ╨▓╨╝╨╡╤Б╤В╨╛ ╨╛╤В╨▓╨╡╤В╨░:
+        ╨▒╨╡╤А╤С╤В╤Б╤П ╤З╨╡╤Б╤В╨╜╤Л╨╣ ╤З╨░╤Б╤В╨╕╤З╨╜╤Л╨╣ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В ╨┐╨╛ ╤Б╨╛╨▒╤А╨░╨╜╨╜╤Л╨╝ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╨░╨╝."""
+        llm = RecordingLLM(
+            verbalizer="factual_verdict=insufficient_evidence; ev-1; p1; c1; "
+                       "reason_code=source_missing")
+        run = await _run(_env("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡."), llm, refs=[_ref(1)])
+        text = run.verdict_text
+>       assert "insufficient_evidence" not in text
+E       AssertionError: assert 'insufficient_evidence' not in 'factual_ver...urce_missing'
+E         
+E         'insufficient_evidence' is contained here:
+E           factual_verdict=insufficient_evidence; ev-1; p1; c1; reason_code=source_missing
+E         ?                 +++++++++++++++++++++
+
+tests\test_factcheck_finalization.py:337: AssertionError
+____________ test_renderer_strips_service_tokens_from_verdict_text ____________
+
+    def test_renderer_strips_service_tokens_from_verdict_text():
+        """Renderer тАФ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╤П╤П ╨│╤А╨░╨╜╨╕╤Ж╨░: ╤Б╨╗╤Г╨╢╨╡╨▒╨╜╤Л╨╡ ╨┐╨╛╨╗╤П ╨╜╨╡ ╨┐╨╛╨┐╨░╨┤╨░╤О╤В ╨▓ ╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╤О."""
+        verdict = orch.CheckedVerdict(
+            verdict_text="╨Э╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨▓╨╡╤В. reason_code=source_missing; ev-7.",
+            route="legacy_single", factual_verdict=None)
+        rendered = render_factcheck(orch.FactcheckPresentation(
+            text=verdict.verdict_text), verdict)
+        assert "╨Э╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨▓╨╡╤В." in rendered.text
+>       assert "reason_code" not in rendered.text
+E       AssertionError: assert 'reason_code' not in '╨Э╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ...ssing; ev-7.'
+E         
+E         'reason_code' is contained here:
+E           ╨Э╨╛╤А╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨▓╨╡╤В. reason_code=source_missing; ev-7.
+E         ?                   +++++++++++
+
+tests\test_factcheck_finalization.py:351: AssertionError
+____________ test_legacy_single_path_also_keeps_service_tokens_out ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E8AE693710>
+
+    @pytest.mark.asyncio
+    async def test_legacy_single_path_also_keeps_service_tokens_out(monkeypatch):
+        """╨Ю╨┤╨╕╨╜╨╛╤З╨╜╤Л╨╣ legacy-╨┐╤Г╤В╤М (kill-switch/rollback) ╨┐╤Г╨▒╨╗╨╕╨║╤Г╨╡╤В ╤В╨╛╤В ╨╢╨╡ ╤З╨╕╤Б╤В╤Л╨╣
+        ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╤В╨╡╨║╤Б╤В, ╨░ ╨╜╨╡ ╤Б╨╗╤Г╨╢╨╡╨▒╨╜╤Л╨╡ ╨╝╨╡╤В╨║╨╕."""
+        from unittest.mock import AsyncMock, MagicMock
+        from services.factcheck_service import FactCheckService
+    
+        aggregator = MagicMock()
+        aggregator.search = AsyncMock(return_value="╤Е╨╕╤В╤Л ╨┐╨╛╨╕╤Б╨║╨░")
+        llm = MagicMock()
+        llm.generate = AsyncMock(
+            return_value="╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡. factual_verdict=insufficient_evidence; "
+                         "ev-3; reason_code=source_missing")
+        service = FactCheckService(aggregator, llm)
+        result = await service.check_claim("╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡.")
+        assert "╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡." in result
+        for forbidden in ("insufficient_evidence", "reason_code", "source_missing",
+                          "ev-3"):
+>           assert forbidden not in result
+E           AssertionError: assert 'insufficient_evidence' not in '╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ...urce_missing'
+E             
+E             'insufficient_evidence' is contained here:
+E               ╨Ъ╤Г╤А╤Б ╨▓╤Л╤А╨╛╤Б ╨▓╨┤╨▓╨╛╨╡. factual_verdict=insufficient_evidence; ev-3; reason_code=source_missing
+E             ?                                   +++++++++++++++++++++
+
+tests\test_factcheck_finalization.py:373: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_factcheck_finalization.py::test_related_part_question_sees_material_and_request
+FAILED tests/test_factcheck_finalization.py::test_budget_interruption_keeps_evidence_and_splits_honestly
+FAILED tests/test_factcheck_finalization.py::test_verbalizer_receives_partial_inventory_not_limit_stub
+FAILED tests/test_factcheck_finalization.py::test_technical_part_is_not_reported_as_no_data
+FAILED tests/test_factcheck_finalization.py::test_service_enums_ids_and_ocr_context_never_reach_the_user
+FAILED tests/test_factcheck_finalization.py::test_service_only_answer_is_not_published_as_the_answer
+FAILED tests/test_factcheck_finalization.py::test_renderer_strips_service_tokens_from_verdict_text
+FAILED tests/test_factcheck_finalization.py::test_legacy_single_path_also_keeps_service_tokens_out
+8 failed, 4 passed in 3.06s
