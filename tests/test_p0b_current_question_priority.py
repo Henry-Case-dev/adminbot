@@ -714,8 +714,7 @@ class TestCurrentQuestionRendering:
         long_text = "Бот, " + ("обсуждали релиз и сроки " * 80).strip()
         msg = _msg(text=long_text, message_id=983,
                    reply_to_message=_observe_video(984))
-        rendered = DirectChatService._render_current_question(
-            None, msg, cap_chars=4000)
+        rendered = DirectChatService._render_current_question(None, msg)
         assert "обсуждали релиз и сроки" in rendered
         assert "[медиа: video tg:984]" in rendered
 

@@ -1833,7 +1833,10 @@ def build_l1_context(*, query, current_question: str = "",
             sections.append((L1_REPLY_SECTION,
                              clip_body(str(reply_block).strip(),
                                         reply_block_chars(budget))))
-        bot_lines = [str(line or "").strip()[:L1_REPLY_BLOCK_CHARS]
+        # SXR-C3-02: собственная прежняя реплика — ДАННЫЕ плана; 400-символьный
+        # срез терял предмет возражения. Полный текст сжимает `_cap_context`
+        # по реальному бюджету L1 (секция unprotected), а не эта ветка.
+        bot_lines = [str(line or "").strip()
                      for line in (bot_replies or ())]
         bot_lines = [line for line in bot_lines if line][:3]
         if bot_lines:

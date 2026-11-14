@@ -7815,11 +7815,11 @@ class DirectChatService:
             _ttrace.note_clock_stage(correlation_id, "l1")
         context_text = _l1.build_l1_context(
             query=query,
+            # SXR-C2-01: L1 получает ПОЛНЫЙ текст вопроса — тот же, что
+            # Writer (расхождение L1/Writer устранено). Режет только
+            # `_cap_context` при фактическом переполнении бюджета L1.
             current_question=self._render_current_question(
-                message, extra_markers=extra_media_markers,
-                # ER-08: исходное сообщение — внутри бюджета L1, а не 800
-                # символов Writer-пути.
-                cap_chars=_l1.message_cap_chars(_l1_budget)),
+                message, extra_markers=extra_media_markers),
             reply_block=_l1_reply_text,
             window=window, speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
@@ -11902,23 +11902,24 @@ class DirectChatService:
                          exc_info=True)
 
     def _render_current_question(self, message, extra_markers=(),
-                                 cap_chars: int | None = None,
                                  projection=None) -> str:
-        """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
-        текущего сообщения после среза обращения «бот(@ник):»; cap
-        limits.chat_current_question_max_chars (default 800); НЕ режется
-        бюджетом (kind вне лимитов). Пустой после среза — без блока.
+        """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — ПОЛНЫЙ
+        текст текущего сообщения после среза обращения «бот(@ник):»; НЕ
+        режется ни символьным капом, ни бюджетом секций (kind вне лимитов).
+        Пустой после среза — без блока.
 
-        ER-08 (02.11.2026): ``cap_chars`` — явный кап вызывающего (L1 берёт
-        его из своего бюджета: исходное сообщение — главный носитель claim'ов
-        и контрдоводов, 800 символов резали его вслепую). ``None`` → прежний
-        путь байт-в-байт (Writer/прочие потребители не меняются).
+        SXR-C2-01 (SMART-EXECUTION-RELIABILITY-01 C2): искусственный потолок
+        800 символов (`CHAT_CURRENT_QUESTION_MAX_CHARS`) и замена его другим
+        числом удалены. Исходное сообщение — главный носитель claim'ов,
+        цитат и контрдоводов; полный текст доезжает и до L1, и до Writer
+        (устранено расхождение L1/Writer). Единственный предел — физический
+        лимит Telegram-сообщения и реальное окно модели, которое режет
+        существующий композер, а не эта ветка.
 
         Раунд 10.24 (F13, ADR-1024-14 D3): к тексту дописываются медиа-маркеры
         нативного медиа самого сообщения и ``reply_to_message`` (``tg:<id>``).
-        При пустом тексте с медиа блок не пуст; при непустом — текст усекается
-        до резерва под суффикс, маркер гарантированно выживает. Флаг OFF или
-        отсутствие медиа → ровно прежний ``stripped[:cap]`` (байт-в-байт).
+        При пустом тексте с медиа блок не пуст; маркеры добавляются к полному
+        тексту (прежний резерв под суффикс больше не нужен).
 
         ADD-TR.2 (ADTR-ENTRY, 19.10.2026): текст = text ИЛИ caption подписи
         (``_message_user_text``) — подпись photo/document-image доходит до
@@ -11967,45 +11968,12 @@ class DirectChatService:
                     markers.append(extra_text)
         if not stripped and not markers:
             return ""
-        cap = int(hot.get("limits.chat_current_question_max_chars",
-                          settings.CHAT_CURRENT_QUESTION_MAX_CHARS) or 0) \
-            or 800
-        if cap_chars is not None:
-            try:
-                override = int(cap_chars)
-            except (TypeError, ValueError):
-                override = 0
-            if override > cap:
-                cap = override
+        # SXR-C2-01: полный текст без символьного потолка; медиа-маркеры —
+        # отдельный машинный суффикс, они не вытесняют и не режут вопрос.
+        body = stripped
         if markers:
             suffix = " ".join(markers)
-            room = max(0, cap - len(suffix) - 1)
-            if room:
-                if len(stripped) > room:
-                    # ASAP3 §2: вопрос пользователя длиннее cap — потеря не
-                    # молчит (R17: только числа, текст сообщения не логируем).
-                    logger.warning(
-                        "direct: current question truncated | chat=%s | "
-                        "chars=%d -> %d | cap=%d",
-                        getattr(message, "chat_id", None), len(stripped),
-                        room, cap)
-                body = stripped[:room] + (" " + suffix if stripped else suffix)
-            else:
-                # ASAP3 §2 (#11): маркеры заняли весь cap — текст вопроса не
-                # входит вовсе; потеря не молчит (R17: только числа).
-                logger.warning(
-                    "direct: current question dropped | chat=%s | chars=%d | "
-                    "cap=%d | markers=%d",
-                    getattr(message, "chat_id", None), len(stripped), cap,
-                    len(markers))
-                body = suffix
-        else:
-            if len(stripped) > cap:
-                logger.warning(
-                    "direct: current question truncated | chat=%s | "
-                    "chars=%d -> %d | cap=%d",
-                    getattr(message, "chat_id", None), len(stripped), cap, cap)
-            body = stripped[:cap]
+            body = f"{stripped} {suffix}".strip() if stripped else suffix
         return (f"<Current_Question>\n"
                 f"{escape_xml_text(body)}\n"
                 f"</Current_Question>")

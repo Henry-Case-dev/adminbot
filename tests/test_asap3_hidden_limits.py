@@ -123,8 +123,8 @@ async def test_expression_examples_partial_drop_logs_counts_not_text(
     assert "оооо" not in caplog.text and "ииии" not in caplog.text
 
 
-def test_current_question_truncation_is_logged(caplog, monkeypatch):
-    """Обрезка текущего вопроса (cap 800) не молчит: WARN с числами."""
+def test_current_question_not_truncated_by_artificial_cap(caplog, monkeypatch):
+    """SXR-C2-01: даже настроенный «срез» не режет вопрос — полный текст."""
     import types
 
     from services import direct_chat_service as dcs
@@ -140,9 +140,9 @@ def test_current_question_truncation_is_logged(caplog, monkeypatch):
     with caplog.at_level(logging.WARNING, logger="services.direct_chat_service"):
         block = svc._render_current_question(message)
 
-    assert "truncated" in caplog.text and "chars=120 -> 40" in caplog.text
-    assert "я" * 40 in block and "я" * 41 not in block
-    # R17: текста сообщения в логе нет
+    assert "я" * 120 in block
+    assert "truncated" not in caplog.text
+    # R17: текст сообщения в логе не появляется в любом случае
     assert "я" * 41 not in caplog.text
 
 
@@ -391,8 +391,8 @@ async def test_expression_resolver_counts_approved_rows_before_item_cap(
     assert refs[0].text.dropped == 16
 
 
-def test_current_question_dropped_when_markers_fill_cap(caplog, monkeypatch):
-    """#11: маркеры заняли весь cap → текст не вошёл, но это видно."""
+def test_current_question_and_markers_both_survive(caplog, monkeypatch):
+    """SXR-C2-01: маркеры больше не вытесняют вопрос даже при старом cap."""
     import types
 
     from services import direct_chat_service as dcs
@@ -410,10 +410,9 @@ def test_current_question_dropped_when_markers_fill_cap(caplog, monkeypatch):
         block = svc._render_current_question(message,
                                              extra_markers=["м" * 50])
 
-    assert "current question dropped" in caplog.text
-    assert "chars=30" in caplog.text and "markers=1" in caplog.text
-    assert "м" * 50 in block          # маркер выжил
-    assert "я" * 30 not in block      # текст не влез
+    assert "current question dropped" not in caplog.text
+    assert "м" * 50 in block          # маркер на месте
+    assert "я" * 30 in block          # полный текст вопроса тоже
     assert "яяяя" not in caplog.text  # R17: текста сообщения в логе нет
 
 
