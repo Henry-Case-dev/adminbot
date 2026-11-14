@@ -9,8 +9,11 @@
 - Базовая линия: `release/2.58.200` @ `13884daa32e5cf2a1c05c5c43188ca299f8179f8`
   (код = deployed `0e4a144db476a1535ae3a2b79a7cce30354ad866`).
 - Ветка среза: `sc/corrective-s3`.
-- Code candidate commit: `0577019b651fcd7eb226003810445d5a6c9fdfea`
-  (production-код + тесты; evidence-запись — отдельный коммит после него).
+- Code candidate commits:
+  - `0577019b651fcd7eb226003810445d5a6c9fdfea` — budget propagation + tests;
+  - `163b8ddd567ec60ea8cb3274a37b10e9297bddd7` — authorized scope expansion:
+    `cursor` в схеме `read_source_code` + 2 durable теста.
+  Финальное состояние production-кода = `163b8ddd`.
 - Worktree:
   `C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\smart-corrective-01-0097aecc4a7a-8d0575b5`
   (managed `WorkspaceData/worktrees`, registered как `s3-budget`).
@@ -24,24 +27,39 @@
 `continuation`) требует реального кода S1/S2, иначе проводка континуации была
 бы мёртвой и недоказуемой. Diff среза:
 
-- `git diff sc/corrective-s1s2...sc/corrective-s3` — только S3 (3 файла);
+- `git diff sc/corrective-s1s2...sc/corrective-s3` — только S3 (4 файла:
+  `tool_router.py`, `tool_schemas.py`, два тест-файла + evidence);
 - `git diff release/2.58.200...sc/corrective-s3` — S1/S2 (`source_reader.py` +
   их тесты/evidence) и S3. Отдельного master-мусора нет.
 
 ## Изменённые файлы
 
-Production (единственный файл):
+Production:
 
 - `services/tool_router.py` — `_budget_policy()`, передача `chat_id`/
   `budget_enforced`/`cursor` в `reader.run()`, reuse-контракт, наблюдаемость.
+- `services/tool_schemas.py` — разрешённое расширение write-scope:
+  опциональное строковое свойство `cursor` для `read_source_code` (тот же
+  паттерн, что у `get_recent_history`/`inspect_runtime`); `required` остаётся
+  `["operation"]`, `additionalProperties` — `false`, свежий запрос не меняется.
 
 Тесты:
 
-- `tests/test_smart_corrective_budget_policy.py` (new, 17 tests).
+- `tests/test_smart_corrective_budget_policy.py` (new, 19 tests: 17 S3-BUDGET +
+  2 schema/continuation контракта).
 - `tests/test_tool_router.py` (+3 durable regressions: `_RecordingSourceReader`
   + `TestReadSourceCodeBudgetPropagation`).
 
 Документ: этот файл.
+
+### Расширение write-scope (согласовано)
+
+`services/tool_schemas.py` не принадлежал ни одному срезу графа: Router
+принимал и передавал opaque cursor, но модель не могла его передать через
+объявленный tool-контракт (строгий провайдер с `additionalProperties=false`).
+Расширение выдано отдельным указанием; изменение ровно одно — свойство
+`cursor` в схеме. **PM должен отразить `services/tool_schemas.py` в
+write-scope S3-BUDGET (`slice-graph.json`) и в карте.**
 
 `services/worker_budget.py` **не изменялся**: фоновый контур уже резолвит
 политику через тот же мастер-флаг для своего scope
@@ -63,6 +81,9 @@ Production (единственный файл):
    читается для `None`, глобальный слой).
 3. `ToolRouter._read_source_code()` (`services/tool_router.py:3385-3634`):
    - политика читается ОДИН раз (`:3480`), cursor — как есть (`:3482`);
+   - cursor объявлен модель-видимым аргументом в
+     `services/tool_schemas.py:963-973` (опционально, как у
+     `get_recent_history`/`inspect_runtime`);
    - reuse не применяется к продолжению (`:3491-3492`, «already delivered
      page» не отдаётся повторно);
    - `reader.run(..., chat_id=chat_id, budget_enforced=bool(...), cursor=cursor)`
@@ -90,9 +111,10 @@ Production (единственный файл):
 
 ## RED → GREEN
 
-RED (те же 17 тестов на pre-fix `tool_router.py`:
+RED (те же S3-тесты на pre-fix `tool_router.py`; замер сделан на
+17-тестовой ревизии файла — до согласованного schema-расширения):
 `git checkout sc/corrective-s1s2 -- services/tool_router.py`, затем восстановление
-`git checkout HEAD -- services/tool_router.py`):
+`git checkout HEAD -- services/tool_router.py`
 
 ```
 py -3 -m pytest tests/test_smart_corrective_budget_policy.py -q
@@ -112,11 +134,11 @@ env-потолки применяются к чату с OFF. Оставшиес
 зависят от проводки (bounded failure, fuse, safety-guard, связанные контуры,
 пустые слои → factory ON).
 
-GREEN (кандидат `0577019b`):
+GREEN (кандидат `0577019b` → финальный `163b8ddd`):
 
 ```
 py -3 -m pytest tests/test_smart_corrective_budget_policy.py -q
-=> 17 passed
+=> 19 passed
 py -3 -m pytest tests/test_tool_router.py -q
 => 49 passed
 py -3 -m pytest tests/test_tool_router.py \
@@ -128,15 +150,23 @@ py -3 -m pytest tests/test_tool_router.py \
   tests/test_checkup_service.py tests/test_checkup_contract.py \
   tests/test_selfdiag_corrective_research.py tests/test_smart_exec_selfdiag.py \
   tests/test_smart_exec_evidence.py tests/test_diagnostic_policy.py \
-  tests/test_prompt_readback.py -q
-=> 678 passed, 3 warnings
+  tests/test_prompt_readback.py tests/test_tool_schemas.py \
+  tests/test_mca19_block_g_round1043.py tests/test_mca20_integration_round1045.py -q
+=> 741 passed, 3 warnings
+py -3 -m pytest tests/test_tool_schemas.py tests/test_evol_source_reader.py \
+  tests/test_mca19_block_g_round1043.py tests/test_mca20_integration_round1045.py \
+  tests/test_smart_corrective_source_reader.py tests/test_smart_c1_source_reader_limits.py -q
+=> 194 passed
 py -3 -m pytest tests/test_factcheck_service.py \
   tests/test_factcheck_tools_round1020.py tests/test_factcheck_tool_route_cfg06.py \
   tests/test_mca11_tool_result_round1028.py tests/test_mca11_chain_stages_round1028.py -q
-=> 102 passed, 2 warnings
-py -3 -m py_compile services/tool_router.py
+=> 102 passed
+py -3 -m py_compile services/tool_router.py services/tool_schemas.py
 => OK
 ```
+
+Известные предсуществующие падения `tests/test_tool_coordinator_round1026.py`
+(2) остаются ровно теми же и после schema-правки — новых нет.
 
 Предупреждения pytest — известный `Unknown config option: timeout` (плагин
 timeout не установлен); на результат не влияют.
@@ -159,6 +189,8 @@ spy снимает `_RunState.budget_enforced`/`limit_files/depth/requests` ре
 | fallback | `test_local_to_remote_fallback_keeps_policy` (OFF/ON) | политика сохранена на fallback |
 | reuse | `test_repeated_call_reuses_same_policy_and_identity` | 0 сети, identity/continuation сохранены |
 | continuation | `test_cursor_is_forwarded_and_bypasses_reuse` | cursor до Reader, reuse не затеняет |
+| schema (model-visible) | `test_schema_declares_optional_cursor` | `cursor` объявлен, `required=[operation]`, `additionalProperties=false` |
+| continuation → schema | `test_continuation_next_arguments_are_declared_and_continue` | ключи `next_arguments` ⊆ properties и реально продолжают поиск; свежий запрос = первая страница |
 | OFF vs env-квоты | `test_chat_off_ignores_operator_caps_through_router` | 10 файлов, limits 0 при env 1/1/1 |
 | ON vs env-квоты | `test_on_applies_configured_caps` | limits 1/1/1, <10 файлов |
 | безопасность | `test_off_keeps_security_guard` | denied-путь = permission_denied |
@@ -189,7 +221,7 @@ Durable regressions исходного дефекта (`tests/test_tool_router.p
 | `SC-BUD-SAFETY` | REVIEW | `test_off_keeps_security_guard` (пути/deny) + неизменённые физические пределы S2 (`SOURCE_READ_MAX_FILE_BYTES`, `applied_limits`, `test_smart_c1_source_reader_limits.py`). |
 | `SC-BUD-GUARD` | REVIEW | `test_off_does_not_mean_infinite_execution`: `resolve_chain_limits(budgets_enabled=True)` без явной политики → `max_* = 0` (нет скрытых потолков), fuse проверяется до `limits_on`. |
 | `SC-BUD-PROGRESS` | REVIEW (частично S4) | S3 доказывает: при OFF общий счётчик не останавливает исследование (10 вызовов при env total=1). Решение «продолжать по прогрессу» — семантика S4 (`tool_loop`/`CheckupService`). |
-| `SC-BUD-PARTIAL` | REVIEW (частично S4) | `test_cursor_is_forwarded_and_bypasses_reuse`: `outcome=partial`, cursor, стабильный `progress_id`, повтор не отдаёт прочитанное; честный partial-отчёт чекапа — S4. |
+| `SC-BUD-PARTIAL` | REVIEW (частично S4) | `test_cursor_is_forwarded_and_bypasses_reuse`: `outcome=partial`, cursor, стабильный `progress_id`, повтор не отдаёт прочитанное; `test_continuation_next_arguments_are_declared_and_continue`: континуация исполнима через объявленную схему. Честный partial-отчёт чекапа — S4. |
 
 ## Effective configuration (evidence)
 
@@ -212,16 +244,16 @@ Durable regressions исходного дефекта (`tests/test_tool_router.p
 
 ## Известные ограничения и межсрезовые вопросы
 
-1. **`services/tool_schemas.py` не объявляет `cursor`** для
-   `read_source_code` (файл вне write-scope S3 и не принадлежит ни одному
-   срезу графа). Router теперь принимает и передаёт `cursor`, но модель видит
-   его только в `continuation.next_arguments.cursor`; для строгих провайдеров
-   (`additionalProperties: false`) свойство нужно объявить. Требуется
-   согласование Orchestrator/Architect; минимальная добавка:
-   `"cursor": {"type": "string", "description": "Opaque continuation token
-   from a previous result's continuation.cursor; pass it back unchanged with
-   the same repo/ref/query/symbol."}`. Без этого проводка работает, но
-   discoverability континуации неполная.
+1. **`cursor` в схеме — реализовано по согласованному расширению.**
+   `services/tool_schemas.py` не принадлежал ни одному срезу графа; Router
+   принимает и передаёт `cursor`, но строгий провайдер
+   (`additionalProperties: false`) не давал модели передать необъявленный
+   аргумент. Добавлено опциональное свойство `cursor` (описание ссылается на
+   `continuation.next_arguments.cursor`), `required` и `additionalProperties`
+   не менялись; покрыто двумя durable-тестами, включая
+   `next_arguments ⊆ properties`. **PM должен занести
+   `services/tool_schemas.py` в write-scope S3-BUDGET (`slice-graph.json`) и
+   в карту требований.**
 2. **S4 owns completion semantics**: progress-based продолжение, чекап-partial
    и различение причин ограничений. S3 даёт политику, OFF/ON-семантику и
    identity/continuation в tool-result.
@@ -249,4 +281,7 @@ Durable regressions исходного дефекта (`tests/test_tool_router.p
 - Создан и зарегистрирован один worktree `s3-budget` (оставлен для review).
 - Disposable probe-аллокаций (`WorkspaceData/runs/`) не создавалось: тесты и
   компиляция выполнялись в worktree, артефактов вне репозитория нет.
+  Один временный файл commit-message (`kind=temp`) закрыт сразу после коммита
+  (`run-close ... --confirmed-idle --confirmed-evidence --apply`,
+  `removed=1; retained=0`).
 - Временных копий репозитория/зависимостей не создавалось.
