@@ -81,7 +81,7 @@ person overview tool: _memory_lookup_biography/_general
 | `direct_chat_service.py:5452–5454` | тот же `RetrievalResult` передаётся в `_build_evidence_bundle(retrieval_result=…)` |
 | `direct_chat_service.py:5931` (после `_apply_plan_memory_scope`) | пересборка под политикой плана (historical) обновляет слоты ТОГО ЖЕ bundle |
 | `direct_chat_service.py:11607,11865` (`_build_evidence_bundle`) | `apply_overview_to_bundle(bundle, retrieval_result.overview)` — один bundle, `context_version`/`schema_version` не меняются |
-| `direct_chat_service.py:14700` (`_apply_plan_memory_scope_locked`) | `historical` — overview запрашивается при пересборке блока; двойник без поля → прежняя форма (compat) |
+| `direct_chat_service.py:14757-14790` (`_apply_plan_memory_scope_locked`) | `historical` — overview запрашивается при пересборке блока; двойник без поля → прежняя форма (compat) |
 | `tool_router.py:4197–4271` (`_memory_lookup_unified`) | `include_overview` в существующий `RetrievalRequest` (default False — прочие purpose байт-паритетны) |
 | `tool_router.py:4131–4154` (`_memory_lookup_biography`) | overview того же вызова добавляется в envelope (в т.ч. `no_data`-вариант — честные limitations) |
 | `tool_router.py:4382–4401` (`_memory_lookup_general`) | то же для общего обзора |
