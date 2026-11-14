@@ -7,6 +7,10 @@
   multicast/unspecified/broadcast), IPv4-mapped IPv6 и metadata-эндпоинты;
 * проверка **каждого** redirect + **фактического** адреса подключения
   (anti-rebinding через ``network_stream.get_extra_info("server_addr")``);
+* pinning соединения: TCP идёт на адрес из набора, разрешённого **для этой же
+  попытки** (URL запроса → IP, исходное имя → ``Host``/``sni_hostname``), поэтому
+  DNS-ротация между resolve и connect не даёт «невалидированный» peer, а
+  повторного разрешения имени транспортом не происходит;
 * потоковые лимиты переданных **и** распакованных байтов, timeout, параллелизм;
 * отдельный видео-профиль загрузки на диск (HTML-лимит к видео не применяется);
 * ошибки ``SafeFetchError(code, stage, reason, retryable)`` + R17-маскирование;
@@ -26,6 +30,7 @@ import logging
 import os
 import re
 import socket
+import ssl
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable
@@ -62,6 +67,8 @@ _DEFAULT_HTML_TIMEOUT = 10.0
 _DEFAULT_VIDEO_TIMEOUT = 240.0
 _DEFAULT_MAX_REDIRECTS = 5
 _READ_CHUNK = 65_536
+#: Потолок адресов одной попытки для pinning (обычно 1–4 A/AAAA-записи).
+_MAX_PIN_CANDIDATES = 8
 
 _USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -326,6 +333,23 @@ def _first_blocked(ips: Iterable[str]) -> str | None:
     return None
 
 
+#: errno `getaddrinfo`, при которых ответ DNS временный (retryable).
+_TRANSIENT_DNS_ERRNOS = tuple(
+    code for code in (getattr(socket, "EAI_AGAIN", None),
+                      getattr(socket, "EAI_SYSTEM", None))
+    if code is not None)
+
+
+def _dns_error_retryable(exc: BaseException) -> bool:
+    """Временный DNS-отказ (EAI_AGAIN/system) — retryable; NXDOMAIN — нет.
+
+    Честная классификация нужна вызывающему tool-loop: временный сбой резолва
+    не должен выглядеть постоянным запретом назначения."""
+    if isinstance(exc, socket.gaierror):
+        return getattr(exc, "errno", None) in _TRANSIENT_DNS_ERRNOS
+    return True
+
+
 @dataclass
 class GuardedTarget:
     """Результат pre-flight проверки: нормализованный URL + валидные IP."""
@@ -376,11 +400,12 @@ def guarded_target(url: Any, *, trusted: bool = False,
             resolved = tuple(_resolve_ip(host))
         except (socket.gaierror, UnicodeError, OSError) as exc:
             raise SafeFetchError("resolve_failed", "resolve",
-                                 f"dns resolution failed ({type(exc).__name__})"
-                                 ) from exc
+                                 f"dns resolution failed ({type(exc).__name__})",
+                                 retryable=_dns_error_retryable(exc)) from exc
         if not resolved:
             raise SafeFetchError("resolve_failed", "resolve",
-                                 "dns resolution returned no addresses")
+                                 "dns resolution returned no addresses",
+                                 retryable=True)
         reason = _first_blocked(resolved)
         if reason == "metadata_endpoint":
             raise SafeFetchError("metadata_endpoint_blocked", "resolve",
@@ -463,7 +488,9 @@ def peer_allowed(response: httpx.Response, validated: Iterable[str]
                  ) -> tuple[bool, str]:
     """Сверить фактический peer-адрес с валидированным набором.
 
-    Возвращает ``(ok, status)``; ``status ∈ {ok, mismatch, unverifiable}``."""
+    Возвращает ``(ok, status)``; ``status ∈ {ok, mismatch, unverifiable}``.
+    Сравнение — по канонической форме IP (сжатый IPv6 не даёт ложный
+    mismatch между ``getaddrinfo`` и ``server_addr``)."""
     stream = (getattr(response, "extensions", None) or {}).get("network_stream")
     if stream is None:
         return True, "unverifiable"
@@ -473,8 +500,115 @@ def peer_allowed(response: httpx.Response, validated: Iterable[str]
         return True, "unverifiable"
     if not addr:
         return True, "unverifiable"
-    ip = str(addr[0])
-    return (ip in set(validated)), "ok" if ip in set(validated) else "mismatch"
+    ip = _canonical_ip(addr[0])
+    allowed = {_canonical_ip(item) for item in validated}
+    return (ip in allowed), "ok" if ip in allowed else "mismatch"
+
+
+def _canonical_ip(value: Any) -> str:
+    """Каноническая строка IP (не-IP значение — как есть)."""
+    try:
+        return str(ipaddress.ip_address(str(value).strip("[]")))
+    except ValueError:
+        return str(value)
+
+
+# ── pinning соединения к валидированному адресу (anti-rebinding) ─────────────
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(str(host or "").strip("[]"))
+    except ValueError:
+        return False
+    return True
+
+
+def _default_scheme_port(scheme: str) -> int:
+    return 80 if scheme == "http" else 443
+
+
+def _host_header(host: str, port: int, scheme: str) -> str:
+    """Значение ``Host`` для соединения по IP: исходное имя (+нестандартный порт)."""
+    host_text = f"[{host}]" if ":" in host else host
+    return (host_text if port == _default_scheme_port(scheme)
+            else f"{host_text}:{port}")
+
+
+def _pinned_url(target: "GuardedTarget", ip: str) -> str:
+    """URL запроса с адресом подключения = валидированный IP.
+
+    Имя хоста остаётся в ``Host`` и ``sni_hostname``, поэтому vhost и проверка
+    TLS-сертификата не меняются; меняется только адрес TCP-соединения."""
+    host_text = f"[{ip}]" if ":" in ip else ip
+    netloc = (host_text if target.port == _default_scheme_port(target.scheme)
+              else f"{host_text}:{target.port}")
+    parts = urlsplit(target.url)
+    return urlunsplit((target.scheme, netloc, parts.path, parts.query, ""))
+
+
+def _pin_candidates(target: "GuardedTarget") -> tuple[str, ...]:
+    """Адреса, к которым разрешено подключаться в этой попытке.
+
+    Только адреса из набора, который ``guarded_target`` уже проверил SSRF-
+    политикой. IP-литерал в URL не требует pinning (там уже нет DNS)."""
+    if _is_ip_literal(target.host):
+        return ()
+    out: list[str] = []
+    for ip in target.resolved:
+        if not _is_ip_literal(ip):
+            continue
+        canonical = _canonical_ip(ip)
+        if canonical not in out:
+            out.append(canonical)
+    return tuple(out)[:_MAX_PIN_CANDIDATES]
+
+
+def _proxy_active_for(scheme: str) -> bool:
+    """Задан ли env-прокси для схемы (httpx ``trust_env``).
+
+    При прокси peer — адрес прокси, а не назначения: pinning по IP сломал бы
+    TLS-проверку туннеля, поэтому остаётся прежний путь (URL с именем + peer-
+    проверка). В production прокси не задан (recon: ``PROXY_ENV`` пусто)."""
+    for key in ("all_proxy", f"{scheme}_proxy"):
+        for name in (key, key.upper()):
+            if str(os.environ.get(name, "") or "").strip():
+                return True
+    return False
+
+
+def _body_replayable(content: Any, json_body: Any) -> bool:
+    """Можно ли повторить тело запроса на другой адрес той же попытки."""
+    if json_body is not None:
+        return True
+    return content is None or isinstance(
+        content, (bytes, bytearray, memoryview, str))
+
+
+def _is_tls_failure(exc: BaseException) -> bool:
+    """TLS-рукопожатие/сертификат в цепочке причин transport-ошибки.
+
+    Отдельная классификация нужна, чтобы (а) не повторять заведомо невалидное
+    TLS-соединение на следующих адресах, (б) не маскировать нарушение
+    сертификата ни под retryable transport-сбой, ни под запрет назначения
+    (``destination_blocked``). Проверка TLS при этом не ослабляется."""
+    cur: BaseException | None = exc
+    for _ in range(8):
+        if cur is None:
+            return False
+        if isinstance(cur, ssl.SSLError):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
+def _connect_failure(exc: BaseException, reason: str, *,
+                     retryable: bool) -> SafeFetchError:
+    """Transport-ошибка подключения → ``SafeFetchError`` с верной retryable."""
+    if _is_tls_failure(exc):
+        return SafeFetchError("client_error", "connect",
+                              "tls handshake failed", retryable=False)
+    return SafeFetchError("client_error", "connect", reason,
+                          retryable=retryable)
 
 
 # ── SafeFetcher (D1/D5/D6/D7) ────────────────────────────────────────────────
@@ -526,28 +660,13 @@ class SafeFetcher:
         base_headers = {"User-Agent": _USER_AGENT, "Accept-Encoding": "identity"}
         if headers:
             base_headers.update(headers)
-        current = url
+        # Резолв/валидация — ровно один раз на хоп; та же самая попытка затем
+        # используется для pinning соединения (без повторного resolve).
+        target = await aguarded_target(url, trusted=trusted)
         for _ in range(_DEFAULT_MAX_REDIRECTS + 1):
-            try:
-                target = await aguarded_target(current, trusted=trusted)
-            except SafeFetchError:
-                raise
-            request = http.build_request(
-                method, target.url, headers=base_headers, json=json_body,
-                content=content, timeout=profile.timeout)
-            # B-MCA02-1/ADR-1027-5 D5: per-request профильный timeout
-            # (connect/read/write/pool). httpx 0.28 `send` не принимает
-            # `timeout=`, поэтому значение задаётся на `build_request`;
-            # иначе клиент с `timeout=None` не ограничивал бы запрос вообще.
-            try:
-                response = await http.send(
-                    request, stream=True, follow_redirects=False)
-            except httpx.TimeoutException:
-                raise
-            except httpx.HTTPError as exc:
-                raise SafeFetchError("client_error", "connect",
-                                     f"transport error ({type(exc).__name__})",
-                                     retryable=True) from exc
+            response = await self._send(
+                http, target, profile=profile, method=method,
+                headers=base_headers, json_body=json_body, content=content)
             ok, status = peer_allowed(response, target.resolved)
             if not ok:
                 await response.aclose()
@@ -561,9 +680,9 @@ class SafeFetcher:
                     and response.headers.get("location")):
                 location = response.headers["location"]
                 await response.aclose()
-                current = urljoin(target.url, location)
+                next_url = urljoin(target.url, location)
                 try:
-                    await aguarded_target(current, trusted=trusted)
+                    target = await aguarded_target(next_url, trusted=trusted)
                 except SafeFetchError as exc:
                     code = ("redirect_blocked"
                             if exc.code in ("destination_blocked",
@@ -575,6 +694,87 @@ class SafeFetcher:
             return response, target.url
         raise SafeFetchError("too_many_redirects", "redirect",
                              f"more than {_DEFAULT_MAX_REDIRECTS} redirects")
+
+    async def _send(self, http: httpx.AsyncClient, target: GuardedTarget, *,
+                    profile: Profile, method: str, headers: dict,
+                    json_body: Any, content: Any) -> httpx.Response:
+        """Отправить запрос, подключившись к валидированному адресу (pinning).
+
+        Причина отказа 2.58.199: DNS-ответ для одного хоста ротируется, и
+        снимок ``guarded_target`` не обязан совпадать с адресом, который выберет
+        транспорт при connect. Здесь адрес подключения берётся из набора,
+        проверенного SSRF-политикой **для этой же попытки**: URL запроса
+        указывает на конкретный IP, а исходное имя уходит в ``Host`` и
+        ``sni_hostname``. Повторного разрешения имени транспортом нет, поэтому
+        peer не может измениться после валидации; peer вне набора по-прежнему
+        блокируется в ``_request``."""
+        pins = _pin_candidates(target)
+        if not pins or _proxy_active_for(target.scheme):
+            try:
+                return await self._send_once(
+                    http, target, target.url, headers, profile=profile,
+                    method=method, json_body=json_body, content=content,
+                    sni=None)
+            except httpx.ConnectError as exc:
+                raise _connect_failure(exc, "connect failed",
+                                       retryable=True) from exc
+        replayable = _body_replayable(content, json_body)
+        last_error: Exception | None = None
+        for index, ip in enumerate(pins):
+            try:
+                return await self._send_once(
+                    http, target, _pinned_url(target, ip), headers,
+                    profile=profile, method=method, json_body=json_body,
+                    content=content, sni=target.host)
+            except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+                if _is_tls_failure(exc):
+                    # Невалидный сертификат не «лечится» другим адресом: сразу
+                    # честный не-retryable отказ вместо обхода проверки.
+                    raise _connect_failure(exc, "connect failed",
+                                           retryable=True) from exc
+                last_error = exc
+                if not replayable or index + 1 >= len(pins):
+                    break
+                logger.info("[safe_fetch] pinned connect failed | host=%s | "
+                            "next validated address", target.host)
+        if isinstance(last_error, httpx.TimeoutException):
+            raise SafeFetchError("safe_fetch_timeout", "connect",
+                                 "connect timeout", retryable=True
+                                 ) from last_error
+        raise SafeFetchError(
+            "client_error", "connect",
+            f"connect failed ({type(last_error).__name__})",
+            retryable=True) from last_error
+
+    async def _send_once(self, http: httpx.AsyncClient, target: GuardedTarget,
+                         url: str, headers: dict, *, profile: Profile,
+                         method: str, json_body: Any, content: Any,
+                         sni: str | None) -> httpx.Response:
+        send_headers = dict(headers)
+        if url != target.url:
+            # Соединение идёт по IP: vhost/HTTP требуют исходное имя.
+            send_headers["Host"] = _host_header(target.host, target.port,
+                                                target.scheme)
+        extensions = ({"sni_hostname": sni}
+                      if sni and target.scheme == "https" else None)
+        request = http.build_request(
+            method, url, headers=send_headers, json=json_body,
+            content=content, timeout=profile.timeout, extensions=extensions)
+        # B-MCA02-1/ADR-1027-5 D5: per-request профильный timeout
+        # (connect/read/write/pool). httpx 0.28 `send` не принимает
+        # `timeout=`, поэтому значение задаётся на `build_request`;
+        # иначе клиент с `timeout=None` не ограничивал бы запрос вообще.
+        try:
+            return await http.send(
+                request, stream=True, follow_redirects=False)
+        except (httpx.TimeoutException, httpx.ConnectError):
+            # Классифицирует вызывающий: pinned-цикл пробует следующий адрес,
+            # обычный путь отдаёт таймаут/connect-ошибку наверх.
+            raise
+        except httpx.HTTPError as exc:
+            raise SafeFetchError("client_error", "connect",
+                                 f"transport error ({type(exc).__name__})",
+                                 retryable=True) from exc
 
     async def fetch(self, url: str, *, profile: str = "html",
                     method: str = "GET", headers: dict | None = None,
