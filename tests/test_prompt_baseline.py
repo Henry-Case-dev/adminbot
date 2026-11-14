@@ -13,7 +13,9 @@ owner-базовая — разные сущности), §7.3 п.4–6 (что 
   3. «Снять назначение» пишет ``baseline_clear`` и НЕ меняет активный текст;
   4. закреплённый scope: новая заводская метка → ревизия в историю, значение
      не пишется (байтовое сравнение), следующий рестарт — истинный no-op без
-     ``activation_drift``; незакреплённый — прежняя релизная политика;
+     ``activation_drift``; незакреплённый — прежняя релизная политика (кроме
+     chat scope с сохранённой ручной ревизией: её защищает guard
+     SMART-CORRECTIVE-01 §8.1/AC-19);
   5. чатовый baseline действует ТОЛЬКО в своём чате; снятие override
      наследует global effective, а не чатовый baseline;
   6. чужой/retired/несовместимый revision — отказ, ни одного изменения;
@@ -362,16 +364,26 @@ async def test_pinned_chat_scope_keeps_override(edition, store):
 
 
 @pytest.mark.asyncio
-async def test_unpinned_chat_scope_keeps_previous_policy(edition, store):
-    """Незакреплённый чат: новая метка снимает override (прежняя политика)."""
+async def test_unpinned_chat_scope_without_saved_edition_keeps_previous_policy(
+        edition, store):
+    """Незакреплённый чат без сохранённой редакции: новая метка снимает override.
+
+    Override без ручной ревизии — прежняя релизная политика (как EVOL-016).
+    Сохранённую ручную редакцию чата новая метка уже не снимает
+    (SMART-CORRECTIVE-01 §8.1/AC-19, guard в `_apply_scope_release`).
+    """
     cache = FakeCache({PG_KEY: FACTORY_A})
     await _cutover(cache, store)
-    await _chat_text(store, cache, CHAT_A, CHAT_A_TEXT)
+    store.chat_overrides[CHAT_A] = {PG_KEY: CHAT_A_TEXT}
 
     edition.set_edition(BLOCK, "narrator-b", FACTORY_B)
     await _cutover(cache, store, release_id="deploy-b")
 
     assert PG_KEY not in store.chat_overrides.get(CHAT_A, {})
+    # Байты снятого override сохранены в истории.
+    assert pr.sha12(CHAT_A_TEXT) in {r.content_sha12
+                                     for r in store.revisions.values()
+                                     if r.scope == "chat"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -384,7 +396,8 @@ async def test_chat_baseline_is_isolated_between_two_chats(edition, store):
     cache = FakeCache({PG_KEY: FACTORY_A})
     await _cutover(cache, store)
     rev_a = await _chat_text(store, cache, CHAT_A, CHAT_A_TEXT)
-    await _chat_text(store, cache, CHAT_B, CHAT_B_TEXT)
+    # У чата B — override без сохранённой ручной ревизии (обычная политика).
+    store.chat_overrides[CHAT_B] = {PG_KEY: CHAT_B_TEXT}
     await prp.assign_baseline(BLOCK, rev_a.revision_id, scope="chat",
                               chat_id=CHAT_A, actor="owner", cache=cache,
                               store=store)

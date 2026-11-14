@@ -194,6 +194,17 @@ WHERE block_id = $1 AND scope = $2 AND (chat_id = $3
   AND kind = 'legacy_import'
   AND detail_code IN ('legacy_snapshot', 'legacy_empty') LIMIT 1
 """
+#: Сохранённая (не retired) ручная ревизия адресата — признак того, что у
+#: scope есть живая владельческая редакция, даже без ``baseline_assign``
+#: (SMART-CORRECTIVE-01 §8.1/AC-19). Читается в транзакции релиза.
+_LIVE_MANUAL_REVISION_SQL = """
+SELECT revision_id, content_sha12, created_at FROM prompt_revisions
+WHERE block_id = $1 AND scope = $2
+  AND (chat_id = $3 OR (chat_id IS NULL AND $3 IS NULL))
+  AND origin = 'manual' AND retired = false
+ORDER BY COALESCE(created_at, 'epoch'::timestamptz) DESC, revision_id DESC
+LIMIT 1
+"""
 _GET_REVISION_SQL = (
     "SELECT revision_id, block_id, pg_key, scope, chat_id, origin, "
     "content_sha12, body, factory_revision, schema_compat, release_id, "
@@ -662,6 +673,9 @@ def history_reason_text(status: str, *, schema_compat: str = "",
     if detail_code in ("factory_superseded_pinned",):
         return ("Закреплённый владельцем промпт: новая заводская версия "
                 "записана в историю, действующий текст сохранён.")
+    if detail_code in ("factory_superseded_manual",):
+        return ("Сохранённая редакция чата: новая заводская версия записана "
+                "в историю, действующий текст чата сохранён.")
     if detail_code in ("factory_same", "restart_same_revision"):
         return "Текст совпал с действующим: применять нечего."
     if detail_code in ("legacy_snapshot", "legacy_empty"):
@@ -1264,6 +1278,26 @@ class MemoryPromptJournal:
         row = self.revisions.get(revision_id)
         return RevisionRow(**vars(row)) if row is not None else None
 
+    async def read_live_manual_revision(self, block_id: str, scope: str,
+                                        chat_id: int | None
+                                        ) -> RevisionRow | None:
+        """Последняя сохранённая (retired=false) ручная ревизия адресата.
+
+        Возвращается без тела: вызывающему нужен факт владельческой редакции
+        и её идентичность, а не байты (``list_revisions`` ведёт себя так же).
+        """
+        found = None
+        for row in self.revisions.values():
+            if (row.block_id == block_id and row.origin == "manual"
+                    and not row.retired
+                    and _scope_key(row.scope, row.chat_id)
+                    == _scope_key(scope, chat_id)):
+                if found is None or (
+                        _norm_ts(row.created_at), row.revision_id) > (
+                        _norm_ts(found.created_at), found.revision_id):
+                    found = row
+        return RevisionRow(**vars(found)) if found is not None else None
+
     async def known_block_ids(self) -> set[str]:
         return {row.block_id for row in self.revisions.values()}
 
@@ -1684,6 +1718,25 @@ class PgPromptJournal:
             source_updated_at=row["source_updated_at"] or "",
             retired=bool(row["retired"]),
             created_at=str(row["created_at"]))
+
+    async def read_live_manual_revision(self, block_id: str, scope: str,
+                                        chat_id: int | None
+                                        ) -> RevisionRow | None:
+        """Последняя сохранённая (retired=false) ручная ревизия адресата.
+
+        Тело не читается (как и в списках): достаточно идентичности и sha.
+        """
+        async def _run(conn):
+            return await conn.fetchrow(_LIVE_MANUAL_REVISION_SQL, block_id,
+                                       scope, chat_id)
+        row = await self._run_on_conn(_run)
+        if row is None:
+            return None
+        return RevisionRow(
+            revision_id=row["revision_id"], block_id=block_id, scope=scope,
+            origin="manual", content_sha12=row["content_sha12"], body="",
+            chat_id=chat_id, retired=False,
+            created_at=str(row["created_at"] or ""))
 
     async def known_block_ids(self) -> set[str]:
         await self.ensure_journal()
@@ -2522,6 +2575,43 @@ async def _apply_scope_release(store, spec, *, scope: str,
                     "scope=%s | chat=%s | baseline=%s", revision.revision_id,
                     spec.block_id, scope, chat_id,
                     baseline_event.revision_id if baseline_event else "")
+        return
+
+    # SMART-CORRECTIVE-01 §8.1 / AC-15 / AC-19: сохранённая владельцем ручная
+    # редакция чата не заменяется новой заводской поставкой, даже если
+    # ``baseline_assign`` не назначался (прежний EVOL-016 признак pin был уже
+    # §8.1). Заводская ревизия пишется в историю — поставка не теряется;
+    # значение и chat-override НЕ трогаются. Явный owner baseline обработан
+    # выше и имеет приоритет.
+    manual_revision = None
+    if scope == "chat" and spec.pg_key and plan.action in (
+            pr.PLAN_ACTIVATE, pr.PLAN_LEGACY_CUTOVER):
+        manual_revision = await store.read_live_manual_revision(
+            spec.block_id, scope, chat_id)
+    if manual_revision is not None:
+        revision = await _insert_revision_once(
+            store, spec, origin="factory", body=factory_body, scope=scope,
+            chat_id=chat_id, factory_revision=plan.code_revision,
+            reason="factory_release", release_id=release_id)
+        active_revision = (state.revision_id
+                           if state is not None and state.revision_id
+                           else manual_revision.revision_id)
+        await store.insert_activation(ActivationRow(
+            block_id=spec.block_id, scope=scope, chat_id=chat_id,
+            revision_id=active_revision,
+            factory_revision_applied=plan.code_revision,
+            kind="deploy_activate", outcome="skipped_same",
+            release_id=release_id, actor="",
+            detail_code="factory_superseded_manual"))
+        results.append(BlockReleaseResult(
+            spec.block_id, scope, chat_id, plan.action, "skipped_same",
+            "factory_superseded_manual", revision_id=active_revision,
+            factory_revision_applied=plan.code_revision))
+        logger.info("[prompt_release] manual scope: заводская ревизия %s "
+                    "записана в историю, сохранённая редакция %s остаётся "
+                    "активной | block=%s | scope=%s | chat=%s",
+                    revision.revision_id, manual_revision.revision_id,
+                    spec.block_id, scope, chat_id)
         return
 
     if plan.action == pr.PLAN_LEGACY_CUTOVER and spec.pg_key:

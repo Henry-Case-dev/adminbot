@@ -20,12 +20,17 @@
   * слой речи остаётся один: Core → Expression → Style Policy, без второй
     Personality Core/Expression и скрытого подавления мата;
   * заводская правка не запускает активацию поверх ручной редакции
-    (метка ревизии не менялась), печать содержимого и fingerprint согласованы.
+    (метка ревизии не менялась), печать содержимого и fingerprint согласованы;
+  * сохранённая per-chat редакция владельца не заменяется новой заводской
+    поставкой даже без явного `baseline_assign` (guard §8.1/AC-19), при этом
+    заводская ревизия остаётся в истории, другой чат получает поставку как
+    обычно, а явный owner baseline сохраняет приоритет.
 
 TEST-LIFECYCLE: CONTRACT owner=smart-corrective-01 §8.2–§8.5 (S6-PROMPT)
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 
 import pytest
@@ -33,7 +38,9 @@ import pytest
 from services import checkup_service as svc_mod
 from services import chat_params
 from services import hot_config as hot
+from services import prompt_factory as pf
 from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services.checkup_prompts import (
     CHECKUP_DIAGNOSTIC_TOOLS_ADDENDUM,
     CHECKUP_FALLBACK_NOTICE,
@@ -41,6 +48,7 @@ from services.checkup_prompts import (
     PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
 )
+from tests.test_evol016_prompt_activation import FactoryEdition, FakeCache
 
 CHAT_ID = 777
 KEY = "prompts.checkup_system_prompt"
@@ -408,3 +416,196 @@ def test_factory_content_fix_does_not_activate_over_owner_edition():
         applied_factory_revision=pr.sealed_factory_revision(block_id),
         has_import=True)
     assert plan.action == pr.PLAN_NOOP
+
+
+# ═══ 8. Сохранённая редакция чата не заменяется заводским cutover ═══════════
+#
+# Owner corrective §8.1 / AC-15 / AC-19 (новее EVOL-012/016): сохранённая
+# владельцем per-chat редакция должна оставаться действующей и не заменяться
+# заводским текстом при исправлении или деплое. Прежний признак «pinned»
+# требовал явного ``baseline_assign``; ручная редакция без назначения
+# перетиралась, а chat-override снимался (production 2.58.201, CHAT_C2).
+# Guard ниже — то, что не даёт этому повториться на следующем релизе.
+
+GUARD_BLOCK = "summary.base.narrator"
+GUARD_KEY = "prompts.summary_narrator_system_prompt"
+GUARD_FACTORY_A = "ЗАВОДСКАЯ A: рассказчик саммари (guard-эталон).\n"
+GUARD_FACTORY_B = ("ЗАВОДСКАЯ B: новая заводская публикация — не должна "
+                   "заменить сохранённую редакцию чата.\n")
+GUARD_CHAT = -1009101
+GUARD_OTHER_CHAT = -1009102
+GUARD_MANUAL = ("СОХРАНЁННАЯ РЕДАКЦИЯ ВЛАДЕЛЬЦА: ручная правка этого чата, "
+                "которая должна остаться действующей.\n")
+
+
+@pytest.fixture()
+def guard_edition(monkeypatch):
+    """Заводская редакция A тестового блока + сброс глобального состояния."""
+    patch = FactoryEdition(monkeypatch)
+    patch.set_edition(GUARD_BLOCK, "narrator-a", GUARD_FACTORY_A)
+    yield patch
+    pr.set_release_policy_active(False)
+    pr.set_retired_blocks(())
+    pf._HISTORY_FROZEN = False
+    pr.reset_cache()
+
+
+@pytest.fixture()
+def guard_store():
+    return prp.MemoryPromptJournal()
+
+
+def _guard_run(cache, store, release_id="evol-016-cutover"):
+    return asyncio.run(prp.apply_release(cache, release_id=release_id,
+                                         store=store, blocks=[GUARD_BLOCK]))
+
+
+def _guard_row(result, chat_id=GUARD_CHAT):
+    for row in result["results"]:
+        if (row.block_id, row.scope, row.chat_id) == (GUARD_BLOCK, "chat",
+                                                      chat_id):
+            return row
+    raise AssertionError("результат релиза для чата не найден")
+
+
+def _manual_chat_revision(store, chat_id=GUARD_CHAT):
+    rows = [r for r in store.revisions.values()
+            if r.block_id == GUARD_BLOCK and r.origin == "manual"
+            and r.scope == "chat" and (r.chat_id or None) == chat_id
+            and not r.retired]
+    assert len(rows) == 1, rows
+    return rows[0]
+
+
+def test_manual_chat_edition_survives_factory_cutover(guard_edition,
+                                                      guard_store):
+    """Ручная редакция чата без baseline_assign блокирует заводской cutover."""
+    cache, store = FakeCache({GUARD_KEY: GUARD_FACTORY_A}), guard_store
+    _guard_run(cache, store)
+    asyncio.run(prp.write_versioned_value(
+        GUARD_BLOCK, GUARD_MANUAL, scope="chat", chat_id=GUARD_CHAT,
+        cache=cache, store=store, actor="owner"))
+    manual = _manual_chat_revision(store)
+    bytes_before = store.revisions[manual.revision_id].body
+    sha_before = manual.content_sha12
+    notified_before = len(store.notified_chats)
+    revisions_before = len(store.revisions)
+
+    guard_edition.set_edition(GUARD_BLOCK, "narrator-guard-b", GUARD_FACTORY_B)
+    release = _guard_run(cache, store, release_id="deploy-guard-b")
+
+    row = _guard_row(release)
+    assert (row.outcome, row.detail_code) == ("skipped_same",
+                                              "factory_superseded_manual")
+    # Действующие байты чата — сохранённая редакция; override не снят.
+    assert store.chat_overrides[GUARD_CHAT][GUARD_KEY] == GUARD_MANUAL
+    # Байты ручной ревизии не изменились и клонов/снимков не появилось.
+    assert store.revisions[manual.revision_id].body == bytes_before
+    assert store.revisions[manual.revision_id].content_sha12 == sha_before
+    assert store.revisions[manual.revision_id].origin == "manual"
+    factory_rows = [r for r in store.revisions.values()
+                    if (r.block_id, r.scope, r.chat_id, r.origin) ==
+                    (GUARD_BLOCK, "chat", GUARD_CHAT, "factory")
+                    and r.content_sha12 == pr.sha12(GUARD_FACTORY_B)]
+    assert len(factory_rows) == 1        # поставка не потеряна — она в истории
+    # Ровно две новые ревизии: заводская B для global и для этого чата.
+    assert len(store.revisions) == revisions_before + 2
+    # Значение чата не менялось — уведомления чату не было.
+    assert len(store.notified_chats) == notified_before
+    # Диагностика записана в журнал активаций.
+    event = store.activations[-1]
+    assert (event.kind, event.outcome, event.detail_code) == (
+        "deploy_activate", "skipped_same", "factory_superseded_manual")
+    # Незакреплённый global получил заводской текст как обычно.
+    assert cache.values[GUARD_KEY] == GUARD_FACTORY_B
+
+    # Рестарт/повторный релиз той же метки — истинный no-op.
+    before = (len(store.activations), len(store.revisions))
+    cache.set_calls.clear()
+    _guard_run(cache, store, release_id="restart-guard")
+    assert (len(store.activations), len(store.revisions)) == before
+    assert cache.set_calls == []
+    assert store.chat_overrides[GUARD_CHAT][GUARD_KEY] == GUARD_MANUAL
+    assert [a for a in store.activations
+            if a.detail_code == "activation_drift"] == []
+
+
+def test_guard_is_isolated_to_the_chat_with_manual_edition(guard_edition,
+                                                           guard_store):
+    """Другой чат без сохранённой редакции получает заводскую как обычно."""
+    cache, store = FakeCache({GUARD_KEY: GUARD_FACTORY_A}), guard_store
+    _guard_run(cache, store)
+    asyncio.run(prp.write_versioned_value(
+        GUARD_BLOCK, GUARD_MANUAL, scope="chat", chat_id=GUARD_CHAT,
+        cache=cache, store=store, actor="owner"))
+    # У второго чата override есть, а сохранённой ручной ревизии нет.
+    store.chat_overrides[GUARD_OTHER_CHAT] = {
+        GUARD_KEY: "СТАРЫЙ OVERRIDE БЕЗ РУЧНОЙ РЕВИЗИИ\n"}
+
+    guard_edition.set_edition(GUARD_BLOCK, "narrator-guard-b", GUARD_FACTORY_B)
+    release = _guard_run(cache, store, release_id="deploy-guard-b")
+
+    own = _guard_row(release)
+    assert (own.outcome, own.detail_code) == ("skipped_same",
+                                              "factory_superseded_manual")
+    assert store.chat_overrides[GUARD_CHAT][GUARD_KEY] == GUARD_MANUAL
+    other = _guard_row(release, GUARD_OTHER_CHAT)
+    assert (other.outcome, other.detail_code) == ("applied", "factory_activate")
+    assert GUARD_KEY not in store.chat_overrides.get(GUARD_OTHER_CHAT, {})
+    # Байты снятого override второго чата сохранены в истории.
+    assert pr.sha12("СТАРЫЙ OVERRIDE БЕЗ РУЧНОЙ РЕВИЗИИ\n") in {
+        r.content_sha12 for r in store.revisions.values()
+        if r.scope == "chat"}
+
+
+def test_explicit_baseline_assign_still_wins_over_manual_guard(guard_edition,
+                                                               guard_store):
+    """Явный owner baseline сохраняет приоритет и прежнюю pin-политику."""
+    cache, store = FakeCache({GUARD_KEY: GUARD_FACTORY_A}), guard_store
+    _guard_run(cache, store)
+    asyncio.run(prp.write_versioned_value(
+        GUARD_BLOCK, GUARD_MANUAL, scope="chat", chat_id=GUARD_CHAT,
+        cache=cache, store=store, actor="owner"))
+    manual = _manual_chat_revision(store)
+    asyncio.run(prp.assign_baseline(GUARD_BLOCK, manual.revision_id,
+                                    scope="chat", chat_id=GUARD_CHAT,
+                                    actor="owner", cache=cache, store=store))
+
+    guard_edition.set_edition(GUARD_BLOCK, "narrator-guard-b", GUARD_FACTORY_B)
+    release = _guard_run(cache, store, release_id="deploy-guard-b")
+
+    row = _guard_row(release)
+    assert row.action == pr.PLAN_ACTIVATE_PINNED
+    assert (row.outcome, row.detail_code) == ("skipped_same",
+                                              "factory_superseded_pinned")
+    assert store.chat_overrides[GUARD_CHAT][GUARD_KEY] == GUARD_MANUAL
+    state = asyncio.run(store.read_applied(GUARD_BLOCK, "chat", GUARD_CHAT))
+    assert state.revision_id == manual.revision_id
+    assert state.factory_revision_applied == pr.FACTORY_PREFIX + \
+        pr.sha12("narrator-guard-b")
+
+
+def test_preserved_manual_edition_without_override_is_not_replaced(
+        guard_edition, guard_store):
+    """Состояние после 2.58.201: override снят, сохранённая редакция осталась.
+
+    Релиз не выдумывает для этого чата заводской override и не трогает
+    сохранённую редакцию; возврат самой редакции на маршрут — отдельное
+    data-only действие, которым этот guard не подменяется.
+    """
+    cache, store = FakeCache({GUARD_KEY: GUARD_FACTORY_A}), guard_store
+    _guard_run(cache, store)
+    asyncio.run(prp.write_versioned_value(
+        GUARD_BLOCK, GUARD_MANUAL, scope="chat", chat_id=GUARD_CHAT,
+        cache=cache, store=store, actor="owner"))
+    store.chat_overrides[GUARD_CHAT].pop(GUARD_KEY, None)   # как после 2.58.201
+
+    guard_edition.set_edition(GUARD_BLOCK, "narrator-guard-b", GUARD_FACTORY_B)
+    release = _guard_run(cache, store, release_id="deploy-guard-b")
+
+    # Без override чат не входит в релиз: заводской override не записан.
+    assert [r for r in release["results"] if r.scope == "chat"] == []
+    assert GUARD_KEY not in store.chat_overrides.get(GUARD_CHAT, {})
+    manual = _manual_chat_revision(store)
+    assert store.revisions[manual.revision_id].body == GUARD_MANUAL
+    assert store.revisions[manual.revision_id].retired is False
