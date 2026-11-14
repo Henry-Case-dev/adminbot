@@ -521,8 +521,11 @@ async def control_action(db, job_store, *, action: str, job_id: str,
     # Реальное действие на durable-строке.
     try:
         if action == ACTION_CANCEL:
+            # Санкционированное действие владельца: терминальный исход
+            # разрешён и для припаркованной/ранее fenced строки (S5A/W-07).
             ok = await job_store.finish(job_id, status="cancelled",
-                                        reason_code="cancelled")
+                                        reason_code="cancelled",
+                                        recovery=True)
         elif action == ACTION_RETRY:
             ok = await job_store.requeue(
                 job_id, reason_code="stage_retry_scheduled")

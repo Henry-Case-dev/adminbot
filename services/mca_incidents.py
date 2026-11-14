@@ -10,6 +10,11 @@ durable инциденты §27.6 (v19 `mca_incidents`).
   * **`acknowledged ≠ resolved`**; `resolved` — только после реальной проверки
     (`resolution_evidence`); история сохраняется (строка не удаляется при
     исчезновении ошибки — выставляется только `resolved_at`);
+  * **S5A/W-05 lifecycle:** закрытый инцидент не переоткрывается молча —
+    новое наблюдение после resolved создаёт новую строку, старая история и
+    evidence сохраняются; активный инцидент авто-закрывается только после
+    фактического терминального итога всех связанных job
+    (`reconcile_linked_incidents`, `interrupted` итогом не считается);
   * успешный fallback (`fallback_used=1`) понижает `severity`/`impact`, но
     инцидент основного пути остаётся видимым;
   * доставка — incremental polling (SSE/WS нет); cursor — `last_ts`/`incident_id`;
@@ -88,9 +93,23 @@ async def open_or_update(db, *, process_id=None, pipeline_type=None,
                          title: str | None = None, job_id=None, chat_id=None,
                          trace_id=None, impact: str | None = None,
                          fallback_used: bool = False) -> dict | None:
-    """Создать/обновить инцидент по fingerprint (§27.6). Fail-open → None."""
-    if db is None or not mca_gates.incidents_enabled():
+    """Создать/обновить инцидент по fingerprint (§27.6).
+
+    S5A/W-05: resolved-строка НЕ переоткрывается тем же evidence —
+    новое наблюдение после реального закрытия создаёт НОВУЮ строку
+    (история и `resolution_evidence` старой сохраняются).
+
+    Возвращает `{status: created|updated|reopened|failed|disabled, ...}`:
+    `created` — первый инцидент fingerprint'а; `updated` — продолжение
+    активного; `reopened` — новая строка после resolved; `failed` —
+    запись не удалась (вызывающий логирует/считает, рекурсии нет);
+    `disabled` — kill-switch. `None` — БД отсутствует (сервиса нет).
+    """
+    if db is None:
         return None
+    if not mca_gates.incidents_enabled():
+        return {"status": "disabled", "incident_id": None,
+                "fingerprint": None, "severity": None}
     if severity not in SEVERITIES:
         severity = SEVERITY_ERROR
     fingerprint = compute_fingerprint(
@@ -105,62 +124,73 @@ async def open_or_update(db, *, process_id=None, pipeline_type=None,
     if fallback_used and severity == SEVERITY_ERROR:
         initial_severity = SEVERITY_WARN
 
+    async def _insert_new(conn) -> None:
+        await conn.execute(
+            "INSERT INTO mca_incidents (incident_id, fingerprint, "
+            "process_id, pipeline_type, stage, severity, title, first_ts, "
+            "last_ts, repeat_count, jobs_json, chats_json, impact, "
+            "fallback_used, first_trace_id, last_trace_id, "
+            "acknowledged_at, acknowledged_by, resolved_at, "
+            "resolution_evidence, created_at, updated_at) VALUES "
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (incident_id, fingerprint, process_id, pipeline_type, stage,
+             initial_severity, safe_title, now, now, 1,
+             json.dumps([job_id] if job_id else []),
+             json.dumps([chat_id] if chat_id is not None else []),
+             safe_impact, 1 if fallback_used else 0, trace_id, trace_id,
+             None, None, None, None, now, now))
+
     async def _body(conn):
         cursor = await conn.execute(
             "SELECT incident_id, resolved_at, repeat_count, severity, "
             "jobs_json, chats_json, fallback_used FROM mca_incidents "
-            "WHERE fingerprint = ? ORDER BY last_ts DESC LIMIT 1",
+            "WHERE fingerprint = ? "
+            "ORDER BY (resolved_at IS NULL) DESC, last_ts DESC LIMIT 1",
             (fingerprint,))
         row = await cursor.fetchone()
-        if row is None:
-            await conn.execute(
-                "INSERT INTO mca_incidents (incident_id, fingerprint, "
-                "process_id, pipeline_type, stage, severity, title, first_ts, "
-                "last_ts, repeat_count, jobs_json, chats_json, impact, "
-                "fallback_used, first_trace_id, last_trace_id, "
-                "acknowledged_at, acknowledged_by, resolved_at, "
-                "resolution_evidence, created_at, updated_at) VALUES "
-                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (incident_id, fingerprint, process_id, pipeline_type, stage,
-                 initial_severity, safe_title, now, now, 1,
-                 json.dumps([job_id] if job_id else []),
-                 json.dumps([chat_id] if chat_id is not None else []),
-                 safe_impact, 1 if fallback_used else 0, trace_id, trace_id,
-                 None, None, None, None, now, now))
-            return {"incident_id": incident_id, "reopened": False,
-                    "created": True, "fingerprint": fingerprint,
+        if row is None or row["resolved_at"] is not None:
+            # W-05: закрытый инцидент не переоткрывается молча — новое
+            # наблюдение после реального закрытия = новая строка.
+            await _insert_new(conn)
+            return {"incident_id": incident_id,
+                    "reopened": row is not None, "created": True,
+                    "status": ("reopened" if row is not None else "created"),
+                    "fingerprint": fingerprint,
                     "severity": initial_severity}
         iid = row["incident_id"]
-        was_resolved = row["resolved_at"] is not None
         # Успешный fallback понижает severity, но не скрывает инцидент.
         new_severity = severity
         if fallback_used and _SEVERITY_ORDER[severity] > _SEVERITY_ORDER[
                 SEVERITY_INFO]:
             new_severity = SEVERITY_WARN
+        # `resolved_at` активной строки не трогаем; первая_ts/title/история
+        # сохраняются (bounded jobs/chats продолжают пополняться).
         await conn.execute(
             "UPDATE mca_incidents SET last_ts = ?, repeat_count = "
             "repeat_count + 1, severity = ?, jobs_json = ?, chats_json = ?, "
             "last_trace_id = COALESCE(?, last_trace_id), "
-            "impact = COALESCE(?, impact), fallback_used = ?, "
-            "resolved_at = CASE WHEN resolved_at IS NOT NULL THEN NULL "
-            "ELSE resolved_at END, updated_at = ? WHERE incident_id = ?",
+            "impact = COALESCE(?, impact), fallback_used = ?, updated_at = ? "
+            "WHERE incident_id = ?",
             (now, new_severity,
              _job_append(row["jobs_json"], job_id),
              _chat_append(row["chats_json"], chat_id),
              trace_id, safe_impact,
              1 if fallback_used else int(row["fallback_used"] or 0),
              now, iid))
-        return {"incident_id": iid, "reopened": bool(was_resolved),
-                "created": False, "fingerprint": fingerprint,
+        return {"incident_id": iid, "reopened": False, "created": False,
+                "status": "updated", "fingerprint": fingerprint,
                 "severity": new_severity}
 
     try:
         result = await db.write_transaction(_body, op_name="mca_incidents_open")
-    except Exception:
+    except Exception as exc:
         logger.warning("[mca_incidents] open/update failed", exc_info=True)
-        return None
+        return {"status": "failed", "incident_id": None,
+                "fingerprint": fingerprint, "severity": None,
+                "error": type(exc).__name__}
     if result is None:
-        return None
+        return {"status": "failed", "incident_id": None,
+                "fingerprint": fingerprint, "severity": None}
     reason = ("incident_reopened" if result["reopened"]
               else "incident_opened")
     await _emit("INCIDENT", reason, incident_id=result["incident_id"],
@@ -246,6 +276,79 @@ async def resolve(db, incident_id: str, *, evidence: str,
         await _emit("INCIDENT", "incident_resolved", incident_id=incident_id,
                     severity=SEVERITY_INFO)
     return ok
+
+
+async def reconcile_linked_incidents(db, job_store, *, process_id: str | None
+                                     = None, limit: int = 500) -> dict:
+    """S5A/W-05: сверить активные инциденты с фактическим состоянием job.
+
+    Инцидент закрывается автоматически ТОЛЬКО когда все связанные job
+    (`jobs_json`, bounded ≤20) реально получили устойчивый терминальный итог
+    (`completed`/`succeeded`/`failed`/`cancelled`). `interrupted` — не итог
+    (задача припаркована), отсутствующий job — недоказуемое состояние;
+    такие инциденты остаются активными. Строка и история не удаляются:
+    выставляется `resolved_at` + `resolution_evidence` через существующий
+    `resolve()`. Ручной `resolve` остаётся отдельным явным путём.
+
+    Возвращает `{checked, resolved, pending, inconclusive, failed}`.
+    """
+    out = {"checked": 0, "resolved": 0, "pending": 0, "inconclusive": 0,
+           "failed": 0}
+    if db is None or job_store is None or not mca_gates.incidents_enabled():
+        return out
+    try:
+        from services.task_supervisor import SETTLED_JOB_STATUSES as _settled
+    except Exception:      # pragma: no cover — defensive import
+        _settled = frozenset({"completed", "succeeded", "failed", "cancelled"})
+    sql = ("SELECT incident_id, jobs_json FROM mca_incidents "
+           "WHERE resolved_at IS NULL AND jobs_json IS NOT NULL "
+           "AND jobs_json != '[]'")
+    params: list = []
+    if process_id:
+        sql += " AND process_id = ?"
+        params.append(str(process_id))
+    sql += " ORDER BY last_ts DESC LIMIT ?"
+    params.append(max(1, min(2000, int(limit))))
+    try:
+        cursor = await db.db.execute(sql, tuple(params))
+        rows = [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        logger.warning("[mca_incidents] reconcile read failed", exc_info=True)
+        return out
+    for row in rows:
+        out["checked"] += 1
+        try:
+            linked = json.loads(row.get("jobs_json") or "[]")
+            linked = [str(j) for j in linked if str(j or "")]
+        except Exception:
+            linked = []
+        if not linked:
+            out["inconclusive"] += 1
+            continue
+        states: list[tuple[str, str]] = []
+        for jid in linked:
+            try:
+                job = await job_store.get(jid)
+            except Exception:
+                job = None
+            if job is None:
+                states = []
+                break
+            states.append((jid, str(job.get("status") or "")))
+        if len(states) != len(linked):
+            out["inconclusive"] += 1
+            continue
+        if not all(st in _settled for _jid, st in states):
+            out["pending"] += 1
+            continue
+        evidence = "jobs_terminal:" + ",".join(
+            f"{jid[:16]}={st}" for jid, st in states)[:240]
+        ok = await resolve(db, row["incident_id"], evidence=evidence)
+        if ok:
+            out["resolved"] += 1
+        else:
+            out["failed"] += 1
+    return out
 
 
 def _row_to_public(row: dict) -> dict:

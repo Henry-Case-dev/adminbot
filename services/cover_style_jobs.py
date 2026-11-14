@@ -992,8 +992,13 @@ async def start_cover_job(db, *, chat_id: int, correlation_id: str | None = None
 
 async def finish_cover_job(db, job_id: str | None, *, outcome: str,
                            reason_code: str | None = None,
-                           checkpoint: CoverJobState | None = None) -> bool:
-    """Терминальный исход durable cover-джобы (§42/§43)."""
+                           checkpoint: CoverJobState | None = None,
+                           recovery: bool = False) -> bool:
+    """Терминальный исход durable cover-джобы (§42/§43).
+
+    S5A/W-07: обычная терминальная запись идёт без fencing-токена и разрешена
+    только из активного состояния; recovery-контур (закрытие припаркованной
+    `interrupted`-джобы) передаёт `recovery=True` осознанно."""
     if db is None or not job_id:
         return False
     status = "completed" if outcome in (STATE_DONE, RESULT_STYLED,
@@ -1003,7 +1008,8 @@ async def finish_cover_job(db, job_id: str | None, *, outcome: str,
         store = TaskJobStore(db)
         return await store.finish(
             job_id, status=status, reason_code=reason_code,
-            result_ref=(checkpoint.to_json() if checkpoint else None))
+            result_ref=(checkpoint.to_json() if checkpoint else None),
+            recovery=recovery)
     except Exception:
         logger.warning("[cover_style_jobs] durable job finish failed",
                        exc_info=True)
@@ -3608,7 +3614,8 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
     if state.retry_count >= recovery_max_attempts():
         await save_cover_state(db, job_id, state)
         await store.finish(job_id, status="failed",
-                           reason_code=REASON_RECOVERY_EXHAUSTED)
+                           reason_code=REASON_RECOVERY_EXHAUSTED,
+                           recovery=True)
         emit_cover_event(
             COVER_STYLE_RETRY_SCHEDULED, outcome="failed",
             level=logging.WARNING, run_id=run_id or None, job_id=job_id,
@@ -3633,7 +3640,8 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
     if not base_path or not os.path.exists(str(base_path)):
         await save_cover_state(db, job_id, state)
         await store.finish(job_id, status="failed",
-                           reason_code=REASON_BASE_ASSET_MISSING)
+                           reason_code=REASON_BASE_ASSET_MISSING,
+                           recovery=True)
         emit_cover_event(
             COVER_STYLE_RETRY_SCHEDULED, outcome="failed",
             level=logging.WARNING, run_id=run_id or None, job_id=job_id,
@@ -3652,7 +3660,8 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
     if not profile or not profile.get("enabled"):
         await save_cover_state(db, job_id, state)
         await store.finish(job_id, status="failed",
-                           reason_code=REASON_PROFILE_MISSING)
+                           reason_code=REASON_PROFILE_MISSING,
+                           recovery=True)
         result = _finish_failed(REASON_PROFILE_MISSING)
         await save_cover_state(db, job_id, state)
         return result
@@ -3660,7 +3669,8 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
     if inputs is None:
         await save_cover_state(db, job_id, state)
         await store.finish(job_id, status="failed",
-                           reason_code=REASON_STYLE_INPUTS_MISSING)
+                           reason_code=REASON_STYLE_INPUTS_MISSING,
+                           recovery=True)
         result = _finish_failed(REASON_STYLE_INPUTS_MISSING)
         await save_cover_state(db, job_id, state)
         return result
@@ -3710,7 +3720,8 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
         state.telegram_delivery = delivery_status
         await save_cover_state(db, job_id, state)
         await finish_cover_job(db, job_id, outcome=RESULT_STYLED,
-                               reason_code=None, checkpoint=state)
+                               reason_code=None, checkpoint=state,
+                               recovery=True)
         emit_cover_event(
             COVER_STYLE_RECOVERED, outcome="success", run_id=run_id or None,
             job_id=job_id, chat_id=chat_id or None, model=meta.get("model"),
@@ -3746,7 +3757,8 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
                        route=meta.get("edit_route"),
                        attempt=state.retry_count)
     await save_cover_state(db, job_id, state)
-    await store.finish(job_id, status="failed", reason_code=reason)
+    await store.finish(job_id, status="failed", reason_code=reason,
+                       recovery=True)
     emit_cover_event(
         COVER_STYLE_RETRY_SCHEDULED, outcome="failed", level=logging.WARNING,
         run_id=run_id or None, job_id=job_id, chat_id=chat_id or None,

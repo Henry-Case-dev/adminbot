@@ -391,6 +391,17 @@ JOB_FAILED = "failed"
 JOB_CANCELLED = "cancelled"
 JOB_INTERRUPTED = "interrupted"
 ACTIVE_JOB_STATUSES = (JOB_QUEUED, JOB_RUNNING)
+# S5A/W-05: устойчивый итог задачи — только после него инцидент может быть
+# автоматически сверен с фактическим состоянием (interrupted — не итог:
+# задача припаркована и может быть возобновлена).
+SETTLED_JOB_STATUSES = (JOB_COMPLETED, "succeeded", JOB_FAILED, JOB_CANCELLED)
+
+# S5A/W-02/W-03: причины takeover/recovery (данные task_jobs, не словарь
+# событий — событийный reason_code остаётся `worker_lost`/`takeover_recovered`).
+REASON_WORKER_LOST = "worker_lost"
+REASON_CHECKPOINT_MISSING = "checkpoint_missing"
+REASON_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
+
 
 # Колонки `task_jobs` (порядок INSERT; `updated_at`/`finished_at` — отдельно).
 # v19 (`mca-17a`, ADR-1027-8 D2/D4): correlation/span/progress-колонки.
@@ -402,6 +413,21 @@ _JOB_INSERT_COLS = (
     "pipeline_run_id", "span_id", "parent_span_id", "causation_id",
     "attempt_id", "progress_at", "next_retry_at", "checkpoint_ref",
 )
+
+
+def _payload_has_checkpoint(raw) -> bool:
+    """Есть ли durable checkpoint (payload JSON-объект с данными).
+
+    Resume-контракт `TaskJobStore` уже живёт в `payload` (cursor/processed
+    и owner-specific identity); пустой/битый payload безопасным resume не
+    считается."""
+    if not raw:
+        return False
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(data, dict) and bool(data)
 
 
 class TaskJobStore:
@@ -514,15 +540,42 @@ class TaskJobStore:
                      result_ref: str | None = None,
                      error_code: str | None = None,
                      generation: int | None = None,
-                     fencing_token: int | None = None) -> bool:
+                     fencing_token: int | None = None,
+                     recovery: bool = False) -> bool:
         """Терминальный исход: `completed|failed|cancelled|interrupted`.
 
         B-MCA01-3: при заданном `fencing_token` UPDATE обусловлен им — запись
-        устаревшего владельца после takeover отклоняется (no-op, `False`)."""
+        устаревшего владельца после takeover отклоняется (no-op, `False`).
+
+        S5A/W-07: терминальная запись БЕЗ `fencing_token` разрешена только из
+        активного состояния (`queued`/`running`). Строка, уже получившая
+        устойчивый итог (`completed`/`succeeded`/`failed`/`cancelled` или
+        `interrupted` после takeover), не переписывается: устаревший владелец
+        не «воскрешает» задачу. Явный recovery-путь (внутренний watchdog)
+        передаёт `recovery=True` — это осознанное восстановление, а не
+        терминальная запись живого владельца."""
         now = int(time.time())
         token = fencing_token
 
         async def _body(conn):
+            if token is None and not recovery:
+                cursor = await conn.execute(
+                    "SELECT status, fencing_token, reason_code FROM task_jobs "
+                    "WHERE job_id = ?", (job_id,))
+                current = await cursor.fetchone()
+                if current is None:
+                    return 0
+                status_now = str(current["status"])
+                if status_now not in ACTIVE_JOB_STATUSES:
+                    return 0
+                # Задача уже была отобрана takeover'ом и возвращена в очередь
+                # (`worker_lost` + fencing>0): терминальная запись без токена
+                # принадлежала бы устаревшему владельцу — no-op. Новый
+                # владелец обязан предъявить токен, полученный при claim.
+                if (int(current["fencing_token"] or 0) > 0
+                        and str(current["reason_code"] or "")
+                        == REASON_WORKER_LOST):
+                    return 0
             fence = "" if token is None else " AND fencing_token = ?"
             base_params = [status, reason_code, result_ref, error_code]
             if generation is not None:
@@ -567,6 +620,131 @@ class TaskJobStore:
 
         return await self._db.write_transaction(
             _body, op_name="task_jobs_recover")
+
+    async def takeover_stale(self, *, stale_after_seconds: int,
+                             retry_delay_seconds: int = 0,
+                             dangerous_owners=(),
+                             now: int | None = None) -> list[dict]:
+        """Честный bounded-takeover потерявших владельца `running`-задач.
+
+        S5A/W-02/W-03: снятие lease само по себе не является recovery.
+        Одна атомарная транзакция на проход:
+
+        1. `running` без свежего heartbeat → `interrupted`/`worker_lost`,
+           `fencing_token + 1` (старый владелец теряет право записи, A51);
+        2. решение по существующему recovery-контракту:
+           * `delivery_unknown` → `no_change` (слепой повтор запрещён);
+           * опасный owner без durable checkpoint → `failed`
+             (`checkpoint_missing`, строка остаётся `interrupted`);
+           * durable checkpoint есть, попытки не исчерпаны
+             (`attempt < max_attempts`) → `queued` + `next_retry_at`
+             (`recovered`, переход подтверждён rowcount той же транзакции);
+           * checkpoint нет либо попытки исчерпаны → терминальный
+             `no_change`/`failed` (без ложного success).
+
+        Возвращает per-job записи с `outcome` ∈
+        `recovered|failed|no_change` (обнаружение/попытка выводятся
+        вызывающим). `attempt`/`max_attempts`/`next_retry_at` сохраняются.
+        """
+        ts = int(now if now is not None else time.time())
+        cutoff = ts - max(1, int(stale_after_seconds))
+        delay = max(1, int(retry_delay_seconds or 0))
+        dangerous = frozenset(str(o) for o in (dangerous_owners or ()))
+
+        async def _body(conn):
+            cursor = await conn.execute(
+                "SELECT * FROM task_jobs WHERE status = ? AND "
+                "(heartbeat_at IS NULL OR heartbeat_at < ?)",
+                (JOB_RUNNING, cutoff))
+            rows = [dict(r) for r in await cursor.fetchall()]
+            out: list[dict] = []
+            for row in rows:
+                jid = str(row["job_id"])
+                owner = str(row.get("owner") or "")
+                attempt = int(row.get("attempt") or 0)
+                max_attempts = max(1, int(row.get("max_attempts") or 1))
+                previous_reason = str(row.get("reason_code") or "")
+                checkpoint = _payload_has_checkpoint(row.get("payload"))
+                token_after = int(row.get("fencing_token") or 0) + 1
+                record = {
+                    "job_id": jid, "owner": owner, "kind": row.get("kind"),
+                    "status_before": str(row.get("status") or ""),
+                    "attempt": attempt, "max_attempts": max_attempts,
+                    "fencing_token": token_after,
+                    "checkpoint": bool(checkpoint),
+                    "outcome": "no_change", "action": "lease_revoked",
+                    "reason": REASON_WORKER_LOST, "next_retry_at": None,
+                }
+                revoked = await conn.execute(
+                    "UPDATE task_jobs SET status = ?, reason_code = ?, "
+                    "fencing_token = ?, updated_at = ? "
+                    "WHERE job_id = ? AND status = ?",
+                    (JOB_INTERRUPTED, REASON_WORKER_LOST, token_after, ts,
+                     jid, JOB_RUNNING))
+                if not revoked.rowcount:
+                    # Параллельный писатель уже изменил строку — не recovery.
+                    record["action"] = "state_changed"
+                    out.append(record)
+                    continue
+                if previous_reason == "delivery_unknown":
+                    record.update(action="reconcile_required",
+                                  reason="delivery_unknown")
+                    out.append(record)
+                    continue
+                if dangerous and owner in dangerous and not checkpoint:
+                    await conn.execute(
+                        "UPDATE task_jobs SET reason_code = ?, updated_at = ? "
+                        "WHERE job_id = ? AND status = ? AND fencing_token = ?",
+                        (REASON_CHECKPOINT_MISSING, ts, jid, JOB_INTERRUPTED,
+                         token_after))
+                    record.update(outcome="failed",
+                                  action="dangerous_no_checkpoint",
+                                  reason=REASON_CHECKPOINT_MISSING)
+                    out.append(record)
+                    continue
+                if not checkpoint:
+                    # Нельзя доказать безопасный resume — задача припаркована,
+                    # а не объявлена восстановленной.
+                    await conn.execute(
+                        "UPDATE task_jobs SET reason_code = ?, updated_at = ? "
+                        "WHERE job_id = ? AND status = ? AND fencing_token = ?",
+                        (REASON_CHECKPOINT_MISSING, ts, jid, JOB_INTERRUPTED,
+                         token_after))
+                    record.update(action="parked_no_checkpoint",
+                                  reason=REASON_CHECKPOINT_MISSING)
+                    out.append(record)
+                    continue
+                if attempt >= max_attempts:
+                    await conn.execute(
+                        "UPDATE task_jobs SET status = ?, reason_code = ?, "
+                        "error_code = ?, finished_at = ?, updated_at = ? "
+                        "WHERE job_id = ? AND status = ? AND fencing_token = ?",
+                        (JOB_FAILED, REASON_ATTEMPTS_EXHAUSTED,
+                         REASON_ATTEMPTS_EXHAUSTED, ts, ts, jid,
+                         JOB_INTERRUPTED, token_after))
+                    record.update(outcome="failed", action="terminal",
+                                  reason=REASON_ATTEMPTS_EXHAUSTED)
+                    out.append(record)
+                    continue
+                next_retry = ts + delay
+                requeued = await conn.execute(
+                    "UPDATE task_jobs SET status = ?, reason_code = ?, "
+                    "finished_at = NULL, error_code = NULL, next_retry_at = ?, "
+                    "updated_at = ? WHERE job_id = ? AND status = ? AND "
+                    "fencing_token = ?",
+                    (JOB_QUEUED, REASON_WORKER_LOST, next_retry, ts, jid,
+                     JOB_INTERRUPTED, token_after))
+                if requeued.rowcount:
+                    record.update(outcome="recovered", action="requeued",
+                                  next_retry_at=next_retry)
+                else:
+                    record.update(outcome="failed",
+                                  action="requeue_not_confirmed")
+                out.append(record)
+            return out
+
+        return await self._db.write_transaction(
+            _body, op_name="task_jobs_takeover")
 
     async def prune(self, *, terminal_retention_seconds: int,
                     keep_active: bool = True) -> int:

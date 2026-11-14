@@ -1684,7 +1684,8 @@ async def _finish_terminal(db, store, job_id: str, *, reason: str,
         logger.debug("[watchdog] terminal fence failed", exc_info=True)
     try:
         return bool(await store.finish(job_id, status=status,
-                                       reason_code=str(reason or "failed")))
+                                       reason_code=str(reason or "failed"),
+                                       recovery=True))
     except Exception:
         logger.warning("[watchdog] terminal finish failed | job=%s", job_id,
                        exc_info=True)

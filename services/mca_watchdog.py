@@ -7,8 +7,14 @@ heartbeat/watchdog/takeover/recovery §27.5.
   транскрибация не объявляется упавшей по общему таймеру).
 * Watchdog проверяет durable state **периодически** (background asyncio-задача)
   и **на старте**; при stale lease — подозрение → проверка владельца/состояния
-  → `interrupted`/retry по безопасной политике через `TaskJobStore.recover_stale`
+  → `interrupted`/retry по безопасной политике через `TaskJobStore.takeover_stale`
   (fencing/generation бампаются).
+* S5A (SMART-CORRECTIVE-01 §9): успешный `takeover_recovered` эмитится только
+  после ПОДТВЕРЖДЁННОГО перехода (queued+retry); обнаружение, попытка, отказ и
+  отсутствие изменений различимы. Активные инциденты сверяются с фактическим
+  терминальным состоянием связанных job; закрытый инцидент не переоткрывается
+  тем же evidence. Отказ incident-service наблюдаем (log + счётчики) без
+  рекурсивного инцидента.
 * Recovery: прочитать checkpoint, определить подтверждённые записи/side effects,
   возобновить только безопасные этапы; бесконечных retries нет. Неопределённая
   доставка/платная операция — `delivery_unknown` до сверки по operation ID;
@@ -38,6 +44,39 @@ DANGEROUS_JOB_OWNERS = frozenset({"archive", "dossier", "backup"})
 _watchdog_task: asyncio.Task | None = None
 _watchdog_stop: asyncio.Event | None = None
 
+# S5A/W-10 (partial): наблюдаемые исходы регистрации инцидентов. S5D
+# расширит это WARN-событием; здесь — честные счётчики + log.warning, без
+# рекурсивного создания инцидента из собственной ошибки (AC-24).
+_INCIDENT_OUTCOME_KEYS = ("created", "updated", "reopened", "failed",
+                          "disabled")
+_incident_outcome_totals = {key: 0 for key in _INCIDENT_OUTCOME_KEYS}
+# S5A/W-02: наблюдаемые исходы takeover (discovered/attempted/recovered/
+# failed/no_change); per-job записи живут в результате sweep.
+_TAKEOVER_OUTCOME_KEYS = ("recovered", "failed", "no_change")
+_takeover_outcome_totals = {key: 0 for key in _TAKEOVER_OUTCOME_KEYS}
+
+
+def incident_outcome_totals() -> dict:
+    """Накопленные исходы регистрации инцидентов (S5A/W-10, S5D-совместимо)."""
+    return dict(_incident_outcome_totals)
+
+
+def takeover_outcome_totals() -> dict:
+    """Накопленные исходы takeover (S5A/W-02)."""
+    return dict(_takeover_outcome_totals)
+
+
+def _bump_incident_outcome(outcome: str) -> str:
+    key = outcome if outcome in _INCIDENT_OUTCOME_KEYS else "failed"
+    _incident_outcome_totals[key] += 1
+    return key
+
+
+def _bump_takeover_outcome(outcome: str) -> str:
+    key = outcome if outcome in _TAKEOVER_OUTCOME_KEYS else "failed"
+    _takeover_outcome_totals[key] += 1
+    return key
+
 
 def heartbeat_interval_seconds() -> int:
     return mca_gates.job_heartbeat_seconds()
@@ -47,11 +86,14 @@ def stale_seconds() -> int:
     return mca_gates.job_stale_seconds()
 
 
-async def _emit(event_name: str, reason_code: str | None, **fields) -> None:
+async def _emit(event_name: str, reason_code: str | None, *,
+                outcome: str = "success", level: str = "INFO",
+                **fields) -> None:
+    """Единая эмиссия watchdog-события с ЧЕСТНЫМ outcome/level (S5A/W-02)."""
     try:
         from services import mca_trace as mt
-        mt.emit_stage(event_name, outcome="success", component="watchdog",
-                      reason_code=reason_code, **fields)
+        mt.emit_stage(event_name, outcome=outcome, level=level,
+                      component="watchdog", reason_code=reason_code, **fields)
     except Exception:
         return
 
@@ -98,23 +140,97 @@ async def sweep(db, job_store=None, *, now: int | None = None,
                 track_incidents: bool = True) -> dict:
     """Один проход watchdog: takeover stale + фиксация stalled-диагностики.
 
-    Возвращает `{recovered, stale, progress_stalled, incidents}`. Fail-open:
-    ошибки не бросают наружу."""
+    S5A/W-02: `takeover_recovered` эмитится только когда допустимый переход
+    действительно произошёл (`recovered`); отказ/отсутствие store — отдельные
+    `failed`/`skipped` с честным level. Исходы разделены:
+    `discovered|attempted|recovered|failed|no_change` (per-job в
+    `result["takeover"]["records"]`). S5C добавит per-job identity в событие.
+
+    S5A/W-05: перед новыми наблюдениями активные watchdog-инциденты
+    сверяются с фактическим состоянием связанных job; закрытие — только
+    после терминального итога всех job (`reconcile_linked_incidents`).
+
+    S5A/W-10: отказ регистрации инцидента наблюдаем (log.warning + счётчики
+    `created|updated|reopened|failed|disabled`), без рекурсии.
+
+    Возвращает `{recovered, stale, progress_stalled, incidents, takeover,
+    incident_outcomes, incident_reconcile, ran}`. Fail-open: ошибки не
+    бросают наружу."""
     result = {"recovered": [], "stale": [], "progress_stalled": [],
-              "incidents": 0, "ran": False}
+              "incidents": 0, "ran": False,
+              "takeover": {"discovered": [], "attempted": [],
+                           "recovered": [], "failed": [], "no_change": [],
+                           "records": []},
+              "incident_outcomes": {key: 0 for key in _INCIDENT_OUTCOME_KEYS},
+              "incident_reconcile": {"checked": 0, "resolved": 0,
+                                     "pending": 0, "inconclusive": 0,
+                                     "failed": 0}}
     if db is None or not mca_gates.heartbeat_watchdog_enabled():
         return result
     result["ran"] = True
     ts = int(now if now is not None else time.time())
-    stale = await stale_jobs(db, now=ts)
-    result["stale"] = [r.get("job_id") for r in stale]
-    if stale and job_store is not None:
+    # W-05: сверка ДО новых наблюдений — инцидент, созданный этим проходом,
+    # закрывается только следующим sweep'ом после реального терминала job.
+    if track_incidents:
         try:
-            recovered = await job_store.recover_stale(
-                stale_after_seconds=stale_seconds())
-            result["recovered"] = list(recovered)
+            from services import mca_incidents as inc
+            result["incident_reconcile"] = \
+                await inc.reconcile_linked_incidents(
+                    db, job_store, process_id="watchdog.jobs")
         except Exception:
-            logger.warning("[mca_watchdog] recover_stale failed", exc_info=True)
+            logger.warning("[mca_watchdog] incident reconcile failed",
+                           exc_info=True)
+    stale = await stale_jobs(db, now=ts)
+    discovered = [r.get("job_id") for r in stale]
+    result["stale"] = discovered
+    result["takeover"]["discovered"] = list(discovered)
+    if stale:
+        if job_store is None:
+            # S5A/W-02: без store recovery не вызывался — никакого success.
+            result["takeover"]["no_change"] = list(discovered)
+            for _jid in discovered:
+                _bump_takeover_outcome("no_change")
+            await _emit("WATCHDOG_TAKEOVER", "worker_lost", stage="takeover",
+                        outcome="skipped", level="WARN")
+        else:
+            result["takeover"]["attempted"] = list(discovered)
+            try:
+                records = await job_store.takeover_stale(
+                    stale_after_seconds=stale_seconds(),
+                    retry_delay_seconds=heartbeat_interval_seconds(),
+                    dangerous_owners=DANGEROUS_JOB_OWNERS)
+            except Exception:
+                logger.warning("[mca_watchdog] takeover failed", exc_info=True)
+                records = [{"job_id": jid, "outcome": "failed",
+                            "reason": "takeover_error", "action": "error"}
+                           for jid in discovered]
+            # Job мог обновить heartbeat между обнаружением и takeover —
+            # честно фиксируем no_change, а не теряем его из результата.
+            seen = {str(r.get("job_id")) for r in records}
+            for jid in discovered:
+                if str(jid) not in seen:
+                    records.append({"job_id": jid, "outcome": "no_change",
+                                    "reason": "state_changed",
+                                    "action": "state_changed"})
+            result["takeover"]["records"] = records
+            for record in records:
+                jid = str(record.get("job_id") or "")
+                if not jid:
+                    continue
+                key = _bump_takeover_outcome(str(record.get("outcome")))
+                result["takeover"][key].append(jid)
+            result["recovered"] = list(result["takeover"]["recovered"])
+            # Одно событие на класс исхода за проход (S5C добавит per-job
+            # доказательства через разрешённые additive-поля).
+            if result["takeover"]["recovered"]:
+                await _emit("WATCHDOG_TAKEOVER", "takeover_recovered",
+                            stage="takeover", outcome="success")
+            if result["takeover"]["failed"]:
+                await _emit("WATCHDOG_TAKEOVER", "worker_lost",
+                            stage="takeover", outcome="failed", level="ERROR")
+            if result["takeover"]["no_change"]:
+                await _emit("WATCHDOG_TAKEOVER", "worker_lost",
+                            stage="takeover", outcome="skipped", level="WARN")
     # ASAP 8 v6 C03A: recovery-контур styled cover (restart mid-style /
     # bounded style retry с сохранённой Base). Неблокирующий kick (background
     # task в cover_style_jobs), fail-open — не влияет на sweep-контракт.
@@ -126,25 +242,35 @@ async def sweep(db, job_store=None, *, now: int | None = None,
         logger.debug("[mca_watchdog] cover style recovery hook failed",
                      exc_info=True)
     await _emit("WATCHDOG_SWEEP", None, stage="sweep")
-    for row in stale:
-        await _emit("WATCHDOG_TAKEOVER", "takeover_recovered",
-                    stage="takeover",
-                    **{"job_ids": list(result["recovered"]) or None})
-        if track_incidents:
-            result["incidents"] += await _track_incident(
+    if track_incidents:
+        for row in stale:
+            outcome = await _track_incident(
                 db, row, reason_code="worker_lost", stage="takeover")
+            key = _bump_incident_outcome(outcome)
+            result["incident_outcomes"][key] += 1
+            if key in ("created", "reopened"):
+                result["incidents"] += 1
     if detect_progress_stall:
         stalled = await progress_stalled_jobs(db, now=ts)
         result["progress_stalled"] = [r.get("job_id") for r in stalled]
         for row in stalled:
             if track_incidents:
-                result["incidents"] += await _track_incident(
+                outcome = await _track_incident(
                     db, row, reason_code="progress_stall", stage="progress")
+                key = _bump_incident_outcome(outcome)
+                result["incident_outcomes"][key] += 1
+                if key in ("created", "reopened"):
+                    result["incidents"] += 1
     return result
 
 
 async def _track_incident(db, row: dict, *, reason_code: str,
-                          stage: str) -> int:
+                          stage: str) -> str:
+    """Зарегистрировать инцидент и вернуть честный исход регистрации.
+
+    S5A/W-10: ошибка не подавляется — log.warning + статус `failed`
+    (вызывающий считает); `open_or_update` повторно НЕ вызывается и инцидент
+    из собственной ошибки не создаётся (AC-24)."""
     try:
         from services import mca_incidents as inc
         # F8: тип/владелец job берётся из строки (а не хардкод «archive.rebuild»)
@@ -159,9 +285,17 @@ async def _track_incident(db, row: dict, *, reason_code: str,
             job_id=row.get("job_id"),
             trace_id=row.get("pipeline_run_id"),
             impact="задача потеряла владельца/не прогрессирует")
-        return 1 if res is not None else 0
     except Exception:
-        return 0
+        logger.warning("[mca_watchdog] incident registration failed | "
+                       "job_id=%s | stage=%s", row.get("job_id"), stage,
+                       exc_info=True)
+        return "failed"
+    status = str((res or {}).get("status") or "")
+    if status in _INCIDENT_OUTCOME_KEYS:
+        return status
+    if res is None:
+        return "disabled"
+    return "failed"
 
 
 async def startup_check(db, job_store=None) -> dict:
@@ -222,7 +356,8 @@ async def recover_job(db, job_store, job_id: str) -> dict:
         # Нет обязательного durable checkpoint → не повторяем вслепую.
         try:
             await job_store.finish(job_id, status="interrupted",
-                                   reason_code="checkpoint_missing")
+                                   reason_code="checkpoint_missing",
+                                   recovery=True)
         except Exception:
             pass
         result["status"] = "paused"
@@ -235,8 +370,11 @@ async def recover_job(db, job_store, job_id: str) -> dict:
     if checkpoint is not None:
         safe = ["resume_after_cursor"]
     try:
+        # Явный recovery-путь: возобновление припаркованной задачи, а не
+        # терминальная запись живого владельца (S5A/W-07).
         await job_store.finish(job_id, status="queued",
-                               reason_code="recovery_from_checkpoint")
+                               reason_code="recovery_from_checkpoint",
+                               recovery=True)
         result["status"] = "resumed"
     except Exception:
         result["status"] = "error"

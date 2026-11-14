@@ -1553,12 +1553,19 @@ class ExperienceReviewRunner:
                       payload: dict | None = None) -> None:
         if payload is not None:
             await self._checkpoint(job_id, payload)
-        await self._store.finish(job_id, status=status, reason_code=reason_code)
+        # S5A/W-07: терминальная запись обусловлена fencing-токеном владения
+        # (0 — задача ещё не отбиралась takeover'ом).
+        fence = getattr(self, "_fence", 0) or 0
+        extra = {"fencing_token": fence} if fence else {}
+        await self._store.finish(job_id, status=status,
+                                 reason_code=reason_code, **extra)
 
     # ── главный цикл ──────────────────────────────────────────────────────
 
     async def run(self, job_id: str) -> str:
         """Выполнить задачу до честного терминального статуса."""
+        # S5A/W-07: токен владения действителен только в рамках этого прохода.
+        self._fence = 0
         if not review_enabled():
             await self._finish(job_id, status=JOB_CANCELLED,
                                reason_code="cancelled")
@@ -1568,6 +1575,9 @@ class ExperienceReviewRunner:
         if not started:
             row = await self._store.get(job_id)
             return review_status_from_job(row) or JOB_RUNNING
+        # S5A/W-07: фиксируем fencing-токен владения для терминальных записей.
+        row = await self._store.get(job_id)
+        self._fence = int((row or {}).get("fencing_token") or 0)
         counters = payload["counters"]
         try:
             await self._store.heartbeat(job_id)

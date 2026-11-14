@@ -1876,8 +1876,12 @@ class InitiativeObserverRunner:
                       payload: dict | None = None) -> None:
         if payload is not None:
             await self._checkpoint(job_id, payload)
+        # S5A/W-07: терминальная запись обусловлена fencing-токеном
+        # владения (0 — задача ещё не отбиралась takeover'ом).
+        fence = getattr(self, "_fence", 0) or 0
+        extra = {"fencing_token": fence} if fence else {}
         await self._store.finish(job_id, status=status,
-                                 reason_code=reason_code)
+                                 reason_code=reason_code, **extra)
 
     # ── события (R17: только ID/коды/числа) ───────────────────────────────
 
@@ -1944,6 +1948,8 @@ class InitiativeObserverRunner:
     # ── главный цикл ──────────────────────────────────────────────────────
 
     async def run(self, job_id: str, *, only_chat: int | None = None) -> str:
+        # S5A/W-07: токен владения действителен только в рамках этого прохода.
+        self._fence = 0
         if not observer_enabled():
             await self._finish(job_id, status=JOB_CANCELLED,
                                reason_code="cancelled")
@@ -1959,6 +1965,10 @@ class InitiativeObserverRunner:
         if not started:
             row = await self._store.get(job_id)
             return str((row or {}).get("status") or JOB_RUNNING)
+        # S5A/W-07: фиксируем fencing-токен владения — все терминальные
+        # записи этого прохода обусловлены им.
+        row = await self._store.get(job_id)
+        self._fence = int((row or {}).get("fencing_token") or 0)
         counters = payload["counters"]
         text_failed = False
         try:
