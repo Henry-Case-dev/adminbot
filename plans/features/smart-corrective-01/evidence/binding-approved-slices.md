@@ -356,3 +356,38 @@ S6-строки, представляющие prompt delivery/preservation, пр
 Выводы: `evidence/gates/deploy-corrective-409f4e8a.txt`, `evidence/gates/plan-after-rebind-409f4e8a.txt`, `evidence/gates/deploy-parent-smart-0e4a144d.txt`, `evidence/gates/deploy-parent-fc-0e4a144d.txt`, `evidence/gates/deploy-corrective-409f4e8a-blockers.txt`.
 
 **Deploy gate не может быть `errors=0`, пока не закрыты эти 93 PENDING + 26 proof-gap строк.** Это не дефект rebinding: rebinding выполнен (0 ошибок candidate mismatch / отсутствующего bound evidence), но map содержит ещё не привязанные S0/S5-WATCHDOG/S8 обязательства и 26 строк без полного proof-набора. Ни одна строка не переведена в VERIFIED; `deployed_commit` пуст. Следующее действие — отдельное решение Orchestrator: либо привязать S8 к integration review 409f4e8a и закрыть S0/S5-WATCHDOG proofs, либо выпускать только после их binding.
+
+## 13. Deploy-stage appendix binding 409f4e8a (добавлено 2026-11-15, unit `pm-deploy-bind-r2`)
+
+| Поле | Значение |
+|---|---|
+| Appendix | `evidence/release-train/integration-review.md` `2bb30e65935ff05917adac6a6f7960a80bb07544a9ae3ea482e77e65d6b37b91` |
+| Merge log | `evidence/release-train/merge-log-corrective.md` `36bb65c07f55eccc65970b0d289b3fb229e1ada5337fe30c30c4f036b179e50b` (скопирован byte-exact из release-train worktree) |
+| Investigation | `investigation/production-runs-and-incidents.md` `47049fa8…4118`; `evidence/binding-production-investigation.md` |
+| S5A-D | `evidence/s5a|s5b|s5c|s5d/{implementation.md,review-r1.md}` |
+| Deploy candidate | `409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9`; `deployed_commit` пуст |
+
+### Что привязано
+
+| Категория | Кол-во | Результат |
+|---|---:|---|
+| 14 doc rows (stale sha) | 14 | `artifact_sha256` пересчитан по текущим `requirement-mapping.md`/`plan.md`; candidate 409f4e8a; ref/observation не менялись |
+| S0 rows (`S0-INVESTIGATE` + `S0-PRODDATA`, включая 12 без approval) | 41 | `REVIEW`; implementation evidence из investigation report/binding, review evidence из appendix |
+| S5-WATCHDOG prohibition/separation | 9 | `REVIEW`; S5A-D implementation + appendix approval |
+| S8 process/artifact rows | 29 | `REVIEW`; merge log + integration review + appendix |
+| `SC-ART-09/10` + `AC-01…AC-24` | 26 | `READY_FOR_LIVE`, `live_required=true`, `live_when=postdeploy`; `postrelease_wait` и `approved_postrelease_wait` — **побайтно равные объекты из appendix** |
+
+Итоговые статусы required-строк: **355 REVIEW, 26 READY_FOR_LIVE, 3 VERIFIED** (только ранее существовавшие S6 investigation-строки; новых VERIFIED нет). `PENDING` — 0. `delivery_evidence` не добавлялся.
+
+### Гейты
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| deploy corrective | `--stage deploy --candidate 409f4e8a --repo C:\Code\Python\adminbot` | 0 | `errors=0` (scoped=384) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+| deploy parent SMART | `--stage deploy --candidate 0e4a144d` (requirements-map.json) | 0 | `errors=0` (scoped=828) |
+| deploy parent FC | `--stage deploy --candidate 0e4a144d` (requirements-map-fc-amendment.json) | 0 | `errors=0` (scoped=705) |
+
+Выводы: `evidence/gates/deploy-corrective-409f4e8a-r2.txt`, `evidence/gates/plan-after-deploy-bind-409f4e8a.txt`, `evidence/gates/deploy-parent-smart-0e4a144d-r2.txt`, `evidence/gates/deploy-parent-fc-0e4a144d-r2.txt`.
+
+AC wait copy проверен программно: для всех 26 READY-строк `row.postrelease_wait == review.approved_postrelease_wait == appendix.postrelease_wait`. Deploy gate разрешает только controlled deployment exact SHA; production acceptance и parent DONE не заявляются.
