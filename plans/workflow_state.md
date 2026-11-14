@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Builder ONTO-A fix ses_e24579defffeIdo5vS5nEZBLdh
-Join barriers: Builder ONTO-A chat_scope fix -> Reviewer r2 -> PM binds O-01/O-02; next ONTO-B
+Active lanes: Reviewer ONTO-A r2 ses_e2443f0ebffeiDYtkVr4rDuSNE
+Join barriers: Reviewer ONTO-A r2 -> PM binds O-01/O-02; next ONTO-B
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:48:00+12:00
+Updated: 2026-11-15T09:56:00+12:00
 
 ## Facts
 
@@ -59,3 +59,6 @@ PM read the frozen quality contract end-to-end: architecture-next2-quality.md re
 ## ONTO-A review r1 (2026-11-15)
 
 Reviewer r1: Needs Fixes, one real O-01 blocker: classify_entity_type("event", event_time=...) and the analogous fact case returned verified without a chat_id; REQUIRED_TYPE_SIGNALS (services/semantic_contracts.py:124-130) did not require chat_scope. O-02 was confirmed; focused 23 passed, affected 310 passed, UID mutation 3 failed/20 passed. Builder is fixing the chat_scope requirement with honest tentative/unknown semantics, adding positive/negative tests and a mutation, and will hand back for focused r2. This is a candidate-only defect, not a production regression; no map status was changed.
+## ONTO-A corrective (2026-11-15)
+
+Builder fixed the r1 blocker on vmq/onto-a: corrected candidate code 8cb9e00d, tip d67262cb. REQUIRED_TYPE_SIGNALS now requires chat_scope for all four types plus the type signal; verified without chat_scope raises ValueError in TypedEntityType.__post_init__; the type-conflict missing set is recomputed; no new enum/resolver/store/SQL/DDL; retrieval/message_identity/summary_aliases untouched. RED 3 failed on a7a576b1; GREEN 26 passed; mutation 3 failed/23 passed; affected suites 89/57/164 = 336 passed; no new failures. Reviewer r2 is running on the exact corrected delta.
