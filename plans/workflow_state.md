@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer deployed delta ses_e245a7ee3ffei2b5jaEYh1SfB8; Reviewer VMQ-V correction ses_e2458ffb8ffePCAmFsGKCEIUHk; Builder ONTO-A ses_e24579defffeIdo5vS5nEZBLdh
-Join barriers: Reviewer deployed-delta verdict -> PM binds M1/NEXT2; VMQ-V review -> PM binds V rows; Builder ONTO-A -> Reviewer
+Active lanes: Reviewer deployed delta ses_e245a7ee3ffei2b5jaEYh1SfB8; Reviewer VMQ-V correction ses_e2458ffb8ffePCAmFsGKCEIUHk; Reviewer ONTO-A ses_e2443f0ebffeiDYtkVr4rDuSNE
+Join barriers: Reviewer ONTO-A r1 + Reviewer deployed-delta + Reviewer VMQ-V -> PM binds the proven rows; next code slice ONTO-B after ONTO-A approval
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
-Next unlocks: (1) Builder ONTO-A candidate (O-01/O-02) -> independent review; (2) Reviewer verdicts on deployed M1/NEXT2 and VMQ-V -> PM binding; (3) serial ONTO-B then M2/MEM.
+Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02 at REVIEW or Needs Fixes; (2) M1/NEXT2 and VMQ-V verdicts -> PM deploy-state binding; (3) ONTO-B (O-03) then M2/MEM.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T08:52:00+12:00
+Updated: 2026-11-15T09:00:00+12:00
 
 ## Facts
 
@@ -31,3 +31,7 @@ Updated: 2026-11-15T08:52:00+12:00
 ## VMQ-V review correction (2026-11-15)
 
 The first VMQ-V review blocked on a wrong lineage reference: it compared the deployed c97c06e4 candidate to master HEAD, but master is the docs/integration line and intentionally lacks runtime code. The deployed candidate is c97c06e4 on release/smart-corrective-01 and origin/release/smart-corrective-01; git ls-tree -r c97c06e4 contains services/voice_transcripts.py, handlers/voice_transcription.py and tests/test_vmq_v_voice_writer.py, and the reconstructed c97 suite passed 48 with three mutations failing as expected. This is a procedural reference error (class C), not a product defect. The same Reviewer is correcting the artifact and issuing per-row behavioral verdicts; no map status was changed.
+
+## ONTO-A candidate (2026-11-15)
+
+Builder implemented VMQ-ONTO-A on branch vmq/onto-a from c97c06e4: code a7a576b1, branch tip 98e19074, worktree ...-fb344eff. New read-only services/semantic_contracts.py: typed user/topic/event/fact by chat_scope + participant identity + event time + statement provenance; separate speaker/subject; UID-first identity; alias as name_hint with canonical=None; ambiguity preserved with >=2 candidates; no second resolver/DB/search/LLM; no DDL; mca_retrieval_context untouched. Tests: 23 focused + 333 affected-suite passed; RED ImportError on base; two mutations fail target tests. Reviewer r1 is running; PM binds only after the verdict.
