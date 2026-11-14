@@ -1,0 +1,52 @@
+# 2.58.200 post-deploy health, schema, journal (server UTC 2026-11-14)
+
+### SERVICE (05:19:06Z / 05:19:35Z)
+active
+709883
+Sat 2026-11-14 05:18:59 UTC
+{"status":"ok","version":"2.58.200"}
+
+### SCHEMA
+user_version 47
+journal_mode wal
+[database] migrations: start | current user_version=47 | pending=[]
+[database] migrations: complete | user_version=47 | total 0.0s
+=> no DDL, no data migration
+
+### JOURNAL SINCE START (05:18:55Z)
+TRACEBACKS_SINCE_START=0
+ERRORS_SINCE_START=0
+WARNINGS_SINCE_START=1
+
+WARNING (pre-existing, unrelated to this train):
+services.summary_memory - WARNING - SmartModule: embedding generation not
+serviceable | index=smart_archive | status=superseded | gen_fp=2d0efab0e817
+new_fp=2d0efab0e817 - FTS-only (A06) | build pending - source empty (nothing to
+vectorize)
+
+### JOURNAL TAIL AFTER RESTART (excerpt, non-secret)
+apscheduler.scheduler - INFO - Scheduler started
+services.mca_vision - INFO - [vision] media worker started | tick=5s
+services.goodmorning_scheduler - INFO - Goodmorning scheduler started (07:00 chat-local via ChatClock, 1 chats, ticker 60s)
+services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+__main__ - INFO - VideoDownloader enabled (cobalt=http://localhost:9000)
+__main__ - INFO - All routers registered (v2.4.0)
+__main__ - INFO - Bot started, listening for messages...
+services.uptime_heartbeat - INFO - [uptime] heartbeat started: interval=60s retention=72h
+web.app - INFO - [webapp] WEBAPP_URL | scheme=https | host=admin-bot.duckdns.org | path=/web/
+__main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+aiogram.dispatcher - INFO - Start polling
+web.app - INFO - [webapp] lifespan started | pg_available=True
+aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+
+### CONFIG MIGRATIONS ON START (owner values preserved)
+[budget_migration] уже новый дефолт | key=limits.worker_daily_llm_tokens_per_chat
+[context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_global_context_max_tokens
+[context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_thread_max_tokens
+CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+[factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+[factcheck_wide_context_migration] уже применено — no-op
+CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+[image_migration] уже дефолт | key=models.image_get_mode
+[deep_sleep_migration] skip: выключено (ветка A аудита)

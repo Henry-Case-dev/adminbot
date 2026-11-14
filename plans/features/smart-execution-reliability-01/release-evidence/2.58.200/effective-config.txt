@@ -1,0 +1,61 @@
+# 2.58.200 effective configuration (read-only readback, server UTC 2026-11-14T05:19Z)
+
+Sources: `config/settings.py` + process/.env (factory/env layer), PostgreSQL
+`bot_settings` (global) and `chat_profiles.chat_params.overrides` (per-chat).
+Chat ids are replaced by CHAT1..3. No secrets are printed.
+
+## Factory / env layer (standalone `config.settings`, `.env` sourced)
+APP_VERSION 2.58.200
+BUDGETS_ENABLED True                      # factory only; runtime master is the PG row below
+TOOL_CHAIN_LIMITS_ENABLED True
+CHAT_UNKNOWN_MODEL_WINDOW 1000000         # was 16384 before this train
+MCA_TOOL_MAX_TOTAL_CALLS 0                # 0 = policy not set (no cap)
+MCA_TOOL_MAX_METERED_CALLS 0
+MCA_TOOL_MAX_SAME_CALL 0
+MCA_TOOL_CHAIN_TIMEOUT_SECONDS 0.0
+.matches: no MCA_* / BUDGETS_ENABLED / CHAT_UNKNOWN_MODEL_WINDOW keys in .env
+
+## Persisted layers (PostgreSQL)
+GLOBAL flags.budgets_enabled false 2026-10-25 06:13:07.439995+00:00   (unchanged)
+GLOBAL models.llm_base_url "https://nano-gpt.com/api/v1" 2026-09-12 05:43:07.884798+00:00
+GLOBAL models.llm_model_name "z-ai/glm-5.3-flash-uncensored" 2026-11-11 12:04:22.696731+00:00
+BOT_SETTINGS_ROWS 548   MAX_UPDATED_AT 2026-11-14 05:19:03.548386+00:00
+CHAT_PROFILES 3         MAX_UPDATED_AT 2026-11-13 11:07:51.226500+00:00
+
+CHAT1 group budgets_override=false  override_keys=8   updated_at=2026-11-11 13:14:05.843018+00:00
+CHAT2 group budgets_override=false  override_keys=31  updated_at=2026-11-13 11:07:51.226500+00:00
+CHAT3 dm    budgets_override=<absent> override_keys=5 updated_at=2026-10-28 08:54:24.139196+00:00
+
+=> effective `flags.budgets_enabled` = false for all three chats (global false;
+   two explicit false overrides; DM inherits global), i.e. the OFF contract is
+   the value the deployed runtime starts from.
+
+## Only write observed at startup (expected new catalog entry)
+RECENT_ROWS 1
+RW prompts.factcheck_subject_system_prompt | "Ты — служебная стадия фактчека. Ты НЕ пишешь ответ пользователю и не
+оцениваеш…" | prompts | 2026-11-14 05:19:03.548386+00:00
+=> 547 -> 548 rows: one new factory prompt (services.factcheck_orchestrator
+   FACTCHECK_SUBJECT_SYSTEM_PROMPT). No existing user value was rewritten;
+   per-chat overrides and model rows keep their original updated_at.
+
+## Capacity resolver (read-only; no LLM call)
+chat-path model z-ai/glm-5.3-flash-uncensored:
+  sync legacy resolver        (1000000, 'unknown_fallback')   # 16384 fallback removed
+  async provider catalog      effective_context_window=1048576,
+                              max_output_tokens=32768,
+                              source=provider_catalog, confidence=verified,
+                              fallback_used=false
+env-layer model deepseek-v4-flash (standalone probe only):
+  resolve_capacity -> effective_context_window=1000000, source=estimated_unknown,
+                      confidence=estimated, fallback_used=false
+  (reported honestly: this probe used the env default because a standalone
+   process has no per-chat/global PG model layer; the chat path uses the PG model
+   above, whose catalog value is verified)
+
+## Not observable read-only (residual for live/post-deploy canary binding)
+- In-process `budget_gate.budgets_enabled(chat_id)` from the running app
+  (standalone process has no ChatParamsCache -> chat layer unavailable and the
+  master resolves to the factory default; that standalone value is NOT an
+  effective-config observation and is not used as evidence).
+- Real LLM payload / evidence completeness, Telegram delivery, external
+  provider responses, live checkup with continuation, live factcheck scenarios.

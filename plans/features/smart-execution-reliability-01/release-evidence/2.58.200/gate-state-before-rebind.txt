@@ -1,0 +1,22 @@
+﻿# requirements_gate.py --stage deploy on the deployed candidate (informational, BEFORE map rebinding)
+# map: plans/features/smart-execution-reliability-01/requirements-map.json
+# candidate: 0e4a144db476a1535ae3a2b79a7cce30354ad866 (deployed)
+# map candidate_commit: d20a7f73 (previous production) -> candidate mismatch is expected;
+# PM/Orchestrator rebind evidence to the deployed SHA and run release/delivery gates.
+# This is acceptance bookkeeping, NOT a production failure: the service, identity,
+# schema and settings checks in deploy.md are green.
+
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-1-01: no evidence bound to reviewed candidate
+FAIL: SXR-A1-01: no evidence bound to reviewed candidate
+FAIL: SXR-A1-01: no evidence bound to reviewed candidate
+FAIL: SXR-A1-01: no evidence bound to reviewed candidate
+... [truncated; full run: 829 errors, first 12 kept]
+stage=deploy inventory=509 manual=359 scoped=828 errors=829

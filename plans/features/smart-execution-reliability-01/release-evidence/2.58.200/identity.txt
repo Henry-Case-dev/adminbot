@@ -1,0 +1,40 @@
+# 2.58.200 production identity (raw, server UTC)
+# host=192.255.209.205 /var/www/admin_bot; sessions: recon 05:15:46Z, main 05:18:47–05:19:06Z, checks 05:19:35Z
+
+### PRE (05:18:47Z)
+HEAD=d20a7f730715ba9e9cba7673c0557794979be339
+BRANCH=release/2.58.199
+UPSTREAM=origin/release/2.58.199
+AHEAD_BEHIND=0	0
+DIRTY=1   (?? .cache/)
+APP_VERSION=2.58.199
+SERVICE=active PID=454989 START=Fri 2026-11-13 08:36:18 UTC
+HEALTH=200 {"status":"ok","version":"2.58.199"}
+MANIFEST={"deployed_at": "2026-11-13T08:36:16.759775Z", "deployed_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "dirty_tracked": false, "effect": "deploy", "previous_sha": null, "previous_version": null, "release_branch": "release/2.58.199", "schema": 1, "version": "2.58.199"}
+
+### DEPLOY (05:18:47–05:19:04Z)
+REMOTE_SHA=0e4a144db476a1535ae3a2b79a7cce30354ad866
+NEW_SHA=0e4a144db476a1535ae3a2b79a7cce30354ad866
+NEW_BRANCH=release/2.58.200
+NEW_VER=2.58.200
+NEW_DIRTY=1   (?? .cache/)
+BACKUP=backups/pre_deploy_258200_20261114T051849Z.db BYTES=3015938048
+MANIFEST_RC=0  MANIFEST_READABLE_RC=0
+RESTART_RC=0
+HEALTH_TICKS: tick1=<empty> tick2=<empty> tick3={"status":"ok","version":"2.58.200"}
+
+### POST (05:19:06Z)
+SHA=0e4a144db476a1535ae3a2b79a7cce30354ad866
+BRANCH=release/2.58.200
+APP_VERSION=2.58.200
+SERVICE=active PID=709883 START=Sat 2026-11-14 05:18:59 UTC
+HEALTH=200 {"status":"ok","version":"2.58.200"}
+MANIFEST={"deployed_at": "2026-11-14T05:18:53.892873Z", "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866", "dirty_tracked": false, "effect": "deploy", "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "previous_version": "2.58.199", "release_branch": "release/2.58.200", "schema": 1, "version": "2.58.200"}
+SCHEMA=user_version 47 journal_mode wal
+SERVICE_USER_JOURNAL_RC=0
+FREE_KB=29623836
+
+### MANIFEST IDENTITY ASSERTION
+manifest.deployed_sha == git HEAD == 0e4a144db476a1535ae3a2b79a7cce30354ad866
+manifest.version == runtime /healthz version == APP_VERSION == 2.58.200
+manifest.previous_sha == rollback target d20a7f730715ba9e9cba7673c0557794979be339 (2.58.199)
