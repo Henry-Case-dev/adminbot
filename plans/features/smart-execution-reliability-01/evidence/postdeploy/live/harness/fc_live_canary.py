@@ -70,8 +70,10 @@ import hashlib
 import json
 import os
 import re
+import socket
 import sys
 import tempfile
+import threading
 import time
 import traceback
 import urllib.error
@@ -79,8 +81,27 @@ import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 
-HARNESS_VERSION = "1.0.0"
+HARNESS_VERSION = "1.1.0"
 HARNESS_NAME = "fc_live_canary"
+
+#: Evidence classes. ``production`` = the verdict is derived from a real
+#: deployed-code run with the real transport (no scripted doubles standing in
+#: for the subject under test) or from real read-only production state;
+#: ``plumbing`` = the verdict is derived from scripted doubles / in-process
+#: simulations and therefore must never be reported as production evidence;
+#: ``unavailable`` = the required transport/state was absent, so the check has
+#: no admissible evidence at all.
+EVIDENCE_CLASSES = ("plumbing", "production", "unavailable")
+
+#: Hard bounds for the offline self-test. The self-test must never hang: every
+#: step is bounded locally and the whole run has an absolute watchdog.
+SELF_TEST_STEP_TIMEOUT_S = 20.0
+SELF_TEST_TOTAL_TIMEOUT_S = 75.0
+SELF_TEST_WATCHDOG_GRACE_S = 5.0
+
+#: Per-check bound for real runs (a single check may legitimately use the
+#: production retrieval budget of up to 600 s).
+CHECK_TIMEOUT_S = 900.0
 
 #: Synthetic group chat. Never a real Telegram id (real ids are > 0 for DM and
 #: negative supergroup ids start with -100<10 digits>; this one is a clearly
@@ -195,16 +216,35 @@ class CheckResult:
     summary: str
     details: dict = dataclasses.field(default_factory=dict)
     duration_s: float = 0.0
+    evidence_class: str = "unavailable"   # plumbing | production | unavailable
 
     def as_dict(self) -> dict:
+        if self.evidence_class not in EVIDENCE_CLASSES:
+            raise ValueError(
+                f"invalid evidence_class {self.evidence_class!r} for {self.id}")
         return {
             "id": self.id,
             "req_ids": list(self.req_ids),
             "status": self.status,
+            "evidence_class": self.evidence_class,
+            # A check can only claim production evidence when it is observed
+            # AND its decisive transport was real (never a scripted double).
+            "production_evidence": bool(self.status == "observed"
+                                        and self.evidence_class == "production"),
             "summary": self.summary,
             "details": self.details,
             "duration_s": round(float(self.duration_s), 3),
         }
+
+
+def _run_evidence_class(bundle) -> str:
+    """Class of a check whose verdict rests on one ``run_scenario`` bundle."""
+    if bundle is None or getattr(bundle, "status", None) != "observed":
+        return "unavailable"
+    if getattr(bundle, "transport", "real") != "real":
+        return "plumbing"
+    return "production"
+
 
 
 class HarnessAbort(RuntimeError):
@@ -592,6 +632,8 @@ class Runtime:
         self.identity = {}
         self.health = {}
         self.overrides = []
+        self.shim_events = {"hot_enter": 0, "hot_exit": 0,
+                            "chat_enter": 0, "chat_exit": 0}
         self._restore = []
         self.tmpdir = None
         self.db = None
@@ -835,10 +877,12 @@ class Runtime:
             values.update(extra)
         shim = SimpleNamespace(get=lambda key, default=None: values.get(key, default))
         hot.set_config_cache(shim)
+        self.shim_events["hot_enter"] = self.shim_events.get("hot_enter", 0) + 1
         try:
             yield values
         finally:
             hot.set_config_cache(before)
+            self.shim_events["hot_exit"] = self.shim_events.get("hot_exit", 0) + 1
 
     @contextlib.contextmanager
     def chat_shim(self, roots: dict | None = None):
@@ -866,10 +910,12 @@ class Runtime:
         shim = _Shim()
         shim._items = {int(k): (time.monotonic(), v, None) for k, v in store.items()}
         cp.set_chat_params_cache(shim)
+        self.shim_events["chat_enter"] = self.shim_events.get("chat_enter", 0) + 1
         try:
             yield shim
         finally:
             cp.set_chat_params_cache(before)
+            self.shim_events["chat_exit"] = self.shim_events.get("chat_exit", 0) + 1
 
     def smart_cache_into(self, db_path: str):
         """Point the smart-cache singleton at the temporary database."""
@@ -1113,6 +1159,7 @@ class RunBundle:
     calls: dict
     events: list
     admission: dict = dataclasses.field(default_factory=dict)
+    transport: str = "real"          # real | stub  (stub = self-test doubles)
 
     def as_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -1309,17 +1356,40 @@ def _claims_view(event: dict | None) -> dict:
     return {key: merged.get(key) for key in keep if key in merged}
 
 
-async def _db_bundle(runtime: Runtime) -> dict:
-    out = {"run_row": False, "evidence_rows": None,
-           "ledger_rows": None, "ledger_gate": None}
+async def _db_bundle(runtime: Runtime, *, scope: dict | None = None) -> dict:
+    """Durable rows for ONE run, bound by its own correlation scope.
+
+    The durable ``run_id`` is generated inside the release code
+    (``tfr-<hex>``), so it is not the pipeline correlation id. A synthetic
+    scenario is uniquely identified by ``(chat_id, trigger_tg_message_id,
+    target_tg_message_id)``; querying by that scope prevents the previous
+    "latest row in the chat" mistake where a later run could satisfy an
+    earlier check.
+    """
+    scope = dict(scope or {})
+    out = {"run_row": False, "evidence_rows": None, "ledger_rows": None,
+           "ledger_gate": None, "scope": scope, "runs_for_scope": 0,
+           "scope_unique": False}
+    clauses = ["chat_id = ?"]
+    params = [SYNTH_CHAT_ID]
+    if scope.get("trigger_tg_message_id") is not None:
+        clauses.append("trigger_tg_message_id = ?")
+        params.append(int(scope["trigger_tg_message_id"]))
+    if scope.get("target_tg_message_id") is not None:
+        clauses.append("target_tg_message_id = ?")
+        params.append(int(scope["target_tg_message_id"]))
+    where = " AND ".join(clauses)
     try:
-        rows = await runtime.db_query(
+        all_rows = await runtime.db_query(
             "SELECT run_id, factual_verdict, temporal_status, reason, "
-            "length(claim_text) AS claim_chars, created_at "
-            "FROM mca_factcheck_runs WHERE chat_id = ? "
-            "ORDER BY created_at DESC, run_id DESC LIMIT 1", (SYNTH_CHAT_ID,))
-        if rows:
-            row = dict(rows[0])
+            "length(claim_text) AS claim_chars, trigger_tg_message_id, "
+            "target_tg_message_id, created_at "
+            f"FROM mca_factcheck_runs WHERE {where} "
+            "ORDER BY created_at DESC, run_id DESC", tuple(params))
+        out["runs_for_scope"] = len(all_rows or [])
+        out["scope_unique"] = len(all_rows or []) == 1
+        if all_rows:
+            row = dict(all_rows[0])
             out["run_row"] = True
             out["run_id"] = row.get("run_id")
             out["factual_verdict"] = row.get("factual_verdict")
@@ -1335,7 +1405,7 @@ async def _db_bundle(runtime: Runtime) -> dict:
                 out["evidence_chars"] = int(
                     dict(count_rows[0]).get("chars") or 0)
     except Exception as exc:
-        out["evidence_error"] = redact(str(exc), 200)
+        out["db_error"] = redact(str(exc), 200)
     try:
         from services import mca_gates
         out["ledger_gate"] = bool(mca_gates.bot_output_ledger_enabled())
@@ -1360,7 +1430,8 @@ async def _db_bundle(runtime: Runtime) -> dict:
 async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
                        trigger_key: str, target_text: str,
                        trigger_text: str, user_hint: str | None = None,
-                       kind: str = "reply") -> RunBundle:
+                       kind: str = "reply",
+                       transport: str = "real") -> RunBundle:
     """Drive ONE real ``run_factcheck`` for synthetic chat content."""
     m = runtime.modules
     runtime.recorder.reset_run()
@@ -1375,7 +1446,7 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
             duration_s=0.0, outcome=None, correlation_id=None, subject={},
             publication={}, plan={}, retrieval={}, envelope={}, diagnostics={},
             claims_event={}, delivered={}, db={}, calls=runtime.budget.as_dict(),
-            events=[])
+            events=[], transport=transport)
     if not _pipeline_v2_enabled(runtime):
         return RunBundle(
             name=name, status="not_observed",
@@ -1384,7 +1455,7 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
             duration_s=0.0, outcome=None, correlation_id=None, subject={},
             publication={}, plan={}, retrieval={}, envelope={}, diagnostics={},
             claims_event={}, delivered={}, db={}, calls=runtime.budget.as_dict(),
-            events=[])
+            events=[], transport=transport)
     try:
         req = m.orch.FactcheckRequest(
             chat_id=SYNTH_CHAT_ID,
@@ -1411,7 +1482,10 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
 
     delivered = [dict(item) for item in runtime.recorder.delivered]
     combined = "\n".join(str(item.get("text") or "") for item in delivered)
-    db_bundle = await _db_bundle(runtime)
+    db_bundle = await _db_bundle(runtime, scope={
+        "trigger_tg_message_id": TG[trigger_key],
+        "target_tg_message_id": TG[target_key],
+    })
     retrieval = _retrieval_view(runtime.recorder.last_retrieval())
     envelope_run = runtime.recorder.last_envelope_run()
     diagnostics = _diagnostics_view(runtime.recorder.event("factcheck_diagnostics"))
@@ -1450,6 +1524,7 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
         calls=runtime.budget.as_dict() | {"this_run": dict(runtime.budget.per_run)},
         events=[{"event_name": e["event_name"], "outcome": e["outcome"],
                  "level": e["level"]} for e in runtime.recorder.events],
+        transport=transport,
     )
     return bundle
 
@@ -1460,13 +1535,18 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
 
 
 def observability_row(runtime: Runtime, bundle: RunBundle,
-                      effective: dict) -> dict:
+                      effective: dict, *, evidence_class: str = "unavailable",
+                      status: str | None = None,
+                      check_id: str | None = None) -> dict:
     envelope = bundle.envelope or {}
     retrieval = bundle.retrieval or {}
     limits = ((effective.get("synthetic_chat") or {}).get("limits") or {})
     return {
         "run": bundle.name,
-        "status": bundle.status,
+        "check_id": check_id or bundle.name,
+        "status": status or bundle.status,
+        "evidence_class": evidence_class,
+        "transport": getattr(bundle, "transport", "real"),
         "request_correlation_id": bundle.correlation_id,
         "route": (bundle.claims_event or {}).get("verdict_route")
         or envelope.get("factual_verdict"),
@@ -1504,6 +1584,7 @@ def observability_row(runtime: Runtime, bundle: RunBundle,
 
 async def check_ordinary_factcheck(runtime: Runtime, ctx: dict) -> CheckResult:
     started = time.perf_counter()
+    m = runtime.modules
     bundle = await run_scenario(
         runtime, "ordinary_factcheck", target_key="ordinary_target",
         trigger_key="ordinary_trigger", target_text=MATERIAL_ORDINARY,
@@ -1528,31 +1609,44 @@ async def check_ordinary_factcheck(runtime: Runtime, ctx: dict) -> CheckResult:
 
     evidence_rows = envelope.get("evidence_rows_delivered")
     db_rows = db.get("evidence_rows")
-    db_matches_delivered = (None not in (evidence_rows, db_rows)
+    db_scope_bound = bool(db.get("run_row")) and bool(db.get("scope_unique"))
+    db_matches_delivered = (db_scope_bound and None not in (evidence_rows, db_rows)
+                            and int(db_rows) >= 1
                             and int(evidence_rows) == int(db_rows))
-    delivery_consistent = True
+    delivery_consistent = False
     if event_delivery:
         total = event_delivery.get("total_rows")
         shown = event_delivery.get("delivered_rows")
         remainder = event_delivery.get("remainder")
         if None not in (total, shown, remainder):
-            delivery_consistent = (int(shown) + int(remainder) == int(total))
-
+            delivery_consistent = (
+                int(shown) + int(remainder) == int(total)
+                and (evidence_rows is None or int(shown) == int(evidence_rows)))
+    valid_stop_reasons = {m.fsp.STOP_SUFFICIENT_EVIDENCE,
+                          m.fsp.STOP_PATHS_EXHAUSTED}
+    evidence_chars = int(retrieval.get("evidence_chars") or 0)
     checks = {
         "request_accepted": bundle.outcome == "verdict",
         "target_resolved": bool(publication.get("text_chars"))
         and bool(envelope.get("target_tg_present")),
         "subject_is_material": bool(subject.get("text_is_material")),
-        "subject_not_lost_with_empty_hint": bool(
-            subject.get("has_text")) and not (subject.get("text_chars") == 0),
+        "subject_not_lost_with_empty_hint": bool(subject.get("has_text"))
+        and int(subject.get("material_chars") or 0) > 0
+        and int(subject.get("text_chars") or 0) >= int(
+            subject.get("material_chars") or 0),
         "search_relates_to_material": bool(
             overlap_ratio(MATERIAL_ORDINARY,
                           " ".join(retrieval.get("attempted_queries") or [])) >= 0.2),
-        "claim_units_present": int(retrieval.get("claim_units") or 0) >= 1,
-        "evidence_collected": int(retrieval.get("refs") or 0) >= 1,
+        "claim_units_present": int(retrieval.get("claim_units") or 0) >= 2,
+        "queries_attempted": int(retrieval.get("queries_attempted") or 0) >= 2,
+        "evidence_collected": int(retrieval.get("refs") or 0) >= 2,
+        "evidence_chars_substantive": evidence_chars >= 500,
         "substantive_answer": int(delivered.get("chars") or 0) >= 120,
         "route_recorded": bool((bundle.claims_event or {}).get("verdict_route")),
-        "stop_reason_recorded": bool(retrieval.get("stop_reason")),
+        "stop_reason_expected": retrieval.get("stop_reason")
+        in valid_stop_reasons,
+        "delivery_event_present": bool(event_delivery),
+        "db_rows_bound_to_run": db_scope_bound,
         "db_rows_match_delivered": db_matches_delivered,
         "delivery_budget_consistent": delivery_consistent,
         "not_a_technical_deadline_answer": not _looks_like_timeout(delivered
@@ -1564,6 +1658,22 @@ async def check_ordinary_factcheck(runtime: Runtime, ctx: dict) -> CheckResult:
                "ответ." if not failed else
                "Обычный фактчек дал отклонения: " + ", ".join(failed))
     details["assertions"] = checks
+    details["db_binding"] = {
+        "scope": db.get("scope"),
+        "runs_for_scope": db.get("runs_for_scope"),
+        "scope_unique": db.get("scope_unique"),
+        "durable_run_id": db.get("run_id"),
+        "pipeline_run_id": bundle.correlation_id,
+        "binding_rule": ("durable run_id is generated by release code "
+                         "(tfr-<hex>); the run is bound by "
+                         "chat_id+trigger+target"),
+        "delivered_rows": evidence_rows,
+        "db_evidence_rows": db_rows,
+        "db_evidence_chars": db.get("evidence_chars"),
+        "db_claim_chars": db.get("claim_chars"),
+        "db_error": db.get("db_error"),
+    }
+    details["evidence_threshold_chars"] = 500
     details["bundle"] = {
         "request_correlation_id": bundle.correlation_id,
         "route": (bundle.claims_event or {}).get("verdict_route"),
@@ -1586,7 +1696,8 @@ async def check_ordinary_factcheck(runtime: Runtime, ctx: dict) -> CheckResult:
                                             "ledger_rows", "ledger_gate")},
     }
     return CheckResult("ordinary_factcheck", CHECK_REQ_MAP["ordinary_factcheck"],
-                       status, summary, details, time.perf_counter() - started)
+                       status, summary, details, time.perf_counter() - started,
+                       evidence_class=_run_evidence_class(bundle))
 
 
 def _looks_like_timeout(text: str) -> bool:
@@ -1626,17 +1737,22 @@ async def check_multipart_and_short(runtime: Runtime, ctx: dict) -> CheckResult:
     short_subject = short.subject or {}
     short_ret = short.retrieval or {}
     short_delivered = short.delivered or {}
+    m = runtime.modules
+    valid_stop_reasons = {m.fsp.STOP_SUFFICIENT_EVIDENCE,
+                          m.fsp.STOP_PATHS_EXHAUSTED}
     assertions = {
-        "multipart_claim_units_ge_4": int(multi_ret.get("claim_units") or 0) >= 1
-        and int(multi_ret.get("queries_attempted") or 0) >= 2,
+        "multipart_queries_ge_2": int(multi_ret.get("queries_attempted") or 0) >= 2,
         "multipart_parts_kept": int(multi_env.get("parts") or 0) >= 4
         or int(multi_ret.get("claim_units") or 0) >= 4,
-        "multipart_evidence": int(multi_ret.get("refs") or 0) >= 1,
+        "multipart_evidence": int(multi_ret.get("refs") or 0) >= 2,
+        "multipart_stop_reason_expected": multi_ret.get("stop_reason")
+        in valid_stop_reasons,
         "short_subject_kept_material": bool(short_subject.get("has_text"))
         and (short_subject.get("text_overlaps_material") or 0) >= 0.3,
         "short_search_relates_to_material": bool(
             overlap_ratio(SHORT_CONTEXT_MATERIAL,
                           " ".join(short_ret.get("attempted_queries") or [])) >= 0.2),
+        "short_evidence_collected": int(short_ret.get("refs") or 0) >= 1,
         "short_answer_delivered": int(short_delivered.get("chars") or 0) >= 60,
         "short_not_generic_clarification_only": not _is_generic_clarification(
             short_delivered.get("preview")),
@@ -1667,7 +1783,11 @@ async def check_multipart_and_short(runtime: Runtime, ctx: dict) -> CheckResult:
     }
     return CheckResult("multipart_and_short_reply",
                        CHECK_REQ_MAP["multipart_and_short_reply"], status,
-                       summary, details, time.perf_counter() - started)
+                       summary, details, time.perf_counter() - started,
+                       evidence_class=(_run_evidence_class(multipart)
+                                       if multipart.status == "observed"
+                                       and short.status == "observed"
+                                       else "unavailable"))
 
 
 def _is_generic_clarification(text: str) -> bool:
@@ -1885,8 +2005,12 @@ async def check_budget_scenarios(runtime: Runtime, ctx: dict) -> CheckResult:
         "refs_default": many_outcome.refs_collected,
         "candidates_with_explicit_4": page_context.claims[0].candidates
         if page_context.claims else 0,
+        "refs_with_explicit_4": page_context.refs_collected,
         "not_truncated_to_4": (bool(many_outcome.claims)
-                              and many_outcome.claims[0].candidates > 4),
+                              and many_outcome.claims[0].candidates >= 10),
+        "explicit_page_size_honoured": bool(page_context.claims)
+        and page_context.claims[0].candidates == 4,
+        "default_page_size_is_20": _num(factory_limits.page_size) == 20.0,
     }
 
     # ── I. continuation after a portion is really available ────────────────
@@ -1898,19 +2022,33 @@ async def check_budget_scenarios(runtime: Runtime, ctx: dict) -> CheckResult:
         "lossless": "".join(portions) == long_text,
         "first_portion_chars": len(portions[0]) if portions else 0,
     }
-    lots = await m.fsp.run_retrieval(
+    lots_on = await m.fsp.run_retrieval(
+        _synthetic_plan(queries=2, claims=1),
+        aggregator=_ScriptedAggregator("long"), limits=factory_limits)
+    lots_off = await m.fsp.run_retrieval(
         _synthetic_plan(queries=2, claims=1),
         aggregator=_ScriptedAggregator("long"), limits=limits_off)
+    on_total = int(lots_on.search_text_total_chars or 0)
+    on_portions = tuple(lots_on.search_text_portions or ())
+    on_lossless = (sum(len(piece) for piece in on_portions) == on_total
+                   and on_total > 0)
     scenarios["I_continuation_available"] = {
         "portions_model": continuation,
-        "search_text_total_chars": lots.search_text_total_chars,
-        "search_text_portions": len(lots.search_text_portions),
-        "search_text_truncated": lots.search_text_truncated,
-        "lossless_in_run": (
-            sum(len(piece) for piece in lots.search_text_portions)
-            == lots.search_text_total_chars),
-        "budget_off_portions_single": (limits_off.search_text_chars is None
-                                       and len(lots.search_text_portions) == 1),
+        "on_total_chars": on_total,
+        "on_portions": len(on_portions),
+        "on_lossless": on_lossless,
+        "on_truncated_flag": bool(lots_on.search_text_truncated),
+        "on_truncated_matches_portions": bool(lots_on.search_text_truncated)
+        == (len(on_portions) > 1),
+        "off_portions": len(tuple(lots_off.search_text_portions or ())),
+        "off_total_chars": int(lots_off.search_text_total_chars or 0),
+        "off_lossless": (sum(len(piece) for piece in
+                             tuple(lots_off.search_text_portions or ()))
+                         == int(lots_off.search_text_total_chars or 0)),
+        "budget_off_single_portion": (limits_off.search_text_chars is None
+                                      and len(tuple(
+                                          lots_off.search_text_portions or ()))
+                                      == 1),
     }
 
     # ── J. real physical limit of model/source handled honestly ────────────
@@ -1945,13 +2083,29 @@ async def check_budget_scenarios(runtime: Runtime, ctx: dict) -> CheckResult:
         "F_evidence_gt_8000": scenarios["F_evidence_over_8000"]["no_8000_cap"],
         "G_parts_gt_8": scenarios["G_more_than_8_parts"]["no_8_silent_cap"]
         and scenarios["G_more_than_8_parts"]["text_preserved"],
-        "H_results_gt_4": scenarios["H_more_than_4_results"]["not_truncated_to_4"],
-        "I_continuation": scenarios["I_continuation_available"]
-        ["portions_model"]["lossless"],
+        "H_results_gt_4": scenarios["H_more_than_4_results"]["not_truncated_to_4"]
+        and scenarios["H_more_than_4_results"]["explicit_page_size_honoured"]
+        and scenarios["H_more_than_4_results"]["default_page_size_is_20"],
+        "I_continuation": scenarios["I_continuation_available"]["on_lossless"]
+        and scenarios["I_continuation_available"]["on_total_chars"] > 100_000
+        and scenarios["I_continuation_available"]["on_portions"] >= 2
+        and scenarios["I_continuation_available"]
+        ["on_truncated_matches_portions"]
+        and scenarios["I_continuation_available"]["budget_off_single_portion"]
+        and scenarios["I_continuation_available"]["off_lossless"],
         "J_physical_limit": scenarios["J_physical_limit"]["remainder_preserved"],
     }
     failed = [name for name, ok in assertions.items() if not ok]
     details["assertions"] = assertions
+    details["evidence_classes"] = {
+        "assertions": "plumbing",
+        "note": ("B–J используют контролируемые двойники транспорта; "
+                 "production-наблюдения — effective_production (PG read-only) "
+                 "и значения из ordinary_factcheck, они не подменяются "
+                 "двойниками."),
+        "effective_production": "production (read-only PG snapshot)",
+        "ordinary_run_values": "production when ordinary_factcheck observed",
+    }
     details["A_note"] = ("A требует реального прогона; наблюдается в "
                          "ordinary_factcheck (см. scenarios.A_*)")
     status = "observed" if not failed else "error"
@@ -1961,7 +2115,8 @@ async def check_budget_scenarios(runtime: Runtime, ctx: dict) -> CheckResult:
                if not failed else
                "Отклонения бюджетных сценариев: " + ", ".join(failed))
     return CheckResult("budget_scenarios", CHECK_REQ_MAP["budget_scenarios"],
-                       status, summary, details, time.perf_counter() - started)
+                       status, summary, details, time.perf_counter() - started,
+                       evidence_class="plumbing")
 
 
 def _num(value):
@@ -2210,7 +2365,8 @@ async def check_metric_distinguishability(runtime: Runtime,
         (ctx.get("runs") or {}).get("ordinary_factcheck"))
     return CheckResult("metric_distinguishability",
                        CHECK_REQ_MAP["metric_distinguishability"], status,
-                       summary, details, time.perf_counter() - started)
+                       summary, details, time.perf_counter() - started,
+                       evidence_class="plumbing")
 
 
 def _real_metric_view(bundle) -> dict:
@@ -2271,7 +2427,13 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
                                      not in ("budget_exhausted",)
                                      and not _looks_like_timeout(preview)),
         "direct_answer_on_question": bool(answered_places or place_like),
-        "not_prebaked_list": True,          # by construction, see details
+        # Real, falsifiable replacement for the previous unconditional True:
+        # the delivered answer must be produced by the pipeline and must not be
+        # an echo of the harness-authored input material or question. A
+        # regression that simply repeats the material (or ships a canned
+        # prebaked list identical to the input) flips this to False.
+        "answer_not_a_harness_echo": _answer_not_echo(
+            preview, MATERIAL_TRADITION, TRIGGER_TRADITION),
         "ambiguity_acknowledged": bool(
             envelope.get("has_ambiguity_note") or envelope.get("inference_gap")
             or envelope.get("counterpoint")
@@ -2308,14 +2470,17 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
         "no_prebaked_country_list": {
             "prebaked_list_used": False,
             "harness_removed_countries": False,
+            "answer_not_a_harness_echo": assertions["answer_not_a_harness_echo"],
             "explanation": ("Запрос отправлен ровно текстом пользователя; "
                             "список стран и политический вывод харнесс не "
-                            "формирует и не подмешивает."),
+                            "формирует и не подмешивает; ответ не повторяет "
+                            "входной материал/вопрос харнесса."),
         },
     }
     return CheckResult("original_production_scenario",
                        CHECK_REQ_MAP["original_production_scenario"], status,
-                       summary, details, time.perf_counter() - started)
+                       summary, details, time.perf_counter() - started,
+                       evidence_class=_run_evidence_class(bundle))
 
 
 _QUESTION_STOPWORDS = {"фактчек", "бот", "реально", "такие", "такой", "которые",
@@ -2361,6 +2526,38 @@ def _plain_conclusion(text: str) -> str:
     value = re.sub(r"https?://\S+", "", str(text or ""))
     value = re.sub(r"\s+", " ", value).strip()
     return redact(value, limit=300)
+
+
+def _norm_words(text: str) -> list:
+    value = re.sub(r"https?://\S+", " ", str(text or "").lower())
+    return re.findall(r"[а-яёa-z0-9]{3,}", value)
+
+
+def _answer_not_echo(answer: str, *sources: str) -> bool:
+    """True when the delivered answer is not just the harness input repeated.
+
+    Falsifiable by construction: an answer equal (or nearly equal) to any
+    harness-authored material/question returns False, so a regression that
+    echoes the request instead of producing a researched answer fails the
+    check instead of passing an unconditional assertion.
+    """
+    words = _norm_words(answer)
+    if len(words) < 8:
+        return False
+    answer_set = set(words)
+    for source in sources:
+        source_words = _norm_words(source)
+        if not source_words:
+            continue
+        source_set = set(source_words)
+        overlap = len(answer_set & source_set) / float(len(answer_set))
+        if overlap >= 0.85:
+            return False
+    lowered = str(answer or "").lower()
+    if lowered.strip() == str(TRIGGER_TRADITION or "").lower().strip():
+        return False
+    return True
+
 
 
 async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
@@ -2424,22 +2621,39 @@ async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
                 "budgets": (effective.get("synthetic_chat") or {}),
             },
         },
-        time.perf_counter() - started)
+        time.perf_counter() - started,
+        evidence_class=_run_evidence_class(bundle))
 
 
 def _safety_block(runtime: Runtime) -> dict:
     """Machine-checkable statement of what the harness did NOT touch."""
     bot_calls = len(getattr(runtime.bot, "calls", []) or [])
+    pg = runtime.pg or {}
+    pg_available = bool(pg.get("available"))
     return {
         "telegram_bot_class": type(runtime.bot).__name__,
-        "real_telegram_bot_constructed": False,
+        "telegram_bot_is_stub": isinstance(runtime.bot, StubBot),
+        "real_telegram_bot_constructed": not isinstance(runtime.bot, StubBot),
         "outbound_calls_recorded": bot_calls,
         "outbound_delivered_to_telegram": 0,
         "synthetic_chat_id": "SYNTH_CHAT",
         "real_chat_history_written": False,
-        "production_pg_opened_read_only": True,
+        "production_pg": {
+            "opened": pg_available,
+            "mode": "read_only (default_transaction_read_only=on)" if pg_available
+            else "not_opened",
+            "reason": pg.get("reason"),
+            "global_count": pg.get("global_count"),
+            "chat_count": pg.get("chat_count"),
+        },
         "config_persisted": False,
-        "in_memory_overrides_restored": True,
+        "in_memory_overrides_restored": bool(
+            runtime.shim_events.get("hot_enter")
+            and runtime.shim_events.get("hot_enter")
+            == runtime.shim_events.get("hot_exit")
+            and runtime.shim_events.get("chat_enter")
+            == runtime.shim_events.get("chat_exit")),
+        "shim_events": dict(runtime.shim_events),
         "provider_calls_allowed": bool(getattr(runtime.budget, "allow", False)),
         "provider_calls_total": int(getattr(runtime.budget, "total", 0)),
         "provider_call_cap": int(getattr(runtime.budget, "max_calls", 0)),
@@ -2451,163 +2665,492 @@ def _safety_block(runtime: Runtime) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def run_self_test(runtime: Runtime) -> dict:
-    """Local, provider-free validation of the harness wiring and contracts."""
+class _NetworkGuard:
+    """Blocks every outbound socket/dns call during the offline self-test.
+
+    The self-test must never depend on the network: if any release-code path
+    tries to reach a provider, the attempt fails immediately and loudly
+    instead of hanging on an unbounded connect/read.
+    """
+
+    def __init__(self) -> None:
+        self.armed = False
+        self.ever_armed = False
+        self.hits: list = []
+        self._saved: dict = {}
+
+    def __enter__(self):
+        def _make(what: str):
+            def _blocked(*args, **kwargs):
+                target = None
+                if what in ("connect", "connect_ex") and len(args) > 1:
+                    target = args[1]
+                elif args:
+                    target = args[0]
+                self.hits.append(f"{what}:{target!r}")
+                raise ProviderCallsDisabled(
+                    f"network is disabled during --self-test ({what} {target!r})")
+            return _blocked
+
+        self._saved = {
+            "connect": socket.socket.connect,
+            "connect_ex": socket.socket.connect_ex,
+            "create_connection": socket.create_connection,
+            "getaddrinfo": socket.getaddrinfo,
+        }
+        socket.socket.connect = _make("connect")
+        socket.socket.connect_ex = _make("connect_ex")
+        socket.create_connection = _make("create_connection")
+        socket.getaddrinfo = _make("getaddrinfo")
+        self.armed = True
+        self.ever_armed = True
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        for name, value in self._saved.items():
+            if name == "connect":
+                socket.socket.connect = value
+            elif name == "connect_ex":
+                socket.socket.connect_ex = value
+            elif name == "create_connection":
+                socket.create_connection = value
+            else:
+                socket.getaddrinfo = value
+        self.armed = False
+        return False
+
+
+_SELF_TEST_LOCK = threading.Lock()
+_SELF_TEST_STATE: dict = {
+    "checks": {}, "current": "not_started", "started_at": None,
+    "deadline": None, "step_started_at": None,
+}
+
+
+def _self_test_snapshot() -> dict:
+    with _SELF_TEST_LOCK:
+        return {
+            "checks": dict(_SELF_TEST_STATE.get("checks") or {}),
+            "current_step": _SELF_TEST_STATE.get("current"),
+            "started_at": _SELF_TEST_STATE.get("started_at"),
+            "deadline": _SELF_TEST_STATE.get("deadline"),
+            "step_started_at": _SELF_TEST_STATE.get("step_started_at"),
+        }
+
+
+def _exit_after_flush(code: int) -> None:
+    """Terminate immediately after flushing (no lingering non-daemon threads)."""
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        sys.stderr.flush()
+    except Exception:
+        pass
+    os._exit(int(code))
+
+
+# ── Assertion predicates (shared by checks, self-test and its negative
+#    controls: a broken contract must flip these to False) ───────────────────
+
+
+def _assert_db_counts(delivered_rows, db: dict | None) -> bool:
+    db = db or {}
+    if not db.get("run_row") or not db.get("scope_unique"):
+        return False
+    if delivered_rows is None or db.get("evidence_rows") is None:
+        return False
+    return int(db["evidence_rows"]) >= 1 and int(db["evidence_rows"]) == int(
+        delivered_rows)
+
+
+def _assert_stop_reasons(states: dict, fsp) -> bool:
+    expected = {
+        "relevant": fsp.STOP_SUFFICIENT_EVIDENCE,
+        "empty": fsp.STOP_NO_PROGRESS,
+        "provider_error": fsp.STOP_PROVIDERS_UNAVAILABLE,
+        "budget_error": fsp.STOP_TECHNICAL_LIMIT,
+    }
+    return all(states.get(key) == value for key, value in expected.items())
+
+
+def _assert_parts(parts, text: str, *, expected: int = 16) -> bool:
+    parts = tuple(parts or ())
+    if len(parts) != int(expected):
+        return False
+    joined = " ".join(str(getattr(part, "text", "")) for part in parts)
+    return joined.replace(" ", "") == str(text or "").replace(" ", "")
+
+
+def _assert_candidates(outcome, *, minimum: int = 10) -> bool:
+    claims = tuple(getattr(outcome, "claims", ()) or ())
+    candidates = sum(int(getattr(claim, "candidates", 0) or 0)
+                     for claim in claims)
+    return bool(claims) and candidates >= int(minimum)
+
+
+def _assert_capacity(delivery, *, more_than: int = 8000) -> bool:
+    return int(getattr(delivery, "delivered_chars", 0) or 0) > int(more_than)
+
+
+def _assert_remainder(delivery) -> bool:
+    rows = tuple(getattr(delivery, "rows", ()) or ())
+    remainder = tuple(getattr(delivery, "remainder_ids", ()) or ())
+    total = int(getattr(delivery, "total_rows", 0) or 0)
+    payload = ""
+    try:
+        payload = delivery.payload_block()
+    except Exception:
+        payload = ""
+    if not payload or not rows or not remainder:
+        return False
+    return len(rows) + len(remainder) == total
+
+
+async def run_self_test(runtime: Runtime, *,
+                        step_timeout: float = SELF_TEST_STEP_TIMEOUT_S,
+                        total_timeout: float = SELF_TEST_TOTAL_TIMEOUT_S) -> dict:
+    """Local, provider-free, strictly bounded validation of the harness."""
     global _PLANNER
     m = runtime.modules
     _PLANNER = m.fsp
-    checks = {}
+    checks: dict = {}
+    values: dict = {}
+    started = time.perf_counter()
+    deadline = started + float(total_timeout)
+    with _SELF_TEST_LOCK:
+        _SELF_TEST_STATE.update({
+            "checks": checks, "current": "start", "started_at": started,
+            "deadline": deadline, "step_started_at": started})
 
     def _record(name, ok, **extra):
         checks[name] = {"ok": bool(ok), **extra}
+        with _SELF_TEST_LOCK:
+            _SELF_TEST_STATE["checks"] = dict(checks)
 
-    # S1/S2/S3/S4: DB → publication → envelope → gate → plan (no LLM).
-    await runtime.prepare_db()
-    runtime.smart_cache_into(runtime.db_path)
-    publication = await m.fs.resolve_claim_publication(
-        runtime.db, SYNTH_CHAT_ID, TG["ordinary_target"],
-        base_text=MATERIAL_ORDINARY,
-        trigger_tg_message_id=TG["ordinary_trigger"],
-        requester_user_id=SYNTH_USER_ID, requester_name=SYNTH_REQUESTER,
-        target_source="stored_reply")
-    _record("S1_publication_target",
-            str(getattr(publication, "text", "")).strip() == MATERIAL_ORDINARY,
-            target_source=getattr(publication, "target_source", None),
-            text_chars=len(str(getattr(publication, "text", "") or "")))
-    subject = await m.orch.resolve_check_subject(
-        runtime.service, material_text=MATERIAL_ORDINARY, request_text=None,
-        material_tg_message_id=TG["ordinary_target"],
-        request_tg_message_id=TG["ordinary_trigger"],
-        chat_id=SYNTH_CHAT_ID)
-    _record("S2_material_subject", subject.text == MATERIAL_ORDINARY
-            and subject.resolved_by == "material",
-            origin=subject.origin, resolved_by=subject.resolved_by)
-    envelope, reject = await m.temporal.build_envelope(
-        runtime.db,
-        m.temporal.InputRef(kind="reply", chat_id=SYNTH_CHAT_ID,
-                            target_tg_message_id=TG["ordinary_target"],
-                            trigger_tg_message_id=TG["ordinary_trigger"],
-                            hint=None, subject=subject),
-        default_mode="contextual")
-    _record("S3_envelope", envelope is not None
-            and str(getattr(envelope, "claim_text", "")) == MATERIAL_ORDINARY,
-            reject=reject)
-    from services import factcheck_suitability as fsg
-    decision, context = await fsg.evaluate_with_expansion(
-        runtime.db, SYNTH_CHAT_ID, claim_text=MATERIAL_ORDINARY,
-        user_hint=None, target_tg_message_id=TG["ordinary_target"],
-        trigger_tg_message_id=TG["ordinary_trigger"],
-        cache=runtime.cache, explicit_request=True,
-        subject_text=subject.text)
-    _record("S4_gate", decision is not None
-            and decision.decision == fsg.DECISION_CHECKABLE,
-            decision=getattr(decision, "decision", None),
-            claim_items=len(getattr(decision, "claim_items", ()) or ()))
-    with runtime.hot_shim(extra={"flags.factcheck_pipeline_v2": True}):
-        plan = m.fsp.build_retrieval_plan(
-            decision, claim_text=MATERIAL_ORDINARY,
-            subject_origin=subject.origin,
-            subject_fingerprint=subject.fingerprint,
-            subject_anchor_tg_message_id=subject.request_tg_message_id,
-            subject_author=subject.request_author,
-            subject_request_text=subject.request_part,
-            subject_material_text=subject.material_part)
-    _record("S5_plan", plan is not None and len(plan.queries) >= 1,
-            queries=len(plan.queries) if plan else 0,
-            needs_web=bool(plan.needs_web) if plan else None)
+    async def _step(name, fn, *, timeout=None):
+        remaining = deadline - time.perf_counter()
+        if remaining <= 0.5:
+            _record(name, False, skipped_due_to_deadline=True)
+            return None
+        budget = min(float(timeout or step_timeout), remaining)
+        with _SELF_TEST_LOCK:
+            _SELF_TEST_STATE["current"] = name
+            _SELF_TEST_STATE["step_started_at"] = time.perf_counter()
+        t0 = time.perf_counter()
+        try:
+            ok, extra = await asyncio.wait_for(fn(), timeout=budget)
+        except asyncio.TimeoutError:
+            _record(name, False, timed_out=True, timeout_s=round(budget, 1))
+            return None
+        except ProviderCallsDisabled as exc:
+            _record(name, False, network_attempted=True,
+                    error=redact(str(exc), 200))
+            return None
+        except Exception as exc:
+            _record(name, False,
+                    error=f"{type(exc).__name__}: {redact(str(exc), 220)}")
+            return None
+        extra = dict(extra or {})
+        extra.setdefault("duration_s", round(time.perf_counter() - t0, 3))
+        _record(name, ok, **extra)
+        return extra
 
-    # S6: controlled retrieval / stop reasons / distinguishability.
-    with runtime.hot_shim(), runtime.chat_shim():
-        limits_off = await m.fsp.resolve_factcheck_limits(
-            SYNTH_CHAT_ID, budgets_enabled=False,
-            budget_source="canary_off", budget_known=True)
-    off_plan = _synthetic_plan(queries=6, claims=2)
-    off_out = await m.fsp.run_retrieval(
-        off_plan, aggregator=_ScriptedAggregator("relevant"), limits=limits_off)
-    _record("S6_off_full_plan", off_out.queries_attempted == len(off_plan.queries)
-            and off_out.budget_seconds is None,
-            attempted=off_out.queries_attempted, planned=len(off_plan.queries),
-            budget_seconds=off_out.budget_seconds)
-    states = {}
-    for mode in ("relevant", "empty", "provider_error", "budget_error"):
-        out = await m.fsp.run_retrieval(
-            _synthetic_plan(queries=2, claims=1),
-            aggregator=_ScriptedAggregator(mode), limits=limits_off)
-        states[mode] = out.stop_reason
-    _record("S7_stop_reasons",
-            states["empty"] == m.fsp.STOP_NO_PROGRESS
-            and states["provider_error"] == m.fsp.STOP_PROVIDERS_UNAVAILABLE
-            and states["budget_error"] == m.fsp.STOP_TECHNICAL_LIMIT,
-            states=states)
+    # ── steps ─────────────────────────────────────────────────────────────
+    async def _s0_harness_hash():
+        digest = _self_sha256()
+        ok = bool(re.fullmatch(r"[0-9a-f]{64}", digest or ""))
+        return ok, {"sha256": digest, "source": "own file bytes"}
 
-    # S8: evidence packing > 8000 and honest small-capacity remainder.
-    refs = _synthetic_refs(count=4, chars_each=4000)
-    retrieval = SimpleNamespace(evidence_map=SimpleNamespace(refs=refs), claims=())
-    big = m.fs._evidence_delivery(
-        retrieval,
-        route=m.fs.RouteCapacity("primary", "canary", "", 1_000_000, "canary",
-                                 200_000, 8192),
-        fallback_results="", refs_only=True)
-    small = m.fs._evidence_delivery(
-        retrieval,
-        route=m.fs.RouteCapacity("primary", "canary", "", 8_000, "canary",
-                                 1_200, 1024),
-        fallback_results="", refs_only=True)
-    _record("S8_evidence_packing", big.delivered_chars > 8000
-            and bool(small.remainder_ids or small.truncated_ids)
-            and bool(small.payload_block()),
-            big_chars=big.delivered_chars, small_remainder=len(small.remainder_ids))
+    async def _s1_publication():
+        await runtime.prepare_db()
+        runtime.smart_cache_into(runtime.db_path)
+        pub = await m.fs.resolve_claim_publication(
+            runtime.db, SYNTH_CHAT_ID, TG["ordinary_target"],
+            base_text=MATERIAL_ORDINARY,
+            trigger_tg_message_id=TG["ordinary_trigger"],
+            requester_user_id=SYNTH_USER_ID, requester_name=SYNTH_REQUESTER,
+            target_source="stored_reply")
+        values["publication"] = pub
+        text = str(getattr(pub, "text", "") or "")
+        ok = (text.strip() == MATERIAL_ORDINARY
+              and str(getattr(pub, "target_source", "")) == "stored_reply")
+        return ok, {"target_source": getattr(pub, "target_source", None),
+                    "text_chars": len(text)}
 
-    # S9: decomposition > 8 parts, lossless.
-    parts_text = " ".join(f"Проверяемое утверждение {i} о числе {100 + i}."
-                          for i in range(1, 17))
-    parts = m.temporal.decompose_claim(SimpleNamespace(
-        claim_text=parts_text, original_published_at=None,
-        claim_period_from=None, claim_period_to=None,
-        claim_period_precision=None))
-    _record("S9_parts", len(parts) == 16, parts=len(parts))
+    async def _s2_subject():
+        subject = await m.orch.resolve_check_subject(
+            runtime.service, material_text=MATERIAL_ORDINARY, request_text=None,
+            material_tg_message_id=TG["ordinary_target"],
+            request_tg_message_id=TG["ordinary_trigger"],
+            chat_id=SYNTH_CHAT_ID)
+        values["subject"] = subject
+        return (subject.text == MATERIAL_ORDINARY
+                and subject.resolved_by == "material"), {
+            "origin": subject.origin, "resolved_by": subject.resolved_by}
 
-    # S10: > 4 results, page size, portions.
-    many = await m.fsp.run_retrieval(
-        _synthetic_plan(queries=1, claims=1),
-        aggregator=_ScriptedAggregator("many", blocks=10), limits=limits_off)
-    portions = m.fsp._text_portions("x" * 260_000, 100_000)
-    _record("S10_results_and_portions",
-            bool(many.claims) and many.claims[0].candidates > 4
-            and "".join(portions) == "x" * 260_000 and len(portions) == 3,
-            candidates=many.claims[0].candidates if many.claims else 0,
-            portions=len(portions))
+    async def _s3_envelope():
+        subject = values["subject"]
+        envelope, reject = await m.temporal.build_envelope(
+            runtime.db,
+            m.temporal.InputRef(kind="reply", chat_id=SYNTH_CHAT_ID,
+                                target_tg_message_id=TG["ordinary_target"],
+                                trigger_tg_message_id=TG["ordinary_trigger"],
+                                hint=None, subject=subject),
+            default_mode="contextual")
+        values["envelope"] = envelope
+        return (envelope is not None
+                and str(getattr(envelope, "claim_text", "")) == MATERIAL_ORDINARY
+                and getattr(envelope, "target_tg_message_id", None)
+                == TG["ordinary_target"]), {
+            "reject": reject,
+            "claim_chars": len(str(getattr(envelope, "claim_text", "") or ""))}
 
-    # S11: redaction / schema.
-    sample = redact("key=sk-abcdefghijklmnop token=123456:AAAABBBBCCCCDDDD"
-                    "EEEEFFFFGGGGHHHH")
-    _record("S11_redaction", "sk-abcdefghij" not in sample
-            and "123456:AAAA" not in sample, sample=sample)
-    # S12: full pipeline plumbing with a stub transport (no network).
-    plumbing = await _self_test_pipeline(runtime)
-    _record("S12_pipeline_plumbing", plumbing.get("ok", False),
-            **{k: v for k, v in plumbing.items() if k != "ok"})
+    async def _s4_gate():
+        from services import factcheck_suitability as fsg
+        subject = values["subject"]
+        decision, _context = await fsg.evaluate_with_expansion(
+            runtime.db, SYNTH_CHAT_ID, claim_text=MATERIAL_ORDINARY,
+            user_hint=None, target_tg_message_id=TG["ordinary_target"],
+            trigger_tg_message_id=TG["ordinary_trigger"],
+            cache=runtime.cache, explicit_request=True,
+            subject_text=subject.text)
+        values["decision"] = decision
+        return (decision is not None
+                and decision.decision == fsg.DECISION_CHECKABLE), {
+            "decision": getattr(decision, "decision", None),
+            "claim_items": len(getattr(decision, "claim_items", ()) or ())}
 
-    # S13: factory values resolvable when nothing is saved (ON).
-    with runtime.hot_shim(extra={key: None for key in (
-            "limits.factcheck_retrieval_seconds",
-            "limits.factcheck_retrieval_seconds_max",
-            "limits.factcheck_refine_calls",
-            "limits.factcheck_max_queries_total",
-            "limits.factcheck_search_text_chars",
-            "limits.factcheck_page_size",
-            "limits.factcheck_claim_portion")}), runtime.chat_shim(roots={}):
-        factory_limits = await m.fsp.resolve_factcheck_limits(
-            SYNTH_CHAT_ID, budgets_enabled=True, budget_source="default")
-    meta = factory_limits.as_meta()
-    _record("S12_factory_values", all(
-        _num(meta.get(key)) == _num(value)
-        for key, value in FACTORY_BUDGETS_ON.items()),
-        resolved={k: meta.get(k) for k in FACTORY_BUDGETS_ON})
+    async def _s5_plan():
+        subject = values["subject"]
+        with runtime.hot_shim(extra={"flags.factcheck_pipeline_v2": True}):
+            plan = m.fsp.build_retrieval_plan(
+                values["decision"], claim_text=MATERIAL_ORDINARY,
+                subject_origin=subject.origin,
+                subject_fingerprint=subject.fingerprint,
+                subject_anchor_tg_message_id=subject.request_tg_message_id,
+                subject_author=subject.request_author,
+                subject_request_text=subject.request_part,
+                subject_material_text=subject.material_part)
+        values["plan"] = plan
+        return bool(plan is not None and len(plan.queries) >= 1), {
+            "queries": len(plan.queries) if plan else 0,
+            "needs_web": bool(plan.needs_web) if plan else None}
 
-    await runtime.close_db()
-    passed = all(item["ok"] for item in checks.values())
-    return {"passed": passed, "checks": checks}
+    async def _s6_off_plan():
+        with runtime.hot_shim(), runtime.chat_shim():
+            limits_off = await m.fsp.resolve_factcheck_limits(
+                SYNTH_CHAT_ID, budgets_enabled=False,
+                budget_source="canary_off", budget_known=True)
+        values["limits_off"] = limits_off
+        off_plan = _synthetic_plan(queries=6, claims=2)
+        off_out = await m.fsp.run_retrieval(
+            off_plan, aggregator=_ScriptedAggregator("relevant"),
+            limits=limits_off)
+        return (off_out.queries_attempted == len(off_plan.queries)
+                and off_out.budget_seconds is None
+                and off_out.budgets_enabled is False), {
+            "attempted": off_out.queries_attempted,
+            "planned": len(off_plan.queries),
+            "budget_seconds": off_out.budget_seconds,
+            "budgets_enabled": off_out.budgets_enabled}
+
+    async def _s7_stop_reasons():
+        states = {}
+        for mode in ("relevant", "empty", "provider_error", "budget_error"):
+            out = await m.fsp.run_retrieval(
+                _synthetic_plan(queries=2, claims=1),
+                aggregator=_ScriptedAggregator(mode),
+                limits=values["limits_off"])
+            states[mode] = out.stop_reason
+        values["stop_states"] = states
+        return _assert_stop_reasons(states, m.fsp), {"states": states}
+
+    async def _s8_evidence_packing():
+        refs = _synthetic_refs(count=4, chars_each=4000)
+        retrieval = SimpleNamespace(evidence_map=SimpleNamespace(refs=refs),
+                                    claims=())
+        big = m.fs._evidence_delivery(
+            retrieval,
+            route=m.fs.RouteCapacity("primary", "canary", "", 1_000_000,
+                                     "canary", 200_000, 8192),
+            fallback_results="", refs_only=True)
+        small = m.fs._evidence_delivery(
+            retrieval,
+            route=m.fs.RouteCapacity("primary", "canary", "", 8_000, "canary",
+                                     1_200, 1024),
+            fallback_results="", refs_only=True)
+        values["delivery_big"] = big
+        values["delivery_small"] = small
+        ok = (_assert_capacity(big) and _assert_remainder(small)
+              and int(big.total_chars or 0) >= 16000
+              and int(big.delivered_chars or 0) == int(big.total_chars or 0))
+        return ok, {"big_chars": big.delivered_chars,
+                    "small_remainder": len(small.remainder_ids),
+                    "small_truncated": len(small.truncated_ids),
+                    "payload_block": bool(small.payload_block())}
+
+    async def _s9_parts():
+        parts_text = " ".join(f"Проверяемое утверждение {i} о числе {100 + i}."
+                              for i in range(1, 17))
+        parts = m.temporal.decompose_claim(SimpleNamespace(
+            claim_text=parts_text, original_published_at=None,
+            claim_period_from=None, claim_period_to=None,
+            claim_period_precision=None))
+        values["parts_text"] = parts_text
+        values["parts"] = parts
+        return _assert_parts(parts, parts_text), {
+            "parts": len(parts),
+            "text_preserved": " ".join(
+                str(getattr(part, "text", "")) for part in parts).replace(
+                    " ", "") == parts_text.replace(" ", "")}
+
+    async def _s10_results_and_portions():
+        many = await m.fsp.run_retrieval(
+            _synthetic_plan(queries=1, claims=1),
+            aggregator=_ScriptedAggregator("many", blocks=10),
+            limits=values["limits_off"])
+        portions = m.fsp._text_portions("x" * 260_000, 100_000)
+        values["many_outcome"] = many
+        ok = (_assert_candidates(many)
+              and "".join(portions) == "x" * 260_000 and len(portions) == 3)
+        return ok, {
+            "candidates": sum(int(getattr(c, "candidates", 0) or 0)
+                              for c in (many.claims or ())),
+            "portions": len(portions)}
+
+    async def _s11_redaction():
+        sample = redact("key=sk-abcdefghijklmnop "
+                        "token=123456:AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH")
+        ok = ("sk-abcdefghij" not in sample and "123456:AAAA" not in sample
+              and "[redacted]" in sample)
+        return ok, {"sample": sample}
+
+    async def _s12_pipeline_plumbing():
+        plumbing = await _self_test_pipeline(runtime)
+        return bool(plumbing.get("ok", False)), {
+            key: value for key, value in plumbing.items() if key != "ok"}
+
+    async def _s13_factory_values():
+        with runtime.hot_shim(extra={key: None for key in (
+                "limits.factcheck_retrieval_seconds",
+                "limits.factcheck_retrieval_seconds_max",
+                "limits.factcheck_refine_calls",
+                "limits.factcheck_max_queries_total",
+                "limits.factcheck_search_text_chars",
+                "limits.factcheck_page_size",
+                "limits.factcheck_claim_portion")}), runtime.chat_shim(roots={}):
+            factory_limits = await m.fsp.resolve_factcheck_limits(
+                SYNTH_CHAT_ID, budgets_enabled=True, budget_source="default")
+        meta = factory_limits.as_meta()
+        return all(_num(meta.get(key)) == _num(value)
+                   for key, value in FACTORY_BUDGETS_ON.items()), {
+            "resolved": {key: meta.get(key) for key in FACTORY_BUDGETS_ON}}
+
+    async def _s14_assertion_sensitivity():
+        results = {}
+        good_states = dict(values.get("stop_states") or {})
+        broken_states = dict(good_states)
+        broken_states["empty"] = m.fsp.STOP_SUFFICIENT_EVIDENCE
+        results["stop_reasons_positive"] = _assert_stop_reasons(
+            good_states, m.fsp)
+        results["stop_reasons_negative"] = not _assert_stop_reasons(
+            broken_states, m.fsp)
+
+        parts16 = values.get("parts")
+        text16 = values.get("parts_text") or ""
+        text8 = " ".join(f"Проверяемое утверждение {i} о числе {100 + i}."
+                         for i in range(1, 9))
+        parts8 = m.temporal.decompose_claim(SimpleNamespace(
+            claim_text=text8, original_published_at=None,
+            claim_period_from=None, claim_period_to=None,
+            claim_period_precision=None))
+        results["parts_positive"] = _assert_parts(parts16, text16)
+        results["parts_negative"] = (not _assert_parts(parts8, text16)
+                                     and not _assert_parts(parts16, text8))
+
+        many10 = values.get("many_outcome")
+        two = await m.fsp.run_retrieval(
+            _synthetic_plan(queries=1, claims=1),
+            aggregator=_ScriptedAggregator("many", blocks=2),
+            limits=values.get("limits_off"))
+        results["candidates_positive"] = _assert_candidates(many10)
+        results["candidates_negative"] = not _assert_candidates(two)
+
+        refs = _synthetic_refs(count=4, chars_each=4000)
+        retrieval = SimpleNamespace(evidence_map=SimpleNamespace(refs=refs),
+                                    claims=())
+        capped = m.fs._evidence_delivery(
+            retrieval,
+            route=m.fs.RouteCapacity("primary", "canary", "", 8_000, "canary",
+                                     8_000, 1024),
+            fallback_results="", refs_only=True)
+        results["capacity_positive"] = _assert_capacity(
+            values.get("delivery_big"))
+        results["capacity_negative"] = not _assert_capacity(capped)
+        results["remainder_negative"] = not _assert_remainder(
+            values.get("delivery_big"))
+
+        good_db = {"run_row": True, "scope_unique": True, "evidence_rows": 2}
+        wrong_count = {"run_row": True, "scope_unique": True,
+                       "evidence_rows": 3}
+        duplicated = {"run_row": True, "scope_unique": False,
+                      "evidence_rows": 2}
+        results["db_counts_positive"] = _assert_db_counts(2, good_db)
+        results["db_counts_negative"] = (
+            not _assert_db_counts(2, wrong_count)
+            and not _assert_db_counts(2, duplicated)
+            and not _assert_db_counts(None, good_db))
+
+        answer = ("По доступным источникам практика сохраняется в части "
+                  "регионов, однако влияние США и европейских держав "
+                  "различается: вывод зависит от страны и периода.")
+        results["answer_echo_positive"] = _answer_not_echo(
+            answer, MATERIAL_TRADITION, TRIGGER_TRADITION)
+        results["answer_echo_negative"] = not _answer_not_echo(
+            MATERIAL_TRADITION, MATERIAL_TRADITION, TRIGGER_TRADITION)
+        return all(results.values()), {"negative_controls": results}
+
+    guard = _NetworkGuard()
+    with guard:
+        try:
+            await _step("S0_harness_sha256", _s0_harness_hash)
+            await _step("S1_publication_target", _s1_publication)
+            await _step("S2_material_subject", _s2_subject)
+            await _step("S3_envelope", _s3_envelope)
+            await _step("S4_gate", _s4_gate)
+            await _step("S5_plan", _s5_plan)
+            await _step("S6_off_full_plan", _s6_off_plan)
+            await _step("S7_stop_reasons", _s7_stop_reasons)
+            await _step("S8_evidence_packing", _s8_evidence_packing)
+            await _step("S9_parts", _s9_parts)
+            await _step("S10_results_and_portions", _s10_results_and_portions)
+            await _step("S11_redaction", _s11_redaction)
+            await _step("S12_pipeline_plumbing", _s12_pipeline_plumbing,
+                        timeout=max(step_timeout, 30.0))
+            await _step("S13_factory_values", _s13_factory_values)
+            await _step("S14_assertion_sensitivity",
+                        _s14_assertion_sensitivity)
+        finally:
+            try:
+                await asyncio.wait_for(runtime.close_db(), timeout=10.0)
+            except Exception:
+                pass
+
+    network = {"guard_armed": bool(guard.ever_armed),
+               "attempts": list(guard.hits)[:5]}
+    _record("S15_no_network_attempts",
+            bool(guard.ever_armed) and not guard.hits, **network)
+    passed = bool(checks) and all(item["ok"] for item in checks.values())
+    return {
+        "passed": passed,
+        "checks": checks,
+        "network_guard": network,
+        "duration_s": round(time.perf_counter() - started, 3),
+        "bounds": {"step_timeout_s": float(step_timeout),
+                   "total_timeout_s": float(total_timeout)},
+    }
 
 
 class _StubCanaryLLM:
@@ -2670,7 +3213,8 @@ async def _self_test_pipeline(runtime: Runtime) -> dict:
                 runtime, "self_test_pipeline",
                 target_key="ordinary_target",
                 trigger_key="ordinary_trigger",
-                target_text=MATERIAL_ORDINARY, trigger_text=TRIGGER_ORDINARY)
+                target_text=MATERIAL_ORDINARY, trigger_text=TRIGGER_ORDINARY,
+                transport="stub")
         result.update({
             "status": bundle.status,
             "error": bundle.error,
@@ -2678,9 +3222,15 @@ async def _self_test_pipeline(runtime: Runtime) -> dict:
             "delivered_chars": (bundle.delivered or {}).get("chars"),
             "route": (bundle.claims_event or {}).get("verdict_route"),
             "claims_event": bundle.claims_event or {},
+            "diagnostics": bundle.diagnostics or {},
+            "delivery_event_present": bool(
+                (bundle.diagnostics or {}).get("evidence_delivery")),
             "stop_reason": (bundle.retrieval or {}).get("stop_reason"),
             "correlation_id_present": bool(bundle.correlation_id),
             "db_run_row": (bundle.db or {}).get("run_row"),
+            "db_scope_unique": (bundle.db or {}).get("scope_unique"),
+            "db_runs_for_scope": (bundle.db or {}).get("runs_for_scope"),
+            "db_claim_chars": (bundle.db or {}).get("claim_chars"),
             "db_evidence_rows": (bundle.db or {}).get("evidence_rows"),
             "evidence_delivered": (bundle.envelope or {}).get(
                 "evidence_rows_delivered"),
@@ -2699,10 +3249,17 @@ async def _self_test_pipeline(runtime: Runtime) -> dict:
             bundle.status == "observed"
             and int(result["delivered_chars"] or 0) > 0
             and result["db_run_row"]
+            and result["db_scope_unique"]
+            and int(result["db_evidence_rows"] or 0) >= 1
             and int(result["evidence_delivered"] or 0)
             == int(result["db_evidence_rows"] or -1)
+            and int(result["db_claim_chars"] or -1) == len(MATERIAL_ORDINARY)
             and result["correlation_id_present"]
-            and result["route"])
+            and result["route"]
+            and result["delivery_event_present"]
+            and result["stop_reason"] in (
+                m.fsp.STOP_SUFFICIENT_EVIDENCE, m.fsp.STOP_PATHS_EXHAUSTED)
+            and int(result["events"] or 0) > 0)
     except Exception as exc:
         result["error"] = f"{type(exc).__name__}: {redact(str(exc), 300)}"
         result["traceback"] = redact(traceback.format_exc(), limit=1200)
@@ -2729,6 +3286,134 @@ async def run_dry_run(runtime: Runtime) -> dict:
     }
 
 
+class _SelfTestWatchdog:
+    """Absolute process-level backstop for ``--self-test``.
+
+    Even if a release-code path blocks a thread in a C call that
+    ``asyncio.wait_for`` cannot cancel, the watchdog writes the partial report
+    and terminates the process, so the offline self-test can never exceed its
+    declared bound.
+    """
+
+    def __init__(self, json_path: str, base_report: dict, seconds: float) -> None:
+        self.json_path = str(json_path)
+        self.base_report = dict(base_report)
+        self.seconds = float(seconds)
+        self.timer: threading.Timer | None = None
+        self.fired = False
+
+    def start(self) -> None:
+        self.timer = threading.Timer(self.seconds, self._fire)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def cancel(self) -> None:
+        if self.timer is not None:
+            self.timer.cancel()
+
+    def _fire(self) -> None:
+        self.fired = True
+        snapshot = _self_test_snapshot()
+        payload = dict(self.base_report)
+        payload["self_test"] = {
+            "passed": False,
+            "hard_timeout_s": self.seconds,
+            "error": (f"self_test_hard_timeout after {self.seconds}s: "
+                      "process terminated by watchdog"),
+            "checks": snapshot.get("checks") or {},
+            "current_step": snapshot.get("current_step"),
+        }
+        try:
+            _write_json(self.json_path, payload)
+        except Exception:
+            pass
+        try:
+            print(json.dumps({
+                "self_test_passed": False,
+                "reason": "self_test_hard_timeout",
+                "timeout_s": self.seconds,
+                "current_step": snapshot.get("current_step"),
+            }, ensure_ascii=False), flush=True)
+        except Exception:
+            pass
+        _exit_after_flush(1)
+
+
+def _candidate_binding(runtime: Runtime, identity: dict | None = None) -> dict:
+    """Self-describing binding block: harness bytes + deployed candidate."""
+    identity = dict(identity or {})
+    try:
+        fallback = runtime._git_fallback()
+    except Exception:
+        fallback = {}
+    manifest_path = runtime.repo_root / ".deploy" / "release.json"
+    manifest = None
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            manifest = {"error": "unreadable"}
+    head = str(identity.get("git_head") or fallback.get("head") or "").lower()
+    branch = (identity.get("branch") or fallback.get("branch"))
+    dirty = identity.get("dirty")
+    if dirty is None:
+        dirty = fallback.get("dirty")
+    deployed = str(identity.get("deployed_sha") or head or "").lower()
+    sha = _self_sha256()
+    reasons = []
+    status = "verified"
+    if not re.fullmatch(r"[0-9a-f]{40}", head or ""):
+        status = "missing"
+        reasons.append("git_head_missing")
+    if not re.fullmatch(r"[0-9a-f]{64}", sha or ""):
+        status = "missing"
+        reasons.append("harness_sha256_missing")
+    if status != "missing":
+        if manifest is None:
+            reasons.append("release_manifest_absent")
+        else:
+            manifest_sha = str(manifest.get("deployed_sha") or "").lower()
+            if manifest_sha and manifest_sha != head:
+                status = "partial"
+                reasons.append("release_manifest_sha_mismatch")
+        if dirty:
+            status = "partial"
+            reasons.append("worktree_dirty")
+        if identity.get("conflict"):
+            status = "partial"
+            reasons.append("identity_conflict")
+    return {
+        "harness_path": str(Path(__file__).resolve()),
+        "harness_name": HARNESS_NAME,
+        "harness_version": HARNESS_VERSION,
+        "harness_sha256": sha,
+        "harness_sha256_source": "sha256 of this file's bytes",
+        "repo_root": str(runtime.repo_root),
+        "app_version_runtime": runtime.app_version,
+        "git_head": head or None,
+        "git_head_source": (identity.get("git_head_source")
+                            or ("git_cli_fallback" if fallback.get("head")
+                                else "unavailable")),
+        "branch": branch,
+        "dirty": dirty,
+        "deployed_sha": deployed or None,
+        "identity_code": identity.get("identity_code"),
+        "release_manifest": {
+            "path": ".deploy/release.json",
+            "present": manifest is not None,
+            "deployed_sha": (manifest or {}).get("deployed_sha"),
+            "version": (manifest or {}).get("version"),
+            "deployed_at": (manifest or {}).get("deployed_at"),
+        },
+        "binding_status": status,
+        "binding_reasons": reasons,
+        "binding_rule": ("attach this JSON next to the harness file; the "
+                         "harness_sha256 identifies the exact committed "
+                         "harness bytes and git_head/deployed_sha identify "
+                         "the release checkout the run observed"),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # CLI
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2743,6 +3428,11 @@ def _parse_args(argv: list) -> argparse.Namespace:
                         help="where to write the JSON report")
     parser.add_argument("--allow-provider-calls", action="store_true",
                         help="perform real LLM/search/page-fetch calls")
+    parser.add_argument("--offline", action="store_true",
+                        help="explicit offline mode: no provider/search/fetch "
+                             "calls; provider-dependent checks stay "
+                             "not_observed (same as omitting "
+                             "--allow-provider-calls)")
     parser.add_argument("--max-provider-calls", type=int, default=60,
                         help="hard cap for real provider/search/fetch calls "
                              "(default: 60)")
@@ -2750,6 +3440,14 @@ def _parse_args(argv: list) -> argparse.Namespace:
                         help="bootstrap + effective state only; no runs")
     parser.add_argument("--self-test", action="store_true",
                         help="provider-free local validation of the harness")
+    parser.add_argument("--self-test-timeout", type=float,
+                        default=SELF_TEST_TOTAL_TIMEOUT_S,
+                        help="absolute bound for the whole offline self-test")
+    parser.add_argument("--self-test-step-timeout", type=float,
+                        default=SELF_TEST_STEP_TIMEOUT_S,
+                        help="per-step bound inside the offline self-test")
+    parser.add_argument("--check-timeout", type=float, default=CHECK_TIMEOUT_S,
+                        help="per-check bound for real canary runs")
     parser.add_argument("--checks", default="",
                         help="comma-separated subset of check ids")
     parser.add_argument("--repo-root", default="",
@@ -2761,6 +3459,12 @@ def _parse_args(argv: list) -> argparse.Namespace:
 
 async def _main(argv: list) -> int:
     args = _parse_args(argv)
+    if args.offline and args.allow_provider_calls:
+        print(json.dumps({"error": "--offline and --allow-provider-calls are "
+                                   "mutually exclusive"}, ensure_ascii=False))
+        return 2
+    allow_provider_calls = bool(args.allow_provider_calls) and not bool(
+        args.offline)
     repo_root = Path(args.repo_root or os.getcwd()).resolve()
     started_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
     report = {
@@ -2770,7 +3474,8 @@ async def _main(argv: list) -> int:
         "harness_sha256": _self_sha256(),
         "started_at": started_at,
         "repo_root": str(repo_root),
-        "allow_provider_calls": bool(args.allow_provider_calls),
+        "allow_provider_calls": allow_provider_calls,
+        "offline": bool(args.offline or not allow_provider_calls),
         "max_provider_calls": int(args.max_provider_calls),
         "python": sys.version.split()[0],
         "checks": [],
@@ -2785,37 +3490,77 @@ async def _main(argv: list) -> int:
             "read-only for effective-state only.",
             "Real provider answers vary between runs; evidence counts are "
             "observed, not fixed.",
+            "Checks with evidence_class=plumbing use scripted transport "
+            "doubles; they are never production evidence on their own.",
         ],
     }
     runtime = Runtime(repo_root)
-    runtime._allow_provider_calls = bool(args.allow_provider_calls)
+    runtime._allow_provider_calls = allow_provider_calls
     runtime._max_provider_calls = max(0, int(args.max_provider_calls))
+
+    # The self-test watchdog also covers module import / runtime construction:
+    # the whole offline path is bounded, not just the individual steps.
+    self_test_watchdog = None
+    step_timeout = max(1.0, float(args.self_test_step_timeout))
+    total_timeout = max(step_timeout, float(args.self_test_timeout))
+    if args.self_test:
+        report["candidate_binding"] = _candidate_binding(runtime)
+        self_test_watchdog = _SelfTestWatchdog(
+            args.json_out, report,
+            total_timeout + SELF_TEST_WATCHDOG_GRACE_S)
+        self_test_watchdog.start()
     try:
         runtime.load_modules()
     except Exception as exc:
+        if self_test_watchdog is not None:
+            self_test_watchdog.cancel()
         report["fatal"] = f"bootstrap_failed: {redact(str(exc), 300)}"
         report["traceback"] = redact(traceback.format_exc(), limit=1200)
         _write_json(args.json_out, report)
-        return 2
+        _exit_after_flush(2)
 
     global _PLANNER
     _PLANNER = runtime.modules.fsp
 
     if args.self_test:
+        watchdog = self_test_watchdog
+        report["candidate_binding"] = _candidate_binding(runtime)
+        t0 = time.perf_counter()
         try:
             with runtime.hot_shim(), runtime.chat_shim():
                 await runtime.build_runtime()
-                result = await run_self_test(runtime)
+                result = await asyncio.wait_for(
+                    run_self_test(runtime, step_timeout=step_timeout,
+                                  total_timeout=total_timeout),
+                    timeout=total_timeout + 2.0)
+        except asyncio.TimeoutError:
+            snapshot = _self_test_snapshot()
+            result = {
+                "passed": False,
+                "error": f"self_test_timeout after {total_timeout}s",
+                "checks": snapshot.get("checks") or {},
+                "current_step": snapshot.get("current_step"),
+            }
         except Exception as exc:
             result = {"passed": False,
                       "error": f"{type(exc).__name__}: {redact(str(exc), 300)}",
                       "traceback": redact(traceback.format_exc(), limit=1500)}
+        finally:
+            watchdog.cancel()
+        result.setdefault("duration_s", round(time.perf_counter() - t0, 3))
+        result["bounded"] = {
+            "step_timeout_s": step_timeout,
+            "total_timeout_s": total_timeout,
+            "watchdog_s": total_timeout + SELF_TEST_WATCHDOG_GRACE_S,
+            "watchdog_fired": bool(watchdog.fired),
+        }
         report["self_test"] = result
         report["checks"] = []
         _write_json(args.json_out, report)
-        print(json.dumps({"self_test_passed": bool(result.get("passed"))},
+        print(json.dumps({"self_test_passed": bool(result.get("passed")),
+                          "duration_s": result.get("duration_s")},
                          ensure_ascii=False))
-        return 0 if result.get("passed") else 1
+        _exit_after_flush(0 if result.get("passed") else 1)
 
     if args.dry_run:
         try:
@@ -2826,12 +3571,14 @@ async def _main(argv: list) -> int:
             report["fatal"] = f"dry_run_failed: {redact(str(exc), 300)}"
             report["traceback"] = redact(traceback.format_exc(), limit=1200)
             _write_json(args.json_out, report)
-            return 2
+            _exit_after_flush(2)
+        report["candidate_binding"] = _candidate_binding(
+            runtime, report["dry_run"].get("identity") or {})
         _write_json(args.json_out, report)
         print(json.dumps({"dry_run": True, "identity_code":
                           (report["dry_run"].get("identity") or {})
                           .get("identity_code")}, ensure_ascii=False))
-        return 0
+        _exit_after_flush(0)
 
     # Full canary.
     ctx = {"runs": {}, "effective": {}, "_started": time.perf_counter()}
@@ -2841,6 +3588,8 @@ async def _main(argv: list) -> int:
         ctx["effective"] = await snapshot_effective(runtime)
         report["identity"] = runtime.identity
         report["health"] = runtime.health
+        report["candidate_binding"] = _candidate_binding(
+            runtime, runtime.identity)
 
         with runtime.hot_shim(), runtime.chat_shim():
             await runtime.build_runtime()
@@ -2848,10 +3597,11 @@ async def _main(argv: list) -> int:
             report["effective"] = ctx["effective"]
             runtime.install_seams()
             try:
-                if not args.allow_provider_calls:
+                if not allow_provider_calls:
                     report["note"] = (
-                        "--allow-provider-calls is off: real runs are not "
-                        "executed; provider-dependent checks are not_observed.")
+                        "offline: real runs are not executed; "
+                        "provider-dependent checks are not_observed and no "
+                        "production evidence is produced.")
                 else:
                     await runtime.prepare_db()
                     runtime.smart_cache_into(runtime.db_path)
@@ -2865,11 +3615,20 @@ async def _main(argv: list) -> int:
                     ("original_production_scenario", check_original_scenario),
                     ("production_smoke", check_production_smoke),
                 ]
+                check_timeout = (float(args.check_timeout)
+                                 if float(args.check_timeout) > 0 else None)
                 for check_id, func in order:
                     if selected and check_id not in selected:
                         continue
                     try:
-                        result = await func(runtime, ctx)
+                        result = await asyncio.wait_for(
+                            func(runtime, ctx), timeout=check_timeout)
+                    except asyncio.TimeoutError:
+                        result = CheckResult(
+                            check_id, CHECK_REQ_MAP.get(check_id, []), "error",
+                            f"check timeout after {check_timeout}s",
+                            {"timed_out": True, "check_timeout_s": check_timeout},
+                            0.0, evidence_class="unavailable")
                     except Exception as exc:
                         result = CheckResult(
                             check_id, CHECK_REQ_MAP.get(check_id, []), "error",
@@ -2877,13 +3636,16 @@ async def _main(argv: list) -> int:
                             + redact(str(exc), 300),
                             {"traceback": redact(traceback.format_exc(),
                                                  limit=1500)},
-                            0.0)
+                            0.0, evidence_class="unavailable")
                     report["checks"].append(result.as_dict())
                     report["observability"].append(
                         observability_row(
                             runtime,
                             _bundle_for_check(ctx, check_id, result.status),
-                            ctx["effective"]))
+                            ctx["effective"],
+                            evidence_class=result.evidence_class,
+                            status=result.status,
+                            check_id=check_id))
             finally:
                 runtime.restore_seams()
     except Exception as exc:
@@ -2914,9 +3676,13 @@ async def _main(argv: list) -> int:
     print(json.dumps({"checks": len(report["checks"]),
                       "observed": report["summary"]["observed"],
                       "not_observed": report["summary"]["not_observed"],
-                      "errors": report["summary"]["error"]},
+                      "errors": report["summary"]["error"],
+                      "production_observed":
+                          report["summary"]["production_observed"],
+                      "by_evidence_class":
+                          report["summary"]["by_evidence_class"]},
                      ensure_ascii=False))
-    return 0
+    _exit_after_flush(0)
 
 
 def _empty_bundle(name: str) -> RunBundle:
@@ -2949,11 +3715,23 @@ def _selected_checks(raw: str) -> set:
 
 def _summary(checks: list) -> dict:
     counts = {"observed": 0, "not_observed": 0, "error": 0}
+    by_class = {name: 0 for name in EVIDENCE_CLASSES}
+    production_observed = 0
     for item in checks:
         status = str(item.get("status") or "")
         if status in counts:
             counts[status] += 1
-    return counts
+        klass = str(item.get("evidence_class") or "unavailable")
+        if klass not in by_class:
+            klass = "unavailable"
+        by_class[klass] += 1
+        if status == "observed" and klass == "production":
+            production_observed += 1
+    return {
+        **counts,
+        "by_evidence_class": by_class,
+        "production_observed": production_observed,
+    }
 
 
 def _self_sha256() -> str:
@@ -2976,9 +3754,15 @@ def _write_json(path: str, payload: dict) -> None:
 def main(argv: list | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     try:
-        return asyncio.run(_main(args))
+        code = asyncio.run(_main(args))
     except KeyboardInterrupt:
-        return 130
+        code = 130
+    except SystemExit:
+        raise
+    except Exception:
+        traceback.print_exc()
+        code = 2
+    _exit_after_flush(code)
 
 
 if __name__ == "__main__":
