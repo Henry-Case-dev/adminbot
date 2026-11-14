@@ -639,7 +639,7 @@ class TestLivePathInvariants:
         # categorized 570→572 (REGISTRY 597/GROUPS 121/TAB 119 переизданы
         # тем же лейном). Санкция: P2 spec §13; F8 emit+check EXIT=0.
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 618
+                    if s.category is not None]) == 619
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

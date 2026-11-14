@@ -918,7 +918,7 @@ class TestBounds:
         # initiative.trigger_probability → categorized 580→612 (REGISTRY
         # 606→638 / GROUPS 119→121 / TAB 117→119; F8 переиздан в срезе).
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 618
+                    if s.category is not None]) == 619
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

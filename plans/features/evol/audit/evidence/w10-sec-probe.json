@@ -871,33 +871,33 @@
     "heatKeyboard": {
       "steps": [
         {
-          "cell": "2026-11-10:10",
+          "cell": "2026-11-14:10",
           "pressed": "true",
-          "label": "2026-11-10 10:00 — событий: 70 (ошибок: 1)",
+          "label": "2026-11-14 10:00 — событий: 70 (ошибок: 1)",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
         },
         {
-          "cell": "2026-11-10:9",
+          "cell": "2026-11-14:9",
           "pressed": "true",
-          "label": "2026-11-10 09:00 — событий: 36",
+          "label": "2026-11-14 09:00 — событий: 36",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
         },
         {
-          "cell": "2026-11-10:9",
+          "cell": "2026-11-14:9",
           "pressed": "true",
-          "label": "2026-11-10 09:00 — событий: 36",
+          "label": "2026-11-14 09:00 — событий: 36",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
         },
         {
-          "cell": "2026-11-09:9",
+          "cell": "2026-11-13:9",
           "pressed": "true",
-          "label": "2026-11-09 09:00 — событий: 1",
+          "label": "2026-11-13 09:00 — событий: 1",
           "picked": true,
           "pickedClass": true,
           "levelClass": true
@@ -910,7 +910,7 @@
       "tab": "runs",
       "view": "runs",
       "activeTabText": "Запуски",
-      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-11-10 10:00 (время сервера)"
+      "meta": "Активные фильтры: период: 7 дней · Выбранный час: 2026-11-14 10:00 (время сервера)"
     },
     "globalTogglePost": 1,
     "speechPersona": true,

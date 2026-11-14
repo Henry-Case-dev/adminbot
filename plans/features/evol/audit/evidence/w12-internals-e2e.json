@@ -209,7 +209,7 @@
    "overview": true,
    "actions": true,
    "primary": true,
-   "last": "Последних действий в журнале нет",
+   "last": "Последнее действие: нет данных",
    "scope": "ЧАТ",
    "tabs": 5
   }

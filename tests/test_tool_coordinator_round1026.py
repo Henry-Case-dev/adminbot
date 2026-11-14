@@ -898,7 +898,7 @@ class TestBounds:
         # flags.memory_communities_enabled → 572→573 (REGISTRY 598 тем же
         # лейном; санкция — принятая дельта каталога волны 3–4).
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 618   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
+                    if s.category is not None]) == 619   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 22

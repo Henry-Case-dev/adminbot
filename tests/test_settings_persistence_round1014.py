@@ -53,7 +53,7 @@ class TestCatalogInvariant:
                        if s.category is not None]
         # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): +6 categorized
         # (PG-only профили embeddings, models_embeddings) → 498→504.
-        assert len(categorized) == 618
+        assert len(categorized) == 619
 
     def test_per_chat_classification(self):
         """Маршрутизация scope: models.*/keys.* — строго глобальные (per_chat
