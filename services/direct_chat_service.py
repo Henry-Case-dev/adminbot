@@ -207,6 +207,7 @@ from services.token_counter import (
     count_tokens,
     estimation_method,
     has_protected_spans,
+    protected_spans,
     resolve_chat_limit,
     resolve_context_tokens,
     safe_budget,
@@ -637,9 +638,9 @@ def _segment_json(text: str) -> list | None:
 # больше не запускает исторический поиск. Инструмент `dig_into_lore` и его
 # контракт в каноне промпта сохранены — вызывает его модель по смыслу
 # (capability `historical_search`), а не словарь маркеров.
-# Потолок инжекта <dig_result> (спека §3.2.3; dig уже режет 3500 сам —
-# страховка для остальных dig-совместимых блоков: stats-хинт, capability-блок).
-_DIG_RESULT_MAX_CHARS = 3600
+# SXR-C3-02: мёртвый символьный потолок `<dig_result>` (3600) удалён —
+# инжект не режется этой веткой; evidence/контекст ограничивает общий
+# композер по реальному окну.
 # S10.20-10: лимит Telegram-сообщения — HTML-история шлётся разметкой только
 # если экранированный текст влезает в ОДИН чанк (иначе чанкинг мог порвать
 # тег → TelegramBadRequest → дубль текста plain-фолбэком).
@@ -13430,6 +13431,17 @@ class DirectChatService:
         if (mca_gates.adaptive_context_budget_enabled() and limit_tokens > 0
                 and isinstance(block, str) and has_protected_spans(block)
                 and count_tokens(block) > limit_tokens):
+            # SXR-C3-02: сначала пробуем ПОЛНЫЙ лимит. Резерв 48 токенов
+            # нужен только если защищённые спаны реально не переживают
+            # усечение; иначе он молча отнимал 48 токенов у контекста
+            # (повторное усечение уже усечённого).
+            full = self._truncate_block_raw(block, limit_tokens, kind)
+            try:
+                missing = [s for s in protected_spans(block) if s not in full]
+            except Exception:      # pragma: no cover - защитная ветка
+                missing = []
+            if not missing:
+                return full
             reserve = _PROTECTED_SPAN_RESERVE_BUDGET
             base = self._truncate_block_raw(
                 block, max(1, limit_tokens - reserve), kind)
