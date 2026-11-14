@@ -687,3 +687,275 @@ class TestO04SemanticHintsSingleRoute:
             assert overview.derived_version == rc.OVERVIEW_VERSION
         finally:
             await db.close()
+
+
+# ═══ M-04 delivery: тот же RetrievalResult → живой Writer bundle ════════════
+#
+# Контракт-расширение (approval Orchestrator, 15.11.2026): overview обязан
+# доходить до живого Writer bundle по УЖЕ существующему пути
+# `_rag_unified_rows → _build_evidence_bundle → _bundle_scoped_slice` и до
+# person-overview инструмента (`_memory_lookup_unified`). Второго retrieval,
+# второго bundle, второго store не появляется.
+
+def _dcs(db, memory):
+    import services.direct_chat_service as dcs
+    svc = dcs.DirectChatService.__new__(dcs.DirectChatService)
+    svc.db = db
+    svc.memory = memory
+    svc.bot_id = 1
+
+    async def _summary_revision(chat_id):
+        return ""
+
+    svc._summary_revision = _summary_revision
+    return svc
+
+
+def _bundle_blocks():
+    return [("rag", "<RAG_Memory>\n[2021 | Автор: Папаха | fact:1]: "
+                    "фрагмент\n</RAG_Memory>"),
+            ("current",
+             "<Current_Question>что было про Папаха?</Current_Question>")]
+
+
+def _msg_stub(mid=100):
+    return type("M", (), {"message_id": mid})()
+
+
+def _spy_retrieve(monkeypatch):
+    """Считать вызовы ЕДИНСТВЕННОГО `retrieve` (без подмены его поведения)."""
+    import services.mca_retrieval_context as rc_mod
+    calls: list = []
+    real = rc_mod.retrieve
+
+    async def _spy(db, memory, request):
+        calls.append(request)
+        return await real(db, memory, request)
+
+    monkeypatch.setattr(rc_mod, "retrieve", _spy)
+    return calls
+
+
+class TestM04LiveDelivery:
+    @pytest.mark.asyncio
+    async def test_writer_bundle_carries_overview_from_same_result(
+            self, monkeypatch):
+        import services.direct_chat_service as dcs
+
+        db = await _db()
+        try:
+            await _overview_fixture(db)
+            ref_id = await _bind_subject(db, CHAT, UID)
+            await _add_fact(
+                db, chat=CHAT, fact="Папаха любит дронов", ts=T2021,
+                target_user=SUBJECT_NAME, subject_ref_id=ref_id, speaker=UID)
+            memory = _MemorySpy()
+            svc = _dcs(db, memory)
+            calls = _spy_retrieve(monkeypatch)
+
+            rows = await svc._rag_unified_rows(
+                CHAT, "расскажи что было про Папаха", _msg_stub(),
+                memory_scope="operative", include_overview=True)
+            assert rows is not None
+            # один маршрут: ровно один retrieve, и он запросил overview
+            assert len(calls) == 1
+            assert calls[0].include_overview is True
+            result = svc._rag_overview_result
+            assert result is not None and result.overview is not None
+            assert result.overview.coverage["missing_periods"] == ["2022"]
+
+            bundle = await svc._build_evidence_bundle(
+                CHAT, _msg_stub(), "расскажи что было про Папаха",
+                SUBJECT_NAME, UID, _bundle_blocks(), retrieval_result=result)
+            assert bundle is not None
+            # Writer bundle несёт coverage/периоды/контрпримеры/limitations
+            assert bundle.coverage
+            assert bundle.independent_periods == ("2021", "2023")
+            assert bundle.counterexamples
+            assert bundle.limitations
+            assert set(bundle.episode_refs) == \
+                set(result.overview.episode_refs)
+            scoped = dcs._bundle_scoped_slice(bundle)
+            assert "Покрытие памяти" in scoped
+            assert "2021" in scoped and "2022" in scoped
+            assert "Независимые периоды: 2021, 2023" in scoped
+            assert "Контрпримеры памяти" in scoped
+            assert "Ограничения памяти" in scoped
+            # чужой чат не попадает в bundle
+            foreign = {v.episode_ref
+                       for v in await list_episode_views(db, CHAT2)}
+            assert not (set(bundle.episode_refs) & foreign)
+            assert memory.forbidden_calls == []
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_writer_bundle_repeated_meme_is_one_independent_period(
+            self, monkeypatch):
+        import services.direct_chat_service as dcs
+
+        db = await _db()
+        try:
+            meme = "Папаха приносил мем про парк каждый год"
+            for tg, ts in ((1, T2021), (2, T2023)):
+                await _add_msg(db, CHAT, tg, UID, meme, ts)
+            await _seed_episodes(db, CHAT, [
+                {"chat_id": CHAT, "id": None, "tg_message_id": 1,
+                 "user_id": UID, "text": meme, "timestamp": T2021,
+                 "reply_to_tg_message_id": None},
+                {"chat_id": CHAT, "id": None, "tg_message_id": 2,
+                 "user_id": UID, "text": meme, "timestamp": T2023,
+                 "reply_to_tg_message_id": None}])
+            svc = _dcs(db, _MemorySpy())
+            _spy_retrieve(monkeypatch)
+            await svc._rag_unified_rows(
+                CHAT, "расскажи что было раньше", _msg_stub(),
+                memory_scope="operative", include_overview=True)
+            result = svc._rag_overview_result
+            assert result is not None
+            bundle = await svc._build_evidence_bundle(
+                CHAT, _msg_stub(), "расскажи что было раньше", SUBJECT_NAME,
+                UID, _bundle_blocks(), retrieval_result=result)
+            assert bundle.independent_periods == ("2021",)
+            assert "repeated_claims_present" in bundle.limitations
+            scoped = dcs._bundle_scoped_slice(bundle)
+            assert "Независимые периоды: 2021" in scoped
+            assert "2023" in scoped        # покрытие видно, но не как опора
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_ordinary_direct_chat_path_has_no_overview_reads(
+            self, monkeypatch):
+        import services.direct_chat_service as dcs
+
+        db = await _db()
+        try:
+            await _overview_fixture(db)
+            svc = _dcs(db, _MemorySpy())
+            calls = _spy_retrieve(monkeypatch)
+            with _trace_sql(db) as trace:
+                await svc._rag_unified_rows(
+                    CHAT, "что с дронами", _msg_stub(),
+                    memory_scope="operative")
+            assert calls and calls[0].include_overview is False
+            assert svc._rag_overview_result is None
+            assert not [s for s in trace.statements if "mca_episodes" in s]
+            bundle = await svc._build_evidence_bundle(
+                CHAT, _msg_stub(), "что с дронами", SUBJECT_NAME, UID,
+                _bundle_blocks())
+            assert bundle is not None
+            assert bundle.coverage == ()
+            assert bundle.independent_periods == ()
+            assert bundle.counterexamples == ()
+            assert bundle.limitations == ()
+            scoped = dcs._bundle_scoped_slice(bundle)
+            assert "Покрытие памяти" not in scoped
+            assert "Ограничения памяти" not in scoped
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_build_rag_block_activates_overview_only_for_history_queries(
+            self, monkeypatch):
+        import services.direct_chat_service as dcs
+
+        db = await _db()
+        try:
+            await _overview_fixture(db)
+            svc = _dcs(db, _MemorySpy())
+            _spy_retrieve(monkeypatch)
+            ordinary = _msg_stub(1)
+            ordinary.text = "что с дронами"          # без маркеров истории
+            with _trace_sql(db) as trace_ordinary:
+                await svc._build_rag_block(
+                    CHAT, ordinary, "", memory_scope="operative")
+            assert svc._rag_overview_result is None
+            assert not [s for s in trace_ordinary.statements
+                        if "mca_episodes" in s]
+
+            history = _msg_stub(2)
+            history.text = "расскажи что было про Папаха"
+            await svc._build_rag_block(
+                CHAT, history, "", memory_scope="operative")
+            assert svc._rag_overview_result is not None
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_tool_person_overview_requests_and_returns_overview(
+            self, monkeypatch):
+        from services.tool_router import ToolContext, ToolDeps, ToolRouter
+        from services.tool_schemas import MEMORY_LOOKUP_TOOL_NAME
+
+        class _Aliases:
+            def canon_name(self, name):
+                return str(name or "").strip()
+
+            def resolve(self, user_id, nickname=None, username=None):
+                return SUBJECT_NAME
+
+        db = await _db()
+        try:
+            await _overview_fixture(db)
+            await _add_fact(db, chat=CHAT, fact="Папаха любит дронов",
+                            ts=T2021, target_user=SUBJECT_NAME)
+            memory = _MemorySpy()
+            router = ToolRouter(ToolDeps(
+                search=None, memory=memory, aliases=_Aliases(), db=db))
+            calls = _spy_retrieve(monkeypatch)
+            payload = json.loads(await router.dispatch(
+                MEMORY_LOOKUP_TOOL_NAME,
+                {"person": SUBJECT_NAME, "purpose": "biography"},
+                ToolContext(CHAT, "q", user_id=UID)))
+            assert payload["status"] == "ok", payload
+            assert len(calls) == 1
+            assert calls[0].include_overview is True
+            assert payload["coverage"], payload
+            assert any("2021" in line for line in payload["coverage"])
+            assert payload["independent_periods"] == ["2021", "2023"]
+            assert payload["limitations"]
+            assert memory.forbidden_calls == []
+
+            # identity — не overview-путь: паритет прежнего envelope
+            calls.clear()
+            identity = json.loads(await router.dispatch(
+                MEMORY_LOOKUP_TOOL_NAME,
+                {"person": SUBJECT_NAME, "purpose": "identity"},
+                ToolContext(CHAT, "q", user_id=UID)))
+            assert calls and calls[0].include_overview is False
+            assert "coverage" not in identity
+            assert "limitations" not in identity
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_tool_empty_coverage_is_honest_not_fabricated(
+            self, monkeypatch):
+        from services.tool_router import ToolContext, ToolDeps, ToolRouter
+        from services.tool_schemas import MEMORY_LOOKUP_TOOL_NAME
+
+        class _Aliases:
+            def canon_name(self, name):
+                return str(name or "").strip()
+
+            def resolve(self, user_id, nickname=None, username=None):
+                return SUBJECT_NAME
+
+        db = await _db()
+        try:
+            # факты есть, эпизодов нет → покрытие честно пустое
+            await _add_fact(db, chat=CHAT, fact="Папаха любит дронов",
+                            ts=T2021, target_user=SUBJECT_NAME)
+            router = ToolRouter(ToolDeps(
+                search=None, memory=_MemorySpy(), aliases=_Aliases(), db=db))
+            _spy_retrieve(monkeypatch)
+            payload = json.loads(await router.dispatch(
+                MEMORY_LOOKUP_TOOL_NAME,
+                {"person": SUBJECT_NAME, "purpose": "general"},
+                ToolContext(CHAT, "q", user_id=UID)))
+            assert payload["coverage"] == []
+            assert "no_episodes_in_scope" in payload["limitations"]
+            assert payload["independent_periods"] == []
+        finally:
+            await db.close()

@@ -4129,10 +4129,12 @@ class ToolRouter:
             "ok", "appearance", person, facts, sources)
 
     async def _memory_lookup_biography(self, ctx, person, max_items) -> dict:
-        """biography: факты субъекта (единый retrieval) + generated слой Б."""
+        """biography: факты субъекта (единый retrieval) + generated слой Б;
+        плюс bounded overview (покрытие/независимые периоды/контрпримеры/
+        ограничения) того же вызова (VMQ-M2, M-04)."""
         result = await self._memory_lookup_unified(
             ctx, person, purpose="biography", max_items=max_items,
-            channels=_MEMORY_LOOKUP_SUBJECT_CHANNELS)
+            channels=_MEMORY_LOOKUP_SUBJECT_CHANNELS, include_overview=True)
         facts, sources = await self._memory_lookup_unified_items(
             ctx, result, max_items, entity_types=("graph_fact",))
         db = getattr(self.deps, "db", None)
@@ -4146,10 +4148,12 @@ class ToolRouter:
         if not facts:
             return self._memory_lookup_payload(
                 "ok", "biography", person, [], [], no_data=True,
-                empty_reason="unknown_person")
+                empty_reason="unknown_person",
+                extra=self._memory_lookup_overview_extra(result))
+        extra = dict(self._memory_lookup_dossier_extra(facts))
+        extra.update(self._memory_lookup_overview_extra(result))
         return self._memory_lookup_payload(
-            "ok", "biography", person, facts, sources,
-            extra=self._memory_lookup_dossier_extra(facts))
+            "ok", "biography", person, facts, sources, extra=extra)
 
     async def _memory_lookup_relationships(self, ctx, person,
                                            max_items) -> dict:
@@ -4197,7 +4201,8 @@ class ToolRouter:
                                      participants=(),
                                      include_relations: bool = False,
                                      preserve_channel_order: bool = True,
-                                     memory_scope: str | None = None):
+                                     memory_scope: str | None = None,
+                                     include_overview: bool = False):
         """MEMORY-06 (§4.4/§7.5): ЕДИНСТВЕННОЕ чтение памяти lookup-ветки.
 
         Все шесть purpose (`identity`/`appearance`/`speech_style`/
@@ -4259,7 +4264,11 @@ class ToolRouter:
                 # периодов; identity/внешность/речь/связи — действующие
                 # сведения. Явное «сейчас» от L1 понижает и профиль.
                 memory_scope=self._memory_lookup_scope(
-                    ctx, purpose, memory_scope))
+                    ctx, purpose, memory_scope),
+                # VMQ-M2 (M-04): overview — только person-overview/временной
+                # путь (biography/general); bounded-проекция ТОГО ЖЕ вызова,
+                # второго retrieval нет.
+                include_overview=bool(include_overview))
             return await _rc.retrieve(db, memory, request)
         except Exception:
             logger.warning("[tools] unified memory retrieval failed | "
@@ -4381,14 +4390,15 @@ class ToolRouter:
         субъекте с релевантными сообщениями (прежняя семантика D3)."""
         unified = await self._memory_lookup_unified(
             ctx, person, purpose="general", max_items=max_items,
-            preserve_channel_order=False)
+            preserve_channel_order=False, include_overview=True)
         if unified is not None:
             facts, sources = await self._memory_lookup_unified_items(
                 ctx, unified, max_items,
                 entity_types=("graph_fact", "message"))
             if facts:
                 return self._memory_lookup_payload(
-                    "ok", "general", person, facts, sources)
+                    "ok", "general", person, facts, sources,
+                    extra=self._memory_lookup_overview_extra(unified))
         memory = getattr(self.deps, "memory", None)
         name = person.get("name") or ""
         # SXR-C2-01: число сообщений = явный/дефолтный max_items запроса,
@@ -4624,6 +4634,35 @@ class ToolRouter:
         except Exception:
             block = ""
         return {"dossier": block} if block else {}
+
+    @staticmethod
+    def _memory_lookup_overview_extra(result) -> dict:
+        """Bounded overview в envelope person-overview (VMQ-M2, M-04).
+
+        Источник — `RetrievalResult.overview` ТОГО ЖЕ вызова (никакого
+        второго retrieval/чтения): coverage, независимые периоды,
+        контрпримеры и limitations в существующем едином формате модуля
+        (`mca_retrieval_context.overview_bundle_slots`). Нет overview →
+        ``{}`` (прежний envelope байт-в-байт)."""
+        overview = getattr(result, "overview", None)
+        if overview is None:
+            return {}
+        try:
+            from services import mca_retrieval_context as _rc
+            slots = _rc.overview_bundle_slots(overview)
+        except Exception:
+            return {}
+        if not slots:
+            return {}
+        return {
+            "coverage": [str(line) for line in slots.get("coverage") or ()],
+            "independent_periods": [str(value) for value
+                                    in slots.get("independent_periods") or ()],
+            "counterexamples": [str(line) for line
+                                in slots.get("counterexamples") or ()],
+            "limitations": [str(code) for code in
+                            slots.get("limitations") or ()],
+        }
 
     @staticmethod
     def _memory_lookup_portrait_item(dossier: dict) -> dict:

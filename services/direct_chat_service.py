@@ -1053,6 +1053,30 @@ def _bundle_scoped_slice(bundle) -> str:
         parts.append("Память (с датами и источниками):\n"
                      + "\n".join(f"- {line}" for line in
                                  summary_lines[:_BUNDLE_BLOCK_MAX_REFS]))
+    # ── VMQ-M2 (M-04): bounded overview-слоты ЕДИНОГО bundle — данные для
+    # Writer (что покрыто, какие периоды независимы, контрпримеры и честные
+    # ограничения). Пусто → прежний текст байт-в-байт.
+    coverage_lines = tuple(getattr(bundle, "coverage", ()) or ())
+    if coverage_lines:
+        parts.append("Покрытие памяти:\n"
+                     + "\n".join(f"- {line}" for line in
+                                 coverage_lines[:_BUNDLE_BLOCK_MAX_REFS]))
+    independent_periods = tuple(
+        getattr(bundle, "independent_periods", ()) or ())
+    if independent_periods:
+        parts.append("Независимые периоды: " + ", ".join(
+            independent_periods[:_BUNDLE_BLOCK_MAX_REFS]))
+    counterexample_lines = tuple(
+        getattr(bundle, "counterexamples", ()) or ())
+    if counterexample_lines:
+        parts.append("Контрпримеры памяти:\n"
+                     + "\n".join(f"- {line}" for line in
+                                 counterexample_lines[
+                                     :_BUNDLE_LESSON_MAX_REFS]))
+    limitation_lines = tuple(getattr(bundle, "limitations", ()) or ())
+    if limitation_lines:
+        parts.append("Ограничения памяти: " + ", ".join(
+            limitation_lines[:_BUNDLE_BLOCK_MAX_REFS]))
     context_version = getattr(bundle, "context_version", None)
     if not parts and not context_version:
         return ""
@@ -5424,7 +5448,10 @@ class DirectChatService:
             evidence_bundle = await self._build_evidence_bundle(
                 chat_id, message, query, target_name, user_id, user_blocks,
                 excluded=_excluded_blocks, chosen_intent=pre_action,
-                trace_id=correlation_id)
+                trace_id=correlation_id,
+                # VMQ-M2 (M-04): тот же RetrievalResult хода (если он запросил
+                # overview) наполняет ЕДИНЫЙ bundle; None = паритет.
+                retrieval_result=getattr(self, "_rag_overview_result", None))
             # T-619: системный промпт — горячая точка (фолбек код-канона).
             # Раунд 10 (F-7 §4.5): per-chat override (chat_params → глобал →
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
@@ -5898,6 +5925,13 @@ class DirectChatService:
             if _rag_ctx:
                 user_blocks = await self._apply_plan_memory_scope(
                     user_blocks, _rag_ctx, l1_plan)
+                # VMQ-M2 (M-04): пересборка блока под политикой плана — тот
+                # же `retrieve` мог прочитать overview (historical). Тот же
+                # ЕДИНЫЙ bundle получает слоты; второго retrieval/бандла нет.
+                evidence_bundle = _mca_rc.apply_overview_to_bundle(
+                    evidence_bundle,
+                    getattr(getattr(self, "_rag_overview_result", None),
+                            "overview", None))
             # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
             # собирается композером из тех же блоков и ровно один раз:
             # channel_contract → core → identity → lessons/style → plan.
@@ -11569,7 +11603,8 @@ class DirectChatService:
                                      user_blocks: list, *,
                                      excluded: list | None = None,
                                      chosen_intent: str | None = None,
-                                     trace_id: str | None = None):
+                                     trace_id: str | None = None,
+                                     retrieval_result=None):
         """MCA-07 (T-3852, ADR-1027-7 D5/D6): собрать ЕДИНЫЙ in-memory
         `EvidenceBundle` из уже построенных user-блоков (без нового I/O и без
         второго контракта). Ссылается на канонические ID-ссылки (`tg:/msg:/
@@ -11578,7 +11613,12 @@ class DirectChatService:
 
         MCA-16 (AM-1, D6, T-4993): `lessons` — отдельный тип в ЭТОМ ЖЕ
         bundle (отбор: scope/active → compat → relevance → utility); K1/K4
-        OFF → пусто (байт-паритет 2.58.58). Второго bundle нет."""
+        OFF → пусто (байт-паритет 2.58.58). Второго bundle нет.
+
+        VMQ-M2 (M-04): `retrieval_result` — ТОТ ЖЕ результат хода (если он
+        запросил overview). Его bounded слоты (coverage/периоды/контрпримеры/
+        limitations) кладутся в этот же bundle; второго bundle/retrieval нет.
+        `None`/без overview → bundle байт-паритетен прежнему."""
         if not mca_gates.evidence_bundle_enabled():
             return None
         try:
@@ -11822,19 +11862,22 @@ class DirectChatService:
                 summary_text = ()
                 logger.warning("[mca06] evidence summary skipped — empty",
                                exc_info=True)
-            return _mca_rc.EvidenceBundle(
-                trigger=current_ref, current_message_ref=current_ref,
-                current_revision=current_ref,
-                addressee=v2_fields.pop("addressee", target_name or None),
-                author=v2_fields.pop("author", target_name or None),
-                mentioned=mentioned, branch=branch,
-                local_context=local_context,
-                evidence=v2_fields.pop("evidence", tuple(evidence)),
-                constraints=constraints,
-                relations=relations, chosen_intent=chosen_intent,
-                recent_actions=recent_actions, context_version=context_version,
-                excluded=excluded_items, lessons=lesson_refs,
-                summary_text=summary_text, **v2_fields)
+            return _mca_rc.apply_overview_to_bundle(
+                _mca_rc.EvidenceBundle(
+                    trigger=current_ref, current_message_ref=current_ref,
+                    current_revision=current_ref,
+                    addressee=v2_fields.pop("addressee", target_name or None),
+                    author=v2_fields.pop("author", target_name or None),
+                    mentioned=mentioned, branch=branch,
+                    local_context=local_context,
+                    evidence=v2_fields.pop("evidence", tuple(evidence)),
+                    constraints=constraints,
+                    relations=relations, chosen_intent=chosen_intent,
+                    recent_actions=recent_actions,
+                    context_version=context_version,
+                    excluded=excluded_items, lessons=lesson_refs,
+                    summary_text=summary_text, **v2_fields),
+                getattr(retrieval_result, "overview", None))
         except Exception:
             logger.warning("[mca07] evidence bundle build failed — None",
                            exc_info=True)
@@ -14008,7 +14051,8 @@ class DirectChatService:
     async def _rag_unified_rows(self, chat_id: int, query: str, message,
                                 memory_scope: str | None = None,
                                 subject_name: str | None = None,
-                                subject_uid: int | None = None):
+                                subject_uid: int | None = None,
+                                include_overview: bool = False):
         """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
 
         Возвращает кандидатов в прежней форме `get_rag_facts(with_meta=True)`
@@ -14060,9 +14104,21 @@ class DirectChatService:
                 return None
             policy = _mca_rc._mc.normalize_memory_scope(
                 memory_scope if memory_scope is not None else "auto").value
-            base = await self._rag_retrieve(
-                db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
-                limit, policy)
+            if include_overview:
+                base = await self._rag_retrieve(
+                    db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
+                    limit, policy, include_overview=True)
+            else:
+                # Прежняя форма вызова байт-в-байт: двойники/тесты с узкой
+                # подписью `_rag_retrieve` не ломаются обычным путём.
+                base = await self._rag_retrieve(
+                    db, memory, chat_id, query, self._RAG_FACT_CHANNELS,
+                    limit, policy)
+            # VMQ-M2 (M-04): тот же RetrievalResult (base этого вызова) несёт
+            # bounded overview; он запоминается для ЕДИНОГО bundle хода —
+            # второго retrieval/чтения не появляется. Не запрошен → None
+            # (прочие пути байт-паритетны, ноль новых чтений).
+            self._rag_overview_result = base if include_overview else None
             if policy == "operative":
                 return self._rag_rows_from_result(base, limit)
             rows = self._rag_rows_from_result(base, limit)
@@ -14167,13 +14223,15 @@ class DirectChatService:
                             lexical_stem: bool = False,
                             include_archived: bool = False,
                             period_fill: bool = False,
-                            exclude_years=()):
+                            exclude_years=(),
+                            include_overview: bool = False):
         """Один вызов существующего `retrieve` (без второго контура).
 
         `lexical_stem`/`include_archived`/`period_fill`/`exclude_years`
         включают ТОЛЬКО периодный добор (VMQ-MEM, решения 11.11.2026);
         основной срез и `operative` остаются с прежними значениями по
-        умолчанию."""
+        умолчанию. `include_overview` (VMQ-M2, M-04) — аддитивная bounded
+        overview-проекция того же вызова; default False = паритет."""
         request = _mca_rc.RetrievalRequest(
             chat_id=int(chat_id), query=str(query or ""),
             mode="specific", purpose="reply", top_k=max(1, int(limit)),
@@ -14185,7 +14243,8 @@ class DirectChatService:
             memory_scope=policy, lexical_stem=bool(lexical_stem),
             include_archived=bool(include_archived),
             period_fill=bool(period_fill),
-            exclude_years=tuple(exclude_years or ()))
+            exclude_years=tuple(exclude_years or ()),
+            include_overview=bool(include_overview))
         return await _mca_rc.retrieve(db, memory, request)
 
     @classmethod
@@ -14380,7 +14439,8 @@ class DirectChatService:
                                memory_scope: str | None = None,
                                subject_name: str | None = None,
                                subject_uid: int | None = None,
-                               out_memory: dict | None = None
+                               out_memory: dict | None = None,
+                               include_overview: bool = False
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -14420,20 +14480,30 @@ class DirectChatService:
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return "", ""
         query = getattr(message, "text", None) or ""
+        # VMQ-M2 (M-04): overview запрашивается ТОЛЬКО на overview-пути —
+        # временной/исторический вопрос по УЖЕ существующей эвристике
+        # `retrieve` (`is_history_query`) либо явное решение L1 передано
+        # вызывающим. Обычный путь `include_overview=False`: ноль новых
+        # чтений, кандидаты/порядок байт-идентичны.
+        overview_on = bool(include_overview) or _mca_rc.is_history_query(query)
         # MEMORY-06 (§7.5): сначала ЕДИНЫЙ retrieval-контракт (отбор фактов);
         # двойник без каналов (None) → прежнее чтение того же слоя.
         # VMQ-MEM next stage (§4): телеметрия периодного добора принадлежит
         # этому ходу — сбрасываем до чтения, чтобы повторный сбор блока на
         # том же экземпляре не унаследовал счётчики прошлого вопроса.
         self._rag_period_stats = {}
+        # VMQ-M2: результат того же вызова (с overview) — для ЕДИНОГО bundle.
+        self._rag_overview_result = None
         # Пул периодной ноги этого вызова: без периода он пуст (окно
         # пересборки не должно подставить пул прошлого хода).
         self._rag_period_pool = None
         try:
-            rows = await self._rag_unified_rows(chat_id, query, message,
-                                                memory_scope=memory_scope,
-                                                subject_name=subject_name,
-                                                subject_uid=subject_uid)
+            rows = await self._rag_unified_rows(
+                chat_id, query, message,
+                memory_scope=memory_scope,
+                subject_name=subject_name,
+                subject_uid=subject_uid,
+                include_overview=overview_on)
         except TypeError:
             # Двойник/альтернативная реализация без поля политики/субъекта:
             # прежний вызов (политика не навязывается несовместимому API).
@@ -14696,13 +14766,38 @@ class DirectChatService:
                         "policy=%s", plan_scope)
             return user_blocks
         try:
-            block, _hint = await self._build_rag_block(
-                rag_ctx["chat_id"], rag_ctx["message"], rag_ctx["global_ctx"],
-                history_sample=rag_ctx.get("history_sample"),
-                projection=rag_ctx.get("projection"),
-                memory_scope=plan_scope,
-                subject_name=rag_ctx.get("subject_name"),
-                subject_uid=rag_ctx.get("subject_uid"))
+            # VMQ-M2 (M-04): явное решение L1 «исторический охват» =
+            # overview-путь; bounded-проекция того же `retrieve`. Двойник без
+            # этого поля получает прежнюю форму вызова (compat TypeError).
+            if plan_scope == "historical":
+                try:
+                    block, _hint = await self._build_rag_block(
+                        rag_ctx["chat_id"], rag_ctx["message"],
+                        rag_ctx["global_ctx"],
+                        history_sample=rag_ctx.get("history_sample"),
+                        projection=rag_ctx.get("projection"),
+                        memory_scope=plan_scope,
+                        subject_name=rag_ctx.get("subject_name"),
+                        subject_uid=rag_ctx.get("subject_uid"),
+                        include_overview=True)
+                except TypeError:
+                    block, _hint = await self._build_rag_block(
+                        rag_ctx["chat_id"], rag_ctx["message"],
+                        rag_ctx["global_ctx"],
+                        history_sample=rag_ctx.get("history_sample"),
+                        projection=rag_ctx.get("projection"),
+                        memory_scope=plan_scope,
+                        subject_name=rag_ctx.get("subject_name"),
+                        subject_uid=rag_ctx.get("subject_uid"))
+            else:
+                block, _hint = await self._build_rag_block(
+                    rag_ctx["chat_id"], rag_ctx["message"],
+                    rag_ctx["global_ctx"],
+                    history_sample=rag_ctx.get("history_sample"),
+                    projection=rag_ctx.get("projection"),
+                    memory_scope=plan_scope,
+                    subject_name=rag_ctx.get("subject_name"),
+                    subject_uid=rag_ctx.get("subject_uid"))
         except Exception:
             logger.warning("direct: rag rescope failed — keep auto block | "
                            "policy=%s", plan_scope, exc_info=True)

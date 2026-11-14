@@ -1833,6 +1833,64 @@ async def build_retrieval_overview(db, request: RetrievalRequest, *,
         return None
 
 
+def overview_bundle_slots(overview) -> dict:
+    """Bounded overview → текстовые слоты (ЕДИНЫЙ формат для bundle и tool).
+
+    Один источник формы: и `EvidenceBundle` живого пути, и envelope
+    person-overview инструмента читают отсюда — второго форматтера нет.
+    Тексты bounded (`OVERVIEW_TEXT_MAX`), внутренние id не раскрываются.
+    ``overview is None`` → ``{}`` (паритет прежних потребителей)."""
+    if overview is None:
+        return {}
+    try:
+        coverage_lines: list[str] = []
+        coverage = getattr(overview, "coverage", None) or {}
+        for block in coverage.get("present_periods") or ():
+            coverage_lines.append(
+                f"{block.get('period')}: эпизодов "
+                f"{int(block.get('episodes') or 0)}")
+        earliest = coverage.get("earliest_ts")
+        latest = coverage.get("latest_ts")
+        if earliest and latest:
+            coverage_lines.append(
+                "границы: " + summary_date(earliest) + " — "
+                + summary_date(latest))
+        missing = [str(value) for value in coverage.get("missing_periods")
+                   or ()]
+        if missing:
+            coverage_lines.append("пропущены периоды: " + ", ".join(missing))
+        counterexample_lines = [
+            _overview_text(pair.get("left_text")) + " ↔ "
+            + _overview_text(pair.get("right_text"))
+            for pair in (getattr(overview, "counterexamples", ()) or ())]
+        hint_lines = []
+        for hint in (getattr(overview, "semantic_hints", ()) or ()):
+            if hint.get("kind") == "subject_identity":
+                hint_lines.append(
+                    "субъект: " + str(hint.get("basis"))
+                    + "/" + str(hint.get("status")))
+            elif hint.get("kind") == "fact_definition":
+                hint_lines.append(
+                    "определение: " + str(hint.get("verification")))
+        return {
+            "coverage": tuple(_overview_text(line) for line
+                              in coverage_lines[:OVERVIEW_MAX_PERIODS + 2]),
+            "independent_periods": tuple(
+                getattr(overview, "independent_periods", ()) or ()),
+            "counterexamples": tuple(counterexample_lines[
+                :OVERVIEW_MAX_COUNTEREXAMPLES]),
+            "limitations": tuple(
+                getattr(overview, "limitations", ()) or ()),
+            "episode_refs": tuple(
+                getattr(overview, "episode_refs", ()) or ()),
+            "semantic_hints": tuple(_overview_text(line) for line
+                                    in hint_lines[:OVERVIEW_MAX_HINTS]),
+        }
+    except Exception:                                     # pragma: no cover
+        logger.warning("[mca07] overview slots shaping failed", exc_info=True)
+        return {}
+
+
 def apply_overview_to_bundle(bundle, overview) -> "EvidenceBundle | None":
     """Наполнить ЕДИНЫЙ `EvidenceBundle` overview-слотами M-04 (чистая).
 
@@ -1843,50 +1901,18 @@ def apply_overview_to_bundle(bundle, overview) -> "EvidenceBundle | None":
     (только ссылки эпизодов, как и остальные refs bundle)."""
     if bundle is None or overview is None:
         return bundle
-    try:
-        coverage_lines: list[str] = []
-        for block in overview.coverage.get("present_periods") or ():
-            coverage_lines.append(
-                f"{block.get('period')}: эпизодов {int(block.get('episodes') or 0)}")
-        earliest = overview.coverage.get("earliest_ts")
-        latest = overview.coverage.get("latest_ts")
-        if earliest and latest:
-            coverage_lines.append(
-                "границы: " + summary_date(earliest) + " — "
-                + summary_date(latest))
-        missing = [str(value) for value in
-                   overview.coverage.get("missing_periods") or ()]
-        if missing:
-            coverage_lines.append("пропущены периоды: " + ", ".join(missing))
-        counterexample_lines = [
-            _overview_text(pair.get("left_text")) + " ↔ "
-            + _overview_text(pair.get("right_text"))
-            for pair in overview.counterexamples]
-        hint_lines = []
-        for hint in overview.semantic_hints:
-            if hint.get("kind") == "subject_identity":
-                hint_lines.append(
-                    "субъект: " + str(hint.get("basis"))
-                    + "/" + str(hint.get("status")))
-            elif hint.get("kind") == "fact_definition":
-                hint_lines.append(
-                    "определение: " + str(hint.get("verification")))
-        return dataclasses.replace(
-            bundle,
-            coverage=tuple(_overview_text(line) for line
-                           in coverage_lines[:OVERVIEW_MAX_PERIODS + 2]),
-            independent_periods=tuple(overview.independent_periods),
-            counterexamples=tuple(counterexample_lines[
-                :OVERVIEW_MAX_COUNTEREXAMPLES]),
-            limitations=tuple(overview.limitations),
-            episode_refs=tuple(overview.episode_refs),
-            semantic_hints=tuple(_overview_text(line) for line
-                                 in hint_lines[:OVERVIEW_MAX_HINTS]),
-        )
-    except Exception:                                     # pragma: no cover
-        logger.warning("[mca07] bundle overview enrichment failed",
-                       exc_info=True)
+    slots = overview_bundle_slots(overview)
+    if not slots:
         return bundle
+    return dataclasses.replace(
+        bundle,
+        coverage=slots["coverage"],
+        independent_periods=slots["independent_periods"],
+        counterexamples=slots["counterexamples"],
+        limitations=slots["limitations"],
+        episode_refs=slots["episode_refs"],
+        semantic_hints=slots["semantic_hints"],
+    )
 
 
 async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
@@ -3006,5 +3032,6 @@ __all__ = [
     "OVERVIEW_MAX_COUNTEREXAMPLES", "OVERVIEW_MAX_LIMITATIONS",
     "OVERVIEW_MAX_HINTS", "RetrievalOverview", "overview_from_views",
     "build_retrieval_overview", "apply_overview_to_bundle",
+    "overview_bundle_slots",
 ]
 
