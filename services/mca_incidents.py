@@ -3,8 +3,9 @@ durable инциденты §27.6 (v19 `mca_incidents`).
 
 Семантика:
   * **fingerprint** — устойчивый признак группировки
-    `process_id|pipeline_type|stage|reason_code|error_type|dependency`
-    (без свободного текста и без одного слова «timeout»);
+    `process_id|pipeline_type|stage|reason_code|error_type|dependency|kind|job_id`
+    (без свободного текста и без одного слова «timeout»); S5C/W-11: kind и
+    job_id входят в fingerprint, исторические строки не переписываются;
   * отдельные trace (`first_trace_id`/`last_trace_id`) и `repeat_count`
     сохраняются; `mca_event_aggregates` — дополнительный агрегат событий;
   * **`acknowledged ≠ resolved`**; `resolved` — только после реальной проверки
@@ -48,14 +49,21 @@ _MAX_CHATS = 20
 
 def compute_fingerprint(*, process_id=None, pipeline_type=None, stage=None,
                         reason_code=None, error_type=None,
-                        dependency=None) -> str:
+                        dependency=None, kind=None, job_id=None) -> str:
     """Устойчивый fingerprint (§27.6): без свободного текста/слова «timeout».
 
     Разные симптомы (разный stage/reason/error_type/dependency) получают
-    разные инциденты — новые симптомы НЕ сливаются по слову «timeout»."""
+    разные инциденты — новые симптомы НЕ сливаются по слову «timeout».
+
+    S5C/W-11: `kind` и `job_id` входят в fingerprint — инцидент относится к
+    конкретной задаче и её типу, а не к «первому job owner'а». Исторические
+    строки со старым fingerprint остаются читаемыми: данные не backfill-ятся,
+    новые наблюдения создают новые строки, а прежние закрываются штатным
+    reconcile после терминального итога связанных job."""
     parts = [str(process_id or ""), str(pipeline_type or ""),
              str(stage or ""), str(reason_code or ""),
-             str(error_type or ""), str(dependency or "")]
+             str(error_type or ""), str(dependency or ""),
+             str(kind or ""), str(job_id or "")]
     return "|".join(parts)[:400]
 
 
@@ -90,8 +98,8 @@ async def _emit(event_name: str, reason_code: str | None, *,
 async def open_or_update(db, *, process_id=None, pipeline_type=None,
                          stage=None, reason_code=None, error_type=None,
                          dependency=None, severity: str = SEVERITY_ERROR,
-                         title: str | None = None, job_id=None, chat_id=None,
-                         trace_id=None, impact: str | None = None,
+                         title: str | None = None, job_id=None, kind=None,
+                         chat_id=None, trace_id=None, impact: str | None = None,
                          fallback_used: bool = False) -> dict | None:
     """Создать/обновить инцидент по fingerprint (§27.6).
 
@@ -114,7 +122,8 @@ async def open_or_update(db, *, process_id=None, pipeline_type=None,
         severity = SEVERITY_ERROR
     fingerprint = compute_fingerprint(
         process_id=process_id, pipeline_type=pipeline_type, stage=stage,
-        reason_code=reason_code, error_type=error_type, dependency=dependency)
+        reason_code=reason_code, error_type=error_type, dependency=dependency,
+        kind=kind, job_id=job_id)
     now = int(time.time())
     incident_id = "inc_" + uuid.uuid4().hex
     safe_title = sanitize(str(title or fingerprint))[:200]

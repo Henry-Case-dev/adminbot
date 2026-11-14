@@ -23,6 +23,10 @@ heartbeat/watchdog/takeover/recovery §27.5.
   takeover у running-задач; queued-задачи только классифицируются
   (scheduled retry / ожидание срока / владелец очереди / зависание) и никогда
   не забираются автоматически.
+* S5C (W-01/W-11): `WATCHDOG_TAKEOVER` эмитится по одному событию на реально
+  затронутую задачу (job_id/owner/kind через разрешённые additive-поля), без
+  агрегата, повторяемого на каждой строке stale batch; fingerprint инцидента
+  включает `kind` и `job_id`, исторические строки не переписываются.
 * Recovery: прочитать checkpoint, определить подтверждённые записи/side effects,
   возобновить только безопасные этапы; бесконечных retries нет. Неопределённая
   доставка/платная операция — `delivery_unknown` до сверки по operation ID;
@@ -303,6 +307,81 @@ async def queued_jobs(db) -> list[dict]:
         return []
 
 
+def _merge_takeover_records(discovered_rows: dict, records) -> list[dict]:
+    """Одна честная запись на РЕАЛЬНО затронутую задачу (S5C/W-01).
+
+    `takeover_stale` уже возвращает per-job записи; для задач, изменившихся
+    между обнаружением и takeover, добавляется `no_change/state_changed`.
+    Идентичность (owner/kind/status_before/attempt/fencing) добирается из
+    обнаруженной durable-строки, если store её не вернул (ошибка/путь без
+    store). Дубли job_id не создаются."""
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for record in records or ():
+        if not isinstance(record, dict):
+            continue
+        jid = str(record.get("job_id") or "")
+        if not jid or jid in seen:
+            continue
+        seen.add(jid)
+        row = discovered_rows.get(jid) or {}
+        item = dict(record)
+        for key in ("owner", "kind", "status_before"):
+            if item.get(key) in (None, "") and row.get(key) is not None:
+                item[key] = row.get(key)
+        if item.get("attempt") is None:
+            item["attempt"] = row.get("attempt")
+        if item.get("fencing_token") is None:
+            item["fencing_token"] = row.get("fencing_token")
+        merged.append(item)
+    for jid, row in discovered_rows.items():
+        if jid in seen:
+            continue
+        merged.append({"job_id": jid, "outcome": "no_change",
+                       "reason": "state_changed", "action": "state_changed",
+                       "owner": row.get("owner"), "kind": row.get("kind"),
+                       "status_before": row.get("status"),
+                       "attempt": row.get("attempt"),
+                       "fencing_token": row.get("fencing_token")})
+    return merged
+
+
+async def _emit_takeover_record(record: dict) -> None:
+    """Per-job `WATCHDOG_TAKEOVER` с честным исходом (S5C/W-01).
+
+    Имя события, §17.1 `outcome` и `reason_code`-словарь сохранены; identity
+    передаётся ТОЛЬКО разрешёнными additive-полями `mca_events`:
+    `job_id`/`entity_ids`/`pipeline_type` (owner)/`status` (канонический исход
+    `recovered|failed|no_change`)/`attempt`; kind/action/previous status/
+    fencing — в JSON-поле `error_json` (отдельной колонки kind в `mca_events`
+    нет, DDL в S5C запрещён). Повторной эмиссии одного и того же агрегата на
+    каждую строку stale batch нет: каждая запись уникальна своим job_id."""
+    jid = str(record.get("job_id") or "")
+    if not jid:
+        return
+    outcome = str(record.get("outcome") or "no_change")
+    if outcome == "recovered":
+        event_outcome, reason_code, level = ("success", "takeover_recovered",
+                                             "INFO")
+    elif outcome == "no_change":
+        event_outcome, reason_code, level = ("skipped", "worker_lost", "WARN")
+    else:
+        # `failed` и любой неожиданный исход не выдаются за успех/skip.
+        outcome = "failed"
+        event_outcome, reason_code, level = ("failed", "worker_lost", "ERROR")
+    await _emit("WATCHDOG_TAKEOVER", reason_code, stage="takeover",
+                outcome=event_outcome, level=level,
+                job_id=jid, entity_ids=[jid],
+                pipeline_type=str(record.get("owner") or "") or None,
+                status=outcome,
+                attempt=int(record.get("attempt") or 0),
+                error_json={"kind": record.get("kind"),
+                            "reason": record.get("reason"),
+                            "action": record.get("action"),
+                            "status_before": record.get("status_before"),
+                            "fencing_token": record.get("fencing_token")})
+
+
 async def sweep(db, job_store=None, *, now: int | None = None,
                 detect_progress_stall: bool = True,
                 track_incidents: bool = True) -> dict:
@@ -362,21 +441,20 @@ async def sweep(db, job_store=None, *, now: int | None = None,
                                      for r in overdue["running"]],
                          "queued": [r.get("job_id")
                                     for r in overdue["queued"]]}
-    discovered = [r.get("job_id") for r in stale]
-    # Overdue-running, ещё не попавший в stale-снимок, тоже обнаружен.
-    for row in overdue["running"]:
-        if row.get("job_id") not in discovered:
-            discovered.append(row.get("job_id"))
+    discovered_rows: dict[str, dict] = {}
+    for row in list(stale) + list(overdue["running"]):
+        jid = str(row.get("job_id") or "")
+        if jid and jid not in discovered_rows:
+            discovered_rows[jid] = dict(row)
+    discovered = list(discovered_rows)
     result["stale"] = discovered
     result["takeover"]["discovered"] = list(discovered)
-    if stale or overdue["running"]:
+    if discovered:
         if job_store is None:
             # S5A/W-02: без store recovery не вызывался — никакого success.
-            result["takeover"]["no_change"] = list(discovered)
-            for _jid in discovered:
-                _bump_takeover_outcome("no_change")
-            await _emit("WATCHDOG_TAKEOVER", "worker_lost", stage="takeover",
-                        outcome="skipped", level="WARN")
+            records = [{"job_id": jid, "outcome": "no_change",
+                        "reason": "worker_lost",
+                        "action": "store_unavailable"} for jid in discovered]
         else:
             result["takeover"]["attempted"] = list(discovered)
             try:
@@ -390,33 +468,22 @@ async def sweep(db, job_store=None, *, now: int | None = None,
                 records = [{"job_id": jid, "outcome": "failed",
                             "reason": "takeover_error", "action": "error"}
                            for jid in discovered]
-            # Job мог обновить heartbeat между обнаружением и takeover —
-            # честно фиксируем no_change, а не теряем его из результата.
-            seen = {str(r.get("job_id")) for r in records}
-            for jid in discovered:
-                if str(jid) not in seen:
-                    records.append({"job_id": jid, "outcome": "no_change",
-                                    "reason": "state_changed",
-                                    "action": "state_changed"})
-            result["takeover"]["records"] = records
-            for record in records:
-                jid = str(record.get("job_id") or "")
-                if not jid:
-                    continue
-                key = _bump_takeover_outcome(str(record.get("outcome")))
-                result["takeover"][key].append(jid)
-            result["recovered"] = list(result["takeover"]["recovered"])
-            # Одно событие на класс исхода за проход (S5C добавит per-job
-            # доказательства через разрешённые additive-поля).
-            if result["takeover"]["recovered"]:
-                await _emit("WATCHDOG_TAKEOVER", "takeover_recovered",
-                            stage="takeover", outcome="success")
-            if result["takeover"]["failed"]:
-                await _emit("WATCHDOG_TAKEOVER", "worker_lost",
-                            stage="takeover", outcome="failed", level="ERROR")
-            if result["takeover"]["no_change"]:
-                await _emit("WATCHDOG_TAKEOVER", "worker_lost",
-                            stage="takeover", outcome="skipped", level="WARN")
+        # Job мог обновить heartbeat между обнаружением и takeover —
+        # честно фиксируем no_change, а не теряем его из результата.
+        records = _merge_takeover_records(discovered_rows, records)
+        result["takeover"]["records"] = records
+        for record in records:
+            jid = str(record.get("job_id") or "")
+            if not jid:
+                continue
+            key = _bump_takeover_outcome(str(record.get("outcome")))
+            result["takeover"][key].append(jid)
+        result["recovered"] = list(result["takeover"]["recovered"])
+        # S5C/W-01: ровно одно событие на реально затронутую задачу, с её
+        # identity; агрегатного события, повторяемого на каждую строку
+        # stale batch, больше нет.
+        for record in records:
+            await _emit_takeover_record(record)
     # ASAP 8 v6 C03A: recovery-контур styled cover (restart mid-style /
     # bounded style retry с сохранённой Base). Неблокирующий kick (background
     # task в cover_style_jobs), fail-open — не влияет на sweep-контракт.
@@ -469,8 +536,8 @@ async def sweep(db, job_store=None, *, now: int | None = None,
             continue
         outcome = await _track_incident(
             db, {"job_id": item.get("job_id"), "owner": item.get("owner"),
-                 "error_code": "queue_no_claimer"}, reason_code="stage_queued",
-            stage="queued", severity="WARN")
+                 "kind": item.get("kind"), "error_code": "queue_no_claimer"},
+            reason_code="stage_queued", stage="queued", severity="WARN")
         key = _bump_incident_outcome(outcome)
         result["incident_outcomes"][key] += 1
         if key in ("created", "reopened"):
@@ -487,7 +554,10 @@ async def _track_incident(db, row: dict, *, reason_code: str,
     из собственной ошибки не создаётся (AC-24).
 
     S5B/W-09: диагностическая корзина queued передаёт `severity="WARN"` —
-    отсутствие claimer'а наблюдаемо, но не выдаётся за падение компонента."""
+    отсутствие claimer'а наблюдаемо, но не выдаётся за падение компонента.
+
+    S5C/W-11: `kind` входит в fingerprint — два job одного owner разных типов
+    не сливаются в один инцидент; title каждого инцидента называет свой job."""
     try:
         from services import mca_incidents as inc
         # F8: тип/владелец job берётся из строки (а не хардкод «archive.rebuild»)
@@ -506,7 +576,7 @@ async def _track_incident(db, row: dict, *, reason_code: str,
             error_type=str(row.get("error_code") or ""),
             dependency=None, severity=incident_severity,
             title=f"job {row.get('job_id')}: {reason_code}",
-            job_id=row.get("job_id"),
+            job_id=row.get("job_id"), kind=row.get("kind"),
             trace_id=row.get("pipeline_run_id"),
             impact=impact)
     except Exception:

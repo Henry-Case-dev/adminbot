@@ -114,28 +114,53 @@ class TestIncidentCauses:
             await d.close()
 
     @pytest.mark.asyncio
-    async def test_repeated_takeover_updates_same_incident_without_closing(
+    async def test_repeated_observation_of_same_job_updates_same_incident(
             self, tmp_path):
-        """Повторный takeover того же owner'а — та же строка (fingerprint),
-        repeat_count растёт, severity остаётся ERROR, инцидент не resolved."""
+        """S5C/W-11: fingerprint включает job_id/kind — повторное наблюдение
+        ТОЙ ЖЕ задачи обновляет её строку (repeat_count растёт, severity
+        остаётся ERROR), без дубля и без закрытия инцидента."""
         d = await _db(tmp_path)
         try:
             store = TaskJobStore(d)
             owner, kind = OWNERS[0]
-            await _stale_running_job(store, owner, kind)
+            jid = await _stale_running_job(store, owner, kind)
             await wd.sweep(d, job_store=store)
             first = await _incident_rows(d)
             assert len(first) == 1
             first_id = first[0]["incident_id"]
 
-            await _stale_running_job(store, owner, kind)
-            await wd.sweep(d, job_store=store)
+            again = await inc.open_or_update(
+                d, process_id="watchdog.jobs", pipeline_type=owner,
+                stage="takeover", reason_code="worker_lost",
+                severity=inc.SEVERITY_ERROR, job_id=jid, kind=kind,
+                title=f"job {jid}: worker_lost")
+            assert again["status"] == "updated"
             rows = await _incident_rows(d)
-            assert len(rows) == 1                       # не второй инцидент
+            assert len(rows) == 1
             assert rows[0]["incident_id"] == first_id
             assert rows[0]["repeat_count"] == 2
             assert rows[0]["severity"] == "ERROR"
             assert rows[0]["resolved_at"] is None
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_new_job_same_owner_kind_gets_own_incident(self, tmp_path):
+        """S5C/W-11: другой job того же owner/kind — отдельный инцидент,
+        старый не перезаписывается и остаётся активным до своего терминала."""
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            owner, kind = OWNERS[0]
+            first_job = await _stale_running_job(store, owner, kind)
+            await wd.sweep(d, job_store=store)
+            second_job = await _stale_running_job(store, owner, kind)
+            await wd.sweep(d, job_store=store)
+            rows = await _incident_rows(d)
+            assert len(rows) == 2
+            assert len({r["fingerprint"] for r in rows}) == 2
+            assert all(r["resolved_at"] is None for r in rows)
+            assert first_job != second_job
         finally:
             await d.close()
 

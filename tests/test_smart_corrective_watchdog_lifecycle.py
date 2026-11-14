@@ -637,7 +637,7 @@ class TestIncidentLifecycle:
     """W-05: авто-resolve по фактическому терминалу; resolved не reopen молча."""
 
     @pytest.mark.asyncio
-    async def test_auto_resolve_only_after_all_linked_jobs_terminal(
+    async def test_per_job_incidents_resolve_with_their_own_job(
             self, tmp_path):
         d = await _db(tmp_path)
         try:
@@ -646,26 +646,31 @@ class TestIncidentLifecycle:
                                     max_attempts=3, checkpoint=True)
             j2 = await _running_job(store, owner="qnd.test", kind="k",
                                     max_attempts=3, checkpoint=True)
-            # Оба stale — один инцидент (fingerprint owner/stage/reason).
+            # S5C/W-11: fingerprint включает job_id — каждый stale job
+            # получает собственный инцидент (агрегат «первого job» исчез).
             await wd.sweep(d, job_store=store)
             rows = await _incident_rows(d)
-            assert len(rows) == 1
-            incident_id = rows[0]["incident_id"]
-            assert rows[0]["resolved_at"] is None
-            assert set(json.loads(rows[0]["jobs_json"])) == {j1, j2}
+            assert len(rows) == 2
+            by_job = {json.loads(r["jobs_json"])[0]: r for r in rows}
+            assert set(by_job) == {j1, j2}
+            assert all(r["resolved_at"] is None for r in rows)
+            for jid, row in by_job.items():
+                assert row["title"].startswith(f"job {jid}:")
 
-            # Один job завершён, второй ещё queued → инцидент активен.
+            # Один job завершён → закрывается только его инцидент.
             assert await store.mark_running(j1) is True
             jr = await store.get(j1)
             assert await store.finish(j1, status=JOB_COMPLETED,
                                       fencing_token=jr["fencing_token"]) is True
             result = await wd.sweep(d, job_store=store)
             rows = await _incident_rows(d)
-            assert rows[0]["incident_id"] == incident_id
-            assert rows[0]["resolved_at"] is None
+            by_job = {json.loads(r["jobs_json"])[0]: r for r in rows}
+            assert by_job[j1]["resolved_at"] is not None
+            assert by_job[j2]["resolved_at"] is None
+            assert result["incident_reconcile"]["resolved"] == 1
             assert result["incident_reconcile"]["pending"] == 1
 
-            # Второй job терминален → следующий sweep закрывает инцидент.
+            # Второй job терминален → следующий sweep закрывает его инцидент.
             assert await store.mark_running(j2) is True
             jr2 = await store.get(j2)
             assert await store.finish(j2, status=JOB_FAILED,
@@ -673,13 +678,62 @@ class TestIncidentLifecycle:
                                       fencing_token=jr2["fencing_token"]) is True
             result = await wd.sweep(d, job_store=store)
             rows = await _incident_rows(d)
-            assert len(rows) == 1                       # история сохранена
-            assert rows[0]["incident_id"] == incident_id
-            assert rows[0]["resolved_at"] is not None
-            assert "jobs_terminal" in rows[0]["resolution_evidence"]
-            assert rows[0]["severity"] == "ERROR"       # severity не снижена
+            assert len(rows) == 2                       # история сохранена
+            assert all(r["resolved_at"] is not None for r in rows)
+            assert all("jobs_terminal" in r["resolution_evidence"]
+                       for r in rows)
+            assert all(r["severity"] == "ERROR" for r in rows)
             assert result["incident_reconcile"]["resolved"] == 1
             assert await inc.active_incidents(d) == []
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_legacy_aggregate_incident_resolves_only_after_all_jobs(
+            self, tmp_path):
+        """Историческая строка (fingerprint без kind/job_id, jobs_json ≤20)
+        не backfill-ится и закрывается только после терминала ВСЕХ job."""
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            j1 = await _running_job(store, owner="qnd.legacy", kind="k",
+                                    max_attempts=3)
+            j2 = await _running_job(store, owner="qnd.legacy", kind="k",
+                                    max_attempts=3)
+            now = int(time.time())
+            legacy_fp = "watchdog.jobs|qnd.legacy|takeover|worker_lost||"
+            await d.db.execute(
+                "INSERT INTO mca_incidents (incident_id, fingerprint, "
+                "process_id, pipeline_type, stage, severity, title, first_ts, "
+                "last_ts, repeat_count, jobs_json, chats_json, fallback_used, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("inc_legacy_aggregate", legacy_fp, "watchdog.jobs",
+                 "qnd.legacy", "takeover", "ERROR", "legacy aggregate",
+                 now, now, 2, json.dumps([j1, j2]), "[]", 0, now, now))
+            await d.db.commit()
+            pending = await inc.reconcile_linked_incidents(
+                d, store, process_id="watchdog.jobs")
+            assert pending["pending"] == 1
+            assert pending["resolved"] == 0
+            assert await store.finish(j1, status=JOB_FAILED,
+                                      reason_code="closed",
+                                      recovery=True) is True
+            pending = await inc.reconcile_linked_incidents(
+                d, store, process_id="watchdog.jobs")
+            assert pending["pending"] == 1
+            assert pending["resolved"] == 0
+            assert await store.finish(j2, status=JOB_COMPLETED,
+                                      recovery=True) is True
+            done = await inc.reconcile_linked_incidents(
+                d, store, process_id="watchdog.jobs")
+            assert done["resolved"] == 1
+            rows = await _incident_rows(d)
+            legacy = [r for r in rows
+                      if r["incident_id"] == "inc_legacy_aggregate"][0]
+            assert legacy["fingerprint"] == legacy_fp   # без backfill
+            assert legacy["repeat_count"] == 2
+            assert legacy["resolved_at"] is not None
+            assert "jobs_terminal" in legacy["resolution_evidence"]
         finally:
             await d.close()
 
@@ -828,17 +882,33 @@ class TestIncidentServiceObservability:
         d = await _db(tmp_path)
         try:
             store = TaskJobStore(d)
-            await _running_job(store, owner="qnd.test", kind="k1",
-                               max_attempts=5)
-            await _running_job(store, owner="qnd.test", kind="k2",
-                               max_attempts=5)
+            now = int(time.time())
+            h1 = await store.enqueue(owner="mca16", kind="experience.review")
+            h2 = await store.enqueue(owner="mca16", kind="experience.review")
+            await d.db.execute(
+                "UPDATE task_jobs SET created_at = ?, updated_at = ? "
+                "WHERE job_id IN (?, ?)",
+                (now - 9999, now - 9999, h1, h2))
+            await d.db.commit()
+
+            # S5C/W-11: fingerprint включает job_id — два «зависших» queued
+            # job'а дают два инцидента (не агрегат первого job'а).
             result = await wd.sweep(d, job_store=store)
-            # Одна строка инцидента (owner/stage/reason), не два "new".
-            assert result["incident_outcomes"]["created"] == 1
-            assert result["incident_outcomes"]["updated"] == 1
-            assert result["incidents"] == 1
+            assert result["incident_outcomes"]["created"] == 2
+            assert result["incident_outcomes"]["updated"] == 0
+            assert result["incidents"] == 2
             rows = await _incident_rows(d)
-            assert len(rows) == 1
-            assert rows[0]["repeat_count"] == 2
+            assert len(rows) == 2
+            assert len({r["fingerprint"] for r in rows}) == 2
+            assert {json.loads(r["jobs_json"])[0] for r in rows} == {h1, h2}
+
+            # Повторное наблюдение ТЕХ ЖЕ job'ов — update тех же строк.
+            result = await wd.sweep(d, job_store=store)
+            assert result["incident_outcomes"]["created"] == 0
+            assert result["incident_outcomes"]["updated"] == 2
+            assert result["incidents"] == 0
+            rows = await _incident_rows(d)
+            assert len(rows) == 2
+            assert all(r["repeat_count"] == 2 for r in rows)
         finally:
             await d.close()
