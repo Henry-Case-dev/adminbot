@@ -290,7 +290,7 @@ def test_kill_switch_registry_73_and_defaults():
     # имеет (services/mca_events.py корректировкой 2026-11-10 не менялся).
     # QND-NONDET (10.11.2026): +11 кодов состояний расписания/событийного
     # пути/случайного исхода (§17.2 — словарь расширяемый).
-    assert len(mca_events.REASON_CODES) == 341
+    assert len(mca_events.REASON_CODES) == 357    # +16 SMART I4 producer codes
     assert {"evidence_skipped", "evidence_reused",
             "evidence_unverified_claim_removed"} <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES

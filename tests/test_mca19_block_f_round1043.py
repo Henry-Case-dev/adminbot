@@ -209,7 +209,7 @@ def test_reason_codes_269():
     # lease_held, settings_rescaled, event_dropped_busy,
     # event_dropped_debounce, event_deferred_floor, random_miss,
     # random_unavailable, semantic_none, module_off; §17.2 расширяемый).
-    assert len(mca_events.REASON_CODES) == 341       # 309 → 311 → 314 → 320 → 325 → 330 → 341
+    assert len(mca_events.REASON_CODES) == 357       # 309 → 311 → 314 → 320 → 325 → 330 → 341 → 357 (SMART I4)
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды

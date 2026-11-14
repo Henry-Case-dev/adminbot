@@ -384,6 +384,6 @@ class TestValidatorStage:
         # тоже вне validator-стадии).
         # QND-NONDET (2.58.179, 10.11.2026): +11 кодов состояний
         # расписания/событий/исхода → 330→341; validator-коды не тронуты.
-        assert len(mca_events.REASON_CODES) == 341
+        assert len(mca_events.REASON_CODES) == 357    # +16 SMART I4 producer codes
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

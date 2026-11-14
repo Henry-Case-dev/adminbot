@@ -342,7 +342,7 @@ class TestObservabilityContract:
         # расписания/событий/исхода (no_state, stale_deadline, lease_held,
         # settings_rescaled, event_dropped_busy/debounce, event_deferred_floor,
         # random_miss, random_unavailable, semantic_none, module_off) → 330→341.
-        assert len(mca_events.REASON_CODES) == 341
+        assert len(mca_events.REASON_CODES) == 357    # +16 SMART I4 producer codes
         assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \
