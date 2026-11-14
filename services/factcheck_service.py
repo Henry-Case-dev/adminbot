@@ -23,6 +23,7 @@ import json
 import logging
 import re
 import time
+from urllib.parse import urlsplit
 
 from config.settings import settings
 from services import hot_config as hot
@@ -1832,6 +1833,214 @@ def _verdict_is_substantive(verdict) -> bool:
         return False
 
 
+# ── S16-FC-FINALIZE: ответ по предмету, честный частичный результат ─────────
+#
+# Owner §9.1-9.4 (FACTCHECK-REQUEST-INTEGRITY v2). Здесь НЕТ нового жанра,
+# третьей LLM-стадии или markdown-шаблона: те же данные вердикта получают
+# честные поля для СУЩЕСТВУЮЩИХ стадий (аналитик/валидатор/вербализатор), а
+# детерминированная деградация (вербализатор недоступен) перестаёт быть
+# заглушкой, когда материалы уже собраны.
+
+#: Статусы части, при которых часть ТЕХНИЧЕСКИ не проверена (не «нет данных»).
+#: Единственный владелец формулировок — существующий `CLAIM_STATUS_HUMAN`.
+_PART_TECHNICAL_STATUSES = frozenset({
+    "source_extract_failed", "provider_error", "deadline_exceeded",
+    "search_not_started", "claim_unidentified",
+})
+
+
+def _distinct_text(text, *others) -> str:
+    """Непустой текст, если он не дублирует уже переданные поля (без обрезки)."""
+    value = " ".join(str(text or "").split())
+    if not value:
+        return ""
+    norm = value.casefold()
+    for other in others:
+        if norm == " ".join(str(other or "").split()).casefold():
+            return ""
+    return value
+
+
+def _search_boundary_situation(retrieval, evidence) -> str:
+    """Остановка поиска бюджетом/дедлайном при НЕПУСТОМ evidence (owner §9.3).
+
+    ``classify_retrieval`` законно возвращает ``ok`` при любом evidence, поэтому
+    техническая граница поиска иначе не доходит до финализации: пользователь
+    видит обычный вердикт или «недостаточно данных», но не «часть источников
+    не проверена». Тот же факт уже передаётся аналитику
+    (``_evidence_context_note``); здесь — человеческая формулировка для
+    вербализатора и детерминированного частичного ответа.
+    """
+    if retrieval is None or not evidence:
+        return ""
+    exhausted = bool(getattr(retrieval, "budget_exhausted", False))
+    skipped = int(getattr(retrieval, "fetch_skipped_budget", 0) or 0) \
+        + int(getattr(retrieval, "fetch_skipped_deadline", 0) or 0)
+    if not exhausted and skipped <= 0:
+        return ""
+    return ("внешний поиск остановлен ограничением бюджета/времени — часть "
+            "доступных источников не проверена")
+
+
+def _part_text(part: dict) -> str:
+    return " ".join(str(part.get("text") or part.get("note") or "").split())
+
+
+def _host_of(url: str) -> str:
+    try:
+        return str(urlsplit(str(url or "")).hostname or "").removeprefix("www.")
+    except Exception:      # pragma: no cover — URL не рвёт частичный ответ
+        return ""
+
+
+def partial_inventory(verdict, evidence=(), *, search_boundary: str = "",
+                      max_collected: int = 3) -> dict:
+    """Честное разделение уже полученного результата (owner §9.3).
+
+    Классы: подтверждённое / опровергнутое / подтверждённое частично /
+    недостаточно подтверждённое / технически непроверенное. Часть без
+    содержательного вердикта НЕ получает придуманный статус: она честно
+    относится к технически непроверенным. Когда разбора частей нет, но
+    материалы уже собраны, перечисляются только ФАКТИЧЕСКИ полученные
+    выдержки (не выводы). Ничего не выдумывается.
+    """
+    buckets: dict[str, list[str]] = {
+        "confirmed": [], "refuted": [], "partial": [],
+        "insufficient": [], "technical": [],
+    }
+    collected: list[dict] = []
+    for part in tuple(getattr(verdict, "parts", ()) or ()):
+        if not isinstance(part, dict):
+            continue
+        text = _part_text(part)
+        if not text:
+            continue
+        status = str(part.get("status_detail") or "")
+        factual = str(part.get("factual_verdict") or "")
+        if status in _PART_TECHNICAL_STATUSES:
+            buckets["technical"].append(text)
+        elif factual in ("supported", "refuted", "mixed"):
+            buckets[{"supported": "confirmed", "refuted": "refuted",
+                     "mixed": "partial"}[factual]].append(text)
+        elif factual == "insufficient_evidence":
+            buckets["insufficient"].append(text)
+        else:
+            buckets["technical"].append(text)
+    if not any(buckets.values()):
+        for row in tuple(evidence or ())[:max(1, int(max_collected))]:
+            if not isinstance(row, dict):
+                continue
+            support = " ".join(str(row.get("support") or "").split())
+            if not support:
+                continue
+            collected.append({
+                "host": _host_of(str(row.get("url") or "")),
+                "text": support[:160].rstrip() + ("…" if len(support) > 160
+                                                  else ""),
+            })
+    if search_boundary:
+        buckets["technical"].append(search_boundary)
+    return {
+        "confirmed": buckets["confirmed"],
+        "refuted": buckets["refuted"],
+        "partial": buckets["partial"],
+        "insufficient": buckets["insufficient"],
+        "technical": buckets["technical"],
+        "collected": collected,
+    }
+
+
+def partial_inventory_has_content(inventory: dict) -> bool:
+    """Есть ли в инвентаре содержательный частичный результат.
+
+    Перечисление одних лишь «недостаточно подтверждённых» частей без evidence
+    и без технической границы — это НЕ частичный результат: там остаётся
+    существующая короткая честная граница (``limit_note``), а не список
+    пунктов ради объёма (owner §9.3).
+    """
+    return any(inventory.get(key) for key in
+               ("confirmed", "refuted", "partial", "technical", "collected"))
+
+
+# ── Служебные метки и идентификаторы НЕ выходят в пользовательскую речь ──────
+# S16-FC-FINALIZE / SFC-10-06 (owner §10.6): служебные enum, внутренние схемы,
+# технические идентификаторы и сырые контейнеры (OCR-контекст) не должны
+# заменять нормальный ответ. Чистка — на границе пользовательской речи; факты
+# не меняются.
+
+_SERVICE_FIELD_RE = re.compile(
+    r"\b(?:factual_verdict|temporal_status|reason_code|evidence_refs|"
+    r"claim_id|part_id|plan_version|gate_version|subject_version|"
+    r"resolved_by|evidence_id|support_truncated|as_of|uncertainty)\s*[=:]\s*"
+    r"[\"']?[\w./:%+\-]+[\"']?", re.IGNORECASE)
+_SERVICE_ENUM_RE = re.compile(
+    r"\b(?:insufficient_evidence|old_but_valid|misleading_reuse|"
+    r"source_extract_failed|provider_unavailable|deadline_exceeded|"
+    r"search_not_started|claim_unidentified|validator_suppressed|"
+    r"evidence_insufficient_for_exact_number|evidence_conflicting|"
+    r"no_relevant_sources|source_missing|not_run)\b")
+_SERVICE_ID_RE = re.compile(r"\b(?:ev-\d+|claim[_-][A-Za-z0-9_-]+|"
+                            r"part[_-]p?\d+|p\d+|c\d+)\b")
+#: Латинские служебные слова схемы прогона, которые не являются
+#: пользовательской речью в русском канале (остатки дампов). Список намеренно
+#: узкий: общие технические слова (`json`, `schema` и т.п.) могут быть частью
+#: проверяемого утверждения и не трогаются.
+_SERVICE_WORD_RE = re.compile(r"\b(?:claim|claims|part|parts)\b")
+_SERVICE_OCR_RE = re.compile(r"\bOCR\b", re.IGNORECASE)
+_SERVICE_BLOCK_RE = re.compile(
+    r"<\s*(chat_context|analysis_context|claim_coverage|evidence_delivery|"
+    r"temporal_context|claim_parts|evidence|bot_knowledge|reply_chains)"
+    r"\b[^>]*>.*?<\s*/\s*\1\s*>",
+    re.IGNORECASE | re.DOTALL)
+_SERVICE_TAG_RE = re.compile(
+    r"</?(?:claim|claim_parts|claim_coverage|temporal_context|evidence|"
+    r"evidence_delivery|analysis_context|chat_context|user_hint|"
+    r"search_results|verdict_draft|original_material|user_request|"
+    r"form_request|bot_knowledge|reply_chains|Chat_Time_Context)"
+    r"\b[^>]*>", re.IGNORECASE)
+
+
+def strip_service_tokens(text: str) -> str:
+    """Убрать служебные метки/идентификаторы/контейнеры из пользовательской речи.
+
+    Применяется к тексту, который готовится к публикации (вербализатор и
+    legacy-финализация), ДО проверки чисел: иначе идентификатор ``ev-1``
+    выглядел «непроверенным числом» и заменял живой ответ формализованным
+    отчётом. Обычная русская речь, цифры фактов и ссылки не затрагиваются;
+    чистка идемпотентна и не бросает.
+    """
+    out = str(text or "")
+    if not out:
+        return out
+    cleaned = _SERVICE_BLOCK_RE.sub(" ", out)
+    cleaned = _SERVICE_TAG_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_FIELD_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_ENUM_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_ID_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_WORD_RE.sub(" ", cleaned)
+    cleaned = _SERVICE_OCR_RE.sub(" ", cleaned)
+    if cleaned == out:
+        return out
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+([;,.!?])", r"\1", cleaned)
+    cleaned = re.sub(r"[;:,]{2,}", ";", cleaned)
+    cleaned = re.sub(r"(?m)^[\s;,]+$", "", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r"^[\s;,:.]+", "", cleaned)
+    cleaned = re.sub(r"[\s;,]+$", "", cleaned)
+    normalized_in = " ".join(out.split())
+    cleaned_norm = " ".join(cleaned.split())
+    if normalized_in and not re.search(r"[A-Za-zА-Яа-яЁё]", cleaned_norm):
+        # От ответа остались только разделители — служебный дамп не публикуется:
+        # вызывающий берёт честный частичный результат/деградацию.
+        logger.info("[factcheck] service-only answer rejected | chars=%d",
+                    len(normalized_in))
+        return ""
+    logger.info("[factcheck] service tokens stripped | chars=%d->%d",
+                len(normalized_in), len(cleaned_norm))
+    return cleaned.strip()
+
+
 # ── ASAP-FC-EVIDENCE-STYLE-02 §3/§4: покрытие ПО КАЖДОМУ claim ──────────────
 # Сервер не выдумывает подтверждение: роль/итог берутся из retrieval-слоя
 # (claim → привязанные EvidenceRef с ролью), модель сохраняет право не
@@ -2874,6 +3083,10 @@ class FactCheckService:
                 gstats.stripped_phantom, gstats.stripped_bare, gstats.kept,
             )
         out = strip_lore_html(out)
+        # S16-FC-FINALIZE / SFC-10-06 (owner §10.6): legacy-путь публикует тот же
+        # пользовательский текст — служебные метки/ID/окружения сюда не
+        # проходят. Пустой после чистки ответ — прежняя честная ошибка.
+        out = strip_service_tokens(out)
         if not out.strip():
             raise LLMBadResponseError("factcheck: empty answer")
         return out
@@ -3136,6 +3349,11 @@ class FactCheckService:
         if budget_note:
             analysis_context = (analysis_context + "\n" + budget_note
                                 if analysis_context else budget_note)
+        # S16-FC-FINALIZE (owner §9.3): та же граница поиска, но человеческой
+        # фразой — для вербализатора и детерминированного частичного ответа.
+        # Без этого при непустом evidence классификация «ok» скрывала
+        # техническое прерывание от финального ответа.
+        search_boundary = _search_boundary_situation(retrieval, evidence)
         # ASAP-FC-EVIDENCE-STYLE-02 §3.1: покрытие частей известно ДО вердикта
         # (retrieval уже отработал) — аналитик получает статус каждого пункта,
         # чтобы не смешивать технический сбой с «нет данных» и разбирать
@@ -3386,6 +3604,12 @@ class FactCheckService:
             uncertainty = dict(verdict.uncertainty or {})
             uncertainty["retrieval_state"] = caveat
             verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
+        # S16 (owner §9.3): техническое прерывание при уже собранных материалах
+        # — такая же честная оговорка, а не «обычный вердикт»/«нет данных».
+        if search_boundary:
+            uncertainty = dict(verdict.uncertainty or {})
+            uncertainty.setdefault("search_boundary", search_boundary)
+            verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
         # ASAP-FC-EVIDENCE-STYLE-02 §3.1/§4: покрытие ПО КАЖДОЙ части —
         # подтверждённые части не растворяются в общем «данных недостаточно»,
         # каждый пробел получает конкретную причину, ссылки части — только
@@ -3403,13 +3627,15 @@ class FactCheckService:
         verdict_text = await self._temporal_verbalize(
             env, verdict, fallback_used, correlation_id,
             retrieval_state=retrieval_state, coverage=claim_coverage,
-            evidence=evidence, time_snap=_temporal_snap)
+            evidence=evidence, time_snap=_temporal_snap,
+            search_boundary=search_boundary)
         trace.add("verbalize", "success" if verdict_text else "skipped",
                   reason=None if verdict_text else "temporal_fallback_mode")
 
         if not verdict_text:
             verdict_text = self._temporal_fallback_text(
-                env, verdict, retrieval_state=retrieval_state)
+                env, verdict, retrieval_state=retrieval_state,
+                evidence=evidence, search_boundary=search_boundary)
 
         # §11.3 (FC-EVIDENCE-STATUS-01): диагностика прогона из фактических
         # счётчиков стадии — не из «нет URL». Неизвестное → «нет данных».
@@ -3455,6 +3681,21 @@ class FactCheckService:
                 "analysis_as_of": env.analysis_as_of,
             }, ensure_ascii=False)) + "</temporal_context>",
         ]
+        # S16-FC-FINALIZE (owner §9.2): предмет может быть вопросом пользователя
+        # о СВЯЗАННОЙ ЧАСТИ материала. Тогда исходный материал обязан быть
+        # виден аналитику — иначе проверяется вопрос без проверяемого
+        # содержания. Когда предмет и есть материал, блок не дублируется.
+        material = _distinct_text(getattr(env, "material_claim_text", ""),
+                                  env.claim_text)
+        if material:
+            sections.append("<original_material>"
+                            + escape_xml_text(material)
+                            + "</original_material>")
+        request_text = _distinct_text(getattr(env, "request_text", ""),
+                                      env.claim_text, material)
+        if request_text:
+            sections.append("<user_request>" + escape_xml_text(request_text)
+                            + "</user_request>")
         if parts:
             sections.append("<claim_parts>" + escape_xml_text(json.dumps(
                 [{"part_id": p.part_id, "text": p.text,
@@ -3526,16 +3767,30 @@ class FactCheckService:
                 "evaluated_period": verdict.evaluated_period,
                 "assessment_mode": verdict.assessment_mode,
             }, ensure_ascii=False)) + "</verdict_draft>",
-            "<evidence>" + escape_xml_text("\n\n".join(
-                "[%s] published: %s source=%s;opened=%s;strength=%s\n%s" % (
-                    r.get("evidence_id") or "?",
-                    _fmt_evidence_date(r.get("published_at")),
-                    r.get("source_kind") or "unknown",
-                    "yes" if r.get("opened") else "no",
-                    r.get("strength") or "none",
-                    r["support"])
-                for r in evidence)) + "</evidence>",
         ]
+        # S16-FC-FINALIZE (owner §9.2): валидатор проверяет ТОТ ЖЕ предмет, что
+        # аналитик: вопрос о связанной части материала без самого материала
+        # проверить нельзя. Дубли предмета не добавляются.
+        material = _distinct_text(getattr(env, "material_claim_text", ""),
+                                  env.claim_text)
+        if material:
+            sections.insert(1, "<original_material>"
+                            + escape_xml_text(material)
+                            + "</original_material>")
+        request_text = _distinct_text(getattr(env, "request_text", ""),
+                                      env.claim_text, material)
+        if request_text:
+            sections.insert(2, "<user_request>" + escape_xml_text(request_text)
+                            + "</user_request>")
+        sections.append("<evidence>" + escape_xml_text("\n\n".join(
+            "[%s] published: %s source=%s;opened=%s;strength=%s\n%s" % (
+                r.get("evidence_id") or "?",
+                _fmt_evidence_date(r.get("published_at")),
+                r.get("source_kind") or "unknown",
+                "yes" if r.get("opened") else "no",
+                r.get("strength") or "none",
+                r["support"])
+            for r in evidence)) + "</evidence>")
         if delivery is not None:
             block = delivery.payload_block()
             if block:
@@ -3576,7 +3831,7 @@ class FactCheckService:
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         fallback_used: bool, correlation_id: str | None,
         *, retrieval_state: str | None = None, coverage=(), evidence=(),
-        time_snap=None,
+        time_snap=None, search_boundary: str = "",
     ) -> str:
         """Вербализатор (REUSE существующего контракта фактчека): verdict →
         текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
@@ -3636,6 +3891,22 @@ class FactCheckService:
         if _counterpoint:
             payload["counterpoint"] = _counterpoint
         payload["parts"] = list(verdict.parts)
+        # S16-FC-FINALIZE (owner §9.2): ответ адресуется фактическому предмету.
+        # Если пользователь спрашивал о связанной части материала, вербализатор
+        # видит и вопрос, и материал (и просьбу о форме, если она была) — иначе
+        # он отвечает только на переформулировку и вынужден ограничиваться
+        # оговоркой. Это ДАННЫЕ существующей стадии, а не новый жанр/шаблон.
+        material = _distinct_text(getattr(env, "material_claim_text", ""),
+                                  env.claim_text)
+        if material:
+            payload["original_material"] = material
+        request_text = _distinct_text(getattr(env, "request_text", ""),
+                                      env.claim_text, material)
+        if request_text:
+            payload["user_request"] = request_text
+        form_request = str(getattr(env, "form_request", "") or "").strip()
+        if form_request:
+            payload["requested_form"] = form_request
         # §3.1/§5: покрытие частей — вербализатор пишет КОНКРЕТНЫЕ пробелы
         # (техсбой/нет источников/недоказанное число), а не общее «данных
         # недостаточно» после каждого пункта.
@@ -3668,6 +3939,13 @@ class FactCheckService:
         if situation:
             # §3.6: вербализатор не должен называть сбой «отсутствием фактов».
             payload["situation"] = situation
+        # S16-FC-FINALIZE (owner §9.3): техническая граница поиска существует и
+        # тогда, когда часть evidence уже собрана (иначе классификация «ok»
+        # скрывала её от ответа). Технический факт — не вердикт по тезису.
+        if search_boundary:
+            payload["situation"] = (
+                f"{payload['situation']}; {search_boundary}"
+                if payload.get("situation") else search_boundary)
         if fallback_used:
             payload["fallback_note"] = (
                 "структурированный анализ не удался — не утверждай больше, "
@@ -3676,7 +3954,27 @@ class FactCheckService:
         # содержательного анализа НЕТ — короткая честная граница вместо
         # абзацев-компенсаций. Универсального правила длины НЕ вводится:
         # содержательный ответ передаётся как есть (§7.1).
-        if not _verdict_is_substantive(verdict):
+        #
+        # S16-FC-FINALIZE (owner §9.3): если часть результата уже получена
+        # (части вердикта/собранный evidence/техническая граница), «назови
+        # ограничение» больше НЕ подменяет содержательный частичный ответ.
+        # Вербализатор получает честное разделение и обязан ответить по нему —
+        # живым текстом, без нового шаблона.
+        inventory = partial_inventory(verdict, evidence,
+                                      search_boundary=search_boundary)
+        incomplete = bool(fallback_used or search_boundary or (
+            bool(tuple(getattr(verdict, "parts", ()) or ()))
+            and not _verdict_is_substantive(verdict)))
+        if incomplete and partial_inventory_has_content(inventory):
+            payload["partial"] = inventory
+            payload["partial_note"] = (
+                "разбор неполный — скажи прямо, что подтверждено, что "
+                "опровергнуто, что осталось недостаточно подтверждённым и что "
+                "технически не проверено. Пиши тем же живым голосом, без "
+                "карточек, служебных полей и отдельного раздела: уже собранные "
+                "сведения не заменяй общей оговоркой, а техническое прерывание "
+                "не делай доказательством истинности или ложности утверждения")
+        elif not _verdict_is_substantive(verdict):
             payload["limit_note"] = (
                 "содержательного разбора не получилось — коротко назови "
                 "фактическое ограничение и какой информации не хватает, "
@@ -3746,6 +4044,13 @@ class FactCheckService:
                              else "absent")))
             return ""
         out = out.strip()
+        # S16-FC-FINALIZE / SFC-10-06 (owner §10.6): служебные метки и ID
+        # срезаются ДО проверки чисел. Иначе `ev-1`/`p2` из служебной метки
+        # выглядели «непроверенным числом» и заменяли живой ответ
+        # формализованным структурным отчётом.
+        out = strip_service_tokens(out)
+        if not out:
+            return ""
         # RLR §3.4/§8: неподтверждённое число не публикуется и НЕ правится в
         # готовой фразе — вместо пересказа идёт структурный отчёт проверки
         # (тот же verdict-класс, те же источники).
@@ -3795,13 +4100,20 @@ class FactCheckService:
     @staticmethod
     def _temporal_fallback_text(env: tf.TemporalClaimEnvelope,
                                 verdict: tf.TemporalVerdict,
-                                *, retrieval_state: str | None = None) -> str:
+                                *, retrieval_state: str | None = None,
+                                evidence=(), search_boundary: str = "") -> str:
         """Детерминированный честный текст (все ветки получают даты, D11):
         краткая дата/неопределённость без технической схемы (D15).
 
         P0-FACTCHECK (§3.6): технический сбой не маскируется под «мало
         данных» — фраза прямо называет причину (бюджет/недоступность/
-        непригодные выдержки)."""
+        непригодные выдержки).
+
+        S16-FC-FINALIZE (owner §9.3): при отказе вербализатора уже собранный
+        результат НЕ превращается в стандартную заглушку — он честно
+        разделяется на подтверждённое/опровергнутое/недостаточно
+        подтверждённое/технически непроверенное. Заглушка остаётся только
+        когда результата действительно нет."""
         import datetime as _dt
 
         def _fmt(ts):
@@ -3827,30 +4139,63 @@ class FactCheckService:
                 "Поиск ответил, но подходящих материалов не дал — поэтому "
                 "вывод сделан без внешних источников.",
         }
-        if _verdict_is_substantive(verdict):
+        inventory = partial_inventory(verdict, evidence,
+                                      search_boundary=search_boundary)
+        has_partial = partial_inventory_has_content(inventory)
+        if has_partial or _verdict_is_substantive(verdict):
             # §7: содержательный разбор не подменяется сообщением о сбое —
             # даже при отказе вербализатора разбор частей сохраняется.
-            opener = ("Внешний поиск не удался, поэтому разбор сделан без "
-                      "веб-источников."
-                      if str(retrieval_state or "") in (
-                          RETRIEVAL_BUDGET, RETRIEVAL_SEARCH_FAILED,
-                          RETRIEVAL_PROCESSING_FAILED, RETRIEVAL_NO_RESULTS)
-                      else "Недостаточно данных для полной проверки "
-                           "утверждения.")
+            if _verdict_is_substantive(verdict):
+                opener = ("Внешний поиск не удался, поэтому разбор сделан без "
+                          "веб-источников."
+                          if str(retrieval_state or "") in (
+                              RETRIEVAL_BUDGET, RETRIEVAL_SEARCH_FAILED,
+                              RETRIEVAL_PROCESSING_FAILED,
+                              RETRIEVAL_NO_RESULTS)
+                          else "Проверка неполная — ниже то, что уже "
+                               "установлено.")
+            elif str(retrieval_state or "") in openers:
+                # P0-FACTCHECK (§3.6)/FC-05: технический класс поиска называется
+                # ДОСЛОВНО прежней честной фразой — частичный разбор идёт после
+                # неё, а не вместо неё.
+                opener = openers[str(retrieval_state)]
+            elif search_boundary:
+                opener = (
+                    "Проверку не удалось довести до конца: "
+                    f"{search_boundary}. Это ограничение проверки, а не "
+                    "доказательство истинности или ложности утверждения.")
+            else:
+                opener = ("Проверку удалось выполнить только частично — ниже "
+                          "то, что уже установлено.")
             pieces = [opener]
-            for part in (verdict.parts or ())[:4]:
-                if not isinstance(part, dict):
+            labels = (
+                ("confirmed", "Подтверждено"),
+                ("refuted", "Опровергнуто"),
+                ("partial", "Подтверждено частично"),
+                ("insufficient", "Недостаточно подтверждено"),
+                ("technical", "Технически не проверено"),
+            )
+            for key, label in labels:
+                rows = inventory.get(key) or []
+                if key == "technical" and search_boundary \
+                        and rows == [search_boundary]:
+                    # Граница поиска уже названа в открывающей фразе —
+                    # второй раз то же ограничение не повторяем (§7.3).
                     continue
-                text = " ".join(str(part.get("text") or "").split())
-                if not text:
+                if not rows:
                     continue
-                label = {"supported": "подтверждается",
-                         "refuted": "не подтверждается",
-                         "mixed": "подтверждается частично",
-                         "insufficient_evidence": "данных недостаточно"}.get(
-                    str(part.get("factual_verdict") or ""), "")
-                pieces.append(f"• {text}"
-                              + (f" — {label}" if label else ""))
+                pieces.append(label + ": "
+                              + "; ".join(rows[:4])
+                              + ("; …" if len(rows) > 4 else ""))
+            collected = inventory.get("collected") or []
+            if collected:
+                lines = []
+                for row in collected:
+                    host = str(row.get("host") or "")
+                    text = str(row.get("text") or "")
+                    lines.append(f"• {text}"
+                                 + (f" ({host})" if host else ""))
+                pieces.append("Уже собрано:\n" + "\n".join(lines))
         else:
             pieces = [openers.get(str(retrieval_state or ""),
                                   "Недостаточно данных для полной проверки "
