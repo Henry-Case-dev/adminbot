@@ -1383,6 +1383,146 @@ def progress_stall_seconds(stage_type: str | None = None) -> int:
     return _int_setting("MCA_PROGRESS_STALL_DEFAULT_SECONDS", 600)
 
 
+# ── S5B (W-06/W-08/W-09): контракт job kind → heartbeat/progress/deadline ──
+#
+# Карта покрывает РЕАЛЬНЫХ производителей `task_jobs.enqueue(owner=…, kind=…)`
+# (vision/media/initiative/episodes/experience/cover/memory/random.uses/
+# meme.initiative). Решение о «зависании» принимается по контракту **типа
+# задачи** (`kind`) с fallback на владельца — карта `owner ∈ {llm,video,
+# archive}` из v19 относилась к типам стадий и не покрывала задачи вообще.
+#
+# Режимы:
+#   * `progress`  — промежуточный прогресс обязателен (`progress_at`);
+#   * `heartbeat` — долгий внешний вызов: живость доказывает heartbeat,
+#     обязательного промежуточного прогресса нет;
+#   * `deadline`  — задача ограничена абсолютным `deadline_at` (TTL/внешний
+#     одноразовый вызов), прогресс и heartbeat-порог не подменяют срок.
+JOB_MODE_PROGRESS = "progress"
+JOB_MODE_HEARTBEAT = "heartbeat"
+JOB_MODE_DEADLINE = "deadline"
+JOB_MODES = (JOB_MODE_PROGRESS, JOB_MODE_HEARTBEAT, JOB_MODE_DEADLINE)
+
+# kind задачи → (режим, bucket порога `MCA_PROGRESS_STALL_<BUCKET>_SECONDS`).
+_JOB_CONTRACT_BY_KIND: dict[str, tuple[str, str]] = {
+    # vision: длинные внешние вызовы, живость — heartbeat (D9).
+    "vision.media": (JOB_MODE_HEARTBEAT, ""),
+    "vision.backfill": (JOB_MODE_HEARTBEAT, ""),
+    # отложенные намерения «просьба → изображение»: TTL/queue-wait.
+    "vision.pending_intent": (JOB_MODE_DEADLINE, ""),
+    # media-генерация: один внешний вызов с абсолютным deadline.
+    "media_job": (JOB_MODE_DEADLINE, ""),
+    # отложенная публикация мема: TTL-окно доставки.
+    "meme.pending_publish": (JOB_MODE_DEADLINE, ""),
+    # LLM-стадии — промежуточный прогресс обязателен.
+    "initiative.observe": (JOB_MODE_PROGRESS, "llm"),
+    "initiative.event": (JOB_MODE_PROGRESS, "llm"),
+    "experience.review": (JOB_MODE_PROGRESS, "llm"),
+    "episodes.backfill": (JOB_MODE_PROGRESS, "llm"),
+    "cover_base": (JOB_MODE_PROGRESS, "llm"),
+    # архивные/массовые операции.
+    "graphrag_rebuild": (JOB_MODE_PROGRESS, "archive"),
+    "embedding_migration": (JOB_MODE_PROGRESS, "archive"),
+}
+# Префикс kind → контракт (exploration.<purpose> — свои типы).
+_JOB_CONTRACT_BY_KIND_PREFIX: tuple[tuple[str, tuple[str, str]], ...] = (
+    ("vision.", (JOB_MODE_HEARTBEAT, "")),
+    ("exploration.", (JOB_MODE_PROGRESS, "llm")),
+)
+# Владелец → контракт (jobs, созданные `TaskSupervisor.run`: там `kind` —
+# класс важности, а тип задачи несёт владелец).
+_JOB_CONTRACT_BY_OWNER: dict[str, tuple[str, str]] = {
+    "vision.media": (JOB_MODE_HEARTBEAT, ""),
+    "vision.backfill": (JOB_MODE_HEARTBEAT, ""),
+    "vision.readiness": (JOB_MODE_DEADLINE, ""),
+    "image": (JOB_MODE_DEADLINE, ""),
+    "meme.initiative": (JOB_MODE_DEADLINE, ""),
+    "asap8b01": (JOB_MODE_PROGRESS, "llm"),
+    "qnd.event": (JOB_MODE_PROGRESS, "llm"),
+    "mca16": (JOB_MODE_PROGRESS, "llm"),
+    "mca05": (JOB_MODE_PROGRESS, "llm"),
+    "summary": (JOB_MODE_PROGRESS, "llm"),
+    "memory": (JOB_MODE_PROGRESS, "archive"),
+    "random.uses": (JOB_MODE_PROGRESS, "llm"),
+}
+_JOB_CONTRACT_DEFAULT = (JOB_MODE_PROGRESS, "")
+# Kind'ы, чьи queued-строки обслуживает СПЕЦИАЛИЗИРОВАННЫЙ claim/retry-цикл
+# владельца (vision worker, backfill re-arm, exploration close, cover kick,
+# graphrag/embedding resume, meme delivery tick, intents expiry). Такой
+# queued-job диагностируется, но НЕ объявляется «зависанием без исполнителя»
+# (W-09: generic watchdog не подменяет владельца очереди).
+_QUEUED_OWNER_MANAGED_KINDS = frozenset({
+    "vision.media", "vision.backfill", "vision.pending_intent", "media_job",
+    "meme.pending_publish", "graphrag_rebuild", "embedding_migration",
+    "cover_base",
+})
+_QUEUED_OWNER_MANAGED_PREFIX: tuple[str, ...] = ("vision.", "exploration.",
+                                                 "cover")
+
+
+def job_contract(kind: str | None,
+                 owner: str | None = None) -> tuple[str, str]:
+    """`(режим, bucket порога)` для задачи: точный kind → префикс kind →
+    владелец → консервативный default (progress, общий порог)."""
+    k = str(kind or "").strip()
+    if k in _JOB_CONTRACT_BY_KIND:
+        return _JOB_CONTRACT_BY_KIND[k]
+    for prefix, contract in _JOB_CONTRACT_BY_KIND_PREFIX:
+        if prefix and k.startswith(prefix):
+            return contract
+    o = str(owner or "").strip()
+    if o in _JOB_CONTRACT_BY_OWNER:
+        return _JOB_CONTRACT_BY_OWNER[o]
+    return _JOB_CONTRACT_DEFAULT
+
+
+def job_progress_mode(kind: str | None, owner: str | None = None) -> str:
+    """Режим контракта задачи: `progress|heartbeat|deadline` (W-08)."""
+    return job_contract(kind, owner)[0]
+
+
+def job_progress_required(kind: str | None, owner: str | None = None) -> bool:
+    """Обязателен ли промежуточный прогресс (`progress_at`) для этой задачи."""
+    return job_progress_mode(kind, owner) == JOB_MODE_PROGRESS
+
+
+def job_progress_stall_seconds(kind: str | None,
+                               owner: str | None = None) -> int:
+    """Порог отсутствия прогресса по контракту КОНКРЕТНОЙ задачи (W-08).
+
+    Опирается на существующие ключи `MCA_PROGRESS_STALL_<BUCKET>_SECONDS`
+    (llm/video/archive/default) — новых настроек не вводится. Для
+    `heartbeat`/`deadline` задач прогресс не обязателен, поэтому порог
+    progress-stall к ним не применяется (см. `job_queued_hang_seconds`)."""
+    _mode, bucket = job_contract(kind, owner)
+    key = _PROGRESS_STALL_BY_TYPE.get(bucket or "")
+    if key is not None:
+        return _int_setting(key, _int_setting(
+            "MCA_PROGRESS_STALL_DEFAULT_SECONDS", 600))
+    return _int_setting("MCA_PROGRESS_STALL_DEFAULT_SECONDS", 600)
+
+
+def job_queued_hang_seconds(kind: str | None,
+                            owner: str | None = None) -> int:
+    """Горизонт «queued без исполнителя» (W-09) — тот же порог контракта.
+
+    Отдельной настройки не вводится: queued-задача, не продвинувшаяся за
+    порог прогресса своего типа, диагностируется; takeover из этого не
+    следует."""
+    return job_progress_stall_seconds(kind, owner)
+
+
+def job_queued_owner_managed(kind: str | None,
+                             owner: str | None = None) -> bool:
+    """Обслуживает ли queued-строку специализированный цикл владельца."""
+    k = str(kind or "").strip()
+    if k in _QUEUED_OWNER_MANAGED_KINDS:
+        return True
+    for prefix in _QUEUED_OWNER_MANAGED_PREFIX:
+        if prefix and k.startswith(prefix):
+            return True
+    return False
+
+
 def detailed_log_retention_days() -> int:
     """`MCA_DETAILED_LOG_RETENTION_DAYS` (env-only, default 14).
 

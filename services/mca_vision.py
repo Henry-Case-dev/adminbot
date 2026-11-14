@@ -3194,6 +3194,9 @@ def parse_rate(raw: str | None, *, default: str) -> tuple[int, int]:
 
 VISION_JOB_KIND = "vision.media"          # live: auto/manual/tool
 VISION_BACKFILL_KIND = "vision.backfill"  # архив/старые — НИЖЕ live (D20)
+# S5B/W-04: recover_stale этого worker'а ограничен СВОИМИ kind'ами — vision-
+# watchdog не трогает чужие running-задачи (memory/graphrag/qdrant/…).
+VISION_RECOVERY_KINDS = (VISION_JOB_KIND, VISION_BACKFILL_KIND)
 PRIORITY_MANUAL = "manual"                # manual > auto (защита от вытеснения:
 PRIORITY_AUTO = "auto"                    # manual не выкидывает начатое auto)
 PRIORITY_BACKFILL = "backfill"
@@ -4288,7 +4291,9 @@ class VisionMediaWorker:
         self._maint_task: asyncio.Task | None = None
         self._maint_at = 0.0
         self._backfill_task: asyncio.Task | None = None
-        self._heartbeat_seconds = 30.0
+        # S5B/W-06: период heartbeat — документированный
+        # `MCA_JOB_HEARTBEAT_SECONDS` (не локальная константа 30 с).
+        self._heartbeat_seconds = float(max(1, mca_gates.job_heartbeat_seconds()))
         self._tz_name = str(hot.get("limits.summary_timezone",
                                     settings.SUMMARY_TIMEZONE) or "UTC")
 
@@ -4446,7 +4451,9 @@ class VisionMediaWorker:
         if self._store is None:
             return
         try:
-            await self._store.recover_stale(stale_after_seconds=120)
+            # S5B/W-04: только vision-задачи этого worker'а.
+            await self._store.recover_stale(
+                stale_after_seconds=120, kinds=VISION_RECOVERY_KINDS)
         except Exception:
             logger.debug("[vision] recover_stale failed", exc_info=True)
         await self._expire_deferred()
@@ -4540,7 +4547,9 @@ class VisionMediaWorker:
         except Exception:
             logger.warning("[vision] watchdog sweep failed — legacy recover",
                            exc_info=True)
-            await self._store.recover_stale(stale_after_seconds=120)
+            # S5B/W-04: даже legacy-путь не трогает чужие running-задачи.
+            await self._store.recover_stale(
+                stale_after_seconds=120, kinds=VISION_RECOVERY_KINDS)
 
     async def _claim_once(self) -> int:
         """Bounded pull: manual > auto > backfill (D20); claim фоновыми

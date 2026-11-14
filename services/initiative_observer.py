@@ -1876,8 +1876,12 @@ class InitiativeObserverRunner:
                       payload: dict | None = None) -> None:
         if payload is not None:
             await self._checkpoint(job_id, payload)
+        # S5A/W-07: терминальная запись обусловлена fencing-токеном
+        # владения (0 — задача ещё не отбиралась takeover'ом).
+        fence = getattr(self, "_fence", 0) or 0
+        extra = {"fencing_token": fence} if fence else {}
         await self._store.finish(job_id, status=status,
-                                 reason_code=reason_code)
+                                 reason_code=reason_code, **extra)
 
     # ── события (R17: только ID/коды/числа) ───────────────────────────────
 
@@ -1944,6 +1948,8 @@ class InitiativeObserverRunner:
     # ── главный цикл ──────────────────────────────────────────────────────
 
     async def run(self, job_id: str, *, only_chat: int | None = None) -> str:
+        # S5A/W-07: токен владения действителен только в рамках этого прохода.
+        self._fence = 0
         if not observer_enabled():
             await self._finish(job_id, status=JOB_CANCELLED,
                                reason_code="cancelled")
@@ -1959,8 +1965,21 @@ class InitiativeObserverRunner:
         if not started:
             row = await self._store.get(job_id)
             return str((row or {}).get("status") or JOB_RUNNING)
+        # S5A/W-07: фиксируем fencing-токен владения — все терминальные
+        # записи этого прохода обусловлены им.
+        row = await self._store.get(job_id)
+        self._fence = int((row or {}).get("fencing_token") or 0)
         counters = payload["counters"]
         text_failed = False
+        # S5B/W-06: периодический heartbeat на всё время прохода (интервал —
+        # `MCA_JOB_HEARTBEAT_SECONDS`); запись обусловлена fencing-токеном.
+        try:
+            from services.task_supervisor import JobHeartbeat
+            heartbeat = JobHeartbeat.start(
+                self._store, job_id,
+                fencing_token=(self._fence or None))
+        except Exception:      # pragma: no cover - heartbeat не рвёт проход
+            heartbeat = None
         try:
             await self._store.heartbeat(job_id)
             # INIT-COORD §1 (V2): текстовая часть и мем-фаза — РАЗНЫЕ try.
@@ -2002,6 +2021,11 @@ class InitiativeObserverRunner:
             await self._finish(job_id, status=JOB_FAILED,
                                reason_code="task_failed", payload=payload)
             return JOB_FAILED
+        finally:
+            # S5B/W-06: длинные фазы scan/evaluate/meme больше не идут без
+            # heartbeat — живой observe не выглядит потерявшим владельца.
+            if heartbeat is not None:
+                await heartbeat.stop()
 
     async def _meme_phase(self, payload: dict) -> None:
         """EVOL-014: подсервис мемов внутри этого же прохода.

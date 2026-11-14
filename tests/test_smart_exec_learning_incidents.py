@@ -7,13 +7,20 @@ Owner input §I5: сам факт открытия инцидента не до�
 рестарте сервиса (2.58.192, 11.11.2026 19:05Z; см. binding evidence
 `evidence/i-learning/binding-i56-*.md`). Инциденты законные:
 `reason_code=worker_lost`, stage=takeover, severity ERROR; detector не
-отключён, severity не занижена, инциденты не закрываются автоматически.
+отключён, severity не занижена.
+
+SMART-CORRECTIVE-01 S5A (W-05) уточняет lifecycle: инцидент НЕ закрывается
+механически и остаётся активным, пока связанная задача припаркована
+(`interrupted`); авто-resolve выполняется только после фактического
+терминального итога всех связанных job, а закрытая строка не переоткрывается
+молча (новое наблюдение = новая строка с сохранением истории/severity).
 
 Тест фиксирует действующий контракт detector'а на реальном durable-пути
 (TaskJobStore + mca_watchdog.sweep + mca_incidents) и защищает от «зелёной
-панели»: понижение severity или самозакрытие инцидента ломает тест.
+панели»: понижение severity, самозакрытие без терминала job или молчаливый
+reopen ломают тест.
 
-TEST-LIFECYCLE: CONTRACT/REGRESSION (SXR-I5-01)
+TEST-LIFECYCLE: CONTRACT/REGRESSION (SXR-I5-01, S5A-LIFECYCLE)
 R17: только коды/числа, без текстов сообщений.
 """
 import time
@@ -66,8 +73,8 @@ async def _stale_running_job(store, owner: str, kind: str):
 async def _incident_rows(db):
     cursor = await db.db.execute(
         "SELECT incident_id, fingerprint, pipeline_type, stage, severity, "
-        "repeat_count, resolved_at, fallback_used FROM mca_incidents "
-        "ORDER BY first_ts")
+        "repeat_count, resolved_at, resolution_evidence, fallback_used "
+        "FROM mca_incidents ORDER BY first_ts")
     return [dict(row) for row in await cursor.fetchall()]
 
 
@@ -107,27 +114,100 @@ class TestIncidentCauses:
             await d.close()
 
     @pytest.mark.asyncio
-    async def test_repeated_takeover_updates_same_incident_without_closing(
+    async def test_repeated_observation_of_same_job_updates_same_incident(
             self, tmp_path):
-        """Повторный takeover того же owner'а — та же строка (fingerprint),
-        repeat_count растёт, severity остаётся ERROR, инцидент не resolved."""
+        """S5C/W-11: fingerprint включает job_id/kind — повторное наблюдение
+        ТОЙ ЖЕ задачи обновляет её строку (repeat_count растёт, severity
+        остаётся ERROR), без дубля и без закрытия инцидента."""
         d = await _db(tmp_path)
         try:
             store = TaskJobStore(d)
             owner, kind = OWNERS[0]
-            await _stale_running_job(store, owner, kind)
+            jid = await _stale_running_job(store, owner, kind)
             await wd.sweep(d, job_store=store)
             first = await _incident_rows(d)
             assert len(first) == 1
             first_id = first[0]["incident_id"]
 
-            await _stale_running_job(store, owner, kind)
-            await wd.sweep(d, job_store=store)
+            again = await inc.open_or_update(
+                d, process_id="watchdog.jobs", pipeline_type=owner,
+                stage="takeover", reason_code="worker_lost",
+                severity=inc.SEVERITY_ERROR, job_id=jid, kind=kind,
+                title=f"job {jid}: worker_lost")
+            assert again["status"] == "updated"
             rows = await _incident_rows(d)
-            assert len(rows) == 1                       # не второй инцидент
+            assert len(rows) == 1
             assert rows[0]["incident_id"] == first_id
             assert rows[0]["repeat_count"] == 2
             assert rows[0]["severity"] == "ERROR"
             assert rows[0]["resolved_at"] is None
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_new_job_same_owner_kind_gets_own_incident(self, tmp_path):
+        """S5C/W-11: другой job того же owner/kind — отдельный инцидент,
+        старый не перезаписывается и остаётся активным до своего терминала."""
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            owner, kind = OWNERS[0]
+            first_job = await _stale_running_job(store, owner, kind)
+            await wd.sweep(d, job_store=store)
+            second_job = await _stale_running_job(store, owner, kind)
+            await wd.sweep(d, job_store=store)
+            rows = await _incident_rows(d)
+            assert len(rows) == 2
+            assert len({r["fingerprint"] for r in rows}) == 2
+            assert all(r["resolved_at"] is None for r in rows)
+            assert first_job != second_job
+        finally:
+            await d.close()
+
+    @pytest.mark.asyncio
+    async def test_incident_resolves_only_after_linked_job_terminal(
+            self, tmp_path):
+        """S5A/W-05: припаркованная задача держит инцидент активным; после
+        фактического терминала — авто-resolve; новое наблюдение после
+        закрытия создаёт новую строку, а не молча переоткрывает старую."""
+        d = await _db(tmp_path)
+        try:
+            store = TaskJobStore(d)
+            owner, kind = OWNERS[0]
+            jid = await _stale_running_job(store, owner, kind)
+            await wd.sweep(d, job_store=store)
+            rows = await _incident_rows(d)
+            assert len(rows) == 1 and rows[0]["resolved_at"] is None
+            first_id = rows[0]["incident_id"]
+
+            # Условие ещё не исчезло (job припаркован) — инцидент активен.
+            await wd.sweep(d, job_store=store)
+            rows = await _incident_rows(d)
+            assert len(rows) == 1
+            assert rows[0]["incident_id"] == first_id
+            assert rows[0]["resolved_at"] is None
+
+            # Фактический терминальный итог job → следующий sweep закрывает.
+            assert await store.finish(jid, status="failed",
+                                      reason_code="worker_lost",
+                                      recovery=True) is True
+            await wd.sweep(d, job_store=store)
+            rows = await _incident_rows(d)
+            assert len(rows) == 1                       # история сохранена
+            assert rows[0]["incident_id"] == first_id
+            assert rows[0]["resolved_at"] is not None
+            assert "jobs_terminal" in rows[0]["resolution_evidence"]
+            assert rows[0]["severity"] == "ERROR"       # severity не снижена
+
+            # Повторное наблюдение после закрытия: новая строка, старая
+            # resolved-история не переоткрыта.
+            await _stale_running_job(store, owner, kind)
+            await wd.sweep(d, job_store=store)
+            rows = await _incident_rows(d)
+            assert len(rows) == 2
+            old = [r for r in rows if r["incident_id"] == first_id][0]
+            assert old["resolved_at"] is not None
+            new = [r for r in rows if r["incident_id"] != first_id][0]
+            assert new["resolved_at"] is None
         finally:
             await d.close()

@@ -508,10 +508,13 @@ async def control_action(db, job_store, *, action: str, job_id: str,
                           "attempt", "heartbeat_at", "progress_at",
                           "checkpoint_ref", "pipeline_run_id", "span_id")}
         return result
-    if action == ACTION_RETRY:
-        # `delivery_unknown` — слепой повтор side effect запрещён.
-        if current == "delivery_unknown" or \
-                str(row.get("reason_code") or "") == "delivery_unknown":
+    if action in (ACTION_RETRY, ACTION_RESUME):
+        # `delivery_unknown` — слепой повтор side effect запрещён. F-S5A-03:
+        # проверяем ОБА durable-поля (reason_code И error_code), иначе строка
+        # с error_code-only маркером обходила guard. Resume — тот же resume.
+        if current == "delivery_unknown" or "delivery_unknown" in (
+                str(row.get("reason_code") or ""),
+                str(row.get("error_code") or "")):
             result["status"] = "reconcile_required"
             _audit(action, job_id, actor, "action_idempotent_replay", row)
             return result
@@ -521,8 +524,11 @@ async def control_action(db, job_store, *, action: str, job_id: str,
     # Реальное действие на durable-строке.
     try:
         if action == ACTION_CANCEL:
+            # Санкционированное действие владельца: терминальный исход
+            # разрешён и для припаркованной/ранее fenced строки (S5A/W-07).
             ok = await job_store.finish(job_id, status="cancelled",
-                                        reason_code="cancelled")
+                                        reason_code="cancelled",
+                                        recovery=True)
         elif action == ACTION_RETRY:
             ok = await job_store.requeue(
                 job_id, reason_code="stage_retry_scheduled")

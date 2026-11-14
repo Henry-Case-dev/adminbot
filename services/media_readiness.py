@@ -1684,7 +1684,8 @@ async def _finish_terminal(db, store, job_id: str, *, reason: str,
         logger.debug("[watchdog] terminal fence failed", exc_info=True)
     try:
         return bool(await store.finish(job_id, status=status,
-                                       reason_code=str(reason or "failed")))
+                                       reason_code=str(reason or "failed"),
+                                       recovery=True))
     except Exception:
         logger.warning("[watchdog] terminal finish failed | job=%s", job_id,
                        exc_info=True)
@@ -1712,6 +1713,21 @@ async def recover_job(db, store, job: dict | str, *, reason: str,
     result = {"job_id": job_id, "asset_id": asset_id, "action": "none",
               "reason": reason, "attempt": attempt, "stage": _job_stage(job, ts)}
     if not job_id:
+        return result
+    # F-S5A-02: защитный маркер `delivery_unknown` читаем из СОХРАНЁННОЙ
+    # строки job (caller-supplied `reason` не доказательство). Повтор
+    # side effect/доставки запрещён до сверки по operation ID — никакого
+    # requeue/resume/терминального закрытия в этом проходе.
+    try:
+        stored = await store.get(job_id) if store is not None else None
+    except Exception:
+        stored = None
+    if stored is not None:
+        job = dict(stored)
+    if (str(job.get("reason_code") or "") == "delivery_unknown"
+            or str(job.get("error_code") or "") == "delivery_unknown"):
+        result.update(action="none", reason="delivery_unknown",
+                      status="reconcile_required")
         return result
     asset = await _asset_row(db, asset_id, chat_id or None)
     if asset is not None:
@@ -1775,13 +1791,18 @@ async def watchdog_sweep(db, *, now: int | None = None, store=None,
         except Exception:
             return summary
     job_kind = kind or mca_vision.VISION_JOB_KIND
-    # 1) Потерянные владельцы: runnning без свежего heartbeat → interrupted
+    # 1) Потерянные владельцы: running без свежего heartbeat → interrupted
     #    (существующий механизм; fencing_token увеличивается внутри).
+    #    S5B/W-04: снятие lease ОГРАНИЧЕНО своими kind'ами — vision-watchdog
+    #    не прерывает чужие running-задачи (memory/graphrag/qdrant/…):
+    #    раньше глобальный recover_stale молча терминализировал их без
+    #    события, инцидента и восстановления.
     lost: list[str] = []
     if not dry_run:
         try:
             lost = await store.recover_stale(
-                stale_after_seconds=max(1, lease_seconds())) or []
+                stale_after_seconds=max(1, lease_seconds()),
+                kinds=(job_kind,)) or []
         except Exception:
             logger.warning("[watchdog] recover_stale failed", exc_info=True)
             lost = []

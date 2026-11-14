@@ -2967,7 +2967,8 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
     async def _terminal(reason_code: str, *, detail: str,
                         event: str = EVENT_PUBLICATION_CANCELLED,
                         delivered: bool = False, delivery: str = "not_sent",
-                        job_status: str = JOB_CANCELLED) -> AttemptResult:
+                        job_status: str = JOB_CANCELLED,
+                        recovery: bool = False) -> AttemptResult:
         """Терминальный переход: строка журнала ровно одна, файл удалён.
 
         ``result_ref`` передаётся явно: `TaskJobStore.finish` пишет колонку
@@ -2981,7 +2982,8 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
             await store.finish(job_id, status=job_status,
                                reason_code=reason_code,
                                result_ref=result_ref or None,
-                               error_code=detail or None)
+                               error_code=detail or None,
+                               recovery=recovery)
         except Exception:
             logger.warning("[meme] deferred finish failed | job=%s", job_id,
                            exc_info=True)
@@ -3009,10 +3011,13 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
 
     # (0) Прерванный прогон (watchdog помечает `running` как `interrupted`):
     # доставка не доказана — НЕ переотправляем, честный терминальный факт.
+    # S5A/W-07: это recovery-путь (припаркованная строка), а не терминальная
+    # запись живого владельца — явное разрешение обязательно.
     if status == JOB_INTERRUPTED:
         return await _terminal(REASON_DELIVERY_UNKNOWN, detail="interrupted",
                                event=EVENT_DELIVERY_UNKNOWN,
-                               delivery="unknown", job_status=JOB_FAILED)
+                               delivery="unknown", job_status=JOB_FAILED,
+                               recovery=True)
 
     # (1) Ретенция истекла — честный срок жизни данных, не тихая потеря.
     if expires_at and ts >= int(expires_at):

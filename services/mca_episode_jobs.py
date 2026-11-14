@@ -171,8 +171,12 @@ class EpisodesBackfillRunner:
                       payload: dict | None = None) -> None:
         if payload is not None:
             await self._checkpoint(job_id, payload)
+        # S5A/W-07: терминальная запись обусловлена fencing-токеном владения
+        # (0 — задача ещё не отбиралась takeover'ом).
+        fence = getattr(self, "_fence", 0) or 0
+        extra = {"fencing_token": fence} if fence else {}
         await self._store.finish(job_id, status=status,
-                                 reason_code=reason_code)
+                                 reason_code=reason_code, **extra)
 
     # ── порции архива (keyset (timestamp, id), без OFFSET) ────────────────
 
@@ -202,6 +206,8 @@ class EpisodesBackfillRunner:
         Бюджет/LLM-ошибка → `paused` (никогда ложный `completed`); отмена →
         `cancelled`; рестарт продолжает с checkpoint без дублей (дедуп по
         стабильному message-ключу/segment_key)."""
+        # S5A/W-07: токен владения действителен только в рамках этого прохода.
+        self._fence = 0
         if not mca_gates.episodes_backfill_enabled():
             await self._finish(job_id, status=JOB_CANCELLED,
                                reason_code="cancelled")
@@ -217,6 +223,10 @@ class EpisodesBackfillRunner:
         if not started:
             row = await self._store.get(job_id)
             return backfill_status_from_job(row) or JOB_RUNNING
+        # S5A/W-07: фиксируем fencing-токен владения для всех терминальных
+        # записей этого прохода (after takeover старый владелец = no-op).
+        row = await self._store.get(job_id)
+        self._fence = int((row or {}).get("fencing_token") or 0)
         budget = mca_gates.episodes_batch_max_messages()
         while True:
             if self._cancel_cb is not None:
@@ -247,8 +257,10 @@ class EpisodesBackfillRunner:
                 # Отмена между порциями — честный interrupted (не
                 # completed); checkpoint уже продвинут по зафиксированным
                 # порциям (resume без дублей).
-                await self._store.finish(job_id, status="interrupted",
-                                         reason_code="cancelled")
+                await self._store.finish(
+                    job_id, status="interrupted", reason_code="cancelled",
+                    **({"fencing_token": self._fence}
+                       if getattr(self, "_fence", 0) else {}))
                 raise
             except Exception:
                 # LLM-сбой → пауза с причиной (retryable), никогда ложный

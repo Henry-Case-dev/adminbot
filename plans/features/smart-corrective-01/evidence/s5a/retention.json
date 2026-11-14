@@ -1,0 +1,13 @@
+{
+  "unit": "s5a-lifecycle",
+  "epic": "smart-corrective-01",
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-corrective-01-0097aecc4a7a-c89fcb78",
+      "owner": "Builder (S5A-LIFECYCLE)",
+      "reason": "Registered implementation worktree of branch sc/corrective-s5a; must remain available for independent review and for S5B/S5C/S5D rebase/continuation.",
+      "evidence": "plans/features/smart-corrective-01/evidence/s5a/implementation.md (commit a329b18b)",
+      "next_event": "Release S5A after Reviewer approval or after S5B/S5C/S5D join: then remove via unit-close after integrating the branch."
+    }
+  ]
+}
