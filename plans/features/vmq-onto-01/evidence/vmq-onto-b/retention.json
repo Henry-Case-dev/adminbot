@@ -1,0 +1,13 @@
+{
+  "unit": "VMQ-ONTO-B",
+  "epic": "vmq-onto-01",
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d-699aba96",
+      "owner": "Reviewer",
+      "reason": "Git worktree branch vmq/onto-b (code tip d15b13da) must stay available for independent review/DevOps packaging; it is clean and fully committed, no uncommitted or unique changes remain.",
+      "evidence": "plans/features/vmq-onto-01/evidence/vmq-onto-b/typed-relations-provenance.md",
+      "next_event": "after Reviewer verdict and slice integration/closeout for VMQ-ONTO-B"
+    }
+  ]
+}
