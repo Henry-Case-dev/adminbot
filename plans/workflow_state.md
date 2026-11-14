@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:12:00+12:00
+Updated: 2026-11-15T09:22:00+12:00
 
 ## Facts
 
@@ -43,3 +43,7 @@ Reviewer corrected the wrong master-HEAD lineage reference and issued candidate-
 ## Deployed-delta review Approved (2026-11-15)
 
 Reviewer approved the deployed M1/NEXT2 delta on the exact c97c06e4 tree with VERIFIED-level ledger: M-01..M-03, VMQ-NEXT-02/05. Artifact plans/features/vmq-onto-01/evidence/vmq-deployed-review-2026-11-15.md sha D6580668..., commit 2677a473. Exact runs: 34/30/447 plus 161/295/20; mutations cursor_id=0 and NEXT2 filter >=1 (26 passed/4 failed) confirmed the tests are load-bearing. Limitations: production effective flags/live archive not rechecked; full repo suite not run. PM is binding these five rows and the map top-level candidate/deployed to c97c06e4, preserving old 709865f6/952b9ebd history. The Reviewer retained a dirty disposable mutation run; Orchestrator must reconcile/close it after checking.
+
+## Housekeeping (2026-11-15)
+
+Builder probe-bc9c1876f7 closed (removed=1; its 5 checks are preserved in the committed verification report). VMQ-V disposable run temp-afd409e420 retained by the tool (removed=0, retained=1; ~1422 files/46 MB; contains a candidate copy plus mutation-source/payload results; tool reports protected/unknown content). The committed VMQ-V review artifact covers the acceptance evidence; the run is reconstructible from git. Recorded retention: owner Reviewer/Orchestrator, reason tool-protected candidate copy, next event after PM binding/next safe checkpoint. The M1/NEXT2 Reviewer's mutation run (probe-74507b48ca with mut-m1/mut-next) is being closed by that Reviewer. Do not force-delete unknown/protected paths.
