@@ -1,26 +1,28 @@
 ﻿# Workflow State
 
-Task: smart-execution-reliability-01 (queue 1, P0) — wave 2 build
+Task: smart-execution-reliability-01 (queue 1, P0) — delivered, acceptance paused
 Task source: plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md + plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md
-Status: in_progress
-Primary phase: build
+Status: waiting_external
+Primary phase: postdeploy
 Active feature: smart-execution-reliability-01
-Active lanes: none; PM final binding done. Map fully accounted: core 77 REVIEW / 16 READY / 6 VERIFIED / 0 PENDING; FC 79 REVIEW / 8 READY / 0 PENDING. Deploy next. Re-audit 8277d33c Needs Fixes: mca_retrieval_context preview 400, tool_router claim[:300], handlers/youtube _YT_TRANSCRIPT_CAP 20000; other residuals classified legitimate. NOTE: late-finishing original broad caps-corrective branch smart/caps-corrective (code 5de0f12c, HEAD f1f8e8bd) preserved as redundant evidence; it does NOT fix these 3 residuals (verified by grep), so it is NOT merged; chosen base remains train 8277d33c + caps-final.
-Join barriers: caps-tools report -> merge both caps branches into train -> re-audit C2-01/C3-01/C3-02 -> S12 re-run on final candidate -> merge S17/S12 tests -> deploy. S17 focused suite executed by Orchestrator on aca13702: 127 passed in 4.81s (log evidence/fc-accept/raw/pytest-s17-focused-aca13702.txt).
-Last verified: production 2.58.199 at d20a7f73 (schema 47, no DDL, rollback 25876167). Train HEAD b204c66c (code b6320e59): caps-tools dce227f4 + caps-context eab6aefd merged at 8277d33c; three residual caps fixed by caps-final (mca_retrieval_context preview 400 removed from data paths, tool_router claim full, youtube 20000 input cap removed). Final cap audit APPROVED on b204c66c: C2-01, C3-01, C3-02 VERIFIED for REVIEW and bound (63/7/6/23 core). S12 focused suites executed by Orchestrator on b204c66c: 388 passed in 19.82s (log evidence/accept-final/raw/pytest-s12-focused-b204c66c.txt, sha256 78129c32...); reviewer finalizing ledger. Merged train now 1d9cf251 (S17+S12 acceptance tests + logs merged); acceptance rerun on merged tree: S17 127 passed, S12 388 passed. Next: PM binding S12/S17 -> DevOps release packaging (train -> master/release, version bump) -> deploy gate -> controlled deploy + postdeploy + release gate. S12 acceptance Needs Fixes: hygiene (fixed by repo .gitattributes cr-at-eol on train, commit 3592ec42) + map binding is PM-on-master process, not candidate tree; S12 deterministic A/B/D contours 50 passed. S17 approved (10 REVIEW-ready + 6 READY_FOR_LIVE). Map after S14 binding: core 60 REVIEW / 7 READY_FOR_LIVE / 6 VERIFIED (S0) / 26 PENDING (S3 integration-required 3 + S12 23); FC 68 REVIEW / 3 READY_FOR_LIVE / 16 PENDING (S17 only). Gates: S8 review 57/0, S13 review 252/0, plan core/FC 0. S3 approved at 5e87ed48 and bound (27cd2d39, 7e5f9d85): S3 review 35 errors = only integration-required rows (C2-01/C3-01/C3-02), deploy red is structural dependency closure. I56 approved at d43fa1fd (+tests 58a8f859) and bound (4bcc52ff, 3fd4d68a); S11 gate 0 errors.
-Train candidate aca13702 (head f31a06bf; 21111 tests: 118 failed vs base 124, only-on-candidate 0 regressions; merge log evidence/release-train/merge-log-aca13702.md). Candidates: H d238f808 (head 120517a6; merge conflict resolved ce9e9f01; cross-slice fixture 8c5549b7; 627 affected, RED 13/12, mutations) under review; S13 ffe417d0 approved and bound (38 reqs/252 rows REVIEW; FC review gate 0 errors; artifact review-s13-ffe417d0.md needs re-emit).
-Next unlocks: H handoff -> H review; FC tests/evidence -> S13 review; then FC S14-S17; integrated audit + S12 acceptance L/J/K/M; single release train and postdeploy smoke.
-Next execution: awaiting_children
-Review: S0 approved+VERIFIED; S3/I56 approved+bound; I1-02/I2-02 approved+REVIEW; H/S13 pending
-Deployment: verified 2.58.199 @ d20a7f73; rollback 25876167 (SMART epic not deployed)
+Active lanes: none (stopped on owner command; Builder model smoke test passed: "Builder на связи", builder-ok)
+Join barriers: none
+Last verified: production 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad866 (release/2.58.200); healthz 200 {"version":"2.58.200"}, service active, .deploy/release.json deployed_sha=HEAD=0e4a144d, previous_sha=d20a7f73, schema user_version=47 with no pending migrations, DB backup backups/pre_deploy_258200_20261114T051849Z.db. Owner settings preserved (547->548 rows, only factory prompt prompts.factcheck_subject_system_prompt; chat overrides and models unchanged). Effective budgets OFF in all three chats; tool caps 0; chat capacity 1048576/32768 source=provider_catalog verified; legacy 16384 removed. Rollback target d20a7f73 / 2.58.199 (code only, schema 47, data not rolled back).
+Acceptance: 186/186 mandatory requirements accounted — 156 review-level, 24 READY_FOR_LIVE, 6 VERIFIED; 0 PENDING. S12 (388 passed) and S17 (127 passed) accepted on merged train 1d9cf251; final cap audit approved C2-01/C3-01/C3-02.
+Next unlocks (only on owner command; agent-owned): (1) rebind row evidence to deployed SHA 0e4a144d with bound_from_candidate and set map-level deployed candidate; (2) run requirements_gate --stage release then --stage delivery; (3) live canaries: real factcheck S13-S17, Telegram/LLM/search, journal as service user, L1-L8, checkup continuation, effective-config observability; (4) convert READY_FOR_LIVE to VERIFIED only on observed evidence.
+Next execution: none
+Review: all slices approved; S12/S17 Approved for controlled deployment; cap audit Approved
+Deployment: verified 2.58.200 @ 0e4a144d (release/2.58.200); rollback d20a7f73 / 2.58.199
 Human gate: none
-Progress scope: plans/progress_scope.json | SMART 186 reqs: 131 review (core 63 + FC 68), 10 ready, 6 verified, 39 pending (core 23 + FC 16)
-Updated: 2026-11-14T08:50:00+12:00
+Progress scope: plans/progress_scope.json | SMART 186 reqs: 156 review, 24 ready, 6 verified, 0 pending; deployed 0e4a144d / 2.58.200
+Updated: 2026-11-14T17:30:00+12:00
 
 ## Facts
 
-- Environment instability 2026-11-14 08:0x-08:3x: OpenCode desktop 2.3.0 backend restarted repeatedly during subagent dispatches; some sessions aborted ("Execution was interrupted repeatedly and will not be resumed automatically"), others completed. Durable commits preserved: FC WIP 884249cf; S3 fix 5e87ed48; I56 d43fa1fd/58a8f859.
-- Mitigation: avoid subagent bursts; one lane at a time where possible; every agent commits early. Duplicate reviewer sessions produced equivalent verdicts; their artifacts preserved, no code effect.
-- Gate semantics: multi-candidate slices (S9, S10, S3) are authoritative only at map-level release gate; scoped review/deploy red on cross-candidate rows is structural, not a defect. System-wide caps (C2-01/C3-02) and provider step 1 for non-SourceReader families are proven only by the integrated candidate audit (S3 integration_required).
-- I6/I7 note: three D06 tests updated to the structural chat-scope contract with U13 invariants kept; I5 root cause = watchdog takeover after 2.58.192 restart; heartbeat/duplicate incident_opened deferred to backlog (BACKLOG_ONLY).
-- Queue remains complete 40/40; SMART is the only active epic; FACTCHECK is an amendment inside it.
+- Release evidence integrated to master (commits 22b052fa deploy evidence, 8645efdb cleanup retention): plans/features/smart-execution-reliability-01/release-evidence/2.58.200/ (deploy.md, identity.txt, postdeploy-health.txt, effective-config.txt, predeploy-tests.md, rollback.md, gate-state-before-rebind.txt).
+- Predeploy: 17-file set 362 passed; factcheck set 276 passed; 4 acceptance files 88 passed; pin set 856/4 failed; broad smoke 1037/12 failed — all failures byte-identical on base d20a7f73 (pre-existing legacy expectations), no new failures.
+- Deploy discipline: one recon + one main SSH session; DB backup before restart; manifest generated before restart; restart 05:18:59Z; zero traceback/ERROR since start; one pre-existing FTS-only warning; disk 29.6 GB free.
+- Known limitation: in-process budget_gate from separate processes is not observable (no ChatParamsCache) — remains a live canary, not claimed verified.
+- Map state: both SMART maps now record deployed_commit 0e4a144d / 2.58.200 in deployment_state; row-level evidence is still bound to lane candidates (rebinding and release/delivery gates pending). Map-level deploy gate red is the documented multi-candidate effect, not a product failure.
+- Test Builder smoke with the newly selected model passed: "Builder на связи", HEAD 1f5faece, python output builder-ok.
+- Backlog notes from deployment: 12+4 pre-existing failing tests (canon 18-tool outdated assert, menu-freeze, old allowlist, prompt-surface) are BACKLOG_ONLY, reproduce on deployed base, not blockers.

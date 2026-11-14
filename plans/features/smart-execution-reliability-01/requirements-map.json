@@ -3,7 +3,7 @@
   "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
   "source_sha256": "32ef8c8289cf3f66e8949048a449178223cc0f058c3701e60cda72f8a60ecaf1",
   "candidate_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
-  "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
+  "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "amendment_maps": [
@@ -39450,8 +39450,9 @@
     }
   },
   "deployment_state": {
-    "epic_deployed": false,
-    "deployed_commit": "d20a7f730715ba9e9cba7673c0557794979be339",
-    "note": "deployed_commit = база 2.58.199 (d20a7f73). map-level candidate_commit=d20a7f73 относится ТОЛЬКО к VERIFIED S0-BASELINE (read-only проверка уже развёрнутой базы): это единственный полностью принятый кандидат карты. S1-S17 кандидаты живут в slice_candidate_bindings (review/deploy-уровень) и не выкатывались; epic_deployed=false, production-верификация исправлений не заявляется. I1 (76d60678) и I2 (9be4227e) не выкатывались: их postdeploy-строки остаются READY_FOR_LIVE; D (f55fdc6e), C1 (36dd6b23), F (2382cc92), G (cffc9fb2), I4 (4bf11400), A+B (8fc8b534) приняты на review-уровне."
+    "epic_deployed": true,
+    "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "note": "deployed_commit = база 2.58.199 (d20a7f73). map-level candidate_commit=d20a7f73 относится ТОЛЬКО к VERIFIED S0-BASELINE (read-only проверка уже развёрнутой базы): это единственный полностью принятый кандидат карты. S1-S17 кандидаты живут в slice_candidate_bindings (review/deploy-уровень) и не выкатывались; epic_deployed=false, production-верификация исправлений не заявляется. I1 (76d60678) и I2 (9be4227e) не выкатывались: их postdeploy-строки остаются READY_FOR_LIVE; D (f55fdc6e), C1 (36dd6b23), F (2382cc92), G (cffc9fb2), I4 (4bf11400), A+B (8fc8b534) приняты на review-уровне. | 2026-11-14: production deployed 2.58.200 at 0e4a144db476a1535ae3a2b79a7cce30354ad866 (release/2.58.200; schema 47, no DDL). Row-level evidence is still bound to the reviewed lane candidates; rebinding to the deployed SHA, release/delivery gates and live canaries are pending. Acceptance not yet VERIFIED for postdeploy rows.",
+    "deployed_version": "2.58.200"
   }
 }

@@ -3,7 +3,7 @@
   "source_path": "plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md",
   "source_sha256": "767baf0af9c336736b43cd89a811a26d0792c562b5a7fe9bdfc9c9f129b0dc7a",
   "candidate_commit": "",
-  "deployed_commit": "",
+  "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "epic": "SMART-EXECUTION-RELIABILITY-01",
@@ -36753,5 +36753,11 @@
       ],
       "deployed": false
     }
+  },
+  "deployment_state": {
+    "epic_deployed": true,
+    "deployed_commit": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+    "deployed_version": "2.58.200",
+    "note": "2026-11-14: production deployed 2.58.200 at 0e4a144db476a1535ae3a2b79a7cce30354ad866 (release/2.58.200; schema 47, no DDL). Row-level evidence is still bound to the reviewed lane candidates; rebinding to the deployed SHA, release/delivery gates and live canaries are pending. Acceptance not yet VERIFIED for postdeploy rows."
   }
 }
