@@ -176,7 +176,7 @@ Durable regressions исходного дефекта (`tests/test_tool_router.p
 |---|---|---|
 | `SC-SEARCH-OFF` | REVIEW | `test_chat_off_ignores_operator_caps_through_router`: env-потолки 1/1/1 при OFF → 10 файлов, `applied_limits` zeros. |
 | `SC-BUD-FIND-01` | REVIEW (подтверждение) | `release/2.58.200:services/source_reader.py:2471,2487-2491`: сигнатура принимает `chat_id`/`budget_enforced`; кандидат `source_reader.py:2575-2629`. |
-| `SC-BUD-FIND-02` | REVIEW (подтверждение) | `release/2.58.200:services/tool_router.py:3463-3469` — вызов без параметров; RED-прогон на pre-fix коде (9 failed). |
+| `SC-BUD-FIND-02` | REVIEW (подтверждение) | `release/2.58.200:services/tool_router.py:3463-3469` — вызов без параметров; RED-прогон на pre-fix коде (10 failed). |
 | `SC-BUD-FIND-03` | REVIEW (подтверждение) | RED: `reader.calls` без `chat_id`/`budget_enforced` → политика резолвилась без чата. |
 | `SC-BUD-FIX` | REVIEW | Путь propagation §1-6 выше; 17 новых тестов + 3 регрессии. |
 | `SC-BUD-RESOLVER` | REVIEW | Тесты матрицы идут через настоящий `budget_gate`/`worker_settings` (chat → global → factory), не через подменённый булев флаг. |
