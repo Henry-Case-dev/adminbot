@@ -321,3 +321,38 @@ S6-строки, представляющие prompt delivery/preservation, пр
 ### Состояние corrective
 
 С S6 все code-срезы SMART-CORRECTIVE-01 — S1/S2, S3, S3B, S4, S5A–S5D, S6 — связаны со своими кандидатами на уровне REVIEW. Остаются join-узел `S5-WATCHDOG` и `S8-REVIEW-RELEASE` (единый release train, фактический deployed SHA, production canaries, AC-15/AC-19 live checkup). Ни одна S6-строка не VERIFIED; `candidate_commit`/`deployed_commit` карты пусты.
+
+## 12. Release train rebinding 409f4e8a (добавлено 2026-11-15, unit `pm-train-rebind`)
+
+| Поле | Значение |
+|---|---|
+| Release train | `release/smart-corrective-01`, tip `409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9` (pre-bump code `051ab76a`, v2.58.201) |
+| База | `13884daa32e5cf2a1c05c5c43188ca299f8179f8` (deployed code `0e4a144d`) |
+| Map `candidate_commit` | `409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9` |
+| Map `deployed_commit` | пусто (до фактического деплоя) |
+| `slice_candidate_bindings` | сохранены как история; не перезаписывались |
+
+### Что перепривязано
+
+Все **680** evidence-записей на required-строках (280 строк) переведены на candidate `409f4e8ae31c9c8fa65ef34bf7c4c3a43c86b8e9`; исходный кандидат каждой записи сохранён в `bound_from_candidate`. Остальные поля evidence (ref/observation/artifact_path/artifact_sha256/type/verdict) не менялись. `delivery_evidence` не добавлялся.
+
+### Deploy gate
+
+| Гейт | Команда | Exit | Ошибки |
+|---|---|---:|---|
+| deploy corrective | `--stage deploy --candidate 409f4e8a --repo C:\Code\Python\adminbot` | 1 | `errors=119` (scoped=384) |
+| plan | `--stage plan --repo C:\Code\Python\adminbot` | 0 | `errors=0` |
+| deploy parent SMART | `--stage deploy --candidate 0e4a144d` (requirements-map.json) | 0 | `errors=0` (scoped=828) |
+| deploy parent FC | `--stage deploy --candidate 0e4a144d` (requirements-map-fc-amendment.json) | 0 | `errors=0` (scoped=705) |
+
+Точная раскладка 119 ошибок (полный список — `evidence/gates/deploy-corrective-409f4e8a-blockers.txt`):
+
+| Категория | Кол-во | Что это |
+|---|---:|---|
+| `PENDING` rows | 93 | S0-INVESTIGATE 29, S5-WATCHDOG 9 (запреты/разделение), S8-REVIEW-RELEASE 55 (AC-01…AC-24 + S8-процесс/артефакты) |
+| Нет candidate-bound Reviewer approval | 12 | S0 production/investigation rows (`SC-REP-BASE`, `SC-REP-GH-UNCONF`, `SC-REP-FOLLOWUP`, `SC-REP-FOLLOW-READ`, `SC-REP-CONSIST`, `SC-INV-MANDATE`, `SC-INV-NOTGUESS`, `SC-INV-COMPARE`, `SC-INV-NOINVENT`, `SC-INV-NOBLOCK`, `SC-INV-EXIST`, `SC-WD-W12`) |
+| Нет candidate-bound implementation evidence | 14 | S1 process/contract rows с устаревшим sha документных артефактов (`SC-COR-REJ-02`, `SC-OVL-MAP-01..05`, `SC-COR-IDENT/GOAL/REGISTER`, `SC-OVL-NODUP/NOREWRITE/TRIGGER/NOMEM`, `SC-IMPL-WORKFLOW`) |
+
+Выводы: `evidence/gates/deploy-corrective-409f4e8a.txt`, `evidence/gates/plan-after-rebind-409f4e8a.txt`, `evidence/gates/deploy-parent-smart-0e4a144d.txt`, `evidence/gates/deploy-parent-fc-0e4a144d.txt`, `evidence/gates/deploy-corrective-409f4e8a-blockers.txt`.
+
+**Deploy gate не может быть `errors=0`, пока не закрыты эти 93 PENDING + 26 proof-gap строк.** Это не дефект rebinding: rebinding выполнен (0 ошибок candidate mismatch / отсутствующего bound evidence), но map содержит ещё не привязанные S0/S5-WATCHDOG/S8 обязательства и 26 строк без полного proof-набора. Ни одна строка не переведена в VERIFIED; `deployed_commit` пуст. Следующее действие — отдельное решение Orchestrator: либо привязать S8 к integration review 409f4e8a и закрыть S0/S5-WATCHDOG proofs, либо выпускать только после их binding.
