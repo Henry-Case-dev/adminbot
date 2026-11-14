@@ -1,8 +1,9 @@
 # VMQ-ONTO-A (O-01, O-02) — implementation evidence
 
 Дата: 15.11.2026. Branch `vmq/onto-a`, база — production-линия
-`c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5` (2.58.203). Code tip:
-`a7a576b1f1833da7be53f7bd75d25e1eaf815937`.
+`c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5` (2.58.203). Первоначальный code tip:
+`a7a576b1f1833da7be53f7bd75d25e1eaf815937`; после коррекции R1 — см. раздел
+«R1 corrective» ниже (актуальный tip в заголовке того раздела).
 
 Контракт: `plans/features/vmq-onto-01/architecture-onto-ab.md` +
 `plans/features/vmq-onto-01/evidence/onto-a-contract-confirmation-2026-11-15.md`
@@ -14,8 +15,8 @@ write scope нет. `services/mca_retrieval_context.py`, `services/database.py`,
 
 | Файл | Статус | Содержание |
 |---|---|---|
-| `services/semantic_contracts.py` | новый (1213 строк) | read-only typed-проекция/валидация значения: `TypedEntityType`, `SemanticIdentity`, `SemanticRole`, `MeaningTime`, `SemanticMeaning`, `classify_entity_type`, `project_identity`, `project_node_meaning`, `project_fact_meaning` |
-| `tests/test_semantic_contracts.py` | новый (673 строки, 23 теста) | contract + integration-тесты O-01/O-02 на реальных владельцах |
+| `services/semantic_contracts.py` | новый (1223 строки) | read-only typed-проекция/валидация значения: `TypedEntityType`, `SemanticIdentity`, `SemanticRole`, `MeaningTime`, `SemanticMeaning`, `classify_entity_type`, `project_identity`, `project_node_meaning`, `project_fact_meaning` |
+| `tests/test_semantic_contracts.py` | новый (721 строка, 26 тестов) | contract + integration-тесты O-01/O-02 на реальных владельцах |
 | `services/message_identity.py` | без изменений | роли author/reply/quote/forward уже разделены (`roles()`), второй модели не создаётся |
 | `services/summary_aliases.py` | без изменений | UID-first каскад и удаление неоднозначного обратного имени уже есть; alias используется как hint |
 
@@ -126,6 +127,100 @@ tests/test_memory_contracts.py + test_mca04a_provenance_round1027.py
 наблюдалось. Полный suite не запускался: существующий код не менялся, добавлен
 только новый модуль и его тесты (blast radius ограничен). Это остаётся
 непроверенным за пределами перечисленных файлов и указано честно.
+
+## R1 corrective (finding trace)
+
+**Finding (Reviewer r1, O-01 blocker).** `classify_entity_type("event",
+event_time=...)` и аналогичный `fact`-случай возвращали `verified` без
+`chat_id`: `REQUIRED_TYPE_SIGNALS` (строки 124–130) не требовал `chat_scope`, и
+тип выводился из частичного набора сигналов. Нарушалось O-01: тип значения
+определяется `chat_scope` + participant identity + временем + statement
+provenance.
+
+**Fix (минимальный, в том же модуле).**
+
+1. `REQUIRED_TYPE_SIGNALS` теперь требует `chat_scope` для всех четырёх типов
+   (`user`/`topic`/`event`/`fact`), а не только специфичный сигнал.
+2. `TypedEntityType.__post_init__` получил структурный инвариант: `verified`
+   без `TYPE_SIGNAL_CHAT_SCOPE` в `signals` невозможен (ValueError), поэтому
+   дыра не может вернуться через нового вызывающего.
+3. Ветка type-conflict (`topic` с participant identity) пересчитывает
+   `missing` из фактических сигналов, чтобы сигнал не был одновременно
+   `present` и `missing` (иначе новый инвариант ломал бы существующий
+   negative-кейс).
+4. Docstring модуля фиксирует правило: `chat_scope` обязателен всегда; без него
+   результат — `tentative`/`unknown`, никогда `verified`.
+
+Новых enum/резолверов/хранилищ нет; boundaries не изменены: без SQL/DDL,
+без retrieval, `message_identity.py`/`summary_aliases.py` не тронуты.
+
+**Актуальный code tip после коррекции:** `8cb9e00d38cc59d1ee1b564a824debc47f539003`
+(код + тесты этой коррекции; evidence-коммит идёт следом в той же ветке).
+
+### RED → GREEN на pre-fix кандидате `a7a576b1`
+
+RED (новые тесты, модуль ещё без правки):
+
+```
+$ python -m pytest tests/test_semantic_contracts.py -q
+FAILED test_chat_scope_is_required_for_every_type
+FAILED test_chat_scope_is_declared_required_for_every_type
+FAILED test_verified_type_cannot_skip_chat_scope
+3 failed, 23 passed
+(в т.ч. `DID NOT RAISE ValueError` и `unscoped.status == 'verified'`)
+```
+
+GREEN после правки:
+
+```
+$ python -m pytest tests/test_semantic_contracts.py -q
+26 passed
+```
+
+Новые тесты:
+
+- `test_chat_scope_is_required_for_every_type` — все 4 типа: с `chat_id` →
+  `verified`; без `chat_id` → не `verified`, `chat_scope` в `missing`,
+  статус `tentative`/`unknown`; отдельно event/fact (кейс находки).
+- `test_chat_scope_is_declared_required_for_every_type` — `REQUIRED_TYPE_SIGNALS`
+  содержит `chat_scope` для каждого типа.
+- `test_verified_type_cannot_skip_chat_scope` — конструктор отвергает
+  `verified` без `chat_scope`.
+
+### Мутация нового правила
+
+| Мутация | Результат |
+|---|---|
+| `REQUIRED_TYPE_SIGNALS["event"]` без `chat_scope` + инвариант конструктора отключён | 3 failed / 23 passed: `test_chat_scope_is_required_for_every_type`, `test_chat_scope_is_declared_required_for_every_type`, `test_verified_type_cannot_skip_chat_scope` |
+
+Мутация откатана (содержимое файла совпало с исправленным).
+
+### Totals после коррекции (точный tip `8cb9e00d38cc59d1ee1b564a824debc47f539003`)
+
+```
+tests/test_semantic_contracts.py                                           26 passed
+tests/test_memory_identity.py + test_memory_identity_migration.py
+  + test_asap3_identity_aliases.py                                          89 passed
+tests/test_mca03_message_identity_round1027.py + test_summary_aliases.py
+  + test_aliases_render_round1022.py + test_aliases_render_round1024.py      57 passed (1 warning fastapi)
+tests/test_memory_contracts.py + test_mca04a_provenance_round1027.py
+  + test_memory_attribution.py                                              164 passed
+```
+
+Итого 336 passed, новых падений нет. O-02 (alias/common noun/same-name/
+ambiguity) остался зелёным: соответствующие тесты входят в 26 passed.
+
+### Diff коррекции относительно `a7a576b1`
+
+```
+services/semantic_contracts.py   +22 / -6   (4 hunks: docstring, REQUIRED_TYPE_SIGNALS,
+                                             инвариант TypedEntityType, missing в type-conflict)
+tests/test_semantic_contracts.py +48        (3 новых теста)
+plans/.../evidence/onto-a/implementation.md — этот раздел
+```
+
+Ветка между `a7a576b1` и коррекцией также содержит два docs-коммита
+(`8258fe69` evidence, `98e19074` retention) — кода они не меняют.
 
 ## Schema / DDL / no-reembedding audit
 
