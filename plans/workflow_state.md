@@ -15,7 +15,7 @@ Review: 2.58.203 delta Approved (integration-review 11a12ab5); corrective releas
 Deployment: 2.58.203 verified at c97c06e4 (previous 0beed63d/2.58.202).
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; tag smart-corrective-01 parked as delivered_awaiting_evidence with 22 deferred ids and delivery receipt.
-Updated: 2026-11-15T08:05:00+12:00
+Updated: 2026-11-15T07:36:40+12:00
 
 ## Final corrective state
 
