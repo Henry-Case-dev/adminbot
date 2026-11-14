@@ -35,8 +35,12 @@ Hard safety contract (enforced by construction, not by convention)
 * **Provider/search calls are opt-in and capped.** Without
   ``--allow-provider-calls`` no real LLM/search/page-fetch happens at all and
   the provider-dependent checks are reported as ``not_observed``. With the
-  flag, every LLM call, every search call and every page fetch is counted;
-  ``--max-provider-calls`` (default 60) aborts the current run when exceeded.
+  flag, every LLM call, every search call and every page fetch is counted
+  against ``--max-provider-calls`` (default 120). The cap is a *measurement*
+  boundary: a check is only started when the remaining budget covers its
+  measured cost plus answer-stage margin (``CHECK_CALL_COSTS``), and a run that
+  hits the cap mid-pipeline is reported as ``provider_cap_reached`` /
+  ``not_observed`` — never as a semantic verdict.
 * **No secrets / chat ids in output.** Real chats are reported as
   ``chat-1..chat-N``; search keys, bot tokens, e-mail-like values are
   redacted by pattern; message texts are only shown truncated and only for
@@ -51,7 +55,12 @@ Usage (production host)
     cd /var/www/admin_bot
     venv/bin/python /tmp/fc_live_canary.py --json-out /tmp/fc_live_canary.json
     venv/bin/python /tmp/fc_live_canary.py --json-out /tmp/fc_live_canary.json \
-        --allow-provider-calls --max-provider-calls 60
+        --allow-provider-calls --max-provider-calls 120
+
+Budget: measured per-check costs are documented in ``CHECK_CALL_COSTS``
+(ordinary 17, multipart+short 34, original 14, smoke 7; full suite ≈72). For
+one check run it isolated, e.g. ``--checks original_production_scenario
+--max-provider-calls 20``.
 
 Exit code is 0 whenever the harness itself ran (check failures stay inside the
 JSON). Exit code 2 means the harness could not even bootstrap (wrong cwd,
@@ -91,7 +100,14 @@ from types import SimpleNamespace
 #: contract as the SMART harness: mismatch → exit 2 before any check/network/
 #: provider call, JSON without checks); the report now echoes
 #: `expected_harness_sha256`/`harness_sha256_preflight`.
-HARNESS_VERSION = "1.3.0"
+#: 1.4.0 (2026-11-15): the harness call cap is an explicit measurement state
+#: (`provider_cap_reached`/`provider_budget_insufficient`, never a semantic
+#: verdict; a check is skipped instead of being truncated mid-pipeline using
+#: the measured ``CHECK_CALL_COSTS``); SFC-12-09 measurement strengthened
+#: (material anchor must reach retrieval, answer stage must complete, country
+#: stems any case + honest negative answer accepted); raw event fields kept so
+#: cap refusal is distinguishable from provider failure; self-tests S19–S21.
+HARNESS_VERSION = "1.4.0"
 HARNESS_NAME = "fc_live_canary"
 
 #: Evidence classes. ``production`` = the verdict is derived from a real
@@ -212,6 +228,69 @@ MATERIAL_SMOKE = (
 )
 TRIGGER_SMOKE = "фактчек"
 
+#: Измеренная стоимость проверки в реальных provider/search/fetch вызовах
+#: (deployed 2.58.202, live-canary `153116Z`/`083723Z`). Харнесс обязан
+#: запускать проверку только при достаточном остатке лимита, иначе пайплайн
+#: обрывается посередине (fallback-шаблон вместо ответа) и «семантический»
+#: вердикт становится ложным.
+CHECK_CALL_COSTS = {
+    "ordinary_factcheck": 17,
+    "multipart_and_short_reply": 34,
+    "original_production_scenario": 14,   # + answer stage (analyst/validator/verbalize)
+    "production_smoke": 7,
+}
+#: Минимальный остаток лимита, при котором проверку вообще можно начинать:
+#: измеренная стоимость + запас на повтор/фолбэк стадий ответа.
+CHECK_CALL_MARGIN = 3
+#: Единственный шаблон, которым продукт заменяет ответ при деградации
+#: (`temporal_fallback_mode`). Он НЕ является ответом на вопрос: проверки
+#: прямого ответа не должны его засчитывать.
+FALLBACK_TEMPLATE_MARKERS = (
+    "недостаточно данных для полной проверки утверждения",
+    "недостаточно данных для проверки утверждения",
+)
+#: Признаки честного ОТРИЦАТЕЛЬНОГО ответа («влияния не подтверждено»,
+#: «данных по странам нет») — это тоже прямой ответ на вопрос.
+NEGATIVE_ANSWER_MARKERS = (
+    "не подтвержд", "нет подтвержд", "не найдено подтвержд",
+    "подтверждений нет", "нет данных", "данных нет",
+    "не удалось найти", "не обнаружено", "нет свидетельств",
+    "свидетельств нет", "опроверга", "не является доказательств",
+    "доказательств нет", "не выявлено",
+)
+#: Уточнения, привязывающие отрицательный ответ именно к вопросу.
+NEGATIVE_QUESTION_HINTS = (
+    "по этому вопросу", "по вопросу", "по этим странам", "эти страны",
+    "странам из вопроса", "по указанным странам", "по конкретным странам",
+)
+
+
+def _check_min_calls(name: str) -> int:
+    """Сколько вызовов нужно, чтобы проверка дошла до стадии ответа."""
+    cost = int(CHECK_CALL_COSTS.get(str(name or ""), 0) or 0)
+    return cost + CHECK_CALL_MARGIN if cost else 0
+
+
+def _budget_state(bundle, *, check_name: str | None = None) -> dict:
+    """Явное состояние лимита харнесса для details проверки (не вердикт)."""
+    cap = bool(getattr(bundle, "cap_reached", False))
+    blocked = bool(getattr(bundle, "budget_blocked", False))
+    calls = getattr(bundle, "calls", {}) or {}
+    return {
+        "provider_cap_reached": cap,
+        "provider_budget_insufficient": blocked,
+        "cap": {
+            "denied_calls": getattr(bundle, "cap_denied_calls", 0),
+            "kinds": list(getattr(bundle, "cap_kinds", []) or []),
+            "max_calls": calls.get("max_calls"),
+            "total": calls.get("total"),
+            "this_run": calls.get("this_run"),
+        } if cap else None,
+        "call_costs": dict(CHECK_CALL_COSTS),
+        "min_calls_required": _check_min_calls(
+            check_name or getattr(bundle, "name", "")),
+    }
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Result model
@@ -254,6 +333,40 @@ def _run_evidence_class(bundle) -> str:
     if getattr(bundle, "transport", "real") != "real":
         return "plumbing"
     return "production"
+
+
+#: Поля событий, которые нужны, чтобы отличить отказ LLM-стадии от отказа
+#: провайдера и от исчерпания лимита харнесса. Только машинные коды (R17).
+_EVENT_SCALAR_KEYS = ("finish_reason", "reason_code", "decision", "fallback_used",
+                      "stage", "error_code", "degraded", "outcome")
+
+
+def _event_view(event: dict) -> dict:
+    """Событие прогона с машинными полями/нормализованными значениями."""
+    value = {
+        "event_name": str(event.get("event_name") or ""),
+        "outcome": str(event.get("outcome") or ""),
+        "level": str(event.get("level") or ""),
+    }
+    for source_name in ("fields", "normalized"):
+        source = event.get(source_name)
+        if not isinstance(source, dict):
+            continue
+        picked = {}
+        for key in _EVENT_SCALAR_KEYS:
+            if key not in source:
+                continue
+            item = source[key]
+            if isinstance(item, bool) or isinstance(item, (int, float)):
+                picked[key] = item
+            elif item is None:
+                picked[key] = None
+            else:
+                text = redact(item, limit=80)
+                picked[key] = text
+        if picked:
+            value[source_name] = picked
+    return value
 
 
 
@@ -312,7 +425,12 @@ def overlap_ratio(needle: str, haystack: str) -> float:
 
 
 class CallBudget:
-    """Counts real provider/search/fetch calls; enforces the harness cap."""
+    """Counts real provider/search/fetch calls; enforces the harness cap.
+
+    The cap is a *measurement* boundary, not a product verdict: an exhausted
+    budget must be reported as such (`cap_hit`) instead of letting the product
+    degrade into its fallback template and be judged as a semantic failure.
+    """
 
     def __init__(self, allow: bool, max_calls: int) -> None:
         self.allow = bool(allow)
@@ -321,19 +439,35 @@ class CallBudget:
         self.search = 0
         self.fetch = 0
         self.per_run = {"llm": 0, "search": 0, "fetch": 0}
+        #: Кумулятивно: сколько charge-попыток отклонено лимитом.
+        self.cap_hit = 0
+        #: В пределах текущего прогона (сбрасывается `reset_run`).
+        self.per_run_cap_hit = 0
+        self.cap_kinds: list = []
+        self.per_run_cap_kinds: list = []
 
     @property
     def total(self) -> int:
         return self.llm + self.search + self.fetch
 
+    @property
+    def remaining(self) -> int:
+        return max(0, self.max_calls - self.total)
+
     def reset_run(self) -> None:
         self.per_run = {"llm": 0, "search": 0, "fetch": 0}
+        self.per_run_cap_hit = 0
+        self.per_run_cap_kinds = []
 
     def charge(self, kind: str) -> None:
         if not self.allow:
             raise ProviderCallsDisabled(
                 "real provider calls are disabled (--allow-provider-calls)")
         if self.total >= self.max_calls:
+            self.cap_hit += 1
+            self.per_run_cap_hit += 1
+            self.cap_kinds.append(str(kind))
+            self.per_run_cap_kinds.append(str(kind))
             raise ProviderCallCapReached(
                 f"provider call cap reached ({self.max_calls})")
         if kind == "llm":
@@ -348,10 +482,16 @@ class CallBudget:
         return {
             "allowed": self.allow,
             "max_calls": self.max_calls,
+            "remaining": self.remaining,
             "llm_calls": self.llm,
             "search_calls": self.search,
             "page_fetch_calls": self.fetch,
             "total": self.total,
+            "cap_hit": self.cap_hit,
+            "cap_kinds": list(self.cap_kinds[-8:]),
+            "cap_reached_this_run": self.per_run_cap_hit > 0,
+            "cap_denied_calls_this_run": self.per_run_cap_hit,
+            "cap_kinds_this_run": list(self.per_run_cap_kinds[-8:]),
         }
 
 
@@ -1219,6 +1359,13 @@ class RunBundle:
     events: list
     admission: dict = dataclasses.field(default_factory=dict)
     transport: str = "real"          # real | stub  (stub = self-test doubles)
+    #: Харнесс-лимит исчерпан ВНУТРИ этого прогона (продукт молча деградировал
+    #: в fallback): вердикт проверки не семантический.
+    cap_reached: bool = False
+    cap_denied_calls: int = 0
+    cap_kinds: list = dataclasses.field(default_factory=list)
+    #: Прогон не начинался: остатка лимита не хватило на полный пайплайн.
+    budget_blocked: bool = False
 
     def as_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -1234,6 +1381,8 @@ def _subject_view(subject) -> dict:
         view = {}
     material = str(getattr(subject, "material_text", "") or "")
     text = str(getattr(subject, "text", "") or "")
+    material_part = str(getattr(subject, "material_part", "") or "")
+    request_part = str(getattr(subject, "request_part", "") or "")
     view.update({
         "has_text": bool(text.strip()),
         "text_chars": len(text),
@@ -1241,6 +1390,12 @@ def _subject_view(subject) -> dict:
         "text_overlaps_material": overlap_ratio(material, text) if material else None,
         "text_is_material": bool(text.strip()) and text.strip() == material.strip(),
         "text_preview": redact(text, limit=200),
+        # Граница предмета: полный материал в тексте предмета или только часть
+        # (R17-safe: длины и флаг, без текстов).
+        "material_part_chars": len(material_part),
+        "material_part_is_full_material": bool(
+            material_part and material and material_part.strip() == material.strip()),
+        "request_part_chars": len(request_part),
     })
     return view
 
@@ -1276,6 +1431,11 @@ def _plan_view(plan) -> dict:
         "intents": [str(getattr(q, "intent", "") or "") for q in queries][:12],
         "query_previews": [redact(getattr(q, "text", ""), limit=140)
                            for q in queries][:8],
+        # Полные тексты запросов (без них нельзя проверить, что предметный
+        # анкер материала реально дошёл до поиска; тексты сгенерированы
+        # харнессом/продуктом из синтетического материала, не из чужих данных).
+        "query_texts": [redact(getattr(q, "text", ""), limit=300)
+                        for q in queries][:8],
         "subject_origin": str(getattr(plan, "subject_origin", "") or ""),
         "subject_fingerprint": bool(getattr(plan, "subject_fingerprint", "")),
         "claim_anchors": len(tuple(getattr(plan, "claim_anchors", ()) or ())),
@@ -1490,8 +1650,16 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
                        trigger_key: str, target_text: str,
                        trigger_text: str, user_hint: str | None = None,
                        kind: str = "reply",
-                       transport: str = "real") -> RunBundle:
-    """Drive ONE real ``run_factcheck`` for synthetic chat content."""
+                       transport: str = "real",
+                       min_calls: int | None = None) -> RunBundle:
+    """Drive ONE real ``run_factcheck`` for synthetic chat content.
+
+    ``min_calls`` — сколько реальных вызовов нужно, чтобы прогон дошёл до
+    стадии ответа (по умолчанию — измеренная стоимость проверки + запас).
+    Если остатка лимита не хватает, прогон НЕ начинается: иначе пайплайн
+    обрывается посередине и деградация продукта (`temporal_fallback_mode`)
+    была бы ошибочно принята за семантический результат.
+    """
     m = runtime.modules
     runtime.recorder.reset_run()
     runtime.budget.reset_run()
@@ -1506,6 +1674,19 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
             publication={}, plan={}, retrieval={}, envelope={}, diagnostics={},
             claims_event={}, delivered={}, db={}, calls=runtime.budget.as_dict(),
             events=[], transport=transport)
+    required = int(min_calls if min_calls is not None
+                   else _check_min_calls(name))
+    if required > 0 and runtime.budget.remaining < required:
+        return RunBundle(
+            name=name, status="not_observed",
+            error=(f"provider_budget_insufficient (needs ~{required} calls, "
+                   f"{runtime.budget.remaining} left of cap "
+                   f"{runtime.budget.max_calls}; the check is skipped instead "
+                   f"of being truncated mid-pipeline)"),
+            duration_s=0.0, outcome=None, correlation_id=None, subject={},
+            publication={}, plan={}, retrieval={}, envelope={}, diagnostics={},
+            claims_event={}, delivered={}, db={}, calls=runtime.budget.as_dict(),
+            events=[], transport=transport, budget_blocked=True)
     v2_state = effective_pipeline_state(runtime)
     if not v2_state["known"]:
         # PG-слой не прочитан: утверждать «флаг выключен» нельзя.
@@ -1548,6 +1729,21 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
     except Exception as exc:
         error = f"{type(exc).__name__}: {redact(str(exc), 300)}"
     duration = time.perf_counter() - started
+    cap_denied = int(getattr(runtime.budget, "per_run_cap_hit", 0) or 0)
+    cap_reached = bool(cap_denied > 0 or str(error or "").startswith(
+        "provider_cap_reached"))
+    if cap_reached:
+        # Лимит харнесса — граница измерения, а не вердикт продукта. Продукт
+        # ловит исключение внутри LLM-стадии и честно деградирует в
+        # fallback-шаблон; без этой пометки такой прогон выглядел бы как
+        # «провал синтеза ответа».
+        error = (
+            "provider_cap_reached (harness measurement budget exhausted: "
+            f"cap={runtime.budget.max_calls}, total={runtime.budget.total}, "
+            f"denied_charges={cap_denied}, "
+            f"kinds={','.join(runtime.budget.per_run_cap_kinds[-6:]) or 'n/a'}; "
+            "the pipeline could not reach the answer stage — this is NOT a "
+            "product verdict)")
 
     delivered = [dict(item) for item in runtime.recorder.delivered]
     combined = "\n".join(str(item.get("text") or "") for item in delivered)
@@ -1567,7 +1763,8 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
             claims_event["verdict_route"] = "envelope_temporal"
         else:
             claims_event["verdict_route"] = "legacy_single"
-    status = "observed" if error is None and outcome is not None else "error"
+    status = "not_observed" if cap_reached else (
+        "observed" if error is None and outcome is not None else "error")
     bundle = RunBundle(
         name=name,
         status=status,
@@ -1591,9 +1788,11 @@ async def run_scenario(runtime: Runtime, name: str, *, target_key: str,
         },
         db=db_bundle,
         calls=runtime.budget.as_dict() | {"this_run": dict(runtime.budget.per_run)},
-        events=[{"event_name": e["event_name"], "outcome": e["outcome"],
-                 "level": e["level"]} for e in runtime.recorder.events],
+        events=[_event_view(e) for e in runtime.recorder.events],
         transport=transport,
+        cap_reached=cap_reached,
+        cap_denied_calls=cap_denied,
+        cap_kinds=list(runtime.budget.per_run_cap_kinds[-8:]),
     )
     return bundle
 
@@ -1659,12 +1858,16 @@ async def check_ordinary_factcheck(runtime: Runtime, ctx: dict) -> CheckResult:
         trigger_key="ordinary_trigger", target_text=MATERIAL_ORDINARY,
         trigger_text=TRIGGER_ORDINARY, user_hint=None)
     ctx["runs"]["ordinary_factcheck"] = bundle
-    details = {"run": bundle.as_dict()}
+    details = {"run": bundle.as_dict(), **_budget_state(bundle)}
     if bundle.status != "observed":
+        reason = ("прерван лимитом харнесса до стадии ответа: "
+                  if bundle.cap_reached else
+                  "не запускался (недостаточно лимита): "
+                  if bundle.budget_blocked else "")
         return CheckResult(
             "ordinary_factcheck", CHECK_REQ_MAP["ordinary_factcheck"],
             "not_observed",
-            "Обычный фактчек не выполнен: " + (bundle.error or "unknown"),
+            "Обычный фактчек " + reason + (bundle.error or "unknown"),
             details, time.perf_counter() - started)
 
     retrieval = bundle.retrieval or {}
@@ -1792,6 +1995,14 @@ async def check_multipart_and_short(runtime: Runtime, ctx: dict) -> CheckResult:
     for bundle in (multipart, short):
         details[bundle.name] = bundle.as_dict()
         results.append((bundle, bundle.status == "observed"))
+    details["budget"] = {
+        "provider_cap_reached": any(b.cap_reached for b in (multipart, short)),
+        "provider_budget_insufficient": any(
+            b.budget_blocked for b in (multipart, short)),
+        "call_costs": dict(CHECK_CALL_COSTS),
+        "min_calls_required": _check_min_calls("multipart_and_short_reply"),
+        "per_run": {b.name: _budget_state(b) for b in (multipart, short)},
+    }
 
     if not all(ok for _b, ok in results):
         return CheckResult(
@@ -2464,6 +2675,30 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
         user_hint=TRIGGER_TRADITION)
     ctx["runs"]["original_production_scenario"] = bundle
     details = {"run": bundle.as_dict()}
+    if bundle.budget_blocked:
+        # Прогон не начинался: остатка лимита не хватило на полный пайплайн.
+        return CheckResult(
+            "original_production_scenario",
+            CHECK_REQ_MAP["original_production_scenario"], "not_observed",
+            "Исходный production-сценарий не запускался: "
+            + (bundle.error or "provider_budget_insufficient"),
+            {**details,
+             **_budget_state(bundle,
+                             check_name="original_production_scenario"),
+             "answer_stage_reached": False},
+            time.perf_counter() - started, evidence_class="unavailable")
+    if bundle.cap_reached:
+        # Лимит харнесса — граница измерения, а не семантический вердикт.
+        return CheckResult(
+            "original_production_scenario",
+            CHECK_REQ_MAP["original_production_scenario"], "not_observed",
+            "Исходный production-сценарий прерван лимитом харнесса до стадии "
+            "ответа: " + (bundle.error or "provider_cap_reached"),
+            {**details,
+             **_budget_state(bundle,
+                             check_name="original_production_scenario"),
+             "answer_stage_reached": _answer_stage_reached(bundle)},
+            time.perf_counter() - started, evidence_class="unavailable")
     if bundle.status != "observed":
         return CheckResult(
             "original_production_scenario",
@@ -2475,16 +2710,29 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
     retrieval = bundle.retrieval or {}
     envelope = bundle.envelope or {}
     subject = bundle.subject or {}
+    plan = bundle.plan or {}
     delivered = bundle.delivered or {}
     preview = str(delivered.get("preview") or "")
     question_countries = _question_places(TRIGGER_TRADITION)
-    answered_places = [name for name in question_countries
-                       if name.lower() in preview.lower()]
+    answered_places = _places_mentioned(preview, question_countries)
     place_like = _place_like_tokens(preview)
+    answer_stage = _answer_stage_reached(bundle)
+    fallback_answer = _is_fallback_answer(preview)
+    negative_answer = _is_direct_negative_answer(preview, question_countries)
+    material_usage = _material_anchor_usage(
+        MATERIAL_TRADITION,
+        list(plan.get("query_texts") or []),
+        evidence_texts=list(retrieval.get("attempted_queries") or []),
+        subject_overlap=subject.get("text_overlaps_material"))
+    material_present = (
+        int(envelope.get("material_chars") or 0) > 0
+        and float(subject.get("text_overlaps_material") or 0.0) >= 0.6)
     assertions = {
-        "material_kept": int(envelope.get("material_chars") or 0) > 0
-        and overlap_ratio(MATERIAL_TRADITION,
-                          str(subject.get("text_preview") or "")) >= 0.15,
+        # Материал не только «передан», но и реально используется: он
+        # присутствует в тексте предмета И предметный анкер материала доходит
+        # до поиска (план/запросы/выдача). Иначе retrieval идёт без темы —
+        # именно этот дефект дал нерелевантные источники в прогоне 153116Z.
+        "material_kept": bool(material_present and material_usage["anchor_used"]),
         "user_question_identified": bool(envelope.get("request_chars"))
         or bool(subject.get("has_request_part")),
         "search_built_from_question": bool(
@@ -2495,7 +2743,15 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
         "no_old_budget_early_stop": (retrieval.get("stop_reason")
                                      not in ("budget_exhausted",)
                                      and not _looks_like_timeout(preview)),
-        "direct_answer_on_question": bool(answered_places or place_like),
+        # Стадия ответа обязана реально выполниться: шаблон
+        # `temporal_fallback_mode` — деградация, а не ответ на вопрос.
+        "answer_stage_completed": bool(answer_stage["completed"]),
+        # Прямой ответ: страны вопроса в любой падежной форме (основа слова)
+        # ЛИБО честный отрицательный ответ по этим странам. Шаблон деградации
+        # не засчитывается ни при каких условиях.
+        "direct_answer_on_question": bool(
+            not fallback_answer
+            and (bool(answered_places) or bool(place_like) or negative_answer)),
         # Real, falsifiable replacement for the previous unconditional True:
         # the delivered answer must be produced by the pipeline and must not be
         # an echo of the harness-authored input material or question. A
@@ -2511,8 +2767,9 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
     failed = [name for name, ok in assertions.items() if not ok]
     status = "observed" if not failed else "error"
     summary = ("Исходный production-сценарий воспроизведён: вопрос о странах "
-               "исследован, ранней остановки по старым бюджетам нет, дан "
-               "ответ по evidence." if not failed else
+               "исследован (материальный анкер в поиске), стадия ответа "
+               "выполнена, дан ответ по evidence (в т.ч. допустим честный "
+               "отрицательный ответ)." if not failed else
                "Отклонения исходного сценария: " + ", ".join(failed))
     details["assertions"] = assertions
     details["bundle"] = {
@@ -2520,6 +2777,7 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
         "route": (bundle.claims_event or {}).get("verdict_route"),
         "subject": subject,
         "queries": retrieval.get("attempted_queries"),
+        "plan_query_texts": plan.get("query_texts"),
         "opened": retrieval.get("opened"),
         "refs": retrieval.get("refs"),
         "evidence_chars": retrieval.get("evidence_chars"),
@@ -2528,7 +2786,13 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
         "reason_code": envelope.get("reason_code"),
         "plain_conclusion": _plain_conclusion(preview),
         "answer_preview": delivered.get("preview"),
+        "answer_stage": answer_stage,
+        "answer_is_fallback_template": fallback_answer,
+        "answer_is_honest_negative": negative_answer,
+        "material_anchor_usage": material_usage,
+        "material_present_in_subject": material_present,
         "question_places": sorted(question_countries),
+        "question_place_stems": sorted(_stem(p) for p in question_countries),
         "answer_mentions_question_places": answered_places,
         "answer_place_like_tokens": place_like[:8],
         "ambiguity": {
@@ -2554,6 +2818,150 @@ async def check_original_scenario(runtime: Runtime, ctx: dict) -> CheckResult:
 
 _QUESTION_STOPWORDS = {"фактчек", "бот", "реально", "такие", "такой", "которые",
                        "которых", "не", "на", "и", "в", "с", "как", "это"}
+
+#: Падежные окончания для сравнения по основе слова. Это НЕ список стран:
+#: основа считается от слова из вопроса/ответа, внешнего словаря нет.
+_STEM_SUFFIXES = ("иями", "ями", "ами", "его", "ому", "ему", "ией", "ей",
+                  "ой", "ых", "их", "ий", "ии", "ия", "ию", "ие", "ые",
+                  "ая", "ое", "ы", "а", "у", "е", "и", "я", "ь", "й", "о")
+
+
+def _fold(text: str) -> str:
+    """Нижний регистр + ё→е (сравнение не зависит от регистра/ё)."""
+    return str(text or "").lower().replace("ё", "е")
+
+
+def _stem(word: str) -> str:
+    """Грубая основа слова: отсечение одного падежного окончания.
+
+    Достаточно для сопоставления «Франция/Франции/Францией» без списков
+    географических названий и без морфологического словаря.
+    """
+    value = re.sub(r"[^a-zа-я0-9]", "", _fold(word))
+    for suffix in _STEM_SUFFIXES:
+        base = value[: len(value) - len(suffix)]
+        if value.endswith(suffix) and len(base) >= 4:
+            return base
+    return value
+
+
+def _places_mentioned(text: str, places) -> list:
+    """Названные в тексте места вопроса — по основе слова (любой падеж)."""
+    hay = [_stem(token) for token in _norm_words(text)]
+    found = []
+    for place in sorted(places or ()):
+        stem = _stem(place)
+        if len(stem) < 3:
+            continue
+        if stem in hay or any(token.startswith(stem) and len(stem) >= 5
+                              for token in hay):
+            found.append(place)
+    return found
+
+
+def _is_fallback_answer(text: str) -> bool:
+    """Ответ — шаблон деградации продукта, а не ответ на вопрос."""
+    lowered = _fold(text)
+    return any(marker in lowered for marker in FALLBACK_TEMPLATE_MARKERS)
+
+
+def _is_direct_negative_answer(text: str, places=()) -> bool:
+    """Честный ОТРИЦАТЕЛЬНЫЙ ответ («влияния не подтверждено») — тоже ответ.
+
+    Шаблон деградации исключён; отрицание должно быть привязано к вопросу:
+    названы его места либо явно сказано «по этому вопросу/этим странам».
+    """
+    if _is_fallback_answer(text):
+        return False
+    lowered = _fold(text)
+    if not any(marker in lowered for marker in NEGATIVE_ANSWER_MARKERS):
+        return False
+    if _places_mentioned(text, places):
+        return True
+    return any(hint in lowered for hint in NEGATIVE_QUESTION_HINTS)
+
+
+def _material_topic_anchors(material: str, limit: int = 2) -> list:
+    """Тематические основы материала (начало утверждения), без словарей."""
+    head = re.split(r"[.!?;:—–]", _fold(str(material or "")), maxsplit=1)[0]
+    stems: list = []
+    for token in re.findall(r"[а-яa-z0-9]{5,}", head):
+        stem = _stem(token)
+        if stem and stem not in stems:
+            stems.append(stem)
+        if len(stems) >= limit:
+            break
+    return stems
+
+
+def _material_anchor_usage(material: str, plan_queries, *,
+                           evidence_texts=None,
+                           subject_overlap: float | None = None) -> dict:
+    """Дошёл ли предметный анкер материала до поиска (план/выдача).
+
+    Это и есть «материал реально использован»: presence в предмете без
+    анкера в запросах даёт retrieval без темы (дефект прогона 153116Z).
+    """
+    anchors = _material_topic_anchors(material)
+    queries = [str(item or "") for item in (plan_queries or ())]
+    haystack = " ".join(queries)
+    if evidence_texts:
+        haystack += " " + " ".join(str(item or "") for item in evidence_texts)
+    hay = [_stem(token) for token in _norm_words(haystack)]
+    hits = [anchor for anchor in anchors if anchor in hay]
+    return {
+        "anchors": list(anchors),
+        "hits": hits,
+        "anchor_used": bool(hits),
+        "query_chars": sum(len(item) for item in queries),
+        "evidence_texts": len(list(evidence_texts or ())),
+        "subject_overlap_full": subject_overlap,
+    }
+
+
+def _answer_stage_reached(bundle) -> dict:
+    """Выполнилась ли стадия ответа (вердикт + вербализация), не деградация."""
+    envelope = getattr(bundle, "envelope", None) or {}
+    events = list(getattr(bundle, "events", []) or [])
+    trace = list(envelope.get("stage_trace") or [])
+    stages: list = []
+    for item in trace:
+        if isinstance(item, dict):
+            name = str(item.get("stage") or "")
+        else:
+            # Штатный `stage_trace` продукта — строковое представление словаря
+            # (`"{'stage': 'verdict', ...}"`), поэтому имя стадии извлекается
+            # терпимо и к dict, и к строке.
+            match = re.search(r"['\"]stage['\"]\s*:\s*['\"]([^'\"]+)['\"]",
+                              str(item or ""))
+            name = match.group(1) if match else str(item or "").split(":")[0]
+        stages.append(name.strip())
+    failed_events = [
+        str(event.get("event_name") or "") for event in events
+        if str(event.get("outcome") or "") in ("error", "failed")
+        or str(event.get("level") or "").upper() in ("ERROR", "WARN")
+    ]
+    fallback_used = bool(envelope.get("fallback_used"))
+    reason = str(envelope.get("reason_code") or "")
+    verdict_ok = "verdict" in stages
+    verbalize_ok = any(stage.startswith("verbalize") for stage in stages)
+    completed = bool(
+        not (fallback_used and reason == "temporal_fallback_mode")
+        and "temporal_verdict" not in failed_events
+        and not ({"temporal_verdict", "temporal_verbalize"}
+                 & set(failed_events))
+        and (verdict_ok if trace else True)
+        and (verbalize_ok if trace else True))
+    return {
+        "completed": completed,
+        "fallback_used": fallback_used,
+        "reason_code": reason,
+        "stage_trace": [str(item) for item in trace][:12],
+        "stages": stages[:12],
+        "failed_events": failed_events[:8],
+        "this_run_llm_calls": int(((getattr(bundle, "calls", {}) or {})
+                                   .get("this_run") or {}).get("llm", 0) or 0),
+    }
 
 
 def _question_places(text: str) -> set:
@@ -2672,7 +3080,16 @@ async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
         }
     failed_identity = [name for name, ok in identity_checks.items() if not ok]
     failed_run = [name for name, ok in run_checks.items() if not ok]
-    if bundle.status != "observed":
+    if bundle.budget_blocked:
+        status = "not_observed"
+        summary = ("Identity снят, но smoke-фактчек не запускался: "
+                   + (bundle.error or "provider_budget_insufficient"))
+    elif bundle.cap_reached:
+        status = "not_observed"
+        summary = ("Identity снят, но smoke-фактчек прерван лимитом харнесса "
+                   "до стадии ответа (не отказ провайдера): "
+                   + (bundle.error or "provider_cap_reached"))
+    elif bundle.status != "observed":
         status = "not_observed"
         summary = ("Identity снят, но smoke-фактчек не выполнен: "
                    + (bundle.error or "unknown"))
@@ -2689,6 +3106,7 @@ async def check_production_smoke(runtime: Runtime, ctx: dict) -> CheckResult:
             "identity_assertions": identity_checks,
             "run_assertions": run_checks,
             "run": bundle.as_dict(),
+            **_budget_state(bundle, check_name="production_smoke"),
             "safety": _safety_block(runtime),
             "effective": {
                 "pipeline_v2_enabled": effective.get("pipeline_v2_enabled"),
@@ -3106,6 +3524,7 @@ async def run_self_test(runtime: Runtime, *,
 
     async def _s12_pipeline_plumbing():
         plumbing = await _self_test_pipeline(runtime)
+        values["self_test_pipeline"] = plumbing
         return bool(plumbing.get("ok", False)), {
             key: value for key, value in plumbing.items() if key != "ok"}
 
@@ -3446,6 +3865,295 @@ async def run_self_test(runtime: Runtime, *,
             and observed["payload"]["expected_sha_echoed"])
         return ok, observed
 
+    async def _s19_provider_cap_semantics():
+        """Исчерпанный лимит — состояние измерения, а не семантический вердикт.
+
+        (a) тот же пайплайн с бюджетом 3 обязан дать `provider_cap_reached`,
+        (b) чистый бюджет обязан дойти до стадии ответа,
+        (c) проверки `original_production_scenario`/`production_smoke` на
+        cap-бандле обязаны вернуть `not_observed` + явный флаг (не `error`),
+        (d) при нехватке остатка прогон вообще не стартует
+        (`provider_budget_insufficient`).
+        """
+        import sys as _sys
+
+        module = _sys.modules[__name__]
+        capped = await _self_test_pipeline(runtime, budget_max=3)
+        clean = values.get("self_test_pipeline") or {}
+        observed: dict = {
+            "capped": {k: capped.get(k) for k in (
+                "status", "error", "cap_reached", "cap_denied_calls",
+                "budget_blocked", "delivered_chars", "answer_stage")},
+            "clean": {k: clean.get(k) for k in (
+                "status", "cap_reached", "answer_stage")},
+        }
+
+        def _fake_bundle(*, cap: bool, blocked: bool) -> RunBundle:
+            bundle = _empty_bundle(
+                "original_production_scenario")
+            bundle.status = "not_observed"
+            bundle.error = ("provider_cap_reached (harness measurement "
+                            "budget exhausted: denied_charges=1)" if cap else
+                            "provider_budget_insufficient (needs ~17 calls, "
+                            "4 left of cap 20)")
+            bundle.cap_reached = cap
+            bundle.budget_blocked = blocked
+            bundle.cap_denied_calls = 1 if cap else 0
+            bundle.cap_kinds = ["llm"] if cap else []
+            bundle.calls = {"max_calls": 20, "total": 20,
+                            "this_run": {"llm": 1, "search": 0, "fetch": 0}}
+            return bundle
+
+        async def _run_check(func, bundle, ctx_extra=None):
+            saved = module.run_scenario
+
+            async def _fake_run(*args, **kwargs):
+                return bundle
+
+            module.run_scenario = _fake_run
+            try:
+                return await func(runtime, ctx_extra if ctx_extra is not None
+                                  else {"runs": {}})
+            finally:
+                module.run_scenario = saved
+
+        cap_result = await _run_check(
+            check_original_scenario, _fake_bundle(cap=True, blocked=False))
+        blocked_result = await _run_check(
+            check_original_scenario, _fake_bundle(cap=False, blocked=True))
+        smoke_cap = await _run_check(
+            check_production_smoke, _fake_bundle(cap=True, blocked=False),
+            {"runs": {}, "effective": {}})
+        observed["check_cap"] = {
+            "status": cap_result.status,
+            "evidence_class": cap_result.evidence_class,
+            "provider_cap_reached": (cap_result.details or {}).get(
+                "provider_cap_reached"),
+            "summary": redact(cap_result.summary, 200),
+        }
+        observed["check_budget_blocked"] = {
+            "status": blocked_result.status,
+            "provider_budget_insufficient": (blocked_result.details or {}).get(
+                "provider_budget_insufficient"),
+            "provider_cap_reached": (blocked_result.details or {}).get(
+                "provider_cap_reached"),
+        }
+        observed["smoke_cap"] = {
+            "status": smoke_cap.status,
+            "provider_cap_reached": (smoke_cap.details or {}).get(
+                "provider_cap_reached"),
+            "summary": redact(smoke_cap.summary, 200),
+        }
+        ok = (
+            capped.get("status") == "not_observed"
+            and capped.get("cap_reached") is True
+            and int(capped.get("cap_denied_calls") or 0) >= 1
+            and str(capped.get("error") or "").startswith("provider_cap_reached")
+            and "NOT a product verdict" in str(capped.get("error") or "")
+            and clean.get("status") == "observed"
+            and clean.get("cap_reached") is False
+            and bool((clean.get("answer_stage") or {}).get("completed"))
+            and cap_result.status == "not_observed"
+            and cap_result.evidence_class == "unavailable"
+            and (cap_result.details or {}).get("provider_cap_reached") is True
+            and "лимитом" in cap_result.summary
+            and blocked_result.status == "not_observed"
+            and (blocked_result.details or {}).get(
+                "provider_budget_insufficient") is True
+            and (blocked_result.details or {}).get(
+                "provider_cap_reached") is False
+            and smoke_cap.status == "not_observed"
+            and (smoke_cap.details or {}).get("provider_cap_reached") is True
+            and "не отказ провайдера" in smoke_cap.summary)
+        return ok, observed
+
+    async def _s20_answer_measurement_predicates():
+        """Страны в любом падеже, честный отрицательный ответ, анкер материала."""
+        places = _question_places(TRIGGER_TRADITION)
+        stems = {
+            "Франция": _stem("Франция"),
+            "Франции": _stem("Франции"),
+            "Великобритания": _stem("Великобритания"),
+            "Великобритании": _stem("Великобритании"),
+            "Германия": _stem("Германия"),
+            "Германии": _stem("Германии"),
+            "США": _stem("США"),
+        }
+        nominative = _places_mentioned(
+            "Франция и Великобритания не влияли на традицию", places)
+        genitive = _places_mentioned(
+            "по Франции и Великобритании данных нет", places)
+        instrumental = _places_mentioned(
+            "влияние Францией и Германией не подтверждено", places)
+        unrelated = _places_mentioned("Китай и Бразилия — другие страны", places)
+        template = ("Недостаточно данных для полной проверки утверждения. "
+                    "Источники: 1. example.ru — пересказ")
+        honest_negative = ("По этим странам данных нет: влияние Франции и "
+                           "Великобритании не подтверждено источниками.")
+        honest_negative_by_place = ("Влияние Германии на сохранение традиции "
+                                    "не подтверждено найденными источниками.")
+        defect_queries = [
+            "Распространено она распространена во многих странах африки "
+            "ближнего востока",
+            "Франция Великобритания Германия реально страны этой традицией "
+            "которые не влияли",
+        ]
+        fixed_queries = ["женское обрезание Франция Великобритания влияние"]
+        weak_queries = ["страны африки традиция"]
+        defect_usage = _material_anchor_usage(
+            MATERIAL_TRADITION, defect_queries, subject_overlap=0.833)
+        fixed_usage = _material_anchor_usage(
+            MATERIAL_TRADITION, fixed_queries, subject_overlap=0.833)
+        weak_usage = _material_anchor_usage(
+            MATERIAL_TRADITION, weak_queries, subject_overlap=0.833)
+        observed = {
+            "places": sorted(places),
+            "stems": stems,
+            "nominative": nominative,
+            "genitive": genitive,
+            "instrumental": instrumental,
+            "unrelated": unrelated,
+            "template_is_fallback": _is_fallback_answer(template),
+            "template_is_direct_negative": _is_direct_negative_answer(
+                template, places),
+            "honest_negative": _is_direct_negative_answer(
+                honest_negative, places),
+            "honest_negative_by_place": _is_direct_negative_answer(
+                honest_negative_by_place, places),
+            "material_anchor_defect": defect_usage,
+            "material_anchor_fixed": fixed_usage,
+            "material_anchor_weak_presence": weak_usage,
+        }
+        ok = (
+            len(places) >= 4
+            and stems.get("Франция") == stems.get("Франции") == "франц"
+            and stems.get("Великобритания") == stems.get("Великобритании")
+            and len(nominative) == 2
+            and len(genitive) == 2
+            and len(instrumental) == 2
+            and not unrelated
+            and _is_fallback_answer(template) is True
+            and _is_direct_negative_answer(template, places) is False
+            and _is_direct_negative_answer(honest_negative, places) is True
+            and _is_direct_negative_answer(
+                honest_negative_by_place, places) is True
+            and defect_usage["anchor_used"] is False
+            and fixed_usage["anchor_used"] is True
+            and weak_usage["anchor_used"] is False
+            and bool(_material_topic_anchors(MATERIAL_TRADITION)))
+        return ok, observed
+
+    async def _s21_original_scenario_predicates_flip():
+        """153116Z-подобный бандл → error; исправленный бандл → observed.
+
+        Доказывает, что усиленные предикаты (`material_kept`,
+        `answer_stage_completed`, `direct_answer_on_question`) действительно
+        различают «нет стадии ответа/нет анкера» и честный ответ.
+        """
+        import sys as _sys
+
+        module = _sys.modules[__name__]
+        trace_ok = [
+            "{'stage': 'temporal_search', 'outcome': 'success'}",
+            "{'stage': 'verdict', 'outcome': 'success'}",
+            "{'stage': 'verbalize', 'outcome': 'success'}",
+        ]
+        trace_fallback = [
+            "{'stage': 'temporal_search', 'outcome': 'success'}",
+            "{'stage': 'verdict', 'outcome': 'success', "
+            "'reason': 'temporal_fallback_mode'}",
+            "{'stage': 'verbalize', 'outcome': 'skipped', "
+            "'reason': 'temporal_fallback_mode'}",
+        ]
+        defect_queries = [
+            "Распространено она распространена во многих странах африки "
+            "ближнего востока",
+            "Франция Великобритания Германия реально страны этой традицией "
+            "которые не влияли",
+        ]
+        fixed_queries = [
+            "женское обрезание Франция Великобритания Германия традицией "
+            "влияние",
+        ]
+        fallback_preview = (
+            "Недостаточно данных для полной проверки утверждения. Источники: "
+            "1. edinstvo-news.ru — пересказ 2. cbinsights.com/company/manybot "
+            "— пересказ")
+        fixed_preview = (
+            "По найденным источникам влияние Франции и Великобритании на эту "
+            "практику не подтверждено: данные по странам расходятся.\n"
+            "Источники: 1. example.org/article — исследование")
+
+        def _bundle(*, queries, preview, fallback, trace, reason):
+            bundle = _empty_bundle("original_production_scenario")
+            bundle.status = "observed"
+            bundle.outcome = "verdict"
+            bundle.correlation_id = "corr-selftest"
+            bundle.subject = {
+                "material_chars": len(MATERIAL_TRADITION),
+                "text_overlaps_material": 0.833,
+                "has_request_part": True,
+                "request_part_chars": len(TRIGGER_TRADITION),
+            }
+            bundle.plan = {"queries": len(queries), "query_texts": queries,
+                           "query_previews": queries}
+            bundle.retrieval = {
+                "attempted_queries": queries, "refs": 3, "opened": 0,
+                "evidence_chars": 1200, "stop_reason": "sufficient_evidence",
+                "provider_failures": 0,
+            }
+            bundle.envelope = {
+                "material_chars": len(MATERIAL_TRADITION),
+                "request_chars": len(TRIGGER_TRADITION),
+                "fallback_used": fallback, "reason_code": reason,
+                "stage_trace": trace, "evidence_rows_delivered": 3,
+                "inference_gap": not fallback,
+            }
+            bundle.delivered = {"preview": preview, "chars": len(preview)}
+            bundle.calls = {"this_run": {"llm": 3 if not fallback else 1}}
+            bundle.events = ([{"event_name": "temporal_verdict",
+                               "outcome": "error", "level": "WARN"}]
+                             if fallback else [])
+            return bundle
+
+        async def _run(bundle):
+            saved = module.run_scenario
+
+            async def _fake_run(*args, **kwargs):
+                return bundle
+
+            module.run_scenario = _fake_run
+            try:
+                return await check_original_scenario(runtime, {"runs": {}})
+            finally:
+                module.run_scenario = saved
+
+        defect = await _run(_bundle(
+            queries=defect_queries, preview=fallback_preview, fallback=True,
+            trace=trace_fallback, reason="temporal_fallback_mode"))
+        fixed = await _run(_bundle(
+            queries=fixed_queries, preview=fixed_preview, fallback=False,
+            trace=trace_ok, reason="insufficient_evidence"))
+        defect_failed = [name for name, ok in
+                         ((defect.details or {}).get("assertions") or {}).items()
+                         if not ok]
+        fixed_assertions = (fixed.details or {}).get("assertions") or {}
+        observed = {
+            "defect": {"status": defect.status, "failed": defect_failed},
+            "fixed": {"status": fixed.status,
+                      "assertions": fixed_assertions,
+                      "anchor": ((fixed.details or {}).get("bundle") or {}).get(
+                          "material_anchor_usage")},
+        }
+        ok = (
+            defect.status == "error"
+            and "material_kept" in defect_failed
+            and "answer_stage_completed" in defect_failed
+            and "direct_answer_on_question" in defect_failed
+            and fixed.status == "observed"
+            and all(fixed_assertions.values()))
+        return ok, observed
+
     guard = _NetworkGuard()
     # Offline self-test никогда не читает PG. Чтобы plumbing-шаги (S12/S16)
     # исполнялись с ЯВНО объявленным источником effective-состояния, подставляем
@@ -3485,6 +4193,13 @@ async def run_self_test(runtime: Runtime, *,
                 await _step("S18_expected_sha_preflight",
                             _s18_expected_sha_preflight,
                             timeout=max(step_timeout, 60.0))
+                await _step("S19_provider_cap_semantics",
+                            _s19_provider_cap_semantics,
+                            timeout=max(step_timeout, 45.0))
+                await _step("S20_answer_measurement_predicates",
+                            _s20_answer_measurement_predicates)
+                await _step("S21_original_scenario_predicates_flip",
+                            _s21_original_scenario_predicates_flip)
             finally:
                 try:
                     await asyncio.wait_for(runtime.close_db(), timeout=10.0)
@@ -3535,13 +4250,16 @@ class _StubCanaryLLM:
                 "часть сведений совпадает, часть требует уточнения.")
 
 
-async def _self_test_pipeline(runtime: Runtime) -> dict:
+async def _self_test_pipeline(runtime: Runtime,
+                              *, budget_max: int = 10 ** 6) -> dict:
     """Drive the real ``run_factcheck`` once with a stub transport.
 
     This proves the harness plumbing (synthetic DB messages → publication →
     envelope → plan → retrieval → verdict → delivery → durable rows → events)
     without any network call. It is a *plumbing* check, never evidence for the
-    acceptance rows.
+    acceptance rows. ``budget_max`` lets the self-test run the same pipeline
+    with a deliberately exhausted budget to prove the cap is reported as a
+    measurement state, not as a semantic failure.
     """
     m = runtime.modules
     saved_llm, saved_service, saved_budget = (
@@ -3552,7 +4270,7 @@ async def _self_test_pipeline(runtime: Runtime) -> dict:
     runtime.llm = stub_llm
     runtime.aggregator = stub_aggregator
     runtime.service = m.fs.FactCheckService(stub_aggregator, stub_llm)
-    runtime.budget = CallBudget(True, 10 ** 6)
+    runtime.budget = CallBudget(True, int(budget_max))
     saved_fetch = m.safe_fetch.SafeFetcher.fetch_text
 
     async def _stub_fetch(safe_self, url, *args, **kwargs):
@@ -3575,6 +4293,10 @@ async def _self_test_pipeline(runtime: Runtime) -> dict:
             "status": bundle.status,
             "error": bundle.error,
             "outcome": bundle.outcome,
+            "cap_reached": bool(bundle.cap_reached),
+            "cap_denied_calls": int(bundle.cap_denied_calls),
+            "budget_blocked": bool(bundle.budget_blocked),
+            "answer_stage": _answer_stage_reached(bundle),
             "delivered_chars": (bundle.delivered or {}).get("chars"),
             "route": (bundle.claims_event or {}).get("verdict_route"),
             "claims_event": bundle.claims_event or {},
@@ -3615,7 +4337,9 @@ async def _self_test_pipeline(runtime: Runtime) -> dict:
             and result["delivery_event_present"]
             and result["stop_reason"] in (
                 m.fsp.STOP_SUFFICIENT_EVIDENCE, m.fsp.STOP_PATHS_EXHAUSTED)
-            and int(result["events"] or 0) > 0)
+            and int(result["events"] or 0) > 0
+            and not result["cap_reached"]
+            and bool((result.get("answer_stage") or {}).get("completed")))
     except Exception as exc:
         result["error"] = f"{type(exc).__name__}: {redact(str(exc), 300)}"
         result["traceback"] = redact(traceback.format_exc(), limit=1200)
@@ -3789,9 +4513,13 @@ def _parse_args(argv: list) -> argparse.Namespace:
                              "calls; provider-dependent checks stay "
                              "not_observed (same as omitting "
                              "--allow-provider-calls)")
-    parser.add_argument("--max-provider-calls", type=int, default=60,
+    parser.add_argument("--max-provider-calls", type=int, default=120,
                         help="hard cap for real provider/search/fetch calls "
-                             "(default: 60)")
+                             "across the whole run (default: 120; measured "
+                             "full suite is ~72, see CHECK_CALL_COSTS); a "
+                             "check is skipped instead of being truncated "
+                             "mid-pipeline when the remaining budget is too "
+                             "small")
     parser.add_argument("--dry-run", action="store_true",
                         help="bootstrap + effective state only; no runs")
     parser.add_argument("--self-test", action="store_true",
@@ -4054,6 +4782,10 @@ async def _main(argv: list) -> int:
     report["duration_s"] = round(time.perf_counter() - ctx["_started"], 3)
     report["call_budget"] = (runtime.budget.as_dict()
                              if runtime.budget is not None else None)
+    report["check_call_costs"] = dict(CHECK_CALL_COSTS)
+    report["check_call_margin"] = CHECK_CALL_MARGIN
+    report["min_calls_per_check"] = {
+        name: _check_min_calls(name) for name in CHECK_CALL_COSTS}
     report["safety"] = _safety_block(runtime)
     report["summary"] = _summary(report["checks"])
     _write_json(args.json_out, report)

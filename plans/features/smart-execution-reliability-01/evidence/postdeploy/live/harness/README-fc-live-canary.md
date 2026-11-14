@@ -37,19 +37,32 @@ cd /var/www/admin_bot
 
 # 0) сверка байтов harness'а с ожидаемыми (binding-контракт, как у SMART)
 sha256sum /tmp/fc_live_canary.py
-# 391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c  /tmp/fc_live_canary.py
-EXPECT_SHA=391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c
+# afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1  /tmp/fc_live_canary.py
+EXPECT_SHA=afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1
 
 # 1) dry-run: identity, effective state, capacity — без вызовов провайдеров
 venv/bin/python /tmp/fc_live_canary.py --dry-run \
     --expect-harness-sha256 "$EXPECT_SHA" \
     --json-out /tmp/fc_live_canary_dryrun.json
 
-# 2) полный прогон (5 реальных фактчеков, лимит вызовов 60)
+# 2) полный прогон (5 реальных фактчеков; полный сьют ≈72 вызова — см. §«Бюджет»)
 venv/bin/python /tmp/fc_live_canary.py \
     --expect-harness-sha256 "$EXPECT_SHA" \
     --json-out /tmp/fc_live_canary.json \
-    --allow-provider-calls --max-provider-calls 60
+    --allow-provider-calls --max-provider-calls 120
+
+# 2b) ИЗОЛИРОВАННЫЕ чистые прогоны SFC-12-09 / SFC-14-03 (после фиксов продукта):
+#     original_production_scenario ≈14 вызовов, production_smoke ≈7
+venv/bin/python /tmp/fc_live_canary.py \
+    --expect-harness-sha256 "$EXPECT_SHA" \
+    --checks original_production_scenario \
+    --allow-provider-calls --max-provider-calls 20 \
+    --json-out /tmp/fc_live_canary_original.json
+venv/bin/python /tmp/fc_live_canary.py \
+    --expect-harness-sha256 "$EXPECT_SHA" \
+    --checks production_smoke \
+    --allow-provider-calls --max-provider-calls 12 \
+    --json-out /tmp/fc_live_canary_smoke.json
 
 # при необходимости только подмножество проверок
 venv/bin/python /tmp/fc_live_canary.py --allow-provider-calls \
@@ -107,7 +120,7 @@ no checks were run`, пишется JSON без единой проверки
 Если `POSTGRES_DSN` недоступен, harness честно запишет
 `effective.pg.available=false` и будет считать effective-состояние по
 заводским значениям — это **не** production effective state. Начиная с
-`harness_version=1.2.0` (и в `1.3.0`) это не маскируется: `effective.pipeline_v2.known=false`,
+`harness_version=1.2.0` (и в `1.4.0`) это не маскируется: `effective.pipeline_v2.known=false`,
 а все provider-проверки получают `not_observed`/`unavailable` с точной
 ошибкой PG (`effective_state_unavailable (pg read failed: …)`). Причина
 `pipeline_v2_disabled_effective` выдаётся **только** когда PG реально прочитан
@@ -132,8 +145,8 @@ read-only — из-за этого прошлый прогон (1.1.0) виде�
 | `multipart_and_short_reply` | SFC-12-02 | многосоставное сообщение (4 предложения): ≥2 queries, части не потеряны (`parts>=4` или `claim_units>=4`), `refs>=2`, ожидаемый `stop_reason`; контекстная короткая реплика «А это точно?»: предмет остаётся материалом, поиск идёт по исходному материалу, есть evidence, ответ не подменяется общим уточнением |
 | `budget_scenarios` | SFC-12-07, SFC-5-10 | сценарии A–J: реальный effective-state (read-only PG) + контролируемые прогоны planner'а; OFF не даёт дедлайна/cap'ов, OFF исполняет весь план даже при сохранённом старом лимите, ON даёт 120/600/24/64/100000/20/32 и не оставляет скрытых старых потолков, сохранённый пользовательский лимит применяется, evidence > 8000 символов доходит до аналитика, 16 частей сохраняются lossless, 10 результатов не урезаются до 4 (`page_size=20`, явный `max_rows_per_query=4` даёт ровно 4), lossless-порции при ON (>100000 симв. → ≥2 порции) и единственная порция при OFF, физический предел модели/источника обрабатывается честно (truncate + remainder, `rows+remainder==total`). `evidence_class=plumbing` (транспорт — скриптовый двойник) |
 | `metric_distinguishability` | SFC-13-03 | контролируемые прогоны `run_retrieval` + `classify_retrieval` + `evidence_diagnostics`: различимы `sufficient_evidence`, `no_progress`, `providers_unavailable`, `technical_limit`, `budget_exhausted`, маркер `unexplained_stop`; частичный результат не маркируется технической аварией; `deadline_exceeded` не универсальное объяснение. `evidence_class=plumbing` |
-| `original_production_scenario` | SFC-12-09 | исходный кейс владельца (вопрос про страны + сообщение о традиции): материал сохранён, вопрос пользователя опознан, поиск построен по вопросу, источники открыты, ранней остановки по старым бюджетам нет, ответ прямой (упоминает страну/страны из вопроса), неоднозначность «внешнего влияния» обозначена, и ответ **не является эхом** входного материала/вопроса harness (`answer_not_a_harness_echo` — проверяемое утверждение, а не `True` by construction) |
-| `production_smoke` | SFC-14-03 | identity: git HEAD == manifest `deployed_sha`, `APP_VERSION` == версия манифеста == `/healthz`, effective `flags.factcheck_pipeline_v2`; короткий реальный фактчек дошёл до ответа; safety-блок (Telegram не задействован, PG не открывался или открыт read-only) |
+| `original_production_scenario` | SFC-12-09 | исходный кейс владельца (вопрос про страны + сообщение о традиции): материал реально **использован** (`material_kept`: полный материал в тексте предмета И предметный анкер материала доходит до плана запросов/выдачи — `material_anchor_usage`), вопрос пользователя опознан, поиск построен по вопросу, источники открыты, ранней остановки по старым бюджетам нет, **стадия ответа выполнена** (`answer_stage_completed`: вердикт+вербализация, без `temporal_fallback_mode`), ответ прямой — страны вопроса в любом падеже по основе слова **или** честный отрицательный ответ по этим странам; шаблон деградации не засчитывается; неоднозначность «внешнего влияния» обозначена; ответ **не является эхом** входного материала/вопроса harness. Если лимит харнесса исчерпан — `not_observed` + `provider_cap_reached` (не семантический `error`) |
+| `production_smoke` | SFC-14-03 | identity: git HEAD == manifest `deployed_sha`, `APP_VERSION` == версия манифеста == `/healthz`, effective `flags.factcheck_pipeline_v2`; короткий реальный фактчек дошёл до ответа; safety-блок (Telegram не задействован, PG не открывался или открыт read-only). При исчерпании лимита — `not_observed` + `provider_cap_reached` (не «провайдер недоступен») |
 
 Карта/сьюты: `plans/features/smart-execution-reliability-01/requirements-map-fc-amendment.json`,
 owner source `plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md`
@@ -198,10 +211,30 @@ owner source `plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.
 | original (вопрос) | 4–6 | 1–3 | ≤ 2 |
 | smoke | 3–4 | 1–2 | ≤ 1 |
 
-Суммарно ≈ **20–45** вызовов; дефолтный cap — **60**. При исчерпании cap
-поднимать осознанно (`--max-provider-calls 90`) и фиксировать фактическое
-число из `call_budget` отчёта. Время: один реальный фактчек ≈ 20–90 с
-(бюджеты OFF не ставят продуктовый дедлайн), весь прогон ≈ 3–8 минут.
+Суммарно ≈ **20–45** вызовов на «счастливом» прогоне, но полный сьют из 5
+реальных сценариев на deployed 2.58.202 измерен как **≈72 вызова**
+(`call_budget` прогонов `083723Z`/`153116Z`). Дефолтный cap — **120**.
+Измеренные стоимости (`CHECK_CALL_COSTS` в отчёте, `report.check_call_costs`):
+
+| check | измеренная стоимость | минимум для старта (+запас 3) |
+|---|---|---|
+| `ordinary_factcheck` | 17 | 20 |
+| `multipart_and_short_reply` | 34 | 37 |
+| `original_production_scenario` | 14 (включая стадию ответа) | 17 |
+| `production_smoke` | 7 | 10 |
+
+**Лимит — граница измерения, а не вердикт.** Проверка запускается только если
+остатка лимита хватает на её стоимость + запас; иначе она честно получает
+`not_observed` + `provider_budget_insufficient` (не запускается вовсе) — так
+пайплайн никогда не обрывается посередине. Если лимит исчерпан **внутри**
+прогона (продукт ловит исключение стадии и уходит в
+`temporal_fallback_mode`), прогон получает `cap_reached=true`,
+`cap_denied_calls`, `cap_kinds`, а проверка — `not_observed` +
+`provider_cap_reached=true` и `evidence_class=unavailable`. Это **не**
+семантический `error` и **не** «провайдер недоступен».
+
+Время: один реальный фактчек ≈ 20–90 с (бюджеты OFF не ставят продуктовый
+дедлайн), весь прогон ≈ 3–8 минут.
 
 ---
 
@@ -367,20 +400,36 @@ false → причина именно disabled»; **S17** — проводку P
 `bot_settings`/`chat_profiles`, pool закрыт); **S18** — preflight привязки
 `--expect-harness-sha256` (совпадение/несовпадение/malformed/флаг не задан на
 чистой функции + реальный дочерний процесс с чужим sha: exit `2`, stderr
-`PREFLIGHT FAILED`, JSON без единой проверки). Offline self-test не открывает
-настоящую PG: снимок помечен как `self_test_synthetic`, а отчёт содержит
-`pg_snapshot_mode`.
+`PREFLIGHT FAILED`, JSON без единой проверки); **S19** — семантику лимита
+(тот же пайплайн с бюджетом 3 → `provider_cap_reached`,
+`cap_denied_calls>0`, `answer_stage.completed=false`, `this_run.llm=0`;
+чистый бюджет → `observed`, `cap_reached=false`, стадия ответа выполнена;
+проверки на cap-бандле → `not_observed` + `provider_cap_reached=true`, а на
+нехватке остатка → `provider_budget_insufficient`); **S20** — измерительные
+предикаты (страны в любом падеже по основе слова, честный отрицательный ответ
+принят, шаблон деградации отвергнут, анкер материала: дефектные запросы
+153116Z → `anchor_used=false`, исправленные → `true`, «слабое присутствие»
+темы → `false`); **S21** — усиленные проверки на бандлах:
+153116Z-подобный (без анкера + fallback) → `error` с провалом ровно
+`material_kept`/`answer_stage_completed`/`direct_answer_on_question`/
+`ambiguity_acknowledged`,
+исправленный → `observed`, все 9 утверждений true. Offline self-test не
+открывает настоящую PG: снимок помечен как `self_test_synthetic`, а отчёт
+содержит `pg_snapshot_mode`.
 
-Ожидаемый результат на release-чекауте: `self_test_passed=true` (19/19),
+Ожидаемый результат на release-чекауте: `self_test_passed=true` (22/22),
 `--offline`: `observed=2` (оба `plumbing`), `not_observed=4`,
 `production_observed=0`.
 
 Фактически получено автором (release worktree `13884daa`, main-repo venv,
-Windows, без сети):
+Windows, без сети и без платных вызовов; запуск с
+`--repo-root <release worktree>` — сам файл харнесса живёт в master-дереве,
+а v2-модули `services.factcheck_*` есть только в release-чекауте; на
+прод-хосте cwd уже release-чекаут и флаг не нужен):
 
 ```text
 py_compile ............................... COMPILE OK
---self-test .............................. self_test_passed=true, 19/19, ~0.43 s
+--self-test .............................. self_test_passed=true, 22/22, ~1.0 s
    S0 harness sha256 ..................... ok
    S1 publication ........................ ok (target_source=stored_reply)
    S2 material subject ................... ok (origin=material)
@@ -396,7 +445,8 @@ py_compile ............................... COMPILE OK
    S11 redaction ......................... ok
    S12 pipeline plumbing ................. ok (route=envelope_temporal,
                                                delivered=2 == db=2, scope_unique=true,
-                                               claim_chars=235, 16 mca-событий)
+                                               claim_chars=235, 16 mca-событий;
+                                               cap_reached=false, answer_stage=completed)
    S13 factory values .................... ok (120/600/24/64/100000/20/32)
    S14 assertion sensitivity ............. ok (13/13 негативных контролей)
    S16 pg state semantics ................ ok (unavailable с точной ошибкой PG;
@@ -404,6 +454,13 @@ py_compile ............................... COMPILE OK
    S17 pg read wiring .................... ok (PgDatabase, 2×SELECT, readonly tx)
    S18 expected sha preflight ............ ok (mismatch → child exit 2,
                                                checks=0; match/malformed/absent ok)
+   S19 provider cap semantics ............ ok (budget=3 → cap_reached, denied=7,
+                                               this_run.llm=0, fallback; check →
+                                               not_observed + provider_cap_reached)
+   S20 answer measurement predicates ..... ok (падежи, отрицательный ответ,
+                                               анкер: defect=false/fixed=true)
+   S21 original scenario predicates ...... ok (153116Z-бандл → error;
+                                               исправленный → observed 9/9)
    S15 no network attempts ............... ok (guard armed, 0 попыток)
 --self-test --expect-harness-sha256 <correct>  exit 0, passed=true
 --expect-harness-sha256 <wrong> ........... exit 2, "PREFLIGHT FAILED … no checks
@@ -424,8 +481,8 @@ py_compile ............................... COMPILE OK
 watchdog не понадобился. Сетевой guard проверен отдельно: `create_connection` и
 `getaddrinfo` бросают `ProviderCallsDisabled` и попадают в `attempts`.
 
-Документированная версия harness (`HARNESS_VERSION=1.3.0`) имеет
-`sha256=391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c`;
+Документированная версия harness (`HARNESS_VERSION=1.4.0`) имеет
+`sha256=afcd6ee00ffe332cf64503e7ec05e9845483f73e7745627fe910763a7776e3f1`;
 фактический хэш запуска всегда указан в `candidate_binding.harness_sha256`
 отчёта (для этой версии файла значения должны совпадать).
 
