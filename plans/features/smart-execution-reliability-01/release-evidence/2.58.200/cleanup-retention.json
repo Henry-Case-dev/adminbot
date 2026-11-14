@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\smart-execution-reliability-01-45d7d5f19c3b-db50b61f",
+      "owner": "DevOps",
+      "reason": "Release worktree holds branch release/2.58.200 (deployed code 0e4a144d + release evidence 315cc991). The branch is not an ancestor of the master working HEAD, so removing the worktree would drop the only local checkout of the deployed release line until Orchestrator/PM finishes map rebinding and integrates the release evidence. Worktree itself is clean (only the git-ignored test DB was removed).",
+      "evidence": "git ls-remote origin refs/heads/release/2.58.200 = 315cc9912dbb7d1b047789b8133fbf9e387e1b8b; deployed HEAD on production = 0e4a144db476a1535ae3a2b79a7cce30354ad866; plans/features/smart-execution-reliability-01/release-evidence/2.58.200/deploy.md (deploy, health, effective config, rollback)",
+      "next_event": "Orchestrator/PM rebinds requirement maps to the deployed SHA and integrates/cherry-picks the release evidence into master; then DevOps runs workflow_housekeeping.py unit-close --repo C:\\Code\\Python\\adminbot --epic smart-execution-reliability-01 --unit release-258200 without this retention (branch already pushed, safe to drop the worktree)."
+    }
+  ]
+}
