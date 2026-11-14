@@ -1,28 +1,32 @@
 ﻿# Workflow State
 
-Task: smart-execution-reliability-01 (queue 1, P0) — delivered, acceptance paused
-Task source: plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md + plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md
-Status: waiting_external
-Primary phase: postdeploy
-Active feature: smart-execution-reliability-01
-Active lanes: none (stopped on owner command; Builder model smoke test passed: "Builder на связи", builder-ok)
-Join barriers: none
-Last verified: production 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad866 (release/2.58.200); healthz 200 {"version":"2.58.200"}, service active, .deploy/release.json deployed_sha=HEAD=0e4a144d, previous_sha=d20a7f73, schema user_version=47 with no pending migrations, DB backup backups/pre_deploy_258200_20261114T051849Z.db. Owner settings preserved (547->548 rows, only factory prompt prompts.factcheck_subject_system_prompt; chat overrides and models unchanged). Effective budgets OFF in all three chats; tool caps 0; chat capacity 1048576/32768 source=provider_catalog verified; legacy 16384 removed. Rollback target d20a7f73 / 2.58.199 (code only, schema 47, data not rolled back).
-Acceptance: 186/186 mandatory requirements accounted — 156 review-level, 24 READY_FOR_LIVE, 6 VERIFIED; 0 PENDING. S12 (388 passed) and S17 (127 passed) accepted on merged train 1d9cf251; final cap audit approved C2-01/C3-01/C3-02.
-Next unlocks (only on owner command; agent-owned): (1) rebind row evidence to deployed SHA 0e4a144d with bound_from_candidate and set map-level deployed candidate; (2) run requirements_gate --stage release then --stage delivery; (3) live canaries: real factcheck S13-S17, Telegram/LLM/search, journal as service user, L1-L8, checkup continuation, effective-config observability; (4) convert READY_FOR_LIVE to VERIFIED only on observed evidence.
-Next execution: none
-Review: all slices approved; S12/S17 Approved for controlled deployment; cap audit Approved
-Deployment: verified 2.58.200 @ 0e4a144d (release/2.58.200); rollback d20a7f73 / 2.58.199
+Task: smart-corrective-01 (queue 2, P0) — owner corrective after the live checkup defect; parent smart-execution-reliability-01 (queue 1) delivery preserved
+Task source: plans/owner_inputs/2026-11-14-smart-corrective-01.md (sha 8A0239B3…) + plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md + plans/owner_inputs/2026-11-14-factcheck-request-integrity-v2-full.md + plans/owner_inputs/2026-11-14-resume-smart-acceptance.md
+Status: in_progress
+Primary phase: investigation
+Active feature: smart-corrective-01
+Active lanes: PM corrective map ses_e274b2dd9ffeW0xwwxBOwkh2jG; PM binding observed rows ses_e274172b3ffeokgSY4JjkGjRWi; Architect S5 extension ses_e27474947ffeFJEjbJr2ckU7GG; DevOps run/incident/flags recon ses_e2769b7d0ffewXPCcFM6ZrtzLY; Reviewer harness audit ses_e273b4525ffe47gqf5snOL5IL1
+Join barriers: investigation + architecture + corrective map -> implementation dispatch; harness execution -> parent live evidence
+Last verified: production 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad866; healthz 200; schema 47; owner settings preserved. Parent maps rebound (162/186 ids deploy-level VERIFIED; deploy gates errors=0). DevOps read-only observability batch observed H3/H4/I1/I2/K3 facts and committed evidence 695d4627 (observability-2.58.200.md + raw): journal under uid 999 rc=0 with matching InvocationID; manifest identity verified_deployed; I1 root cause SQLITE_BUSY on meme_initiative_attempt, 33,122 rows preserved, both spooled attempts present once, new writer path writes; I2 cursor 15345→15945→16095, lag formula verified, no duplicates; K3 settings preserved incl. owner manual checkup prompt edit (manual_edit, 06:11:54Z).
+Corrective registration: owner task captured verbatim; task smart-corrective-01 created at queue_position 2 / P0 / blocked_by []; queue shifted 2..41 -> 3..42 with history; queue validator complete=true, issues=[].
+Defect (owner-confirmed, not VERIFIED): live checkup found six active watchdog.jobs ERROR incidents but ended its own source investigation as unverified (only a deploy harness script located); a second owner instruction produced the useful analysis. Architect validated root causes in deployed code: SourceReader.run() budget context not passed from ToolRouter._read_source_code (tool_router.py:3345-3469); fixed locator cap _MAX_LOCATOR_PATHS=3 (source_reader.py:2957-3016); aggregate WATCHDOG_TAKEOVER emitted inside the stale loop (mca_watchdog.py:96-143); checkup limits not typed as completeness state (checkup_service.py:94-97,130-131); Betterstack still in active checkup prompt contour (checkup_prompts.py:51,72,99,129,188). Slices S1 SourceReader, S2 budget propagation, S3 checkup completeness/input, S4 prompt delivery, S5 watchdog; S1->S2->S3, S1/S3->S4, S5 parallel after event vocabulary.
+Production finding (external): nano-gpt.com degraded since ~05:56Z (empty content/timeouts); semantic drain stopped at 06:19Z; rows not lost; real-LLM live canaries should run after provider health recovers.
+Next unlocks: (1) DevOps two-run + six-incident reconstruction; (2) non-provider harness checks now / provider-dependent checks after recovery; (3) PM corrective map review; (4) implementation dispatch after investigation+contract
+Next execution: awaiting_children
+Review: not_applicable (planning/investigation phase)
+Deployment: parent 2.58.200 verified engineering delivery; corrective not implemented
 Human gate: none
-Progress scope: plans/progress_scope.json | SMART 186 reqs: 156 review, 24 ready, 6 verified, 0 pending; deployed 0e4a144d / 2.58.200
-Updated: 2026-11-14T17:30:00+12:00
+Progress scope: plans/progress_scope.json | fresh; corrective map pending (maps[] updated by Orchestrator after PM)
+Updated: 2026-11-14T18:40:00+12:00
 
 ## Facts
 
-- Release evidence integrated to master (commits 22b052fa deploy evidence, 8645efdb cleanup retention): plans/features/smart-execution-reliability-01/release-evidence/2.58.200/ (deploy.md, identity.txt, postdeploy-health.txt, effective-config.txt, predeploy-tests.md, rollback.md, gate-state-before-rebind.txt).
-- Predeploy: 17-file set 362 passed; factcheck set 276 passed; 4 acceptance files 88 passed; pin set 856/4 failed; broad smoke 1037/12 failed — all failures byte-identical on base d20a7f73 (pre-existing legacy expectations), no new failures.
-- Deploy discipline: one recon + one main SSH session; DB backup before restart; manifest generated before restart; restart 05:18:59Z; zero traceback/ERROR since start; one pre-existing FTS-only warning; disk 29.6 GB free.
-- Known limitation: in-process budget_gate from separate processes is not observable (no ChatParamsCache) — remains a live canary, not claimed verified.
-- Map state: both SMART maps now record deployed_commit 0e4a144d / 2.58.200 in deployment_state; row-level evidence is still bound to lane candidates (rebinding and release/delivery gates pending). Map-level deploy gate red is the documented multi-candidate effect, not a product failure.
-- Test Builder smoke with the newly selected model passed: "Builder на связи", HEAD 1f5faece, python output builder-ok.
-- Backlog notes from deployment: 12+4 pre-existing failing tests (canon 18-tool outdated assert, menu-freeze, old allowlist, prompt-surface) are BACKLOG_ONLY, reproduce on deployed base, not blockers.
+- Owner corrective scope: fix the live checkup self-research defect (SourceReader full local-first fallback, content-based search, effective budget propagation, checkup completion/input completeness, prompt delivery verification) and the watchdog incident contour; mandatory read-only investigation of both production runs before implementation; no duplicate epic, no queue restart.
+- Parent 2.58.200 engineering delivery evidence stays valid and must not be rewritten; the discovered defect is not VERIFIED until fix evidence exists.
+- Parent live rows impacted by this defect (H3/H4/L7/M3, possibly L1-L3/L6) must be revalidated on the corrective release; PM is producing the exact reconciliation and must not change statuses.
+- Known limitation: in-process budget_gate from separate processes is not observable (no ChatParamsCache) — remains a live canary.
+- Pre-existing failures (12 broad smoke + 4 pin guard) reproduce on base d20a7f73; BACKLOG_ONLY, not blockers.
+- Release worktree retained at WorkspaceData/worktrees/c742e4de9e92c489/smart-execution-reliability-01-45d7d5f19c3b-db50b61f (branch release/2.58.200, code == 0e4a144d + docs); master does not contain the deployed code.
+- FC and SMART live harnesses authored and locally validated (self-tests 13/13 and 0 failures, no Bot/config persistence/real calls by default); Reviewer independent harness audit is running before any production run. Real FC runs are gated by effective `flags.factcheck_pipeline_v2` (code default False) — DevOps reads its production value.
+- Watchdog read-only investigation completed: 11 confirmed defects W-01..W-11 with file:line and local repro probes (duplicate/malformed WATCHDOG_TAKEOVER events, false takeover_recovered, takeover never requeues, vision watchdog globally recovers and silently interrupts non-vision jobs, no incident auto-resolve/silent reopen, heartbeat contract mismatch, terminal overwrite after takeover, progress-stall ignores NULL progress_at, unclaimed queued jobs invisible, suppressed incident-service failures, fingerprint without kind/job_id); W-12 needs production data (meaning of 72 repeats), W-13 not a defect, W-14 backlog. Architect is extending S5 into an implementable contract in this order: W-05 lifecycle first, then fingerprint/REASON_CODES.
+- Production provider nano-gpt degraded: real-LLM canaries deferred only for provider-dependent checks; non-provider checks can run now.
