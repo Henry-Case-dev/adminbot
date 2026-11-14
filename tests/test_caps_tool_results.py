@@ -85,6 +85,17 @@ class _RecordingRouter(ToolRouter):
         return output
 
 
+def _assert_composer_keeps(text: str) -> None:
+    """Context composer (budget 0 = OFF) не режет доставленный результат."""
+    fragment = comp.ContextFragment(
+        kind=comp.KIND_EXTERNAL_EVIDENCE, source_id="caps:1",
+        text=text, role=comp.ROLE_MEMORY,
+        authority=comp.AUTHORITY_PRIMARY, timestamp_utc=1700000000)
+    selection = comp.build_context_selection(
+        current_text="вопрос", memory=(fragment,), budget_tokens=0)
+    assert selection.memory and selection.memory[0].text == text
+
+
 async def _run_tool_loop(tool_name: str, arguments: dict, marker: str,
                          router, ctx):
     llm = _PipelineLLM(tool_name, arguments, marker)
@@ -232,6 +243,7 @@ async def test_query_chat_memory_result_not_trimmed_to_3500() -> None:
         "query_chat_memory", {"query": "память"}, f"-{TAIL}", router, ctx)
     assert tool_msg["content"] == output
     assert final == f"Итог: -{TAIL}"
+    _assert_composer_keeps(output)
 
 
 class _FakeAliases:
@@ -308,6 +320,7 @@ async def test_user_context_explicit_max_items_and_full_fragments() -> None:
                              "max_items": 999}, f"-{TAIL}", router, ctx)
     assert tool_msg["content"] == raw
     assert final == f"Итог: -{TAIL}"
+    _assert_composer_keeps(raw)
 
 
 @pytest.mark.asyncio
@@ -465,6 +478,7 @@ async def test_transcribe_video_link_stt_returns_full_text(tmp_path) -> None:
         router, ctx)
     assert tool_msg["content"] == output
     assert final == f"Итог: {TAIL}"
+    _assert_composer_keeps(output)
 
 
 @pytest.mark.asyncio
@@ -710,6 +724,7 @@ async def test_recognize_image_tool_result_and_payload_full_ocr(
         long_ocr[-24:], router, ctx)
     assert tool_msg["content"] == output
     assert final.startswith("Итог: ")
+    _assert_composer_keeps(output)
 
 
 @pytest.mark.asyncio
