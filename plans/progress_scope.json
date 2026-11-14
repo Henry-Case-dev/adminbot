@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-11-14T18:54:01+12:00",
+  "updated": "2026-11-14T18:58:50+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -49,7 +49,7 @@
     },
     {
       "id": "smart-corrective-01",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
       "source_sha256": "8A0239B3E307F284B5DDC5CC9FAF94725E735DEF03DB384AAAABE6E06952AE71",
       "maps": [
@@ -62,11 +62,11 @@
       "blocker_sources": {},
       "position_status": "owner_ordered",
       "position_basis": "owner directive: immediate continuation of the current corrective contour (parent smart-execution-reliability-01, queue 1)",
-      "execution_state": "planned_awaiting_investigation",
+      "execution_state": "implementing",
       "queue_note": "Registered 2026-11-14 from the owner's SMART-CORRECTIVE-01 task: fix the live checkup self-research defect (SourceReader fallback/content search, effective budget propagation, checkup completion semantics, input completeness, prompt delivery) and the watchdog incidents. Mandatory read-only investigation of the two production runs before implementation; PM map vs SMART/SELF-DIAG and Architect plan required; 2.58.200 delivery evidence stays valid. | 2026-11-14: PM map accepted (384 required rows, 24 AC, 14 slices, plan gate errors=0); Architect S5 contract extended; implementation awaits production run-chain investigation.",
       "owner_input": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
       "created": "2026-11-14T18:16:46+12:00",
-      "updated": "2026-11-14T18:54:01+12:00",
+      "updated": "2026-11-14T18:58:50+12:00",
       "not_started": true,
       "pause_reason": "intake registered; PM mapping and Architect plan in progress",
       "slice_graph": "plans/features/smart-corrective-01/slice-graph.json",
@@ -76,7 +76,7 @@
         "verified": 0,
         "pending": 384,
         "slices": 14,
-        "note": "Plan gate errors=0 (inventory=224 manual=232). Map covers the captured owner source; implementation not authorized until the two production-run investigations and the S5 contract confirmation complete."
+        "note": "2026-11-14: production investigation complete (both checkup runs + six watchdog incidents + effective flags); PM binding evidence to S0/W-12; implementation S1+S2 (SourceReader contract/content search/fallback) and S5A (watchdog lifecycle) running on branches from release/2.58.200. Parent live rows L1/L2/L4/L6/L7 are revalidated on the corrective release."
       }
     },
     {
