@@ -225,12 +225,18 @@ Durable regressions исходного дефекта (`tests/test_tool_router.p
 2. **S4 owns completion semantics**: progress-based продолжение, чекап-partial
    и различение причин ограничений. S3 даёт политику, OFF/ON-семантику и
    identity/continuation в tool-result.
-3. **Предсуществующий (не связанный) дефект теста**:
-   `tests/test_budget_global_toggle_round1024.py::TestMasterPriority`
-   (3 теста) падает `TypeError: _StubDirectChat._make.<locals>._Svc._render_thread()
-   got an unexpected keyword argument 'projection'` — идентично на базе
-   `sc/corrective-s1s2` и на pre-fix коде. Это `BACKLOG_ONLY` (устаревшая
-   заглушка теста контекст-сжатия), не регрессия S3.
+3. **Предсуществующие (не связанные) падения тестов на базовой линии**
+   (`BACKLOG_ONLY`, идентичны на `sc/corrective-s1s2` без правки S3):
+   - `tests/test_budget_global_toggle_round1024.py::TestMasterPriority`
+     (3 теста): `TypeError: _StubDirectChat._make.<locals>._Svc._render_thread()
+     got an unexpected keyword argument 'projection'` — устаревшая заглушка
+     теста контекст-сжатия;
+   - `tests/test_tool_coordinator_round1026.py::TestBounds`
+     (`test_canon_twelve_tools`: ожидает 17 инструментов, в линии 18;
+     `test_forbidden_paths_out_of_diff`: устаревший baseline web/-путей).
+   Оба случая воспроизводятся на pre-fix коде и в S3 ничего не меняют; на
+   работоспособность среза не влияют, но должны быть учтены в общем прогоне
+   релизного поезда.
 4. **Reuse остаётся in-memory и claim-bound** (существующий контракт): S3 не
    меняет namespace/scope; политика бюджета не входит в ключ reuse, потому что
    reuse не вызывает Reader и не создаёт квот; effective-политика пишется в
