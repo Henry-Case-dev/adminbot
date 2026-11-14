@@ -25,8 +25,13 @@ SXR-I1-01, SXR-I2-01, SXR-L8-01.
   `--allow-provider-calls` и ограничены `--max-provider-calls`.
 
 Каждая проверка возвращает: id, req_ids, status (observed|not_observed|
-error), summary, details (redacted), duration_s. Скрипт завершается с кодом 0,
-если он реально отработал; провал отдельной проверки остаётся в JSON.
+error), evidence_class (plumbing|production|unavailable), summary, details
+(redacted), duration_s. `status=observed` разрешён ТОЛЬКО для
+`evidence_class=production`: проверка, исполненная на scripted-двойниках или
+синтетическом входе, обязана сообщать `not_observed` с
+`evidence_class=plumbing`, даже если весь контракт прошёл. Скрипт
+завершается с кодом 0, если он реально отработал; провал отдельной проверки
+остаётся в JSON.
 
 Флаги:
   --json-out PATH          куда записать JSON (атомарно)
@@ -64,12 +69,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-HARNESS_VERSION = "1.0.0"
-SCHEMA = "smart-live-canary/1"
+HARNESS_VERSION = "1.1.0"
+SCHEMA = "smart-live-canary/2"
 
 STATUS_OBSERVED = "observed"
 STATUS_NOT_OBSERVED = "not_observed"
 STATUS_ERROR = "error"
+
+#: Классы доказательности. `production` = реальный production-путь/данные
+#: (provider/сеть, PG, systemd-journal, deployed-файлы) без подмены стимула.
+#: `plumbing` = production-код исполнен, но вход/LLM/роутер подменены харнессом
+#: либо данные синтетические: это проверка контракта, а не production-факт.
+#: `unavailable` = нужный production-источник в этом окружении недоступен.
+EVIDENCE_PRODUCTION = "production"
+EVIDENCE_PLUMBING = "plumbing"
+EVIDENCE_UNAVAILABLE = "unavailable"
+EVIDENCE_CLASSES = (EVIDENCE_PLUMBING, EVIDENCE_PRODUCTION, EVIDENCE_UNAVAILABLE)
 
 TOOL_LOOP_FALLBACK_PHRASE = (
     "Чет долго думал, аж перегрелся — и всё равно ни к чему не пришёл. "
@@ -256,6 +271,8 @@ class CheckOutcome:
     status: str
     summary: str
     details: dict = field(default_factory=dict)
+    evidence_class: str = EVIDENCE_PLUMBING
+    evidence_reason: str = ""
 
     def as_dict(self, check_id: str, req_ids: list[str], duration_s: float,
                 title: str) -> dict:
@@ -264,6 +281,12 @@ class CheckOutcome:
             "title": title,
             "req_ids": list(req_ids),
             "status": self.status,
+            "evidence_class": self.evidence_class,
+            "evidence_reason": _clip(self.evidence_reason, 400),
+            "production_observed": (
+                self.status == STATUS_OBSERVED
+                and self.evidence_class == EVIDENCE_PRODUCTION
+            ),
             "summary": _clip(self.summary, 800),
             "details": self.details,
             "duration_s": round(duration_s, 3),
@@ -288,6 +311,109 @@ class Asserts:
 
     def report(self) -> list[dict]:
         return list(self.items)
+
+
+def _plumbing_outcome(a: Asserts, details: dict, summary: str) -> CheckOutcome:
+    """Итог проверки, исполненной на scripted-двойниках/синтетике.
+
+    `observed` здесь запрещён: это контрактная (plumbing) проверка, а не
+    production-наблюдение. Провал контракта остаётся `not_observed`.
+    """
+    assertions = a.report()
+    if a.failures:
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "plumbing-контракт НЕ подтверждён: " + ", ".join(a.failures[:6]),
+            {**details, "assertions": assertions, "plumbing_pass": False},
+            EVIDENCE_PLUMBING,
+            "scripted doubles/synthetic input; contract failed",
+        )
+    return CheckOutcome(
+        STATUS_NOT_OBSERVED,
+        "plumbing-контракт подтверждён; production-путь не наблюдался "
+        "(scripted doubles/синтетический вход): " + summary,
+        {**details, "assertions": assertions, "plumbing_pass": True},
+        EVIDENCE_PLUMBING,
+        "scripted doubles/synthetic input; not production evidence",
+    )
+
+
+def _enforce_evidence_class(payload: dict) -> dict:
+    """Запретить `observed` без production-доказательства.
+
+    Защита от будущих правок: даже если проверка случайно вернёт `observed`
+    с `plumbing`/`unavailable`, JSON честно понижает статус.
+    """
+    evidence_class = str(payload.get("evidence_class") or EVIDENCE_UNAVAILABLE)
+    if evidence_class not in EVIDENCE_CLASSES:
+        evidence_class = EVIDENCE_UNAVAILABLE
+    payload["evidence_class"] = evidence_class
+    observed = payload.get("status") == STATUS_OBSERVED
+    production = evidence_class == EVIDENCE_PRODUCTION
+    if observed and not production:
+        details = payload.get("details")
+        if not isinstance(details, dict):
+            details = {}
+            payload["details"] = details
+        details["status_downgrade"] = {
+            "from": STATUS_OBSERVED,
+            "to": STATUS_NOT_OBSERVED,
+            "reason": f"evidence_class={evidence_class}; observed требует production",
+        }
+        payload["status"] = STATUS_NOT_OBSERVED
+        payload["summary"] = (
+            f"[downgraded: {evidence_class}-only] "
+            + str(payload.get("summary") or "")
+        )[:800]
+        observed = False
+    payload["production_observed"] = bool(observed and production)
+    return payload
+
+
+def _harness_identity(path: Path) -> dict:
+    """Идентичность самого harness: sha256 + Git-привязка авторской копии."""
+    resolved = path.resolve()
+    sha = _file_sha256(resolved) or None
+    info: dict[str, Any] = {
+        "path": str(resolved),
+        "sha256": sha,
+        "git_repo": None,
+        "git_relative": None,
+        "git_head": None,
+        "tracked": None,
+        "blob_matches_head": None,
+        "dirty_vs_head": None,
+        "note": "",
+    }
+    top = _git(resolved.parent, "rev-parse", "--show-toplevel")
+    if not top:
+        info["note"] = "harness file is outside a Git repository"
+        return info
+    repo = Path(top).resolve()
+    try:
+        relative = resolved.relative_to(repo).as_posix()
+    except ValueError:
+        info["note"] = "harness file is outside its Git repository root"
+        return info
+    info["git_repo"] = str(repo)
+    info["git_relative"] = relative
+    info["git_head"] = _git(repo, "rev-parse", "HEAD") or None
+    info["git_branch"] = _git(repo, "rev-parse", "--abbrev-ref", "HEAD") or None
+    tracked = _git(repo, "ls-files", "--error-unmatch", "--", relative)
+    info["tracked"] = tracked == relative
+    head_blob = _git(repo, "rev-parse", f"HEAD:{relative}") if tracked else ""
+    local_blob = _git(repo, "hash-object", "--", str(resolved))
+    info["blob_matches_head"] = bool(
+        head_blob and local_blob and head_blob == local_blob)
+    info["dirty_vs_head"] = bool(
+        info["tracked"] and head_blob and local_blob and head_blob != local_blob)
+    if not info["tracked"]:
+        info["note"] = "UNTRACKED: commit the harness before using the JSON as candidate-bound evidence"
+    elif not info["blob_matches_head"]:
+        info["note"] = "WORKTREE COPY DIFFERS FROM HEAD: commit before evidence run"
+    info["path"] = _scrub_text(str(resolved), str(repo))
+    info["git_repo"] = _scrub_text(str(repo), str(repo))
+    return info
 
 
 @dataclass
@@ -548,6 +674,14 @@ def network_blocked():
     finally:
         for name, fn in originals.items():
             setattr(safe_fetch.SafeFetcher, name, fn)
+
+
+@contextlib.contextmanager
+def offline_guard():
+    """Полный offline-режим: SafeFetcher + provider-каталоги отключены."""
+    with network_blocked():
+        with patched_capacity_adapters_missing():
+            yield
 
 
 @contextlib.contextmanager
@@ -902,12 +1036,18 @@ async def check_effective_config(ctx: HarnessContext) -> CheckOutcome:
             "effective-конфигурация прочитана, но контракт не подтверждён: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION if (configured and chat_ids)
+            else EVIDENCE_UNAVAILABLE,
+            "real settings/PG persisted config" if (configured and chat_ids)
+            else "PG persisted config unavailable",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "master budgets OFF во всех реальных чатах, скрытого enforcement нет, "
         "capacity-резолвер доступен",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real env/settings + read-only PG bot_settings/chat_profiles",
     )
 
 
@@ -980,8 +1120,10 @@ def _envelope_stats(result, llm: ScriptedLLM | None = None) -> dict:
     sequence = (
         llm.result_sequence_stats() if llm is not None
         else {"requested": len(envelopes), "tool_messages": len(envelopes),
-              "missing_tool_messages": [], "every_call_got_result": True}
+              "missing_tool_messages": [], "every_call_got_result": False,
+              "source": "unavailable_no_scripted_llm"}
     )
+    sequence.setdefault("source", "scripted_llm")
     return {
         "total": len(envelopes),
         "statuses": statuses,
@@ -1039,13 +1181,17 @@ async def check_control_loop_off(ctx: HarnessContext) -> CheckOutcome:
             "finalize_mode": str(getattr(result, "finalize_mode", "")),
             "final_chars": len(str(result)),
             "llm_rounds": llm.calls,
-            "max_calls_in_one_round": 3,
+            "scripted_round_sizes": [
+                len(calls or ()) for _content, calls in llm.rounds],
             "metered_envelopes": metered,
             "evidence_window_entries": len(getattr(tool_ctx, "evidence_limits", [])),
         }
         a.expect("rounds_gt_4", int(getattr(result, "rounds_used", 0)) > 4,
                  getattr(result, "rounds_used", 0))
         a.expect("calls_gt_6", stats["total"] > 6, stats["total"])
+        a.expect("three_calls_in_one_round",
+                 max(details["loop"]["scripted_round_sizes"] or [0]) >= 3,
+                 details["loop"]["scripted_round_sizes"])
         a.expect("multi_call_single_round", llm.calls == 5, llm.calls)
         a.expect("every_call_got_result",
                  stats["sequence"]["every_call_got_result"]
@@ -1061,10 +1207,12 @@ async def check_control_loop_off(ctx: HarnessContext) -> CheckOutcome:
         a.expect("final_answer_present",
                  bool(str(result).strip()) and TOOL_LOOP_FALLBACK_PHRASE
                  not in str(result), str(result)[:160])
+        evidence_limits = list(getattr(tool_ctx, "evidence_limits", []) or [])
         a.expect("no_network_needed",
-                 all(int((e or {}).get("network_calls") or 0) == 0
-                     for e in (getattr(tool_ctx, "evidence_limits", []) or [])),
-                 tool_ctx.evidence_limits)
+                 bool(evidence_limits)
+                 and all(int((e or {}).get("network_calls") or 0) == 0
+                         for e in evidence_limits),
+                 evidence_limits)
     except Exception as exc:
         details["exception"] = _clip(traceback.format_exc(limit=3), 800)
         return CheckOutcome(
@@ -1074,17 +1222,15 @@ async def check_control_loop_off(ctx: HarnessContext) -> CheckOutcome:
         )
 
     if a.failures:
-        return CheckOutcome(
-            STATUS_NOT_OBSERVED,
+        return _plumbing_outcome(
+            a, details,
             "tool-loop отработал, но контракт OFF не подтверждён: "
             + ", ".join(a.failures[:6]),
-            {**details, "assertions": a.report()},
         )
-    return CheckOutcome(
-        STATUS_OBSERVED,
+    return _plumbing_outcome(
+        a, details,
         "OFF-контракт подтверждён: 5 раундов, 7 вызовов (3 в одном раунде), "
         "все получили результат, cap-скипов нет",
-        {**details, "assertions": a.report()},
     )
 
 
@@ -1234,17 +1380,15 @@ async def check_caps_on_and_override(ctx: HarnessContext) -> CheckOutcome:
         )
 
     if a.failures:
-        return CheckOutcome(
-            STATUS_NOT_OBSERVED,
+        return _plumbing_outcome(
+            a, details,
             "budgets ON/override отработали неконтрактно: "
             + ", ".join(a.failures[:6]),
-            {**details, "assertions": a.report()},
         )
-    return CheckOutcome(
-        STATUS_OBSERVED,
+    return _plumbing_outcome(
+        a, details,
         "budgets ON без политики не режет; операторский override даёт "
         "структурные cap/same_call ответы; значения восстановлены",
-        {**details, "assertions": a.report()},
     )
 
 
@@ -1388,17 +1532,15 @@ async def check_evidence_payload(ctx: HarnessContext) -> CheckOutcome:
              details["tight_capacity"])
 
     if a.failures:
-        return CheckOutcome(
-            STATUS_NOT_OBSERVED,
+        return _plumbing_outcome(
+            a, details,
             "evidence-пакет не подтвердил контракт: "
             + ", ".join(a.failures[:6]),
-            {**details, "assertions": a.report()},
         )
-    return CheckOutcome(
-        STATUS_OBSERVED,
+    return _plumbing_outcome(
+        a, details,
         "13 500 симв. доставлены целиком под реальную ёмкость, хвост сохранён; "
         "при малом окне — честная обрезка без заявления о полном чтении",
-        {**details, "assertions": a.report()},
     )
 
 
@@ -1569,18 +1711,32 @@ async def check_capacity_scenarios(ctx: HarnessContext) -> CheckOutcome:
              str((overflow.get("parsed") or {}).get("model") or "") == model,
              overflow.get("parsed"))
 
+    if offline:
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "capacity-сценарии не наблюдались: --offline (provider-каталог/"
+            "реестр недоступны); проверен только resolver-флаг и "
+            "context-overflow парсер",
+            {**details, "assertions": a.report()},
+            EVIDENCE_UNAVAILABLE,
+            "offline: provider capacity catalog not contacted",
+        )
     if a.failures:
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
             "восемь сценариев ёмкости не подтверждены: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION,
+            "real resolver/provider catalog observed; contract failed",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "единый resolver: current/<1M/>1M/unknown/switch/fallback/"
         "catalog-down/overflow наблюдались, 1M не выдан за verified",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real resolver + provider catalog; one scenario injected in-memory",
     )
 
 
@@ -1623,7 +1779,7 @@ async def check_local_source_read(ctx: HarnessContext) -> CheckOutcome:
         "head": head or None,
         "branch": branch or None,
         "app_version": str(getattr(
-            __import__("config.settings", fromlist=["settings"]).settings,
+            __import__("config.settings", fromlist=["APP_VERSION"]),
             "APP_VERSION", "") or ""),
         "manifest_present": manifest_path.is_file(),
         "manifest_deployed_sha": manifest_sha or None,
@@ -1700,18 +1856,27 @@ async def check_local_source_read(ctx: HarnessContext) -> CheckOutcome:
              str(payload.get("path") or "") == "services/tool_loop.py",
              payload.get("path"))
 
+    read_observed = bool(
+        payload.get("status") == "ok"
+        and str(identity.get("verification") or "") in (
+            "verified_running", "verified_deployed_snapshot"))
     if a.failures:
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
             "локальное чтение собственного кода не подтверждено: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION if read_observed else EVIDENCE_UNAVAILABLE,
+            "real verified deployed-tree read" if read_observed
+            else "local source read unverified/unavailable",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "локальный verified-источник прочитан без GitHub; repo/commit/path "
         "совпадают с deployed SHA",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real deployed-tree read via production read_source_code",
     )
 
 
@@ -1730,6 +1895,8 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
             STATUS_NOT_OBSERVED,
             "сетевые внешние чтения пропущены: --offline",
             {**details, "assertions": a.report()},
+            EVIDENCE_UNAVAILABLE,
+            "offline: network provider path not contacted",
         )
 
     router = ToolRouter(ToolDeps(search=None, memory=None))
@@ -1868,12 +2035,16 @@ async def check_external_reads(ctx: HarnessContext) -> CheckOutcome:
             "внешние чтения/SSRF не подтверждены: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION,
+            "real network/SafeFetcher path observed; contract failed",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "публичный GitHub-файл прочитан по сети через production-путь; "
         "loopback/metadata заблокированы; 404 отдан фактической причиной",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real public network read + real SafeFetcher policy",
     )
 
 
@@ -2149,17 +2320,15 @@ async def check_diagnostic_variants(ctx: HarnessContext) -> CheckOutcome:
              len(details["variants"]))
 
     if a.failures:
-        return CheckOutcome(
-            STATUS_NOT_OBSERVED,
+        return _plumbing_outcome(
+            a, details,
             "диагностические варианты не подтверждены: "
             + ", ".join(a.failures[:6]),
-            {**details, "assertions": a.report()},
         )
-    return CheckOutcome(
-        STATUS_OBSERVED,
+    return _plumbing_outcome(
+        a, details,
         "все 7 вариантов сохраняют полученные данные, различают отказы и не "
         "публикуют бессмысленную заглушку при наличии evidence",
-        {**details, "assertions": a.report()},
     )
 
 
@@ -2218,8 +2387,8 @@ async def check_checkup_real(ctx: HarnessContext) -> CheckOutcome:
         "log_state": log_state,
         "journal_state": journal_state,
     }
-    a.expect("journal_read_ok", log_state in ("ok", "empty", "info_only"),
-             details["logs"])
+    a.expect("journal_read_ok",
+             log_state == "ok" and bool(logs_text), details["logs"])
     a.expect("journal_not_fallback_only", journal_state != "not_available",
              details["logs"])
 
@@ -2334,8 +2503,8 @@ async def check_checkup_real(ctx: HarnessContext) -> CheckOutcome:
         runtime_version = ""
     details["runtime_version"] = runtime_version or None
     a.expect("manifest_version_matches_runtime",
-             not runtime_version
-             or str(manifest_data.get("version") or "") == runtime_version,
+             bool(runtime_version)
+             and str(manifest_data.get("version") or "") == runtime_version,
              {"manifest": manifest_data.get("version"),
               "runtime": runtime_version or None})
 
@@ -2420,18 +2589,25 @@ async def check_checkup_real(ctx: HarnessContext) -> CheckOutcome:
              bool(report.strip()) and report.strip() not in ("🗿", "…"),
              _clip(report, 80))
 
+    journal_observed = bool(logs_text) and log_state == "ok" \
+        and journal_state != "not_available"
     if a.failures:
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
             "чекап/runtime identity не подтверждены: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION if journal_observed else EVIDENCE_UNAVAILABLE,
+            "real systemd journal read" if journal_observed
+            else "systemd/journal unavailable in this environment",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "журнал unit прочитан, бот не root, manifest/runtime/checkout "
         "согласованы; отчёт чекапа построен",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real systemd journal + deployed identity + real checkup report",
     )
 
 
@@ -2445,6 +2621,116 @@ _DIRECT_FORMULATIONS = (
     "Хочу понять, как в нашем коде устроен resolve_capacity — посмотри "
     "файл, где он объявлен, и скажи по факту.",
 )
+
+#: Файл заведомо больше окна tool-evidence (200k символов в deployed
+#: 2.58.200): нужен реальный remainder/cursor, а не «файл прочитан целиком».
+_CONTINUATION_FILE = "services/tool_router.py"
+
+
+async def _dispatch_source(router, tool_ctx, arguments: dict) -> dict:
+    out = await router.dispatch("read_source_code", arguments, tool_ctx)
+    if str(out).strip().startswith("{"):
+        try:
+            return json.loads(out)
+        except ValueError:
+            return {"raw": _clip(out, 300)}
+    return {"raw": _clip(out, 300)}
+
+
+def _continuation_facts(first: dict, second: dict | None) -> dict:
+    """Реальные remainder/cursor + второй диапазон, без синтетики."""
+    truncation = first.get("truncation")
+    truncation = truncation if isinstance(truncation, dict) else {}
+    first_range = list(first.get("line_range") or [])
+    cursor = truncation.get("next_line_start")
+    try:
+        cursor_int = int(cursor) if cursor is not None else 0
+    except (TypeError, ValueError):
+        cursor_int = 0
+    try:
+        first_end = int(first_range[1]) if len(first_range) > 1 else 0
+    except (TypeError, ValueError):
+        first_end = 0
+    second = second if isinstance(second, dict) else {}
+    second_range = list(second.get("line_range") or [])
+    try:
+        second_start = int(second_range[0]) if second_range else 0
+    except (TypeError, ValueError):
+        second_start = 0
+    facts = {
+        "file": _CONTINUATION_FILE,
+        "first": {
+            "status": first.get("status"),
+            "network_calls": int(first.get("network_calls") or 0),
+            "line_range": first_range,
+            "snippet_chars": int(first.get("snippet_chars") or 0),
+            "file_total_lines": int(first.get("file_total_lines") or 0),
+            "verified": bool(first.get("verified")),
+            "truncated": bool(truncation.get("truncated")),
+            "why": str(truncation.get("why") or ""),
+            "retrievable_remainder_lines": int(
+                truncation.get("retrievable_remainder_lines") or 0),
+            "next_line_start": cursor_int or None,
+            "error": first.get("error")
+            if isinstance(first.get("error"), str) else None,
+        },
+        "second": {
+            "status": second.get("status"),
+            "network_calls": int(second.get("network_calls") or 0),
+            "line_range": second_range,
+            "snippet_chars": int(second.get("snippet_chars") or 0),
+            "head": _clip(second.get("snippet") or "", 120),
+            "error": second.get("error")
+            if isinstance(second.get("error"), str) else None,
+        },
+    }
+    first_ok = (
+        facts["first"]["status"] == "ok"
+        and facts["first"]["network_calls"] == 0
+        and facts["first"]["snippet_chars"] > 0
+    )
+    remainder_ok = (
+        facts["first"]["truncated"]
+        and facts["first"]["retrievable_remainder_lines"] > 0
+        and cursor_int > first_end > 0
+    )
+    next_ok = bool(
+        second
+        and facts["second"]["status"] == "ok"
+        and facts["second"]["network_calls"] == 0
+        and facts["second"]["snippet_chars"] > 0
+        and second_start == cursor_int
+    )
+    facts["remainder_ok"] = bool(first_ok and remainder_ok)
+    facts["next_range_ok"] = bool(remainder_ok and next_ok)
+    facts["continuation_ok"] = bool(
+        facts["remainder_ok"] and facts["next_range_ok"])
+    return facts
+
+
+async def _continuation_probe(router, tool_ctx) -> dict:
+    """Прочитать большой файл, забрать remainder и реально дочитать его."""
+    first = await _dispatch_source(
+        router, tool_ctx,
+        {"operation": "read", "path": _CONTINUATION_FILE,
+         "line_start": 1, "line_end": 100000},
+    )
+    truncation = first.get("truncation")
+    truncation = truncation if isinstance(truncation, dict) else {}
+    cursor = truncation.get("next_line_start")
+    second = None
+    if cursor is not None:
+        try:
+            cursor_int = int(cursor)
+        except (TypeError, ValueError):
+            cursor_int = 0
+        if cursor_int > 0:
+            second = await _dispatch_source(
+                router, tool_ctx,
+                {"operation": "read", "path": _CONTINUATION_FILE,
+                 "line_start": cursor_int, "line_end": cursor_int + 40},
+            )
+    return _continuation_facts(first, second)
 
 
 async def check_direct_continuation(ctx: HarnessContext) -> CheckOutcome:
@@ -2467,6 +2753,44 @@ async def check_direct_continuation(ctx: HarnessContext) -> CheckOutcome:
     )
     chat_id = ctx.args.chat_id[0] if ctx.args.chat_id else 0
     temperature = float(getattr(settings, "LLM_TEMPERATURE", 0.7) or 0.0)
+
+    # Continuation: фактический remainder/cursor и реальное дочитывание
+    # следующего диапазона через production read_source_code (локально,
+    # без сети). Это не зависит от решения LLM и не является заглушкой.
+    probe_ctx = ToolContext(0, "canary continuation probe",
+                            diagnostic_research=identity)
+    continuation: dict
+    try:
+        with network_blocked():
+            continuation = await asyncio.wait_for(
+                _continuation_probe(router, probe_ctx), timeout=90)
+    except Exception as exc:
+        continuation = {"error": type(exc).__name__,
+                        "detail": _clip(str(exc), 200)}
+    details["continuation"] = continuation
+    a.expect("continuation_remainder_reported",
+             bool(continuation.get("remainder_ok")), continuation)
+    a.expect("continuation_next_range_read",
+             bool(continuation.get("next_range_ok")), continuation)
+
+    provider_enabled = bool(ctx.args.allow_provider_calls) \
+        and not bool(ctx.args.offline)
+    if not provider_enabled:
+        details["provider_calls"] = {
+            "used": ctx.provider_calls,
+            "denied": ctx.provider_denied,
+            "allowed_flag": bool(ctx.args.allow_provider_calls),
+            "offline": bool(ctx.args.offline),
+        }
+        return CheckOutcome(
+            STATUS_NOT_OBSERVED,
+            "LLM-путь Direct L1 не наблюдался: provider calls выключены "
+            "(--allow-provider-calls отсутствует или --offline); "
+            "continuation-проверка выполнена отдельно",
+            {**details, "assertions": a.report()},
+            EVIDENCE_UNAVAILABLE,
+            "provider calls disabled; production LLM decision unavailable",
+        )
 
     executed: list[dict] = []
     for text in _DIRECT_FORMULATIONS:
@@ -2559,9 +2883,8 @@ async def check_direct_continuation(ctx: HarnessContext) -> CheckOutcome:
     a.expect("tool_execution_ok",
              all(e.get("status") == "ok" for e in executed) if executed else False,
              executed)
-    a.expect("no_fixed_marker_words_required", True,
-             "фиксированные слова-маркеры не проверяются; фиксируется решение "
-             "LLM и фактический tool-вызов")
+    a.expect("continuation_still_ok",
+             bool(continuation.get("continuation_ok")), continuation)
 
     if a.failures:
         return CheckOutcome(
@@ -2569,12 +2892,18 @@ async def check_direct_continuation(ctx: HarnessContext) -> CheckOutcome:
             "Direct-продолжение не подтверждено: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION if ran else EVIDENCE_UNAVAILABLE,
+            "real L1 provider call executed; contract not satisfied" if ran
+            else "provider budget denied the L1 call",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "L1 Planner принял независимые формулировки; решение LLM и реальный "
-        "read-only tool-вызов зафиксированы",
+        "read-only tool-вызов зафиксированы; remainder/cursor и следующий "
+        "диапазон реально дочитаны",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real provider L1 decision + real read_source_code continuation",
     )
 
 
@@ -2615,8 +2944,9 @@ async def check_i1_spool(ctx: HarnessContext) -> CheckOutcome:
     table = meme.ATTEMPT_TABLE
 
     db = await ctx.sqlite()
-    details["sqlite_readable"] = db is not None
-    a.expect("sqlite_readable", db is not None,
+    sqlite_ok = db is not None and getattr(db, "db", None) is not None
+    details["sqlite_readable"] = sqlite_ok
+    a.expect("sqlite_readable", sqlite_ok,
              "read-only SQLite DB must be readable")
 
     table_row = await ctx.sqlite_one(
@@ -2702,15 +3032,32 @@ async def check_i1_spool(ctx: HarnessContext) -> CheckOutcome:
              details["attempts"])
     a.expect("attempt_query_ok", not details.get("attempt_query_error"),
              details.get("attempt_query_error"))
-    a.expect("attempts_readable", int(summary.get("c") or 0) >= 0,
+    a.expect("attempt_aggregate_readable",
+             len(rows) == 1 and not details.get("attempt_query_error")
+             and int(summary.get("c") or 0) > 0
+             and int(summary.get("last_ts") or 0) > 0,
+             {"aggregate_rows": len(rows), "summary": summary,
+              "query_error": details.get("attempt_query_error")})
+    a.expect("attempt_rows_present", int(summary.get("c") or 0) > 0,
              details["attempts"])
+    a.expect("last_attempt_state_present",
+             bool(details["last_attempts"])
+             and bool(details["last_attempts"][0].get("attempt_id"))
+             and bool(details["last_attempts"][0].get("outcome")
+                      or details["last_attempts"][0].get("reason_code")),
+             details["last_attempts"][:1])
     a.expect("spool_drained", details["spool"]["rows"] == 0
              and details["spool"]["bad_rows"] == 0, details["spool"])
+    a.expect("journal_window_readable",
+             _log_state == "ok" and len(logs_text) > 0,
+             {"log_state": _log_state, "journal_state": _journal_state,
+              "chars": len(logs_text)})
     a.expect("journal_write_healthy",
              markers["journal_spooled"] == 0 and markers["attempt_lost"] == 0,
              markers)
     a.expect("accumulated_rows_preserved",
-             int(summary.get("c") or 0) > 0 or markers["operational_error"] == 0,
+             int(summary.get("c") or 0) > 0
+             and markers["operational_error"] == 0,
              {"total": int(summary.get("c") or 0), "markers": markers})
     if details["last_attempts"]:
         display = details["last_attempt_display"]
@@ -2719,18 +3066,28 @@ async def check_i1_spool(ctx: HarnessContext) -> CheckOutcome:
                  and bool(display.get("outcome") or display.get("reason_code")),
                  display)
 
+    attempt_observed = bool(
+        sqlite_ok
+        and details["attempt_table_exists"]
+        and int(summary.get("c") or 0) > 0
+        and not details.get("attempt_query_error"))
     if a.failures:
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
             "журнал/спул мемов не подтверждены: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION if attempt_observed else EVIDENCE_UNAVAILABLE,
+            "real read-only SQLite attempt rows" if attempt_observed
+            else "SQLite attempt rows unavailable/empty",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "журнал попыток доступен, последняя попытка читается, spool пуст "
         "(идемпотентный дренаж), маркеров недоступности журнала нет",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real read-only SQLite attempt rows + real journal window",
     )
 
 
@@ -2746,8 +3103,9 @@ async def check_i2_stream(ctx: HarnessContext) -> CheckOutcome:
     details: dict[str, Any] = {"job_kind": jobs.REVIEW_JOB_KIND}
 
     db = await ctx.sqlite()
-    details["sqlite_readable"] = db is not None
-    a.expect("sqlite_readable", db is not None,
+    sqlite_ok = db is not None and getattr(db, "db", None) is not None
+    details["sqlite_readable"] = sqlite_ok
+    a.expect("sqlite_readable", sqlite_ok,
              "read-only SQLite DB must be readable")
 
     job_rows: list[dict] = []
@@ -2836,14 +3194,17 @@ async def check_i2_stream(ctx: HarnessContext) -> CheckOutcome:
     details["recomputed_lag_rows"] = total_rows_after
 
     # I3-I6 facts, если доступны (те же read-only источники)
-    try:
-        from services import experience_diagnostics as diag
+    if db is None:
+        details["reason_codes"] = {"skipped": "sqlite_unavailable"}
+    else:
+        try:
+            from services import experience_diagnostics as diag
 
-        reasons = await asyncio.wait_for(
-            diag.experience_pipeline_reasons(db), timeout=60)
-        details["reason_codes"] = reasons
-    except Exception as exc:
-        details["reason_codes"] = {"error": type(exc).__name__}
+            reasons = await asyncio.wait_for(
+                diag.experience_pipeline_reasons(db), timeout=60)
+            details["reason_codes"] = reasons
+        except Exception as exc:
+            details["reason_codes"] = {"error": type(exc).__name__}
 
     a.expect("review_job_present", bool(job_rows), len(job_rows))
     a.expect("durable_payload_present", bool(payload), len(payload))
@@ -2853,7 +3214,12 @@ async def check_i2_stream(ctx: HarnessContext) -> CheckOutcome:
     a.expect("lag_measurement_available",
              bool(measured.get("available")),
              details["measured_lag_payload"])
-    a.expect("lag_not_negative", total_rows_after >= 0, total_rows_after)
+    a.expect("cursor_lag_recomputed",
+             bool(cursor_entries)
+             and all(isinstance(e.get("rows_after_cursor"), int)
+                     and bool(e.get("cursor_lag_consistent"))
+                     for e in cursor_entries),
+             cursor_entries)
     a.expect("progress_matches_measured",
              int(progress.get("lag_rows") or 0) <= max(
                  total_rows_after, int(measured.get("rows") or 0)),
@@ -2864,17 +3230,25 @@ async def check_i2_stream(ctx: HarnessContext) -> CheckOutcome:
                  for r in details["recent_jobs"]),
              details["recent_jobs"])
 
+    stream_observed = bool(
+        sqlite_ok and payload and cursor_entries
+        and not details.get("job_query_error"))
     if a.failures:
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
             "fresh stream не подтверждён: " + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION if stream_observed else EVIDENCE_UNAVAILABLE,
+            "real durable job payload/cursors" if stream_observed
+            else "SQLite durable payload/cursors unavailable",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "durable cursor/scope, backlog, измеренный lag и терминальные "
         "drain-циклы прочитаны без записи",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real read-only SQLite durable payload/cursors/backlog",
     )
 
 
@@ -2905,6 +3279,8 @@ async def check_k3_settings(ctx: HarnessContext) -> CheckOutcome:
             STATUS_NOT_OBSERVED,
             "persisted-конфигурация недоступна: PG не прочитан",
             {**details, "assertions": a.report()},
+            EVIDENCE_UNAVAILABLE,
+            "PG persisted config unavailable",
         )
 
     rows = await ctx.pg_rows(
@@ -3020,12 +3396,16 @@ async def check_k3_settings(ctx: HarnessContext) -> CheckOutcome:
             "сохранённые настройки/модели/промпты не подтверждены: "
             + ", ".join(a.failures[:6]),
             {**details, "assertions": a.report()},
+            EVIDENCE_PRODUCTION,
+            "real read-only PG bot_settings/chat_profiles; contract failed",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         "persisted настройки, модели, prompts и chat-overrides не "
         "перезаписаны; исправления не в OFF/SHADOW",
         {**details, "assertions": a.report()},
+        EVIDENCE_PRODUCTION,
+        "real read-only PG bot_settings/chat_profiles",
     )
 
 
@@ -3089,7 +3469,8 @@ async def check_l8_rollup(ctx: HarnessContext) -> CheckOutcome:
         },
         "I4_reason_codes": {
             "status": "observed" if isinstance(reason_codes, dict)
-            and reason_codes and "error" not in reason_codes else "not_observed",
+            and reason_codes and "error" not in reason_codes
+            and "skipped" not in reason_codes else "not_observed",
             "evidence": reason_codes,
             "invariants": "unmapped codes classification (read-only snapshot)",
         },
@@ -3119,18 +3500,32 @@ async def check_l8_rollup(ctx: HarnessContext) -> CheckOutcome:
         },
         "no_new_behavior": True,
     }
+    i1_entry = ctx.results.get("i1_spool") or {}
+    i2_entry = ctx.results.get("i2_stream") or {}
+    i1_class = str(i1_entry.get("evidence_class") or EVIDENCE_UNAVAILABLE)
+    i2_class = str(i2_entry.get("evidence_class") or EVIDENCE_UNAVAILABLE)
+    rollup_class = (
+        EVIDENCE_PRODUCTION
+        if i1_class == EVIDENCE_PRODUCTION and i2_class == EVIDENCE_PRODUCTION
+        else EVIDENCE_UNAVAILABLE
+    )
+    details["input_evidence_classes"] = {"i1": i1_class, "i2": i2_class}
     if observed == 0 or (i1 != STATUS_OBSERVED and i2 != STATUS_OBSERVED):
         return CheckOutcome(
             STATUS_NOT_OBSERVED,
             "свод I1–I6 не опирается на наблюдённые I1/I2 "
             f"(i1={i1}, i2={i2}, observed={observed})",
             details,
+            rollup_class,
+            "rollup requires production-observed I1 and I2",
         )
     return CheckOutcome(
         STATUS_OBSERVED,
         f"I1/I2 наблюдены ({observed} пунктов observed, {not_observed} "
         f"not_observed, {not_run} not_run); свод без нового поведения",
         details,
+        rollup_class,
+        "rollup over production-observed I1/I2 facts",
     )
 
 
@@ -3175,13 +3570,65 @@ CHECKS: tuple[CheckSpec, ...] = (
 # ═════════════════════════════════════════════════════════════════════════════
 
 
-async def _self_test() -> int:
+def _self_test_preflight(repo_root: Path) -> list[str]:
+    """Проверить, что self-test исполняется на deployed-классах этого репо."""
+    problems: list[str] = []
+    import config.settings as _settings_mod
+    import services.direct_execution as _direct
+    import services.model_capacity as _capacity
+    import services.tool_loop as _loop
+
+    for module in (_settings_mod, _loop, _direct, _capacity):
+        origin = Path(str(getattr(module, "__file__", "") or "")).resolve()
+        try:
+            origin.relative_to(repo_root)
+        except ValueError:
+            problems.append(
+                f"{module.__name__} imported from {origin} (outside {repo_root})")
+    capacity_cls = getattr(_capacity, "CapacityResult", None)
+    if not callable(getattr(capacity_cls, "as_window_meta", None)):
+        problems.append(
+            "services.model_capacity.CapacityResult.as_window_meta missing: "
+            "repo is not the deployed 2.58.200 tree")
+    if not callable(getattr(_capacity, "resolve_capacity", None)):
+        problems.append("services.model_capacity.resolve_capacity missing")
+    if not callable(getattr(_direct, "build_evidence_pack", None)):
+        problems.append("services.direct_execution.build_evidence_pack missing")
+    if not callable(getattr(_loop, "chat_with_tools", None)):
+        problems.append("services.tool_loop.chat_with_tools missing")
+    return problems
+
+
+async def _self_test_body(repo_root: Path) -> int:
     failures: list[str] = []
 
     def expect(name: str, ok: Any, detail: Any = "") -> None:
         if not ok:
             failures.append(f"{name}: {_clip(detail, 300)}")
         print(f"[self-test] {'PASS' if ok else 'FAIL'} {name}")
+
+    harness_meta = _harness_identity(Path(__file__).resolve())
+    try:
+        from config.settings import APP_VERSION as _APP_VERSION
+
+        app_version = str(_APP_VERSION or "")
+    except Exception:
+        app_version = ""
+    print(f"[self-test] repo={repo_root}")
+    print(f"[self-test] head={_git(repo_root, 'rev-parse', 'HEAD') or '?'} "
+          f"branch={_git(repo_root, 'rev-parse', '--abbrev-ref', 'HEAD') or '?'} "
+          f"app={app_version or '?'}")
+    print(f"[self-test] harness_sha256={harness_meta.get('sha256') or '?'} "
+          f"tracked={harness_meta.get('tracked')} "
+          f"blob_matches_head={harness_meta.get('blob_matches_head')}")
+    preflight = _self_test_preflight(repo_root)
+    if preflight:
+        for problem in preflight:
+            print(f"[self-test] FAIL preflight: {problem}")
+        print(f"[self-test] failures={len(preflight)}")
+        print("[self-test] BLOCKED: run self-test from the deployed/release "
+              "tree (cwd or --repo-path); this checkout is not 2.58.200")
+        return 1
 
     # 1) tool loop: OFF-контракт (scripted LLM + stub router)
     from services.tool_loop import TOOL_LOOP_FALLBACK_PHRASE as _phrase
@@ -3293,7 +3740,7 @@ async def _self_test() -> int:
                                        "canary/unknown-selftest")
     expect("capacity.unknown_estimated", unknown.source in (
         "estimated_unknown", "fallback") and unknown.confidence != "verified",
-        unknown.as_window_meta())
+        getattr(unknown, "as_window_meta", lambda: {"source": unknown.source})())
     expect("capacity.unknown_not_16384", unknown.effective_context_window != 16384,
            unknown.effective_context_window)
     exc = LLMError("context_length_exceeded")
@@ -3349,7 +3796,73 @@ async def _self_test() -> int:
     except Exception as exc:
         expect("variant.deadline_ran", False, type(exc).__name__)
 
-    # 6) redaction
+    # 6) continuation: реальный remainder/cursor и реальное дочитывание
+    try:
+        from services import source_reader as _sr
+        from services.tool_router import ToolContext as _TC
+        from services.tool_router import ToolDeps as _TD
+        from services.tool_router import ToolRouter as _TR
+
+        identity = await asyncio.to_thread(_sr.resolve_self_repo_identity)
+        router = _TR(_TD(search=None, memory=None))
+        probe_ctx = _TC(0, "selftest continuation",
+                        diagnostic_research=identity)
+        with network_blocked():
+            cont = await asyncio.wait_for(
+                _continuation_probe(router, probe_ctx), timeout=60)
+        expect("continuation.remainder", bool(cont.get("remainder_ok")), cont)
+        expect("continuation.next_range", bool(cont.get("next_range_ok")), cont)
+        first = cont.get("first") or {}
+        second = cont.get("second") or {}
+        expect("continuation.no_network",
+               int(first.get("network_calls") or 0) == 0
+               and int(second.get("network_calls") or 0) == 0, cont)
+        broken = _continuation_facts(
+            {"status": "ok", "network_calls": 0, "line_range": [1, 10],
+             "snippet_chars": 10, "truncation": {"truncated": False}},
+            None,
+        )
+        expect("continuation.broken_rejected",
+               not broken.get("remainder_ok")
+               and not broken.get("next_range_ok"), broken)
+        wrong_range = _continuation_facts(
+            {"status": "ok", "network_calls": 0, "line_range": [1, 10],
+             "snippet_chars": 10,
+             "truncation": {"truncated": True, "next_line_start": 11,
+                            "retrievable_remainder_lines": 5}},
+            {"status": "ok", "network_calls": 0, "line_range": [1, 40],
+             "snippet_chars": 10},
+        )
+        expect("continuation.wrong_range_rejected",
+               wrong_range.get("remainder_ok") is True
+               and wrong_range.get("next_range_ok") is False, wrong_range)
+    except Exception as exc:
+        expect("continuation.ran", False, f"{type(exc).__name__}: {exc}")
+
+    # 7) evidence_class guard: observed без production запрещён
+    class _EmptyResult:
+        tool_results: list = []
+
+    stats_empty = _envelope_stats(_EmptyResult(), None)
+    expect("envelope.no_llm_not_vacuous",
+           stats_empty["sequence"]["every_call_got_result"] is False,
+           stats_empty)
+    downgraded = _enforce_evidence_class({
+        "id": "guard", "status": STATUS_OBSERVED, "summary": "stub pass",
+        "evidence_class": EVIDENCE_PLUMBING, "details": {},
+    })
+    expect("evidence_class.plumbing_downgraded",
+           downgraded.get("status") == STATUS_NOT_OBSERVED
+           and downgraded.get("production_observed") is False, downgraded)
+    kept = _enforce_evidence_class({
+        "id": "guard2", "status": STATUS_OBSERVED, "summary": "real",
+        "evidence_class": EVIDENCE_PRODUCTION, "details": {},
+    })
+    expect("evidence_class.production_kept",
+           kept.get("status") == STATUS_OBSERVED
+           and kept.get("production_observed") is True, kept)
+
+    # 8) redaction
     expect("redaction.chat", _chat_ref(123456789).startswith("chat-")
            and "123456789" not in _chat_ref(123456789))
     expect("redaction.token", "123456:abcdefghijklmnopqrstuvwxyz0123456789"
@@ -3360,6 +3873,17 @@ async def _self_test() -> int:
     for line in failures:
         print(f"[self-test]   - {line}")
     return 0 if not failures else 1
+
+
+async def _self_test(repo_root: Path) -> int:
+    """Обёртка: никакой traceback не выходит наружу, только FAIL-строки."""
+    try:
+        return await _self_test_body(repo_root)
+    except Exception as exc:  # noqa: BLE001 - контракт «no traceback»
+        print(f"[self-test] FAIL uncaught {type(exc).__name__}: "
+              f"{_clip(str(exc), 300)}")
+        print("[self-test] failures=1")
+        return 1
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -3375,13 +3899,17 @@ async def _run_one(ctx: HarnessContext, spec: CheckSpec) -> dict:
     except asyncio.TimeoutError:
         outcome = CheckOutcome(
             STATUS_ERROR, f"таймаут проверки ({ctx.args.check_timeout}s)",
-            {"exception": "TimeoutError"})
+            {"exception": "TimeoutError"}, EVIDENCE_UNAVAILABLE,
+            "check timed out before producing production evidence")
     except Exception as exc:
         outcome = CheckOutcome(
             STATUS_ERROR, f"проверка упала: {type(exc).__name__}",
-            {"exception": _clip(traceback.format_exc(limit=4), 1200)})
+            {"exception": _clip(traceback.format_exc(limit=4), 1200)},
+            EVIDENCE_UNAVAILABLE,
+            "check raised before production evidence was classified")
     duration = time.monotonic() - started
     payload = outcome.as_dict(spec.id, list(spec.req_ids), duration, spec.title)
+    payload = _enforce_evidence_class(payload)
     payload["details"] = _scrub_obj(payload.get("details") or {},
                                     str(ctx.repo_root))
     ctx.results[spec.id] = payload
@@ -3416,6 +3944,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="per-check timeout seconds (default 300)")
     parser.add_argument("--offline", action="store_true",
                         help="forbid all network access")
+    parser.add_argument("--expect-harness-sha256", default="",
+                        help="fail unless this exact harness sha256 is running")
     return parser
 
 
@@ -3483,6 +4013,15 @@ async def _amain(args) -> int:
         print(f"[canary] repo path is not the deployed tree: {root} "
               f"(missing {', '.join(missing)})", file=sys.stderr)
         return 2
+    harness_meta_start = _harness_identity(Path(__file__).resolve())
+    expected_sha = str(getattr(args, "expect_harness_sha256", "") or "").lower()
+    if expected_sha:
+        actual_sha = str(harness_meta_start.get("sha256") or "").lower()
+        if actual_sha != expected_sha:
+            print("[canary] harness sha256 mismatch: "
+                  f"expected={expected_sha} actual={actual_sha or 'unreadable'}",
+                  file=sys.stderr)
+            return 2
     sys.path.insert(0, str(root))
 
     selected = _selected_checks(args)
@@ -3495,23 +4034,47 @@ async def _amain(args) -> int:
         return 0
 
     if args.self_test:
-        return await _self_test()
+        try:
+            with offline_guard():
+                return await asyncio.wait_for(
+                    _self_test(root), timeout=float(args.check_timeout))
+        except asyncio.TimeoutError:
+            print("[self-test] FAIL timeout "
+                  f"({args.check_timeout}s); no partial pass", file=sys.stderr)
+            return 1
+        except Exception as exc:  # no traceback by contract
+            print(f"[self-test] FAIL uncaught {type(exc).__name__}: "
+                  f"{_clip(str(exc), 300)}", file=sys.stderr)
+            return 1
 
     ctx = HarnessContext(repo_root=root, args=args)
     started_iso = _utc_now_iso()
-    print(f"[canary] SMART live canary v{HARNESS_VERSION} | repo=<repo> | "
+    version = ""
+    try:
+        from config.settings import APP_VERSION as _APP_VERSION
+
+        version = str(_APP_VERSION or "")
+    except Exception:
+        version = ""
+    print(f"[canary] SMART live canary v{HARNESS_VERSION} | "
+          f"repo={root} | head={_git(root, 'rev-parse', 'HEAD')[:12] or '?'} | "
+          f"branch={_git(root, 'rev-parse', '--abbrev-ref', 'HEAD') or '?'} | "
+          f"app={version or '?'} | harness_sha={
+              str(harness_meta_start.get('sha256') or '?')[:12]} | "
           f"checks={len(selected)} | provider_calls="
           f"{'allowed:' + str(args.max_provider_calls) if args.allow_provider_calls else 'off'}"
           f"{' | offline' if args.offline else ''}")
 
     try:
-        for spec in selected:
-            if spec.id == "l8_rollup":
-                continue  # всегда последним
-            await _run_one(ctx, spec)
-        rollup = next((s for s in selected if s.id == "l8_rollup"), None)
-        if rollup is not None:
-            await _run_one(ctx, rollup)
+        scope = offline_guard() if args.offline else contextlib.nullcontext()
+        with scope:
+            for spec in selected:
+                if spec.id == "l8_rollup":
+                    continue  # всегда последним
+                await _run_one(ctx, spec)
+            rollup = next((s for s in selected if s.id == "l8_rollup"), None)
+            if rollup is not None:
+                await _run_one(ctx, rollup)
     finally:
         await _close_context(ctx)
 
@@ -3519,32 +4082,60 @@ async def _amain(args) -> int:
     summary = {
         "checks": len(results),
         "observed": sum(1 for r in results if r["status"] == STATUS_OBSERVED),
+        "production_observed": sum(
+            1 for r in results if r.get("production_observed")),
         "not_observed": sum(1 for r in results
                             if r["status"] == STATUS_NOT_OBSERVED),
         "error": sum(1 for r in results if r["status"] == STATUS_ERROR),
+        "by_evidence_class": {
+            cls: sum(1 for r in results
+                     if r.get("evidence_class") == cls)
+            for cls in EVIDENCE_CLASSES
+        },
         "failed_assertions": sum(
             len([a for a in (r.get("details") or {}).get("assertions") or []
                  if not a.get("ok")])
             for r in results),
     }
+    harness_meta = _harness_identity(Path(__file__).resolve())
+    manifest_data: dict = {}
+    manifest_path = root / ".deploy" / "release.json"
+    if manifest_path.is_file():
+        try:
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            manifest_data = {}
+    clean_tracked = (
+        _git(root, "status", "--porcelain", "--untracked-files=no") == "")
     repo_info = {
+        "root": _scrub_text(str(root), str(root)),
         "head": _git(root, "rev-parse", "HEAD") or None,
         "branch": _git(root, "rev-parse", "--abbrev-ref", "HEAD") or None,
+        "origin": _scrub_text(_git(root, "remote", "get-url", "origin")) or None,
         "app_version": None,
-        "manifest_present": (root / ".deploy" / "release.json").is_file(),
-        "harness_sha256": _file_sha256(Path(__file__).resolve()),
-        "clean_tracked": _git(root, "status", "--porcelain", "--untracked-files=no") == "",
+        "manifest_present": manifest_path.is_file(),
+        "manifest": {
+            key: manifest_data.get(key)
+            for key in ("schema", "deployed_sha", "version", "deployed_at",
+                        "effect", "previous_sha", "release_branch",
+                        "dirty_tracked")
+        },
+        "harness_sha256": harness_meta.get("sha256"),
+        "clean_tracked": clean_tracked,
+        "dirty_tracked": not clean_tracked,
     }
     try:
-        from config.settings import settings
+        from config.settings import APP_VERSION as _APP_VERSION
 
-        repo_info["app_version"] = str(getattr(settings, "APP_VERSION", "") or "")
+        repo_info["app_version"] = str(_APP_VERSION or "")
     except Exception:
         pass
     payload = {
         "schema": SCHEMA,
         "harness_version": HARNESS_VERSION,
         "harness": "smart_live_canary",
+        "harness_sha256": harness_meta.get("sha256"),
+        "harness_identity": harness_meta,
         "started_at": started_iso,
         "finished_at": _utc_now_iso(),
         "host": {
