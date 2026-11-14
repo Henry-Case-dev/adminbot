@@ -61,11 +61,20 @@ LEGACY_BLOCKS = {
 def journal(monkeypatch):
     from services import prompt_release_policy as _prp
     from services import prompt_registry as _pr
+    # Этот модуль доказывает PRE-cutover контракт провенанса: persisted-значение
+    # действует только когда записано через API реестра. Состояние процесса
+    # выставляется явно и на входе, а не только на выходе: иначе после любого
+    # модуля, где релизный проход заморозил ``character.prompt_history``
+    # (``apply_release`` → ``freeze_history``), ``_mark_provenance`` штатно
+    # становится no-op и тест получал бы ложный ``provenance_missing``.
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    _pr.set_release_policy_active(False)
+    _pr.reset_cache()
     store = _prp.MemoryPromptJournal()
     monkeypatch.setattr(_prp, "default_journal", lambda cache=None: store)
     yield store
     _pr.set_release_policy_active(False)
-    from services import prompt_factory as _pf
     _pf._HISTORY_FROZEN = False
     _pr.reset_cache()
 

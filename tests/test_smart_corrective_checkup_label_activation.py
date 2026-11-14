@@ -30,6 +30,7 @@ import asyncio
 
 import pytest
 
+from services import hot_config as hot
 from services import prompt_factory as pf
 from services import prompt_registry as pr
 from services import prompt_release_policy as prp
@@ -92,6 +93,13 @@ def _factory_revision(store, *, scope: str, chat_id: int | None):
 
 @pytest.fixture(autouse=True)
 def _reset_release_state():
+    # Явное состояние процесса на входе И на выходе: релизный проход включает
+    # политику и замораживает ``character.prompt_history``, а тесты провенанса
+    # ниже проверяют именно pre-cutover контракт.
+    pr.set_release_policy_active(False)
+    pr.set_retired_blocks(())
+    pf._HISTORY_FROZEN = False
+    pr.reset_cache()
     yield
     pr.set_release_policy_active(False)
     pr.set_retired_blocks(())
@@ -319,3 +327,76 @@ def test_manual_guard_is_isolated_to_its_chat(previous_deploy, store):
     # Ручная ревизия осталась ровно одна и с прежними байтами.
     assert _manual_revision(store).revision_id == manual.revision_id
     assert _manual_revision(store).content_sha12 == pr.sha12(OWNER_TEXT)
+
+
+# ═══ 8. Провенанс: новая метка = аттестованная фабрика, чужое — withheld ════
+#
+# Метка входит в идентичность заводской ревизии (``factory_revision`` /
+# ``sealed_factory_revision``). Проверяем, что исправленная редакция под новой
+# меткой остаётся АТТЕСТОВАННОЙ для effective-слоя, а незарегистрированное
+# значение по-прежнему удерживается (шлагбаум не ослаблен).
+
+class DictCache:
+    """Контракт ConfigCache (sync get / async set) для effective-пути."""
+
+    def __init__(self, values=None):
+        self.pg_available = True
+        self.values = dict(values or {})
+        self.set_calls: list[tuple[str, object, str]] = []
+
+    def get(self, key, default=None):
+        return self.values.get(key, default)
+
+    def get_updated_at(self, key):
+        return None
+
+    async def set(self, key, value, category):
+        self.set_calls.append((key, value, category))
+        self.values[key] = value
+
+
+def _effective(cache, value):
+    hot.set_config_cache(cache)
+    try:
+        return pr.effective_prompt(BLOCK, pg_value=value)
+    finally:
+        hot.set_config_cache(None)
+
+
+@pytest.mark.usefixtures("prompt_journal")
+def test_new_label_factory_value_is_attested_for_effective_prompt():
+    cache = DictCache()
+    written = asyncio.run(pf.write_speech_value(
+        BLOCK, CHECKUP_SYSTEM_PROMPT, cache=cache, actor="test",
+        reason="owner_edit:contract"))
+    assert written["applied"] is True
+    assert written["provenance_persisted"] is True
+
+    eff = _effective(cache, cache.values[KEY])
+
+    assert eff.source == "global"
+    assert eff.withheld is False
+    assert eff.withheld_revision == ""
+    assert eff.provenance_reason == "attested"
+    assert eff.revision == pr.ACTIVE_PREFIX + pr.sha12(CHECKUP_SYSTEM_PROMPT)
+    # Идентичность заводской редакции в effective-виде — с НОВОЙ меткой и
+    # печатью содержимого (``fac:<sha12 текста>(<метка>)``).
+    assert eff.factory_revision == pr.factory_revision(BLOCK)
+    assert eff.factory_revision == (
+        pr.FACTORY_PREFIX + pr.sha12(CHECKUP_SYSTEM_PROMPT)
+        + f"({ACTIVE_LABEL})")
+    assert eff.text == CHECKUP_SYSTEM_PROMPT
+
+
+def test_unregistered_value_is_still_withheld():
+    custom = "Своя редакция чекапа без записи через реестр. " * 60
+    cache = DictCache({KEY: custom})
+
+    eff = _effective(cache, custom)
+
+    assert eff.withheld is True
+    assert eff.source == "default"
+    assert eff.provenance_reason == "provenance_missing"
+    assert eff.withheld_sha256_12 == pr.sha12(custom)
+    # Действует заводская редакция этой поставки, а не чужой persisted-текст.
+    assert eff.text == CHECKUP_SYSTEM_PROMPT

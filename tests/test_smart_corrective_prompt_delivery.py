@@ -625,27 +625,41 @@ def test_preserved_manual_edition_without_override_is_not_replaced(
 # меткой из кода заменяет глобальное значение, и маршрут чекапа без override
 # строит system из исправленной редакции.
 
+@pytest.fixture()
+def released_history():
+    """Изоляция процесса после релизного прохода (EVOL-016 cutover).
+
+    ``apply_release`` замораживает дописывание ``character.prompt_history`` и
+    включает релизную политику. Эти глобалы процесса обязаны вернуться в
+    исходное состояние даже при падении теста: иначе следующий модуль в общем
+    прогоне проверял бы pre-cutover провенанс уже замороженным, и
+    ``write_speech_value`` штатно стал бы no-op (ложный ``provenance_missing``).
+    """
+    yield
+    pr.set_release_policy_active(False)
+    pr.set_retired_blocks(())
+    pf._HISTORY_FROZEN = False
+    pr.reset_cache()
+
+
 def test_label_bump_activation_reaches_checkup_route(service_env,
-                                                     registry_active):
+                                                     registry_active,
+                                                     released_history):
     from tests.test_evol016_prompt_activation import FakeCache
 
     store = prp.MemoryPromptJournal()
     cache = FakeCache({KEY: PREV_CHECKUP_P0_24_10_SYSTEM_PROMPT})
-    try:
-        asyncio.run(prp.apply_release(
-            cache, release_id="deploy-checkup-label", store=store,
-            blocks=["checkup.base.system"]))
-        assert cache.values[KEY] == CHECKUP_SYSTEM_PROMPT
+    asyncio.run(prp.apply_release(
+        cache, release_id="deploy-checkup-label", store=store,
+        blocks=["checkup.base.system"]))
+    assert cache.values[KEY] == CHECKUP_SYSTEM_PROMPT
 
-        hot.set_config_cache(FakeHot({KEY: cache.values[KEY]}))
-        chat_params.set_chat_params_cache(FakeChatParams())
-        telemetry: dict = {}
-        system, _ = _checkup(telemetry=telemetry)
+    hot.set_config_cache(FakeHot({KEY: cache.values[KEY]}))
+    chat_params.set_chat_params_cache(FakeChatParams())
+    telemetry: dict = {}
+    system, _ = _checkup(telemetry=telemetry)
 
-        assert "betterstack" not in system.casefold()
-        assert "401" not in system
-        assert "могут быть верны одновременно" in system
-        assert telemetry["prompt_base_hash"] == _sha16(CHECKUP_SYSTEM_PROMPT)
-    finally:
-        pr.set_release_policy_active(False)
-        pr.reset_cache()
+    assert "betterstack" not in system.casefold()
+    assert "401" not in system
+    assert "могут быть верны одновременно" in system
+    assert telemetry["prompt_base_hash"] == _sha16(CHECKUP_SYSTEM_PROMPT)
