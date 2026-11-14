@@ -36,3 +36,20 @@ FC flag probe with flags.factcheck_pipeline_v2=false returned PIPELINE_V2_ENABLE
 Per-check admissibility: self-tests and offline guards are admissible only as preflight; offline plumbing is not production evidence; SMART checkup/I1/I2 and FC v2-on production scenarios remain unverified and ready for controlled collection. 
  
 No H-1 through H-4 blocker remains. No production canary or paid provider call was run, and no requirement was marked VERIFIED.
+ 
+## Audit r3 (post-production harness fixes) 
+ 
+Candidate d7df228d. SMART sha 21c7ac74dbe139d9784168b93cb0a1a6c7fb7f18c1e17f7aa497d6d12fffd820; FC sha 984dbdf444e13974767e10954e2aa4f69f4f2c921f0c20c0f39892435c05ef2d. Deployed application worktree 13884daa release/2.58.200. No production or paid provider calls. 
+ 
+Three pillars: inspected FC PgDatabase readonly SELECT path, effective pipeline-state contract, SMART BudgetState.as_meta and source-reader contracts; read changed assertions and negative controls; independently ran both self-tests, both dry-runs, foreign checkout, SHA mismatch and disposable mutations for budget shape, K3 attribution, PG failure and timeout behavior. 
+ 
+Fix status: FC PG read fixed, S16/S17 passed; synthetic PG outage produced available=false, exact pg error, known=false enabled=null source=unavailable. SMART budget contract fixed; unknown enabled-only shape returned None with expected budgets_enabled and observed keys. SMART K3 fixed; unattributed and out-of-window writes returned ok=false. External-read contract fixed in source and assertions: README unverified, source file verified, network/content/identity/refusal/SafeFetcher checks required. 
+ 
+Runtime: SMART self-test exit 0 failures=0; FC self-test exit 0 self_test_passed=true duration 0.282; SMART dry-run exit 0 14 checks no network/DB; FC dry-run exit 0 identity_code unknown; SMART foreign checkout exit 1 explicit BLOCKED; SMART bad expected SHA exit 2 before checks. 
+ 
+Remaining blocker: FC has no explicit --expect-harness-sha256 CLI option. Supplying it exits 2 as unrecognized argument, not as a deliberate preflight hash mismatch. Location fc_live_canary.py _parse_args around 2740-2760 and _main around 3500. This is a focused binding blocker for FC production rerun; add explicit expected-hash preflight or document and independently verify an equivalent binding mechanism. 
+ 
+SMART verdict: admissible for the production re-run. 
+FC verdict: not admissible for the production re-run until explicit hash-mismatch preflight is added or formally replaced and independently verified. 
+ 
+Parent acceptance remains UNVERIFIED.

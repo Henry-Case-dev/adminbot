@@ -87,7 +87,11 @@ from types import SimpleNamespace
 #: the factory default); provider checks now report ``unavailable`` with the
 #: exact PG error instead of ``pipeline_v2_disabled_effective`` when the
 #: persisted layer was not read.
-HARNESS_VERSION = "1.2.0"
+#: 1.3.0 (2026-11-14): `--expect-harness-sha256` binding preflight (same
+#: contract as the SMART harness: mismatch → exit 2 before any check/network/
+#: provider call, JSON without checks); the report now echoes
+#: `expected_harness_sha256`/`harness_sha256_preflight`.
+HARNESS_VERSION = "1.3.0"
 HARNESS_NAME = "fc_live_canary"
 
 #: Evidence classes. ``production`` = the verdict is derived from a real
@@ -3367,6 +3371,81 @@ async def run_self_test(runtime: Runtime, *,
             and (observed["state"] or {}).get("enabled") is True)
         return ok, observed
 
+    async def _s18_expected_sha_preflight():
+        """`--expect-harness-sha256`: mismatch → exit 2 ДО проверок/сети.
+
+        Поведенческая часть — реальный дочерний процесс с чужим sha. Он
+        завершается в `_main` до `load_modules()`, поэтому ни сети, ни БД,
+        ни provider-вызовов не происходит; JSON (если запрошен) не содержит
+        ни одной проверки.
+        """
+        import shutil as _shutil
+        import subprocess as _subprocess
+        import tempfile as _tempfile
+
+        actual = _self_sha256()
+        observed: dict = {
+            "match": _expected_sha_preflight(actual, actual),
+            "mismatch": _expected_sha_preflight("0" * 64, actual),
+            "malformed": _expected_sha_preflight("not-a-sha", actual),
+            "absent": _expected_sha_preflight("", actual),
+        }
+        workdir = _tempfile.mkdtemp(prefix="fc-sha-preflight-")
+        mismatch_json = os.path.join(workdir, "mismatch.json")
+        child_env = dict(os.environ)
+        child_env["ADMINBOT_SKIP_DOTENV"] = "1"
+        child_env["POSTGRES_DSN"] = ""
+        try:
+            child = _subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()),
+                 "--repo-root", str(runtime.repo_root),
+                 "--expect-harness-sha256", "0" * 64,
+                 "--json-out", mismatch_json],
+                capture_output=True, text=True, timeout=120, env=child_env)
+            observed["process"] = {
+                "exit": int(child.returncode),
+                "stdout": redact((child.stdout or "").strip(), 200),
+                "stderr": redact((child.stderr or "").strip(), 200),
+            }
+            payload: dict = {}
+            if os.path.isfile(mismatch_json):
+                try:
+                    payload = json.loads(Path(mismatch_json).read_text(
+                        encoding="utf-8"))
+                except Exception:
+                    payload = {}
+            observed["payload"] = {
+                "checks": len(payload.get("checks") or []),
+                "harness_sha256": payload.get("harness_sha256"),
+                "expected_harness_sha256": payload.get(
+                    "expected_harness_sha256"),
+                "preflight_reason": (payload.get("preflight_failed")
+                                     or {}).get("reason"),
+            }
+        finally:
+            _shutil.rmtree(workdir, ignore_errors=True)
+
+        observed["payload"]["observed_sha_matches_file"] = (
+            observed["payload"].get("harness_sha256") == actual)
+        observed["payload"]["expected_sha_echoed"] = (
+            observed["payload"].get("expected_harness_sha256") == "0" * 64)
+        ok = (
+            observed["match"]["ok"] is True
+            and observed["match"]["requested"] is True
+            and observed["mismatch"]["ok"] is False
+            and observed["mismatch"]["reason"] == "harness_sha256_mismatch"
+            and observed["malformed"]["ok"] is False
+            and observed["absent"]["ok"] is True
+            and observed["absent"]["requested"] is False
+            and observed["process"]["exit"] == 2
+            and "PREFLIGHT FAILED" in observed["process"]["stderr"]
+            and observed["payload"]["checks"] == 0
+            and observed["payload"]["preflight_reason"]
+            == "harness_sha256_mismatch"
+            and observed["payload"]["observed_sha_matches_file"]
+            and observed["payload"]["expected_sha_echoed"])
+        return ok, observed
+
     guard = _NetworkGuard()
     # Offline self-test никогда не читает PG. Чтобы plumbing-шаги (S12/S16)
     # исполнялись с ЯВНО объявленным источником effective-состояния, подставляем
@@ -3403,6 +3482,9 @@ async def run_self_test(runtime: Runtime, *,
                             _s16_pg_state_semantics,
                             timeout=max(step_timeout, 20.0))
                 await _step("S17_pg_read_wiring", _s17_pg_read_wiring)
+                await _step("S18_expected_sha_preflight",
+                            _s18_expected_sha_preflight,
+                            timeout=max(step_timeout, 60.0))
             finally:
                 try:
                     await asyncio.wait_for(runtime.close_db(), timeout=10.0)
@@ -3726,6 +3808,10 @@ def _parse_args(argv: list) -> argparse.Namespace:
                         help="comma-separated subset of check ids")
     parser.add_argument("--repo-root", default="",
                         help="release checkout (default: current directory)")
+    parser.add_argument("--expect-harness-sha256", default="",
+                        help="optional binding pin: sha256 of this harness file; "
+                             "a mismatch exits 2 before any check/network/"
+                             "provider call (same contract as the SMART harness)")
     parser.add_argument("--keep-temp", action="store_true",
                         help="keep the temporary sqlite database")
     return parser.parse_args(argv)
@@ -3737,6 +3823,28 @@ async def _main(argv: list) -> int:
         print(json.dumps({"error": "--offline and --allow-provider-calls are "
                                    "mutually exclusive"}, ensure_ascii=False))
         return 2
+    # Binding-preflight ДО любого импорта/сети/проверки: несовпадение sha256
+    # harness'а означает, что прогон не привязан к ожидаемым байтам.
+    actual_sha = _self_sha256()
+    preflight = _expected_sha_preflight(
+        getattr(args, "expect_harness_sha256", ""), actual_sha)
+    if not preflight["ok"]:
+        print("[canary] PREFLIGHT FAILED: "
+              + str(preflight.get("message") or preflight["reason"])
+              + "; no checks were run", file=sys.stderr)
+        if str(getattr(args, "json_out", "") or ""):
+            _write_json(args.json_out, {
+                "schema": "fc-live-canary/v1",
+                "harness": HARNESS_NAME,
+                "harness_version": HARNESS_VERSION,
+                "harness_sha256": actual_sha,
+                "expected_harness_sha256": preflight["expected"],
+                "started_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "preflight_failed": preflight,
+                "checks": [],
+                "observability": [],
+            })
+        return 2
     allow_provider_calls = bool(args.allow_provider_calls) and not bool(
         args.offline)
     repo_root = Path(args.repo_root or os.getcwd()).resolve()
@@ -3745,7 +3853,9 @@ async def _main(argv: list) -> int:
         "schema": "fc-live-canary/v1",
         "harness": HARNESS_NAME,
         "harness_version": HARNESS_VERSION,
-        "harness_sha256": _self_sha256(),
+        "harness_sha256": actual_sha,
+        "expected_harness_sha256": preflight["expected"],
+        "harness_sha256_preflight": preflight,
         "started_at": started_at,
         "repo_root": str(repo_root),
         "allow_provider_calls": allow_provider_calls,
@@ -4013,6 +4123,34 @@ def _self_sha256() -> str:
         return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     except Exception:
         return ""
+
+
+def _expected_sha_preflight(expected: str, actual: str) -> dict:
+    """Сверить ожидаемый sha256 harness с фактическим (до любых проверок).
+
+    Контракт привязки тот же, что у SMART-харнесса: при несовпадении скрипт
+    завершается кодом 2 ДО запуска проверок, сети и provider-вызовов; при
+    совпадении (или если флаг не задан) прогон продолжается обычным порядком.
+    """
+    want = str(expected or "").strip().lower()
+    got = str(actual or "").strip().lower()
+    if not want:
+        return {"requested": False, "ok": True, "expected": None,
+                "actual": got or None, "reason": ""}
+    if not re.fullmatch(r"[0-9a-f]{64}", want):
+        return {"requested": True, "ok": False, "expected": want,
+                "actual": got or None,
+                "reason": "expected_sha256_malformed",
+                "message": ("--expect-harness-sha256 must be 64 lowercase hex "
+                            f"chars, got {want!r}")}
+    if got != want:
+        return {"requested": True, "ok": False, "expected": want,
+                "actual": got or None,
+                "reason": "harness_sha256_mismatch",
+                "message": (f"harness sha256 mismatch: expected={want} "
+                            f"actual={got or 'unreadable'}")}
+    return {"requested": True, "ok": True, "expected": want, "actual": got,
+            "reason": ""}
 
 
 def _write_json(path: str, payload: dict) -> None:

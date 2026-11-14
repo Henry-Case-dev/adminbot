@@ -35,22 +35,31 @@ scp fc_live_canary.py root@192.255.209.205:/tmp/fc_live_canary.py
 ssh root@192.255.209.205
 cd /var/www/admin_bot
 
+# 0) сверка байтов harness'а с ожидаемыми (binding-контракт, как у SMART)
+sha256sum /tmp/fc_live_canary.py
+# 391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c  /tmp/fc_live_canary.py
+EXPECT_SHA=391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c
+
 # 1) dry-run: identity, effective state, capacity — без вызовов провайдеров
 venv/bin/python /tmp/fc_live_canary.py --dry-run \
+    --expect-harness-sha256 "$EXPECT_SHA" \
     --json-out /tmp/fc_live_canary_dryrun.json
 
 # 2) полный прогон (5 реальных фактчеков, лимит вызовов 60)
 venv/bin/python /tmp/fc_live_canary.py \
+    --expect-harness-sha256 "$EXPECT_SHA" \
     --json-out /tmp/fc_live_canary.json \
     --allow-provider-calls --max-provider-calls 60
 
 # при необходимости только подмножество проверок
 venv/bin/python /tmp/fc_live_canary.py --allow-provider-calls \
+    --expect-harness-sha256 "$EXPECT_SHA" \
     --checks ordinary_factcheck,production_smoke \
     --json-out /tmp/fc_live_canary_smoke.json
 
 # 3) явный offline-режим (без провайдеров; прод-проверки = not_observed)
 venv/bin/python /tmp/fc_live_canary.py --offline \
+    --expect-harness-sha256 "$EXPECT_SHA" \
     --json-out /tmp/fc_live_canary_offline.json
 ```
 
@@ -58,8 +67,22 @@ venv/bin/python /tmp/fc_live_canary.py --offline \
 (`checks/observed/not_observed/errors/production_observed/by_evidence_class`),
 всё остальное — в JSON.
 Код возврата: `0` — harness отработал (даже если проверки дали `error`);
-`2` — bootstrap невозможен (не тот cwd, нет модулей релиза, нет БД);
-`1` — только для `--self-test`.
+`2` — bootstrap невозможен (не тот cwd, нет модулей релиза, нет БД) **или
+preflight `--expect-harness-sha256` не сошёлся**; `1` — только для
+`--self-test`.
+
+**Binding-preflight (`--expect-harness-sha256`).** Контракт тот же, что у
+SMART-харнесса: sha256 фактических байтов файла сравнивается с ожидаемым
+**до** любого импорта релиза, сети, БД и provider-вызовов. При несовпадении
+(или если значение не 64 hex-символа) печатается
+`[canary] PREFLIGHT FAILED: harness sha256 mismatch: expected=… actual=…;
+no checks were run`, пишется JSON без единой проверки
+(`preflight_failed.reason=harness_sha256_mismatch`, `checks=[]`), процесс
+завершается кодом `2`. При совпадении прогон идёт обычным порядком, а
+`expected_harness_sha256` и `harness_sha256_preflight` попадают в отчёт рядом
+с `harness_sha256` и `candidate_binding` (`git_head`, `branch`, `dirty`,
+`deployed_sha`, `binding_status`). Без флага поведение прежнее
+(`harness_sha256_preflight.requested=false`).
 
 **Ограничение времени.** `--self-test` имеет локальный bound на каждый шаг
 (`--self-test-step-timeout`, default 20 с), общий deadline
@@ -84,7 +107,7 @@ venv/bin/python /tmp/fc_live_canary.py --offline \
 Если `POSTGRES_DSN` недоступен, harness честно запишет
 `effective.pg.available=false` и будет считать effective-состояние по
 заводским значениям — это **не** production effective state. Начиная с
-`harness_version=1.2.0` это не маскируется: `effective.pipeline_v2.known=false`,
+`harness_version=1.2.0` (и в `1.3.0`) это не маскируется: `effective.pipeline_v2.known=false`,
 а все provider-проверки получают `not_observed`/`unavailable` с точной
 ошибкой PG (`effective_state_unavailable (pg read failed: …)`). Причина
 `pipeline_v2_disabled_effective` выдаётся **только** когда PG реально прочитан
@@ -341,11 +364,14 @@ self-hash harness; публикацию/предмет/envelope/гейт/пла�
 `pipeline_v2_disabled_effective`) плюс обратный контроль «PG прочитан, флаг
 false → причина именно disabled»; **S17** — проводку PG-чтения (deployed
 `PgDatabase`, ровно два `SELECT`, `transaction(readonly=True)`, нормализация
-`bot_settings`/`chat_profiles`, pool закрыт). Offline self-test не открывает
+`bot_settings`/`chat_profiles`, pool закрыт); **S18** — preflight привязки
+`--expect-harness-sha256` (совпадение/несовпадение/malformed/флаг не задан на
+чистой функции + реальный дочерний процесс с чужим sha: exit `2`, stderr
+`PREFLIGHT FAILED`, JSON без единой проверки). Offline self-test не открывает
 настоящую PG: снимок помечен как `self_test_synthetic`, а отчёт содержит
 `pg_snapshot_mode`.
 
-Ожидаемый результат на release-чекауте: `self_test_passed=true` (18/18),
+Ожидаемый результат на release-чекауте: `self_test_passed=true` (19/19),
 `--offline`: `observed=2` (оба `plumbing`), `not_observed=4`,
 `production_observed=0`.
 
@@ -354,7 +380,7 @@ Windows, без сети):
 
 ```text
 py_compile ............................... COMPILE OK
---self-test .............................. self_test_passed=true, 18/18, ~0.28 s
+--self-test .............................. self_test_passed=true, 19/19, ~0.43 s
    S0 harness sha256 ..................... ok
    S1 publication ........................ ok (target_source=stored_reply)
    S2 material subject ................... ok (origin=material)
@@ -376,7 +402,14 @@ py_compile ............................... COMPILE OK
    S16 pg state semantics ................ ok (unavailable с точной ошибкой PG;
                                                disabled только при прочитанном PG)
    S17 pg read wiring .................... ok (PgDatabase, 2×SELECT, readonly tx)
+   S18 expected sha preflight ............ ok (mismatch → child exit 2,
+                                               checks=0; match/malformed/absent ok)
    S15 no network attempts ............... ok (guard armed, 0 попыток)
+--self-test --expect-harness-sha256 <correct>  exit 0, passed=true
+--expect-harness-sha256 <wrong> ........... exit 2, "PREFLIGHT FAILED … no checks
+                                            were run", JSON: checks=[],
+                                            preflight_failed.reason=harness_sha256_mismatch
+--expect-harness-sha256 notasha ........... exit 2 (expected_sha256_malformed)
 --offline ................................. observed=2, not_observed=4, errors=0,
                                             production_observed=0,
                                             by_evidence_class={plumbing:2,
@@ -391,8 +424,8 @@ py_compile ............................... COMPILE OK
 watchdog не понадобился. Сетевой guard проверен отдельно: `create_connection` и
 `getaddrinfo` бросают `ProviderCallsDisabled` и попадают в `attempts`.
 
-Документированная версия harness (`HARNESS_VERSION=1.2.0`) имеет
-`sha256=984dbdf444e13974767e10954e2aa4f69f4f2c921f0c20c0f39892435c05ef2d`;
+Документированная версия harness (`HARNESS_VERSION=1.3.0`) имеет
+`sha256=391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c`;
 фактический хэш запуска всегда указан в `candidate_binding.harness_sha256`
 отчёта (для этой версии файла значения должны совпадать).
 
