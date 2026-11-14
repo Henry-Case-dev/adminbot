@@ -154,6 +154,54 @@ def test_entity_type_is_derived_from_signals_not_name():
     assert sc.classify_entity_type("topic", chat_id=CHAT).status == sc.VERIFIED
 
 
+def test_chat_scope_is_required_for_every_type():
+    """Без chat scope тип не может быть `verified` ни для одного типа (O-01).
+
+    Бывшая дыра: `event` по одному time anchor и `fact` по одному statement
+    provenance получали `verified` без scope. Теперь chat_scope обязателен
+    всегда, а неполный набор остаётся честным `tentative`/`unknown`.
+    """
+    complete = {
+        "user": {"has_participant_identity": True},
+        "topic": {},
+        "event": {"event_time": 1700000000},
+        "fact": {"has_statement_provenance": True},
+    }
+    for entity_type, signals in complete.items():
+        typed = sc.classify_entity_type(entity_type, chat_id=CHAT, **signals)
+        assert typed.status == sc.VERIFIED, entity_type
+        unscoped = sc.classify_entity_type(entity_type, **signals)
+        assert unscoped.status != sc.VERIFIED, entity_type
+        assert sc.TYPE_SIGNAL_CHAT_SCOPE in unscoped.missing, entity_type
+        assert unscoped.as_dict()["status"] in (sc.TENTATIVE, sc.UNKNOWN)
+    # целевые кейсы находки Reviewer
+    assert sc.classify_entity_type(
+        "event", event_time=1700000000).status == sc.TENTATIVE
+    assert sc.classify_entity_type(
+        "event", event_time=1700000000).missing == (
+            sc.TYPE_SIGNAL_CHAT_SCOPE,)
+    assert sc.classify_entity_type(
+        "fact", has_statement_provenance=True).status == sc.TENTATIVE
+    assert sc.classify_entity_type(
+        "fact", has_statement_provenance=True).missing == (
+            sc.TYPE_SIGNAL_CHAT_SCOPE,)
+
+
+def test_chat_scope_is_declared_required_for_every_type():
+    for entity_type in mc.ENTITY_TYPES_ALLOWED:
+        assert sc.TYPE_SIGNAL_CHAT_SCOPE in sc.REQUIRED_TYPE_SIGNALS[entity_type]
+
+
+def test_verified_type_cannot_skip_chat_scope():
+    """Структурный инвариант: verified без chat_scope невозможен."""
+    with pytest.raises(ValueError):
+        sc.TypedEntityType(entity_type="event", status=sc.VERIFIED,
+                           signals=(sc.TYPE_SIGNAL_TIME_ANCHOR,))
+    with pytest.raises(ValueError):
+        sc.TypedEntityType(entity_type="fact", status=sc.VERIFIED,
+                           signals=(sc.TYPE_SIGNAL_STATEMENT_PROVENANCE,))
+
+
 def test_unknown_and_invalid_types_are_honest():
     assert sc.classify_entity_type(None, chat_id=CHAT).status == sc.UNKNOWN
     assert (sc.classify_entity_type(None, chat_id=CHAT).entity_type is None)

@@ -32,6 +32,10 @@ model, инварианты, приёмка O-01/O-02) и подтвержден
 `fact`       требуется statement provenance (speaker/asserted_at)
 ===========  ==============================================================
 
+`chat_scope` обязателен для всех четырёх типов: без него неполный набор
+сигналов даёт `tentative`/`unknown`, а `verified` невозможен — это
+структурный инвариант `TypedEntityType`, а не соглашение вызывающего.
+
 **Alias — только hint.** Имя/алиас никогда не становится идентичностью: при
 разрешении по имени/алиасу/casefold референс попадает в `hint_ref`, а
 `canonical` остаётся `None` (личность подтверждает лишь participant identity).
@@ -121,12 +125,14 @@ TYPE_SIGNALS = frozenset({
     TYPE_SIGNAL_TIME_ANCHOR, TYPE_SIGNAL_STATEMENT_PROVENANCE,
 })
 
-#: Обязательные сигналы каждого типа (пусто — достаточно chat scope).
+#: Обязательные сигналы каждого типа. `chat_scope` обязателен ВСЕГДА:
+#: тип значения определяется scope'ом чата, а не одним частичным сигналом
+#: (без scope результат не может быть `verified`).
 REQUIRED_TYPE_SIGNALS: dict[str, tuple[str, ...]] = {
-    "user": (TYPE_SIGNAL_PARTICIPANT_IDENTITY,),
-    "topic": (),
-    "event": (TYPE_SIGNAL_TIME_ANCHOR,),
-    "fact": (TYPE_SIGNAL_STATEMENT_PROVENANCE,),
+    "user": (TYPE_SIGNAL_CHAT_SCOPE, TYPE_SIGNAL_PARTICIPANT_IDENTITY),
+    "topic": (TYPE_SIGNAL_CHAT_SCOPE,),
+    "event": (TYPE_SIGNAL_CHAT_SCOPE, TYPE_SIGNAL_TIME_ANCHOR),
+    "fact": (TYPE_SIGNAL_CHAT_SCOPE, TYPE_SIGNAL_STATEMENT_PROVENANCE),
 }
 
 # ── Диагностические коды (не lexical-триггеры и не поведение) ───────────────
@@ -311,6 +317,9 @@ class TypedEntityType:
         if status is VERIFIED and (missing or not signals):
             raise ValueError(
                 "verified type requires all mandatory signals and none missing")
+        if status is VERIFIED and TYPE_SIGNAL_CHAT_SCOPE not in signals:
+            raise ValueError(
+                "verified type requires an explicit chat_scope signal")
         if status is REJECTED and not reason:
             raise ValueError("rejected type requires reason_code")
         object.__setattr__(self, "status", status)
@@ -401,7 +410,8 @@ def classify_entity_type(
         # человек, а не тема; молча менять тип запрещено.
         return TypedEntityType(
             entity_type=text, status=REJECTED, signals=present_t,
-            missing=required, reason_code=REASON_TYPE_CONFLICT)
+            missing=tuple(sig for sig in required if sig not in present_t),
+            reason_code=REASON_TYPE_CONFLICT)
     missing = tuple(sig for sig in required if sig not in present_t)
     if not present_t:
         return TypedEntityType(
