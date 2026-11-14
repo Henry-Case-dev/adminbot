@@ -53,3 +53,37 @@ SMART verdict: admissible for the production re-run.
 FC verdict: not admissible for the production re-run until explicit hash-mismatch preflight is added or formally replaced and independently verified. 
  
 Parent acceptance remains UNVERIFIED.
+ 
+## Final binding recheck (FC, commit 6f6d414d) 
+ 
+FC SHA256 391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c matched Get-FileHash. Prior Audit r3 section was inspected and preserved; its FC blocker text was unchanged before this append. 
+ 
+Preflight ordering at fc_live_canary.py lines 3820-3847: parse args, self hash and expected hash preflight run before Runtime, load_modules, read_pg_snapshot, provider setup or checks. 
+ 
+Correct SHA normal run: exit 0, checks 6, observed 2, not_observed 4, errors 0, production_observed 0; JSON harness_sha256 and expected_harness_sha256 matched. 
+Zero SHA: exit 2, PREFLIGHT FAILED no checks were run, JSON checks 0 and reason harness_sha256_mismatch, with no pg or provider_calls fields. 
+notasha: exit 2, malformed expected SHA message, JSON checks 0 and reason expected_sha256_malformed, with no pg or provider_calls fields. 
+self-test: exit 0, self_test_passed true, duration 0.48; S18 covers match mismatch malformed absent and child-process preflight. 
+correct SHA plus offline dry-run: exit 0, dry_run true, identity_code unknown, offline true. 
+ 
+Final FC verdict: admissible for the production re-run with pinned SHA 391deff843a4254470e01767ae20823dc85c08853c4bad8cb62dccc88aba972c. No requirements were marked VERIFIED.
+ 
+## Audit r4 (F4 external scenarios) 
+ 
+Candidate 67701e0b; SMART harness SHA256 39600b90ebc0e7b6873846e1e2db1f512c0d5c8478ed5edf2f94c0acdad41119 matched Get-FileHash. Release application worktree 13884daa, branch release/2.58.200. No natural-request check, paid calls, Bot sends or production writes were run. 
+ 
+Implementation pillar: inspected external_scenarios lines 2193-2520. It uses production ToolRouter.dispatch read_source_code for read, locate and blob-link operations; asserts actual status, path, exact commit, source_kind=file, verified, snippets, network_calls, related sibling, factual missing-repo code and no retries. Capability facts inspect canonical tool schemas/command registry. external_natural_request lines 2523-2672 is gated by allow_provider_calls, consumes one provider budget unit, parses a real L1 decision and requires selected read_source_code execution plus verified path and network. 
+ 
+Test-validity pillar: self-test exit 0, failures=0, and all 24 external controls passed: chain positive/negative, exact commit/path negatives, link identity negative, factual missing/rate-limit/unknown-code/retry negatives, extra-tool/partial-operation/command negatives, wiring observed/broken not_observed and natural-request guard without flag. 
+ 
+Independent falsification: disposable mutation with related sibling path equal to primary produced distinct_verified_sibling=False; missing status=ok mutation produced factual=False and not_read=False; unknown refusal code produced factual=False. Predicates flipped as required. 
+ 
+Runtime outputs: self-test exit 0, failures=0, harness SHA matched, tracked=True and blob_matches_head=True. Dry-run exit 0 listed 16 checks and no network/DB. Offline external_scenarios exit 0 with status not_observed, production_observed=0 and failed_assertions=0. Real external_scenarios on release worktree with provider calls disabled and max-provider-calls 0 exited 0: status observed, production_observed=1, not_observed=0, error=0, failed_assertions=0, duration 7.25s. 
+ 
+Safety: focused run used one production read_source_code tool path, no Bot/send/config persistence, no natural provider call, no paid calls. The observed external result is production-class real network evidence; it is not promoted to requirement VERIFIED here. 
+ 
+Per-check admissibility: external_scenarios is admissible for the focused production run; self-test and offline are plumbing/unavailable only; external_natural_request is admissible only for a later authorized production run with allow-provider-calls and remains unverified in this audit. 
+ 
+Remaining blocker: none for external_scenarios harness admissibility. external_natural_request remains intentionally unverified because it requires a real provider call; this is a postdeploy/live evidence condition, not a harness defect. 
+ 
+SMART verdict: admissible for the focused production run (external_scenarios plus later external_natural_request under its explicit provider gate). No requirements were marked VERIFIED.
