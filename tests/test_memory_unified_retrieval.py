@@ -879,6 +879,17 @@ class TestM04LiveDelivery:
             await svc._build_rag_block(
                 CHAT, history, "", memory_scope="operative")
             assert svc._rag_overview_result is not None
+
+            # kill-switch bundle OFF → overview не запрашивается вовсе
+            from services import mca_gates
+            monkeypatch.setattr(
+                mca_gates, "evidence_bundle_enabled", lambda: False)
+            with _trace_sql(db) as trace_off:
+                await svc._build_rag_block(
+                    CHAT, history, "", memory_scope="operative")
+            assert svc._rag_overview_result is None
+            assert not [s for s in trace_off.statements
+                        if "mca_episodes" in s]
         finally:
             await db.close()
 

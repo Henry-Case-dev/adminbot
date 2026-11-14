@@ -14486,6 +14486,10 @@ class DirectChatService:
         # вызывающим. Обычный путь `include_overview=False`: ноль новых
         # чтений, кандидаты/порядок байт-идентичны.
         overview_on = bool(include_overview) or _mca_rc.is_history_query(query)
+        if overview_on and not mca_gates.evidence_bundle_enabled():
+            # Kill-switch bundle OFF → overview некому доставить: прежние
+            # чтения байт-в-байт (никакой бесполезной проекции).
+            overview_on = False
         # MEMORY-06 (§7.5): сначала ЕДИНЫЙ retrieval-контракт (отбор фактов);
         # двойник без каналов (None) → прежнее чтение того же слоя.
         # VMQ-MEM next stage (§4): телеметрия периодного добора принадлежит
