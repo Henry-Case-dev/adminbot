@@ -88,13 +88,16 @@ class YoutubeSummarizerService:
     ) -> str:
         """R41-2/D156: on_retry пробрасывается в движок как есть
         (None — ретраи без уведомлений). Остальной пайплайн — 46.8/55.5."""
-        # T-619: лимит и промпт — горячие точки (фолбек settings)
+        # T-619: лимит и промпт — горячие точки (фолбек settings).
+        # SXR-C2-01: это лимит ДЛИНЫ ОТВЕТА в промпте ({max_symbols}), а НЕ
+        # входного транскрипта: субтитры читаются целиком (0 = без потолка),
+        # иначе выжимка строилась по первым 4k символов длинного видео.
         max_symbols = hot.get("limits.youtube_max_symbols",
                               settings.YOUTUBE_MAX_SYMBOLS)
         system_prompt = resolve_prompt("prompts.youtube_system_prompt",
                                        YOUTUBE_SYSTEM_PROMPT)
         transcript = await self.engine.fetch_transcript(
-            video_id, max_symbols, on_retry=on_retry
+            video_id, None, on_retry=on_retry
         )
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
@@ -145,7 +148,10 @@ class YoutubeSummarizerService:
                               settings.YOUTUBE_MAX_SYMBOLS)
         system_prompt = resolve_prompt("prompts.youtube_system_prompt",
                                        YOUTUBE_SYSTEM_PROMPT)
-        capped = str(transcript or "")[:max_symbols]   # прецедент: движок режет
+        # SXR-C2-01: транскрипт локального видео доставляется целиком
+        # (прежний срез 4000 терял конец записи); max_symbols остаётся только
+        # лимитом ДЛИНЫ ОТВЕТА в инструкции.
+        capped = str(transcript or "")
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
         # UNIFIED-CORE (P0, 20.10.2026): выжимка локального видео —
         # пользовательская речь → Core + Expression владельца.

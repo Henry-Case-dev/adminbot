@@ -380,3 +380,187 @@ class MagicMockSearch:
 
     async def search(self, *args, **kwargs):  # pragma: no cover
         raise AssertionError("search must not be called in memory tests")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# C2-01 / C3-01 · транскрипты: YouTube-сегменты и transcribe_video до payload
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _youtube_segments(count: int = 40, chars: int = 220) -> list[dict]:
+    return [{"start": float(i * 60),
+             "text": f"сегмент {i} " + ("T" * chars)}
+            for i in range(1, count + 1)]
+
+
+@pytest.mark.asyncio
+async def test_youtube_transcript_full_without_factory_cap(monkeypatch) -> None:
+    """Провайдерские сегменты: без max_symbols движок отдаёт ВЕСЬ текст."""
+    from services.youtube_transcript_engine import YouTubeTranscriptEngine
+    segments = _youtube_segments()
+    segments[-1]["text"] += f" {TAIL}"
+    engine = YouTubeTranscriptEngine()
+    monkeypatch.setattr(engine, "_fetch_ytdlp", lambda video_id: segments)
+    monkeypatch.setattr(engine, "_fetch_segments",
+                        lambda video_id: segments, raising=False)
+    full = await engine.fetch_transcript("video-1", None)
+    assert len(full) > 4000                       # было бы срез 20000/4000
+    assert f"{TAIL}" in full                      # хвост последнего сегмента
+    assert full.count("[") >= 40
+    explicit = await engine.fetch_transcript("video-1", 500)
+    assert len(explicit) <= 500                   # явный лимит сохранён
+    assert YouTubeTranscriptEngine._format(segments, None) == full
+
+
+class _FakeDownloader:
+    def __init__(self, path) -> None:
+        self.path = path
+
+    async def download(self, url, quality=None):
+        return self.path
+
+
+class _FakeTranscriber:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.calls: list = []
+
+    async def transcribe_voice(self, path, ext, timeout=None):
+        self.calls.append((path, ext, timeout))
+        return self.text
+
+
+class _FakeEngine:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.args: list = []
+
+    async def fetch_transcript(self, video_id, max_symbols=None,
+                               on_retry=None):
+        self.args.append((video_id, max_symbols))
+        return self.text
+
+
+class _FakeVideoService:
+    def __init__(self, engine) -> None:
+        self.engine = engine
+
+
+@pytest.mark.asyncio
+async def test_transcribe_video_link_stt_returns_full_text(tmp_path) -> None:
+    """``transcribe_video`` не режет расшифровку до 3500 (link → STT)."""
+    media = tmp_path / "voice.ogg"
+    media.write_bytes(b"OggS-fake")
+    full = ("R" * 9000) + f" {TAIL}"
+    transcriber = _FakeTranscriber(full)
+    router = _RecordingRouter(ToolDeps(
+        search=MagicMockSearch(), memory=_MemoryRows([]), aliases=None,
+        downloader=_FakeDownloader(media), transcriber=transcriber))
+    ctx = ToolContext(-100, "расшифруй")
+    output = await router.dispatch(
+        "transcribe_video", {"url": "https://example.com/voice.ogg"}, ctx)
+    assert output == full
+    assert len(output) > 3500
+    llm, tool_msg, final = await _run_tool_loop(
+        "transcribe_video", {"url": "https://example.com/voice.ogg"}, TAIL,
+        router, ctx)
+    assert tool_msg["content"] == output
+    assert final == f"Итог: {TAIL}"
+
+
+@pytest.mark.asyncio
+async def test_transcribe_video_youtube_requests_whole_subtitles() -> None:
+    """YouTube-путь инструмента просит субтитры БЕЗ cap 20000."""
+    engine = _FakeEngine(("S" * 25000) + f" {TAIL}")
+    router = _RecordingRouter(ToolDeps(
+        search=MagicMockSearch(), memory=_MemoryRows([]), aliases=None,
+        video=_FakeVideoService(engine)))
+    output = await router.dispatch(
+        "transcribe_video",
+        {"url": "https://www.youtube.com/watch?v=abcdefghijk"},
+        ToolContext(-100, "расшифруй"))
+    assert engine.args == [("abcdefghijk", 0)]
+    assert output == engine.text
+    assert len(output) > 20000
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# C2-01 / C3-01 · voice_transcripts: весь ряд, явный count, честная страница
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _FakeVoiceDb:
+    def __init__(self, rows) -> None:
+        self.rows = list(rows)
+
+    async def get_voice_window(self, chat_id, since_ts, limit=120):
+        return list(self.rows)
+
+    async def get_transcript_states(self, chat_id, ids):
+        return {int(r["tg_message_id"]): r for r in self.rows
+                if int(r["tg_message_id"]) in {int(i) for i in ids}}
+
+    async def count_voice_sources(self, chat_id, before_tg_id=None):
+        return len(self.rows)
+
+
+def _voice_rows(count: int, *, chars: int = 900) -> list[dict]:
+    return [{"id": i, "chat_id": -100, "tg_message_id": 1000 + i,
+             "timestamp": 1700000000 + i, "author_name": "A", "user_id": 5,
+             "media_type": "voice", "text": ("V" * chars) + f"-{i}",
+             "caption": "", "reply_to_id": None, "is_forward": 0,
+             "forward_source": "", "sent_at": 1700000000 + i,
+             "transcript_status": "ready", "transcript_revision": 1,
+             "transcript_updated_at": 1700000000 + i,
+             "transcript_reason": ""}
+            for i in range(1, count + 1)]
+
+
+def _voice_query(message_id: int = 2000):
+    from types import SimpleNamespace
+    return SimpleNamespace(message_id=message_id, reply_to_message=None,
+                           quote=None)
+
+
+@pytest.mark.asyncio
+async def test_voice_bundle_returns_whole_run_not_three() -> None:
+    from services import voice_transcripts as vt
+    rows = _voice_rows(6)
+    rows[-1]["text"] = rows[-1]["text"][:-2] + f"-{TAIL}"
+    bundle = await vt.resolve_voice_bundle(
+        _FakeVoiceDb(rows), chat_id=-100, message=_voice_query(),
+        query="разбери эти голосовые")
+    assert bundle is not None
+    assert len(bundle.items) == 6               # было бы 3
+    assert bundle.omitted == 0
+    block = vt.render_voice_block(bundle)
+    assert rows[0]["text"] in block             # первый фрагмент цел
+    assert f"-{TAIL}" in block                  # хвост последнего цел
+    assert len(block) > 3500
+
+
+@pytest.mark.asyncio
+async def test_voice_bundle_explicit_count_is_semantic_selection() -> None:
+    from services import voice_transcripts as vt
+    rows = _voice_rows(6)
+    bundle = await vt.resolve_voice_bundle(
+        _FakeVoiceDb(rows), chat_id=-100, message=_voice_query(),
+        query="расшифруй первые два голосовых")
+    assert len(bundle.items) == 2
+    assert bundle.refs == ("tg:1001", "tg:1002")
+    assert bundle.omitted == 4
+
+
+@pytest.mark.asyncio
+async def test_voice_bundle_page_full_is_marked_not_exhaustive() -> None:
+    from services import voice_transcripts as vt
+    rows = _voice_rows(120)                      # страница БД насыщена
+    bundle = await vt.resolve_voice_bundle(
+        _FakeVoiceDb(rows), chat_id=-100, message=_voice_query(),
+        query="эти голосовые")
+    assert bundle.window_truncated is True
+    block = vt.render_voice_block(bundle)
+    assert 'window="truncated"' in block
+    assert "страница окна чтения заполнена" in block
+    short = await vt.resolve_voice_bundle(
+        _FakeVoiceDb(_voice_rows(5)), chat_id=-100, message=_voice_query(),
+        query="эти голосовые")
+    assert short.window_truncated is False

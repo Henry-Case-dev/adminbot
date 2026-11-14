@@ -5,7 +5,9 @@ Epic 41: каскад с ретраями (4 ретрая = 5 попыток, D1
 ignoreerrors (D154), классификация транзиентных фейлов (D155), on_retry-колбэк
 (D156), статус/размер тела в логах фолбека (D157). Контракт
 fetch_transcript(video_id, max_symbols) -> str расширяется ОПЦИОНАЛЬНЫМ
-kwarg on_retry=None (позиционная совместимость сохранена).
+kwarg on_retry=None (позиционная совместимость сохранена). SXR-C2-01:
+``max_symbols`` — только явная политика вызывающего; None/0 = полный
+транскрипт без заводского среза.
 
 Epic 80/81 (Section 81/82): (a) D301 — player_client/extractor_args только в
 _transcript_ytdlp_opts() (build_ytdlp_base_opts остаётся без POT/player_client
@@ -235,7 +237,7 @@ class YouTubeTranscriptEngine:
     async def fetch_transcript(
         self,
         video_id: str,
-        max_symbols: int,
+        max_symbols: int | None = None,
         on_retry: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> str:
         """D151/D152/D156 + F9: попытка = ВЕСЬ каскад (yt-dlp → transcript-api).
@@ -245,7 +247,9 @@ class YouTubeTranscriptEngine:
         _MAX_CASCADE_RETRIES ретраев); proxy_auth_failed (407) перманентен
         ДЛЯ ЗАПРОСА — каскад останавливается с РОВНО ОДНИМ WARN (Y1);
         перманентный фейл → немедленный raise (0 ретраев). on_retry=None —
-        ретраи без уведомлений. R17/Y5: тексты исключений логируются только
+        ретраи без уведомлений. ``max_symbols=None/0`` — полный транскрипт
+        (заводского среза нет, SXR-C2-01); положительное значение — явный
+        лимит вызывающего. R17/Y5: тексты исключений логируются только
         через sanitize (могут нести proxy URL с user:pass)."""
         # MCA-02 (ADR-1027-5 D4): поднять loopback egress-guard (медиа-подпроцесс
         # и transcript-api ходят через него; OFF → legacy).
@@ -655,22 +659,28 @@ class YouTubeTranscriptEngine:
         )
 
     @staticmethod
-    def _format(segments: list[dict], max_symbols: int) -> str:
+    def _format(segments: list[dict], max_symbols: int | None = None) -> str:
         """Склейка таймкодов и текста: строка "[MM:SS] text" на сегмент, "\n" join.
         Таймкод: f"{int(start)//60:02d}:{int(start)%60:02d}" (floor, как в плеерах).
-        Длинные видео: накопление с ранним стопом при превышении max_symbols +
-        финальный жёсткий text[:max_symbols] (прецедент SearchAggregator._truncate)."""
+
+        SXR-C2-01: ``max_symbols`` — только ЯВНАЯ политика вызывающего
+        (``None``/``0`` = без потолка). Заводского среза больше нет: весь
+        транскрипт (все сегменты провайдера) доходит до потребителя, хвост не
+        теряется. Положительное значение сохраняет прежний ранний стоп и
+        финальный срез для вызовов, которые действительно просят лимит."""
         lines: list[str] = []
         total = 0
+        limit = int(max_symbols or 0)
         for segment in segments:
             start = float(segment.get("start") or 0)
             text = str(segment.get("text") or "")
             line = f"[{int(start) // 60:02d}:{int(start) % 60:02d}] {text}"
-            if lines and total + len(line) + 1 > max_symbols:
-                break                       # ранний стоп (длинные видео)
+            if limit > 0 and lines and total + len(line) + 1 > limit:
+                break                       # явный лимит вызывающего
             lines.append(line)
             total += len(line) + 1
-        return "\n".join(lines)[:max_symbols]   # финальный жёсткий срез
+        joined = "\n".join(lines)
+        return joined[:limit] if limit > 0 else joined
 
     # ── Классификация и диагностика (R41-2/R41-3, D155/D157) ──
 
