@@ -644,8 +644,10 @@ TOOL_GET_USER_CONTEXT = {
                 "max_items": {
                     "type": "integer",
                     "minimum": 1,
-                    "description": ("Optional cap on returned items "
-                                    "(default per purpose; hard ceiling 20).")},
+                    "description": ("Optional number of returned items "
+                                    "(default per purpose; an explicit "
+                                    "value is honored without a hidden "
+                                    "ceiling).")},
             },
             "required": ["person", "purpose"],
             "additionalProperties": False,

@@ -4,7 +4,11 @@
 close() в on_shutdown. Уровень пропускается, если API-ключ пуст (D104).
 Любая ошибка уровня (timeout/HTTP/пустой результат) → следующий уровень.
 Все уровни упали → AllSearchEnginesFailedException.
-Результат — единый текстовый формат, обрезка до max_symbols.
+Результат — единый текстовый формат БЕЗ собственной обрезки: объём ограничен
+ответом провайдера (`max_results` и его контент), а упаковку в окно модели
+делает потребитель существующим механизмом (`tool_router`: индекс кандидатов
++ continuation). Историческое имя ``max_symbols`` сохранено для совместимости
+вызовов и НЕ режет выдачу (SMART-EXECUTION-RELIABILITY-01 §C2).
 Дата публикации едет ТОЛЬКО из ответа провайдера: Exa ``results[].publishedDate``,
 Tavily ``results[].published_date`` — строкой ``дата публикации: YYYY-MM-DD``
 перед URL (см. :func:`normalise_publication_date`). DDG ``text()`` дату не
@@ -717,12 +721,19 @@ class SearchAggregator:
             self._client = httpx.AsyncClient()
         return self._client
 
-    async def search(self, query: str, max_symbols: int,
+    async def search(self, query: str, max_symbols: int | None = None,
                      relevance_terms: list[str] | None = None,
                      timeout_budget: float | None = None,
                      trace: dict | None = None) -> str:
-        """Каскад: Tavily → Exa → DDG. Возвращает агрегированный текст
-        (обрезка до max_symbols). Raises AllSearchEnginesFailedException.
+        """Каскад: Tavily → Exa → DDG. Возвращает агрегированный текст ЦЕЛИКОМ
+        (без собственной символьной обрезки). Raises
+        AllSearchEnginesFailedException.
+
+        ``max_symbols`` — исторический параметр совместимости вызовов: раньше
+        он жёстко резал ``text[:max_symbols]`` и терял хвост выдачи/URL. Теперь
+        объём определяется фактическим ответом провайдера, а упаковка в окно
+        модели — забота потребителя (``tool_router``: индекс кандидатов,
+        сжатие сниппетов, ``retrievable_remainder``).
 
         ``relevance_terms`` (FC-EVIDQ, §3.4): опциональные термины запроса —
         непустая, но содержательно нерелевантная выдача уровня (overlap-
@@ -806,7 +817,7 @@ class SearchAggregator:
                         "provider": name, "reason": "ok",
                         "latency_ms": round(latency_ms, 1),
                         "levels": list(reasons) + [f"{name}:ok"]})
-                return self._truncate(text, max_symbols)
+                return text
             except Exception as exc:
                 # §5.1/§5.3: реальная причина уровня — в техническом логе
                 cause = level_failure_reason(exc)
@@ -829,14 +840,15 @@ class SearchAggregator:
             reason=_most_informative_reason(reasons),
         )
 
-    async def search_relevant(self, query: str, max_symbols: int,
+    async def search_relevant(self, query: str, max_symbols: int | None = None,
                               relevance_terms: list[str] | None = None,
                               timeout_budget: float | None = None,
                               trace: dict | None = None
                               ) -> str:
         """Явный relevance-вход контура фактчека (FC-EVIDQ): тот же каскад
         с проверкой содержательной релевантности выдачи. Существующие
-        вызовы `search()` (сводки и пр.) не меняются."""
+        вызовы `search()` (сводки и пр.) не меняются. ``max_symbols`` не
+        режет выдачу (см. ``search``)."""
         return await self.search(query, max_symbols,
                                  relevance_terms=relevance_terms,
                                  timeout_budget=timeout_budget, trace=trace)
@@ -991,8 +1003,3 @@ class SearchAggregator:
             lines.append(url)
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
-
-    @staticmethod
-    def _truncate(text: str, max_symbols: int) -> str:
-        """Жёсткое ограничение без разрыва юникода (срез по символам)."""
-        return text[:max_symbols]

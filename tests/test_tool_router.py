@@ -271,7 +271,8 @@ class TestQueryChatMemory:
         assert out.startswith("ОШИБКА query_chat_memory")
 
     @pytest.mark.asyncio
-    async def test_result_truncated_to_3500(self):
+    async def test_result_not_truncated_to_3500(self):
+        """SXR-C2-01: заводской потолок 3500 удалён — текст доходит целиком."""
         memory = MagicMock()
         long_text = "буква " * 2000
         rows = [_row(user_id=10, text=long_text, ts=int(time.time()))]
@@ -281,7 +282,8 @@ class TestQueryChatMemory:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "query_chat_memory", {"query": "x"}, _ctx())
-        assert len(out) <= 3510
+        assert len(out) > 3500
+        assert long_text.strip() in out
 
 
 class TestQueryChatMemoryCount:
@@ -642,7 +644,8 @@ class TestDigIntoLore:
         assert payload["snippets"] == []
 
     @pytest.mark.asyncio
-    async def test_result_truncated_to_3500(self):
+    async def test_result_not_truncated_to_3500(self):
+        """SXR-C2-01: заводской DIG_MAX_SYMBOLS=3500 не режет dig-контракт."""
         memory = MagicMock()
         long_text = "буква " * 2000
         memory.search_long_term = AsyncMock(return_value=[
@@ -651,7 +654,9 @@ class TestDigIntoLore:
         router = ToolRouter(_deps(memory=memory))
         out = await router.dispatch(
             "dig_into_lore", {"query": "x", "mode": "messages"}, _ctx())
-        assert len(out) <= 3600
+        assert len(out) > 3600
+        assert long_text.strip() in out
+        assert json.loads(out).get("truncated") is not True
 
     @pytest.mark.asyncio
     async def test_year_out_of_range_ignored(self):

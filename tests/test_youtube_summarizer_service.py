@@ -28,13 +28,14 @@ def _service():
 class TestSummarize:
     @pytest.mark.asyncio
     async def test_pipeline_order_and_prompt_substitution(self):
-        """#24: движок с settings-лимитом; system без {max_symbols}, с числом;
-        user содержит <video_id> и <transcript>."""
+        """#24: транскрипт читается ЦЕЛИКОМ (SXR-C2-01); лимит в промпте —
+        длина ОТВЕТА (system без {max_symbols}, с числом); user содержит
+        <video_id> и <transcript>."""
         service, engine, llm = _service()
         result = await service.summarize(VIDEO_ID)
         assert result == "выжимка"
         engine.fetch_transcript.assert_awaited_once_with(
-            VIDEO_ID, settings.YOUTUBE_MAX_SYMBOLS, on_retry=None
+            VIDEO_ID, None, on_retry=None
         )
         messages = llm.generate.await_args.args[0]
         system_content, user = messages[0]["content"], messages[1]["content"]
@@ -58,7 +59,7 @@ class TestSummarize:
         cb = AsyncMock()
         await service.summarize(VIDEO_ID, on_retry=cb)
         engine.fetch_transcript.assert_awaited_once_with(
-            VIDEO_ID, settings.YOUTUBE_MAX_SYMBOLS, on_retry=cb
+            VIDEO_ID, None, on_retry=cb
         )
 
     @pytest.mark.asyncio

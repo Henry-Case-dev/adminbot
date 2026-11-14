@@ -429,11 +429,13 @@ class TestSummarizeVideo:
         assert out == "ОШИБКА summarize_video: LLMError"
 
     @pytest.mark.asyncio
-    async def test_result_truncated(self):
+    async def test_result_not_truncated(self):
+        """SXR-C2-01: выжимка не режется заводским потолком 3500."""
         video = _FakeVideo(summary="x" * 9000)
         out = await ToolRouter(_deps(video=video)).dispatch(
             "summarize_video", {"url": _YT_URL}, _ctx())
-        assert len(out) <= 3510 and out.endswith("…")
+        assert out == "x" * 9000
+        assert not out.endswith("…")
 
     @pytest.mark.asyncio
     async def test_video_service_missing(self):

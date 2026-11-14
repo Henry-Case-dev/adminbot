@@ -512,47 +512,50 @@ class TestLazyRag:
         assert seen == [(("recent",), "participants", (5,), False)]
 
 
-# ── T-3615/T-3618: капы ──────────────────────────────────────────────────
+# ── SXR-C2-01: искусственные потолки сняты, семантическая выборка цела ────
 
 
 class TestCaps:
     @pytest.mark.asyncio
-    async def test_max_items_hard_ceiling_twenty(self):
+    async def test_explicit_max_items_is_honored(self):
         db = FakeDb(facts=[fact_row(f"факт {i}", fid=i) for i in range(30)])
         out = payload(await call(
             make_router(db=db, aliases=FakeAliases({"5": "Лёха"})),
             {"person": "Лёха", "purpose": "biography", "max_items": 999}))
-        assert len(out["facts"]) <= 20
+        assert len(out["facts"]) == 30      # hard-ceiling 20 удалён
 
     @pytest.mark.asyncio
-    async def test_message_slice_capped_at_five(self):
+    async def test_message_slice_uses_requested_max_items(self):
         rows = [{"id": i, "text": f"msg {i}", "timestamp": 100 + i,
                  "user_id": 5, "tg_message_id": i} for i in range(10)]
         memory = SpyMemory(rows=rows)
         out = payload(await call(
             make_router(memory=memory, aliases=FakeAliases({"5": "Лёха"})),
             {"person": "Лёха", "purpose": "general", "max_items": 20}))
-        messages = [f for f in out["facts"] if f["source_id"].startswith(("tg:", "msg:"))]
-        assert len(messages) <= 5
+        assert len(out["facts"]) == 10      # скрытого среза 5/10 нет
+        assert all(f["text"].startswith("msg ") for f in out["facts"])
 
     @pytest.mark.asyncio
-    async def test_slice_chars_capped(self):
+    async def test_slice_chars_not_capped(self):
         rows = [{"id": 1, "text": "я" * 500, "timestamp": 100, "user_id": 5,
                  "tg_message_id": 1}]
         out = payload(await call(
             make_router(memory=SpyMemory(rows=rows),
                         aliases=FakeAliases({"5": "Лёха"})),
             {"person": "Лёха", "purpose": "general"}))
-        assert len(out["facts"][0]["text"]) <= 241
+        assert len(out["facts"][0]["text"]) == 500   # срез 240 удалён
 
     @pytest.mark.asyncio
-    async def test_result_budget_4000_with_truncated_flag(self):
+    async def test_result_has_no_artificial_budget(self):
         db = FakeDb(facts=[fact_row("я" * 3000, fid=i) for i in range(10)])
         raw = await call(make_router(db=db, aliases=FakeAliases({"5": "Лёха"})),
                          {"person": "Лёха", "purpose": "biography",
                           "max_items": 20})
-        assert len(raw) <= 4000
-        assert payload(raw)["truncated"] is True
+        out = payload(raw)
+        assert len(raw) > 4000              # бюджет 4000 удалён
+        assert out["truncated"] is False
+        assert len(out["facts"]) == 10
+        assert all(len(f["text"]) == 3000 for f in out["facts"])
 
 
 # ── T-3617/T-3618: envelope + честность ──────────────────────────────────

@@ -2134,6 +2134,13 @@ VISION_STRUCTURED_OUTPUT_KEY = "models.vision_structured_output"
 #: Защитные границы предела вывода (не «бюджет значимого результата»):
 #: ниже пола OCR физически не влезает, выше потолка — риск бесконечной
 #: генерации/счёта.
+#:
+#: SXR-C2-01 (классификация): это ФИЗИЧЕСКИЙ/провайдерский предел вывода
+#: OpenAI-совместимого vision-вызова (completion budget, `max_tokens`), не
+#: искусственный потолок evidence. Контент (OCR-блоки/описание/uncertainty)
+#: нигде не режется по символам: parse/render/tool-result отдают его целиком;
+#: предел конфигурируется (`models.vision_max_output_tokens`), при обрезании
+#: провайдером ответ честно помечается `output_truncated` с bounded-повтором.
 OUTPUT_TOKEN_FLOOR = 512
 OUTPUT_TOKEN_CEILING = 32768
 #: Честная стартовая точка для обычной (не reasoning) VLM-маршрута.
