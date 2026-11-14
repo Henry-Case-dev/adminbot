@@ -1,0 +1,17 @@
+# VMQ-MEM/TIME measurement 2026-11-15 - artifact digests (sha256)
+
+176c2614a2b08604ce5f6d1a1b43c8eb05de6a8872d10d227e15835da07aa555  plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2026-11-15.md
+71918f9204d58eb1578e962f6317ceff4885f1e2a427e9e1d040a60ff29cd5c8  plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json
+e49d3fcf3b24e4184d0c710b9c3375d5211f422340f3cee588c522d3852078d0  plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json
+cd70040a3587be7a11a52006bd48b176e618ade691890f47fb1c1cf81abd7a89  plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json
+6b353f82b6fa0b67e7934e76ce122e2f61210c56ce146f9d509f445288bbe7c1  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/build_artifacts.py
+73f56bc9694b73253ad5e3ec8bf0f264adef6269fdf5bbca7f78bb89bffe7312  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/cfg_probe.py
+433e81d74abbd200c3ce0b7f168dde88238d9d26e8b3b7bed2a682148724060b  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/driver.sh
+5efe559549ebf83bd9cb185a0e7d424eddb270b7aacfc0236d3c73638cb1a202  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/driver3.sh
+95bb81c97d2a242ef1b12b1ec36827e2ad9d1e4e804fdcfe34c5b24609133aab  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/entities.py
+64f478b7671ce60fc89e72fcafd2dec57d5f10750446baa283a18bf816f845a6  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/lore_probe.py
+c574f37c6423ca59b4e849fbcbf727add14f96990d18ffc24e63ed1f726257a7  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/probe.py
+20a6179a3ef0263c9351b6f31538467083e4a9d5827e317b361d670dbc76dc8f  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/relations_probe.py
+457ddd33a840f1c42a6787efbad6be909f5da2f33a249ab9adbf404ffea1c24d  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/run.py
+5f078ff0ceed9eedb464386df35e764c9bf8b707a4af59979f8dfe10463fd5be  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/run3.py
+9fb5282ac46f2101eca07004b2c2ccf134898eb4f2a8aefd14a77e2563c94f78  plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/run4.py

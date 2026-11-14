@@ -1,0 +1,814 @@
+{
+ "artifact_kind": "candidate_probe_not_live",
+ "measurement_date": "2026-11-15",
+ "metric_definitions": {
+  "coverage": "years actually delivered to the Writer block / years that the corpus supports for the class question",
+  "chronological_accuracy": "share of delivered rows inside the question's temporal target (only for queries with an explicit target)",
+  "relevance": "deterministic predicate over delivered rows (topic stem / conflict stem / relation stem / subject attribution); no LLM judge",
+  "fabricated_relations": "relations delivered without edge/fact source (has_unsupported_sources or missing ids)"
+ },
+ "by_class": {
+  "A1_creative_owner": {
+   "base": {
+    "coverage_ratio_vs_support": 0.4,
+    "coverage_hit_years": [
+     "2024",
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2025"
+    ],
+    "multi_year": true,
+    "rows_rag": 9,
+    "rag_years": {
+     "2024": 1,
+     "2026": 8
+    },
+    "old_episode_messages": 107,
+    "old_episode_years": {
+     "2026": 107
+    },
+    "relevance_precision": 0.111,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.4,
+    "coverage_hit_years": [
+     "2024",
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2025"
+    ],
+    "multi_year": true,
+    "rows_rag": 9,
+    "rag_years": {
+     "2024": 1,
+     "2026": 8
+    },
+    "old_episode_messages": 107,
+    "old_episode_years": {
+     "2026": 107
+    },
+    "relevance_precision": 0.111,
+    "overview_delivered": false
+   }
+  },
+  "A1P_plain_twin": {
+   "base": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.2,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.2,
+    "overview_delivered": false
+   }
+  },
+  "A2_creative_generic": {
+   "base": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": null,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": null,
+    "overview_delivered": true
+   }
+  },
+  "B_retell": {
+   "base": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 101,
+    "old_episode_years": {
+     "2026": 101
+    },
+    "relevance_precision": null,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 101,
+    "old_episode_years": {
+     "2026": 101
+    },
+    "relevance_precision": null,
+    "overview_delivered": false
+   }
+  },
+  "C_person_profile": {
+   "base": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.0,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.0,
+    "overview_delivered": false
+   }
+  },
+  "D_conflict_2023": {
+   "base": {
+    "coverage_ratio_vs_support": 0.0,
+    "coverage_hit_years": [],
+    "coverage_miss_years": [
+     "2023"
+    ],
+    "multi_year": true,
+    "rows_rag": 9,
+    "rag_years": {
+     "2025": 1,
+     "2026": 8
+    },
+    "old_episode_messages": 82,
+    "old_episode_years": {
+     "2025": 19,
+     "2026": 63
+    },
+    "relevance_precision": 0.0,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.0,
+    "coverage_hit_years": [],
+    "coverage_miss_years": [
+     "2023"
+    ],
+    "multi_year": true,
+    "rows_rag": 9,
+    "rag_years": {
+     "2025": 1,
+     "2026": 8
+    },
+    "old_episode_messages": 82,
+    "old_episode_years": {
+     "2025": 19,
+     "2026": 63
+    },
+    "relevance_precision": 0.0,
+    "overview_delivered": false
+   }
+  },
+  "E_relations_years": {
+   "base": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.5,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.2,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.5,
+    "overview_delivered": false
+   }
+  },
+  "T2_event_no_year": {
+   "base": {
+    "coverage_ratio_vs_support": 0.0,
+    "coverage_hit_years": [],
+    "coverage_miss_years": [
+     "2023"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.0,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 0.0,
+    "coverage_hit_years": [],
+    "coverage_miss_years": [
+     "2023"
+    ],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 0.0,
+    "overview_delivered": false
+   }
+  },
+  "T3_current_state": {
+   "base": {
+    "coverage_ratio_vs_support": 1.0,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 1.0,
+    "overview_delivered": false
+   },
+   "cand": {
+    "coverage_ratio_vs_support": 1.0,
+    "coverage_hit_years": [
+     "2026"
+    ],
+    "coverage_miss_years": [],
+    "multi_year": false,
+    "rows_rag": 10,
+    "rag_years": {
+     "2026": 10
+    },
+    "old_episode_messages": 0,
+    "old_episode_years": {},
+    "relevance_precision": 1.0,
+    "overview_delivered": false
+   }
+  }
+ },
+ "temporal_accuracy": {
+  "D_conflict_2023": {
+   "base": {
+    "target": "2023",
+    "rag_share_inside_target": 0.0,
+    "rag_rows_inside": 0,
+    "rag_rows_total": 9,
+    "episode_share_inside_target": 0.0,
+    "episode_messages_total": 82
+   },
+   "cand": {
+    "target": "2023",
+    "rag_share_inside_target": 0.0,
+    "rag_rows_inside": 0,
+    "rag_rows_total": 9,
+    "episode_share_inside_target": 0.0,
+    "episode_messages_total": 82
+   }
+  },
+  "T2_event_no_year": {
+   "base": {
+    "target": "pre-2026",
+    "rag_share_inside_target": 0.0,
+    "rag_rows_inside": 0,
+    "rag_rows_total": 10,
+    "episode_share_inside_target": null,
+    "episode_messages_total": 0
+   },
+   "cand": {
+    "target": "pre-2026",
+    "rag_share_inside_target": 0.0,
+    "rag_rows_inside": 0,
+    "rag_rows_total": 10,
+    "episode_share_inside_target": null,
+    "episode_messages_total": 0
+   }
+  },
+  "T3_current_state": {
+   "base": {
+    "target": "2026",
+    "rag_share_inside_target": 1.0,
+    "rag_rows_inside": 10,
+    "rag_rows_total": 10,
+    "episode_share_inside_target": null,
+    "episode_messages_total": 0
+   },
+   "cand": {
+    "target": "2026",
+    "rag_share_inside_target": 1.0,
+    "rag_rows_inside": 10,
+    "rag_rows_total": 10,
+    "episode_share_inside_target": null,
+    "episode_messages_total": 0
+   }
+  }
+ },
+ "relations_metric": {
+  "base": {
+   "tool_status": "ok",
+   "tool_empty_reason": "empty",
+   "relations_delivered": 0,
+   "edges_with_sources": 0,
+   "edges_unsupported": 0,
+   "fabricated_relations": 0,
+   "retrieve_subject_relations": 0
+  },
+  "cand": {
+   "tool_status": "ok",
+   "tool_empty_reason": "empty",
+   "relations_delivered": 0,
+   "edges_with_sources": 0,
+   "edges_unsupported": 0,
+   "fabricated_relations": 0,
+   "retrieve_subject_relations": 0
+  }
+ },
+ "parity": {
+  "question": "parity: an ordinary factual question is not worse than the creative story (VMQ-MEM-04)",
+  "creative_material_owner_query": {
+   "variant": "base=cand",
+   "coverage_ratio_vs_support": 0.4,
+   "coverage_hit_years": [
+    "2024",
+    "2026"
+   ],
+   "coverage_miss_years": [
+    "2022",
+    "2023",
+    "2025"
+   ],
+   "multi_year": true,
+   "rows_rag": 9,
+   "rag_years": {
+    "2024": 1,
+    "2026": 8
+   },
+   "old_episode_messages": 107,
+   "old_episode_years": {
+    "2026": 107
+   },
+   "relevance_precision": 0.111,
+   "overview_delivered": false
+  },
+  "creative_answer_path_material": {
+   "base": {
+    "graph": {
+     "nodes": 8,
+     "edges": 6,
+     "facts": 0,
+     "fact_years": {},
+     "symbols": 0
+    },
+    "dialogs": {
+     "total": 9487,
+     "earliest_year": 2022,
+     "latest_year": 2026,
+     "dialogs": 3,
+     "rows": 148,
+     "row_years": {
+      "2022": 60,
+      "2023": 88
+     },
+     "symbols": 4602
+    },
+    "corpus_topic_by_year": {
+     "2022": 50,
+     "2023": 850,
+     "2024": 1788,
+     "2025": 4057,
+     "2026": 2742
+    }
+   },
+   "cand": {
+    "graph": {
+     "nodes": 8,
+     "edges": 6,
+     "facts": 0,
+     "fact_years": {},
+     "symbols": 0
+    },
+    "dialogs": {
+     "total": 9487,
+     "earliest_year": 2022,
+     "latest_year": 2026,
+     "dialogs": 3,
+     "rows": 148,
+     "row_years": {
+      "2022": 60,
+      "2023": 88
+     },
+     "symbols": 4602
+    },
+    "corpus_topic_by_year": {
+     "2022": 50,
+     "2023": 850,
+     "2024": 1788,
+     "2025": 4057,
+     "2026": 2742
+    }
+   }
+  },
+  "plain_twin": {
+   "coverage_ratio_vs_support": 0.2,
+   "coverage_hit_years": [
+    "2026"
+   ],
+   "coverage_miss_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+   ],
+   "multi_year": false,
+   "rows_rag": 10,
+   "rag_years": {
+    "2026": 10
+   },
+   "old_episode_messages": 0,
+   "old_episode_years": {},
+   "relevance_precision": 0.2,
+   "overview_delivered": false
+  },
+  "plain_retell": {
+   "coverage_ratio_vs_support": 0.2,
+   "coverage_hit_years": [
+    "2026"
+   ],
+   "coverage_miss_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+   ],
+   "multi_year": false,
+   "rows_rag": 10,
+   "rag_years": {
+    "2026": 10
+   },
+   "old_episode_messages": 101,
+   "old_episode_years": {
+    "2026": 101
+   },
+   "relevance_precision": null,
+   "overview_delivered": false
+  },
+  "person_reply_block": {
+   "coverage_ratio_vs_support": 0.2,
+   "coverage_hit_years": [
+    "2026"
+   ],
+   "coverage_miss_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+   ],
+   "multi_year": false,
+   "rows_rag": 10,
+   "rag_years": {
+    "2026": 10
+   },
+   "old_episode_messages": 0,
+   "old_episode_years": {},
+   "relevance_precision": 0.0,
+   "overview_delivered": false
+  },
+  "person_profile_biography": {
+   "facts": 11,
+   "fact_years": {
+    "2022": 2,
+    "2023": 2,
+    "2024": 2,
+    "2025": 2,
+    "2026": 3
+   },
+   "distinct_years": 5,
+   "status": "ok",
+   "empty_reason": "",
+   "overview_slots": false,
+   "coverage_lines": [],
+   "independent_periods": null,
+   "counterexamples": 0,
+   "limitations": [],
+   "sources": 11
+  },
+  "verdict": "NOT ACHIEVED — see measurement-2026-11-15.md §5"
+ },
+ "requirement_mapping": [
+  {
+   "req_id": "VMQ-MEM-01",
+   "verdict": "evidence_provided",
+   "observed": "9 formulations measured on one frozen corpus copy: exact owner query, its ordinary twin, generic creative, retelling, person, explicit-2023 conflict, relations across years, event without year, current state",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json#classes"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-MEM-02",
+   "verdict": "evidence_provided",
+   "observed": "per-run trace of every retrieve() call (request fields, status, channels, candidate pool by type/year, fact rows, period fill, relevance decision) plus the Writer blocks; candidate adds bounded overview slots on the history-marker path and in the person tool",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json"
+   ],
+   "gap": "no EvidenceBundle object was serialised; overview slots + block material are recorded instead"
+  },
+  {
+   "req_id": "VMQ-MEM-03",
+   "verdict": "evidence_provided",
+   "observed": "four metrics computed: coverage 0.0-1.0 per class, chronological accuracy only where a target exists (D=0.0, T2=0.0, T3=1.0), deterministic relevance precision, fabricated relations 0/0 delivered",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json#by_class"
+   ],
+   "gap": "relevance is a keyword/attribution predicate, not a human/LLM judge"
+  },
+  {
+   "req_id": "VMQ-MEM-04",
+   "verdict": "not_satisfied",
+   "observed": "parity fails: creative answer path (Lore material) delivers 148 rows from 2022-2023 + 6 graph edges for the owner topic, while the ordinary twin/retelling/person reply blocks deliver 0 pre-2026 rows; the person RAG block has 0 rows attributed to the person",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json#parity",
+    "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2026-11-15.md#5"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-MEM-05",
+   "verdict": "satisfied_by_method",
+   "observed": "no answer text was generated for the classes; nothing is counted from a creative answer — only retrieve()/block trace",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2026-11-15.md#2"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-MEM-06",
+   "verdict": "not_measured_here",
+   "observed": "the deployment-wide e2e path document is unchanged (architect-e2e-path.md on 32e018b9); this run re-confirms the same seam (single retrieve, Old_Episode consumer) on c97c06e4",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json"
+   ],
+   "gap": "a re-authored Architect document was not part of this Builder task"
+  },
+  {
+   "req_id": "VMQ-MEM-07",
+   "verdict": "not_measured_here",
+   "observed": "Reviewer's independent comparison on the real archive is not Builder-owned; this run supplies candidate-bound inputs for it",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json",
+    "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-MEM-08",
+   "verdict": "partially_measured",
+   "observed": "single retrieve() implementation in both trees (mca_retrieval_context.py), no DDL in the candidate diff, _HISTORY_MARKERS unchanged; candidate adds an overview projection over existing M1 reads, no new store",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json"
+   ],
+   "gap": "ONTO-01 modules exist only in the candidate (semantic_contracts.py absent on the deployed baseline), so a cross-variant ONTO control is not possible on c97c06e4"
+  },
+  {
+   "req_id": "VMQ-TIME-01",
+   "verdict": "not_satisfied",
+   "observed": "history/person questions stay 2026-bound: 8-10 of 10 RAG rows are 2026; the explicit-2023 conflict question delivers 0 rows from 2023 (RAG 9 rows {2025:1, 2026:8}; episodes 82 messages {2025:19, 2026:63})",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json#classes",
+    "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-TIME-02",
+   "verdict": "partial",
+   "observed": "person profile via purpose=biography delivers 11 facts across 5 years (2022-2026); purpose=general still 8 facts, all 2026; the person reply RAG block is all 2026 with 0 rows attributed to the person; graph_facts about the person exist only for 2026 (35), while 44 577 messages exist for 2023-2024",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json#time_windows"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-TIME-03",
+   "verdict": "not_satisfied",
+   "observed": "event question without a year: 10/10 RAG rows 2026, 0 episode messages, 0 pre-2026 rows; the year window works only inside the dig tool when a year is passed explicitly (window_scan_by_time, 97 724 messages in 2023)",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json#time_windows"
+   ],
+   "gap": "no frequent topic token in this archive is 4x denser in 2023 than 2026, so the class is 'old material required', not 'one uniquely old event'"
+  },
+  {
+   "req_id": "VMQ-TIME-04",
+   "verdict": "evidence_provided",
+   "observed": "per block years recorded and the loss stage named: vector period leg compat_not_proven (0 knn rows), subject filter rejected 13-16 of 16 lexical period rows, episode cap 2 / typed ranking, dig payload budget hides snippets (0 shown)",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-TIME-05",
+   "verdict": "partially_confirmed",
+   "observed": "root-cause branches are re-checked on the deployed tree: period slot = limit//5 with min 2 shared stems under auto; freshness bonus in typed_rank_score; graph_facts year distribution; profile purpose; episode slice div=2",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json"
+   ],
+   "gap": "the written root-cause document stays the authority for the code-level proof; this run measures the effect, not a new diagnosis"
+  },
+  {
+   "req_id": "VMQ-TIME-06",
+   "verdict": "not_satisfied",
+   "observed": "the existing mechanism is reused (one retrieve, no new store, no embeddings change) but the temporal-extent defect is not fixed by the measured candidate: identical blocks in baseline and candidate",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json",
+    "plans/features/vmq-onto-01/evidence/vmq-mem/run-retrieval-trace.json"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-TIME-07",
+   "verdict": "evidence_provided",
+   "observed": "before/after matrix on the real anonymised archive: baseline c97c06e4 and candidate f7a9c596 are identical on every measured class (no degradation and no improvement); 2023-2024 threshold not reached",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/formulation-class-matrix.json",
+    "plans/features/vmq-onto-01/evidence/vmq-mem/measurement-2026-11-15.md#4"
+   ],
+   "gap": ""
+  },
+  {
+   "req_id": "VMQ-TIME-08",
+   "verdict": "not_measured_here",
+   "observed": "Reviewer's independent archive confirmation is not Builder-owned",
+   "artifact_refs": [
+    "plans/features/vmq-onto-01/evidence/vmq-mem/metrics-comparison.json"
+   ],
+   "gap": ""
+  }
+ ],
+ "limits": [
+  "the SQLite copy is not the live process: L1 plan, dedup against the global context (passed empty), budgets and the Writer prompt are not exercised; blocks are measured at the producer boundary",
+  "the embedding provider returned EMBED_API_FAILED once per variant and the vector period leg reported compat_not_proven, so the KNN period path was inactive and only lexical period rows were available; production may differ",
+  "flags.chat_rag_rerank_enabled is effectively true in production, so the LLM reranker decided which fact rows survived; a rerun may produce a different row set. The A/B pair used identical config and identical candidate ids at pool level",
+  "dig snippets are squeezed out by the payload budget (snippets=0), so the year window is proven by coverage counters only",
+  "no answer text was generated (VMQ-MEM-05), so answer quality and 'invented claims in text' are out of scope of this measurement",
+  "the relations path delivered nothing in both variants (tool empty_reason=empty, 0 edges, retrieve subject channel 0 relations), so the fabricated-relations metric is vacuously 0 and unfalsifiable here",
+  "the creative answer path measured is the LoreCompiler material builder (lore_graph_slice + lore_dense_dialogs) without generation; whether the model actually calls compile_lore_story in production is not proven by this trace",
+  "one chat, one query per class, one run per variant: no statistical generalisation",
+  "candidate f7a9c596 is not deployed; every candidate figure is candidate_probe_not_live"
+ ],
+ "harness": {
+  "probe.py_sha256": "c574f37c6423ca59b4e849fbcbf727add14f96990d18ffc24e63ed1f726257a7",
+  "entities.py_sha256": "95bb81c97d2a242ef1b12b1ec36827e2ad9d1e4e804fdcfe34c5b24609133aab",
+  "cfg_probe.py_sha256": "73f56bc9694b73253ad5e3ec8bf0f264adef6269fdf5bbca7f78bb89bffe7312",
+  "relations_probe.py_sha256": "20a6179a3ef0263c9351b6f31538467083e4a9d5827e317b361d670dbc76dc8f",
+  "lore_probe.py_sha256": "64f478b7671ce60fc89e72fcafd2dec57d5f10750446baa283a18bf816f845a6",
+  "raw_base_sha256": "c1d47556b59557ec60abd207acce32c288fb261cd9c8725ad3fa944e10ccba73",
+  "raw_cand_sha256": "92bb847b47491f32f574c3c21eeed307fbe157526ab8db7cff2d7d88c7639e9c"
+ }
+}

@@ -1,0 +1,1859 @@
+{
+ "artifact_kind": "candidate_probe_not_live",
+ "measurement_date": "2026-11-15",
+ "method": {
+  "where": "production host, throwaway clones of the exact commits, fresh SQLite .backup copy of local_database.db",
+  "live_process": false,
+  "note": "the copy is not the live process; no LLM answer was generated for the classes (VMQ-MEM-05)"
+ },
+ "deployed": {
+  "head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "label": "2.58.203"
+ },
+ "baseline": {
+  "variant": "base",
+  "git_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "git_tree": "0a9d69095bd2e3ef9511ab60fdd1b1520fc7fbf4",
+  "files_sha256_16": {
+   "services/mca_retrieval_context.py": "1de4fc93b77d1341",
+   "services/direct_chat_service.py": "ffc047d11d5294a8",
+   "services/database.py": "daffef5259c1bf1f",
+   "services/summary_memory.py": "ec140acd86136b14",
+   "services/tool_router.py": "eb8a2c0aa5fc3f8c",
+   "services/direct_context_composer.py": "4b1f1325fac2a83a",
+   "services/mca_episodes.py": "d65e45727bf46da0"
+  },
+  "python": "3.12.3",
+  "deployed_app_dir": "/var/www/admin_bot",
+  "measured_tree": "/root/vmq2/measure/repo-base",
+  "db_sha256": null,
+  "config": {
+   "effective": {
+    "flags.graph_rag_enabled": "true",
+    "flags.chat_rag_rerank_enabled": "true",
+    "flags.memory_communities_enabled": null,
+    "flags.memory_identity_enabled": null,
+    "flags.memory_attribution_enabled": null,
+    "limits.graph_rag_facts_limit": "10",
+    "limits.graph_rag_context_max_chars": "2000",
+    "limits.chat_rag_dedup_overlap_ratio": "0.8",
+    "limits.chat_episode_max_count": 2,
+    "limits.chat_episode_max_messages": 40,
+    "limits.chat_episode_gap_seconds": 300,
+    "limits.dig_max_snippets": "15",
+    "limits.dig_max_symbols": "5000"
+   },
+   "settings_defaults": {
+    "flags.graph_rag_enabled": true,
+    "flags.chat_rag_rerank_enabled": true,
+    "flags.memory_communities_enabled": null,
+    "flags.memory_identity_enabled": null,
+    "flags.memory_attribution_enabled": null,
+    "limits.graph_rag_facts_limit": 10,
+    "limits.graph_rag_context_max_chars": 2000,
+    "limits.chat_rag_dedup_overlap_ratio": null,
+    "limits.chat_episode_max_count": 2,
+    "limits.chat_episode_max_messages": 40,
+    "limits.chat_episode_gap_seconds": 300,
+    "limits.dig_max_snippets": 8,
+    "limits.dig_max_symbols": 3500
+   },
+   "pg_snapshot": "ok",
+   "model_identity": {
+    "llm_model_name": "deepseek-v4-flash",
+    "embedding_model_name": "gemini-embedding-001",
+    "llm_base_url_host": "nano-gpt.com",
+    "embedding_base_url_host": "apinet.cloud"
+   },
+   "env_flags": {
+    "MCA_RETRIEVAL_CONTEXT_ENABLED": null,
+    "MCA_EVIDENCE_BUNDLE_ENABLED": null,
+    "MCA_EPISODES_ENABLED": null
+   }
+  }
+ },
+ "candidate": {
+  "variant": "cand",
+  "git_head": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+  "git_tree": "5c4b42fbcd38461db617e160fd2bb3cd7e89808f",
+  "files_sha256_16": {
+   "services/mca_retrieval_context.py": "2fd794dd7d2a6945",
+   "services/direct_chat_service.py": "b082430bc457ddc1",
+   "services/database.py": "daffef5259c1bf1f",
+   "services/summary_memory.py": "ec140acd86136b14",
+   "services/tool_router.py": "86a84e7e07d3d0e5",
+   "services/direct_context_composer.py": "4b1f1325fac2a83a",
+   "services/mca_episodes.py": "d65e45727bf46da0"
+  },
+  "python": "3.12.3",
+  "deployed_app_dir": "/var/www/admin_bot",
+  "measured_tree": "/root/vmq2/measure/repo-cand",
+  "db_sha256": null,
+  "config": {
+   "effective": {
+    "flags.graph_rag_enabled": "true",
+    "flags.chat_rag_rerank_enabled": "true",
+    "flags.memory_communities_enabled": null,
+    "flags.memory_identity_enabled": null,
+    "flags.memory_attribution_enabled": null,
+    "limits.graph_rag_facts_limit": "10",
+    "limits.graph_rag_context_max_chars": "2000",
+    "limits.chat_rag_dedup_overlap_ratio": "0.8",
+    "limits.chat_episode_max_count": 2,
+    "limits.chat_episode_max_messages": 40,
+    "limits.chat_episode_gap_seconds": 300,
+    "limits.dig_max_snippets": "15",
+    "limits.dig_max_symbols": "5000"
+   },
+   "settings_defaults": {
+    "flags.graph_rag_enabled": true,
+    "flags.chat_rag_rerank_enabled": true,
+    "flags.memory_communities_enabled": null,
+    "flags.memory_identity_enabled": null,
+    "flags.memory_attribution_enabled": null,
+    "limits.graph_rag_facts_limit": 10,
+    "limits.graph_rag_context_max_chars": 2000,
+    "limits.chat_rag_dedup_overlap_ratio": null,
+    "limits.chat_episode_max_count": 2,
+    "limits.chat_episode_max_messages": 40,
+    "limits.chat_episode_gap_seconds": 300,
+    "limits.dig_max_snippets": 8,
+    "limits.dig_max_symbols": 3500
+   },
+   "pg_snapshot": "ok",
+   "model_identity": {
+    "llm_model_name": "deepseek-v4-flash",
+    "embedding_model_name": "gemini-embedding-001",
+    "llm_base_url_host": "nano-gpt.com",
+    "embedding_base_url_host": "apinet.cloud"
+   },
+   "env_flags": {
+    "MCA_RETRIEVAL_CONTEXT_ENABLED": null,
+    "MCA_EVIDENCE_BUNDLE_ENABLED": null,
+    "MCA_EPISODES_ENABLED": null
+   }
+  }
+ },
+ "corpus": {
+  "chat_scope": "single chat (id withheld)",
+  "db_sha256": "9fe79cdd9995081a90c1acaef28a7dfa5688da82c73699c10f2683b7fb3be501",
+  "db_bytes": 3245551616,
+  "db_sha256_lore_relations_copy": "ce1044cf13da79ac154fc8a3901ca6b4e5e7ade70beb519a20bb8e7ddebb8060",
+  "messages_span_ts": {
+   "min": 1670419898,
+   "max": 1794697041
+  },
+  "messages_by_year": [
+   {
+    "k": "2022",
+    "n": 21383
+   },
+   {
+    "k": "2023",
+    "n": 314090
+   },
+   {
+    "k": "2024",
+    "n": 382046
+   },
+   {
+    "k": "2025",
+    "n": 810831
+   },
+   {
+    "k": "2026",
+    "n": 547271
+   }
+  ],
+  "messages_total": 2075621,
+  "graph_facts_by_year": [
+   {
+    "k": "2022",
+    "n": 96
+   },
+   {
+    "k": "2023",
+    "n": 1419
+   },
+   {
+    "k": "2024",
+    "n": 1762
+   },
+   {
+    "k": "2025",
+    "n": 3891
+   },
+   {
+    "k": "2026",
+    "n": 20852
+   }
+  ],
+  "episodes_by_year": [
+   {
+    "k": "2023",
+    "n": 83
+   },
+   {
+    "k": "2024",
+    "n": 92
+   },
+   {
+    "k": "2025",
+    "n": 9
+   },
+   {
+    "k": "2026",
+    "n": 16
+   }
+  ],
+  "episodes_total": 200,
+  "shiz_msgs_by_year": [
+   {
+    "k": "2022",
+    "n": 41
+   },
+   {
+    "k": "2023",
+    "n": 758
+   },
+   {
+    "k": "2024",
+    "n": 694
+   },
+   {
+    "k": "2025",
+    "n": 2673
+   },
+   {
+    "k": "2026",
+    "n": 2177
+   }
+  ],
+  "conflict_msgs_by_year": [
+   {
+    "k": "2022",
+    "n": 12
+   },
+   {
+    "k": "2023",
+    "n": 137
+   },
+   {
+    "k": "2024",
+    "n": 214
+   },
+   {
+    "k": "2025",
+    "n": 590
+   },
+   {
+    "k": "2026",
+    "n": 399
+   }
+  ],
+  "person_msgs_by_year": [
+   {
+    "k": "2022",
+    "n": 1947
+   },
+   {
+    "k": "2023",
+    "n": 36216
+   },
+   {
+    "k": "2024",
+    "n": 9857
+   },
+   {
+    "k": "2025",
+    "n": 16494
+   },
+   {
+    "k": "2026",
+    "n": 6857
+   }
+  ],
+  "person_facts_by_year": [
+   {
+    "k": "2026",
+    "n": 35
+   }
+  ],
+  "event_counts": {
+   "count_2023": 2086,
+   "count_2026": 3421,
+   "ratio_2026_to_2023": 1.64
+  }
+ },
+ "classes": [
+  {
+   "class": "A1_creative_owner",
+   "spec": {
+    "role": "creative/exact owner query about the chat's core memes",
+    "support": "shiz_msgs_by_year",
+    "required_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "temporal_mode": "span",
+    "relevance": "shiz"
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "напиши юмористический рассказ об основных шизах конфы",
+     "rows_delivered_rag": 9,
+     "rag_years": {
+      "2024": 1,
+      "2026": 8
+     },
+     "rag_distinct_years": 2,
+     "old_episode_messages": 107,
+     "old_episode_blocks": 2,
+     "old_episode_years": {
+      "2026": 107
+     },
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.4,
+      "hit": [
+       "2024",
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.4
+     },
+     "multi_year": true,
+     "relevance": {
+      "predicate": "shiz",
+      "relevant_rows": 1,
+      "judged_rows": 9,
+      "precision": 0.111
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "напиши юмористический рассказ об основных шизах конфы",
+     "rows_delivered_rag": 9,
+     "rag_years": {
+      "2024": 1,
+      "2026": 8
+     },
+     "rag_distinct_years": 2,
+     "old_episode_messages": 107,
+     "old_episode_blocks": 2,
+     "old_episode_years": {
+      "2026": 107
+     },
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.4,
+      "hit": [
+       "2024",
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.4
+     },
+     "multi_year": true,
+     "relevance": {
+      "predicate": "shiz",
+      "relevant_rows": 1,
+      "judged_rows": 9,
+      "precision": 0.111
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "A1P_plain_twin",
+   "spec": {
+    "role": "ordinary factual twin of the same topic (parity control)",
+    "support": "shiz_msgs_by_year",
+    "required_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "temporal_mode": "span",
+    "relevance": "shiz"
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "что за шизы были на конфе?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "shiz",
+      "relevant_rows": 2,
+      "judged_rows": 10,
+      "precision": 0.2
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "что за шизы были на конфе?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "shiz",
+      "relevant_rows": 2,
+      "judged_rows": 10,
+      "precision": 0.2
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "A2_creative_generic",
+   "spec": {
+    "role": "creative story about the chat, 'over all years'",
+    "support": "messages_by_year",
+    "required_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "temporal_mode": "span",
+    "relevance": null
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "расскажи смешную историю про наши шутки и приколы за все годы",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": null,
+      "note": "not separable: every chat message is in scope"
+     },
+     "history_query": true,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "расскажи смешную историю про наши шутки и приколы за все годы",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": null,
+      "note": "not separable: every chat message is in scope"
+     },
+     "history_query": true,
+     "overview_delivered": true
+    }
+   }
+  },
+  {
+   "class": "B_retell",
+   "spec": {
+    "role": "ordinary retelling, 'over all years'",
+    "support": "messages_by_year",
+    "required_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "temporal_mode": "span",
+    "relevance": null
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "перескажи, о чём мы говорили в этом чате за все годы",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 101,
+     "old_episode_blocks": 2,
+     "old_episode_years": {
+      "2026": 101
+     },
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": null,
+      "note": "not separable: every chat message is in scope"
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "перескажи, о чём мы говорили в этом чате за все годы",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 101,
+     "old_episode_blocks": 2,
+     "old_episode_years": {
+      "2026": 101
+     },
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": null,
+      "note": "not separable: every chat message is in scope"
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "C_person_profile",
+   "spec": {
+    "role": "participant profile without a year",
+    "support": "person",
+    "required_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "temporal_mode": "span",
+    "relevance": "person"
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "что ты знаешь про P1?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "person",
+      "relevant_rows": 0,
+      "judged_rows": 10,
+      "precision": 0.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "что ты знаешь про P1?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "person",
+      "relevant_rows": 0,
+      "judged_rows": 10,
+      "precision": 0.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "D_conflict_2023",
+   "spec": {
+    "role": "reconstruction of a concrete conflict, explicit year 2023",
+    "support": "conflict_msgs_by_year",
+    "required_years": [
+     "2023"
+    ],
+    "temporal_mode": "exact",
+    "relevance": "conflict"
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "из-за чего мы ссорились и ругались в 2023 году",
+     "rows_delivered_rag": 9,
+     "rag_years": {
+      "2025": 1,
+      "2026": 8
+     },
+     "rag_distinct_years": 2,
+     "old_episode_messages": 82,
+     "old_episode_blocks": 2,
+     "old_episode_years": {
+      "2025": 19,
+      "2026": 63
+     },
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.0,
+      "hit": [],
+      "miss": [
+       "2023"
+      ],
+      "required": [
+       "2023"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.0
+     },
+     "multi_year": true,
+     "relevance": {
+      "predicate": "conflict",
+      "relevant_rows": 0,
+      "judged_rows": 9,
+      "precision": 0.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "из-за чего мы ссорились и ругались в 2023 году",
+     "rows_delivered_rag": 9,
+     "rag_years": {
+      "2025": 1,
+      "2026": 8
+     },
+     "rag_distinct_years": 2,
+     "old_episode_messages": 82,
+     "old_episode_blocks": 2,
+     "old_episode_years": {
+      "2025": 19,
+      "2026": 63
+     },
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 15,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.0,
+      "hit": [],
+      "miss": [
+       "2023"
+      ],
+      "required": [
+       "2023"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.0
+     },
+     "multi_year": true,
+     "relevance": {
+      "predicate": "conflict",
+      "relevant_rows": 0,
+      "judged_rows": 9,
+      "precision": 0.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "E_relations_years",
+   "spec": {
+    "role": "change of relations/views across years",
+    "support": "messages_by_year",
+    "required_years": [
+     "2022",
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "temporal_mode": "span",
+    "relevance": "relation"
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "как менялись наши отношения и взгляды за эти годы",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "relation",
+      "relevant_rows": 5,
+      "judged_rows": 10,
+      "precision": 0.5
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "как менялись наши отношения и взгляды за эти годы",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 16,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.2,
+      "hit": [
+       "2026"
+      ],
+      "miss": [
+       "2022",
+       "2023",
+       "2024",
+       "2025"
+      ],
+      "required": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 0.2
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "relation",
+      "relevant_rows": 5,
+      "judged_rows": 10,
+      "precision": 0.5
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "T2_event_no_year",
+   "spec": {
+    "role": "event question without a year (old-period material required)",
+    "support": "event",
+    "required_years": [
+     "2023"
+    ],
+    "temporal_mode": "old",
+    "relevance": "old_window"
+   },
+   "support_years": [
+    "2023"
+   ],
+   "variants": {
+    "base": {
+     "query": "что вообще было с E1, напомни?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 13,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.0,
+      "hit": [],
+      "miss": [
+       "2023"
+      ],
+      "required": [
+       "2023"
+      ],
+      "support_years": [
+       "2023"
+      ],
+      "coverage_ratio_vs_support": 0.0
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "old_window",
+      "relevant_rows": 0,
+      "judged_rows": 10,
+      "precision": 0.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "что вообще было с E1, напомни?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 2,
+     "period_fill": {
+      "rejected_subject": 13,
+      "vector_pool_miss": 0,
+      "vector_leg": "compat_not_proven",
+      "vector_rows": 0,
+      "vector_kept": 0,
+      "exclude_years": 1,
+      "period_leg_reused": 0
+     },
+     "coverage": {
+      "ratio": 0.0,
+      "hit": [],
+      "miss": [
+       "2023"
+      ],
+      "required": [
+       "2023"
+      ],
+      "support_years": [
+       "2023"
+      ],
+      "coverage_ratio_vs_support": 0.0
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "old_window",
+      "relevant_rows": 0,
+      "judged_rows": 10,
+      "precision": 0.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  },
+  {
+   "class": "T3_current_state",
+   "spec": {
+    "role": "current-state question (control: must stay current)",
+    "support": "messages_by_year",
+    "required_years": [
+     "2026"
+    ],
+    "temporal_mode": "current",
+    "relevance": "current"
+   },
+   "support_years": [
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026"
+   ],
+   "variants": {
+    "base": {
+     "query": "что сейчас происходит с E1?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 1,
+     "period_fill": {},
+     "coverage": {
+      "ratio": 1.0,
+      "hit": [
+       "2026"
+      ],
+      "miss": [],
+      "required": [
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 1.0
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "current",
+      "relevant_rows": 10,
+      "judged_rows": 10,
+      "precision": 1.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    },
+    "cand": {
+     "query": "что сейчас происходит с E1?",
+     "rows_delivered_rag": 10,
+     "rag_years": {
+      "2026": 10
+     },
+     "rag_distinct_years": 1,
+     "old_episode_messages": 0,
+     "old_episode_blocks": 0,
+     "old_episode_years": {},
+     "retrieve_calls": 1,
+     "period_fill": {},
+     "coverage": {
+      "ratio": 1.0,
+      "hit": [
+       "2026"
+      ],
+      "miss": [],
+      "required": [
+       "2026"
+      ],
+      "support_years": [
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "coverage_ratio_vs_support": 1.0
+     },
+     "multi_year": false,
+     "relevance": {
+      "predicate": "current",
+      "relevant_rows": 10,
+      "judged_rows": 10,
+      "precision": 1.0
+     },
+     "history_query": false,
+     "overview_delivered": false
+    }
+   }
+  }
+ ],
+ "time_windows": {
+  "profile_biography": {
+   "base": {
+    "facts": 11,
+    "fact_years": {
+     "2022": 2,
+     "2023": 2,
+     "2024": 2,
+     "2025": 2,
+     "2026": 3
+    },
+    "distinct_years": 5,
+    "status": "ok",
+    "empty_reason": "",
+    "overview_slots": false,
+    "coverage_lines": [],
+    "independent_periods": null,
+    "counterexamples": 0,
+    "limitations": [],
+    "sources": 11
+   },
+   "cand": {
+    "facts": 11,
+    "fact_years": {
+     "2022": 2,
+     "2023": 2,
+     "2024": 2,
+     "2025": 2,
+     "2026": 3
+    },
+    "distinct_years": 5,
+    "status": "ok",
+    "empty_reason": "",
+    "overview_slots": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": null,
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "sources": 11
+   }
+  },
+  "profile_general": {
+   "base": {
+    "facts": 8,
+    "fact_years": {
+     "2026": 8
+    },
+    "distinct_years": 1,
+    "status": "ok",
+    "empty_reason": "",
+    "overview_slots": false,
+    "coverage_lines": [],
+    "independent_periods": null,
+    "counterexamples": 0,
+    "limitations": [],
+    "sources": 8
+   },
+   "cand": {
+    "facts": 8,
+    "fact_years": {
+     "2026": 8
+    },
+    "distinct_years": 1,
+    "status": "ok",
+    "empty_reason": "",
+    "overview_slots": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": null,
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "sources": 8
+   }
+  },
+  "dig": {
+   "event_no_year": {
+    "sampling": "top_by_relevance",
+    "messages_total": 710941,
+    "messages_shown": 15,
+    "truncated": true,
+    "first_seen": null,
+    "last_seen": null,
+    "snippets": 0,
+    "facts": 0,
+    "seconds": 2.53
+   },
+   "event_year_2023": {
+    "sampling": "window_scan_by_time",
+    "messages_total": 97724,
+    "messages_shown": 15,
+    "truncated": true,
+    "first_seen": null,
+    "last_seen": null,
+    "snippets": 0,
+    "facts": 0,
+    "seconds": 1.23
+   },
+   "current_no_year": {
+    "sampling": "top_by_relevance",
+    "messages_total": 689176,
+    "messages_shown": 15,
+    "truncated": true,
+    "first_seen": null,
+    "last_seen": null,
+    "snippets": 0,
+    "facts": 0,
+    "seconds": 2.25
+   },
+   "conflict_year_2023": {
+    "sampling": "window_scan_by_time",
+    "messages_total": 129482,
+    "messages_shown": 15,
+    "truncated": true,
+    "first_seen": null,
+    "last_seen": null,
+    "snippets": 0,
+    "facts": 0,
+    "seconds": 1.62
+   }
+  },
+  "dig_by_variant": {
+   "base": {
+    "event_no_year": {
+     "sampling": "top_by_relevance",
+     "messages_total": 710941,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 2.53
+    },
+    "event_year_2023": {
+     "sampling": "window_scan_by_time",
+     "messages_total": 97724,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 1.23
+    },
+    "current_no_year": {
+     "sampling": "top_by_relevance",
+     "messages_total": 689176,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 2.25
+    },
+    "conflict_year_2023": {
+     "sampling": "window_scan_by_time",
+     "messages_total": 129482,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 1.62
+    }
+   },
+   "cand": {
+    "event_no_year": {
+     "sampling": "top_by_relevance",
+     "messages_total": 710941,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 2.36
+    },
+    "event_year_2023": {
+     "sampling": "window_scan_by_time",
+     "messages_total": 97724,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 1.19
+    },
+    "current_no_year": {
+     "sampling": "top_by_relevance",
+     "messages_total": 689176,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 2.25
+    },
+    "conflict_year_2023": {
+     "sampling": "window_scan_by_time",
+     "messages_total": 129482,
+     "messages_shown": 15,
+     "truncated": true,
+     "first_seen": null,
+     "last_seen": null,
+     "snippets": 0,
+     "facts": 0,
+     "seconds": 1.61
+    }
+   }
+  },
+  "lore_material": {
+   "base": {
+    "graph": {
+     "nodes": 8,
+     "edges": 6,
+     "facts": 0,
+     "fact_years": {},
+     "symbols": 0
+    },
+    "dialogs": {
+     "total": 9487,
+     "earliest_year": 2022,
+     "latest_year": 2026,
+     "dialogs": 3,
+     "rows": 148,
+     "row_years": {
+      "2022": 60,
+      "2023": 88
+     },
+     "symbols": 4602
+    },
+    "corpus_topic_by_year": {
+     "2022": 50,
+     "2023": 850,
+     "2024": 1788,
+     "2025": 4057,
+     "2026": 2742
+    }
+   },
+   "cand": {
+    "graph": {
+     "nodes": 8,
+     "edges": 6,
+     "facts": 0,
+     "fact_years": {},
+     "symbols": 0
+    },
+    "dialogs": {
+     "total": 9487,
+     "earliest_year": 2022,
+     "latest_year": 2026,
+     "dialogs": 3,
+     "rows": 148,
+     "row_years": {
+      "2022": 60,
+      "2023": 88
+     },
+     "symbols": 4602
+    },
+    "corpus_topic_by_year": {
+     "2022": 50,
+     "2023": 850,
+     "2024": 1788,
+     "2025": 4057,
+     "2026": 2742
+    }
+   }
+  },
+  "relations": {
+   "base": {
+    "tool": {
+     "status": "ok",
+     "envelope_keys": [
+      "confidence",
+      "empty_reason",
+      "facts",
+      "no_data",
+      "person",
+      "purpose",
+      "sources",
+      "status",
+      "time_context",
+      "truncated"
+     ],
+     "chars": 334,
+     "relations": 0,
+     "edges": [],
+     "sources": 0,
+     "facts": 0,
+     "empty_reason": "empty"
+    },
+    "retrieve": {
+     "subject_relations": {
+      "seconds": 0.97,
+      "status": "ok",
+      "reason_code": null,
+      "channels_used": [
+       "subject"
+      ],
+      "candidates": 10,
+      "has_relations_field": true,
+      "relations": 0,
+      "edges": [],
+      "years": []
+     },
+     "relations_direct": {
+      "seconds": 0.4,
+      "status": "empty",
+      "reason_code": "retrieval_empty",
+      "channels_used": [],
+      "candidates": 0,
+      "has_relations_field": true,
+      "relations": 0,
+      "edges": [],
+      "years": []
+     }
+    }
+   },
+   "cand": {
+    "tool": {
+     "status": "ok",
+     "envelope_keys": [
+      "confidence",
+      "empty_reason",
+      "facts",
+      "no_data",
+      "person",
+      "purpose",
+      "sources",
+      "status",
+      "time_context",
+      "truncated"
+     ],
+     "chars": 334,
+     "relations": 0,
+     "edges": [],
+     "sources": 0,
+     "facts": 0,
+     "empty_reason": "empty"
+    },
+    "retrieve": {
+     "subject_relations": {
+      "seconds": 0.82,
+      "status": "ok",
+      "reason_code": null,
+      "channels_used": [
+       "subject"
+      ],
+      "candidates": 10,
+      "has_relations_field": true,
+      "relations": 0,
+      "edges": [],
+      "years": []
+     },
+     "relations_direct": {
+      "seconds": 0.4,
+      "status": "empty",
+      "reason_code": "retrieval_empty",
+      "channels_used": [],
+      "candidates": 0,
+      "has_relations_field": true,
+      "relations": 0,
+      "edges": [],
+      "years": []
+     }
+    }
+   }
+  }
+ }
+}
