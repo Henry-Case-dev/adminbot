@@ -178,3 +178,205 @@ class _StubMemory:
 
     async def get_rag_context(self, chat_id, query, **kwargs):
         return ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# C2-01 / C3-01 · память: query_chat_memory / get_user_context / dig
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _MemoryRows:
+    """Хранилище памяти: отдаёт ровно то, что сохранил тест (без срезов)."""
+
+    def __init__(self, rows) -> None:
+        self.rows = list(rows)
+        self.rag_facts: list = []
+        self.context = ""
+
+    async def search_long_term(self, chat_id, keywords_, limit):
+        return list(self.rows[:limit])
+
+    async def count_mentions(self, chat_id, keywords_, **kwargs):
+        return {"count": len(self.rows)}
+
+    async def vector_search(self, chat_id, query, limit):
+        return []
+
+    async def get_rag_facts(self, chat_id, query, **kwargs):
+        return list(self.rag_facts)
+
+    async def get_rag_context(self, chat_id, query, **kwargs):
+        return self.context
+
+
+def _memory_rows(count: int, chars: int, *, marker: str) -> list[dict]:
+    return [{"id": i, "text": ("M" * chars) + f"-{i}",
+             "timestamp": 1700000000 + i, "author_name": "A",
+             "tg_message_id": 1000 + i}
+            for i in range(1, count + 1)]
+
+
+@pytest.mark.asyncio
+async def test_query_chat_memory_result_not_trimmed_to_3500() -> None:
+    """Прежний ``_MEMORY_MAX_SYMBOLS=3500`` обрезал выдачу посимвольно."""
+    rows = _memory_rows(40, 200, marker=TAIL)
+    rows[-1]["text"] = rows[-1]["text"][:-2] + f"-{TAIL}"
+    router = _RecordingRouter(ToolDeps(search=MagicMockSearch(),
+                                       memory=_MemoryRows(rows),
+                                       aliases=None))
+    ctx = ToolContext(-100, "память")
+    output = await router.dispatch("query_chat_memory",
+                                   {"query": "память"}, ctx)
+    assert len(output) > 3500
+    assert f"-{TAIL}" in output
+    llm, tool_msg, final = await _run_tool_loop(
+        "query_chat_memory", {"query": "память"}, f"-{TAIL}", router, ctx)
+    assert tool_msg["content"] == output
+    assert final == f"Итог: -{TAIL}"
+
+
+class _FakeAliases:
+    def __init__(self, mapping=None) -> None:
+        self._aliases = {str(k): str(v) for k, v in (mapping or {}).items()}
+
+    def canon_name(self, name):
+        return str(name or "")
+
+    def resolve(self, user_id, nickname=None, username=None):
+        return self._aliases.get(str(user_id), str(user_id))
+
+
+class _FakeMemoryDb:
+    """Двойник хранилища (SQLite-эквивалент строк), не подмена инструмента."""
+
+    def __init__(self, facts) -> None:
+        self.facts = list(facts)
+
+    async def get_user_context_facts(self, chat_id, target_user, limit, now_ts,
+                                     user_id=None):
+        return self.facts[:limit]
+
+    async def get_persona_card(self, chat_id, name, limit, now_ts):
+        return {"facts": [], "links": []}
+
+    async def get_generated_dossier(self, chat_id, target_user):
+        return None
+
+    async def get_recent_messages(self, chat_id, limit):
+        return []
+
+    async def search_messages_fts(self, chat_id, match, limit):
+        return []
+
+    async def search_graph_facts_fts(self, chat_id, match, limit, now_ts,
+                                     include_direct_reply=False,
+                                     include_archived=False, **_kw):
+        return self.facts[:limit]
+
+    async def get_graph_fact_records(self, fact_ids, status=None):
+        wanted = {int(i) for i in fact_ids}
+        return [dict(f) for f in self.facts if int(f["id"]) in wanted]
+
+
+def _fact_row(fact: str, fid: int) -> dict:
+    return {"id": fid, "fact": fact, "origin": "chat_history",
+            "created_at": 1700000000 + fid, "target_user": "Лёха",
+            "weight": 0.8, "status": "confirmed", "tg_message_id": None,
+            "message_timestamp": 1700000000 + fid, "kind": "fact"}
+
+
+@pytest.mark.asyncio
+async def test_user_context_explicit_max_items_and_full_fragments() -> None:
+    """``max_items=999`` уважается; тексты фактов не режутся до 240."""
+    facts = [_fact_row(("F" * 3000) + f"-{i}", i) for i in range(1, 31)]
+    facts[-1]["fact"] = facts[-1]["fact"][:-2] + f"-{TAIL}"
+    router = _RecordingRouter(ToolDeps(search=MagicMockSearch(),
+                                       memory=_MemoryRows([]),
+                                       aliases=_FakeAliases({"5": "Лёха"}),
+                                       db=_FakeMemoryDb(facts)))
+    ctx = ToolContext(-100, "биография", user_id=5)
+    raw = await router.dispatch("get_user_context",
+                                {"person": "Лёха", "purpose": "biography",
+                                 "max_items": 999}, ctx)
+    payload = json.loads(raw)
+    assert len(payload["facts"]) == 30          # было бы жёстко ≤20
+    assert len(payload["facts"][0]["text"]) == 3002   # не 240
+    assert payload["truncated"] is False
+    assert len(raw) > 4000                       # общего бюджета 4000 нет
+    assert f"-{TAIL}" in raw
+    llm, tool_msg, final = await _run_tool_loop(
+        "get_user_context", {"person": "Лёха", "purpose": "biography",
+                             "max_items": 999}, f"-{TAIL}", router, ctx)
+    assert tool_msg["content"] == raw
+    assert final == f"Итог: -{TAIL}"
+
+
+@pytest.mark.asyncio
+async def test_user_context_explicit_small_max_items_still_applies() -> None:
+    """Семантическая/явная выборка сохранена: max_items=2 → ровно 2 факта."""
+    facts = [_fact_row(("F" * 3000) + f"-{i}", i) for i in range(1, 31)]
+    router = _RecordingRouter(ToolDeps(search=MagicMockSearch(),
+                                       memory=_MemoryRows([]),
+                                       aliases=_FakeAliases({"5": "Лёха"}),
+                                       db=_FakeMemoryDb(facts)))
+    raw = await router.dispatch(
+        "get_user_context",
+        {"person": "Лёха", "purpose": "biography", "max_items": 2},
+        ToolContext(-100, "биография", user_id=5))
+    assert len(json.loads(raw)["facts"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_user_context_general_messages_are_full() -> None:
+    """Тексты сообщений в general-режиме доставляются целиком (не 240/5)."""
+    rows = _memory_rows(10, 500, marker=TAIL)
+    router = _RecordingRouter(ToolDeps(search=MagicMockSearch(),
+                                       memory=_MemoryRows(rows),
+                                       aliases=_FakeAliases({"5": "Лёха"}),
+                                       db=None))
+    raw = await router.dispatch(
+        "get_user_context",
+        {"person": "Лёха", "purpose": "general", "max_items": 20},
+        ToolContext(-100, "общее", user_id=5))
+    payload = json.loads(raw)
+    assert len(payload["facts"]) == 10          # было бы ≤5
+    assert all(len(f["text"]) >= 502 for f in payload["facts"])
+    assert payload["facts"][0]["text"] == ("M" * 500) + "-1"
+
+
+def test_stats_payload_no_budget_returns_complete_contract() -> None:
+    from services.tool_router import _stats_json_payload
+    payload = {"metric_id": "m1", "status": "ok", "value": 42,
+               "unit": "messages",
+               "method": "m", "method_label": "M", "scope": {},
+               "coverage": "known_complete",
+               "examples": [{"text": "x" * 200}] * 30}
+    full = json.loads(_stats_json_payload(payload, 0))
+    assert full["value"] == 42
+    assert len(full["examples"]) == 30
+    explicit = json.loads(_stats_json_payload(payload, 200))
+    assert explicit["value"] == 42
+    assert explicit["examples"] == []
+
+
+def test_dig_result_budget_is_explicit_policy_only(monkeypatch) -> None:
+    """Заводской ``DIG_MAX_SYMBOLS=3500`` не применяется автоматически."""
+    from services import hot_config as hot
+    from services import tool_router
+    monkeypatch.setattr(hot, "get", lambda key, default=None: default)
+    assert tool_router._dig_result_budget() == 0
+    result = {"status": "ok", "total_mentions": 1,
+              "snippets": ["S" * 3000], "facts": ["F" * 3000]}
+    full = json.loads(tool_router._dig_json_payload(result, 0))
+    assert len(full["snippets"][0]) == 3000
+    assert "truncated" not in full
+    monkeypatch.setattr(hot, "get",
+                        lambda key, default=None: 4000 if key ==
+                        "limits.dig_max_symbols" else default)
+    assert tool_router._dig_result_budget() == 4000
+
+
+class MagicMockSearch:
+    """Поиск для тестов памяти: не вызывается (guard)."""
+
+    async def search(self, *args, **kwargs):  # pragma: no cover
+        raise AssertionError("search must not be called in memory tests")

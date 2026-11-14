@@ -1,9 +1,11 @@
 """Эпик 04.09.2026 (3.3, Часть 2) — исполнение инструментов Tool Calling.
 
 Фиксированный реестр имён (dispatch по таблице, БЕЗ исполнения произвольного
-кода); аргументы валидируются (кривой JSON/тип → текст ошибки); результаты
-режутся (4000/3500 симв.); параллельного исполнения НЕТ (последовательно, по
-одному tool_call за раунд — бюджет в tool_loop).
+кода); аргументы валидируются (кривой JSON/тип → текст ошибки); результаты НЕ
+режутся собственным «потолком символов» (SMART-EXECUTION-RELIABILITY-01 §C2:
+семантическая выборка остаётся, слепой срез — нет; окно модели обслуживает
+существующий резолвер `auto_budget`); параллельного исполнения НЕТ
+(последовательно, по одному tool_call за раунд — бюджет в tool_loop).
 
 dispatch ВСЕГДА возвращает строку результата (в т.ч. 'ОШИБКА …') — НЕ бросает
 (FR-14: результат ошибки уходит модели как role:"tool").
@@ -48,8 +50,9 @@ bounded попытка `download(url, None)`. Кулдаун (D279) — толь
 Раунд 10.24 (F19, ADR-1024-20 §2.2): `transcribe_video` — СЫРАЯ
 транскрибация (дословный текст, без пересказа), отдельно от `summarize_video`.
 Источник link/native (voice/video_note включительно); YouTube → субтитры raw,
-иначе download→STT; native → fetch→STT. Возвращает строку (усечённую
-`_MEMORY_MAX_SYMBOLS`), никогда не бросает. Egress не расширяется.
+иначе download→STT; native → fetch→STT. Возвращает ПОЛНУЮ строку транскрипта
+(без собственного символьного потолка, SXR-C2-01), никогда не бросает.
+Egress не расширяется.
 """
 import asyncio
 import base64
@@ -113,7 +116,11 @@ logger = logging.getLogger(__name__)
 # `auto_budget.resolve_evidence_tool_window` (реальное окно модели / бюджет
 # композера), см. `_evidence_window`.
 _SEARCH_MAX_SYMBOLS = auto_budget.LEGACY_SEARCH_MAX_SYMBOLS   # legacy-пол
-_MEMORY_MAX_SYMBOLS = 3500
+# SXR-C2-01: заводского символьного потолка памяти/транскриптов/чекапа больше
+# нет. Выборка памяти — семантическая (`_MEMORY_FTS_LIMIT`/`_MEMORY_VEC_LIMIT`
+# — top-K ранжирования, не обрыв достаточного набора); объём доставленного
+# результата ограничивает только реальное окно модели (существующий
+# `auto_budget`) и composer.
 _MEMORY_FTS_LIMIT = 40
 _MEMORY_VEC_LIMIT = 15
 # Бюджет одного инструмента веб-поиска (сумма таймаутов каскада + запас).
@@ -132,8 +139,8 @@ _LORE_TOOL_TIMEOUT = 300.0
 _LORE_RETURN_INSTRUCTION = (
     "[СИСТЕМНАЯ ИНСТРУКЦИЯ: верни пользователю текст из поля \"story\" "
     "ДОСЛОВНО, без сокращений, без пересказа и без собственных добавлений.]")
-# Cap транскрипта для mode=transcript (прецедент handlers/youtube T-690).
-_SUMMARIZE_TRANSCRIPT_CAP = 20000
+# SXR-C2-01: cap транскрипта 20000 удалён — субтитры YouTube отдаются
+# целиком (объём ограничен самим провайдером/видео, не нашим срезом).
 
 # Раунд 10.24 (F14, ADR-1024-15 §2.3/§2.5): нативный источник инструментов
 # (summarize_video/download_media) — только video/видео-document; bytes берём
@@ -172,19 +179,15 @@ _EDIT_SOURCE_SUFFIX_BY_MIME = {
 # `get_user_context`. Капы — код-константы (Δ каталога = 0); инструмент
 # read-only и free/local (не в METERED_TOOLS). R17: в логи — только
 # purpose/user_id/chat_id/count/latency/empty_reason.
-_MEMORY_LOOKUP_MAX_ITEMS_HARD = 20          # hard-ceiling max_items (D5)
-_MEMORY_LOOKUP_MESSAGE_SLICE_MAX = 5        # срез сообщений (hard 10)
-_MEMORY_LOOKUP_MESSAGE_SLICE_HARD = 10
-_MEMORY_LOOKUP_SLICE_MAX_CHARS = 240        # символов на фрагмент сообщения
-_MEMORY_LOOKUP_RESULT_MAX_CHARS = 4000      # общий бюджет результата
+# SXR-C2-01: hard-ceiling max_items=20, срез сообщений ≤5/10, символьные
+# срезы фрагментов 240 и общий бюджет результата 4000 удалены: явный
+# `max_items` уважается, тексты фактов/сообщений доставляются целиком.
 _MEMORY_LOOKUP_CONFIRMED_WEIGHT = 0.5       # graph_facts.weight → confirmed/likely
 _MEMORY_LOOKUP_APPEARANCE_SCAN = 200        # bounded-пул под лексиконный фильтр
 _MEMORY_LOOKUP_STYLE_SCAN = 120             # bounded-пул recent-сообщений
 #: Минимум характерных сообщений (D3). Теперь это лишь порог «тонкого»
 #: среза: сам срез читает канал `recent` единого retrieval (§7.5).
 _MEMORY_LOOKUP_STYLE_MIN_MESSAGES = 2
-_MEMORY_LOOKUP_PORTRAIT_MAX_CHARS = 600     # портрет/профиль (производные)
-_MEMORY_LOOKUP_RAG_FACT_CHARS = 240         # фрагмент RAG-факта
 # Per-purpose дефолты max_items (D5, spec §3.5).
 _MEMORY_LOOKUP_PURPOSE_DEFAULTS = {
     "identity": 5,
@@ -1033,10 +1036,16 @@ def _dig_json_payload(result: dict, limit: int) -> str:
     сохраняются; если обязательное не помещается — structured
     ``{"status": "insufficient_output_budget", "value": null}`` вместо
     ``{truncated, total_mentions}``. K1 OFF → прежний контракт байт-в-байт.
+
+    ``limit <= 0`` — бюджета нет: контракт возвращается целиком (SXR-C2-01;
+    заводской ``DIG_MAX_SYMBOLS=3500`` больше не применяется автоматически).
     """
-    budget = max(1, int(limit or 0))
+    try:
+        budget = int(limit or 0)
+    except (TypeError, ValueError):
+        budget = 0
     payload = json.dumps(result, ensure_ascii=False)
-    if len(payload) <= budget:
+    if budget <= 0 or len(payload) <= budget:
         return payload
     if not mca_gates.chat_statistics_enabled():
         out = dict(result)
@@ -1140,11 +1149,14 @@ def _stats_json_payload(result: dict, limit: int) -> str:
     (authors/time_bounds/watermark/...); обязательные schema/status/unit/
     scope/method остаются. Если обязательное не помещается —
     ``{"status":"insufficient_output_budget","value":null}`` (не голое
-    число и не частичный JSON)."""
-    budget = max(1, int(limit or 0))
+    число и не частичный JSON). ``limit <= 0`` — бюджета нет (SXR-C2-01)."""
+    try:
+        budget = int(limit or 0)
+    except (TypeError, ValueError):
+        budget = 0
     out = dict(result or {})
     payload = json.dumps(out, ensure_ascii=False)
-    if len(payload) <= budget:
+    if budget <= 0 or len(payload) <= budget:
         return payload
 
     def _size() -> int:
@@ -1174,6 +1186,26 @@ def _stats_json_payload(result: dict, limit: int) -> str:
         return serialized
     return json.dumps({"status": "insufficient_output_budget"},
                       ensure_ascii=False)
+
+
+def _dig_result_budget() -> int:
+    """Явный ОПЕРАТОРСКИЙ бюджет результата dig (каталог/горячий ключ).
+
+    SXR-C2-01: заводской ``settings.DIG_MAX_SYMBOLS=3500`` больше НЕ
+    применяется автоматически — потолок существует только когда администратор
+    реально задал `limits.dig_max_symbols`. Отсутствие ключа/мусор/0 → 0 =
+    бюджета нет (результат отдаётся целиком)."""
+    try:
+        raw = hot.get("limits.dig_max_symbols", None)
+    except Exception:      # pragma: no cover - защитная ветка
+        return 0
+    if raw in (None, ""):
+        return 0
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
 
 
 async def resolve_lore_compiler_flag(chat_id: int | None) -> bool:
@@ -2053,7 +2085,10 @@ class ToolRouter:
             parts.append("Контекст из памяти (обобщённые факты и пересказ, "
                          "не дословные сообщения):")
             parts.extend(indirect_lines)
-        return _truncate("\n".join(parts), _MEMORY_MAX_SYMBOLS)
+        # SXR-C2-01: без собственного потолка 3500 — весь отобранный
+        # retrieval'ом набор доходит до ToolResult (top-K остаётся
+        # семантической выборкой, а не обрывом текста).
+        return "\n".join(parts)
 
     # ── query_chat_memory stats-режим (MCA-15 T-4929, ADR-1028-12 D3/D4) ──
 
@@ -2307,7 +2342,9 @@ class ToolRouter:
                                    intent=ctx.stats_intent)
         payload = _cs.metric_result_payload(result, query,
                                             metric_result=metric_result)
-        return _stats_json_payload(payload, _MEMORY_MAX_SYMBOLS)
+        # SXR-C2-01: stats-контракт отдаётся целиком; урезание осталось
+        # только для явно заданного вызывающим бюджета (limit>0).
+        return _stats_json_payload(payload, 0)
 
     # ── dig_into_lore (раунд 9, AGI Memory T-820, spec §3.2.1/Q6) ────────
 
@@ -2404,9 +2441,9 @@ class ToolRouter:
         measurement_tokens = (list(dict.fromkeys(tokens + person_terms))
                               if k1_stats else list(merged))
 
-        dig_max_symbols = int(hot.get("limits.dig_max_symbols",
-                                      settings.DIG_MAX_SYMBOLS)
-                              or settings.DIG_MAX_SYMBOLS)
+        # SXR-C2-01: заводской потолок 3500 не применяется; только явная
+        # операторская политика (`limits.dig_max_symbols`), иначе — целиком.
+        dig_max_symbols = _dig_result_budget()
         max_snippets = int(hot.get("limits.dig_max_snippets",
                                    settings.DIG_MAX_SNIPPETS)
                            or settings.DIG_MAX_SNIPPETS)
@@ -2795,8 +2832,8 @@ class ToolRouter:
         (YouTube → каскад; иная ссылка → мультимодальная выжимка); иначе
         нативное видео из `ctx.native_media` (видео-document) → tmp →
         публикация `media_share` + L1/L2 → STT-фолбэк выжимки. Нет источника →
-        понятная ОШИБКА. Результат усечён до `_MEMORY_MAX_SYMBOLS`.
-        R17: URL/пути не логируются."""
+        понятная ОШИБКА. Результат НЕ усечён собственным потолком (SXR-C2-01):
+        выжимка отдаётся целиком. R17: URL/пути не логируются."""
         source, url, native = self._resolve_tool_source(arguments, ctx)
         if source is None:
             # F14 §2.5: OFF → прежняя (до-F14) строка ошибки; ON → понятная
@@ -2828,17 +2865,17 @@ class ToolRouter:
         text = str(text or "").strip()
         if not text:
             return "ОШИБКА summarize_video: пустой результат"
-        return _truncate(text, _MEMORY_MAX_SYMBOLS)
+        return text
 
     @staticmethod
     async def _video_transcript(service, url: str) -> str:
-        """Субтитры YouTube (cap). F14 сохраняет хелпер для F19
-        (`transcribe_video`); ссылочный STT/direct — зона F19."""
+        """Субтитры YouTube БЕЗ потолка (`0` = весь текст). F14 сохраняет
+        хелпер для F19 (`transcribe_video`); ссылочный STT/direct — зона F19."""
         video_id = extract_youtube_video_id(url)
         if video_id is None:
             raise ValueError("transcript доступен только для YouTube")
         return await service.engine.fetch_transcript(
-            video_id, _SUMMARIZE_TRANSCRIPT_CAP, on_retry=None)
+            video_id, 0, on_retry=None)
 
     @staticmethod
     async def _video_summary(service, url: str, ctx: ToolContext) -> str:
@@ -2915,9 +2952,10 @@ class ToolRouter:
         БЕЗ пересказа. Источник: http(s)-``url`` → ссылочный путь (YouTube →
         субтитры raw, иначе download+STT); иначе нативное медиа из
         ``ctx.native_media`` (video/document/voice/video_note) → fetch → STT.
-        Нет источника → понятная ОШИБКА. Результат усечён до
-        ``_MEMORY_MAX_SYMBOLS``. НИКОГДА не бросает (контракт dispatch).
-        R17: только ``source``/``kind``/``out_chars``/``error=<Class>``."""
+        Нет источника → понятная ОШИБКА. Результат НЕ усечён собственным
+        потолком (SXR-C2-01): транскрипт отдаётся целиком. НИКОГДА не бросает
+        (контракт dispatch). R17: только
+        ``source``/``kind``/``out_chars``/``error=<Class>``."""
         source, url, native = self._resolve_tool_source(
             arguments, ctx, kinds=native_media.MEDIA_KINDS)
         if source is None:
@@ -2947,10 +2985,9 @@ class ToolRouter:
             logger.info("[tools] transcribe_video | source=%s | kind=%s | "
                         "out_chars=0", source, kind)
             return "ОШИБКА transcribe_video: пустой результат"
-        truncated = _truncate(text, _MEMORY_MAX_SYMBOLS)
         logger.info("[tools] transcribe_video | source=%s | kind=%s | "
-                    "out_chars=%d", source, kind, len(truncated))
-        return truncated
+                    "out_chars=%d", source, kind, len(text))
+        return text
 
     async def _link_transcript(self, url: str) -> str:
         """Ссылочный путь: YouTube → субтитры raw (cap); при недоступности
@@ -3792,38 +3829,12 @@ class ToolRouter:
 
     @staticmethod
     def _memory_lookup_serialize(payload: dict) -> str:
-        """JSON-строка результата в бюджете `_MEMORY_LOOKUP_RESULT_MAX_CHARS`.
+        """JSON-строка результата БЕЗ общего бюджета 4000.
 
-        При переполнении честно урезаются хвостовые facts/sources (и тексты
-        фактов) с ``truncated: true`` — валидный JSON сохраняется."""
-        budget = _MEMORY_LOOKUP_RESULT_MAX_CHARS
-        text = json.dumps(payload, ensure_ascii=False)
-        if len(text) <= budget:
-            return text
-        out = dict(payload)
-        out["facts"] = list(payload.get("facts") or [])
-        out["sources"] = list(payload.get("sources") or [])
-        out["truncated"] = True
-
-        def _size() -> int:
-            return len(json.dumps(out, ensure_ascii=False))
-
-        while out["facts"] and _size() > budget:
-            out["facts"].pop()
-            if out["sources"]:
-                out["sources"].pop()
-        for _ in range(100):
-            if _size() <= budget or not out["facts"]:
-                break
-            idx = max(range(len(out["facts"])),
-                      key=lambda k: len(str(out["facts"][k].get("text") or "")))
-            item = out["facts"][idx]
-            current = str(item.get("text") or "")
-            if len(current) <= 1:
-                break
-            overshoot = _size() - budget
-            item["text"] = current[:max(1, len(current) - overshoot - 8)]
-        return json.dumps(out, ensure_ascii=False)
+        SXR-C2-01: слепое урезание хвостовых facts/sources и текстов фактов
+        удалено — ToolResult отдаёт весь отобранный `max_items` набор; объём
+        ограничивает только реальное окно модели (существующий composer)."""
+        return json.dumps(payload, ensure_ascii=False)
 
     @staticmethod
     def _memory_lookup_parse(arguments):
@@ -3862,7 +3873,8 @@ class ToolRouter:
             if value < 1:
                 return None, "invalid_max_items"
             max_items = value
-        max_items = min(int(max_items), _MEMORY_LOOKUP_MAX_ITEMS_HARD)
+        # SXR-C2-01: hard-ceiling 20 удалён — явный max_items уважается.
+        max_items = max(1, int(max_items))
         return ({"person": person, "user_id": uid, "purpose": purpose,
                  "max_items": max_items}, None)
 
@@ -4199,8 +4211,7 @@ class ToolRouter:
             return default
 
     async def _memory_lookup_unified_items(self, ctx, result, max_items: int,
-                                           *, entity_types=("graph_fact",),
-                                           text_cap: int | None = None
+                                           *, entity_types=("graph_fact",)
                                            ) -> tuple[list, list]:
         """Кандидаты единого retrieval → прежний envelope фактов/источников.
 
@@ -4241,8 +4252,6 @@ class ToolRouter:
                 except (TypeError, ValueError):
                     continue
                 fact = self._memory_lookup_fact_item(data)
-                if text_cap:
-                    fact["text"] = _truncate(fact["text"], text_cap)
                 facts.append(fact)
                 sources.append(self._memory_lookup_source_item(data))
             else:
@@ -4261,7 +4270,8 @@ class ToolRouter:
             return None
         ref = str(getattr(cand, "id", "") or "")
         ts = int(getattr(cand, "sent_at", 0) or 0) or None
-        fact = {"text": _truncate(text, _MEMORY_LOOKUP_SLICE_MAX_CHARS),
+        # SXR-C2-01: фрагмент отдаётся целиком (срез 240 удалён).
+        fact = {"text": text,
                 "confidence": "unknown", "weight": None, "time": ts,
                 "source_id": ref}
         source = {"kind": "message", "ref": ref, "origin": "chat_history",
@@ -4283,15 +4293,15 @@ class ToolRouter:
         if unified is not None:
             facts, sources = await self._memory_lookup_unified_items(
                 ctx, unified, max_items,
-                entity_types=("graph_fact", "message"),
-                text_cap=_MEMORY_LOOKUP_RAG_FACT_CHARS)
+                entity_types=("graph_fact", "message"))
             if facts:
                 return self._memory_lookup_payload(
                     "ok", "general", person, facts, sources)
         memory = getattr(self.deps, "memory", None)
         name = person.get("name") or ""
-        message_cap = min(max_items, _MEMORY_LOOKUP_MESSAGE_SLICE_MAX,
-                          _MEMORY_LOOKUP_MESSAGE_SLICE_HARD)
+        # SXR-C2-01: число сообщений = явный/дефолтный max_items запроса,
+        # скрытого потолка 5/10 больше нет.
+        message_cap = max(1, int(max_items))
         facts, sources = [], []
         if memory is not None and hasattr(memory, "get_rag_facts"):
             try:
@@ -4330,7 +4340,7 @@ class ToolRouter:
             text = str(text or "").strip()
             if text:
                 facts.append({
-                    "text": _truncate(text, _MEMORY_LOOKUP_RAG_FACT_CHARS),
+                    "text": text,
                     "confidence": "unknown", "weight": None, "time": None,
                     "source_id": "rag:context"})
                 sources.append({"kind": "rag", "ref": "rag:context",
@@ -4355,8 +4365,8 @@ class ToolRouter:
         `recent` уже является каналом единого контракта."""
         db = getattr(self.deps, "db", None)
         uid = person.get("user_id")
-        slice_cap = min(max_items, _MEMORY_LOOKUP_MESSAGE_SLICE_MAX,
-                        _MEMORY_LOOKUP_MESSAGE_SLICE_HARD)
+        # SXR-C2-01: срез речи = запрошенный max_items (скрытых 5/10 нет).
+        slice_cap = max(1, int(max_items))
         participants = ()
         if uid is not None:
             try:
@@ -4475,7 +4485,7 @@ class ToolRouter:
             return None
         if not text:
             return None
-        fact = {"text": _truncate(text, _MEMORY_LOOKUP_RAG_FACT_CHARS),
+        fact = {"text": text,
                 "confidence": "unknown", "weight": None, "time": ts,
                 "source_id": ""}
         source = {"kind": "rag", "ref": "", "origin": origin or "rag",
@@ -4483,7 +4493,7 @@ class ToolRouter:
         return {"fact": fact, "source": source}
 
     def _memory_lookup_message_item(self, row):
-        """smart_messages-строка → короткий факт (slice ≤240) + msg/tg-источник."""
+        """smart_messages-строка → факт ЦЕЛИКОМ + msg/tg-источник."""
         try:
             item = dict(row)
         except (TypeError, ValueError):
@@ -4494,7 +4504,7 @@ class ToolRouter:
         ts = int(item.get("timestamp") or 0) or None
         ref = resolve_item_id(tg_message_id=item.get("tg_message_id"),
                               message_id=item.get("id"))
-        fact = {"text": _truncate(text, _MEMORY_LOOKUP_SLICE_MAX_CHARS),
+        fact = {"text": text,
                 "confidence": "unknown", "weight": None, "time": ts,
                 "source_id": ref}
         source = {"kind": "message", "ref": ref, "origin": "chat_history",
@@ -4516,8 +4526,9 @@ class ToolRouter:
             texts = [str(f.get("text") or "") for f in facts
                      if isinstance(f, dict) and not f.get("unattributed")
                      and str(f.get("text") or "").strip()]
-            block = format_dossier_block(texts, [],
-                                         _MEMORY_LOOKUP_RESULT_MAX_CHARS)
+            # SXR-C2-01: без символьного бюджета 4000 (0 = без ограничения);
+            # факты уже присутствуют в `facts` — это компактный рендер.
+            block = format_dossier_block(texts, [], 0)
         except Exception:
             block = ""
         return {"dossier": block} if block else {}
@@ -4536,19 +4547,21 @@ class ToolRouter:
             if themes:
                 parts.append("Темы: " + "; ".join(themes))
             text = " ".join(parts)
-        return {"text": text[:_MEMORY_LOOKUP_PORTRAIT_MAX_CHARS],
+        # SXR-C2-01: портрет-производная отдаётся целиком (срез 600 удалён).
+        return {"text": text,
                 "confidence": "unknown", "weight": None,
                 "time": int(dossier.get("updated_at") or 0) or None,
                 "source_id": "dossier_portrait"}
 
     @staticmethod
     def _memory_lookup_style_profile(patterns, themes) -> str:
+        # SXR-C2-01: без среза «первые 5» и без потолка 600 — весь профиль.
         parts = []
         if patterns:
-            parts.append("Паттерны речи: " + "; ".join(patterns[:5]))
+            parts.append("Паттерны речи: " + "; ".join(patterns))
         if themes:
-            parts.append("Темы: " + "; ".join(themes[:5]))
-        return _truncate(" ".join(parts), _MEMORY_LOOKUP_PORTRAIT_MAX_CHARS)
+            parts.append("Темы: " + "; ".join(themes))
+        return " ".join(parts)
 
     @staticmethod
     def _memory_lookup_conf_label(status, weight) -> str:
@@ -4625,9 +4638,10 @@ class ToolRouter:
                                *, no_data=False, empty_reason="",
                                extra=None) -> dict:
         """Envelope из 5 полей §33 (D4) + служебные (status/purpose/person/
-        no_data/empty_reason/truncated)."""
-        facts = list(facts or [])[:_MEMORY_LOOKUP_MAX_ITEMS_HARD]
-        sources = list(sources or [])[:_MEMORY_LOOKUP_MAX_ITEMS_HARD]
+        no_data/empty_reason/truncated). SXR-C2-01: без скрытого среза 20 —
+        набор уже ограничен явным `max_items` запроса."""
+        facts = list(facts or [])
+        sources = list(sources or [])
         is_empty = bool(no_data) or not facts
         payload = {
             "status": status,
@@ -5433,7 +5447,8 @@ class ToolRouter:
         text = str(report or "").strip()
         if not text:
             return "ОШИБКА get_bot_health: пустой отчёт"
-        return _truncate(text, _MEMORY_MAX_SYMBOLS)
+        # SXR-C2-01: отчёт чекапа не режется собственным потолком 3500.
+        return text
 
     async def _get_recent_history(self, arguments: dict,
                                   ctx: ToolContext) -> str:
