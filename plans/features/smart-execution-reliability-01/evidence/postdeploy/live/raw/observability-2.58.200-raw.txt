@@ -1,0 +1,3006 @@
+==============================================================================
+## FILE: batch-01-main.txt
+==============================================================================
+##META host=vps159032-gqg now_utc=2026-11-14T05:54:29Z user=root
+##IDENTITY_BEGIN
+HEAD=0e4a144db476a1535ae3a2b79a7cce30354ad866
+BRANCH=release/2.58.200
+UPSTREAM=origin/release/2.58.200
+AHEAD_BEHIND=0	0
+DIRTY: ?? .cache/
+3574:APP_VERSION = "2.58.200"   # (14.11.2026): 2.58.200 - Надёжность 
+##IDENTITY_END
+##SERVICE_BEGIN
+MainPID=709883
+NRestarts=0
+ExecMainStartTimestamp=Sat 2026-11-14 05:18:59 UTC
+ExecMainPID=709883
+User=adminbot
+Group=
+SupplementaryGroups=
+ReadWritePaths=
+PrivateTmp=no
+ProtectHome=no
+ProtectSystem=no
+NoNewPrivileges=no
+ActiveState=active
+SubState=running
+FragmentPath=/etc/systemd/system/admin_bot.service
+InvocationID=1a3ab8ad1f38460ea397417f8c762845
+RAW_START=Sat 2026-11-14 05:18:59 UTC
+START_ISO=2026-11-14T05:18:59Z
+START_EPOCH=1794633539
+MAINPID=709883
+    PID USER     GROUP        ELAPSED COMMAND
+ 709883 adminbot adminbot       35:29 /var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py
+PROC_ENV_INVOCATION=1a3ab8ad1f38460ea397417f8c762845
+PROC_CGROUP=0::/system.slice/admin_bot.service;
+UNIT_HARDENING:
+  8:User=adminbot
+  9:WorkingDirectory=/var/www/admin_bot
+  10:EnvironmentFile=/var/www/admin_bot/.env
+  11:ExecStart=/var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py
+  12:Restart=always
+##SERVICE_END
+##ENV_KEYS_BEGIN
+DOTENV_MATCHES:
+  NONE
+PROCESS_ENV_MATCHES:
+  NONE
+UNIT_ENV_MATCHES:
+  NONE
+##ENV_KEYS_END
+##MANIFEST_BEGIN
+PATH=.deploy SIZE=4096 OWNER=adminbot:root MODE=755 MTIME=2026-11-14 05:18:53.895466869 +0000
+PATH=.deploy/release.json SIZE=317 OWNER=adminbot:adminbot MODE=644 MTIME=2026-11-14 05:18:53.894466866 +0000
+READ_AS_SERVICE:
+{"deployed_at": "2026-11-14T05:18:53.892873Z", "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866", "dirty_tracked": false, "effect": "deploy", "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339", "previous_version": "2.58.199", "release_branch": "release/2.58.200", "schema": 1, "version": "2.58.200"}
+READ_RC=0
+8c70494bfb7d6659ab24609002e6ed9c728b883e72f1ca38e0dc7c96b8e12611  .deploy/release.json
+##MANIFEST_END
+##JOURNAL_BEGIN
+INVOCATIONID=1a3ab8ad1f38460ea397417f8c762845
+SERVICE_USER_GROUPS=uid=999(adminbot) gid=987(adminbot) groups=987(adminbot),999(systemd-journal)
+SUDO_LIST_adminbot:
+  User adminbot is not allowed to run sudo on vps159032-gqg.
+JOURNAL_DIR:
+  drwxr-sr-x+ 3 root systemd-journal 4096 Apr 26  2024 /var/log/journal
+  drwxr-sr-x+ 2 root systemd-journal 4096 Nov 13 10:52 /var/log/journal/3f8498c7c1ad40e6b84ace8bd060ce23
+-- journalctl service user (unit) --
+RC=0
+2026-11-14T05:54:24+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:24,034 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-14 10:54:29 +05)" executed successfully
+2026-11-14T05:54:29+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:29,032 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-14 10:54:34 +05)" (scheduled at 2026-11-14 10:54:29.031493+05:00)
+2026-11-14T05:54:29+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:29,033 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-14 10:54:34 +05)" executed successfully
+-- journalctl service user (exact fetcher argv: _SYSTEMD_INVOCATION_ID) --
+RC=0
+2026-11-14T05:54:24+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:24,034 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-14 10:54:29 +05)" executed successfully
+2026-11-14T05:54:29+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:29,032 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-14 10:54:34 +05)" (scheduled at 2026-11-14 10:54:29.031493+05:00)
+2026-11-14T05:54:29+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:29,033 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-11-14 10:54:34 +05)" executed successfully
+-- full window since service start --
+RC=0
+WINDOW_LINES=2560
+COUNT_TRACEBACK=0
+COUNT_ERROR_CRITICAL=2
+COUNT_WARNING=100
+-- startup markers --
+2026-11-14T05:19:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:19:03,864 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_ow
+2026-11-14T05:19:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:19:03,864 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+2026-11-14T05:19:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:19:03,864 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+2026-11-14T05:19:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:19:03,874 - services.database - INFO - [database] migrations: start | current user_version=47 | pending=[]
+2026-11-14T05:19:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:19:03,875 - services.database - INFO - [database] migrations: complete | user_version=47 | total 0.0s
+2026-11-14T05:19:04+00:00 vps159032-gqg python[709883]: 2026-11-14 05:19:04,531 - web.app - INFO - [webapp] lifespan started | pg_available=True
+-- warning patterns (top 20) --
+      3 vps159032-gqg python[709883]: 2026-11-14 05:51:12,011 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      3 vps159032-gqg python[709883]: 2026-11-14 05:51:12,005 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      3 vps159032-gqg python[709883]: 2026-11-14 05:51:11,997 - services.mca_events - WARNING - mca_event=suspended | ts=1794635471 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      3 vps159032-gqg python[709883]: 2026-11-14 05:37:16,296 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      3 vps159032-gqg python[709883]: 2026-11-14 05:37:16,285 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      3 vps159032-gqg python[709883]: 2026-11-14 05:37:16,266 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:51:12,033 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:51:12,031 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:51:12,014 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:51:11,996 - services.mca_events - WARNING - mca_event=suspended | ts=1794635471 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:51:11,989 - services.mca_events - WARNING - mca_event=suspended | ts=1794635471 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:51:11,984 - services.mca_events - WARNING - mca_event=suspended | ts=1794635471 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:37:16,299 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:37:16,286 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:37:16,284 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:37:16,282 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      2 vps159032-gqg python[709883]: 2026-11-14 05:37:16,270 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      1 vps159032-gqg python[709883]: 2026-11-14 05:54:23,145 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.11s
+      1 vps159032-gqg python[709883]: 2026-11-14 05:51:12,032 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+      1 vps159032-gqg python[709883]: 2026-11-14 05:51:12,030 - services.mca_events - WARNING - mca_event=suspended | ts=1794635472 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code
+-- error lines (tail 10) --
+2026-11-14T05:24:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:24:03,984 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+2026-11-14T05:24:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:24:03,988 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-11
+##JOURNAL_END
+##CHECKUP_BEGIN
+CHECKUP_TRIGGERED=1
+CHECKUP_SENT=1
+FETCHER_READS=1
+FETCHER_UNAVAILABLE=0
+2026-11-14T05:47:37+00:00 vps159032-gqg python[709883]: 2026-11-14 05:47:37,238 - handlers.checkup - INFO - [checkup] triggered | chat=CHAT_DM8 user=CHAT_DM8
+2026-11-14T05:47:37+00:00 vps159032-gqg python[709883]: 2026-11-14 05:47:37,268 - services.system_logs_fetcher - INFO - [checkup fetcher] journal read | state=ok | window=300 | matched=8
+2026-11-14T05:47:37+00:00 vps159032-gqg python[709883]: 2026-11-14 05:47:37,714 - handlers.checkup - INFO - [checkup] identity | runtime= | deployed_sha=0e4a144db476 | checkout_sha=0e4a144db476 | source_verified=True | git_meta=True | commi
+2026-11-14T05:48:23+00:00 vps159032-gqg python[709883]: 2026-11-14 05:48:23,713 - handlers.checkup - INFO - [checkup] report sent | chat=CHAT_DM8
+##CHECKUP_END
+##I1_JOURNAL_BEGIN
+MEME_LINES=0
+MEME_SPOOLED=0
+MEME_SPOOL_NOT_DRAINED=0
+MEME_LOST=0
+##I1_JOURNAL_END
+##I2_JOURNAL_BEGIN
+MCA16_LINES=2
+REVIEW_TICK_LINES=2
+FRESH_LAG_EVENTS=2
+2026-11-14T05:37:16+00:00 vps159032-gqg python[709883]: 2026-11-14 05:37:16,209 - services.mca_events - WARNING - mca_event=experience.fresh_stream_lag | ts=1794634636 | event_name=experience.fresh_stream_lag | outcome=skipped | level=WARN | component=experien
+2026-11-14T05:37:16+00:00 vps159032-gqg python[709883]: 2026-11-14 05:37:16,406 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+2026-11-14T05:51:11+00:00 vps159032-gqg python[709883]: 2026-11-14 05:51:11,954 - services.mca_events - WARNING - mca_event=experience.fresh_stream_lag | ts=1794635471 | event_name=experience.fresh_stream_lag | outcome=skipped | level=WARN | component=experien
+2026-11-14T05:51:12+00:00 vps159032-gqg python[709883]: 2026-11-14 05:51:12,056 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+##I2_JOURNAL_END
+##PROBE1_BEGIN
+##SECTION meta BEGIN
+{
+ "phase": 1,
+ "pid": 717676,
+ "uid": 999,
+ "cwd": "/var/www/admin_bot",
+ "now": "2026-11-14T05:54:29Z",
+ "deploy_ts": 1794633539,
+ "chat_labels": {
+  "CHAT_C1": "CHAT_C1",
+  "CHAT_C2": "CHAT_C2",
+  "CHAT_DM": "CHAT_DM",
+  "CHAT_DM2": "CHAT_DM2",
+  "CHAT_DM3": "CHAT_DM3",
+  "CHAT_DM4": "CHAT_DM4",
+  "CHAT_DM5": "CHAT_DM5",
+  "CHAT_DM6": "CHAT_DM6",
+  "CHAT_DM7": "CHAT_DM7",
+  "CHAT_DM8": "CHAT_DM8",
+  "CHAT_DM9": "CHAT_DM9",
+  "CHAT_DM10": "CHAT_DM10"
+ }
+}
+##SECTION meta END
+##SECTION pg BEGIN
+{
+ "available": false,
+ "reason": "POSTGRES_DSN empty"
+}
+##SECTION pg END
+##SECTION sqlite BEGIN
+{
+ "db_path": "/var/www/admin_bot/local_database.db",
+ "user_version": 47,
+ "journal_mode": "wal",
+ "quick_check": "ok",
+ "quick_check_ms": 46122,
+ "tables": [
+  "mca_events",
+  "mca_experience_episodes",
+  "mca_experience_feedback",
+  "meme_initiative_attempt",
+  "schema_migrations",
+  "smart_messages",
+  "task_jobs"
+ ],
+ "i2_jobs": [
+  {
+   "job_id": "afa74d4bfe6e",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T05:49:03Z",
+   "finished_at": "2026-11-14T05:51:12Z",
+   "updated_at": "2026-11-14T05:51:12Z",
+   "payload_len": 4100
+  },
+  {
+   "job_id": "64edddc2c060",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T05:34:03Z",
+   "finished_at": "2026-11-14T05:37:16Z",
+   "updated_at": "2026-11-14T05:37:16Z",
+   "payload_len": 4107
+  },
+  {
+   "job_id": "bc1bc0f54493",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T05:06:21Z",
+   "finished_at": "2026-11-14T05:06:31Z",
+   "updated_at": "2026-11-14T05:06:31Z",
+   "payload_len": 3294
+  },
+  {
+   "job_id": "d163e91cec6f",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:51:21Z",
+   "finished_at": "2026-11-14T04:51:32Z",
+   "updated_at": "2026-11-14T04:51:32Z",
+   "payload_len": 3293
+  },
+  {
+   "job_id": "fde498f68e74",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:36:21Z",
+   "finished_at": "2026-11-14T04:38:00Z",
+   "updated_at": "2026-11-14T04:38:00Z",
+   "payload_len": 3293
+  },
+  {
+   "job_id": "85fe494aeff0",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:21:21Z",
+   "finished_at": "2026-11-14T04:21:31Z",
+   "updated_at": "2026-11-14T04:21:31Z",
+   "payload_len": 3294
+  },
+  {
+   "job_id": "5c82656b3d11",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:06:21Z",
+   "finished_at": "2026-11-14T04:06:30Z",
+   "updated_at": "2026-11-14T04:06:30Z",
+   "payload_len": 3293
+  },
+  {
+   "job_id": "82ef30071b0e",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T03:51:21Z",
+   "finished_at": "2026-11-14T03:51:29Z",
+   "updated_at": "2026-11-14T03:51:29Z",
+   "payload_len": 3293
+  }
+ ],
+ "i2_active_jobs": 0,
+ "i2_latest_job": {
+  "job_id": "afa74d4bfe6e",
+  "status": "completed",
+  "finished_at": "2026-11-14T05:51:12Z"
+ },
+ "i2_counters": {
+  "semantic_scanned": 15,
+  "semantic_selected": 569,
+  "semantic_extracted": 39,
+  "semantic_candidates": 26,
+  "semantic_rejected": 12,
+  "semantic_duplicates": 1,
+  "semantic_llm_unavailable": 0,
+  "semantic_reject_reasons": {
+   "low_confidence": 1,
+   "dispute": 4,
+   "semantic_parse_error": 1,
+   "hearsay_or_joke": 6
+  },
+  "semantic_rows_read": 601,
+  "semantic_rows_eligible": 569,
+  "semantic_rows_ineligible": 32,
+  "semantic_chats_disabled": 0,
+  "semantic_chats_empty": 0,
+  "semantic_chats_deferred": 0,
+  "semantic_read_errors": 0,
+  "semantic_discover_errors": 0,
+  "semantic_parse_invalid": 0,
+  "semantic_parse_valid_empty": 0,
+  "semantic_write_failures": 0,
+  "semantic_write_skipped": 0,
+  "semantic_pending_reconciled": 0,
+  "semantic_discovery_backpressure": 0,
+  "semantic_throughput_rows": 601,
+  "semantic_parse_reasons": {},
+  "semantic_batches_run": 12,
+  "semantic_budget_exhausted": 0,
+  "fresh_stream_lag_rows": 2057878,
+  "fresh_stream_pending_rows": 12935
+ },
+ "i2_progress": {
+  "backlog_rows": 12935,
+  "backlog_chats": 1,
+  "pending_rows": 12935,
+  "pending_chats": 1,
+  "actionable_rows": 12935,
+  "actionable_chats": 1,
+  "lag_seconds": 124215446,
+  "lag_seconds_source": "cursor_distance",
+  "deferred_chats": 0,
+  "watermark": 2407142,
+  "lag_rows": 2057878,
+  "lag_chats": 1,
+  "lag_actionable_rows": 2057878,
+  "lag_actionable_chats": 1,
+  "lag_source": "cursor_distance",
+  "lag_measured_at": 1794635344,
+  "lag_partial": false
+ },
+ "i2_lag": {
+  "available": true,
+  "ts": 1794635344,
+  "rows": 2057878,
+  "chats": 1,
+  "actionable_rows": 2057878,
+  "actionable_chats": 1,
+  "worst_chat": CHAT_C2,
+  "worst_rows": 2057878,
+  "worst_cursor": 15945,
+  "worst_max_id": 2407141,
+  "measured_chats": 1,
+  "failed_chats": 0,
+  "partial": false,
+  "oldest_ts": 1670419898,
+  "age_seconds": 124215446
+ },
+ "i2_cursors": {
+  "semantic_cursor:CHAT_C2": 15945,
+  "semantic_cursor:CHAT_DM8": 2407142,
+  "semantic_cursor:CHAT_C1": 2407127
+ },
+ "i2_pending": {
+  "CHAT_C2": 12935
+ },
+ "i2_pending_since": {
+  "CHAT_C2": "2026-08-15T21:24:21Z"
+ },
+ "i2_retry": {},
+ "i2_watermark": 2407142,
+ "i2_last_ts": {
+  "CHAT_C2": "2026-11-14T05:49:04Z",
+  "CHAT_DM8": "2026-11-14T05:49:04Z",
+  "CHAT_C1": "2026-11-14T05:34:04Z"
+ },
+ "i2_state_version": 2,
+ "i2_analytics_subset": {
+  "fresh_stream_lag_rows": 2058465
+ },
+ "i2_archive_watermark": null,
+ "i2_windows": {
+  "CHAT_C1": {
+   "cursor": 2407127,
+   "max_id": 2407127,
+   "cursor_le_max": true,
+   "max_ms": 0
+  },
+  "CHAT_C2": {
+   "cursor": 15945,
+   "max_id": 2407144,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2057880,
+   "oldest_ts": "2022-12-07T13:31:38Z",
+   "oldest_epoch": 1670419898,
+   "count_ms": 187,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 271
+  },
+  "CHAT_DM": {
+   "cursor": 0,
+   "max_id": 29918,
+   "cursor_le_max": true,
+   "rows_after_cursor": 4,
+   "oldest_ts": "2026-08-30T09:07:01Z",
+   "oldest_epoch": 1788080821,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM2": {
+   "cursor": 0,
+   "max_id": 2362578,
+   "cursor_le_max": true,
+   "rows_after_cursor": 3,
+   "oldest_ts": "2026-09-23T16:06:11Z",
+   "oldest_epoch": 1790179571,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM3": {
+   "cursor": 0,
+   "max_id": 2253679,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2,
+   "oldest_ts": "2026-09-07T09:18:12Z",
+   "oldest_epoch": 1788772692,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM4": {
+   "cursor": 0,
+   "max_id": 2377650,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-10-31T07:50:46Z",
+   "oldest_epoch": 1793433046,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM5": {
+   "cursor": 0,
+   "max_id": 29606,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-09-01T07:08:52Z",
+   "oldest_epoch": 1788246532,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM6": {
+   "cursor": 0,
+   "max_id": 2391731,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-11-06T14:40:38Z",
+   "oldest_epoch": 1793976038,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM7": {
+   "cursor": 0,
+   "max_id": 2352197,
+   "cursor_le_max": true,
+   "rows_after_cursor": 8,
+   "oldest_ts": "2026-08-30T08:48:14Z",
+   "oldest_epoch": 1788079694,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM8": {
+   "cursor": 2407142,
+   "max_id": 2407145,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-11-14T05:54:47Z",
+   "oldest_epoch": 1794635687,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM9": {
+   "cursor": 0,
+   "max_id": 2384749,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2,
+   "oldest_ts": "2026-11-03T10:10:44Z",
+   "oldest_epoch": 1793700644,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  },
+  "CHAT_DM10": {
+   "cursor": 0,
+   "max_id": 2369924,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2,
+   "oldest_ts": "2026-10-27T16:17:35Z",
+   "oldest_epoch": 1793117855,
+   "count_ms": 0,
+   "query_plan": [
+    [
+     "3",
+     "0",
+     "0",
+     "SEARCH smart_messages USING COVERING INDEX idx_smart_messages_chat_sent (chat_id=?)"
+    ]
+   ],
+   "max_ms": 0
+  }
+ },
+ "i2_dedup": {
+  "episodes_rows": 2099,
+  "episodes_distinct_idem": 2099,
+  "episodes_dupes": 0,
+  "feedback_rows": 1350,
+  "feedback_distinct_dedup": 1350,
+  "feedback_dupes": 0
+ },
+ "i1_journal": {
+  "rows": 33098,
+  "min_ts": "2026-10-31T12:42:03Z",
+  "max_ts": "2026-11-14T05:54:48Z",
+  "max_epoch": 1794635688
+ },
+ "i1_recent": [
+  {
+   "attempt_id": "46ec0ffa93c3",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:54:48Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "7ff0d957b582",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:54:48Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "57c61e8c6837",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T05:54:48Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "9f8b2700d251",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T05:54:48Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "5daf2bc4e522",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:54:10Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "964a31e1f34c",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:54:10Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "4bd75532d909",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T05:54:10Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "b1369c727daf",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T05:54:10Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "8fb09000e152",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:53:35Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "e932d0a25cb4",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:53:35Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  }
+ ],
+ "i1_known_spooled_ids": {
+  "266639345caf473c93d258857f7ba108": 1,
+  "bf20677a446a49f496b6f7b292458b48": 1
+ },
+ "i1_rows_since_deploy": 68,
+ "i1_groups_since_deploy": [
+  {
+   "stage": "considered",
+   "outcome": "passed",
+   "n": 34
+  },
+  {
+   "stage": "skipped",
+   "outcome": "skipped",
+   "n": 34
+  }
+ ],
+ "i1_spool": {
+  "path": "/var/www/admin_bot/local_database.db.attempts.pending.jsonl",
+  "exists": false
+ },
+ "events_since_deploy": [
+  {
+   "event": "activated",
+   "n": 136,
+   "last_ts": "2026-11-14T05:51:12Z"
+  },
+  {
+   "event": "vision_media",
+   "n": 85,
+   "last_ts": "2026-11-14T05:46:34Z"
+  },
+  {
+   "event": "suspended",
+   "n": 84,
+   "last_ts": "2026-11-14T05:51:12Z"
+  },
+  {
+   "event": "feedback_linked",
+   "n": 58,
+   "last_ts": "2026-11-14T05:51:11Z"
+  },
+  {
+   "event": "experience_recorded",
+   "n": 58,
+   "last_ts": "2026-11-14T05:51:11Z"
+  },
+  {
+   "event": "detector_signal",
+   "n": 58,
+   "last_ts": "2026-11-14T05:51:11Z"
+  },
+  {
+   "event": "WATCHDOG_SWEEP",
+   "n": 37,
+   "last_ts": "2026-11-14T05:54:09Z"
+  },
+  {
+   "event": "nostalgia_run",
+   "n": 36,
+   "last_ts": "2026-11-14T05:55:04Z"
+  },
+  {
+   "event": "goodmorning_run",
+   "n": 35,
+   "last_ts": "2026-11-14T05:55:04Z"
+  },
+  {
+   "event": "initiative_event_signal",
+   "n": 23,
+   "last_ts": "2026-11-14T05:54:48Z"
+  },
+  {
+   "event": "ingestion_live",
+   "n": 23,
+   "last_ts": "2026-11-14T05:54:47Z"
+  },
+  {
+   "event": "validation_passed",
+   "n": 20,
+   "last_ts": "2026-11-14T05:51:12Z"
+  },
+  {
+   "event": "lesson_proposed",
+   "n": 20,
+   "last_ts": "2026-11-14T05:51:12Z"
+  },
+  {
+   "event": "experience.lesson_activated",
+   "n": 20,
+   "last_ts": "2026-11-14T05:51:12Z"
+  },
+  {
+   "event": "experience.lesson_candidate",
+   "n": 19,
+   "last_ts": "2026-11-14T05:51:12Z"
+  },
+  {
+   "event": "vision_adapt",
+   "n": 17,
+   "last_ts": "2026-11-14T05:46:34Z"
+  },
+  {
+   "event": "quantum_schedule_due",
+   "n": 14,
+   "last_ts": "2026-11-14T05:53:35Z"
+  },
+  {
+   "event": "initiative_observer_scan",
+   "n": 14,
+   "last_ts": "2026-11-14T05:54:48Z"
+  },
+  {
+   "event": "diagnostic_output_validated",
+   "n": 8,
+   "last_ts": "2026-11-14T05:48:05Z"
+  },
+  {
+   "event": "read_source_attempted",
+   "n": 4,
+   "last_ts": "2026-11-14T05:48:04Z"
+  },
+  {
+   "event": "mca07_source_discover",
+   "n": 4,
+   "last_ts": "2026-11-14T05:48:04Z"
+  },
+  {
+   "event": "inspect_runtime_called",
+   "n": 4,
+   "last_ts": "2026-11-14T05:47:49Z"
+  },
+  {
+   "event": "quote",
+   "n": 3,
+   "last_ts": "2026-11-14T05:54:47Z"
+  },
+  {
+   "event": "mca07_source_locator",
+   "n": 3,
+   "last_ts": "2026-11-14T05:48:05Z"
+  },
+  {
+   "event": "mca07_retrieval",
+   "n": 3,
+   "last_ts": "2026-11-14T05:54:56Z"
+  }
+ ],
+ "fresh_stream_lag_events": [
+  {
+   "id": 320561,
+   "ts": "2026-11-14T02:51:50Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13946,
+    "cursor_rowid": 14795,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 320702,
+   "ts": "2026-11-14T03:06:31Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13912,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 320867,
+   "ts": "2026-11-14T03:21:43Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13928,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321021,
+   "ts": "2026-11-14T03:40:52Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13938,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321140,
+   "ts": "2026-11-14T03:51:29Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13950,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321219,
+   "ts": "2026-11-14T04:06:30Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13952,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321379,
+   "ts": "2026-11-14T04:21:31Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13970,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321554,
+   "ts": "2026-11-14T04:38:00Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 13994,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321668,
+   "ts": "2026-11-14T04:51:32Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 14002,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 321823,
+   "ts": "2026-11-14T05:06:31Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "unmapped:18d14796",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 14014,
+    "cursor_rowid": 14845,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 322101,
+   "ts": "2026-11-14T05:37:16Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "fresh_stream_lag",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 2058465,
+    "pending_rows": 13521,
+    "lag_source": "cursor_distance",
+    "cursor_rowid": 15345,
+    "max_id": 2407128,
+    "threshold": 500
+   }
+  },
+  {
+   "id": 322562,
+   "ts": "2026-11-14T05:51:11Z",
+   "level": "WARN",
+   "outcome": "skipped",
+   "chat": "CHAT_C2",
+   "reason_code": "fresh_stream_lag",
+   "usage": {
+    "chat_id": CHAT_C2,
+    "lag_rows": 2057878,
+    "pending_rows": 12935,
+    "lag_source": "cursor_distance",
+    "cursor_rowid": 15945,
+    "max_id": 2407141,
+    "threshold": 500
+   }
+  }
+ ]
+}
+##SECTION sqlite END
+##SECTION config BEGIN
+{
+ "settings_error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe.py\", line 457, in collect_config\n    from config.settings import settings\nModuleNotFoundError: No module named 'config'\n",
+ "gates_error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe.py\", line 469, in collect_config\n    from services import mca_gates\nModuleNotFoundError: No module named 'services'\n",
+ "jobs_error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe.py\", line 478, in collect_config\n    from services import mca_experience_jobs as jobs\nModuleNotFoundError: No module named 'services'\n"
+}
+##SECTION config END
+##SECTION capacity BEGIN
+{
+ "model": null,
+ "base_url_host": null,
+ "error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe.py\", line 508, in collect_capacity\n    from services.model_capacity import (\nModuleNotFoundError: No module named 'services'\n"
+}
+##SECTION capacity END
+##SECTION h3_fetcher BEGIN
+{
+ "error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe.py\", line 525, in collect_h3\n    from services import system_logs_fetcher as slf\nModuleNotFoundError: No module named 'services'\n"
+}
+##SECTION h3_fetcher END
+##SECTION h4_identity BEGIN
+{
+ "error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe.py\", line 557, in collect_h4\n    from services import deploy_identity\nModuleNotFoundError: No module named 'services'\n",
+ "manifest_stat": {
+  "size": 317,
+  "mtime": "2026-11-14T05:18:53Z",
+  "uid": 999,
+  "gid": 987,
+  "mode": "0o644"
+ }
+}
+##SECTION h4_identity END
+PROBE1_RC=0
+##PROBE1_END
+##SAMPLE1 at 2026-11-14T05:55:16Z
+##SAMPLE2 at 2026-11-14T06:11:46Z
+##DELTA_JOURNAL_BEGIN
+RC=0
+DELTA_LINES=998
+DELTA_REVIEW_TICKS=1
+DELTA_MCA16=2
+2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:00,960 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+2026-11-14T06:05:01+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:01,209 - services.mca_events - WARNING - mca_event=experience.fresh_stream_lag | ts=1794636301 | event_name=experience.fresh_stream_lag | outcome=skipped | level=WARN | component=experien
+2026-11-14T06:05:01+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:01,249 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+##DELTA_JOURNAL_END
+##PROBE2_BEGIN
+##SECTION meta BEGIN
+{
+ "phase": 2,
+ "pid": 721210,
+ "uid": 999,
+ "cwd": "/var/www/admin_bot",
+ "now": "2026-11-14T06:11:46Z",
+ "deploy_ts": 1794633539,
+ "chat_labels": {
+  "CHAT_C1": "CHAT_C1",
+  "CHAT_C2": "CHAT_C2",
+  "CHAT_DM": "CHAT_DM",
+  "CHAT_DM2": "CHAT_DM2",
+  "CHAT_DM3": "CHAT_DM3",
+  "CHAT_DM4": "CHAT_DM4",
+  "CHAT_DM5": "CHAT_DM5",
+  "CHAT_DM6": "CHAT_DM6",
+  "CHAT_DM7": "CHAT_DM7",
+  "CHAT_DM8": "CHAT_DM8",
+  "CHAT_DM9": "CHAT_DM9",
+  "CHAT_DM10": "CHAT_DM10"
+ }
+}
+##SECTION meta END
+##SECTION pg BEGIN
+{
+ "available": false,
+ "reason": "POSTGRES_DSN empty"
+}
+##SECTION pg END
+##SECTION sqlite BEGIN
+{
+ "db_path": "/var/www/admin_bot/local_database.db",
+ "user_version": 47,
+ "journal_mode": "wal",
+ "tables": [
+  "mca_events",
+  "mca_experience_episodes",
+  "mca_experience_feedback",
+  "meme_initiative_attempt",
+  "schema_migrations",
+  "smart_messages",
+  "task_jobs"
+ ],
+ "i2_jobs": [
+  {
+   "job_id": "3dc1fff704d2",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T06:04:03Z",
+   "finished_at": "2026-11-14T06:05:01Z",
+   "updated_at": "2026-11-14T06:05:01Z",
+   "payload_len": 4043
+  },
+  {
+   "job_id": "afa74d4bfe6e",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T05:49:03Z",
+   "finished_at": "2026-11-14T05:51:12Z",
+   "updated_at": "2026-11-14T05:51:12Z",
+   "payload_len": 4100
+  },
+  {
+   "job_id": "64edddc2c060",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T05:34:03Z",
+   "finished_at": "2026-11-14T05:37:16Z",
+   "updated_at": "2026-11-14T05:37:16Z",
+   "payload_len": 4107
+  },
+  {
+   "job_id": "bc1bc0f54493",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T05:06:21Z",
+   "finished_at": "2026-11-14T05:06:31Z",
+   "updated_at": "2026-11-14T05:06:31Z",
+   "payload_len": 3294
+  },
+  {
+   "job_id": "d163e91cec6f",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:51:21Z",
+   "finished_at": "2026-11-14T04:51:32Z",
+   "updated_at": "2026-11-14T04:51:32Z",
+   "payload_len": 3293
+  },
+  {
+   "job_id": "fde498f68e74",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:36:21Z",
+   "finished_at": "2026-11-14T04:38:00Z",
+   "updated_at": "2026-11-14T04:38:00Z",
+   "payload_len": 3293
+  },
+  {
+   "job_id": "85fe494aeff0",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:21:21Z",
+   "finished_at": "2026-11-14T04:21:31Z",
+   "updated_at": "2026-11-14T04:21:31Z",
+   "payload_len": 3294
+  },
+  {
+   "job_id": "5c82656b3d11",
+   "status": "completed",
+   "attempt": 1,
+   "created_at": "2026-11-14T04:06:21Z",
+   "finished_at": "2026-11-14T04:06:30Z",
+   "updated_at": "2026-11-14T04:06:30Z",
+   "payload_len": 3293
+  }
+ ],
+ "i2_active_jobs": 0,
+ "i2_latest_job": {
+  "job_id": "3dc1fff704d2",
+  "status": "completed",
+  "finished_at": "2026-11-14T06:05:01Z"
+ },
+ "i2_counters": {
+  "semantic_scanned": 4,
+  "semantic_selected": 193,
+  "semantic_extracted": 7,
+  "semantic_candidates": 5,
+  "semantic_rejected": 2,
+  "semantic_duplicates": 0,
+  "semantic_llm_unavailable": 1,
+  "semantic_reject_reasons": {
+   "dispute": 1,
+   "low_confidence": 1
+  },
+  "semantic_rows_read": 201,
+  "semantic_rows_eligible": 193,
+  "semantic_rows_ineligible": 8,
+  "semantic_chats_disabled": 0,
+  "semantic_chats_empty": 0,
+  "semantic_chats_deferred": 0,
+  "semantic_read_errors": 0,
+  "semantic_discover_errors": 0,
+  "semantic_parse_invalid": 0,
+  "semantic_parse_valid_empty": 0,
+  "semantic_write_failures": 0,
+  "semantic_write_skipped": 0,
+  "semantic_pending_reconciled": 0,
+  "semantic_discovery_backpressure": 0,
+  "semantic_throughput_rows": 151,
+  "semantic_parse_reasons": {},
+  "semantic_batches_run": 3,
+  "semantic_budget_exhausted": 0,
+  "fresh_stream_lag_rows": 2057731,
+  "fresh_stream_pending_rows": 12788
+ },
+ "i2_progress": {
+  "backlog_rows": 12788,
+  "backlog_chats": 1,
+  "pending_rows": 12788,
+  "pending_chats": 1,
+  "actionable_rows": 12788,
+  "actionable_chats": 1,
+  "lag_seconds": 124216346,
+  "lag_seconds_source": "cursor_distance",
+  "deferred_chats": 0,
+  "watermark": 2407146,
+  "lag_rows": 2057731,
+  "lag_chats": 1,
+  "lag_actionable_rows": 2057731,
+  "lag_actionable_chats": 1,
+  "lag_source": "cursor_distance",
+  "lag_measured_at": 1794636244,
+  "lag_partial": false
+ },
+ "i2_lag": {
+  "available": true,
+  "ts": 1794636244,
+  "rows": 2057731,
+  "chats": 1,
+  "actionable_rows": 2057731,
+  "actionable_chats": 1,
+  "worst_chat": CHAT_C2,
+  "worst_rows": 2057731,
+  "worst_cursor": 16095,
+  "worst_max_id": 2407146,
+  "measured_chats": 1,
+  "failed_chats": 0,
+  "partial": false,
+  "oldest_ts": 1670419898,
+  "age_seconds": 124216346
+ },
+ "i2_cursors": {
+  "semantic_cursor:CHAT_C2": 16095,
+  "semantic_cursor:CHAT_DM8": 2407145,
+  "semantic_cursor:CHAT_C1": 2407127
+ },
+ "i2_pending": {
+  "CHAT_C2": 12788
+ },
+ "i2_pending_since": {
+  "CHAT_C2": "2026-08-15T21:24:21Z"
+ },
+ "i2_retry": {},
+ "i2_watermark": 2407146,
+ "i2_last_ts": {
+  "CHAT_C2": "2026-11-14T06:04:04Z",
+  "CHAT_DM8": "2026-11-14T06:04:04Z",
+  "CHAT_C1": "2026-11-14T05:34:04Z"
+ },
+ "i2_state_version": 2,
+ "i2_analytics_subset": {
+  "fresh_stream_lag_rows": 2058465
+ },
+ "i2_archive_watermark": null,
+ "i2_windows": {
+  "CHAT_C1": {
+   "cursor": 2407127,
+   "max_id": 2407127,
+   "cursor_le_max": true,
+   "max_ms": 0
+  },
+  "CHAT_C2": {
+   "cursor": 16095,
+   "max_id": 2407146,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2057731,
+   "oldest_ts": "2022-12-07T13:31:38Z",
+   "oldest_epoch": 1670419898,
+   "count_ms": 97,
+   "max_ms": 180
+  },
+  "CHAT_DM": {
+   "cursor": 0,
+   "max_id": 29918,
+   "cursor_le_max": true,
+   "rows_after_cursor": 4,
+   "oldest_ts": "2026-08-30T09:07:01Z",
+   "oldest_epoch": 1788080821,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM2": {
+   "cursor": 0,
+   "max_id": 2362578,
+   "cursor_le_max": true,
+   "rows_after_cursor": 3,
+   "oldest_ts": "2026-09-23T16:06:11Z",
+   "oldest_epoch": 1790179571,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM3": {
+   "cursor": 0,
+   "max_id": 2253679,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2,
+   "oldest_ts": "2026-09-07T09:18:12Z",
+   "oldest_epoch": 1788772692,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM4": {
+   "cursor": 0,
+   "max_id": 2377650,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-10-31T07:50:46Z",
+   "oldest_epoch": 1793433046,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM5": {
+   "cursor": 0,
+   "max_id": 29606,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-09-01T07:08:52Z",
+   "oldest_epoch": 1788246532,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM6": {
+   "cursor": 0,
+   "max_id": 2391731,
+   "cursor_le_max": true,
+   "rows_after_cursor": 1,
+   "oldest_ts": "2026-11-06T14:40:38Z",
+   "oldest_epoch": 1793976038,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM7": {
+   "cursor": 0,
+   "max_id": 2352197,
+   "cursor_le_max": true,
+   "rows_after_cursor": 8,
+   "oldest_ts": "2026-08-30T08:48:14Z",
+   "oldest_epoch": 1788079694,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM8": {
+   "cursor": 2407145,
+   "max_id": 2407145,
+   "cursor_le_max": true,
+   "max_ms": 0
+  },
+  "CHAT_DM9": {
+   "cursor": 0,
+   "max_id": 2384749,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2,
+   "oldest_ts": "2026-11-03T10:10:44Z",
+   "oldest_epoch": 1793700644,
+   "count_ms": 0,
+   "max_ms": 0
+  },
+  "CHAT_DM10": {
+   "cursor": 0,
+   "max_id": 2369924,
+   "cursor_le_max": true,
+   "rows_after_cursor": 2,
+   "oldest_ts": "2026-10-27T16:17:35Z",
+   "oldest_epoch": 1793117855,
+   "count_ms": 0,
+   "max_ms": 0
+  }
+ },
+ "i1_journal": {
+  "rows": 33114,
+  "min_ts": "2026-10-31T12:42:03Z",
+  "max_ts": "2026-11-14T06:09:04Z",
+  "max_epoch": 1794636544
+ },
+ "i1_recent": [
+  {
+   "attempt_id": "b5bcf238a8cb",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T06:09:04Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "3756333dbb75",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T06:09:04Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "a73f6a1b8b6d",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T06:09:04Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "9e327a97063e",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T06:09:04Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "650c8f66d702",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T06:04:15Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "851eaa8d7a76",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T06:04:15Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "1715f6a6b780",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T06:04:15Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "c3ff6e879c09",
+   "chat": "CHAT_C1",
+   "job_id": "meme:-100448",
+   "ts": "2026-11-14T06:04:15Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  },
+  {
+   "attempt_id": "28f0ae90eab9",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:59:04Z",
+   "stage": "considered",
+   "outcome": "passed",
+   "reason_code": "",
+   "limit_source": "",
+   "detail_len": 0
+  },
+  {
+   "attempt_id": "91dace2219f5",
+   "chat": "CHAT_C2",
+   "job_id": "meme:-100266",
+   "ts": "2026-11-14T05:59:04Z",
+   "stage": "skipped",
+   "outcome": "skipped",
+   "reason_code": "cooldown_active",
+   "limit_source": "",
+   "detail_len": 47
+  }
+ ],
+ "i1_known_spooled_ids": {
+  "266639345caf473c93d258857f7ba108": 1,
+  "bf20677a446a49f496b6f7b292458b48": 1
+ },
+ "i1_rows_since_deploy": 84,
+ "i1_spool": {
+  "path": "/var/www/admin_bot/local_database.db.attempts.pending.jsonl",
+  "exists": false
+ }
+}
+##SECTION sqlite END
+PROBE2_RC=0
+##PROBE2_END
+##CLEANUP done=2026-11-14T06:11:46Z probe_removed=yes tmp_removed=yes
+##END
+==============================================================================
+## FILE: batch-02-pg-config-identity.txt
+==============================================================================
+##META host=vps159032-gqg now_utc=2026-11-14T06:14:21Z
+HEAD=0e4a144db476a1535ae3a2b79a7cce30354ad866 BRANCH=release/2.58.200
+PID=709883 INV=1a3ab8ad1f38460ea397417f8c762845 START_ISO=2026-11-14T05:18:59Z START_EPOCH=1794633539
+MainPID=709883
+NRestarts=0
+ExecMainStartTimestamp=Sat 2026-11-14 05:18:59 UTC
+ActiveState=active
+SubState=running
+HEALTH:
+HTTP=200 TIME=0.089008
+{"status":"ok","version":"2.58.200"}
+##POST_WINDOW_BEGIN
+RC=0
+POST_LINES=3813
+POST_TRACEBACK=1
+POST_ERROR=3
+POST_WARNING=111
+-- checkup identity (full line) --
+2026-11-14T05:47:37+00:00 vps159032-gqg python[709883]: 2026-11-14 05:47:37,714 - handlers.checkup - INFO - [checkup] identity | runtime= | deployed_sha=0e4a144db476 | checkout_sha=0e4a144db476 | source_verified=True | git_meta=True | commits_since_deploy=None | sources=12/15 | status=degraded
+-- checkup fetcher (full lines) --
+2026-11-14T05:47:37+00:00 vps159032-gqg python[709883]: 2026-11-14 05:47:37,268 - services.system_logs_fetcher - INFO - [checkup fetcher] journal read | state=ok | window=300 | matched=8
+-- checkup trigger/sent --
+2026-11-14T05:47:37+00:00 vps159032-gqg python[709883]: 2026-11-14 05:47:37,238 - handlers.checkup - INFO - [checkup] triggered | chat=CHAT_DM8 user=CHAT_DM8
+2026-11-14T05:48:23+00:00 vps159032-gqg python[709883]: 2026-11-14 05:48:23,713 - handlers.checkup - INFO - [checkup] report sent | chat=CHAT_DM8
+-- mca16 full lines --
+2026-11-14T05:37:16+00:00 vps159032-gqg python[709883]: 2026-11-14 05:37:16,406 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+2026-11-14T05:51:12+00:00 vps159032-gqg python[709883]: 2026-11-14 05:51:12,056 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:00,960 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+2026-11-14T06:05:01+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:01,249 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+-- traceback context (semantic batch failed) --
+3285-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:00,957 - services.llm_client - INFO - LLM usage in=1893 out=1500
+3286-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:00,960 - services.chat_clock - INFO - [clock_call] module=experience | step=semantic_extract | chat_id=None | clock_included=false | skip_reason=no_time_block | channel=primary
+3287:2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:00,960 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+3288-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: Traceback (most recent call last):
+3289-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:   File "/var/www/admin_bot/services/mca_experience_jobs.py", line 2661, in _semantic_llm_batch
+3290-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:     return await _asyncio.wait_for(
+3291-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:            ^^^^^^^^^^^^^^^^^^^^^^^^
+3292-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:   File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+3293-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:     return await fut
+3294-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:            ^^^^^^^^^
+3295-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:   File "/var/www/admin_bot/services/llm_client.py", line 1606, in generate
+3296-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:     completion = await self.generate_with_metadata(
+3297-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3298-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:   File "/var/www/admin_bot/services/llm_client.py", line 1803, in generate_with_metadata
+3299-2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]:     raise LLMBadResponseError("chat/completions: empty content")
+-- meme lines (full) --
+-- suspended event sample --
+2026-11-14T05:37:16+00:00 vps159032-gqg python[709883]: 2026-11-14 05:37:16,264 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code=suspended | entity_ids=["0313d20ae03346cbba698c330ec61088"] | chat_id=CHAT_C2
+2026-11-14T05:37:16+00:00 vps159032-gqg python[709883]: 2026-11-14 05:37:16,265 - services.mca_events - WARNING - mca_event=suspended | ts=1794634636 | event_name=suspended | outcome=skipped | level=WARN | component=experience | reason_code=suspended | entity_ids=["055df0ce0da144f48bfc7506d1da8206"] | chat_id=CHAT_C1
+-- vision claim slow --
+2026-11-14T05:54:23+00:00 vps159032-gqg python[709883]: 2026-11-14 05:54:23,145 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.11s
+2026-11-14T05:55:45+00:00 vps159032-gqg python[709883]: 2026-11-14 05:55:45,074 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=6.04s
+2026-11-14T06:11:48+00:00 vps159032-gqg python[709883]: 2026-11-14 06:11:48,688 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.65s
+-- warning patterns excluding mca_event --
+      1 vps159032-gqg python[709883]: 2026-11-14 06:11:48,688 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.65s
+      1 vps159032-gqg python[709883]: 2026-11-14 06:05:00,960 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+      1 vps159032-gqg python[709883]: 2026-11-14 05:57:33,737 - services.llm_client - WARNING - LLM fallback OK | model=deepseek-flash
+      1 vps159032-gqg python[709883]: 2026-11-14 05:57:23,396 - services.llm_client - WARNING - LLM fallback attempt | primary_error=LLM request timed out after 3 attempts: https://nano-gpt.com/api/v1/chat/completions | pr
+      1 vps159032-gqg python[709883]: 2026-11-14 05:56:53,363 - services.llm_client - WARNING - LLM request retry | url=https://nano-gpt.com/api/v1/chat/completions | attempt=1/3 | sleep=3.0s | reason=ReadTimeout:
+      1 vps159032-gqg python[709883]: 2026-11-14 05:56:23,287 - services.direct_chat_service - WARNING - [direct] tool-loop degraded | chat=CHAT_DM8 | reason=finish | rounds_used=4
+      1 vps159032-gqg python[709883]: 2026-11-14 05:55:45,074 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=6.04s
+      1 vps159032-gqg python[709883]: 2026-11-14 05:54:23,145 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.11s
+      1 vps159032-gqg python[709883]: 2026-11-14 05:47:54,728 - services.model_capacity - WARNING - model_capacity: unknown model 'z-ai/glm-5.3-flash-uncensored' — planning window=1000000 (CHAT_UNKNOWN_MODEL_WINDOW, esti
+      1 vps159032-gqg python[709883]: 2026-11-14 05:35:35,228 - services.llm_client - WARNING - LLM request retry | url=https://nano-gpt.com/api/v1/chat/completions | attempt=1/3 | sleep=1.8s | reason=ReadTimeout:
+      1 vps159032-gqg python[709883]: 2026-11-14 05:24:03,984 - services.anticliche_worker - WARNING - [anticliche] no usable source | problems=0
+      1 vps159032-gqg python[709883]: 2026-11-14 05:20:08,985 - apscheduler.executors.default - WARNING - Run time of job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-14 05:21:04 UTC
+      1 vps159032-gqg python[709883]: 2026-11-14 05:20:08,984 - apscheduler.executors.default - WARNING - Run time of job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 05:21:04 UTC
+      1 vps159032-gqg python[709883]: 2026-11-14 05:19:04,042 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=superseded | gen_fp=2d0efab0e817 new_fp=2
+##POST_WINDOW_END
+##PRE_WINDOW_BEGIN
+RC=0
+PRE_LINES=69339
+PRE_TRACEBACK=58
+PRE_ERROR=62
+PRE_WARNING=969
+PRE_MEME=126
+PRE_SPOOLED=64
+PRE_SPOOL_NOT_DRAINED=45
+PRE_SEMANTIC_FAIL=29
+PRE_SUSPENDED=24
+PRE_CLAIM_SLOW=17
+PRE_FTS=7
+PRE_ANTICLICHE=6
+PRE_CHECKUP=1
+PRE_WARNING_TOP:
+      1 vps159032-gqg python[454989]: 2026-11-14 05:06:31,136 - services.mca_events - WARNING - mca_event unmapped reason_code | event=experience.fresh_stream_lag | marker=unmapped:18d14796 | chars=16
+      1 vps159032-gqg python[454989]: 2026-11-14 05:06:31,135 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+      1 vps159032-gqg python[454989]: 2026-11-14 05:06:21,989 - services.mca_events - WARNING - mca_event unmapped reason_code | event=detector_scan | marker=unmapped:4f8aced7 | chars=13
+      1 vps159032-gqg python[454989]: 2026-11-14 04:51:32,607 - services.mca_events - WARNING - mca_event unmapped reason_code | event=experience.fresh_stream_lag | marker=unmapped:18d14796 | chars=16
+      1 vps159032-gqg python[454989]: 2026-11-14 04:51:32,605 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+      1 vps159032-gqg python[454989]: 2026-11-14 04:51:21,886 - services.mca_events - WARNING - mca_event unmapped reason_code | event=detector_scan | marker=unmapped:4f8aced7 | chars=13
+      1 vps159032-gqg python[454989]: 2026-11-14 04:38:00,030 - apscheduler.executors.default - WARNING - Run time of job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-11-14 04:38:21 UTC
+      1 vps159032-gqg python[454989]: 2026-11-14 04:38:00,030 - apscheduler.executors.default - WARNING - Run time of job "SummarySchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 04:38:21 UTC)" w
+      1 vps159032-gqg python[454989]: 2026-11-14 04:38:00,030 - apscheduler.executors.default - WARNING - Run time of job "NostalgiaWorker._tick (trigger: interval[0:01:00], next run at: 2026-11-14 09:38:21 +05)" was misse
+      1 vps159032-gqg python[454989]: 2026-11-14 04:38:00,030 - apscheduler.executors.default - WARNING - Run time of job "GoodmorningSchedulerService._tick (trigger: interval[0:01:00], next run at: 2026-11-14 04:38:21 UTC
+##PRE_WINDOW_END
+##DELTA_JOURNAL_BEGIN
+DELTA_LINES=167
+DELTA_TRACEBACK=0
+DELTA_REVIEW_TICKS=0
+##DELTA_JOURNAL_END
+##PROBE2_BEGIN
+##SECTION meta BEGIN
+{
+ "now": "2026-11-14T06:14:22Z",
+ "uid": 999,
+ "cwd": "/var/www/admin_bot",
+ "argv": [
+  "1794633539"
+ ]
+}
+##SECTION meta END
+##SECTION pg BEGIN
+{
+ "available": true,
+ "dsn_present": true,
+ "settings": [
+  {
+   "key": "flags.budgets_enabled",
+   "value": "false",
+   "category": "flags",
+   "updated_at": "2026-10-25T06:13:07.439995+00:00"
+  },
+  {
+   "key": "models.llm_base_url",
+   "value": "https://nano-gpt.com/api/v1",
+   "category": "models",
+   "updated_at": "2026-09-12T05:43:07.884798+00:00"
+  },
+  {
+   "key": "models.llm_display_name",
+   "value": "NanoGPT Deepseek",
+   "category": "models",
+   "updated_at": "2026-09-12T05:43:07.869899+00:00"
+  },
+  {
+   "key": "models.llm_fallback_base_url",
+   "value": "https://api.deepseek.com",
+   "category": "models",
+   "updated_at": "2026-08-29T17:04:33.765386+00:00"
+  },
+  {
+   "key": "models.llm_fallback_model",
+   "value": "deepseek-flash",
+   "category": "models",
+   "updated_at": "2026-09-12T05:35:03.910027+00:00"
+  },
+  {
+   "key": "models.llm_model_name",
+   "value": "z-ai/glm-5.3-flash-uncensored",
+   "category": "models",
+   "updated_at": "2026-11-11T12:04:22.696731+00:00"
+  },
+  {
+   "key": "prompts.factcheck_subject_system_prompt",
+   "value": "<factory prompt body omitted: prompts.factcheck_subject_system_prompt, len=2146>",
+   "category": "prompts",
+   "updated_at": "2026-11-14T05:19:03.548386+00:00"
+  }
+ ],
+ "bot_settings_count": 548,
+ "bot_settings_max_updated_at": "2026-11-14T05:19:03.548386+00:00",
+ "rows_updated_since_deploy": [
+  {
+   "key": "prompts.factcheck_subject_system_prompt",
+   "category": "prompts",
+   "value_len": 2146,
+   "updated_at": "2026-11-14T05:19:03.548386+00:00"
+  }
+ ],
+ "budget_related_rows": [
+  {
+   "key": "flags.budgets_enabled",
+   "value": "false",
+   "updated_at": "2026-10-25T06:13:07.439995+00:00"
+  },
+  {
+   "key": "flags.chat_context_budgets_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.795463+00:00"
+  },
+  {
+   "key": "initiative.eval_llm_budget_per_day",
+   "value": "12",
+   "updated_at": "2026-10-15T14:44:24.530136+00:00"
+  },
+  {
+   "key": "limits.chat_budget_anchors_ratio",
+   "value": "0.05",
+   "updated_at": "2026-08-29T17:04:33.952965+00:00"
+  },
+  {
+   "key": "limits.chat_budget_branch_ratio",
+   "value": "0.03",
+   "updated_at": "2026-09-05T21:17:31.275741+00:00"
+  },
+  {
+   "key": "limits.chat_budget_global_ratio",
+   "value": "0.3",
+   "updated_at": "2026-08-29T17:04:33.949016+00:00"
+  },
+  {
+   "key": "limits.chat_budget_map_ratio",
+   "value": "0.05",
+   "updated_at": "2026-08-29T17:04:33.947993+00:00"
+  },
+  {
+   "key": "limits.chat_budget_rag_ratio",
+   "value": "0.15",
+   "updated_at": "2026-08-29T17:04:33.951126+00:00"
+  },
+  {
+   "key": "limits.chat_budget_reserve_ratio",
+   "value": "0.1",
+   "updated_at": "2026-08-29T17:04:33.955226+00:00"
+  },
+  {
+   "key": "limits.chat_budget_response_ratio",
+   "value": "0.2",
+   "updated_at": "2026-08-29T17:04:33.954253+00:00"
+  },
+  {
+   "key": "limits.chat_budget_target_ratio",
+   "value": "0.05",
+   "updated_at": "2026-08-29T17:04:33.952060+00:00"
+  },
+  {
+   "key": "limits.chat_budget_thread_ratio",
+   "value": "0.2",
+   "updated_at": "2026-08-29T17:04:33.950129+00:00"
+  },
+  {
+   "key": "limits.chat_context_budget_tokens",
+   "value": "24000",
+   "updated_at": "2026-08-29T17:04:33.946952+00:00"
+  },
+  {
+   "key": "limits.chat_global_key_budget_requests",
+   "value": "100",
+   "updated_at": "2026-09-15T20:34:49.820681+00:00"
+  },
+  {
+   "key": "limits.chat_global_key_budget_tokens",
+   "value": "500000",
+   "updated_at": "2026-09-15T20:34:50.135320+00:00"
+  },
+  {
+   "key": "limits.worker_budget_jitter_minutes",
+   "value": "5",
+   "updated_at": "2026-09-07T14:21:35.835723+00:00"
+  },
+  {
+   "key": "limits.worker_budget_tz",
+   "value": "Asia/Yekaterinburg",
+   "updated_at": "2026-09-07T14:21:35.837166+00:00"
+  },
+  {
+   "key": "models.llm_total_budget",
+   "value": "60.0",
+   "updated_at": "2026-08-29T17:04:33.764421+00:00"
+  }
+ ],
+ "flag_rows": [
+  {
+   "key": "flags.alan_replies_enabled",
+   "value": "false",
+   "updated_at": "2026-08-29T17:04:33.823653+00:00"
+  },
+  {
+   "key": "flags.belief_decay_enabled",
+   "value": "false",
+   "updated_at": "2026-09-12T20:52:36.638921+00:00"
+  },
+  {
+   "key": "flags.bot_self_awareness_enabled",
+   "value": "true",
+   "updated_at": "2026-09-13T09:15:16.290935+00:00"
+  },
+  {
+   "key": "flags.budgets_enabled",
+   "value": "false",
+   "updated_at": "2026-10-25T06:13:07.439995+00:00"
+  },
+  {
+   "key": "flags.character_layers_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.842833+00:00"
+  },
+  {
+   "key": "flags.character_speech_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.843902+00:00"
+  },
+  {
+   "key": "flags.chat_autonomous_reply_enabled",
+   "value": "true",
+   "updated_at": "2026-09-29T00:21:11.977513+00:00"
+  },
+  {
+   "key": "flags.chat_context_budgets_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.795463+00:00"
+  },
+  {
+   "key": "flags.chat_decision_ignore_trivial_enabled",
+   "value": "true",
+   "updated_at": "2026-09-25T05:14:21.502775+00:00"
+  },
+  {
+   "key": "flags.chat_decision_image_reactions_enabled",
+   "value": "true",
+   "updated_at": "2026-09-25T05:14:21.509842+00:00"
+  },
+  {
+   "key": "flags.chat_decision_reactions_enabled",
+   "value": "true",
+   "updated_at": "2026-09-25T05:14:21.507541+00:00"
+  },
+  {
+   "key": "flags.chat_dedup_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.794493+00:00"
+  },
+  {
+   "key": "flags.chat_importance_keep_enabled",
+   "value": "true",
+   "updated_at": "2026-09-05T21:17:31.129072+00:00"
+  },
+  {
+   "key": "flags.chat_mood_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.792799+00:00"
+  },
+  {
+   "key": "flags.chat_rag_rerank_enabled",
+   "value": "true",
+   "updated_at": "2026-09-06T14:48:01.866578+00:00"
+  },
+  {
+   "key": "flags.chat_running_summary_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.793625+00:00"
+  },
+  {
+   "key": "flags.chat_silence_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.790585+00:00"
+  },
+  {
+   "key": "flags.chat_silent_ack_enabled",
+   "value": "true",
+   "updated_at": "2026-09-29T00:21:11.969480+00:00"
+  },
+  {
+   "key": "flags.chat_style_anchors_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.791495+00:00"
+  },
+  {
+   "key": "flags.checkup_enabled",
+   "value": "true",
+   "updated_at": "2026-09-10T17:17:07.793360+00:00"
+  },
+  {
+   "key": "flags.checkup_memory_metrics_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.799627+00:00"
+  },
+  {
+   "key": "flags.common_media_enabled",
+   "value": "false",
+   "updated_at": "2026-09-13T07:05:39.088838+00:00"
+  },
+  {
+   "key": "flags.common_work_media_enabled",
+   "value": "false",
+   "updated_at": "2026-09-01T11:52:36.790468+00:00"
+  },
+  {
+   "key": "flags.db_wal_checkpoint_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.811745+00:00"
+  },
+  {
+   "key": "flags.dead_page_post_on_join",
+   "value": "false",
+   "updated_at": "2026-08-29T17:04:33.824913+00:00"
+  },
+  {
+   "key": "flags.deep_sleep_enabled",
+   "value": "false",
+   "updated_at": "2026-09-12T20:52:36.662809+00:00"
+  },
+  {
+   "key": "flags.dig_enabled",
+   "value": "true",
+   "updated_at": "2026-09-06T11:14:39.675019+00:00"
+  },
+  {
+   "key": "flags.dig_pre_gate_enabled",
+   "value": "true",
+   "updated_at": "2026-09-06T14:48:24.320883+00:00"
+  },
+  {
+   "key": "flags.direct_chat_botword_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.782166+00:00"
+  },
+  {
+   "key": "flags.download_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.787937+00:00"
+  },
+  {
+   "key": "flags.embed_cache_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.810088+00:00"
+  },
+  {
+   "key": "flags.enable_voice_transcription",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.783355+00:00"
+  },
+  {
+   "key": "flags.episodes_backfill_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.837903+00:00"
+  },
+  {
+   "key": "flags.episodes_compiler_facade_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.835386+00:00"
+  },
+  {
+   "key": "flags.episodes_continuation_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.836672+00:00"
+  },
+  {
+   "key": "flags.episodes_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.834042+00:00"
+  },
+  {
+   "key": "flags.factcheck_enabled",
+   "value": "true",
+   "updated_at": "2026-09-10T17:17:07.780186+00:00"
+  },
+  {
+   "key": "flags.factcheck_pipeline_v2",
+   "value": "true",
+   "updated_at": "2026-10-20T09:44:06.723000+00:00"
+  },
+  {
+   "key": "flags.factcheck_suitability_gate",
+   "value": "false",
+   "updated_at": "2026-10-20T09:41:26.093986+00:00"
+  },
+  {
+   "key": "flags.factcheck_wide_context",
+   "value": "true",
+   "updated_at": "2026-10-26T08:29:48.870318+00:00"
+  },
+  {
+   "key": "flags.factcheck_wide_context_default_v1",
+   "value": "true",
+   "updated_at": "2026-10-26T08:29:48.877815+00:00"
+  },
+  {
+   "key": "flags.graph_dedup_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.800586+00:00"
+  },
+  {
+   "key": "flags.graph_episode_merge_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.801667+00:00"
+  },
+  {
+   "key": "flags.graph_fact_touch_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.804618+00:00"
+  },
+  {
+   "key": "flags.graph_mmr_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.808234+00:00"
+  },
+  {
+   "key": "flags.graph_rag_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.784583+00:00"
+  },
+  {
+   "key": "flags.graph_review_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.805880+00:00"
+  },
+  {
+   "key": "flags.graph_time_decay_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.802594+00:00"
+  },
+  {
+   "key": "flags.graph_user_quota_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.803514+00:00"
+  },
+  {
+   "key": "flags.humor_craft_enabled",
+   "value": "true",
+   "updated_at": "2026-10-17T21:54:45.957316+00:00"
+  },
+  {
+   "key": "flags.humor_feedback_enabled",
+   "value": "true",
+   "updated_at": "2026-10-17T21:54:45.960756+00:00"
+  },
+  {
+   "key": "flags.humor_library_enabled",
+   "value": "true",
+   "updated_at": "2026-10-17T21:54:45.959070+00:00"
+  },
+  {
+   "key": "flags.image_generation_module_enabled",
+   "value": "true",
+   "updated_at": "2026-09-19T00:58:02.344187+00:00"
+  },
+  {
+   "key": "flags.initiative_diagnostics_publish_enabled",
+   "value": "true",
+   "updated_at": "2026-10-17T21:55:18.975415+00:00"
+  },
+  {
+   "key": "flags.initiative_enabled",
+   "value": "true",
+   "updated_at": "2026-10-08T22:57:43.226960+00:00"
+  },
+  {
+   "key": "flags.initiative_observer_enabled",
+   "value": "true",
+   "updated_at": "2026-10-15T14:44:24.517669+00:00"
+  },
+  {
+   "key": "flags.intent_decision_enabled",
+   "value": "true",
+   "updated_at": "2026-10-08T22:57:43.233384+00:00"
+  },
+  {
+   "key": "flags.intent_heartbeat_enabled",
+   "value": "true",
+   "updated_at": "2026-10-08T22:57:43.231845+00:00"
+  },
+  {
+   "key": "flags.irony_filter_enabled",
+   "value": "false",
+   "updated_at": "2026-09-12T20:52:36.675176+00:00"
+  },
+  {
+   "key": "flags.kostik_enabled",
+   "value": "true",
+   "updated_at": "2026-09-12T12:41:43.856831+00:00"
+  },
+  {
+   "key": "flags.legacy_traits_migration_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.841672+00:00"
+  },
+  {
+   "key": "flags.llm_cb_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.812996+00:00"
+  },
+  {
+   "key": "flags.lore_auto_enabled",
+   "value": "true",
+   "updated_at": "2026-09-05T16:09:14.928119+00:00"
+  },
+  {
+   "key": "flags.lore_compiler_enabled",
+   "value": "true",
+   "updated_at": "2026-09-16T13:17:23.788639+00:00"
+  },
+  {
+   "key": "flags.lore_inject_enabled",
+   "value": "true",
+   "updated_at": "2026-09-05T16:09:14.929732+00:00"
+  },
+  {
+   "key": "flags.lore_worker_enabled",
+   "value": "true",
+   "updated_at": "2026-09-05T16:09:14.924044+00:00"
+  },
+  {
+   "key": "flags.memory_backup_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.809055+00:00"
+  },
+  {
+   "key": "flags.memory_commands_user_enabled",
+   "value": "false",
+   "updated_at": "2026-09-04T11:53:39.414904+00:00"
+  },
+  {
+   "key": "flags.mimic_enabled",
+   "value": "false",
+   "updated_at": "2026-09-03T16:27:18.287775+00:00"
+  },
+  {
+   "key": "flags.mimic_forwards_enabled",
+   "value": "false",
+   "updated_at": "2026-08-29T17:04:33.822255+00:00"
+  },
+  {
+   "key": "flags.olya_always_send",
+   "value": "false",
+   "updated_at": "2026-08-29T17:04:33.819534+00:00"
+  },
+  {
+   "key": "flags.olya_caption_enabled",
+   "value": "false",
+   "updated_at": "2026-09-07T10:04:42.821289+00:00"
+  },
+  {
+   "key": "flags.olya_caption_mention_enabled",
+   "value": "false",
+   "updated_at": "2026-09-07T10:05:29.812581+00:00"
+  },
+  {
+   "key": "flags.olya_enabled",
+   "value": "false",
+   "updated_at": "2026-09-07T10:05:11.241687+00:00"
+  },
+  {
+   "key": "flags.olya_repost_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.818560+00:00"
+  },
+  {
+   "key": "flags.permsoc_enabled",
+   "value": "false",
+   "updated_at": "2026-09-07T14:21:35.605713+00:00"
+  },
+  {
+   "key": "flags.persona_enabled",
+   "value": "true",
+   "updated_at": "2026-09-13T09:15:16.292623+00:00"
+  },
+  {
+   "key": "flags.postprocess_form_guard_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.846055+00:00"
+  },
+  {
+   "key": "flags.relations_tone_enabled",
+   "value": "false",
+   "updated_at": "2026-09-06T11:14:39.669756+00:00"
+  },
+  {
+   "key": "flags.search_enabled",
+   "value": "true",
+   "updated_at": "2026-09-10T17:17:07.787387+00:00"
+  },
+  {
+   "key": "flags.search_rerank_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.798634+00:00"
+  },
+  {
+   "key": "flags.self_model_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.839037+00:00"
+  },
+  {
+   "key": "flags.send_recheck_enabled",
+   "value": "true",
+   "updated_at": "2026-10-08T22:57:43.234976+00:00"
+  },
+  {
+   "key": "flags.slavik_enabled",
+   "value": "true",
+   "updated_at": "2026-09-11T17:46:13.940882+00:00"
+  },
+  {
+   "key": "flags.smart_cache_enabled",
+   "value": "false",
+   "updated_at": "2026-10-28T08:54:26.625005+00:00"
+  },
+  {
+   "key": "flags.stories_manage_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.832934+00:00"
+  },
+  {
+   "key": "flags.stories_vitrina_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.830054+00:00"
+  },
+  {
+   "key": "flags.style_scope_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.845019+00:00"
+  },
+  {
+   "key": "flags.summary_admin_only",
+   "value": "false",
+   "updated_at": "2026-08-29T17:04:33.826514+00:00"
+  },
+  {
+   "key": "flags.summary_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.780927+00:00"
+  },
+  {
+   "key": "flags.summary_filter_enabled",
+   "value": "true",
+   "updated_at": "2026-09-22T23:16:42.019799+00:00"
+  },
+  {
+   "key": "flags.summary_filter_reply_context_enabled",
+   "value": "true",
+   "updated_at": "2026-09-22T23:16:42.024530+00:00"
+  },
+  {
+   "key": "flags.summary_hybrid_l1_repair_enabled",
+   "value": "true",
+   "updated_at": "2026-09-28T06:53:17.139266+00:00"
+  },
+  {
+   "key": "flags.summary_hybrid_l1_retry_enabled",
+   "value": "true",
+   "updated_at": "2026-09-28T06:44:46.870088+00:00"
+  },
+  {
+   "key": "flags.summary_hybrid_l2_enabled",
+   "value": "true",
+   "updated_at": "2026-09-28T06:44:46.850859+00:00"
+  },
+  {
+   "key": "flags.summary_legacy_fallback_enabled",
+   "value": "true",
+   "updated_at": "2026-09-28T06:44:46.871901+00:00"
+  },
+  {
+   "key": "flags.summary_streaming_enabled",
+   "value": "false",
+   "updated_at": "2026-08-29T17:04:33.796529+00:00"
+  },
+  {
+   "key": "flags.throttle_persistent_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.786699+00:00"
+  },
+  {
+   "key": "flags.trait_rules_enabled",
+   "value": "true",
+   "updated_at": "2026-10-09T03:58:50.840354+00:00"
+  },
+  {
+   "key": "flags.typing_indicator_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.797690+00:00"
+  },
+  {
+   "key": "flags.unified_composer_enabled",
+   "value": "true",
+   "updated_at": "2026-10-17T21:54:45.924920+00:00"
+  },
+  {
+   "key": "flags.vec_int8_enabled",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.807210+00:00"
+  },
+  {
+   "key": "flags.video_summary_enabled",
+   "value": "true",
+   "updated_at": "2026-09-10T17:17:07.789354+00:00"
+  },
+  {
+   "key": "flags.vision_enabled",
+   "value": "true",
+   "updated_at": "2026-10-29T09:51:13.686807+00:00"
+  },
+  {
+   "key": "flags.vision_media_animated_stickers",
+   "value": "true",
+   "updated_at": "2026-10-27T04:21:11.449765+00:00"
+  },
+  {
+   "key": "flags.vision_media_gif_animations",
+   "value": "true",
+   "updated_at": "2026-10-27T04:21:11.448703+00:00"
+  },
+  {
+   "key": "flags.vision_media_photo_docs",
+   "value": "true",
+   "updated_at": "2026-10-27T04:21:11.443080+00:00"
+  },
+  {
+   "key": "flags.vision_media_static_stickers",
+   "value": "true",
+   "updated_at": "2026-10-27T04:21:11.447298+00:00"
+  },
+  {
+   "key": "flags.vision_media_video_previews",
+   "value": "true",
+   "updated_at": "2026-10-27T04:21:11.450762+00:00"
+  },
+  {
+   "key": "flags.webpage_enabled",
+   "value": "true",
+   "updated_at": "2026-09-10T17:17:07.790885+00:00"
+  },
+  {
+   "key": "flags.ytdlp_for_youtube",
+   "value": "true",
+   "updated_at": "2026-08-29T17:04:33.789417+00:00"
+  }
+ ],
+ "experience_param_rows": [
+  {
+   "key": "memory.experience_learning_enabled",
+   "value": "true",
+   "updated_at": "2026-11-08T22:41:07.337488+00:00"
+  },
+  {
+   "key": "memory.experience_review_cadence",
+   "value": "daily",
+   "updated_at": "2026-10-05T05:51:36.211357+00:00"
+  }
+ ],
+ "chat_profiles": [
+  {
+   "chat_id": CHAT_C1,
+   "updated_at": "2026-11-11T13:14:05.843018+00:00",
+   "budgets_override": "false",
+   "override_keys_count": 8,
+   "override_keys": [
+    "flags.budgets_enabled",
+    "flags.meme_initiative_enabled",
+    "flags.summary_enabled",
+    "flags.vision_enabled",
+    "initiative.meme_length_limit",
+    "memory.experience_review_cadence",
+    "prompts.meme_image",
+    "prompts.meme_joke"
+   ]
+  },
+  {
+   "chat_id": CHAT_C2,
+   "updated_at": "2026-11-14T06:11:54.954581+00:00",
+   "budgets_override": "false",
+   "override_keys_count": 32,
+   "override_keys": [
+    "character.expression",
+    "flags.budgets_enabled",
+    "flags.chat_silent_ack_enabled",
+    "flags.deep_sleep_enabled",
+    "flags.irony_filter_enabled",
+    "flags.meme_initiative_enabled",
+    "flags.relations_tone_enabled",
+    "flags.summary_filter_enabled",
+    "flags.vision_enabled",
+    "humor.feedback",
+    "initiative.meme_length_limit",
+    "limits.chat_burst_limit",
+    "limits.chat_context_budget_tokens",
+    "limits.chat_global_context_max_tokens",
+    "limits.chat_global_key_budget_requests",
+    "limits.chat_global_key_budget_tokens",
+    "limits.chat_level2_max_chars",
+    "limits.chat_thread_max_depth",
+    "limits.chat_thread_max_tokens",
+    "limits.factcheck_context_after",
+    "limits.factcheck_context_before",
+    "limits.image_daily_limit",
+    "limits.import_history_retention_days",
+    "limits.summary_aliases",
+    "limits.worker_daily_llm_calls_per_chat",
+    "limits.worker_daily_llm_tokens_per_chat",
+    "limits.youtube_transcript_proxy_domain",
+    "prompts.checkup_system_prompt",
+    "prompts.meme_image",
+    "prompts.meme_joke",
+    "prompts.summary_cover_style",
+    "prompts.summary_cover_style_id"
+   ]
+  },
+  {
+   "chat_id": CHAT_DM8,
+   "updated_at": "2026-10-28T08:54:24.139196+00:00",
+   "budgets_override": null,
+   "override_keys_count": 5,
+   "override_keys": [
+    "flags.chat_running_summary_enabled",
+    "flags.smart_cache_enabled",
+    "flags.summary_enabled",
+    "memory.dream_enabled",
+    "memory.nostalgia_enabled"
+   ]
+  }
+ ],
+ "chat_ids": [
+  CHAT_C1,
+  CHAT_C2,
+  CHAT_DM8
+ ]
+}
+##SECTION pg END
+##SECTION config BEGIN
+{
+ "APP_VERSION": null,
+ "settings": {
+  "BUDGETS_ENABLED": true,
+  "TOOL_CHAIN_LIMITS_ENABLED": true,
+  "CHAT_UNKNOWN_MODEL_WINDOW": 1000000,
+  "MCA_TOOL_MAX_TOTAL_CALLS": 0,
+  "MCA_TOOL_MAX_METERED_CALLS": 0,
+  "MCA_TOOL_MAX_SAME_CALL": 0,
+  "MCA_TOOL_CHAIN_TIMEOUT_SECONDS": 0.0
+ },
+ "gates": {
+  "experience_lessons_enabled": true,
+  "experience_review_enabled": true
+ },
+ "review_enabled": true,
+ "review_cadence": "daily",
+ "drain_limits": {
+  "chats_per_batch_per_chat_max": [
+   6,
+   50
+  ],
+  "batches_per_run": 12,
+  "run_budget_seconds": 180
+ }
+}
+##SECTION config END
+model_capacity: unknown model 'z-ai/glm-5.3-flash-uncensored' — planning window=1000000 (CHAT_UNKNOWN_MODEL_WINDOW, estimated, НЕ provider-verified); точное окно даст каталог провайдера/реестр
+##SECTION capacity BEGIN
+{
+ "model": "z-ai/glm-5.3-flash-uncensored",
+ "base_url_host": "nano-gpt.com",
+ "sync_resolver": {
+  "window": 1000000,
+  "source": "unknown_fallback"
+ },
+ "async_capacity": {
+  "provider": "nanogpt",
+  "model": "z-ai/glm-5.3-flash-uncensored",
+  "effective_window": 1048576,
+  "declared_window": 1048576,
+  "runtime_window": null,
+  "max_output_tokens": 32768,
+  "source": "provider_catalog",
+  "confidence": "verified",
+  "override_value": null,
+  "proven_limit": null,
+  "clamped_by_proven_limit": false,
+  "fallback_used": false
+ }
+}
+##SECTION capacity END
+##SECTION h4_identity BEGIN
+{
+ "identity": {
+  "schema": 1,
+  "code": "verified_deployed",
+  "reason": "",
+  "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+  "checkout_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+  "dirty": false,
+  "version_provenance": {
+   "runtime": "2.58.200",
+   "manifest": "2.58.200",
+   "consistent": true
+  },
+  "local_source_verification": "verified_deployed",
+  "artifact": {
+   "kind": "git_checkout",
+   "release_branch": "release/2.58.200",
+   "schema_version": null
+  },
+  "deployed_at": "2026-11-14T05:18:53.892873Z",
+  "process_started_at": "2026-11-14T05:18:59Z",
+  "observed_at": "2026-11-14T06:14:22.912745Z",
+  "sources": [
+   "release_manifest",
+   "git_head",
+   "git_cli",
+   "runtime_app_version",
+   "process_start"
+  ],
+  "conflict": [],
+  "effect": "deploy",
+  "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+  "previous_version": "2.58.199"
+ },
+ "upstream_head": {
+  "sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+  "ref": "refs/remotes/origin/release/2.58.200",
+  "observed_at": "2026-11-14T05:18:49.265454Z",
+  "reason": ""
+ },
+ "manifest_reason": "",
+ "manifest": {
+  "deployed_at": "2026-11-14T05:18:53.892873Z",
+  "deployed_sha": "0e4a144db476a1535ae3a2b79a7cce30354ad866",
+  "dirty_tracked": false,
+  "effect": "deploy",
+  "previous_sha": "d20a7f730715ba9e9cba7673c0557794979be339",
+  "previous_version": "2.58.199",
+  "release_branch": "release/2.58.200",
+  "schema": 1,
+  "version": "2.58.200"
+ }
+}
+##SECTION h4_identity END
+##SECTION h3_fetcher BEGIN
+{
+ "identity": {
+  "kind": "systemd",
+  "unit": "admin_bot.service",
+  "invocation_id": "1a3ab8ad1f38460ea397417f8c762845",
+  "pid": 721960,
+  "bot_pid": 709883
+ },
+ "describe_source": "systemd invocation=1a3ab8ad1f38460ea397417f8c762845 unit=admin_bot.service pid=721960",
+ "last_state": "ok",
+ "last_journal_state": "ok",
+ "used_fallback": false,
+ "report_chars": 1873
+}
+##SECTION h3_fetcher END
+##SECTION i1_i2 BEGIN
+{
+ "jobs": [
+  {
+   "job_id": "3dc1fff704d2",
+   "status": "completed",
+   "created_at": "2026-11-14T06:04:03Z",
+   "finished_at": "2026-11-14T06:05:01Z"
+  },
+  {
+   "job_id": "afa74d4bfe6e",
+   "status": "completed",
+   "created_at": "2026-11-14T05:49:03Z",
+   "finished_at": "2026-11-14T05:51:12Z"
+  },
+  {
+   "job_id": "64edddc2c060",
+   "status": "completed",
+   "created_at": "2026-11-14T05:34:03Z",
+   "finished_at": "2026-11-14T05:37:16Z"
+  },
+  {
+   "job_id": "bc1bc0f54493",
+   "status": "completed",
+   "created_at": "2026-11-14T05:06:21Z",
+   "finished_at": "2026-11-14T05:06:31Z"
+  },
+  {
+   "job_id": "d163e91cec6f",
+   "status": "completed",
+   "created_at": "2026-11-14T04:51:21Z",
+   "finished_at": "2026-11-14T04:51:32Z"
+  }
+ ],
+ "latest": {
+  "job_id": "3dc1fff704d2",
+  "finished_at": "2026-11-14T06:05:01Z",
+  "cursors": {
+   "semantic_cursor:CHAT_C2": 16095,
+   "semantic_cursor:CHAT_DM8": 2407145,
+   "semantic_cursor:CHAT_C1": 2407127
+  },
+  "pending": {
+   "CHAT_C2": 12788
+  },
+  "progress": {
+   "backlog_rows": 12788,
+   "backlog_chats": 1,
+   "pending_rows": 12788,
+   "pending_chats": 1,
+   "actionable_rows": 12788,
+   "actionable_chats": 1,
+   "lag_seconds": 124216346,
+   "lag_seconds_source": "cursor_distance",
+   "deferred_chats": 0,
+   "watermark": 2407146,
+   "lag_rows": 2057731,
+   "lag_chats": 1,
+   "lag_actionable_rows": 2057731,
+   "lag_actionable_chats": 1,
+   "lag_source": "cursor_distance",
+   "lag_measured_at": 1794636244,
+   "lag_partial": false
+  },
+  "lag": {
+   "available": true,
+   "ts": 1794636244,
+   "rows": 2057731,
+   "chats": 1,
+   "actionable_rows": 2057731,
+   "actionable_chats": 1,
+   "worst_chat": CHAT_C2,
+   "worst_rows": 2057731,
+   "worst_cursor": 16095,
+   "worst_max_id": 2407146,
+   "measured_chats": 1,
+   "failed_chats": 0,
+   "partial": false,
+   "oldest_ts": 1670419898,
+   "age_seconds": 124216346
+  },
+  "counters": {
+   "semantic_scanned": 4,
+   "semantic_selected": 193,
+   "semantic_extracted": 7,
+   "semantic_candidates": 5,
+   "semantic_rejected": 2,
+   "semantic_duplicates": 0,
+   "semantic_llm_unavailable": 1,
+   "semantic_reject_reasons": {
+    "dispute": 1,
+    "low_confidence": 1
+   },
+   "semantic_rows_read": 201,
+   "semantic_rows_eligible": 193,
+   "semantic_rows_ineligible": 8,
+   "semantic_chats_disabled": 0,
+   "semantic_chats_empty": 0,
+   "semantic_chats_deferred": 0,
+   "semantic_read_errors": 0,
+   "semantic_discover_errors": 0,
+   "semantic_parse_invalid": 0,
+   "semantic_parse_valid_empty": 0,
+   "semantic_write_failures": 0,
+   "semantic_write_skipped": 0,
+   "semantic_pending_reconciled": 0,
+   "semantic_discovery_backpressure": 0,
+   "semantic_throughput_rows": 151,
+   "semantic_parse_reasons": {},
+   "semantic_batches_run": 3,
+   "semantic_budget_exhausted": 0,
+   "fresh_stream_lag_rows": 2057731,
+   "fresh_stream_pending_rows": 12788
+  },
+  "watermark": 2407146
+ },
+ "independent": {
+  "CHAT_C2": {
+   "cursor": 16095,
+   "max_id": 2407148,
+   "rows_after_cursor": 2057733,
+   "oldest_ts": "2022-12-07T13:31:38Z",
+   "count_ms": 94
+  },
+  "CHAT_DM8": {
+   "cursor": 2407145,
+   "max_id": 2407145
+  },
+  "CHAT_C1": {
+   "cursor": 2407127,
+   "max_id": 2407127
+  }
+ },
+ "i1": {
+  "rows": 33118,
+  "min_ts": "2026-10-31T12:42:03Z",
+  "max_ts": "2026-11-14T06:14:04Z",
+  "rows_since_deploy": 88,
+  "spool_exists": false,
+  "last": [
+   {
+    "attempt_id": "8b85df659758",
+    "chat_id": CHAT_C2,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": ""
+   },
+   {
+    "attempt_id": "ec8b9759e69e",
+    "chat_id": CHAT_C2,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active"
+   },
+   {
+    "attempt_id": "9e44eba4c3d8",
+    "chat_id": CHAT_C1,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": ""
+   },
+   {
+    "attempt_id": "a0440599cecb",
+    "chat_id": CHAT_C1,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active"
+   },
+   {
+    "attempt_id": "b5bcf238a8cb",
+    "chat_id": CHAT_C2,
+    "ts": "2026-11-14T06:09:04Z",
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": ""
+   },
+   {
+    "attempt_id": "3756333dbb75",
+    "chat_id": CHAT_C2,
+    "ts": "2026-11-14T06:09:04Z",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active"
+   }
+  ]
+ },
+ "dedup": {
+  "episodes_rows": 2105,
+  "episodes_distinct": 2105,
+  "feedback_rows": 1355,
+  "feedback_distinct": 1355
+ }
+}
+##SECTION i1_i2 END
+PROBE2_RC=0
+##PROBE2_END
+##I1_TAIL_BEGIN
+[{"attempt_id": "8b85df659758", "chat_id": CHAT_C2, "ts": "2026-11-14T06:14:04Z", "stage": "considered", "outcome": "passed", "reason_code": "", "detail_len": 0}, {"attempt_id": "ec8b9759e69e", "chat_id": CHAT_C2, "ts": "2026-11-14T06:14:04Z", "stage": "skipped", "outcome": "skipped", "reason_code": "cooldown_active", "detail_len": 47}, {"attempt_id": "9e44eba4c3d8", "chat_id": CHAT_C1, "ts": "2026-11-14T06:14:04Z", "stage": "considered", "outcome": "passed", "reason_code": "", "detail_len": 0}, {"attempt_id": "a0440599cecb", "chat_id": CHAT_C1, "ts": "2026-11-14T06:14:04Z", "stage": "skipped", "outcome": "skipped", "reason_code": "cooldown_active", "detail_len": 47}, {"attempt_id": "b5bcf238a8cb", "chat_id": CHAT_C2, "ts": "2026-11-14T06:09:04Z", "stage": "considered", "outcome": "passed", "reason_code": "", "detail_len": 0}, {"attempt_id": "3756333dbb75", "chat_id": CHAT_C2, "ts": "2026-11-14T06:09:04Z", "stage": "skipped", "outcome": "skipped", "reason_code": "cooldown_active", "detail_len": 47}]
+SPOOL_EXISTS False TMP_EXISTS False
+ATTEMPT_MAX_TS 1794636844
+##I1_TAIL_END
+##CLEANUP done=2026-11-14T06:14:23Z probe_removed=yes tmp_removed=yes
+##END
+==============================================================================
+## FILE: batch-03-chatparams-i2.txt
+==============================================================================
+##META now_utc=2026-11-14T06:17:08Z host=vps159032-gqg
+PID=709883 ACTIVE=active START=Sat 2026-11-14 05:18:59 UTC NRESTARTS=0
+HEALTH:
+HTTP=200 TIME=0.077399
+{"status":"ok","version":"2.58.200"}
+##JOURNAL_DELTA_BEGIN
+LINES=107
+TRACEBACK=0
+REVIEW_TICKS=0
+-- mca16 --
+-- review ticks --
+-- meme --
+-- cover lines --
+-- checkup --
+-- errors --
+##JOURNAL_DELTA_END
+##PROBE3_BEGIN
+##SECTION meta BEGIN
+{
+ "now": "2026-11-14T06:17:08Z",
+ "uid": 999
+}
+##SECTION meta END
+##SECTION pg BEGIN
+{
+ "prompt_activations_since_0600": [
+  {
+   "block_id": "checkup.base.system",
+   "scope": "chat",
+   "chat_id": CHAT_C2,
+   "kind": "manual_edit",
+   "outcome": "applied",
+   "actor": "CHAT_DM8",
+   "rev": "rev:d31300ef",
+   "created_at": "2026-11-14T06:11:54.954581+00:00"
+  }
+ ],
+ "prompt_revisions_since_0600": [
+  {
+   "rev": "rev:d31300ef",
+   "block_id": "checkup.base.system",
+   "scope": "chat",
+   "chat_id": CHAT_C2,
+   "origin": "manual",
+   "actor": "CHAT_DM8",
+   "reason": "owner_edit",
+   "created_at": "2026-11-14T06:11:54.954581+00:00"
+  }
+ ],
+ "chat_row": {
+  "chat_id": CHAT_C2,
+  "updated_at": "2026-11-14T06:11:54.954581+00:00",
+  "budgets_override": "false",
+  "override_keys_count": 32,
+  "cover_style_id_present": true,
+  "cover_style_head": "In a comic book style, in Russian tempo, with the inscriptions in Russian, with "
+ },
+ "bot_settings": {
+  "count": 548,
+  "max_updated_at": "2026-11-14T05:19:03.548386+00:00"
+ }
+}
+##SECTION pg END
+##SECTION sqlite BEGIN
+{
+ "jobs": [
+  {
+   "job_id": "3dc1fff704d2",
+   "status": "completed",
+   "created_at": "2026-11-14T06:04:03Z",
+   "finished_at": "2026-11-14T06:05:01Z"
+  },
+  {
+   "job_id": "afa74d4bfe6e",
+   "status": "completed",
+   "created_at": "2026-11-14T05:49:03Z",
+   "finished_at": "2026-11-14T05:51:12Z"
+  },
+  {
+   "job_id": "64edddc2c060",
+   "status": "completed",
+   "created_at": "2026-11-14T05:34:03Z",
+   "finished_at": "2026-11-14T05:37:16Z"
+  },
+  {
+   "job_id": "bc1bc0f54493",
+   "status": "completed",
+   "created_at": "2026-11-14T05:06:21Z",
+   "finished_at": "2026-11-14T05:06:31Z"
+  }
+ ],
+ "latest": {
+  "job_id": "3dc1fff704d2",
+  "finished_at": "2026-11-14T06:05:01Z",
+  "job_epoch": 1794636301,
+  "cursors": {
+   "semantic_cursor:CHAT_C2": 16095,
+   "semantic_cursor:CHAT_DM8": 2407145,
+   "semantic_cursor:CHAT_C1": 2407127
+  },
+  "pending": {
+   "CHAT_C2": 12788
+  },
+  "lag_rows": 2057731,
+  "lag_seconds": 124216346,
+  "lag_source": "cursor_distance",
+  "lag_measured_at": 1794636244,
+  "watermark": 2407146,
+  "counters": {
+   "semantic_scanned": 4,
+   "semantic_selected": 193,
+   "semantic_extracted": 7,
+   "semantic_candidates": 5,
+   "semantic_rejected": 2,
+   "semantic_duplicates": 0,
+   "semantic_llm_unavailable": 1,
+   "semantic_reject_reasons": {
+    "dispute": 1,
+    "low_confidence": 1
+   },
+   "semantic_rows_read": 201,
+   "semantic_rows_eligible": 193,
+   "semantic_rows_ineligible": 8,
+   "semantic_chats_disabled": 0,
+   "semantic_chats_empty": 0,
+   "semantic_chats_deferred": 0,
+   "semantic_read_errors": 0,
+   "semantic_discover_errors": 0,
+   "semantic_parse_invalid": 0,
+   "semantic_parse_valid_empty": 0,
+   "semantic_write_failures": 0,
+   "semantic_write_skipped": 0,
+   "semantic_pending_reconciled": 0,
+   "semantic_discovery_backpressure": 0,
+   "semantic_throughput_rows": 151,
+   "semantic_parse_reasons": {},
+   "semantic_batches_run": 3,
+   "semantic_budget_exhausted": 0,
+   "fresh_stream_lag_rows": 2057731,
+   "fresh_stream_pending_rows": 12788
+  }
+ },
+ "independent": {
+  "chat": CHAT_C2,
+  "cursor": 16095,
+  "max_id": 2407148,
+  "rows_after_cursor": 2057733,
+  "oldest_ts": "2022-12-07T13:31:38Z",
+  "count_ms": 94
+ },
+ "i1": {
+  "rows": 33118,
+  "max_ts": "2026-11-14T06:14:04Z",
+  "rows_since_deploy": 88,
+  "spool_exists": false,
+  "last": [
+   {
+    "attempt_id": "8b85df659758",
+    "chat_id": CHAT_C2,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": ""
+   },
+   {
+    "attempt_id": "ec8b9759e69e",
+    "chat_id": CHAT_C2,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active"
+   },
+   {
+    "attempt_id": "9e44eba4c3d8",
+    "chat_id": CHAT_C1,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "considered",
+    "outcome": "passed",
+    "reason_code": ""
+   },
+   {
+    "attempt_id": "a0440599cecb",
+    "chat_id": CHAT_C1,
+    "ts": "2026-11-14T06:14:04Z",
+    "stage": "skipped",
+    "outcome": "skipped",
+    "reason_code": "cooldown_active"
+   }
+  ]
+ },
+ "error": "Traceback (most recent call last):\n  File \"/tmp/devops_obs_probe3.py\", line 165, in sqlite_part\n    for r in conn.execute(\n             ^^^^^^^^^^^^^\nsqlite3.OperationalError: near \"ILIKE\": syntax error\n"
+}
+##SECTION sqlite END
+PROBE3_RC=0
+##PROBE3_END
+##CLEANUP done=2026-11-14T06:17:08Z probe_removed=yes tmp_removed=yes
+##END
+==============================================================================
+## FILE: batch-04-tick-errors.txt
+==============================================================================
+##META now_utc=2026-11-14T06:21:59Z
+PID=709883 ACTIVE=active NRESTARTS=0
+HEALTH:
+{"status":"ok","version":"2.58.200"}
+##ERRORS_BEGIN
+LINES=4179 TRACEBACK=2 ERROR=3 WARNING=113
+-- all ERROR/CRITICAL lines --
+2026-11-14T05:24:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:24:03,984 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=fetch status=error reason=sources_unavailable problems=0 version=11
+2026-11-14T05:24:03+00:00 vps159032-gqg python[709883]: 2026-11-14 05:24:03,988 - services.anticliche_worker - ERROR - [pipeline] event=pipeline_step component=anticliche step=refresh status=fetch_error reason=wikipedia count=0 version=11 next_run_time=2026-11-21 11:10:57.767768+05:00
+2026-11-14T05:57:23+00:00 vps159032-gqg python[709883]: 2026-11-14 05:57:23,328 - services.llm_client - ERROR - LLM timeout | url=https://nano-gpt.com/api/v1/chat/completions | reason=total_budget_exceeded | provider=nano-gpt.com
+-- all traceback anchors --
+3288:2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: Traceback (most recent call last):
+4037:2026-11-14T06:19:20+00:00 vps159032-gqg python[709883]: Traceback (most recent call last):
+-- mca16 / review ticks --
+2026-11-14T05:37:16+00:00 vps159032-gqg python[709883]: 2026-11-14 05:37:16,406 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+2026-11-14T05:51:12+00:00 vps159032-gqg python[709883]: 2026-11-14 05:51:12,056 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+2026-11-14T06:05:00+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:00,960 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+2026-11-14T06:05:01+00:00 vps159032-gqg python[709883]: 2026-11-14 06:05:01,249 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+2026-11-14T06:19:20+00:00 vps159032-gqg python[709883]: 2026-11-14 06:19:20,739 - services.mca_experience_jobs - WARNING - [mca16] semantic batch failed — retry next pass
+2026-11-14T06:19:20+00:00 vps159032-gqg python[709883]: 2026-11-14 06:19:20,961 - services.memory_maintenance - INFO - [mca16] experience review tick | status=completed
+-- meme --
+MEME=0
+##ERRORS_END
+##I2_NOW_BEGIN
+JOBS [{"id": "e1251a4a9187", "status": "completed", "created": "2026-11-14T06:19:04Z", "finished": "2026-11-14T06:19:20Z"}, {"id": "3dc1fff704d2", "status": "completed", "created": "2026-11-14T06:04:03Z", "finished": "2026-11-14T06:05:01Z"}, {"id": "afa74d4bfe6e", "status": "completed", "created": "2026-11-14T05:49:03Z", "finished": "2026-11-14T05:51:12Z"}, {"id": "64edddc2c060", "status": "completed", "created": "2026-11-14T05:34:03Z", "finished": "2026-11-14T05:37:16Z"}]
+LATEST {"id": "e1251a4a9187", "finished": "2026-11-14T06:19:20Z", "cursors": {"semantic_cursor:CHAT_C2": 16095, "semantic_cursor:CHAT_DM8": 2407145, "semantic_cursor:CHAT_C1": 2407127}, "pending": {"CHAT_C2": 12790}, "lag_rows": 2057733, "lag_seconds": 124217254, "lag_source": "cursor_distance", "lag_measured_at": 1794637152, "counters": {"semantic_scanned": 2, "semantic_selected": 44, "semantic_extracted": 0, "semantic_candidates": 0, "semantic_rejected": 0, "semantic_duplicates": 0, "semantic_llm_unavailable": 1, "semantic_reject_reasons": {}, "semantic_rows_read": 50, "semantic_rows_eligible": 44, "semantic_rows_ineligible": 6, "semantic_chats_disabled": 0, "semantic_chats_empty": 0, "semantic_chats_deferred": 0, "semantic_read_errors": 0, "semantic_discover_errors": 0, "semantic_parse_invalid": 0, "semantic_parse_valid_empty": 0, "semantic_write_failures": 0, "semantic_write_skipped": 0, "semantic_pending_reconciled": 0, "semantic_discovery_backpressure": 0, "semantic_throughput_rows": 0, "semantic_parse_reasons": {}, "semantic_batches_run": 0, "semantic_budget_exhausted": 0, "fresh_stream_lag_rows": 2057733, "fresh_stream_pending_rows": 12790}}
+INDEPENDENT {"cursor": 16095, "max_id": 2407154, "rows_after_cursor": 2057739, "oldest": "2022-12-07T13:31:38Z"}
+I1 {"rows": 33122, "max_ts": "2026-11-14T06:19:13Z", "rows_since_deploy": 92, "spool": false}
+I1_LAST [{"id": "546090d6e7ac", "ts": "2026-11-14T06:19:13Z", "stage": "considered", "outcome": "passed", "reason": ""}, {"id": "344e4fd4d027", "ts": "2026-11-14T06:19:13Z", "stage": "skipped", "outcome": "skipped", "reason": "cooldown_active"}, {"id": "f5f8859f7aa9", "ts": "2026-11-14T06:19:11Z", "stage": "considered", "outcome": "passed", "reason": ""}, {"id": "700458235d6a", "ts": "2026-11-14T06:19:11Z", "stage": "skipped", "outcome": "skipped", "reason": "no_random_hit"}]
+##I2_NOW_END
+##CLEANUP done=2026-11-14T06:22:00Z
+##END
