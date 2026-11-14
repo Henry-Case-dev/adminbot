@@ -231,3 +231,52 @@ embedding/dossier `497 passed`.
 **Гарантия:** takeover → recover_job для `delivery_unknown` возвращает
 `reconcile_required` и оставляет строку `interrupted/delivery_unknown`; повтор
 side effect/доставки не выполняется.
+
+## 8. F-S5A-02/03 fix (Re-review r2 blockers)
+
+**Findings.** (a) `media_readiness.recover_job` принимал caller-supplied
+`reason` и мог requeue'нуть job с durable `delivery_unknown`;
+(b) `mca_trace.control_action` проверял только `reason_code` для retry и вовсе
+не проверял resume — строка с `error_code=delivery_unknown` обходила guard.
+
+**Fix commit:** `3ff04f3f6c4476851174e67f1e163db7504a1c9f`.
+- `media_readiness.recover_job`: перед любым изменением перечитывает
+  сохранённую строку и при `delivery_unknown` в `reason_code` ИЛИ `error_code`
+  возвращает `action=none/reason=delivery_unknown/status=reconcile_required`;
+  caller-`reason` не учитывается.
+- `mca_trace.control_action`: guard по обоим полям применяется и к `retry`,
+  и к `resume`; строка не переводится в queued/running.
+- Примитивы `TaskJobStore`: `mark_running`, `finish(status=queued/running)`,
+  `requeue`, `set_next_retry` атомарно (SQL `WHERE`) отказывают при маркере в
+  любом из двух полей; `recover_stale` сохраняет маркер; cover-recovery
+  прерывается, если requeue отклонён.
+
+### Полный аудит bypass-путей
+
+| Путь | file:line | Применённый guard |
+|---|---|---|
+| Generic takeover → outcome | `services/task_supervisor.py:645,690-697,718-720` | F-S5A-01: маркер сохраняется; `delivery_unknown → no_change/reconcile_required` |
+| Generic `recover_job` | `services/mca_watchdog.py:328,350-357` | reason ИЛИ error → `reconcile_required` до checkpoint/attempt/requeue |
+| media readiness `recover_job` | `services/media_readiness.py:1695,1717-1730` | перечитывает stored row; reason/error → `reconcile_required`, без state change |
+| media `watchdog_sweep` lost-path | `services/media_readiness.py:1799,1809` | `recover_stale` сохраняет маркер (`task_supervisor.py:613,627-632`); затем guard `recover_job` |
+| media `_bump_fence_and_requeue` | `services/media_readiness.py:1635,1660,1662` | `requeue`/`set_next_retry` примитивы отказывают |
+| vision maintenance `recover_stale` | `services/mca_vision.py:4449,4543` | только `interrupted`, без requeue; маркер сохраняется |
+| vision live claim | `services/mca_vision.py:4553-4561`; `task_supervisor.py:493,516` | claim только `queued` + guard `mark_running` |
+| vision backfill re-arm | `services/mca_vision.py:4703`; allowlist `:4667` | `requeue` guard + `delivery_unknown` не в `_BACKFILL_REARM_REASONS` |
+| vision retry schedules | `services/mca_vision.py:3963,4197` | `set_next_retry` guard |
+| control retry/resume | `services/mca_trace.py:511-521` | оба поля, и retry, и resume → `reconcile_required` |
+| control cancel | `services/mca_trace.py:531-535` | terminal `finish(cancelled)` — не resume; безопасно |
+| cover requeue API | `services/cover_style_jobs.py:1065-1073` | `requeue` guard |
+| cover recovery | `services/cover_style_jobs.py:3682-3688` | при отказе requeue stage не исполняется (`action=none/requeue_refused`) |
+| cover retry schedule | `services/cover_style_jobs.py:3749` | `set_next_retry` guard |
+| meme deferred wait | `services/meme_initiative.py:3001-3005,3016-3020` | `requeue` guard; `delivery_unknown` уходит в `_terminal(failed)`, не в `_wait` |
+| TS primitives | `services/task_supervisor.py:493/516,547/605-606,919/937,947/959` | atomic SQL guard в обоих полях |
+| Marker producer | `services/mca_watchdog.py:392-400` | единственный producer маркера (failed + reason + error) |
+| Raw terminal writers | `media_readiness.py:966,1060`; `embedding_control_plane.py:1754-1763`; `graphrag_rebuild.py:587-617`; `summary_memory.py:2605-2613` | только terminal/собственный state machine; маркер producer не адресует эти job kinds → не vector |
+| exploration close/execute | `services/mca_exploration.py:1018-1060` | terminal `cancelled` для stale queued; execute claim через `mark_running` guard |
+
+**Прогоны после фикса:** S5A lifecycle `28 passed`; S5A+incidents+baseline
+watchdog/incidents/task-supervisor `133 passed, 1 deselected` (pre-existing
+census); media/cover/meme/vision/embedding/dossier suites `515 passed`.
+Truthful outcomes, incident lifecycle, fencing/CAS не менялись; DDL/флагов нет.
+
