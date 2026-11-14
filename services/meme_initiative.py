@@ -371,12 +371,80 @@ def sqlite_path_of(db) -> str | None:
     return text
 
 
+def _attempt_journal_writer(db):
+    """Асинхронный писатель строки попытки на соединении `DatabaseService`.
+
+    Журнал живёт в ТОМ ЖЕ файле, что и данные бота, поэтому отдельное
+    `sqlite3`-соединение конкурирует с единственным писателем приложения: пока
+    чужая транзакция открыта, `INSERT` ждёт `busy_timeout` и падает
+    (production 13.11.2026: три полных ожидания по 5 с и spool). Единый
+    писатель (`DatabaseService.serialized`) сериализует запись с остальными,
+    поэтому ожидание становится асинхронным и заканчивается успехом, а не
+    spool. Новых таблиц/очередей нет — тот же журнал, тот же `INSERT`.
+
+    Нет `DatabaseService` (тесты, файл без сервиса) → `None`: остаётся
+    прежний файловый путь `record_attempt`.
+    """
+    try:
+        serialized = getattr(db, "serialized", None)
+        conn = getattr(db, "db", None)
+    except Exception:                     # «сломанный» источник (диагностика)
+        return None
+    if not callable(serialized) or conn is None:
+        return None
+
+    async def _write(sql: str, params: tuple) -> None:
+        # Транзакцией уже владеет эта же задача (`serialized` реентрантен):
+        # коммит делает владелец, иначе чужая работа зафиксировалась бы раньше.
+        # Откат здесь тоже НЕ наш: она принадлежит вызывающему.
+        if getattr(db, "_write_owner", None) is asyncio.current_task():
+            await conn.execute(sql, params)
+            return
+        async with serialized():
+            try:
+                await conn.execute(sql, params)
+                await conn.commit()
+            except BaseException:
+                # Неудачный `INSERT` оставляет неявную транзакцию на ОБЩЕМ
+                # соединении: пока она открыта, единственный писатель держит
+                # write-lock, и соседние пути (бронь квоты, следующий журнал)
+                # падают по `busy_timeout` — ровно класс исходного инцидента.
+                # `DatabaseService.write_transaction` в этом месте делает
+                # rollback; повторяем контракт под уже взятым `serialized()`.
+                # Чужую (reentrant) транзакцию не трогаем — см. ветку выше.
+                try:
+                    await conn.rollback()
+                except BaseException:
+                    logger.warning(
+                        "[meme] attempt journal rollback failed (connection "
+                        "state unknown) | db=%s", getattr(db, "db_path", "?"),
+                        exc_info=True)
+                raise
+
+    async def _busy_timeout_ms():
+        """Фактический `busy_timeout` соединения писателя (для диагностики)."""
+        try:
+            cursor = await conn.execute("PRAGMA busy_timeout")
+            row = await cursor.fetchone()
+            await cursor.close()
+        except Exception:
+            return None
+        try:
+            return int(row[0]) if row else None
+        except (TypeError, ValueError):
+            return None
+
+    # Атрибут на функции: вызывающий лог не угадывает таймаут пути (F2).
+    _write.busy_timeout_ms = _busy_timeout_ms
+    return _write
+
+
 def open_ledger(db) -> SqliteQuotaLedger | None:
     """Журнал, если таблица уже есть. Не создаёт схему."""
     path = sqlite_path_of(db)
     if not path:
         return None
-    ledger = SqliteQuotaLedger(path)
+    ledger = SqliteQuotaLedger(path, writer=_attempt_journal_writer(db))
     try:
         if not ledger.table_present():
             return None
@@ -1035,18 +1103,50 @@ class ReserveResult:
     limit: int = 0
 
 
-def _connect(path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(path, timeout=5, isolation_level=None,
-                           check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout=5000")
-    return conn
-
-
 #: Сколько раз пробуем записать строку журнала попытки до durable-фолбэка.
 ATTEMPT_WRITE_ATTEMPTS = 3
 #: Паузы между попытками (сек): покрывают транзиентную блокировку файла.
 ATTEMPT_WRITE_DELAYS = (0.02, 0.08)
+#: busy_timeout записей журнала квоты и чтений (паритет с приложением, 5 с).
+JOURNAL_BUSY_TIMEOUT_MS = 5000
+#: busy_timeout ЗАПИСИ строки попытки. Синхронный `sqlite3` исполняется в
+#: петле событий, поэтому ожидание чужого писателя длиной в полный
+#: `busy_timeout` = заморозка бота на всё это время. Production 13.11.2026
+#: (09:36): три попытки × 5.0 с = 15.1 с заморозки и всё равно spool.
+#: Теперь ожидание короткое и завершается durable-спулом, а не зависанием.
+ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS = 250
+#: Операция журнала попыток — для диагностики (без текста попытки).
+ATTEMPT_INSERT_OP = "INSERT OR IGNORE"
+
+
+def _connect(path: str, *, busy_timeout_ms: int = JOURNAL_BUSY_TIMEOUT_MS
+             ) -> sqlite3.Connection:
+    conn = sqlite3.connect(path, timeout=max(0.0, int(busy_timeout_ms) / 1000.0),
+                           isolation_level=None, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=%d" % int(busy_timeout_ms))
+    return conn
+
+
+def _journal_error_detail(error: BaseException | None) -> str:
+    """Безопасное описание ошибки журнала: тип, текст SQLite, код.
+
+    В лог уходят только технические атрибуты исключения. Текст ограничен 160
+    символами и приведён к одной строке; содержимое попытки (реплики чата,
+    ответ провайдера) в диагностику не попадает. Это ровно тот факт, которого
+    не хватало в production: раньше писалось лишь имя класса.
+    """
+    if error is None:
+        return "none"
+    text = " ".join(str(error).split())
+    if len(text) > 160:
+        text = text[:157] + "..."
+    code = (getattr(error, "sqlite_errorname", None)
+            or getattr(error, "sqlite_errorcode", None))
+    return "%s: %s%s" % (type(error).__name__, text,
+                         " [%s]" % code if code else "")
+
+
 #: Предел строк, разбираемых из спул-файла за один проход (bounded чтение).
 ATTEMPT_SPOOL_MAX_ROWS = 500
 #: Порция переноса спула в журнал: bounded работа и память за один шаг.
@@ -1117,6 +1217,25 @@ def _spool_payload(row: dict) -> dict:
     return {key: source.get(key) for key in SPOOL_FIELDS}
 
 
+#: Одна и та же запись журнала для файлового пути и для единого писателя
+#: приложения (`record_attempt_async`): SQL не дублируется, идемпотентность —
+#: `INSERT OR IGNORE` по `attempt_id`.
+_ATTEMPT_INSERT_SQL = (
+    f"INSERT OR IGNORE INTO {ATTEMPT_TABLE} "
+    "(attempt_id, chat_id, job_id, ts, stage, outcome, reason_code, detail, "
+    "limit_source, limit_value, window_messages) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+
+
+def _attempt_params(row: dict) -> tuple:
+    """Параметры `_ATTEMPT_INSERT_SQL` из строки попытки (`SPOOL_FIELDS`)."""
+    return (row["attempt_id"], int(row["chat_id"]), row.get("job_id") or "",
+            int(row["ts"]), row["stage"], row["outcome"],
+            row.get("reason_code") or "", row.get("detail") or "",
+            row.get("limit_source") or "", row.get("limit_value"),
+            row.get("window_messages"))
+
+
 class SqliteQuotaLedger:
     """Файловый журнал. Каждый reserve — своё соединение и BEGIN IMMEDIATE.
 
@@ -1125,8 +1244,11 @@ class SqliteQuotaLedger:
     горячий путь таблицу сам не создаёт.
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, *, writer=None) -> None:
         self.path = str(path)
+        #: Асинхронный писатель на соединении приложения (`open_ledger`).
+        #: `None` — файловый путь (тесты/файл без DatabaseService).
+        self._journal_writer = writer
         #: Удержание живёт НЕ здесь: `open_ledger` создаёт новый экземпляр на
         #: каждый проход, поэтому реестр общий на процесс и ключуется путём
         #: этого файла (`_UNPERSISTED_BY_PATH`).
@@ -1362,6 +1484,7 @@ class SqliteQuotaLedger:
         self._flush_pending_attempts()
         self._retry_unpersisted()
         last_error: Exception | None = None
+        started = time.monotonic()
         for attempt in range(ATTEMPT_WRITE_ATTEMPTS):
             try:
                 self._insert_attempt(row)
@@ -1370,13 +1493,87 @@ class SqliteQuotaLedger:
                 last_error = exc
                 if attempt < len(ATTEMPT_WRITE_DELAYS):
                     time.sleep(ATTEMPT_WRITE_DELAYS[attempt])
+        elapsed_ms = int((time.monotonic() - started) * 1000)
         if self._spool_attempt(row):
-            logger.warning(
-                "[meme] attempt spooled (journal unavailable) | attempt=%s "
-                "| error=%s", str(row.get("attempt_id"))[:12],
-                type(last_error).__name__)
+            self._log_journal_fallback(row, last_error, elapsed_ms,
+                                       carrier="durable-spool")
             return
         self._hold_unpersisted(row, last_error)
+
+    async def record_attempt_async(self, row: dict) -> None:
+        """Записать строку попытки через единого писателя приложения.
+
+        Горячий путь пайплайна: пока чужая транзакция открыта, файловое
+        соединение ждало `busy_timeout` (production 13.11.2026 — 15.1 с
+        заморозки петли на строку и spool). Единый писатель
+        (`DatabaseService.serialized`) ставит `INSERT` в очередь того же
+        writer'а, поэтому ожидание асинхронное и заканчивается записью в
+        журнал, а не spool. Тот же `INSERT OR IGNORE` в ту же таблицу:
+        новых таблиц, очередей и второго журнала нет.
+
+        Писателя нет (тесты/файл без сервиса) или он отказал → прежний
+        файловый путь `record_attempt` (retry → durable-спул → удержание).
+        """
+        self._flush_pending_attempts()
+        self._retry_unpersisted()
+        if self._journal_writer is None:
+            self.record_attempt(row)
+            return
+        started = time.monotonic()
+        try:
+            await self._journal_writer(_ATTEMPT_INSERT_SQL, _attempt_params(row))
+            return
+        except Exception as exc:              # noqa: BLE001 - журнал файловый
+            last_error: Exception | None = exc
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        if self._spool_attempt(row):
+            self._log_journal_fallback(
+                row, last_error, elapsed_ms, carrier="durable-spool",
+                busy_timeout_ms=await self._writer_busy_timeout_ms())
+            return
+        self._hold_unpersisted(row, last_error)
+
+    async def _writer_busy_timeout_ms(self) -> int:
+        """Таймаут ожидания ФАКТИЧЕСКОГО пути записи (диагностика, F2).
+
+        Writer идёт на соединении приложения, его `busy_timeout` — 5000 мс
+        (`DatabaseService`), а не 250 мс файлового пути. Значение читается у
+        соединения, и только при недоступности — константа приложения.
+        """
+        probe = getattr(self._journal_writer, "busy_timeout_ms", None)
+        if callable(probe):
+            try:
+                value = await probe()
+            except Exception:             # noqa: BLE001 - диагностика
+                value = None
+            try:
+                if value:
+                    return int(value)
+            except (TypeError, ValueError):
+                pass
+        return JOURNAL_BUSY_TIMEOUT_MS
+
+    def _log_journal_fallback(self, row: dict, error: Exception | None,
+                              elapsed_ms: int, *, carrier: str,
+                              busy_timeout_ms: int =
+                              ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS) -> None:
+        """Строка попытки ушла в durable-носитель — с ТОЧНОЙ причиной.
+
+        Раньше писалось только `error=OperationalError`: ни текста SQLite, ни
+        кода, ни операции, ни длительности (production 13.11.2026). Теперь
+        причина наблюдаема, а содержимое попытки в лог НЕ попадает.
+        `busy_timeout_ms` — ожидание ИМЕННО этого пути: 250 мс для файлового
+        соединения журнала и фактическое значение соединения приложения для
+        writer-пути (иначе следующий инцидент диагностируется по неверной
+        цифре).
+        """
+        logger.warning(
+            "[meme] attempt spooled (journal unavailable) | attempt=%s | "
+            "carrier=%s | op=%s | table=%s | db=%s | busy_timeout_ms=%d | "
+            "elapsed_ms=%d | error=%s",
+            str(row.get("attempt_id"))[:12], carrier, ATTEMPT_INSERT_OP,
+            ATTEMPT_TABLE, self.path, int(busy_timeout_ms),
+            int(elapsed_ms), _journal_error_detail(error))
 
     def _hold_unpersisted(self, row: dict, error: Exception | None) -> None:
         """Удержать строку в ОБЩЕМ реестре процесса и записать её ЦЕЛИКОМ в лог.
@@ -1509,18 +1706,12 @@ class SqliteQuotaLedger:
             conn.close()
 
     def _insert_attempt(self, row: dict) -> None:
-        conn = _connect(self.path)
+        # Запись под коротким busy_timeout: ожидание чужого писателя не должно
+        # замораживать петлю событий (строка всё равно durable-спулится).
+        conn = _connect(self.path,
+                        busy_timeout_ms=ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS)
         try:
-            conn.execute(
-                f"INSERT OR IGNORE INTO {ATTEMPT_TABLE} "
-                "(attempt_id, chat_id, job_id, ts, stage, outcome, "
-                "reason_code, detail, limit_source, limit_value, "
-                "window_messages) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (row["attempt_id"], int(row["chat_id"]), row.get("job_id") or "",
-                 int(row["ts"]), row["stage"], row["outcome"],
-                 row.get("reason_code") or "", row.get("detail") or "",
-                 row.get("limit_source") or "", row.get("limit_value"),
-                 row.get("window_messages")))
+            conn.execute(_ATTEMPT_INSERT_SQL, _attempt_params(row))
         finally:
             conn.close()
 
@@ -1589,6 +1780,7 @@ class SqliteQuotaLedger:
         failed: list[dict] = []
         offset = 0
         drained = False
+        last_error: Exception | None = None
         try:
             with open(path, "rb") as handle:
                 for _ in range(ATTEMPT_SPOOL_BATCH):
@@ -1603,8 +1795,13 @@ class SqliteQuotaLedger:
                         continue
                     try:
                         self._insert_attempt(row)
-                    except Exception:
+                    except Exception as exc:   # noqa: BLE001 - журнал файловый
+                        # Первая же неудача = журнал недоступен. Продолжать
+                        # нельзя: каждая следующая попытка — ещё один
+                        # busy_timeout в петле событий (до 200 × 5 с).
                         failed.append(row)
+                        last_error = exc
+                        break
         except OSError:
             logger.warning("[meme] attempt spool read failed", exc_info=True)
             return False
@@ -1619,7 +1816,10 @@ class SqliteQuotaLedger:
             # Журнал недоступен: не крутимся в цикле, остаток сохраняем целиком.
             logger.warning(
                 "[meme] attempt spool not drained (journal unavailable) | "
-                "failed=%d", len(failed))
+                "failed=%d | op=%s | table=%s | db=%s | busy_timeout_ms=%d | "
+                "error=%s", len(failed), ATTEMPT_INSERT_OP, ATTEMPT_TABLE,
+                self.path, ATTEMPT_JOURNAL_BUSY_TIMEOUT_MS,
+                _journal_error_detail(last_error))
         temp_path = path + ".tmp"
         try:
             with open(path, "rb") as src, open(temp_path, "wb") as dst:
@@ -1663,8 +1863,13 @@ class SqliteQuotaLedger:
             for row in rows:
                 item = dict(row)
                 merged[str(item.get("attempt_id"))] = item
-        except Exception:
-            pass
+        except Exception as exc:              # noqa: BLE001 - журнал файловый
+            # Витрина продолжает работать по спулу, но причина отказа чтения
+            # журнала должна быть видна (раньше исключение глоталось молча).
+            logger.warning(
+                "[meme] attempt journal read failed | op=SELECT | table=%s | "
+                "db=%s | error=%s", ATTEMPT_TABLE, self.path,
+                _journal_error_detail(exc))
         finally:
             conn.close()
         for row in self._read_pending():
@@ -2015,9 +2220,9 @@ def attempt_cause_code(row: dict | None) -> str:
     return reason
 
 
-def _finish(result: AttemptResult, *, ledger, now_ts: int,
-            settings: MemeSettings) -> AttemptResult:
-    """Записать журнал попытки (по строке на пройденный этап).
+def _attempt_rows(result: AttemptResult, *, now_ts: int,
+                  settings: MemeSettings) -> list[dict]:
+    """Строки журнала одной попытки: по строке на пройденный этап + терминал.
 
     ``stage_facts["events"]`` — НЕ этап, а цепочка событий §1.3: она
     дописывается в терминальную строку, а человеческий ``detail`` (код/факт
@@ -2033,6 +2238,7 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
     # «skipped», а строка «publish» оставалась без факта доставки.
     stages.append(result.stage)
     events = (result.stage_facts or {}).get("events")
+    rows: list[dict] = []
     for stage in stages:
         terminal = stage == stages[-1]
         payload = dict((result.stage_facts or {}).get(stage) or {})
@@ -2085,11 +2291,48 @@ def _finish(result: AttemptResult, *, ledger, now_ts: int,
             "window_messages": settings.window_messages,
         }
         _remember(row)
+        rows.append(row)
+    return rows
+
+
+def _finish(result: AttemptResult, *, ledger, now_ts: int,
+            settings: MemeSettings) -> AttemptResult:
+    """Записать журнал попытки синхронно (файловый путь / отмена).
+
+    Горячий путь пайплайна идёт через `_finish_async`: там запись идёт
+    единым писателем приложения и не ждёт лок в петле событий.
+    """
+    for row in _attempt_rows(result, now_ts=now_ts, settings=settings):
         if ledger is not None:
             try:
                 ledger.record_attempt(row)
             except Exception:
                 logger.warning("[meme] attempt journal failed", exc_info=True)
+    result.window_messages = settings.window_messages
+    return result
+
+
+async def _finish_async(result: AttemptResult, *, ledger, now_ts: int,
+                        settings: MemeSettings) -> AttemptResult:
+    """Записать журнал попытки через единого писателя приложения.
+
+    Строки те же (`_attempt_rows`), `INSERT` тот же (`INSERT OR IGNORE` по
+    `attempt_id`), но запись сериализуется с остальными писателями
+    `DatabaseService`: ожидание чужой транзакции — асинхронное, без
+    `busy_timeout` в петле событий (production 13.11.2026: 15.1 с заморозки
+    на строку и spool).
+    """
+    writer = getattr(ledger, "record_attempt_async", None)
+    for row in _attempt_rows(result, now_ts=now_ts, settings=settings):
+        if ledger is None:
+            continue
+        try:
+            if callable(writer):
+                await writer(row)
+            else:                            # чужой ledger (тесты/стабы)
+                ledger.record_attempt(row)
+        except Exception:
+            logger.warning("[meme] attempt journal failed", exc_info=True)
     result.window_messages = settings.window_messages
     return result
 
@@ -2750,7 +2993,8 @@ async def _deliver_deferred_row(db, row: dict, *, cfg: MemeSettings,
             published=bool(delivered), generated=True,
             counters={STAGE_PUBLISH: 1}, stage_facts=facts,
             manually_triggered=False)
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        return await _finish_async(result, ledger=ledger, now_ts=ts,
+                                      settings=cfg)
 
     async def _wait(reason_code: str, detail: str) -> None:
         """Слот/тихие часы: остаёмся `queued`, файл сохранён, строк нет."""
@@ -3127,7 +3371,7 @@ async def _consider_once(
         # журнале этого же запуска.
         facts[STAGE_CONSIDERED] = {"priority_marker": dict(manual_priority)}
 
-    def skipped(reason: str, *, stage: str = STAGE_SKIPPED,
+    async def skipped(reason: str, *, stage: str = STAGE_SKIPPED,
                 detail: str = "", limit: MemeBudget | None = None,
                 jid: str = "") -> AttemptResult:
         """Ранний отказ ДО генерации; ``job_id`` непустой всегда (§3)."""
@@ -3137,7 +3381,8 @@ async def _consider_once(
             reason=reason, detail=detail, job_id=(jid or parent_run_id),
             limit=limit, counters=dict(counters), stage_facts=dict(facts),
             manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        return await _finish_async(result, ledger=ledger, now_ts=ts,
+                                      settings=cfg)
 
     if initiative_enabled is None:
         def initiative_enabled() -> bool:
@@ -3147,11 +3392,11 @@ async def _consider_once(
     # обязан работать до включения мемов, иначе отладить нечего.
     if not manual:
         if not initiative_enabled():
-            return skipped(SKIP_INITIATIVE_DISABLED)
+            return await skipped(SKIP_INITIATIVE_DISABLED)
         if chat_enabled is not None and not await chat_enabled(int(chat_id)):
-            return skipped(SKIP_INITIATIVE_DISABLED)
+            return await skipped(SKIP_INITIATIVE_DISABLED)
         if not cfg.enabled:
-            return skipped(SKIP_DISABLED)
+            return await skipped(SKIP_DISABLED)
         # B1 / arch §8 п.4: в чате уже есть готовый, но ещё не доставленный
         # мем → новый НЕ генерируем (иначе второй платный вызов за тот же
         # результат). Строк журнала не пишем: ожидание — не попытка.
@@ -3164,10 +3409,10 @@ async def _consider_once(
     image = image_status if image_status is not None else \
         await image_dependency(chat_id, health=image_health)
     if not image.get("available"):
-        return skipped(str(image.get("reason") or SKIP_IMAGE_NOT_CONFIGURED))
+        return await skipped(str(image.get("reason") or SKIP_IMAGE_NOT_CONFIGURED))
 
     if ledger is None or not ledger.table_present():
-        return skipped(SKIP_SCHEMA)
+        return await skipped(SKIP_SCHEMA)
 
     events: list[dict] = []
     facts["events"] = events
@@ -3188,7 +3433,7 @@ async def _consider_once(
             item["after"] = str(events[-1].get("name") or "")
         events.append(item)
 
-    def _cancel(reason_code: str, *, detail: str = "",
+    async def _cancel(reason_code: str, *, detail: str = "",
                 stage: str = STAGE_PUBLISH,
                 reason_event: str = EVENT_PUBLICATION_CANCELLED,
                 delivered: bool = False) -> AttemptResult:
@@ -3211,22 +3456,23 @@ async def _consider_once(
             prompt_origin=origin, counters=dict(counters),
             stage_facts=dict(facts), joke=joke,
             manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        return await _finish_async(result, ledger=ledger, now_ts=ts,
+                                      settings=cfg)
 
     if not manual:
         view = quota_view(ledger, chat_id=int(chat_id), day=day,
                           limit=cfg.daily_limit)
         if int(cfg.daily_limit) <= 0 or int(view.get("spent") or 0) >= int(
                 cfg.daily_limit):
-            return skipped(SKIP_QUOTA)
+            return await skipped(SKIP_QUOTA)
 
         last_ts = ledger.last_provider_ts(int(chat_id))
         if cfg.cooldown_seconds and last_ts and \
                 ts - last_ts < cfg.cooldown_seconds:
-            return skipped(SKIP_COOLDOWN)
+            return await skipped(SKIP_COOLDOWN)
 
         if quiet_hours_block(cfg.quiet_hours, stamp, day.timezone_name):
-            return skipped(SKIP_QUIET)
+            return await skipped(SKIP_QUIET)
 
     # ── INIT-COORD §3.1: дешёвая ПРОВЕРКА координации публикаций. Стоит после
     # своих кулдаунов/квоты (свои гейты первичны и честны) и ДО чтения окна и
@@ -3243,7 +3489,7 @@ async def _consider_once(
     # публикации», а тихая отправка «на удачу» запрещена. Текстовая инициатива
     # в этом же состоянии деградирует и публикует — мем останавливается.
     if coordinator.store() is not None and not coordinator.available():
-        return skipped(SKIP_SCHEMA, detail="publish_claim_absent", jid=jid)
+        return await skipped(SKIP_SCHEMA, detail="publish_claim_absent", jid=jid)
     precheck = await coordinator.precheck(
         int(chat_id), OUTPUT_KIND, now=ts, manual=bool(manual))
     facts["publication"] = dict(precheck)
@@ -3252,7 +3498,7 @@ async def _consider_once(
         code = (SKIP_PUBLICATION_IN_FLIGHT
                 if reason == "publication_in_flight"
                 else SKIP_PUBLICATION_CONFLICT)
-        return skipped(code, detail=str(precheck.get("detail") or ""), jid=jid)
+        return await skipped(code, detail=str(precheck.get("detail") or ""), jid=jid)
 
     if message_reader is not None:
         rows = await message_reader(int(chat_id), cfg.window_messages)
@@ -3265,13 +3511,13 @@ async def _consider_once(
     foreign = [row for row in rows
                if int(row.get("chat_id", chat_id)) != int(chat_id)]
     if foreign:
-        return skipped(SKIP_SUMMARY, detail="chat_mix")
+        return await skipped(SKIP_SUMMARY, detail="chat_mix")
     if not rows:
         # Пустое окно — не «мало сообщений»: генерировать не из чего даже
         # в ручном режиме. Отдельный detail, чтобы причина была видна.
-        return skipped(SKIP_ACTIVITY, detail="window_empty", jid=jid)
+        return await skipped(SKIP_ACTIVITY, detail="window_empty", jid=jid)
     if not manual and len(rows) < cfg.min_messages:
-        return skipped(SKIP_ACTIVITY, jid=jid)
+        return await skipped(SKIP_ACTIVITY, jid=jid)
 
     if not manual:
         source = random_source
@@ -3283,7 +3529,7 @@ async def _consider_once(
         # промахе, тем же JSON в detail строки пропуска: одна правда о draw.
         facts[STAGE_ELIGIBLE] = {"random": dict(draw.trace or {})}
         if not draw.ok:
-            return skipped(draw.reason,
+            return await skipped(draw.reason,
                            detail=compact_facts({"random": draw.trace})
                            or draw.draw_id, jid=jid)
 
@@ -3297,7 +3543,7 @@ async def _consider_once(
     template = str(image_prompt.get("text") or "")
     origin = "factory" if image_prompt.get("source") == "factory" else "custom"
     if not template.strip():
-        return skipped(SKIP_TEMPLATE_EMPTY, stage=STAGE_FAILED,
+        return await skipped(SKIP_TEMPLATE_EMPTY, stage=STAGE_FAILED,
                        detail="template_missing", jid=jid)
     if model_chars is None and prompt_override is None:
         model_chars = await model_prompt_chars()
@@ -3308,12 +3554,12 @@ async def _consider_once(
         # Фиксированный потолок и T уже съел его целиком: J = 0. Честный
         # пропуск ДО LLM-вызова (испорченную шутку не генерируем).
         # В режиме АВТО этого условия нет: предела просто не задано.
-        return skipped(SKIP_NO_JOKE_BUDGET, limit=budget, jid=jid)
+        return await skipped(SKIP_NO_JOKE_BUDGET, limit=budget, jid=jid)
 
     # Guard «генерация уже идёт» — ДО платной выжимки: иначе чужая свежая
     # бронь съедала бы LLM-вызов впустую (порядок проверок — до дорогих).
     if not manual and ledger.fresh_inflight(int(chat_id), ts) and not job_id:
-        return skipped(SKIP_IN_FLIGHT, limit=budget, jid=jid)
+        return await skipped(SKIP_IN_FLIGHT, limit=budget, jid=jid)
 
     summary_prompt = await effective_meme_prompt(
         chat_id, SUMMARY_PROMPT_BLOCK_ID, factory=MEME_SUMMARY_SYSTEM_PROMPT)
@@ -3352,12 +3598,12 @@ async def _consider_once(
     except Exception as exc:
         logger.warning("[meme] summary failed | chat=%s | error=%s",
                        chat_id, type(exc).__name__)
-        return skipped(SKIP_SUMMARY, stage=STAGE_FAILED,
+        return await skipped(SKIP_SUMMARY, stage=STAGE_FAILED,
                        detail=f"exception:{type(exc).__name__}", limit=budget,
                        jid=jid)
     summary = str(summary or "").strip()
     if not summary:
-        return skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail="empty_summary",
+        return await skipped(SKIP_SUMMARY, stage=STAGE_FAILED, detail="empty_summary",
                        limit=budget, jid=jid)
     counters[STAGE_SUMMARY] = 1
     facts[STAGE_SUMMARY] = {
@@ -3392,13 +3638,13 @@ async def _consider_once(
     except Exception as exc:
         logger.warning("[meme] joke failed | chat=%s | error=%s",
                        chat_id, type(exc).__name__)
-        return skipped(SKIP_JOKE_FAILED, stage=STAGE_FAILED,
+        return await skipped(SKIP_JOKE_FAILED, stage=STAGE_FAILED,
                        detail=f"exception:{type(exc).__name__}", limit=budget,
                        jid=jid)
     joke, trimmed = trim_joke(str(raw_joke or ""),
                               budget.joke_budget if budget.known else 0)
     if not joke:
-        return skipped(SKIP_JOKE_EMPTY, stage=STAGE_FAILED, detail="empty_joke",
+        return await skipped(SKIP_JOKE_EMPTY, stage=STAGE_FAILED, detail="empty_joke",
                        limit=budget, jid=jid)
     counters[STAGE_JOKE] = 1
     facts[STAGE_JOKE] = {
@@ -3437,7 +3683,7 @@ async def _consider_once(
     if not image_prompt_fits(prompt, budget):
         # Инвариант T + len(прикол) <= L нарушен: провайдеру испорченный
         # prompt НЕ уходит (это конфигурационная ошибка, а не «устаревание»).
-        return skipped(SKIP_NO_JOKE_BUDGET, stage=STAGE_FAILED,
+        return await skipped(SKIP_NO_JOKE_BUDGET, stage=STAGE_FAILED,
                        detail=f"prompt_over_ceiling:{len(prompt)}>"
                               f"{budget.ceiling}",
                        limit=budget, jid=jid)
@@ -3454,18 +3700,18 @@ async def _consider_once(
             if reserved.status == "released":
                 # Слот снят (вызов провайдера достоверно не начинался): квота
                 # не исчерпана, новый слот берётся другим job_id.
-                return skipped(SKIP_SLOT_RELEASED, detail="job_released",
+                return await skipped(SKIP_SLOT_RELEASED, detail="job_released",
                                limit=budget, jid=jid)
             if reserved.status in ("provider_called", "provider_failed"):
                 # Тот же job уже дошёл до провайдера: второй слот не берём и
                 # второй платный вызов не делаем.
-                return skipped(SKIP_QUOTA, detail="job_already_counted",
+                return await skipped(SKIP_QUOTA, detail="job_already_counted",
                                limit=budget, jid=jid)
-            return skipped(SKIP_QUOTA,
+            return await skipped(SKIP_QUOTA,
                            detail=f"job_{reserved.status or 'denied'}",
                            limit=budget, jid=jid)
         if not reserved.ok:
-            return skipped(reserved.reason, limit=budget, jid=jid)
+            return await skipped(reserved.reason, limit=budget, jid=jid)
 
     called = False
     provider_result = None
@@ -3512,7 +3758,7 @@ async def _consider_once(
     if not called:
         if not manual:
             ledger.mark(jid, "released", reason or "not_called")
-        return skipped(SKIP_IMAGE_FAILED, stage=STAGE_FAILED,
+        return await skipped(SKIP_IMAGE_FAILED, stage=STAGE_FAILED,
                        detail=reason or "not_called", limit=budget, jid=jid)
     if not ok:
         if not manual:
@@ -3524,7 +3770,8 @@ async def _consider_once(
             generated=False, limit=budget, prompt_origin=origin,
             counters=dict(counters), stage_facts=dict(facts), joke=joke,
             manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        return await _finish_async(result, ledger=ledger, now_ts=ts,
+                                      settings=cfg)
     if not manual:
         ledger.mark(jid, "provider_called", "")
     counters[STAGE_IMAGE] = 1
@@ -3540,13 +3787,13 @@ async def _consider_once(
         module_now = _as_bool(
             await _param(int(chat_id), KEY_ENABLED, cfg.enabled), cfg.enabled)
         if not module_now:
-            return _cancel(SKIP_DISABLED,
+            return await _cancel(SKIP_DISABLED,
                            detail="module_disabled_during_generation")
         if not initiative_enabled():
-            return _cancel(SKIP_INITIATIVE_DISABLED,
+            return await _cancel(SKIP_INITIATIVE_DISABLED,
                            detail="initiative_disabled_during_generation")
         if chat_enabled is not None and not await chat_enabled(int(chat_id)):
-            return _cancel(SKIP_INITIATIVE_DISABLED,
+            return await _cancel(SKIP_INITIATIVE_DISABLED,
                            detail="chat_gate_disabled_during_generation")
     # B2 (§1.2.4/§3.3): права/допустимость чата перепроверяются на РЕАЛЬНОМ
     # пути — ростер кандидатов для авто-мема и тот же RBAC обработчика для
@@ -3565,7 +3812,7 @@ async def _consider_once(
                                    "detail": "" if permitted
                                    else "permission_denied"}
             if not permitted:
-                return _cancel(SKIP_RIGHTS_REVOKED,
+                return await _cancel(SKIP_RIGHTS_REVOKED,
                                detail="permission_denied")
     else:
         # Ростер доказывает права только если окно мема прочитано из ЭТОЙ БД:
@@ -3584,7 +3831,7 @@ async def _consider_once(
             pub_facts["rights"] = {"mode": "roster", "ok": bool(rights_ok),
                                    "detail": str(rights_detail or "")}
             if not rights_ok:
-                return _cancel(str(rights_code or SKIP_RIGHTS_REVOKED),
+                return await _cancel(str(rights_code or SKIP_RIGHTS_REVOKED),
                                detail=str(rights_detail or ""))
     # Жизненный цикл intent: мем не привязан к intent-записи (свой run_id и
     # собственный снапшот источника) — фиксируем N/A с причиной, а не
@@ -3607,7 +3854,7 @@ async def _consider_once(
         int(chat_id), snapshot)
     pub_facts["source_ok"] = bool(source_ok)
     if not source_ok:
-        return _cancel(str(source_code or SKIP_SOURCE_GONE),
+        return await _cancel(str(source_code or SKIP_SOURCE_GONE),
                        detail=str(source_detail or ""))
 
     # ── INIT-COORD §3.3/§3.5: атомарная бронь публикации ПЕРЕД гейтом и
@@ -3657,7 +3904,8 @@ async def _consider_once(
             limit=budget, prompt_origin=origin, counters=dict(counters),
             stage_facts=dict(facts), joke=joke,
             manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        return await _finish_async(result, ledger=ledger, now_ts=ts,
+                                      settings=cfg)
 
     emit(EVENT_PUBLICATION_REQUESTED, source=str(origin),
          detail=f"claim:{str(claim.claim_id or '')[:12]}")
@@ -3669,7 +3917,7 @@ async def _consider_once(
         await coordinator.release(int(chat_id), claim.claim_id, published=False,
                                   holder_kind=OUTPUT_KIND, holder_ref=jid,
                                   now=ts)
-        return _cancel(reason_code, detail=detail, stage=stage,
+        return await _cancel(reason_code, detail=detail, stage=stage,
                        reason_event=reason_event, delivered=delivered)
 
     if manual:
@@ -3790,7 +4038,8 @@ async def _consider_once(
             prompt_origin=origin, counters=dict(counters),
             stage_facts=dict(facts), joke=joke,
             manually_triggered=bool(manual))
-        return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+        return await _finish_async(result, ledger=ledger, now_ts=ts,
+                                      settings=cfg)
     counters[STAGE_PUBLISH] = 1
     tg_message_id = getattr(message, "message_id", None)
     ledger_output_id = await _record_meme_output(
@@ -3810,7 +4059,8 @@ async def _consider_once(
         generated=True, limit=budget, prompt_origin=origin,
         counters=dict(counters), stage_facts=dict(facts), joke=joke,
         manually_triggered=bool(manual))
-    return _finish(result, ledger=ledger, now_ts=ts, settings=cfg)
+    return await _finish_async(result, ledger=ledger, now_ts=ts,
+                              settings=cfg)
 
 
 async def _record_meme_output(db, *, chat_id: int, tg_message_id, sent_at: int,
