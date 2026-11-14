@@ -51,6 +51,14 @@ legacy-строка и собственный вывод бота `verified` н�
 В этом срезе (ONTO-A) модуль не вызывается из retrieval: он предоставляет
 контракт, который потребляет ONTO-B/M2. Никаких событий/логов с текстами
 фактов, субъектов или запросов модуль не порождает (R17).
+
+**ONTO-B (O-03).** Вторая часть того же API — typed-проекция СУЩЕСТВУЮЩЕГО
+`memory_contracts.RelationView` (его собирает `relation_evidence`):
+направление `subject → object`, автор утверждения, время утверждения и
+события, provenance-класс, legacy-пометка и видимые конфликты определения.
+Отношение остаётся данными: совместное упоминание (`mentions`) никогда не
+становится фактом отношения, legacy не поднимается до `verified`, а конфликт
+не разрешается молча. Второго хранилища/SQL/резолвера/LLM здесь нет.
 """
 from __future__ import annotations
 
@@ -89,6 +97,24 @@ __all__ = [
     # функции
     "classify_entity_type", "project_identity", "project_node_meaning",
     "project_fact_meaning",
+    # ONTO-B (O-03): typed-отношение
+    "RELATION_DIRECTION_DIRECTED", "RELATION_DIRECTIONS",
+    "RELATION_KIND_ASSERTION", "RELATION_KIND_COOCCURRENCE",
+    "RELATION_KIND_LEGACY", "RELATION_KIND_COUNTER", "RELATION_KINDS",
+    "DEFINITION_CONFLICT_CONTRADICTS", "DEFINITION_CONFLICT_SUPERSEDES",
+    "DEFINITION_CONFLICT_STATUS", "DEFINITION_CONFLICT_SUPERSEDED",
+    "DEFINITION_CONFLICT_REJECTED", "DEFINITION_CONFLICT_CODES",
+    "REASON_RELATION_VERIFIED", "REASON_RELATION_UNCONFIRMED",
+    "REASON_RELATION_INDIRECT_ORIGIN",
+    "REASON_RELATION_COOCCURRENCE_ONLY", "REASON_RELATION_LEGACY_UNVERIFIED",
+    "REASON_RELATION_COUNTER_ONLY", "REASON_RELATION_DEFINITION_CONFLICT",
+    "REASON_RELATION_REJECTED", "DEGRADED_RELATION_COOCCURRENCE_ONLY",
+    "DEGRADED_RELATION_LEGACY", "DEGRADED_RELATION_COUNTER_ONLY",
+    "DEGRADED_RELATION_CONFLICT", "DEGRADED_RELATION_AUTHOR_UNKNOWN",
+    "DEGRADED_RELATION_TIME_UNKNOWN", "DEGRADED_RELATION_TIME_AMBIGUOUS",
+    "DEGRADED_RELATION_INDIRECT_ONLY",
+    "RELATION_DEGRADED_CODES",
+    "RelationDefinitionConflict", "SemanticRelation", "project_relation",
 ]
 
 # ── Контролируемые статусы: ровно `provenance.VERIFICATIONS` ───────────────
@@ -1221,3 +1247,500 @@ def project_fact_meaning(
             typed=typed, identity=None, speaker=speaker, subject=subject,
             provenance_class=provenance_class),
         reason_code=typed.reason_code)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# VMQ-ONTO-B (O-03): typed-проекция отношения
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Владелец отношения — существующий `memory_contracts.RelationView`, который
+# собирает `relation_evidence.build_relation_view` из `edges` + evidence-links.
+# Здесь только типизированный read-only взгляд на него: направление, автор
+# утверждения, время, provenance-класс, legacy-пометка и видимые конфликты
+# определения. Ничего не пересчитывается заново и не пишется.
+
+#: Отношение направленное: `edges.source_id → edges.target_id` (существующая
+#: модель ребра). Направление не выводится из текста/имени/порядка слов.
+RELATION_DIRECTION_DIRECTED = "directed"
+RELATION_DIRECTIONS = frozenset({RELATION_DIRECTION_DIRECTED})
+
+#: Чем связь является по своим существующим основаниям.
+RELATION_KIND_ASSERTION = "assertion"              # кто-то утверждал связь
+RELATION_KIND_COOCCURRENCE = "cooccurrence_hint"   # только совместное упоминание
+RELATION_KIND_LEGACY = "legacy_unverified"         # происхождение не установлено
+RELATION_KIND_COUNTER = "counter_evidence"         # есть только опровержения
+RELATION_KINDS = frozenset({
+    RELATION_KIND_ASSERTION, RELATION_KIND_COOCCURRENCE,
+    RELATION_KIND_LEGACY, RELATION_KIND_COUNTER,
+})
+
+#: Виды конфликта определения (видимы в данных, не разрешаются молча).
+DEFINITION_CONFLICT_CONTRADICTS = "contradicting_evidence"
+DEFINITION_CONFLICT_SUPERSEDES = "superseding_evidence"
+DEFINITION_CONFLICT_STATUS = "conflicting_status"
+DEFINITION_CONFLICT_SUPERSEDED = "superseded_definition"
+DEFINITION_CONFLICT_REJECTED = "rejected_definition"
+DEFINITION_CONFLICT_CODES = frozenset({
+    DEFINITION_CONFLICT_CONTRADICTS, DEFINITION_CONFLICT_SUPERSEDES,
+    DEFINITION_CONFLICT_STATUS, DEFINITION_CONFLICT_SUPERSEDED,
+    DEFINITION_CONFLICT_REJECTED,
+})
+
+REASON_RELATION_VERIFIED = "relation_independent_support"
+REASON_RELATION_UNCONFIRMED = "relation_unconfirmed"
+REASON_RELATION_INDIRECT_ORIGIN = "relation_indirect_origin"
+REASON_RELATION_COOCCURRENCE_ONLY = "relation_cooccurrence_only"
+REASON_RELATION_LEGACY_UNVERIFIED = "relation_legacy_unverified"
+REASON_RELATION_COUNTER_ONLY = "relation_counter_evidence_only"
+REASON_RELATION_DEFINITION_CONFLICT = "relation_definition_conflict"
+REASON_RELATION_REJECTED = "relation_definition_rejected"
+
+DEGRADED_RELATION_COOCCURRENCE_ONLY = "relation_cooccurrence_only"
+DEGRADED_RELATION_LEGACY = "relation_legacy_unverified"
+DEGRADED_RELATION_COUNTER_ONLY = "relation_counter_evidence_only"
+DEGRADED_RELATION_CONFLICT = "relation_definition_conflict"
+DEGRADED_RELATION_AUTHOR_UNKNOWN = "relation_assertion_author_unknown"
+DEGRADED_RELATION_TIME_UNKNOWN = "relation_assertion_time_unknown"
+DEGRADED_RELATION_TIME_AMBIGUOUS = "relation_assertion_time_ambiguous"
+DEGRADED_RELATION_INDIRECT_ONLY = "relation_indirect_origin_only"
+RELATION_DEGRADED_CODES = frozenset({
+    DEGRADED_RELATION_COOCCURRENCE_ONLY, DEGRADED_RELATION_LEGACY,
+    DEGRADED_RELATION_COUNTER_ONLY, DEGRADED_RELATION_CONFLICT,
+    DEGRADED_RELATION_AUTHOR_UNKNOWN, DEGRADED_RELATION_TIME_UNKNOWN,
+    DEGRADED_RELATION_TIME_AMBIGUOUS, DEGRADED_RELATION_INDIRECT_ONLY,
+})
+
+#: Существующие значения `LINK_TYPES` (словарь не дублируется).
+_MENTION_LINK_TYPE = "mentions"
+_CONTRADICTS_LINK_TYPE = "contradicts"
+_SUPERSEDES_LINK_TYPE = "supersedes"
+#: Опровергающие основания: слабые типы связи без `mentions` (R-11).
+_COUNTER_LINK_TYPES = frozenset(mc.WEAK_LINK_TYPES) - {_MENTION_LINK_TYPE}
+#: Прямое подтверждение связи (§2.2/§5.7): только собственное прямое
+#: утверждение. Пересказ, репост/цитата и дериватив — слабые классы, даже если
+#: строка связи помечена независимой: репост и self-output независимость не
+#: повышают.
+_DIRECT_ORIGIN_CLASSES = frozenset({mc.OriginClass.EXPLICIT_DIRECT})
+_ORIGIN_CLASS_VALUES = frozenset(origin.value for origin in mc.OriginClass)
+_RELATION_STATUS_VALUES = frozenset(status.value for status in mc.RelationStatus)
+
+
+def _is_relation_assertion(source: mc.RelationSourceView) -> bool:
+    """Основание именно УТВЕРЖДАЕТ связь.
+
+    Только существующие подтверждающие типы связи с подтверждающим классом
+    происхождения: `mentions`/co-occurrence и `legacy_unknown` связь не
+    утверждают (R-11/§2.3), опровержения — отдельный слот.
+    """
+    return (source.link_type in mc.SUPPORTING_LINK_TYPES
+            and source.origin_class in mc.SUPPORTING_ORIGIN_CLASSES)
+
+
+@dataclasses.dataclass(frozen=True)
+class RelationDefinitionConflict:
+    """Один видимый конфликт определения отношения (O-03).
+
+    Конфликт — это данные, а не выбор: проекция показывает, чем именно
+    определение оспорено (`contradicts`/`supersedes`-основание либо
+    противоречивый статус ребра) и какое основание это несёт. Какой из
+    вариантов «правильный», здесь не решается.
+    """
+
+    reason_code: str
+    status: str | None = None
+    link_type: str | None = None
+    origin_class: str | None = None
+    source_ref_id: int | None = None
+    fact_id: int | None = None
+
+    def __post_init__(self) -> None:
+        reason = _reason(self.reason_code)
+        if reason not in DEFINITION_CONFLICT_CODES:
+            raise ValueError(
+                f"RelationDefinitionConflict.reason_code invalid: {reason!r}")
+        status = self.status
+        if status is not None:
+            status = str(status).strip()
+            if status not in _RELATION_STATUS_VALUES:
+                raise ValueError(
+                    f"RelationDefinitionConflict.status invalid: {status!r}")
+            object.__setattr__(self, "status", status)
+        link_type = self.link_type
+        if link_type is not None:
+            link_type = str(link_type).strip()
+            if link_type not in mc.LINK_TYPES:
+                raise ValueError(
+                    f"RelationDefinitionConflict.link_type invalid: {link_type!r}")
+            object.__setattr__(self, "link_type", link_type)
+        origin = self.origin_class
+        if origin is not None:
+            origin = str(origin).strip()
+            if origin not in _ORIGIN_CLASS_VALUES:
+                raise ValueError(
+                    f"RelationDefinitionConflict.origin_class invalid: {origin!r}")
+            object.__setattr__(self, "origin_class", origin)
+        object.__setattr__(self, "reason_code", reason)
+        object.__setattr__(
+            self, "source_ref_id",
+            _opt_id(self.source_ref_id, "RelationDefinitionConflict.source_ref_id"))
+        object.__setattr__(
+            self, "fact_id",
+            _opt_id(self.fact_id, "RelationDefinitionConflict.fact_id"))
+
+    def as_dict(self) -> dict:
+        return {
+            "reason_code": self.reason_code,
+            "status": self.status,
+            "link_type": self.link_type,
+            "origin_class": self.origin_class,
+            "source_ref_id": self.source_ref_id,
+            "fact_id": self.fact_id,
+        }
+
+
+@dataclasses.dataclass(frozen=True)
+class SemanticRelation:
+    """Read-only typed-отношение (O-03) поверх `mc.RelationView`.
+
+    Несёт ровно то, что требует контракт, и ничего не додумывает:
+
+    * `subject`/`target` — типизированные концы в ОДНОМ chat scope, порядок =
+      существующее направление ребра (`source_id → target_id`);
+    * `asserted_by` — speaker существующих оснований (автор утверждения), а не
+      subject связи; отсутствующий автор остаётся пустым;
+    * `time.asserted_at` / `time.event_time` — из существующих
+      `asserted_ts`/`event_ts` оснований; при расхождении значений момент
+      остаётся `None` (видно в `assertion_times`), а не выбирается произвольно;
+    * `provenance_class`/`origin_class` — существующие шкалы
+      `graphrag_provenance` и `memory_contracts.OriginClass`;
+    * `relation_kind`/`is_relation_fact` — совместное упоминание никогда не
+      становится фактом отношения, legacy/опровержение — тоже;
+    * `definition_conflicts` — видимые конфликты определения; `verification`
+      выводится и при конфликте не бывает `verified`.
+    """
+
+    view: mc.RelationView
+    subject: mc.EntityRef
+    target: mc.EntityRef
+    direction: str = RELATION_DIRECTION_DIRECTED
+
+    def __post_init__(self) -> None:
+        view = self.view
+        if not isinstance(view, mc.RelationView):
+            raise ValueError("SemanticRelation.view must be RelationView")
+        direction = str(self.direction or "").strip()
+        if direction not in RELATION_DIRECTIONS:
+            raise ValueError(
+                f"SemanticRelation.direction invalid: {direction!r}; "
+                f"allowed: {sorted(RELATION_DIRECTIONS)}")
+        if direction != view.direction:
+            raise ValueError(
+                "SemanticRelation.direction must match the stored edge direction")
+        for name, ref, node_id in (
+                ("subject", self.subject, view.source_entity_id),
+                ("target", self.target, view.target_entity_id)):
+            if not isinstance(ref, mc.EntityRef):
+                raise ValueError(f"SemanticRelation.{name} must be EntityRef")
+            if not _same_chat(ref.chat_id, view.chat_id):
+                raise ValueError(
+                    f"SemanticRelation.{name} must stay in the edge chat scope (ID-2)")
+            if int(ref.node_id) != int(node_id):
+                raise ValueError(
+                    f"SemanticRelation.{name} must address the stored edge endpoint")
+        object.__setattr__(self, "direction", direction)
+
+    # ── прямые значения существующего ребра ────────────────────────────────
+    @property
+    def chat_id(self) -> int:
+        return self.view.chat_id
+
+    @property
+    def edge_id(self) -> int:
+        return self.view.edge_id
+
+    @property
+    def relation_type(self) -> str:
+        """Тип/предикат связи из существующей строки `edges.relation_type`."""
+        return self.view.relation_type
+
+    @property
+    def status(self) -> mc.RelationStatus:
+        """Статус ребра по существующему evidence-контракту (не переписан)."""
+        return self.view.status
+
+    @property
+    def independent_support(self) -> int:
+        return self.view.independent_support
+
+    @property
+    def origin_class(self) -> mc.OriginClass:
+        """Класс самого сильного проверенного корня (существующее правило)."""
+        return self.view.origin_class
+
+    @property
+    def provenance_class(self) -> str:
+        """Provenance-класс ребра в существующей шкале `graphrag_provenance`."""
+        view = self.view
+        if (view.status is mc.RelationStatus.CONFIRMED
+                and view.independent_support >= 1):
+            return grp.EDGE_CONFIDENT
+        if view.status is mc.RelationStatus.UNVERIFIED:
+            return grp.EDGE_LEGACY_UNVERIFIED
+        return grp.EDGE_TENTATIVE
+
+    # ── основания: утверждения и опровержения ──────────────────────────────
+    @property
+    def assertions(self) -> tuple[mc.RelationSourceView, ...]:
+        """Основания, которые действительно утверждают связь."""
+        return tuple(source for source in (self.view.sources or ())
+                     if _is_relation_assertion(source))
+
+    @property
+    def counter_evidence(self) -> tuple[mc.RelationSourceView, ...]:
+        """Опровергающие основания (`contradicts`/`supersedes`)."""
+        return tuple(source for source in (self.view.sources or ())
+                     if source.link_type in _COUNTER_LINK_TYPES)
+
+    @property
+    def direct_assertions(self) -> tuple[mc.RelationSourceView, ...]:
+        """Утверждения, которые подтверждают связь ПРЯМО (§5.7).
+
+        Пересказ, репост/цитата и дериватив остаются в `assertions`, но
+        прямым подтверждением не считаются, даже если связь помечена
+        `verified`/`independent`: независимость репост не повышает.
+        """
+        return tuple(source for source in self.assertions
+                     if source.origin_class in _DIRECT_ORIGIN_CLASSES)
+
+    @property
+    def relation_kind(self) -> str:
+        """Чем связь является: утверждение / соседство / legacy / опровержение."""
+        sources = self.view.sources or ()
+        if any(_is_relation_assertion(source) for source in sources):
+            return RELATION_KIND_ASSERTION
+        if any(source.link_type in _COUNTER_LINK_TYPES for source in sources):
+            return RELATION_KIND_COUNTER
+        if any(source.link_type == _MENTION_LINK_TYPE for source in sources):
+            return RELATION_KIND_COOCCURRENCE
+        return RELATION_KIND_LEGACY
+
+    @property
+    def is_relation_fact(self) -> bool:
+        """Связь — утверждённое отношение, а не совместное упоминание."""
+        return self.relation_kind is RELATION_KIND_ASSERTION
+
+    @property
+    def legacy(self) -> bool:
+        """Связь без установленного происхождения (weak hint, не факт)."""
+        return self.relation_kind is RELATION_KIND_LEGACY
+
+    # ── автор и время утверждения ──────────────────────────────────────────
+    @property
+    def asserted_by(self) -> tuple[str, ...]:
+        """Автор(ы) утверждения связи (speaker оснований), не subject."""
+        out: list[str] = []
+        for source in self.assertions:
+            speaker = str(source.speaker or "").strip()
+            if speaker and speaker not in out:
+                out.append(speaker)
+        return tuple(out)
+
+    @property
+    def assertion_times(self) -> tuple[int, ...]:
+        """Все известные моменты утверждения (по возрастанию, без повторов)."""
+        return tuple(sorted({int(source.asserted_ts)
+                             for source in self.assertions
+                             if source.asserted_ts}))
+
+    @property
+    def event_times(self) -> tuple[int, ...]:
+        """Все известные времена утверждаемой действительности."""
+        return tuple(sorted({int(source.event_ts)
+                             for source in self.assertions
+                             if source.event_ts}))
+
+    @property
+    def assertion_modes(self) -> tuple[str, ...]:
+        """Модальности существующих оснований (как они записаны)."""
+        out: list[str] = []
+        for source in self.assertions:
+            mode = source.assertion_mode
+            value = mode.value if isinstance(mode, mc.AssertionMode) else str(mode)
+            if value not in out:
+                out.append(value)
+        return tuple(out)
+
+    @property
+    def time(self) -> MeaningTime:
+        """Времена связи: ровно один известный момент, иначе честный `None`."""
+        assertion_times = self.assertion_times
+        event_times = self.event_times
+        return MeaningTime(
+            event_time=event_times[0] if len(event_times) == 1 else None,
+            asserted_at=(assertion_times[0]
+                         if len(assertion_times) == 1 else None))
+
+    @property
+    def asserted_at(self) -> int | None:
+        return self.time.asserted_at
+
+    # ── видимые конфликты определения ──────────────────────────────────────
+    @property
+    def definition_conflicts(self) -> tuple[RelationDefinitionConflict, ...]:
+        """Конфликты определения из существующих данных (без выбора «правды»)."""
+        out: list[RelationDefinitionConflict] = []
+        for source in self.view.sources or ():
+            reason = {
+                _CONTRADICTS_LINK_TYPE: DEFINITION_CONFLICT_CONTRADICTS,
+                _SUPERSEDES_LINK_TYPE: DEFINITION_CONFLICT_SUPERSEDES,
+            }.get(source.link_type)
+            if reason is None:
+                continue
+            out.append(RelationDefinitionConflict(
+                reason_code=reason, link_type=source.link_type,
+                origin_class=source.origin_class.value,
+                source_ref_id=source.source_ref_id, fact_id=source.fact_id))
+        status_reason = {
+            mc.RelationStatus.CONTRADICTED: DEFINITION_CONFLICT_STATUS,
+            mc.RelationStatus.SUPERSEDED: DEFINITION_CONFLICT_SUPERSEDED,
+            mc.RelationStatus.REJECTED: DEFINITION_CONFLICT_REJECTED,
+        }.get(self.view.status)
+        if status_reason is not None:
+            out.append(RelationDefinitionConflict(
+                reason_code=status_reason, status=self.view.status.value))
+        return tuple(out)
+
+    @property
+    def has_definition_conflict(self) -> bool:
+        return bool(self.definition_conflicts)
+
+    # ── выводимая достоверность (никогда не выставляется вручную) ──────────
+    @property
+    def verification(self) -> str:
+        """Достоверность связи по существующему evidence-контракту.
+
+        `verified` требует ОДНОВРЕМЕННО: `confirmed`-статус, ≥1 независимый
+        корень (`RelationView.independent_support`), `confident` provenance и
+        реальное утверждение без видимого конфликта определения. Соседство,
+        legacy и опровержение не бывают `verified` ни при какой частоте.
+        """
+        view = self.view
+        if view.status is mc.RelationStatus.REJECTED:
+            return REJECTED
+        if self.relation_kind is not RELATION_KIND_ASSERTION:
+            return UNKNOWN
+        if self.has_definition_conflict:
+            return TENTATIVE
+        if (view.status is mc.RelationStatus.CONFIRMED
+                and view.independent_support >= 1
+                and self.provenance_class == grp.EDGE_CONFIDENT
+                and self.direct_assertions):
+            return VERIFIED
+        return TENTATIVE
+
+    @property
+    def is_verified(self) -> bool:
+        return self.verification == VERIFIED
+
+    @property
+    def degraded(self) -> tuple[str, ...]:
+        """Честные коды неполноты (без текстов переписки)."""
+        codes: list[str] = []
+        kind = self.relation_kind
+        if kind is RELATION_KIND_COOCCURRENCE:
+            codes.append(DEGRADED_RELATION_COOCCURRENCE_ONLY)
+        elif kind is RELATION_KIND_LEGACY:
+            codes.append(DEGRADED_RELATION_LEGACY)
+        elif kind is RELATION_KIND_COUNTER:
+            codes.append(DEGRADED_RELATION_COUNTER_ONLY)
+        if self.has_definition_conflict:
+            codes.append(DEGRADED_RELATION_CONFLICT)
+        if kind is RELATION_KIND_ASSERTION:
+            if not self.asserted_by:
+                codes.append(DEGRADED_RELATION_AUTHOR_UNKNOWN)
+            if not self.assertion_times:
+                codes.append(DEGRADED_RELATION_TIME_UNKNOWN)
+            elif len(self.assertion_times) > 1:
+                codes.append(DEGRADED_RELATION_TIME_AMBIGUOUS)
+            if not self.direct_assertions:
+                codes.append(DEGRADED_RELATION_INDIRECT_ONLY)
+        return tuple(dict.fromkeys(codes))
+
+    @property
+    def reason_code(self) -> str:
+        if self.view.status is mc.RelationStatus.REJECTED:
+            return REASON_RELATION_REJECTED
+        kind = self.relation_kind
+        if kind is RELATION_KIND_COOCCURRENCE:
+            return REASON_RELATION_COOCCURRENCE_ONLY
+        if kind is RELATION_KIND_LEGACY:
+            return REASON_RELATION_LEGACY_UNVERIFIED
+        if kind is RELATION_KIND_COUNTER:
+            return REASON_RELATION_COUNTER_ONLY
+        if self.has_definition_conflict:
+            return REASON_RELATION_DEFINITION_CONFLICT
+        if not self.direct_assertions:
+            return REASON_RELATION_INDIRECT_ORIGIN
+        if self.verification == VERIFIED:
+            return REASON_RELATION_VERIFIED
+        return REASON_RELATION_UNCONFIRMED
+
+    def as_dict(self) -> dict:
+        view = self.view
+        return {
+            "edge_id": view.edge_id,
+            "chat_id": view.chat_id,
+            "relation_type": view.relation_type,
+            "relation_label": view.relation_label,
+            "direction": self.direction,
+            "subject": self.subject.as_dict(),
+            "object": self.target.as_dict(),
+            "status": view.status.value,
+            "relation_kind": self.relation_kind,
+            "is_relation_fact": self.is_relation_fact,
+            "legacy": self.legacy,
+            "verification": self.verification,
+            "provenance_class": self.provenance_class,
+            "origin_class": self.origin_class.value,
+            "independent_support": view.independent_support,
+            "legacy_ids": list(view.legacy_ids),
+            "asserted_by": list(self.asserted_by),
+            "assertion_times": list(self.assertion_times),
+            "event_times": list(self.event_times),
+            "assertion_modes": list(self.assertion_modes),
+            "has_direct_confirmation": bool(self.direct_assertions),
+            "time": self.time.as_dict(),
+            "counter_evidence": [source.as_dict()
+                                 for source in self.counter_evidence],
+            "definition_conflicts": [conflict.as_dict()
+                                     for conflict in self.definition_conflicts],
+            "has_definition_conflict": self.has_definition_conflict,
+            "sources": [source.as_dict() for source in (view.sources or ())],
+            "degraded": list(self.degraded),
+            "reason_code": self.reason_code,
+            "revision": {
+                "graph": view.graph_revision,
+                "edge_updated_at": view.edge_updated_at,
+                "last_confirmed": view.last_confirmed,
+            },
+        }
+
+
+def project_relation(
+    view: mc.RelationView,
+    *,
+    subject: mc.EntityRef,
+    target: mc.EntityRef,
+) -> SemanticRelation:
+    """Typed-отношение из существующего `mc.RelationView`.
+
+    Концы связи передаются типизированными `EntityRef` (адрес `nodes.id` в
+    том же chat scope): связь не «переразрешает» людей по имени и не
+    выбирает другую пару. Собственной загрузки/запроса здесь нет —
+    `view` собирает существующий `relation_evidence`.
+    """
+    if not isinstance(view, mc.RelationView):
+        raise ValueError("view must be memory_contracts.RelationView")
+    if not isinstance(subject, mc.EntityRef) or not isinstance(target, mc.EntityRef):
+        raise ValueError("relation endpoints must be memory_contracts.EntityRef")
+    return SemanticRelation(view=view, subject=subject, target=target)

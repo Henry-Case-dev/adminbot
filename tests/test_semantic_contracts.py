@@ -8,6 +8,7 @@ provenance-классы считает существующий `graphrag_proven
 """
 import ast
 import asyncio
+import dataclasses
 import json
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from services import graphrag_provenance as grp
 from services import memory_contracts as mc
 from services import message_identity
 from services import provenance
+from services import relation_evidence as rel
 from services import semantic_contracts as sc
 from services.database import DatabaseService
 
@@ -719,3 +721,522 @@ def test_module_has_no_sql_ddl_or_second_identity_store():
     }, local_modules
     # второй «владелец» идентичности/поиска не появляется
     assert not (path.parent / "semantic_ontology.py").exists()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# O-03 (ONTO-B): typed-отношение — направление, автор, время, provenance,
+# legacy и видимые конфликты определения
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Связь берётся из СУЩЕСТВУЮЩЕГО пути: `edges` + `mca_evidence_links` →
+# `relation_evidence.build_relation_view` → `semantic_contracts`. Заглушек
+# вместо subject under test нет: классы/независимость корней считают
+# `relation_evidence` и `provenance`, а не тест.
+
+REL_TS = 1_700_000_000
+
+
+async def _node_ref(db, node_id, *, chat=CHAT) -> mc.EntityRef:
+    """Типизированный конец связи из реальной строки `nodes`."""
+    cursor = await db.db.execute(
+        "SELECT id, chat_id, entity_type, entity_name FROM nodes "
+        "WHERE id = ? AND chat_id = ?", (int(node_id), int(chat)))
+    row = await cursor.fetchone()
+    assert row is not None
+    return mc.EntityRef(chat_id=int(row["chat_id"]), node_id=int(row["id"]),
+                        entity_type=str(row["entity_type"]),
+                        display_name=str(row["entity_name"]))
+
+
+async def _edge_pair(db, *, chat=CHAT, relation="спорил с",
+                     subject="вася", target="петя"):
+    """nodes + directed-ребро существующими writer'ами (`source → target`)."""
+    sid = await db.upsert_node(chat, subject, "user")
+    oid = await db.upsert_node(chat, target, "user")
+    await db.upsert_edge(sid, oid, relation)
+    cursor = await db.db.execute(
+        "SELECT id FROM edges WHERE chat_id = ? AND source_id = ? "
+        "AND target_id = ? AND relation_type = ?", (chat, sid, oid, relation))
+    return sid, oid, int((await cursor.fetchone())["id"])
+
+
+async def _edge_id(db, source_id, target_id, relation="спорил с", *, chat=CHAT):
+    cursor = await db.db.execute(
+        "SELECT id FROM edges WHERE chat_id = ? AND source_id = ? "
+        "AND target_id = ? AND relation_type = ?",
+        (chat, int(source_id), int(target_id), relation))
+    row = await cursor.fetchone()
+    assert row is not None
+    return int(row["id"])
+
+
+async def _message_source(db, *, chat=CHAT, tg, author="Вася", ts=REL_TS,
+                          text="вася спорил с петей"):
+    """Реальное сохранённое сообщение → существующий SourceRef сообщения."""
+    cursor = await db.db.execute(
+        "INSERT INTO smart_messages (user_id, chat_id, text, timestamp, "
+        "media_type, author_name, tg_message_id) VALUES (?,?,?,?,?,?,?)",
+        (1, chat, text, ts, "text", author, tg))
+    row_id = cursor.lastrowid
+    await db.db.execute(
+        "INSERT INTO smart_messages_fts(rowid, text) VALUES (?, ?)",
+        (row_id, text))
+    await db.db.commit()
+    return await provenance.resolve_source_ref(
+        db, provenance.message_source_ref(chat_id=chat, entity_id=str(row_id),
+                                          tg_message_id=tg))
+
+
+async def _fact_source(db, *, chat=CHAT, perspective="self",
+                       attribution_method="self_report"):
+    """Реальный факт с атрибуцией → существующий SourceRef факта."""
+    fact_id = await db.insert_graph_fact(
+        chat, "вася спорил с петей", "chat_history", None,
+        subject="вася", object="петя")
+    await db.db.execute(
+        "UPDATE graph_facts SET perspective = ?, attribution_method = ? "
+        "WHERE id = ?", (perspective, attribution_method, int(fact_id)))
+    await db.db.commit()
+    return await provenance.resolve_source_ref(
+        db, provenance.graph_fact_source_ref(chat, fact_id))
+
+
+async def _attach(db, *, edge_id, source_ref_id, chat=CHAT,
+                  link_type="supports", method="direct_reference",
+                  verification="verified", independence="independent"):
+    """Привязка основания существующим `relation_evidence`-писателем."""
+    await rel.attach_edge_evidence(
+        db, chat_id=chat, edge_id=edge_id, source_ref_id=source_ref_id,
+        link_type=link_type, method=method, verification=verification,
+        independence=independence,
+        basis="direct reference" if verification == "verified" else None,
+        established_at=1000)
+
+
+async def _relation(db, *, edge_id, source_id, target_id, chat=CHAT):
+    view = await rel.build_relation_view(db, chat_id=chat, edge_id=edge_id)
+    assert view is not None
+    return sc.project_relation(
+        view, subject=await _node_ref(db, source_id, chat=chat),
+        target=await _node_ref(db, target_id, chat=chat))
+
+
+def test_relation_is_typed_and_directed(env):
+    """O-03: связь направленная/типизированная, а не «пара имён»."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=101))
+        return sid, oid, await _relation(
+            db, edge_id=eid, source_id=sid, target_id=oid)
+
+    sid, oid, relation = run(loop, scenario())
+    assert relation.relation_type == "спорил с"
+    assert relation.direction == sc.RELATION_DIRECTION_DIRECTED
+    # порядок концов = существующее направление ребра, а не порядок имён
+    assert (relation.subject.node_id, relation.target.node_id) == (sid, oid)
+    assert relation.subject.display_name == "вася"
+    assert relation.target.display_name == "петя"
+    assert relation.is_relation_fact is True
+    assert relation.status is mc.RelationStatus.CONFIRMED
+    assert relation.provenance_class == grp.EDGE_CONFIDENT
+    assert relation.origin_class is mc.OriginClass.EXPLICIT_DIRECT
+    assert relation.verification == sc.VERIFIED
+    payload = relation.as_dict()
+    assert payload["direction"] == "directed"
+    assert payload["relation_kind"] == sc.RELATION_KIND_ASSERTION
+    assert payload["subject"]["node_id"] == sid
+    assert payload["revision"]["graph"]
+
+
+def test_relation_direction_is_not_reversed(env):
+    """Обратное ребро — отдельная строка; концы не «исправляются» молча."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=111))
+        forward = await _relation(db, edge_id=eid, source_id=sid,
+                                  target_id=oid)
+        await db.upsert_edge(oid, sid, "спорил с")
+        back_id = await _edge_id(db, oid, sid)
+        backward = await _relation(db, edge_id=back_id, source_id=oid,
+                                   target_id=sid)
+        return forward, backward
+
+    forward, backward = run(loop, scenario())
+    assert (backward.subject.node_id, backward.target.node_id) == (
+        forward.target.node_id, forward.subject.node_id)
+    assert forward.subject.node_id != backward.subject.node_id
+    with pytest.raises(ValueError):
+        sc.project_relation(forward.view, subject=forward.target,
+                            target=forward.subject)
+
+
+def test_relation_carries_assertion_author_and_time(env):
+    """O-03: автор утверждения — speaker основания, не subject связи."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid, source_ref_id=await _message_source(
+            db, tg=121, author="Петя", ts=REL_TS))
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    assert relation.asserted_by == ("Петя",)
+    assert relation.subject.display_name == "вася"     # subject не подменён
+    assert relation.assertion_times == (REL_TS,)
+    assert relation.time.asserted_at == REL_TS
+    assert relation.asserted_at == REL_TS
+    assert relation.degraded == ()
+    assert relation.assertion_modes == (mc.AssertionMode.ASSERTED.value,)
+
+
+def test_relation_author_and_time_are_not_invented(env):
+    """Отсутствующий автор/время остаются unknown, а не подставляются."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid, source_ref_id=await _fact_source(db))
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    assert relation.asserted_by == ()
+    assert relation.time.asserted_at is None
+    assert sc.DEGRADED_RELATION_AUTHOR_UNKNOWN in relation.degraded
+    assert sc.DEGRADED_RELATION_TIME_UNKNOWN in relation.degraded
+    # утверждение есть (атрибуция факта), просто без автора/времени реплики
+    assert relation.is_relation_fact is True
+    assert relation.verification == sc.VERIFIED
+
+
+def test_relation_time_conflict_is_not_resolved(env):
+    """Разные моменты утверждения не сводятся к одному «удобному» времени."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        for tg, ts in ((131, REL_TS), (132, REL_TS + 60)):
+            await _attach(db, edge_id=eid, source_ref_id=await _message_source(
+                db, tg=tg, ts=ts))
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    assert relation.assertion_times == (REL_TS, REL_TS + 60)
+    assert relation.time.asserted_at is None
+    assert sc.DEGRADED_RELATION_TIME_AMBIGUOUS in relation.degraded
+    assert relation.independent_support == 2
+
+
+def test_cooccurrence_never_becomes_relation_fact(env):
+    """O-03: совместное упоминание — слабый сигнал, не факт отношения."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        for tg in (141, 142):
+            await _attach(
+                db, edge_id=eid, source_ref_id=await _message_source(db, tg=tg),
+                link_type="mentions", method="direct_reference",
+                verification="verified", independence="independent")
+        # частота растёт, факт отношения — нет (R-2/R-11)
+        await db.upsert_edge(sid, oid, "спорил с", weight_increment=1)
+        await db.upsert_edge(sid, oid, "спорил с", weight_increment=1)
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    assert relation.view.frequency > 1
+    assert relation.relation_kind == sc.RELATION_KIND_COOCCURRENCE
+    assert relation.is_relation_fact is False
+    assert relation.legacy is False
+    assert relation.assertions == ()
+    assert relation.verification == sc.UNKNOWN
+    assert relation.provenance_class == grp.EDGE_LEGACY_UNVERIFIED
+    assert relation.reason_code == sc.REASON_RELATION_COOCCURRENCE_ONLY
+    assert sc.DEGRADED_RELATION_COOCCURRENCE_ONLY in relation.degraded
+
+
+def test_duplicate_evidence_root_does_not_add_support(env):
+    """Повтор одного корня не создаёт независимого подтверждения (§2.4.1)."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        ref = await _message_source(db, tg=151)
+        await _attach(db, edge_id=eid, source_ref_id=ref,
+                      link_type="supports")
+        await _attach(db, edge_id=eid, source_ref_id=ref,
+                      link_type="derived_from")
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    assert len(relation.view.sources) == 2
+    assert relation.independent_support == 1
+    assert relation.view.independent_support == 1
+    assert relation.verification == sc.VERIFIED
+
+
+def test_legacy_edge_is_marked_unverified(env):
+    """Legacy-связь читается, но помечена как неподтверждённая (не факт)."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)     # без evidence-связей вовсе
+        bare = await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+        legacy = sc.project_relation(
+            mc.RelationView.legacy(
+                edge_id=eid, chat_id=CHAT, source_entity_id=sid,
+                target_entity_id=oid, relation_type="спорил с",
+                relation_label="спорил с"),
+            subject=await _node_ref(db, sid), target=await _node_ref(db, oid))
+        return bare, legacy
+
+    bare, legacy = run(loop, scenario())
+    for relation in (bare, legacy):
+        assert relation.status is mc.RelationStatus.UNVERIFIED
+        assert relation.legacy is True
+        assert relation.is_relation_fact is False
+        assert relation.provenance_class == grp.EDGE_LEGACY_UNVERIFIED
+        assert relation.verification == sc.UNKNOWN
+        assert relation.asserted_by == ()
+        assert relation.reason_code == sc.REASON_RELATION_LEGACY_UNVERIFIED
+        assert sc.DEGRADED_RELATION_LEGACY in relation.degraded
+    assert bare.as_dict()["legacy_ids"] == []
+
+
+def test_definition_conflict_is_visible_and_not_verified(env):
+    """Конфликт определения виден в данных и не даёт `verified`."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=171))
+        rebuttal = await _message_source(db, tg=172, text="не спорили")
+        await _attach(db, edge_id=eid, source_ref_id=rebuttal,
+                      link_type="contradicts", method="unknown",
+                      verification="tentative", independence="unknown")
+        return rebuttal, await _relation(
+            db, edge_id=eid, source_id=sid, target_id=oid)
+
+    rebuttal, relation = run(loop, scenario())
+    # статус ребра не переписан: конфликт добавлен, а не «разрешён»
+    assert relation.status is mc.RelationStatus.CONFIRMED
+    assert relation.has_definition_conflict is True
+    conflict = relation.definition_conflicts[0]
+    assert conflict.reason_code == sc.DEFINITION_CONFLICT_CONTRADICTS
+    assert conflict.link_type == "contradicts"
+    assert conflict.source_ref_id == rebuttal
+    assert [source.source_ref_id for source in relation.counter_evidence] == [
+        rebuttal]
+    assert relation.verification == sc.TENTATIVE
+    assert relation.is_verified is False
+    assert relation.reason_code == sc.REASON_RELATION_DEFINITION_CONFLICT
+    assert sc.DEGRADED_RELATION_CONFLICT in relation.degraded
+    payload = relation.as_dict()
+    assert payload["definition_conflicts"][0]["source_ref_id"] == rebuttal
+    assert payload["has_definition_conflict"] is True
+
+
+def test_contradicted_and_superseded_statuses_stay_visible(env):
+    """Противоречивый/устаревший статус ребра остаётся видимым."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=181))
+        base = await rel.build_relation_view(db, chat_id=CHAT, edge_id=eid)
+        subject = await _node_ref(db, sid)
+        target = await _node_ref(db, oid)
+        return [
+            sc.project_relation(dataclasses.replace(base, status=status),
+                                subject=subject, target=target)
+            for status in (mc.RelationStatus.CONTRADICTED,
+                           mc.RelationStatus.SUPERSEDED,
+                           mc.RelationStatus.REJECTED)
+        ]
+
+    contradicted, superseded, rejected = run(loop, scenario())
+    assert contradicted.definition_conflicts[0].reason_code == (
+        sc.DEFINITION_CONFLICT_STATUS)
+    assert contradicted.verification == sc.TENTATIVE
+    assert superseded.definition_conflicts[0].reason_code == (
+        sc.DEFINITION_CONFLICT_SUPERSEDED)
+    assert superseded.verification == sc.TENTATIVE
+    assert rejected.verification == sc.REJECTED
+    assert rejected.reason_code == sc.REASON_RELATION_REJECTED
+
+
+def test_repost_and_bot_output_do_not_confirm_relation(env):
+    """Репост/цитата и собственный вывод бота не дают прямого подтверждения.
+
+    Существующий владелец данных помечает такие основания `tentative`; тест
+    подаёт ХУДШИЙ вариант (строка связи ложно помечена verified/independent) и
+    проверяет, что typed-проекция всё равно не выдаёт `verified` (§5.7).
+    """
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        forwarded = await _message_source(
+            db, tg=231, text="переслано: вася спорил с петей")
+        await db.db.execute(
+            "UPDATE smart_messages SET is_forward = 1 WHERE tg_message_id = ?",
+            (231,))
+        await db.db.commit()
+        await _attach(db, edge_id=eid, source_ref_id=forwarded,
+                      link_type="supports", verification="verified",
+                      independence="independent")
+        fact_id = await db.insert_graph_fact(
+            CHAT, "бот предположил, что вася спорил с петей",
+            "bot_direct_reply", None, subject="вася", object="петя")
+        bot_ref = await provenance.resolve_source_ref(
+            db, provenance.graph_fact_source_ref(CHAT, fact_id))
+        await _attach(db, edge_id=eid, source_ref_id=bot_ref,
+                      link_type="derived_from", verification="verified",
+                      independence="independent")
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    # строки-основания действительно «лгут» о независимости, а проекция — нет
+    assert relation.status is mc.RelationStatus.CONFIRMED
+    assert relation.independent_support >= 1
+    assert {source.origin_class for source in relation.assertions} >= {
+        mc.OriginClass.QUOTE_FORWARD, mc.OriginClass.DERIVED_WITH_LINEAGE}
+    assert relation.direct_assertions == ()
+    assert relation.is_relation_fact is True          # утверждение о связи есть
+    assert relation.verification == sc.TENTATIVE      # но не подтверждение
+    assert relation.is_verified is False
+    assert relation.reason_code == sc.REASON_RELATION_INDIRECT_ORIGIN
+    assert sc.DEGRADED_RELATION_INDIRECT_ONLY in relation.degraded
+    assert relation.as_dict()["has_direct_confirmation"] is False
+
+
+def test_counter_evidence_only_is_not_a_relation_fact(env):
+    """Опровержение без утверждения не превращается в отношение."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(
+                          db, tg=191, text="не спорили"),
+                      link_type="contradicts", method="unknown",
+                      verification="tentative", independence="unknown")
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    assert relation.relation_kind == sc.RELATION_KIND_COUNTER
+    assert relation.is_relation_fact is False
+    assert relation.verification == sc.UNKNOWN
+    assert relation.reason_code == sc.REASON_RELATION_COUNTER_ONLY
+    assert sc.DEGRADED_RELATION_COUNTER_ONLY in relation.degraded
+
+
+def test_relation_scope_and_endpoints_are_strict(env):
+    """Чужой chat scope, чужой узел и неверный контракт отклоняются."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=201))
+        view = await rel.build_relation_view(db, chat_id=CHAT, edge_id=eid)
+        other_chat = await rel.build_relation_view(
+            db, chat_id=CHAT_B, edge_id=eid)
+        return sid, oid, view, other_chat
+
+    sid, oid, view, other_chat = run(loop, scenario())
+    assert other_chat is None                       # карточки в другом чате нет
+    with pytest.raises(ValueError):
+        sc.project_relation(view, subject=mc.EntityRef(
+            chat_id=CHAT_B, node_id=sid, entity_type="user",
+            display_name="вася"), target=mc.EntityRef(
+            chat_id=CHAT, node_id=oid, entity_type="user",
+            display_name="петя"))
+    for subject, target in ((oid, sid), (sid, sid)):
+        with pytest.raises(ValueError):
+            sc.project_relation(
+                view,
+                subject=mc.EntityRef(chat_id=CHAT, node_id=subject,
+                                     entity_type="user", display_name="x"),
+                target=mc.EntityRef(chat_id=CHAT, node_id=target,
+                                    entity_type="user", display_name="y"))
+    with pytest.raises(ValueError):
+        sc.SemanticRelation(
+            view=view,
+            subject=mc.EntityRef(chat_id=CHAT, node_id=sid,
+                                 entity_type="user", display_name="вася"),
+            target=mc.EntityRef(chat_id=CHAT, node_id=oid,
+                                entity_type="user", display_name="петя"),
+            direction="undirected")
+    with pytest.raises(ValueError):
+        sc.project_relation(view, subject="вася", target=mc.EntityRef(
+            chat_id=CHAT, node_id=oid, entity_type="user",
+            display_name="петя"))
+    with pytest.raises(ValueError):
+        sc.project_relation({"edge_id": 1}, subject=mc.EntityRef(
+            chat_id=CHAT, node_id=sid, entity_type="user",
+            display_name="вася"), target=mc.EntityRef(
+            chat_id=CHAT, node_id=oid, entity_type="user",
+            display_name="петя"))
+
+
+def test_relation_projection_reuses_existing_relation_view(env):
+    """Проекция не пересчитывает provenance заново (один владелец)."""
+    db, loop = env
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=211))
+        return await _relation(db, edge_id=eid, source_id=sid, target_id=oid)
+
+    relation = run(loop, scenario())
+    view = relation.view
+    assert relation.edge_id == view.edge_id
+    assert relation.status is view.status
+    assert relation.independent_support == view.independent_support
+    assert relation.origin_class is view.origin_class
+    assert relation.assertion_times == tuple(sorted(
+        {source.asserted_ts for source in view.sources if source.asserted_ts}))
+    assert relation.as_dict()["revision"]["graph"] == view.graph_revision
+    assert relation.as_dict()["sources"] == [s.as_dict() for s in view.sources]
+
+
+def test_relation_projection_does_not_write(env):
+    """Проекция read-only: ни рёбер, ни evidence-связей не появляется."""
+    db, loop = env
+    tables = ("nodes", "edges", "mca_source_refs", "mca_evidence_links")
+
+    async def counts():
+        out = {}
+        for table in tables:
+            cursor = await db.db.execute(f"SELECT COUNT(*) AS n FROM {table}")
+            out[table] = int((await cursor.fetchone())["n"])
+        return out
+
+    async def scenario():
+        sid, oid, eid = await _edge_pair(db)
+        await _attach(db, edge_id=eid,
+                      source_ref_id=await _message_source(db, tg=221))
+        before = await counts()
+        view = await rel.build_relation_view(db, chat_id=CHAT, edge_id=eid)
+        subject = await _node_ref(db, sid)
+        target = await _node_ref(db, oid)
+        for _ in range(3):
+            relation = sc.project_relation(view, subject=subject, target=target)
+            observed = (relation.as_dict(), relation.definition_conflicts,
+                        relation.degraded, relation.verification,
+                        relation.asserted_by)
+            assert observed[3] in (sc.VERIFIED, sc.TENTATIVE, sc.UNKNOWN)
+        return before, await counts()
+
+    before, after = run(loop, scenario())
+    assert before == after
