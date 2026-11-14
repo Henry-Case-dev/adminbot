@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer ONTO-B ses_e241505d4ffe1qjGhNSrEuUZYO
-Join barriers: Reviewer ONTO-B r1 -> PM binds O-03 at REVIEW; next M2 (M-04/M-05/O-04)
+Active lanes: PM bind ONTO-B ses_e2466fc41ffe29CK1Vz4tDm4SW; Architect M2 contract ses_e240e8bf8ffeQslJk76iZY07M1
+Join barriers: PM binds O-03 at REVIEW; Architect M2 confirmation -> Builder M2 (M-04/M-05/O-04)
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T09:16:22+12:00
+Updated: 2026-11-15T09:25:00+12:00
 
 ## Facts
 
@@ -72,3 +72,7 @@ PM bound O-01/O-02 at REVIEW on candidate 8cb9e00d (tip d67262cb, base c97c06e4;
 ## ONTO-B candidate (2026-11-15)
 
 Builder implemented O-03 on vmq/onto-b from d67262cb: code d15b13da, branch tip 64dab0eb, worktree ...-699aba96. One read-only typed relation projection in services/semantic_contracts.py (SemanticRelation, RelationDefinitionConflict, project_relation) reusing memory_contracts.RelationView/RelationSourceView, relation_evidence.build_relation_view/attach_edge_evidence, graphrag_provenance and provenance. Direction/type/endpoints/chat scope; asserted_by vs subject; asserted/event time with honest None+degraded; provenance/origin classes; cooccurrence is a hint only; legacy unverified marking; definition conflicts visible. No DDL/writes/second storage; mca_retrieval_context untouched. Tests: 41 focused + 386 affected; RED 14 failed/26 passed on base; five mutations each fail the target. Limits: free-string relation_type, conflicts only from basis data, existing R-1 does not require known author/time (honest missing code), build_relation_view does not carry unmapped_sources, archive not checked. Reviewer r1 running.
+
+## ONTO-B r1 Approved (2026-11-15)
+
+Reviewer r1 Approved for predeploy REVIEW of O-03 on code d15b13da (tip 64dab0eb): 41 focused + 386 affected passed, independent cooccurrence->fact mutation 2 failed/39 passed, diff limited to semantic_contracts.py + tests, no DDL/retrieval/second store. Artifact evidence/onto-b/review-r1.md sha e7284c77.... PM is binding O-03 at REVIEW (expected counts 55 PENDING / 9 REVIEW / 6 VERIFIED) and running the scoped gates; Architect is confirming the M2 contract (M-04/M-05/O-04) before the next Builder.
