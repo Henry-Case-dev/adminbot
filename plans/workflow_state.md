@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-14-smart-corrective-01.md (sha 8A0239B3�
 Status: in_progress
 Primary phase: implementation
 Active feature: smart-corrective-01
-Active lanes: Builder S3-BUDGET ses_e26e17782ffe3vs22QaRU1lNRB; Builder S5B-RECOVERY ses_e26d5e727ffeIf0VIQm6a8c4AS; Builder FC hash preflight ses_e26fde68affeEDfHv3DBuCZnXD
-Join barriers: S3/S5B implementation -> review; FC hash preflight -> binding recheck -> focused production re-run
+Active lanes: Builder S3-BUDGET ses_e26e17782ffe3vs22QaRU1lNRB; Builder S5B-RECOVERY ses_e26d5e727ffeIf0VIQm6a8c4AS; DevOps focused canary re-run ses_e26d2717bffezRUVQGMe18WWhB
+Join barriers: S3/S5B implementation -> review; focused canary re-run -> PM binding of admissible rows
 Last verified: production 2.58.200 deployed at 0e4a144db476a1535ae3a2b79a7cce30354ad866; healthz 200; schema 47; owner settings preserved. Parent maps rebound and committed e0de4057 (167/186 ids deploy-level VERIFIED; deploy gates errors=0 both maps; 19 live ids remain). DevOps read-only observability batch observed H3/H4/I1/I2/K3 facts (695d4627) and PM bound them: journal under uid 999 rc=0 with matching InvocationID; manifest identity verified_deployed; I1 root cause SQLITE_BUSY on meme_initiative_attempt, 33,122 rows preserved, both spooled attempts present once, new writer path writes; I2 cursor 15345>15945>16095, lag formula verified, no duplicates; K3 settings preserved incl. owner manual checkup prompt edit (manual_edit, 06:11:54Z).
 Acceptance: 186 unique mandatory req ids: 167 VERIFIED at deploy level, 19 READY_FOR_LIVE (11 SMART + 8 FC, all with Reviewer-approved postrelease_wait), 0 REVIEW/PENDING/FAILED. Release gate fails only on the 19 live ids.
 Corrective registration: owner task captured verbatim; task smart-corrective-01 created at queue_position 2 / P0 / blocked_by []; queue shifted 2..41 -> 3..42 with history; queue validator complete=true, issues=[].
@@ -14,14 +14,15 @@ Defect (owner-confirmed, not VERIFIED): live checkup found six active watchdog.j
 Production finding (external): nano-gpt.com degraded since ~05:56Z (empty content/timeouts); semantic drain stopped at 06:19Z; rows not lost; real-LLM live canaries should run after provider health recovers.
 Next unlocks: (1) harness audit r3 -> focused production re-run (FC full; SMART effective_config/k3/external_reads); (2) S3-BUDGET review; (3) S5A bypass fix -> re-review; (4) then S4-COMPLETION, S6-PROMPT, S3B-INPUT, S5B-D; (5) final corrective release train
 Next execution: awaiting_children
-Review: S1/S2 Approved (r2); S5A Approved (r3, 3ff04f3f); S5B running; harness audit r3: SMART admissible; FC hash-preflight added (v1.3.0, sha 391deff8, commit 6f6d414d), binding recheck running
+Review: S1/S2 Approved (r2); S5A Approved (r3, 3ff04f3f); S5B running; harness audit r3: SMART admissible; FC admissible with pinned SHA (391deff8, commit 6f6d414d); focused production re-run running
 Deployment: parent 2.58.200 verified engineering delivery; corrective slices S1/S2 implemented+approved, S3/S5A in progress — no corrective deploy yet
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; corrective map admitted (384 required / 367 ids / 14 slices, plan gate 0); global aggregate 4385/7264 requirements, 322/599 slices
-Updated: 2026-11-14T20:27:47+12:00
+Updated: 2026-11-14T20:30:31+12:00
 
 ## Facts
 
+- FC hash-binding recheck **passed**: commit 6f6d414d, sha 391deff8…; preflight runs before runtime/load_modules/PG/provider (fc_live_canary.py:3820-3847); correct sha -> exit 0/checks=6; 64x0 -> exit 2/checks=0/harness_sha256_mismatch; notasha -> exit 2/malformed; self-test passed; no PG/provider fields in the failed preflight JSON. FC admissible for the production re-run with the pinned SHA. Focused production re-run dispatched (SMART 21c7ac74 with 4 provider calls; FC 391deff8 with cap 60).
 - FC harness hash-binding fixed (commit 6f6d414d; fc_live_canary.py v1.3.0 sha256 391deff8…): `--expect-harness-sha256` preflight runs before module import/PG/network/provider; mismatch or malformed expected sha -> exit 2 with checks=[] and preflight_failed reason; absent flag keeps the previous behavior; self-test S18 covers match/mismatch/malformed/absent; JSON keeps harness_sha256 + candidate_binding. Reviewer binding recheck running before the production re-run. Note: the commit also carried the Reviewer's r3 block in harness-review.md (content intact).
 - S5A **Approved** by independent re-review r3 (candidate 3ff04f3f): generic and media recovery paths return reconcile_required/none for delivery_unknown (even with caller-supplied reason), mca_trace blocks both retry and resume for reason_code/error_code, TaskJobStore primitives atomically refuse via SQL guards, recover_stale preserves the marker; mutation removes a guard -> regression test fails; no resume/requeue bypass found across TaskJobStore/media/watchdog/trace/cover/meme/vision; 133 passed (1 known deselection) + 284 media/cover/meme/vision. No DDL/flags/settings. SC-WD-W03 behavior confirmed; statuses not marked VERIFIED. Reviewer retained probe-07ac95d362 (mutation copies) — close at a safe checkpoint. S5B dispatched from sc/corrective-s5a.
 - Harness audit r3 (commit d7df228d): SMART **admissible** for the production re-run (budget contract, k3 provenance incl. unattributed/deploy/out-of-window mutations fail, external_reads contract matches the deployed `_read_payload`/`_kind_for_path`, self-test green). FC PG read/effective-state fix verified by mutation; FC is **not admissible yet** only because it lacks an explicit `--expect-harness-sha256` preflight (argparse rejects the flag). Minimal FC hash-preflight fix is running; then the Reviewer rechecks only that binding before the focused production re-run.
