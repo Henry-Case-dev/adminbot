@@ -15,6 +15,14 @@ heartbeat/watchdog/takeover/recovery §27.5.
   терминальным состоянием связанных job; закрытый инцидент не переоткрывается
   тем же evidence. Отказ incident-service наблюдаем (log + счётчики) без
   рекурсивного инцидента.
+* S5B (W-04/W-06/W-08/W-09): снятие lease ограничивается owner/kind (каждый
+  watchdog восстанавливает только свои задачи); `MCA_JOB_HEARTBEAT_SECONDS`
+  реально используется производителями; контракт `kind → progress|heartbeat|
+  deadline` определяет порог «нет прогресса»; `progress_at IS NULL` больше не
+  делает running-job невидимой; истёкший `deadline_at` — законный повод
+  takeover у running-задач; queued-задачи только классифицируются
+  (scheduled retry / ожидание срока / владелец очереди / зависание) и никогда
+  не забираются автоматически.
 * Recovery: прочитать checkpoint, определить подтверждённые записи/side effects,
   возобновить только безопасные этапы; бесконечных retries нет. Неопределённая
   доставка/платная операция — `delivery_unknown` до сверки по operation ID;
@@ -113,26 +121,186 @@ async def stale_jobs(db, *, now: int | None = None) -> list[dict]:
         return []
 
 
-async def progress_stalled_jobs(db, *, now: int | None = None) -> list[dict]:
-    """`running`-задачи с живым heartbeat, но без прогресса (по типу стадии).
+def _progress_age(row: dict, ts: int) -> int:
+    """Возраст подтверждённого прогресса (S5B/W-08).
 
-    Порог — по типу job (`MCA_PROGRESS_STALL_<TYPE>_SECONDS`)."""
+    `progress_at IS NULL` больше не исключает running-job из диагностики:
+    baseline — момент постановки задачи (`created_at`), т.к. `mark_running`
+    ставит `progress_at` для kind'ов с контрактом `progress`."""
+    for key in ("progress_at", "created_at"):
+        try:
+            value = row.get(key)
+            if value is not None:
+                return max(0, ts - int(value))
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+async def progress_stalled_jobs(db, *, now: int | None = None) -> list[dict]:
+    """`running`-задачи без прогресса ПО КОНТРАКТУ ИХ ТИПА (S5B/W-08).
+
+    Порог берётся из `mca_gates.job_progress_stall_seconds(kind, owner)`:
+    карта `kind → llm/video/archive/default` вместо прежнего owner-совпадения
+    с типами стадий. Задачи с контрактом `heartbeat` (долгие внешние вызовы)
+    и `deadline` (TTL/абсолютный срок) в progress-корзину не попадают — их
+    видимость обеспечивают heartbeat/overdue-корзины (`running_contract_jobs`
+    и `overdue_jobs`), поэтому они не «невидимы», но и не объявляются
+    зависшими по чужому таймеру."""
     if db is None:
         return []
     ts = int(now if now is not None else time.time())
     try:
         cursor = await db.db.execute(
-            "SELECT * FROM task_jobs WHERE status = 'running' AND "
-            "progress_at IS NOT NULL")
+            "SELECT * FROM task_jobs WHERE status = 'running'")
         rows = [dict(r) for r in await cursor.fetchall()]
     except Exception:
         return []
     out = []
     for row in rows:
-        stall = mca_gates.progress_stall_seconds(row.get("owner"))
-        if ts - int(row["progress_at"]) > stall:
+        if not mca_gates.job_progress_required(row.get("kind"),
+                                               row.get("owner")):
+            continue
+        stall = mca_gates.job_progress_stall_seconds(row.get("kind"),
+                                                     row.get("owner"))
+        if _progress_age(row, ts) > stall:
             out.append(row)
     return out
+
+
+async def running_contract_jobs(db, *, now: int | None = None) -> dict:
+    """Видимость running-job'ов БЕЗ обязательного прогресса (S5B/W-08).
+
+    `heartbeat`-задачи наблюдаемы по возрасту heartbeat, `deadline`-задачи —
+    по оставшемуся сроку. Их не надо объявлять stalled по progress-таймеру,
+    но и терять из диагностики нельзя (прежний дефект: `progress_at IS NULL`
+    ⇒ задача невидима)."""
+    result = {"heartbeat_only": [], "deadline_bounded": []}
+    if db is None:
+        return result
+    ts = int(now if now is not None else time.time())
+    try:
+        cursor = await db.db.execute(
+            "SELECT * FROM task_jobs WHERE status = 'running'")
+        rows = [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        return result
+    for row in rows:
+        mode = mca_gates.job_progress_mode(row.get("kind"), row.get("owner"))
+        item = {"job_id": row.get("job_id"), "owner": row.get("owner"),
+                "kind": row.get("kind"), "mode": mode,
+                "heartbeat_age": _age_of(row.get("heartbeat_at"), ts),
+                "progress_age": _progress_age(row, ts),
+                "deadline_in": _deadline_in(row.get("deadline_at"), ts)}
+        if mode == mca_gates.JOB_MODE_HEARTBEAT:
+            result["heartbeat_only"].append(item)
+        elif mode == mca_gates.JOB_MODE_DEADLINE:
+            result["deadline_bounded"].append(item)
+    return result
+
+
+def _age_of(value, ts: int) -> int | None:
+    try:
+        return None if value is None else max(0, ts - int(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _deadline_in(value, ts: int) -> int | None:
+    try:
+        return None if value is None else int(value) - ts
+    except (TypeError, ValueError):
+        return None
+
+
+async def overdue_jobs(db, *, now: int | None = None,
+                       store=None) -> dict:
+    """Задачи с истёкшим `deadline_at` (S5B/W-08/W-09).
+
+    Running-overdue — законный повод takeover (решает вызывающий,
+    `takeover_stale(include_overdue=True)`); queued-overdue — только
+    диагностика: takeover queued запрещён архитектурным контрактом.
+    При наличии store используется его существующий `overdue()` — второго
+    чтения того же состояния не вводится."""
+    result = {"running": [], "queued": []}
+    if db is None:
+        return result
+    ts = int(now if now is not None else time.time())
+    try:
+        if store is not None:
+            rows = [dict(r) for r in await store.overdue(now=ts)]
+        else:
+            cursor = await db.db.execute(
+                "SELECT * FROM task_jobs WHERE status IN ('queued', "
+                "'running') AND deadline_at IS NOT NULL AND deadline_at < ? "
+                "ORDER BY deadline_at", (ts,))
+            rows = [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        return result
+    for row in rows:
+        key = "running" if str(row.get("status")) == "running" else "queued"
+        result[key].append(row)
+    return result
+
+
+def classify_queued_jobs(rows, *, now: int | None = None) -> dict:
+    """Диагностическая классификация queued-задач (S5B/W-09) — БЕЗ takeover.
+
+    Корзины:
+      * `scheduled_retry` — `next_retry_at > now` (легальный bounded-retry);
+      * `deadline_pending` — `deadline_at > now` (TTL/внешний срок ещё не
+        истёк; ожидание зависимости/окна доставки);
+      * `overdue` — `deadline_at <= now` (срок истёк — диагностика);
+      * `owner_managed` — у типа задачи есть собственный claim/retry-цикл
+        владельца (vision/exploration/cover/memory/meme/media);
+      * `hang` — ни срока, ни владельца-цикла, возраст больше порога типа:
+        настоящий «queued без исполнителя» (диагностический инцидент);
+      * `normal_wait` — молодой queued без признаков зависания.
+    """
+    ts = int(now if now is not None else time.time())
+    out = {"scheduled_retry": [], "deadline_pending": [], "overdue": [],
+           "owner_managed": [], "hang": [], "normal_wait": []}
+    for row in rows or ():
+        item = {"job_id": row.get("job_id"), "owner": row.get("owner"),
+                "kind": row.get("kind"),
+                "attempt": int(row.get("attempt") or 0),
+                "age": _age_of(row.get("updated_at") or row.get("created_at"),
+                               ts),
+                "next_retry_in": _deadline_in(row.get("next_retry_at"), ts),
+                "deadline_in": _deadline_in(row.get("deadline_at"), ts)}
+        if item["next_retry_in"] is not None and item["next_retry_in"] > 0:
+            out["scheduled_retry"].append(item)
+            continue
+        if item["deadline_in"] is not None:
+            if item["deadline_in"] > 0:
+                out["deadline_pending"].append(item)
+            else:
+                out["overdue"].append(item)
+            continue
+        if mca_gates.job_queued_owner_managed(row.get("kind"),
+                                              row.get("owner")):
+            out["owner_managed"].append(item)
+            continue
+        hang_after = mca_gates.job_queued_hang_seconds(row.get("kind"),
+                                                       row.get("owner"))
+        if (item["age"] or 0) > hang_after:
+            out["hang"].append(item)
+        else:
+            out["normal_wait"].append(item)
+    return out
+
+
+async def queued_jobs(db) -> list[dict]:
+    """Все `queued`-строки (для диагностической классификации W-09)."""
+    if db is None:
+        return []
+    try:
+        cursor = await db.db.execute(
+            "SELECT * FROM task_jobs WHERE status = 'queued' "
+            "ORDER BY created_at")
+        return [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        return []
 
 
 async def sweep(db, job_store=None, *, now: int | None = None,
@@ -154,8 +322,8 @@ async def sweep(db, job_store=None, *, now: int | None = None,
     `created|updated|reopened|failed|disabled`), без рекурсии.
 
     Возвращает `{recovered, stale, progress_stalled, incidents, takeover,
-    incident_outcomes, incident_reconcile, ran}`. Fail-open: ошибки не
-    бросают наружу."""
+    incident_outcomes, incident_reconcile, queued, overdue,
+    running_contract, ran}`. Fail-open: ошибки не бросают наружу."""
     result = {"recovered": [], "stale": [], "progress_stalled": [],
               "incidents": 0, "ran": False,
               "takeover": {"discovered": [], "attempted": [],
@@ -164,7 +332,13 @@ async def sweep(db, job_store=None, *, now: int | None = None,
               "incident_outcomes": {key: 0 for key in _INCIDENT_OUTCOME_KEYS},
               "incident_reconcile": {"checked": 0, "resolved": 0,
                                      "pending": 0, "inconclusive": 0,
-                                     "failed": 0}}
+                                     "failed": 0},
+              "queued": {"scheduled_retry": [], "deadline_pending": [],
+                         "overdue": [], "owner_managed": [], "hang": [],
+                         "normal_wait": []},
+              "overdue": {"running": [], "queued": []},
+              "running_contract": {"heartbeat_only": [],
+                                   "deadline_bounded": []}}
     if db is None or not mca_gates.heartbeat_watchdog_enabled():
         return result
     result["ran"] = True
@@ -181,10 +355,21 @@ async def sweep(db, job_store=None, *, now: int | None = None,
             logger.warning("[mca_watchdog] incident reconcile failed",
                            exc_info=True)
     stale = await stale_jobs(db, now=ts)
+    # S5B/W-08: overdue — второй законный повод takeover у running-задач;
+    # queued-overdue остаётся только диагностикой (W-09).
+    overdue = await overdue_jobs(db, now=ts, store=job_store)
+    result["overdue"] = {"running": [r.get("job_id")
+                                     for r in overdue["running"]],
+                         "queued": [r.get("job_id")
+                                    for r in overdue["queued"]]}
     discovered = [r.get("job_id") for r in stale]
+    # Overdue-running, ещё не попавший в stale-снимок, тоже обнаружен.
+    for row in overdue["running"]:
+        if row.get("job_id") not in discovered:
+            discovered.append(row.get("job_id"))
     result["stale"] = discovered
     result["takeover"]["discovered"] = list(discovered)
-    if stale:
+    if stale or overdue["running"]:
         if job_store is None:
             # S5A/W-02: без store recovery не вызывался — никакого success.
             result["takeover"]["no_change"] = list(discovered)
@@ -198,7 +383,8 @@ async def sweep(db, job_store=None, *, now: int | None = None,
                 records = await job_store.takeover_stale(
                     stale_after_seconds=stale_seconds(),
                     retry_delay_seconds=heartbeat_interval_seconds(),
-                    dangerous_owners=DANGEROUS_JOB_OWNERS)
+                    dangerous_owners=DANGEROUS_JOB_OWNERS,
+                    include_overdue=True)
             except Exception:
                 logger.warning("[mca_watchdog] takeover failed", exc_info=True)
                 records = [{"job_id": jid, "outcome": "failed",
@@ -242,8 +428,13 @@ async def sweep(db, job_store=None, *, now: int | None = None,
         logger.debug("[mca_watchdog] cover style recovery hook failed",
                      exc_info=True)
     await _emit("WATCHDOG_SWEEP", None, stage="sweep")
+    # S5B/W-08: overdue-running — такое же наблюдение, как stale (без него
+    # deadline-задача не оставляет инцидента, если heartbeat ещё жив).
+    stale_ids = {r.get("job_id") for r in stale}
+    incident_rows = list(stale) + [r for r in overdue["running"]
+                                   if r.get("job_id") not in stale_ids]
     if track_incidents:
-        for row in stale:
+        for row in incident_rows:
             outcome = await _track_incident(
                 db, row, reason_code="worker_lost", stage="takeover")
             key = _bump_incident_outcome(outcome)
@@ -261,30 +452,63 @@ async def sweep(db, job_store=None, *, now: int | None = None,
                 result["incident_outcomes"][key] += 1
                 if key in ("created", "reopened"):
                     result["incidents"] += 1
+    # S5B/W-08: running-job'ы без обязательного прогресса (heartbeat/deadline
+    # контракты) остаются видимыми — не «невидимы» и не stalled по чужому
+    # таймеру. Никаких переходов/инцидентов из этой корзины не следует.
+    result["running_contract"] = await running_contract_jobs(db, now=ts)
+    # S5B/W-09: queued-задачи диагностируются, но НЕ забираются: разделяем
+    # scheduled retry, ожидание срока/зависимости, специализированного
+    # владельца очереди и настоящий «queued без исполнителя».
+    try:
+        result["queued"] = classify_queued_jobs(await queued_jobs(db), now=ts)
+    except Exception:
+        logger.debug("[mca_watchdog] queued classification failed",
+                     exc_info=True)
+    for item in result["queued"]["hang"]:
+        if not track_incidents:
+            continue
+        outcome = await _track_incident(
+            db, {"job_id": item.get("job_id"), "owner": item.get("owner"),
+                 "error_code": "queue_no_claimer"}, reason_code="stage_queued",
+            stage="queued", severity="WARN")
+        key = _bump_incident_outcome(outcome)
+        result["incident_outcomes"][key] += 1
+        if key in ("created", "reopened"):
+            result["incidents"] += 1
     return result
 
 
 async def _track_incident(db, row: dict, *, reason_code: str,
-                          stage: str) -> str:
+                          stage: str, severity: str | None = None) -> str:
     """Зарегистрировать инцидент и вернуть честный исход регистрации.
 
     S5A/W-10: ошибка не подавляется — log.warning + статус `failed`
     (вызывающий считает); `open_or_update` повторно НЕ вызывается и инцидент
-    из собственной ошибки не создаётся (AC-24)."""
+    из собственной ошибки не создаётся (AC-24).
+
+    S5B/W-09: диагностическая корзина queued передаёт `severity="WARN"` —
+    отсутствие claimer'а наблюдаемо, но не выдаётся за падение компонента."""
     try:
         from services import mca_incidents as inc
         # F8: тип/владелец job берётся из строки (а не хардкод «archive.rebuild»)
         # — разные job-типы не сливаются в один fingerprint.
         owner = str(row.get("owner") or "unknown")
+        level = str(severity or "").upper()
+        incident_severity = (inc.SEVERITY_WARN if level == "WARN"
+                             else inc.SEVERITY_INFO if level == "INFO"
+                             else inc.SEVERITY_ERROR)
+        impact = ("очередь: задача не взята исполнителем/истёк срок"
+                  if stage == "queued"
+                  else "задача потеряла владельца/не прогрессирует")
         res = await inc.open_or_update(
             db, process_id="watchdog.jobs", pipeline_type=owner,
             stage=stage, reason_code=reason_code,
             error_type=str(row.get("error_code") or ""),
-            dependency=None, severity=inc.SEVERITY_ERROR,
+            dependency=None, severity=incident_severity,
             title=f"job {row.get('job_id')}: {reason_code}",
             job_id=row.get("job_id"),
             trace_id=row.get("pipeline_run_id"),
-            impact="задача потеряла владельца/не прогрессирует")
+            impact=impact)
     except Exception:
         logger.warning("[mca_watchdog] incident registration failed | "
                        "job_id=%s | stage=%s", row.get("job_id"), stage,

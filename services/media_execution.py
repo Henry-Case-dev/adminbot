@@ -668,7 +668,10 @@ async def begin_media_job(db, *, operation: str, provider: str, model: str,
         store = TaskJobStore(db)
         jid = await store.enqueue(
             owner=_MEDIA_OWNER, kind=_MEDIA_KIND, job_id=jid,
-            coalesce_key=coalesce, payload=state.to_json(), max_attempts=1)
+            coalesce_key=coalesce, payload=state.to_json(), max_attempts=1,
+            # S5B/W-06: явный deadline-контракт внешнего одноразового вызова
+            # (deadline_at в durable-строке, а не только в checkpoint).
+            deadline_at=state.deadline_at)
         checkpoint = await store.get_checkpoint(jid)
         restored = MediaJobState.from_json(
             (checkpoint or {}).get("cursor")) if checkpoint else None

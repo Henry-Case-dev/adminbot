@@ -32,6 +32,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
+from services import mca_gates
 from services.mca_gates import task_supervisor_enabled
 
 logger = logging.getLogger(__name__)
@@ -245,6 +246,11 @@ class TaskSupervisor:
                 job_id = None
                 fence = None
         _emit_start(owner, kind, coalesce_key) if emit_event else None
+        # S5B/W-06: durable-job получил `running` — держим живой heartbeat на
+        # всё время работы (включая ожидание слота), иначе долгая задача
+        # выглядит потерявшей владельца при пороге stale 60 с.
+        heartbeat = (JobHeartbeat.start(job_store, job_id, fencing_token=fence)
+                     if job_id is not None else None)
         # B-MCA01-2: безопасное ожидание слота под Condition.
         # `wait_for` освобождает блокировку во время ожидания — завершающаяся
         # задача успевает снять слот и разбудить ожидающего (нет deadlock).
@@ -260,6 +266,8 @@ class TaskSupervisor:
                             await _safe_finish(job_store, job_id,
                                                JOB_CANCELLED,
                                                REASON_QUEUE_COALESCED)
+                        if heartbeat is not None:
+                            await heartbeat.stop()
                         return existing
             # bounded: важное ждёт слот, второстепенное отклоняется с причиной.
             # `Condition.wait_for` освобождает блокировку во время ожидания —
@@ -270,6 +278,8 @@ class TaskSupervisor:
                         await _safe_finish(job_store, job_id, JOB_CANCELLED,
                                            REASON_QUEUE_FULL,
                                            fencing_token=fence)
+                    if heartbeat is not None:
+                        await heartbeat.stop()
                     raise QueueFullError(REASON_QUEUE_FULL)
                 await self._cond.wait_for(
                     lambda: self._running < self._max_concurrent)
@@ -340,6 +350,11 @@ class TaskSupervisor:
             if emit_event:
                 _emit_failure(exc, owner, kind, coalesce_key)
             raise
+        finally:
+            # S5B/W-06: живой heartbeat на всё время выполнения job — долгая
+            # задача с исправным владельцем не помечается потерянной.
+            if heartbeat is not None:
+                await heartbeat.stop()
 
     def _release_locked(self, record: TaskRecord) -> None:
         """Под Condition: снять слот, снять коалесинг, разбудить ожидающих.
@@ -401,6 +416,12 @@ SETTLED_JOB_STATUSES = (JOB_COMPLETED, "succeeded", JOB_FAILED, JOB_CANCELLED)
 REASON_WORKER_LOST = "worker_lost"
 REASON_CHECKPOINT_MISSING = "checkpoint_missing"
 REASON_ATTEMPTS_EXHAUSTED = "attempts_exhausted"
+# S5B/W-08: снятие lease по истёкшему абсолютному сроку (`deadline_at`), а не
+# по пропавшему heartbeat — отдельная причина, честно различимая в строке.
+REASON_DEADLINE_EXCEEDED = "deadline_exceeded"
+# S5A/W-07: снятие lease этими причинами означает «строка уже отобрана
+# takeover'ом» → терминальная запись без токена запрещена.
+RECOVERY_REVOKE_REASONS = (REASON_WORKER_LOST, REASON_DEADLINE_EXCEEDED)
 
 # F-S5A-02/03: durable-маркер `delivery_unknown` (в reason_code ИЛИ error_code)
 # запрещает любой resume/retry/re-arm: слепой повтор side effect/доставки
@@ -436,6 +457,83 @@ def _payload_has_checkpoint(raw) -> bool:
     except (TypeError, ValueError):
         return False
     return isinstance(data, dict) and bool(data)
+
+
+# ── S5B/W-06: периодический heartbeat durable-задачи ────────────────────────
+
+def heartbeat_period_seconds() -> int:
+    """Период heartbeat durable-задачи — документированный
+    `MCA_JOB_HEARTBEAT_SECONDS` (env, default 15; всегда < stale-порога)."""
+    try:
+        return max(1, int(mca_gates.job_heartbeat_seconds()))
+    except Exception:      # pragma: no cover - защитная ветка
+        return 15
+
+
+class JobHeartbeat:
+    """Живой heartbeat долгого durable-job (W-06).
+
+    Пока владелец выполняет работу, `heartbeat_at` обновляется каждые
+    `MCA_JOB_HEARTBEAT_SECONDS`, поэтому watchdog не считает живую задачу
+    потерянной (порог stale по умолчанию 60 с). Запись обусловлена
+    `fencing_token` владельца: после takeover устаревший владелец heartbeat
+    не продлевает. Остановка — всегда явная (`stop()`/`async with`), без
+    фоновых «вечных» циклов."""
+
+    def __init__(self, job_store, job_id: str, *,
+                 fencing_token: int | None = None,
+                 interval_seconds: float | None = None) -> None:
+        self._store = job_store
+        self._job_id = str(job_id)
+        self._token = fencing_token
+        self._interval = float(max(
+            1.0, float(interval_seconds or heartbeat_period_seconds())))
+        self._task: asyncio.Task | None = None
+        self.beats = 0
+
+    @classmethod
+    def start(cls, job_store, job_id: str, *,
+              fencing_token: int | None = None,
+              interval_seconds: float | None = None,
+              ) -> "JobHeartbeat | None":
+        if job_store is None or not job_id:
+            return None
+        hb = cls(job_store, job_id, fencing_token=fencing_token,
+                 interval_seconds=interval_seconds)
+        hb._task = asyncio.create_task(hb._loop())
+        return hb
+
+    async def _loop(self) -> None:
+        while True:
+            try:
+                await asyncio.sleep(self._interval)
+                await self._store.heartbeat(self._job_id,
+                                            fencing_token=self._token)
+                self.beats += 1
+            except asyncio.CancelledError:
+                return
+            except Exception:
+                logger.debug("job heartbeat failed | job_id=%s",
+                             self._job_id, exc_info=True)
+
+    async def stop(self) -> None:
+        task = self._task
+        self._task = None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    async def __aenter__(self) -> "JobHeartbeat":
+        if self._task is None:
+            self._task = asyncio.create_task(self._loop())
+        return self
+
+    async def __aexit__(self, *exc_info) -> None:
+        await self.stop()
 
 
 class TaskJobStore:
@@ -496,25 +594,38 @@ class TaskJobStore:
 
         L-MCA01-3: UPDATE обусловлен `status = 'queued'` — если переданный
         `job_id` это уже активная (запущенная) задача из durable-dedup, повторный
-        `mark_running` не инкрементирует `attempt`/heartbeat впустую."""
+        `mark_running` не инкрементирует `attempt`/heartbeat впустую.
+
+        S5B/W-08: для kind'ов с контрактом `progress` baseline `progress_at`
+        ставится при входе в `running` (явно переданный producer'ом baseline
+        сохраняется) — job с живым heartbeat больше не «невидим» для
+        progress-диагностики. Для `heartbeat`/`deadline` kind'ов
+        `progress_at` не подменяется (долгий внешний вызов не обязан
+        публиковать промежуточный прогресс)."""
         now = int(time.time())
         token = fencing_token
 
         async def _body(conn):
             cursor = await conn.execute(
-                "SELECT fencing_token FROM task_jobs WHERE job_id = ?",
-                (job_id,))
+                "SELECT fencing_token, kind, owner FROM task_jobs "
+                "WHERE job_id = ?", (job_id,))
             row = await cursor.fetchone()
             if row is None:
                 return 0
             use_token = int(token) if token is not None \
                 else int(row["fencing_token"] or 0)
+            # S5B/W-08: baseline прогресса по контракту конкретной задачи.
+            track_progress = mca_gates.job_progress_required(
+                row["kind"], row["owner"])
             cur2 = await conn.execute(
                 "UPDATE task_jobs SET status = ?, heartbeat_at = ?, "
-                "attempt = attempt + 1, fencing_token = ?, updated_at = ? "
+                "attempt = attempt + 1, fencing_token = ?, updated_at = ?, "
+                "progress_at = (CASE WHEN ? THEN COALESCE(progress_at, ?) "
+                "ELSE progress_at END) "
                 "WHERE job_id = ? AND status = ?"
                 + _DELIVERY_UNKNOWN_GUARD_SQL,
-                (JOB_RUNNING, now, use_token, now, job_id, JOB_QUEUED))
+                (JOB_RUNNING, now, use_token, now, 1 if track_progress else 0,
+                 now, job_id, JOB_QUEUED))
             return cur2.rowcount
 
         return bool(await self._db.write_transaction(
@@ -578,12 +689,13 @@ class TaskJobStore:
                 if status_now not in ACTIVE_JOB_STATUSES:
                     return 0
                 # Задача уже была отобрана takeover'ом и возвращена в очередь
-                # (`worker_lost` + fencing>0): терминальная запись без токена
-                # принадлежала бы устаревшему владельцу — no-op. Новый
-                # владелец обязан предъявить токен, полученный при claim.
+                # (`worker_lost`/`deadline_exceeded` + fencing>0): терминальная
+                # запись без токена принадлежала бы устаревшему владельцу —
+                # no-op. Новый владелец обязан предъявить токен, полученный
+                # при claim.
                 if (int(current["fencing_token"] or 0) > 0
                         and str(current["reason_code"] or "")
-                        == REASON_WORKER_LOST):
+                        in RECOVERY_REVOKE_REASONS):
                     return 0
             fence = "" if token is None else " AND fencing_token = ?"
             base_params = [status, reason_code, result_ref, error_code]
@@ -610,18 +722,35 @@ class TaskJobStore:
         return bool(await self._db.write_transaction(
             _body, op_name="task_jobs_finish"))
 
-    async def recover_stale(self, *, stale_after_seconds: int) -> list[str]:
+    async def recover_stale(self, *, stale_after_seconds: int,
+                            kinds: tuple[str, ...] | list[str] | None = None,
+                            owners: tuple[str, ...] | list[str] | None = None
+                            ) -> list[str]:
         """Пометить `running`-задачи без свежего heartbeat как `interrupted`.
 
         Возвращает список job_id (takeover-кандидаты). `fencing_token`
-        увеличивается — старый владелец потеряет право записи (A51)."""
+        увеличивается — старый владелец потеряет право записи (A51).
+
+        S5B/W-04: снятие lease может быть ОГРАНИЧЕНО владельцем/типом задачи
+        (`owners`/`kinds`). Специализированный watchdog (vision/media)
+        восстанавливает только свои задачи: чужие `running`-job (memory,
+        graphrag, qdrant и пр.) не прерываются молча. Без фильтров поведение
+        прежнее (общий watchdog)."""
         cutoff = int(time.time()) - max(1, int(stale_after_seconds))
+        kind_scope = tuple(str(k) for k in (kinds or ()) if str(k))
+        owner_scope = tuple(str(o) for o in (owners or ()) if str(o))
 
         async def _body(conn):
-            cursor = await conn.execute(
-                "SELECT job_id, reason_code FROM task_jobs WHERE status = ? AND "
-                "(heartbeat_at IS NULL OR heartbeat_at < ?)",
-                (JOB_RUNNING, cutoff))
+            sql = ("SELECT job_id, reason_code FROM task_jobs WHERE status = ? "
+                   "AND (heartbeat_at IS NULL OR heartbeat_at < ?)")
+            params: list = [JOB_RUNNING, cutoff]
+            if kind_scope:
+                sql += " AND kind IN (" + ", ".join("?" * len(kind_scope)) + ")"
+                params.extend(kind_scope)
+            if owner_scope:
+                sql += " AND owner IN (" + ", ".join("?" * len(owner_scope)) + ")"
+                params.extend(owner_scope)
+            cursor = await conn.execute(sql, tuple(params))
             rows = [dict(r) for r in await cursor.fetchall()]
             ids = [r["job_id"] for r in rows]
             for row in rows:
@@ -645,6 +774,7 @@ class TaskJobStore:
     async def takeover_stale(self, *, stale_after_seconds: int,
                              retry_delay_seconds: int = 0,
                              dangerous_owners=(),
+                             include_overdue: bool = False,
                              now: int | None = None) -> list[dict]:
         """Честный bounded-takeover потерявших владельца `running`-задач.
 
@@ -663,6 +793,12 @@ class TaskJobStore:
            * checkpoint нет либо попытки исчерпаны → терминальный
              `no_change`/`failed` (без ложного success).
 
+        S5B/W-08: `include_overdue=True` добавляет второй законный повод
+        снятия lease — истёкший абсолютный `deadline_at` у `running`-задачи
+        (причина `deadline_exceeded`, та же bounded-политика). Queued-задачи
+        этим методом не трогаются никогда (W-09: queued только
+        диагностируется).
+
         Возвращает per-job записи с `outcome` ∈
         `recovered|failed|no_change` (обнаружение/попытка выводятся
         вызывающим). `attempt`/`max_attempts`/`next_retry_at` сохраняются.
@@ -671,12 +807,17 @@ class TaskJobStore:
         cutoff = ts - max(1, int(stale_after_seconds))
         delay = max(1, int(retry_delay_seconds or 0))
         dangerous = frozenset(str(o) for o in (dangerous_owners or ()))
+        overdue = bool(include_overdue)
 
         async def _body(conn):
-            cursor = await conn.execute(
-                "SELECT * FROM task_jobs WHERE status = ? AND "
-                "(heartbeat_at IS NULL OR heartbeat_at < ?)",
-                (JOB_RUNNING, cutoff))
+            sql = ("SELECT * FROM task_jobs WHERE status = ? AND ("
+                   "heartbeat_at IS NULL OR heartbeat_at < ?"
+                   + (" OR (deadline_at IS NOT NULL AND deadline_at < ?)" if overdue
+                      else "") + ")")
+            params: list = [JOB_RUNNING, cutoff]
+            if overdue:
+                params.append(ts)
+            cursor = await conn.execute(sql, tuple(params))
             rows = [dict(r) for r in await cursor.fetchall()]
             out: list[dict] = []
             for row in rows:
@@ -687,6 +828,17 @@ class TaskJobStore:
                 previous_reason = str(row.get("reason_code") or "")
                 checkpoint = _payload_has_checkpoint(row.get("payload"))
                 token_after = int(row.get("fencing_token") or 0) + 1
+                heartbeat_stale = (row.get("heartbeat_at") is None
+                                   or int(row.get("heartbeat_at")) < cutoff)
+                deadline_passed = bool(
+                    row.get("deadline_at") is not None
+                    and int(row.get("deadline_at")) < ts)
+                # S5B/W-08: честная причина снятия lease — пропавший владелец
+                # или истёкший срок задачи.
+                revoke_root = (REASON_DEADLINE_EXCEEDED
+                               if (overdue and deadline_passed
+                                   and not heartbeat_stale)
+                               else REASON_WORKER_LOST)
                 # F-S5A-01: `delivery_unknown` — защитный durable-маркер
                 # (слепой повтор side effect запрещён). Снятие lease не имеет
                 # права затирать его на `worker_lost`: consumer (recover_job)
@@ -694,7 +846,7 @@ class TaskJobStore:
                 revoke_reason = (
                     previous_reason
                     if previous_reason == "delivery_unknown"
-                    else REASON_WORKER_LOST)
+                    else revoke_root)
                 record = {
                     "job_id": jid, "owner": owner, "kind": row.get("kind"),
                     "status_before": str(row.get("status") or ""),
@@ -761,7 +913,7 @@ class TaskJobStore:
                     "finished_at = NULL, error_code = NULL, next_retry_at = ?, "
                     "updated_at = ? WHERE job_id = ? AND status = ? AND "
                     "fencing_token = ?",
-                    (JOB_QUEUED, REASON_WORKER_LOST, next_retry, ts, jid,
+                    (JOB_QUEUED, revoke_root, next_retry, ts, jid,
                      JOB_INTERRUPTED, token_after))
                 if requeued.rowcount:
                     record.update(outcome="recovered", action="requeued",

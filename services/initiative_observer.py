@@ -1971,6 +1971,15 @@ class InitiativeObserverRunner:
         self._fence = int((row or {}).get("fencing_token") or 0)
         counters = payload["counters"]
         text_failed = False
+        # S5B/W-06: периодический heartbeat на всё время прохода (интервал —
+        # `MCA_JOB_HEARTBEAT_SECONDS`); запись обусловлена fencing-токеном.
+        try:
+            from services.task_supervisor import JobHeartbeat
+            heartbeat = JobHeartbeat.start(
+                self._store, job_id,
+                fencing_token=(self._fence or None))
+        except Exception:      # pragma: no cover - heartbeat не рвёт проход
+            heartbeat = None
         try:
             await self._store.heartbeat(job_id)
             # INIT-COORD §1 (V2): текстовая часть и мем-фаза — РАЗНЫЕ try.
@@ -2012,6 +2021,11 @@ class InitiativeObserverRunner:
             await self._finish(job_id, status=JOB_FAILED,
                                reason_code="task_failed", payload=payload)
             return JOB_FAILED
+        finally:
+            # S5B/W-06: длинные фазы scan/evaluate/meme больше не идут без
+            # heartbeat — живой observe не выглядит потерявшим владельца.
+            if heartbeat is not None:
+                await heartbeat.stop()
 
     async def _meme_phase(self, payload: dict) -> None:
         """EVOL-014: подсервис мемов внутри этого же прохода.

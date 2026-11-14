@@ -1791,13 +1791,18 @@ async def watchdog_sweep(db, *, now: int | None = None, store=None,
         except Exception:
             return summary
     job_kind = kind or mca_vision.VISION_JOB_KIND
-    # 1) Потерянные владельцы: runnning без свежего heartbeat → interrupted
+    # 1) Потерянные владельцы: running без свежего heartbeat → interrupted
     #    (существующий механизм; fencing_token увеличивается внутри).
+    #    S5B/W-04: снятие lease ОГРАНИЧЕНО своими kind'ами — vision-watchdog
+    #    не прерывает чужие running-задачи (memory/graphrag/qdrant/…):
+    #    раньше глобальный recover_stale молча терминализировал их без
+    #    события, инцидента и восстановления.
     lost: list[str] = []
     if not dry_run:
         try:
             lost = await store.recover_stale(
-                stale_after_seconds=max(1, lease_seconds())) or []
+                stale_after_seconds=max(1, lease_seconds()),
+                kinds=(job_kind,)) or []
         except Exception:
             logger.warning("[watchdog] recover_stale failed", exc_info=True)
             lost = []
