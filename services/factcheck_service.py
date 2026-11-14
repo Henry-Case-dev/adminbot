@@ -2024,17 +2024,48 @@ _SERVICE_ID_RE = re.compile(r"\b(?:ev-\d+|claim[_-][A-Za-z0-9_-]+|"
 #: проверяемого утверждения и не трогаются.
 _SERVICE_WORD_RE = re.compile(r"\b(?:claim|claims|part|parts)\b")
 _SERVICE_OCR_RE = re.compile(r"\bOCR\b", re.IGNORECASE)
+
+#: Единый список служебных/сырых контейнеров. Имена — внутренние блоки
+#: пайплайна и источники сырых дампов (OCR/vision/tool/debug), которые не
+#: являются пользовательской речью. Контейнер удаляется ВМЕСТЕ с содержимым:
+#: вырезать только теги недостаточно (S16 ревью: сырой OCR-текст оставался).
+_SERVICE_CONTAINER_NAMES = (
+    "chat_context|analysis_context|claim_coverage|evidence_delivery|"
+    "temporal_context|claim_parts|evidence|bot_knowledge|reply_chains|"
+    "user_hint|search_results|verdict_draft|original_material|user_request|"
+    "form_request|chat_time_context|raw|ocr|ocr_text|vision|image_context|"
+    "media_context|tool_context|service_context|internal|debug|trace|"
+    "diagnostics|payload|schema"
+)
 _SERVICE_BLOCK_RE = re.compile(
-    r"<\s*(chat_context|analysis_context|claim_coverage|evidence_delivery|"
-    r"temporal_context|claim_parts|evidence|bot_knowledge|reply_chains)"
-    r"\b[^>]*>.*?<\s*/\s*\1\s*>",
+    rf"<\s*(?P<tag>{_SERVICE_CONTAINER_NAMES})\b[^>]*>.*?"
+    rf"<\s*/\s*(?P=tag)\s*>",
     re.IGNORECASE | re.DOTALL)
+#: Незакрытый служебный контейнер: его содержимое нельзя публиковать, поэтому
+#: вырезается до конца абзаца/текста (закрывающий тег потерян/обрезан).
+_SERVICE_OPEN_RE = re.compile(
+    rf"<\s*(?:{_SERVICE_CONTAINER_NAMES})\b[^>]*>", re.IGNORECASE)
 _SERVICE_TAG_RE = re.compile(
-    r"</?(?:claim|claim_parts|claim_coverage|temporal_context|evidence|"
-    r"evidence_delivery|analysis_context|chat_context|user_hint|"
-    r"search_results|verdict_draft|original_material|user_request|"
-    r"form_request|bot_knowledge|reply_chains|Chat_Time_Context)"
-    r"\b[^>]*>", re.IGNORECASE)
+    rf"</?\s*(?:{_SERVICE_CONTAINER_NAMES})\b[^>]*>", re.IGNORECASE)
+
+
+def _drop_unclosed_service_containers(text: str) -> str:
+    """Удалить незакрытые служебные контейнеры вместе с их содержимым.
+
+    Вызывается ПОСЛЕ удаления закрытых блоков: остаток открывающего тега
+    означает потерянный/обрезанный close-tag. Содержимое такого блока —
+    внутренние данные, а не ответ; удаляем до пустой строки (конец абзаца) или
+    до конца текста. Обычная речь, где имя тега упомянуто без ``<``, не
+    затрагивается.
+    """
+    while True:
+        match = _SERVICE_OPEN_RE.search(text)
+        if match is None:
+            return text
+        tail = text[match.end():]
+        boundary = re.search(r"\n\s*\n", tail)
+        end = match.end() + (boundary.end() if boundary else len(tail))
+        text = text[:match.start()] + " " + text[end:]
 
 
 def strip_service_tokens(text: str) -> str:
@@ -2050,6 +2081,7 @@ def strip_service_tokens(text: str) -> str:
     if not out:
         return out
     cleaned = _SERVICE_BLOCK_RE.sub(" ", out)
+    cleaned = _drop_unclosed_service_containers(cleaned)
     cleaned = _SERVICE_TAG_RE.sub(" ", cleaned)
     cleaned = _SERVICE_FIELD_RE.sub(" ", cleaned)
     cleaned = _SERVICE_ENUM_RE.sub(" ", cleaned)

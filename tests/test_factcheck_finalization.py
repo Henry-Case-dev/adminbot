@@ -307,7 +307,8 @@ async def test_empty_research_still_reports_the_technical_cause():
 
 @pytest.mark.asyncio
 async def test_service_enums_ids_and_ocr_context_never_reach_the_user():
-    """Служебные метки/ID/OCR-контейнер вычищаются; нормальный ответ остаётся."""
+    """Служебные метки/ID/OCR-контейнер вычищаются ВМЕСТЕ с содержимым;
+    нормальный ответ остаётся."""
     leak = ("Курс вырос вдвое — это подтверждается. "
             "factual_verdict=insufficient_evidence; ev-1; claim c1; "
             "<chat_context note=\"OCR dump\">сырой OCR-текст с картинки"
@@ -317,12 +318,69 @@ async def test_service_enums_ids_and_ocr_context_never_reach_the_user():
     text = run.verdict_text
     assert "Курс вырос вдвое" in text
     for forbidden in ("insufficient_evidence", "reason_code", "source_missing",
-                      "ev-1", "claim c1", "chat_context", "OCR"):
+                      "ev-1", "claim c1", "chat_context", "OCR",
+                      # содержимое сырого контейнера — не пользовательская речь
+                      "текст с картинки"):
         assert forbidden not in text
     # и на границе renderer'а те же метки не публикуются
     rendered = render_factcheck(_presentation(run)).text
-    for forbidden in ("insufficient_evidence", "reason_code", "chat_context"):
+    for forbidden in ("insufficient_evidence", "reason_code", "chat_context",
+                      "текст с картинки"):
         assert forbidden not in rendered
+
+
+def test_service_container_content_removed_but_tag_mention_kept():
+    """Контейнер вырезается вместе с содержимым, а упоминание имени тега в
+    обычной речи (без ``<``) сохраняется."""
+    from services.factcheck_service import strip_service_tokens
+
+    text = ("Нормальный ответ. <chat_context note=\"OCR dump\">сырой OCR-текст "
+            "с картинки</chat_context> Продолжение ответа.")
+    cleaned = strip_service_tokens(text)
+    assert cleaned == "Нормальный ответ. Продолжение ответа."
+    mention = "В статье тег chat_context упомянут как пример разметки."
+    assert strip_service_tokens(mention) == mention
+
+
+@pytest.mark.asyncio
+async def test_unclosed_service_container_content_removed():
+    """Незакрытый контейнер (потерян/обрезан close-tag) не оставляет сырой
+    текст в ответе — иначе адверсариальный probe ревьюера проходит."""
+    leak = ("Курс вырос вдвое — это подтверждается. "
+            "<chat_context note=\"OCR dump\">сырой OCR-текст с картинки")
+    llm = RecordingLLM(verbalizer=leak)
+    run = await _run(_env("Курс вырос вдвое."), llm, refs=[_ref(1)])
+    assert "Курс вырос вдвое" in run.verdict_text
+    assert "сырой OCR-текст" not in run.verdict_text
+    assert "картинки" not in run.verdict_text
+
+
+@pytest.mark.asyncio
+async def test_service_container_only_is_not_published_as_the_answer():
+    """Ответ, состоящий только из сырого контейнера, не публикуется: берётся
+    честный частичный результат по собранным материалам."""
+    only = ("<chat_context note=\"OCR dump\">сырой OCR-текст с картинки"
+            "</chat_context>")
+    llm = RecordingLLM(verbalizer=only)
+    run = await _run(_env("Курс вырос вдвое."), llm, refs=[_ref(1)])
+    text = run.verdict_text
+    assert "текст с картинки" not in text
+    assert "ocr" not in text.casefold()
+    assert "частично" in text.casefold()
+    assert "Выдержка 1" in text
+
+
+def test_renderer_removes_service_container_content():
+    """Renderer — последняя граница: содержимое контейнера не публикуется."""
+    verdict = orch.CheckedVerdict(
+        verdict_text="Нормальный ответ.", route="legacy_single",
+        factual_verdict=None)
+    rendered = render_factcheck(orch.FactcheckPresentation(
+        text="Нормальный ответ. <chat_context>OCR дамп: секрет</chat_context>"),
+        verdict)
+    assert "Нормальный ответ." in rendered.text
+    assert "секрет" not in rendered.text
+    assert "chat_context" not in rendered.text
 
 
 @pytest.mark.asyncio
@@ -371,6 +429,25 @@ async def test_legacy_single_path_also_keeps_service_tokens_out(monkeypatch):
     for forbidden in ("insufficient_evidence", "reason_code", "source_missing",
                       "ev-3"):
         assert forbidden not in result
+
+
+@pytest.mark.asyncio
+async def test_legacy_single_path_removes_container_content():
+    """Legacy-путь также вырезает контейнер с содержимым, сохраняя ответ."""
+    from unittest.mock import AsyncMock, MagicMock
+    from services.factcheck_service import FactCheckService
+
+    aggregator = MagicMock()
+    aggregator.search = AsyncMock(return_value="хиты поиска")
+    llm = MagicMock()
+    llm.generate = AsyncMock(
+        return_value="Курс вырос вдвое. <chat_context>OCR дамп: секрет"
+                     "</chat_context>")
+    service = FactCheckService(aggregator, llm)
+    result = await service.check_claim("Курс вырос вдвое.")
+    assert "Курс вырос вдвое." in result
+    assert "секрет" not in result
+    assert "chat_context" not in result
 
 
 # ── SFC-9-04: объём пропорционален задаче ───────────────────────────────────
