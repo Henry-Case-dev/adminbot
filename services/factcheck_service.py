@@ -1962,6 +1962,43 @@ def partial_inventory_has_content(inventory: dict) -> bool:
                ("confirmed", "refuted", "partial", "technical", "collected"))
 
 
+_PARTIAL_LABELS = (
+    ("confirmed", "Подтверждено"),
+    ("refuted", "Опровергнуто"),
+    ("partial", "Подтверждено частично"),
+    ("insufficient", "Недостаточно подтверждено"),
+    ("technical", "Технически не проверено"),
+)
+
+
+def partial_inventory_lines(inventory: dict, *, search_boundary: str = ""
+                            ) -> list[str]:
+    """Человеческие строки частичного результата (без нового шаблона).
+
+    Граница поиска не повторяется второй раз, если уже названа в открывающей
+    фразе (тот же принцип «ограничение один раз», что у renderer'а §7.3).
+    """
+    lines: list[str] = []
+    for key, label in _PARTIAL_LABELS:
+        rows = list(inventory.get(key) or ())
+        if key == "technical" and search_boundary \
+                and rows == [search_boundary]:
+            continue
+        if not rows:
+            continue
+        lines.append(label + ": " + "; ".join(rows[:4])
+                     + ("; …" if len(rows) > 4 else ""))
+    collected = inventory.get("collected") or []
+    if collected:
+        rows = []
+        for row in collected:
+            host = str(row.get("host") or "")
+            text = str(row.get("text") or "")
+            rows.append(f"• {text}" + (f" ({host})" if host else ""))
+        lines.append("Уже собрано:\n" + "\n".join(rows))
+    return lines
+
+
 # ── Служебные метки и идентификаторы НЕ выходят в пользовательскую речь ──────
 # S16-FC-FINALIZE / SFC-10-06 (owner §10.6): служебные enum, внутренние схемы,
 # технические идентификаторы и сырые контейнеры (OCR-контекст) не должны
@@ -3767,6 +3804,15 @@ class FactCheckService:
                 "evaluated_period": verdict.evaluated_period,
                 "assessment_mode": verdict.assessment_mode,
             }, ensure_ascii=False)) + "</verdict_draft>",
+            "<evidence>" + escape_xml_text("\n\n".join(
+                "[%s] published: %s source=%s;opened=%s;strength=%s\n%s" % (
+                    r.get("evidence_id") or "?",
+                    _fmt_evidence_date(r.get("published_at")),
+                    r.get("source_kind") or "unknown",
+                    "yes" if r.get("opened") else "no",
+                    r.get("strength") or "none",
+                    r["support"])
+                for r in evidence)) + "</evidence>",
         ]
         # S16-FC-FINALIZE (owner §9.2): валидатор проверяет ТОТ ЖЕ предмет, что
         # аналитик: вопрос о связанной части материала без самого материала
@@ -3782,15 +3828,6 @@ class FactCheckService:
         if request_text:
             sections.insert(2, "<user_request>" + escape_xml_text(request_text)
                             + "</user_request>")
-        sections.append("<evidence>" + escape_xml_text("\n\n".join(
-            "[%s] published: %s source=%s;opened=%s;strength=%s\n%s" % (
-                r.get("evidence_id") or "?",
-                _fmt_evidence_date(r.get("published_at")),
-                r.get("source_kind") or "unknown",
-                "yes" if r.get("opened") else "no",
-                r.get("strength") or "none",
-                r["support"])
-            for r in evidence)) + "</evidence>")
         if delivery is not None:
             block = delivery.payload_block()
             if block:
@@ -4142,19 +4179,20 @@ class FactCheckService:
         inventory = partial_inventory(verdict, evidence,
                                       search_boundary=search_boundary)
         has_partial = partial_inventory_has_content(inventory)
-        if has_partial or _verdict_is_substantive(verdict):
+        if _verdict_is_substantive(verdict):
             # §7: содержательный разбор не подменяется сообщением о сбое —
             # даже при отказе вербализатора разбор частей сохраняется.
-            if _verdict_is_substantive(verdict):
-                opener = ("Внешний поиск не удался, поэтому разбор сделан без "
-                          "веб-источников."
-                          if str(retrieval_state or "") in (
-                              RETRIEVAL_BUDGET, RETRIEVAL_SEARCH_FAILED,
-                              RETRIEVAL_PROCESSING_FAILED,
-                              RETRIEVAL_NO_RESULTS)
-                          else "Проверка неполная — ниже то, что уже "
-                               "установлено.")
-            elif str(retrieval_state or "") in openers:
+            opener = ("Внешний поиск не удался, поэтому разбор сделан без "
+                      "веб-источников."
+                      if str(retrieval_state or "") in (
+                          RETRIEVAL_BUDGET, RETRIEVAL_SEARCH_FAILED,
+                          RETRIEVAL_PROCESSING_FAILED, RETRIEVAL_NO_RESULTS)
+                      else "Проверка неполная — ниже то, что уже установлено.")
+            pieces = [opener]
+            pieces.extend(partial_inventory_lines(
+                inventory, search_boundary=search_boundary))
+        elif has_partial:
+            if str(retrieval_state or "") in openers:
                 # P0-FACTCHECK (§3.6)/FC-05: технический класс поиска называется
                 # ДОСЛОВНО прежней честной фразой — частичный разбор идёт после
                 # неё, а не вместо неё.
@@ -4168,34 +4206,8 @@ class FactCheckService:
                 opener = ("Проверку удалось выполнить только частично — ниже "
                           "то, что уже установлено.")
             pieces = [opener]
-            labels = (
-                ("confirmed", "Подтверждено"),
-                ("refuted", "Опровергнуто"),
-                ("partial", "Подтверждено частично"),
-                ("insufficient", "Недостаточно подтверждено"),
-                ("technical", "Технически не проверено"),
-            )
-            for key, label in labels:
-                rows = inventory.get(key) or []
-                if key == "technical" and search_boundary \
-                        and rows == [search_boundary]:
-                    # Граница поиска уже названа в открывающей фразе —
-                    # второй раз то же ограничение не повторяем (§7.3).
-                    continue
-                if not rows:
-                    continue
-                pieces.append(label + ": "
-                              + "; ".join(rows[:4])
-                              + ("; …" if len(rows) > 4 else ""))
-            collected = inventory.get("collected") or []
-            if collected:
-                lines = []
-                for row in collected:
-                    host = str(row.get("host") or "")
-                    text = str(row.get("text") or "")
-                    lines.append(f"• {text}"
-                                 + (f" ({host})" if host else ""))
-                pieces.append("Уже собрано:\n" + "\n".join(lines))
+            pieces.extend(partial_inventory_lines(
+                inventory, search_boundary=search_boundary))
         else:
             pieces = [openers.get(str(retrieval_state or ""),
                                   "Недостаточно данных для полной проверки "

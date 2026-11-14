@@ -352,6 +352,27 @@ def test_renderer_strips_service_tokens_from_verdict_text():
     assert "ev-7" not in rendered.text
 
 
+@pytest.mark.asyncio
+async def test_legacy_single_path_also_keeps_service_tokens_out(monkeypatch):
+    """Одиночный legacy-путь (kill-switch/rollback) публикует тот же чистый
+    пользовательский текст, а не служебные метки."""
+    from unittest.mock import AsyncMock, MagicMock
+    from services.factcheck_service import FactCheckService
+
+    aggregator = MagicMock()
+    aggregator.search = AsyncMock(return_value="хиты поиска")
+    llm = MagicMock()
+    llm.generate = AsyncMock(
+        return_value="Курс вырос вдвое. factual_verdict=insufficient_evidence; "
+                     "ev-3; reason_code=source_missing")
+    service = FactCheckService(aggregator, llm)
+    result = await service.check_claim("Курс вырос вдвое.")
+    assert "Курс вырос вдвое." in result
+    for forbidden in ("insufficient_evidence", "reason_code", "source_missing",
+                      "ev-3"):
+        assert forbidden not in result
+
+
 # ── SFC-9-04: объём пропорционален задаче ───────────────────────────────────
 
 @pytest.mark.asyncio
