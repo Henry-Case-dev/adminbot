@@ -47,7 +47,13 @@
   "focused": [
     {
       "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_semantic_contracts.py tests/test_memory_unified_retrieval.py tests/test_memory_unified_retrieval_06.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py tests/test_history_isolation.py tests/test_mca07_retrieval_context_round1027.py tests/test_memory_lookup_round1026.py tests/test_mem_time_profile.py tests/test_mem_time_asof.py tests/test_memory_attribution.py -q",
-      "result": "417 passed"
+      "result": "417 passed",
+      "note": "after the N9 test change (test-only; product unchanged)"
+    },
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py -q",
+      "result": "22 passed",
+      "note": "after the N9 test change"
     },
     {
       "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py -q",
@@ -79,8 +85,22 @@
     {"seam": "A2 replace=False", "mutation": "always False", "killed": 8, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota", "test_apply_plan_memory_scope_replaces_and_reuses_pool", "test_sources_and_policy_matrix", "test_single_foreign_row_does_not_assemble_block", "test_auto_then_historical_pays_one_period_leg"]},
     {"seam": "A2 full/profile gates", "mutation": "remove both gates", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_unmarked_present_questions_keep_ids_and_skip", "test_profile_reads_not_called_on_full_auto_slice", "test_a1p_historical_vs_auto"]},
     {"seam": "A4 reserve floor", "mutation": "target = reserve", "killed": 1, "tests": ["test_biography_fills_free_envelope_beyond_reserve"]},
-    {"seam": "A2 trimmed under historical", "mutation": "trimmed = rows", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota"]}
+    {"seam": "A2 trimmed under historical", "mutation": "trimmed = rows", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota"]},
+    {"seam": "N9 current-state branch (real pool via retrieve + _rag_unified_rows)", "mutation": "period_replace_allowed -> True", "killed": 1, "observed": "delivered period rows 1 (old 2023 row with 2 shared stems), replace_allowed=1, period_skipped empty (the full slice is trimmed before the old row is appended)", "tests": ["TestLabeledRelevance::test_precision_under_historical_authority"]}
   ],
+  "n9_test_gap": {
+    "review_finding": "the kind=current branch used literals (pool=1, delivered=0) and never called retrieval/selector",
+    "fix": "the branch now seeds a competing old row with two shared stems, calls mrc.retrieve on the real old pool, then calls _rag_unified_rows(auto) on a full 10-row current slice",
+    "assertions": [
+      "pool non-empty (real fact_rows)",
+      "delivered period_fill rows == 0",
+      "all 10 current ids preserved",
+      "no period_fill retrieve call in the consumer",
+      "period stats replace_allowed == 0 and period_skipped == auto_full_slice"
+    ],
+    "pool_rows": 5,
+    "mutation_result": "with period_replace_allowed -> True the same test fails at delivered == 0 (one old row is appended and current ids are trimmed)"
+  },
   "arch_decision_fixes": {
     "authority": "memory_scope + PeriodIntent.source; query_marker excluded; topic_parity/topic keys/guard/current markers removed",
     "unified_rows": "auto full/thin => no period retrieve, slice untouched, period_skipped named; historical keeps trimmed slice",

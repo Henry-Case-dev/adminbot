@@ -656,9 +656,11 @@ def _labels():
 
 class TestLabeledRelevance:
     @pytest.mark.asyncio
-    async def test_precision_under_historical_authority(self, db):
+    async def test_precision_under_historical_authority(self, db, monkeypatch):
         """Метки независимы; historical — единственный путь, где старый
-        материал замещает срез. Hard-кейсы допускают ошибку периода/темы."""
+        материал замещает срез. Hard-кейсы допускают ошибку периода/темы.
+        T3 (N9): нулевой старый вклад под `auto` измеряется на НЕПУСТОМ пуле,
+        который реально проходит `retrieve`, а не литералами."""
         cases = _labels()
         for index, case in enumerate(cases):
             chat_id = CHAT - (index + 1)
@@ -683,12 +685,50 @@ class TestLabeledRelevance:
         measured = []
         for case in cases:
             if case["kind"] == "current":
-                intent = mrc.resolve_period_intent(case["query"])
-                assert mrc.period_replace_allowed(intent, "auto") is False
-                measured.append({"id": case["id"], "kind": "current",
-                                 "delivered": 0, "relevant": 0,
-                                 "pool": 1, "expected_years": [],
-                                 "delivered_years": []})
+                # N9: контроль «T3: 0 периодных строк» обязан реально
+                # обращаться к пулу. Досеиваем строку, которая делит с
+                # вопросом ДВЕ основы и потому прошла бы §2-порог селектора:
+                # нулевой старый вклад в срез даёт авторитет (`auto` не
+                # замещает), а не пустой пул или порог.
+                await _fact(db, "Алиной сейчас", year=2023,
+                            origin="history_import", target=None,
+                            ts=_ts(2023, 8, 1), chat_id=case["_chat"])
+                query_stems = mrc.period_subject_stems(case["query"])
+                assert mrc.period_subject_shared(
+                    query_stems, "Алиной сейчас") >= 2
+                pool_request = mrc.RetrievalRequest(
+                    chat_id=case["_chat"], query=case["query"],
+                    mode="specific", purpose="reply", top_k=32,
+                    period_fill=True, memory_scope="auto",
+                    channels=("lexical",), exclude_years=(2026,))
+                pool_result = await mrc.retrieve(db, None, pool_request)
+                pool_rows = list(pool_result.fact_rows)
+                assert pool_rows, "T3: старый пул должен быть непустым"
+                # Реальный консьюмер на полном текущем срезе.
+                base = _current_rows(10)
+                calls: list = []
+                service_auto = _service(monkeypatch, base, pool_rows,
+                                        calls=calls)
+                rows = await service_auto._rag_unified_rows(
+                    case["_chat"], case["query"], _stub(text=case["query"]),
+                    memory_scope="auto")
+                stats = service_auto._rag_period_stats
+                delivered = sum(1 for row in rows
+                                if isinstance(row, dict) and row.get("period_fill"))
+                assert delivered == 0, rows
+                assert {row["id"] for row in rows} == set(range(8000, 8010))
+                assert calls and all(call["period_fill"] is False
+                                     for call in calls), calls
+                assert stats["replace_allowed"] == 0, stats
+                assert stats["period_skipped"] == "auto_full_slice", stats
+                measured.append({
+                    "id": case["id"], "kind": "current",
+                    "delivered": delivered, "relevant": 0,
+                    "pool": len(pool_rows),
+                    "expected_years": [], "delivered_years": [],
+                    "replace_allowed": int(stats["replace_allowed"]),
+                    "period_skipped": str(stats["period_skipped"]),
+                })
                 continue
             request = mrc.RetrievalRequest(
                 chat_id=case["_chat"], query=case["query"], mode="specific",
