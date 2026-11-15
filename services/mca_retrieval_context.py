@@ -490,6 +490,280 @@ _HISTORY_MARKERS = (
     "когда то", "вспомни, как", "вспомни как", "хроник", "летопис",
 )
 
+# ── VMQ-MEM/TIME Slice A (15.11.2026): структурированный периодный intent ───
+# Явный год или обнаруженный мемуарный/исторический запрос передаются в
+# периодный добор отдельным значением, а не угадываются потребителем повторно.
+# `_HISTORY_MARKERS` выше НЕ расширяется: M2-триггер (Slice C) остаётся
+# прежним; набор форм ниже относится ТОЛЬКО к отбору периодного пула.
+PERIOD_INTENT_NONE = "none"
+PERIOD_INTENT_YEAR = "explicit_year"
+PERIOD_INTENT_HISTORICAL = "historical"
+
+#: Коды причин отсева периодного пула (наружу — только коды и числа).
+PERIOD_DROP_OUT_OF_TARGET_YEAR = "out_of_target_year"
+PERIOD_DROP_UNKNOWN_YEAR = "unknown_year"
+PERIOD_DROP_SUBJECT = "subject_mismatch"
+PERIOD_DROP_POOL_CAP = "period_pool_cap"
+#: Как строка вошла: год-цель сохранён / мягкий предметный fallback / вектор.
+PERIOD_KEEP_IN_TARGET = "in_target_year"
+PERIOD_KEEP_SOFT_FALLBACK = "subject_soft_fallback"
+PERIOD_KEEP_VECTOR = "vector_leg_no_threshold"
+
+#: Порог «тот же предмет, не то же слово» (действующий §2: ≥2 общих основы).
+PERIOD_MIN_SHARED_STEMS = 2
+#: Мягкий fallback исторического намерения включается, только когда пул даёт
+#: НЕ МЕНЬШЕ двух строк с одной общей основой: одна случайная строка блок не
+#: собирает (действующий контракт next-stage «§2/§5 одна чужая строка»).
+PERIOD_SOFT_FALLBACK_MIN_ROWS = 2
+#: Формы исторического/мемуарного запроса для ПЕРИОДНОГО намерения. Только
+#: основа сравнения уже существующих маркеров + повествовательные словоформы
+#: («рассказ» не входит в `_HISTORY_MARKERS`, где стоит «расскажи»).
+_PERIOD_HISTORY_MARKERS = _HISTORY_MARKERS + (
+    "рассказ", "за все годы", "за эти годы", "биограф",
+)
+_YEAR_IN_QUERY_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+
+
+@dataclasses.dataclass(frozen=True)
+class PeriodIntent:
+    """Структурированное намерение периода для периодного добора (Slice A).
+
+    ``kind`` — закрытый набор `none|explicit_year|historical`; ``years`` —
+    явные годы запроса (только для `explicit_year`); ``source`` — откуда
+    намерение взялось (`query_year|query_marker|memory_scope`). Пустой
+    `PeriodIntent()` — прежнее поведение: отбор по одному порогу основ.
+    """
+    kind: str = PERIOD_INTENT_NONE
+    years: tuple[int, ...] = ()
+    source: str = ""
+
+    @property
+    def is_explicit_year(self) -> bool:
+        return self.kind == PERIOD_INTENT_YEAR and bool(self.years)
+
+    @property
+    def is_historical(self) -> bool:
+        return self.kind == PERIOD_INTENT_HISTORICAL
+
+    def as_dict(self) -> dict:
+        return {"kind": self.kind, "years": list(self.years),
+                "source": self.source}
+
+
+def resolve_period_intent(query, *, memory_scope: str = "auto") -> PeriodIntent:
+    """Детерминированное периодное намерение запроса (без LLM и без словарей
+    «сейчас»). Приоритет: явный год → `memory_scope=historical` → маркеры
+    исторического/мемуарного запроса → `none` (прежний путь)."""
+    text = str(query or "").casefold()
+    years = tuple(sorted({int(y) for y in _YEAR_IN_QUERY_RE.findall(text)}))
+    if years:
+        return PeriodIntent(PERIOD_INTENT_YEAR, years, "query_year")
+    try:
+        scope = str(_mc.normalize_memory_scope(memory_scope).value)
+    except Exception:                                     # pragma: no cover
+        scope = "auto"
+    if scope == "historical":
+        return PeriodIntent(PERIOD_INTENT_HISTORICAL, (), "memory_scope")
+    for marker in _PERIOD_HISTORY_MARKERS:
+        if marker in text:
+            return PeriodIntent(PERIOD_INTENT_HISTORICAL, (), "query_marker")
+    return PeriodIntent()
+
+
+def period_row_year(row) -> int | None:
+    """Год строки-факта периодного пула (`message_timestamp`→`created_at`→
+    `rag_ts`) в UTC. Неизвестное время — None (не догадка)."""
+    if not isinstance(row, dict):
+        return None
+    ts = (row.get("message_timestamp") or row.get("created_at")
+          or row.get("rag_ts"))
+    if not ts:
+        return None
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc).year
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def _candidate_year(cand) -> int | None:
+    """Год retrieval-кандидата по событийному `sent_at` (UTC)."""
+    try:
+        ts = int(getattr(cand, "sent_at", 0) or 0)
+    except (TypeError, ValueError):
+        return None
+    if ts <= 0:
+        return None
+    try:
+        return datetime.datetime.fromtimestamp(
+            ts, datetime.timezone.utc).year
+    except (OSError, OverflowError, ValueError):            # pragma: no cover
+        return None
+
+
+def period_subject_stems(text) -> set:
+    """Основы значимых слов (≥4 символов) — существующая морфология §2.
+
+    Никаких списков тем/годов: тот же `_tokenize` и `text_morphology.stem_word`,
+    что использует SQL-окно периодного FTS (`_period_fts_keywords`)."""
+    try:
+        from services.text_morphology import stem_word
+    except Exception:                                     # pragma: no cover
+        return set()
+    out: set = set()
+    for word in _tokenize(text):
+        stem = stem_word(str(word))
+        if len(stem) >= 4:
+            out.add(stem)
+    return out
+
+
+def period_subject_shared(query_stems: set, text) -> int:
+    """Сколько РАЗНЫХ основ делят вопрос и текст факта (§2).
+
+    Это лексическая релевантность пары «вопрос ↔ строка», а не независимость
+    оснований; значение пишется в строку (`stems_shared`) один раз."""
+    if not query_stems or not str(text or "").strip():
+        return 0
+    return len(set(query_stems) & period_subject_stems(text))
+
+
+def period_row_proxy(row) -> str | None:
+    """Как строка вошла в периодный добор: `knn` (векторная нога) / `stems`."""
+    if not isinstance(row, dict):
+        return None
+    proxy = row.get("subject_proxy")
+    if proxy:
+        return str(proxy)
+    source = str(row.get("period_source") or "")
+    if source == "vector":
+        return "knn"
+    if source == "lexical":
+        return "stems"
+    return source or None
+
+
+def _mark_period_row(row, shared, reason: str) -> None:
+    """Записать единственное вычисление `stems_shared` в саму строку."""
+    if not isinstance(row, dict):
+        return
+    row["stems_shared"] = None if shared is None else int(shared)
+    row["stems_shared_reason"] = reason
+
+
+def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" = None,
+                       policy: str = "auto", slots: int = 2) -> tuple[list, dict]:
+    """Отбор периодного пула: время-цель ПЕРВЫМ, предмет — с мягким fallback.
+
+    VMQ-MEM/TIME Slice A (15.11.2026). Прежний безусловный порог ≥2 основ
+    отклонял корректные строки явного года (13 строк 2023 в пуле → 0
+    принятых). Здесь:
+
+    * `explicit_year` — строки ВНУТРИ целевого года сохраняются (порядок — по
+      числу общих основ), строки другого года и с неизвестным временем
+      отбрасываются с кодом причины: 2026-строка не выдаёт себя за 2023;
+    * `historical` — действующий порог ≥2 сохраняется, но если принятых
+      меньше слотов и пул даёт не меньше двух строк с одной общей основой,
+      добираются они (`subject_soft_fallback`, bounded) — «тот же предмет»
+      без потери темы; одна слабая строка блок не собирает;
+    * `none` — прежний путь байт-в-байт (порог ≥2, векторная строка под
+      `auto` тоже проходит порог): текущее состояние не ослабляется, словаря
+      «сейчас» нет.
+
+    Возвращает ``(принятые, статистика)``; статистика — только коды и числа
+    (`dropped_*`, `kept_*`, `soft_fallback`, `intent`), без текстов фактов."""
+    intent = intent or resolve_period_intent(query, memory_scope=policy)
+    slots = max(1, int(slots or 1))
+    query_stems = period_subject_stems(query)
+    rows = list(rows or ())
+    vector_rows = [row for row in rows if period_row_proxy(row) == "knn"]
+    lexical_rows = [row for row in rows if period_row_proxy(row) != "knn"]
+    ordered = vector_rows + lexical_rows
+    stats = {
+        "intent": intent.as_dict(),
+        "rows": len(rows),
+        "kept": 0,
+        "kept_in_target": 0,
+        "kept_vector": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "dropped_subject": 0,
+        "dropped_pool_cap": 0,
+        "soft_fallback": 0,
+        "lexical_strict_passed": 0,
+    }
+    accepted: list = []
+    # ── явный год: время-цель первым, предмет только упорядочивает ──────────
+    if intent.is_explicit_year:
+        years = set(int(y) for y in intent.years)
+        cap = max(4, slots * 4)
+        in_target: list[tuple[int, int, dict]] = []
+        for index, row in enumerate(ordered):
+            year = period_row_year(row)
+            if year is None:
+                stats["dropped_unknown_year"] += 1
+                _mark_period_row(row, None, PERIOD_DROP_UNKNOWN_YEAR)
+                continue
+            if year not in years:
+                stats["dropped_out_of_target_year"] += 1
+                _mark_period_row(row, None, PERIOD_DROP_OUT_OF_TARGET_YEAR)
+                continue
+            shared = period_subject_shared(query_stems, (row or {}).get("fact"))
+            _mark_period_row(row, shared, PERIOD_KEEP_IN_TARGET)
+            in_target.append((shared, index, row))
+        in_target.sort(key=lambda item: (-item[0], item[1]))
+        for _shared, _index, row in in_target:
+            if len(accepted) >= cap:
+                stats["dropped_pool_cap"] += 1
+                continue
+            accepted.append(row)
+            stats["kept_in_target"] += 1
+        stats["kept"] = len(accepted)
+        return accepted, stats
+    # ── historical / none: действующий порог §2 + bounded мягкий fallback ────
+    # Порог лексики остаётся прежним: векторная строка под `auto` тоже проходит
+    # его (контракт C1 — «чужой текущий разговор» не входит). Обнаруженное
+    # историческое намерение даёт только мягкий fallback ниже, а не отмену
+    # порога: текущее состояние не ослабляется.
+    strict = str(policy or "") != "historical"
+    soft_pool: list[tuple[int, int, dict]] = []
+    lexical_strict_passed = 0
+    for index, row in enumerate(ordered):
+        knn_row = period_row_proxy(row) == "knn"
+        if knn_row and not strict:
+            # Смысловой путь под `historical` порог не проходит (действующий
+            # контракт next-stage §2): ближайший сосед в окне, не оракул.
+            _mark_period_row(row, None, PERIOD_KEEP_VECTOR)
+            stats["kept_vector"] += 1
+            accepted.append(row)
+            continue
+        shared = period_subject_shared(query_stems, (row or {}).get("fact"))
+        _mark_period_row(row, shared, "lexical_threshold_applied")
+        if shared >= PERIOD_MIN_SHARED_STEMS:
+            accepted.append(row)
+            lexical_strict_passed += 1
+            continue
+        stats["dropped_subject"] += 1
+        if intent.is_historical and shared >= 1:
+            soft_pool.append((shared, index, row))
+    if intent.is_historical and soft_pool and len(accepted) < slots \
+            and lexical_strict_passed == 0 \
+            and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
+        # Мягкий fallback: порог §2 не дал ни одной лексической строки, но пул
+        # даёт не меньше двух строк «одного предмета» с одной основой. Тогда
+        # добираем лучшие из них (bounded слотами) с явным кодом причины.
+        # Одна слабая строка блок не собирает — контракт §2/§5 сохранён.
+        need = slots - len(accepted)
+        soft_pool.sort(key=lambda item: (-item[0], item[1]))
+        for shared, _index, row in soft_pool[:need]:
+            _mark_period_row(row, shared, PERIOD_KEEP_SOFT_FALLBACK)
+            accepted.append(row)
+            stats["soft_fallback"] += 1
+            stats["dropped_subject"] -= 1
+    stats["lexical_strict_passed"] = lexical_strict_passed
+    stats["kept"] = len(accepted)
+    return accepted, stats
+
 
 @dataclasses.dataclass(frozen=True)
 class RetrievalRequest:
@@ -594,6 +868,13 @@ class RetrievalRequest:
     #: Предикат добавляется только при непустом наборе; пустой набор
     #: `NOT IN ()` не строит. Действует только при `period_fill=True`.
     exclude_years: tuple[int, ...] = ()
+    #: VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное намерение
+    #: (`PeriodIntent`) — явный год или обнаруженный исторический запрос.
+    #: Передаётся потребителем вместе с `period_fill`; None → `retrieve`
+    #: разрешает его сам (`resolve_period_intent`). Для `explicit_year` пул
+    #: периода сохраняет строки целевого года до предметного порога, а
+    #: строки другого года отбрасываются с кодом причины (2026 ≠ 2023).
+    period_intent: "PeriodIntent | None" = None
     #: VMQ-M2 (M-04/O-04; ARCH_REUSE_CONFIRMED): запросить bounded
     #: overview-проекцию покрытия/периодов/контрпримеров/ограничений и
     #: semantic-hints в ТОМ ЖЕ `retrieve()`. Default False — прочие
@@ -1990,6 +2271,13 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # триггеров года нет: здесь только валидация уже принятого решения.
     memory_scope = _mc.normalize_memory_scope(request.memory_scope)
     policy = memory_scope.value
+    # VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное намерение
+    # (явный год / исторический запрос) — из запроса, иначе детерминированно
+    # из вопроса и политики. Применяется ТОЛЬКО к периодному добору.
+    period_intent = None
+    if request.period_fill:
+        period_intent = request.period_intent or resolve_period_intent(
+            request.query, memory_scope=policy)
     #: Счётчики причин исключения (§10): policy→status→expired→relevance→
     #: budget. Только числа, без текстов фактов; уходят в durable-событие.
     excluded: dict = {}
@@ -2218,9 +2506,21 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             # двойников → честная деградация на лексику с кодом причины.
             rows = []
             reader = getattr(memory, "period_fill_candidates", None)
+            # VMQ-MEM/TIME Slice A (15.11.2026): векторная нога участвует
+            # только после допуска существующей контроль-плоскости. Отказ
+            # (`insufficient`/`incompatible`) не маскируется лексикой —
+            # наружу уходит честный `vector_unavailable` + причина.
+            admission = await _period_vector_admission(db, memory)
+            period_stats["vector_admission"] = admission
             if not callable(reader):
                 period_stats["vector_leg"] = "unsupported_memory"
                 period_stats["knn_ms_reason"] = "vector_leg_unsupported"
+            elif admission.get("admitted") is False:
+                reason = str(admission.get("reason_code")
+                             or admission.get("state") or "vector_unavailable")
+                period_stats["vector_leg"] = reason
+                period_stats["vector_unavailable_reason"] = reason
+                period_stats["knn_ms_reason"] = "vector_leg_unavailable"
             else:
                 for chat_id in chat_ids:
                     knn_clock = time.perf_counter()
@@ -2246,6 +2546,13 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
                         period_stats["knn_ms_reason"] = "vector_leg_error"
                         rows = []
                     break
+            unavailable = _vector_unavailable_reason(period_stats)
+            if unavailable:
+                # Код отказа уже лежит в `vector_leg` (совместимость прежних
+                # читателей); `vector_unavailable` — явная метка честной
+                # недоступности ноги, а не доказанного результата.
+                period_stats["vector_unavailable"] = 1
+                period_stats["vector_unavailable_reason"] = unavailable
             for pos, row in enumerate(rows or ()):
                 if not isinstance(row, dict):
                     continue
@@ -2337,6 +2644,28 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     # объявленного субъекта выпадает, если не совпал и по тексту запроса.
     deduped = _dedup(raw)
     deduped, subject_dropped = apply_subject_gate(deduped, request)
+    # VMQ-MEM/TIME Slice A (15.11.2026): при ЯВНОМ годе пул периода сохраняет
+    # строки целевого года первыми. Строка другого года и строка без
+    # известного времени отбрасываются с кодом причины — 2026-строка не
+    # выдаёт себя за 2023 и не занимает периодные слоты. Прочие запросы
+    # (включая current-state) этот фильтр не касается вовсе.
+    period_in_target = 0
+    period_out_of_target = 0
+    period_unknown_year = 0
+    if period_intent is not None and period_intent.is_explicit_year:
+        years = set(int(year) for year in period_intent.years)
+        kept: list = []
+        for cand in deduped:
+            year = _candidate_year(cand)
+            if year is None:
+                period_unknown_year += 1
+                continue
+            if year not in years:
+                period_out_of_target += 1
+                continue
+            kept.append(cand)
+            period_in_target += 1
+        deduped = kept
     # Порядок: история/эпизодика — эпизоды первыми, далее типизированный ранг
     # (канал + доверие + актуальность + режим), а не одна similarity.
     # P0-HA ISOLATION: при активной связке history_bias не применяется
@@ -2481,6 +2810,22 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
             # не выдуманный `0 ms`, и на отбор/status/fallback не влияет.
             "knn_ms": _period_ms_of(period_stats, "knn_ms"),
             "fts_ms": _period_ms_of(period_stats, "fts_ms"),
+            # VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное
+            # намерение и честная недоступность векторной ноги — только коды и
+            # числа. `vector_leg`/`vector_rows` остаются прежними ключами для
+            # существующих читателей.
+            "period_intent": (period_intent.as_dict()
+                              if period_intent is not None else None),
+            "rows_in_target": int(period_in_target),
+            "dropped_out_of_target_year": int(period_out_of_target),
+            "dropped_unknown_year": int(period_unknown_year),
+            "vector_unavailable": int(
+                bool(period_stats.get("vector_unavailable"))),
+            "vector_unavailable_reason": (
+                str(period_stats.get("vector_unavailable_reason") or "") or None),
+            "vector_admission": (dict(period_stats["vector_admission"])
+                                 if isinstance(period_stats.get(
+                                     "vector_admission"), dict) else None),
         }
         for _field in ("knn_ms", "fts_ms"):
             if period_usage[_field] is None:
@@ -2614,6 +2959,71 @@ def _exclude_years_of(request: RetrievalRequest):
         except (TypeError, ValueError):
             continue
     return tuple(sorted(set(years))) or None
+
+
+async def _period_vector_admission(db, memory) -> dict:
+    """Read-only состояние допуска индекс-поколения для периодной векторной
+    ноги (VMQ-MEM/TIME Slice A).
+
+    Единый контракт — существующий `embedding_control_plane.resolve_index_compat`
+    (никакого второго решения и никаких записей): `state=compatible`
+    (`class=admitted|instant`) — нога допущена (`admitted=True`,
+    `proven=True`); `insufficient`/`incompatible` — нога НЕ участвует, наружу
+    уходит честный `vector_unavailable` + `reason_code`; `no_generation`/
+    `source_empty` — доказательства совместимости нет ни в одну сторону,
+    поэтому решает прежний гейт A06 внутри `MemoryManager` (`admitted=None`,
+    `proven=False`). Исключение контроль-плоскости — отказ (`admission_error`),
+    а не молчаливое участие. Никогда не бросает."""
+    try:
+        from services import embedding_control_plane as _ecp
+    except Exception:                                     # pragma: no cover
+        return {"state": "unavailable", "class": "", "reason_code":
+                "admission_unavailable", "action": "", "admitted": False,
+                "proven": False}
+    current_fp = None
+    fingerprint = getattr(memory, "_identity_fingerprint", None)
+    if callable(fingerprint):
+        try:
+            current_fp = fingerprint()
+        except Exception:                                 # pragma: no cover
+            current_fp = None
+    dims = getattr(memory, "_vec_dim", None)
+    try:
+        compat = await _ecp.resolve_index_compat(
+            db, "graph_facts_vec", current_fp=current_fp,
+            current_dims=dims)
+    except Exception:
+        logger.warning("[mca07] period vector admission failed", exc_info=True)
+        return {"state": "unavailable", "class": "", "reason_code":
+                "admission_error", "action": "", "admitted": False,
+                "proven": False}
+    state = str(compat.get("state") or "")
+    reason = str(compat.get("reason_code") or "")
+    admission = {
+        "state": state,
+        "class": str(compat.get("class") or ""),
+        "reason_code": reason,
+        "action": str(compat.get("action") or ""),
+    }
+    if state == str(_ecp.STATE_COMPATIBLE):
+        admission.update({"admitted": True, "proven": True})
+    elif state in (str(_ecp.STATE_NO_GENERATION), str(_ecp.STATE_SOURCE_EMPTY)):
+        # Доказательства совместимости нет ни в одну сторону: действует
+        # прежний гейт A06 внутри MemoryManager (не строже основного KNN).
+        admission.update({"admitted": None, "proven": False})
+    else:
+        admission.update({"admitted": False, "proven": False,
+                          "reason_code": reason or state or "insufficient"})
+    return admission
+
+
+def _vector_unavailable_reason(stats: dict) -> str | None:
+    """Код причины, если периодная векторная нога не дала результата по
+    состоянию (не «ok»/пусто/неподдерживаемая память). Иначе None."""
+    code = str(stats.get("vector_leg") or "")
+    if code in ("", "ok", "no_rows", "unsupported_memory"):
+        return None
+    return code
 
 
 def _period_add_ms(stats: dict, field: str, started: float) -> None:
@@ -3033,5 +3443,14 @@ __all__ = [
     "OVERVIEW_MAX_HINTS", "RetrievalOverview", "overview_from_views",
     "build_retrieval_overview", "apply_overview_to_bundle",
     "overview_bundle_slots",
+    # VMQ-MEM/TIME Slice A (15.11.2026): структурированный периодный intent
+    "PERIOD_INTENT_NONE", "PERIOD_INTENT_YEAR", "PERIOD_INTENT_HISTORICAL",
+    "PERIOD_DROP_OUT_OF_TARGET_YEAR", "PERIOD_DROP_UNKNOWN_YEAR",
+    "PERIOD_DROP_SUBJECT", "PERIOD_DROP_POOL_CAP",
+    "PERIOD_KEEP_IN_TARGET", "PERIOD_KEEP_SOFT_FALLBACK", "PERIOD_KEEP_VECTOR",
+    "PERIOD_MIN_SHARED_STEMS", "PERIOD_SOFT_FALLBACK_MIN_ROWS",
+    "PeriodIntent", "resolve_period_intent",
+    "period_row_year", "period_row_proxy", "period_subject_stems",
+    "period_subject_shared", "select_period_rows",
 ]
 

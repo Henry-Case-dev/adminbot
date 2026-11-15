@@ -932,11 +932,22 @@ class TestLexicalStemPeriodFill:
                 assert period == [], "operative до добора не доходит"
             else:
                 assert period, calls
-                assert period[0][2] == {"lexical_stem": True,
-                                        "include_archived": True,
-                                        "period_fill": True,
-                                        "exclude_years": tuple(
-                                            sorted({2026}))}, period
+                # VMQ-MEM/TIME Slice A: периодный вызов несёт ещё и
+                # структурированное периодное намерение (`PeriodIntent`);
+                # остальные флаги прежние.
+                period_kwargs = period[0][2]
+                intent = period_kwargs.get("period_intent")
+                assert intent is not None, period
+                assert intent.kind == "historical", intent
+                assert intent.source == ("query_marker"
+                                         if policy == "auto"
+                                         else "memory_scope"), intent
+                assert {key: value for key, value in period_kwargs.items()
+                        if key != "period_intent"} == {
+                    "lexical_stem": True,
+                    "include_archived": True,
+                    "period_fill": True,
+                    "exclude_years": tuple(sorted({2026}))}, period
                 assert period[0][3] == 32, (period, "пул фиксирован: 32")
 
     @pytest.mark.asyncio

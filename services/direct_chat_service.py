@@ -102,7 +102,6 @@ from services import bot_persona
 from services import thread_chain
 from services import mca_gates
 from services import mca_retrieval_context as _mca_rc
-from services import text_morphology as _morph      # VMQ-MEM §2: основа слова
 from services import response_freshness as _fresh   # MCA-22 (C7, D8)
 from services import bot_output_ledger as _ledger   # MCA-22 (C2, D2)
 from services import graphrag_provenance as _gprov  # MCA-22 (C5/C8, D6/D9)
@@ -3470,18 +3469,11 @@ def _mark_rag_fact(item, ranks: dict, as_of: dict | None = None,
 
 
 def _rag_row_year(row) -> int | None:
-    """Год строки-кандидата direct-RAG (§3/§5): `rag_ts` → UTC-год."""
-    if not isinstance(row, dict):
-        return None
-    ts = (row.get("message_timestamp") or row.get("created_at")
-          or row.get("rag_ts"))
-    try:
-        if not ts:
-            return None
-        return datetime.datetime.fromtimestamp(
-            int(ts), datetime.timezone.utc).year
-    except (TypeError, ValueError, OSError, OverflowError):
-        return None
+    """Год строки-кандидата direct-RAG (§3/§5): `rag_ts` → UTC-год.
+
+    VMQ-MEM/TIME Slice A: одно вычисление с периодным отбором
+    (`mca_retrieval_context.period_row_year`), второго разбора нет."""
+    return _mca_rc.period_row_year(row)
 
 
 def _rag_unattributed_keys(rows: list) -> set:
@@ -3551,15 +3543,9 @@ def _subject_proxy_histogram(rows: list, kept: list) -> str:
 def _rag_subject_stems(text) -> set:
     """Основы значимых слов (≥4 символа) — существующая морфология (§2).
 
-    Никаких списков тем/времён/годов: `_TOKEN_RE`-эквивалент (`_tokenize`
-    того же retrieval) и существующий `stem_word`. Стемминг здесь —
-    сравнение «тот же предмет», а не расширение FTS-запроса."""
-    out: set = set()
-    for word in _mca_rc._tokenize(text):
-        stem = _morph.stem_word(str(word))
-        if len(stem) >= 4:
-            out.add(stem)
-    return out
+    VMQ-MEM/TIME Slice A: каноническое вычисление — в retrieval-контракте
+    (`period_subject_stems`), здесь только совместимый фасад."""
+    return _mca_rc.period_subject_stems(text)
 
 
 def _rag_subject_shared(query_stems: set, text) -> int:
@@ -3570,9 +3556,7 @@ def _rag_subject_shared(query_stems: set, text) -> int:
     `provenance.independent_grounds_count`). Одно и то же вычисление
     используется решением §2 и полем `stems_shared` диагностики: значение
     не пересчитывается вторым способом ни в отчёте, ни в JSON."""
-    if not query_stems or not str(text or "").strip():
-        return 0
-    return len(query_stems & _rag_subject_stems(text))
+    return _mca_rc.period_subject_shared(query_stems, text)
 
 
 def _rag_period_judged_keys(rows: list) -> set:
@@ -14173,6 +14157,13 @@ class DirectChatService:
                 period_reused = 1
             else:
                 period_reused = 0
+            # VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное
+            # намерение (явный год / исторический запрос) передаётся И в
+            # retrieval-контракт, И в отбор пула — одно вычисление, один
+            # смысл. Для запроса без года и без исторической формы намерение
+            # `none`: прежний порог §2 не ослабляется.
+            period_intent = _mca_rc.resolve_period_intent(query,
+                                                         memory_scope=policy)
             if extra_rows is None:
                 extra = await self._rag_retrieve(
                     db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
@@ -14180,7 +14171,8 @@ class DirectChatService:
                     lexical_stem=True,
                     include_archived=policy in ("historical", "auto"),
                     period_fill=True,
-                    exclude_years=base_years)
+                    exclude_years=base_years,
+                    period_intent=period_intent)
                 extra_rows = self._rag_rows_from_result(
                     extra, self._RAG_PERIOD_POOL)
                 period_meta = dict(getattr(extra, "period_fill", None) or {})
@@ -14189,17 +14181,34 @@ class DirectChatService:
                 self._rag_period_pool = {"key": cache_key,
                                          "rows": list(extra_rows),
                                          "meta": dict(period_meta)}
-            accepted, rejected = self._rag_period_subject_filter(query,
-                                                                 extra_rows,
-                                                                 policy)
+            accepted, selection = _mca_rc.select_period_rows(
+                extra_rows, query=str(query or ""), intent=period_intent,
+                policy=policy, slots=period_slots)
+            selection = dict(selection or {})
+            rejected = int(selection.get("dropped_subject") or 0)
             self._rag_period_stats = {
-                "rejected_subject": int(rejected),
+                "rejected_subject": rejected,
                 "vector_pool_miss": int(period_meta.get("vector_pool_miss")
                                         or 0),
                 "vector_leg": str(period_meta.get("vector_leg") or ""),
                 "vector_rows": int(period_meta.get("vector_rows") or 0),
                 "vector_kept": sum(1 for row in accepted
                                    if row.get("subject_proxy") == "knn"),
+                "vector_unavailable": int(bool(
+                    period_meta.get("vector_unavailable"))),
+                "vector_unavailable_reason": str(
+                    period_meta.get("vector_unavailable_reason") or ""),
+                "period_intent": dict(selection.get("intent") or {}),
+                "kept_in_target": int(selection.get("kept_in_target") or 0),
+                "soft_fallback": int(selection.get("soft_fallback") or 0),
+                "dropped_out_of_target_year": int(
+                    selection.get("dropped_out_of_target_year") or 0),
+                "dropped_unknown_year": int(
+                    selection.get("dropped_unknown_year") or 0),
+                "dropped_pool_cap": int(
+                    selection.get("dropped_pool_cap") or 0),
+                "selection_rows": int(selection.get("rows") or 0),
+                "selection_kept": int(selection.get("kept") or 0),
                 "exclude_years": len(base_years),
                 "period_leg_reused": int(period_reused),
             }
@@ -14224,11 +14233,13 @@ class DirectChatService:
                             include_archived: bool = False,
                             period_fill: bool = False,
                             exclude_years=(),
+                            period_intent=None,
                             include_overview: bool = False):
         """Один вызов существующего `retrieve` (без второго контура).
 
-        `lexical_stem`/`include_archived`/`period_fill`/`exclude_years`
-        включают ТОЛЬКО периодный добор (VMQ-MEM, решения 11.11.2026);
+        `lexical_stem`/`include_archived`/`period_fill`/`exclude_years`/
+        `period_intent` включают ТОЛЬКО периодный добор (VMQ-MEM, решения
+        11.11.2026; VMQ-MEM/TIME Slice A — периодный intent 15.11.2026);
         основной срез и `operative` остаются с прежними значениями по
         умолчанию. `include_overview` (VMQ-M2, M-04) — аддитивная bounded
         overview-проекция того же вызова; default False = паритет."""
@@ -14244,6 +14255,7 @@ class DirectChatService:
             include_archived=bool(include_archived),
             period_fill=bool(period_fill),
             exclude_years=tuple(exclude_years or ()),
+            period_intent=period_intent,
             include_overview=bool(include_overview))
         return await _mca_rc.retrieve(db, memory, request)
 
@@ -14267,56 +14279,36 @@ class DirectChatService:
 
     @classmethod
     def _rag_period_subject_filter(cls, query: str, extra_rows: list,
-                                   policy: str = "historical"
-                                   ) -> tuple[list, int]:
-        """Отбор пула периодного добора: «тот же предмет, не то же слово» (§2).
+                                   policy: str = "historical", *,
+                                   intent=None, slots=None) -> tuple[list, int]:
+        """Отбор пула периодного добора — ЕДИНАЯ политика retrieval-контракта.
 
-        * Лексическая строка входит только при `≥2` разных общих основах
-          вопроса и текста (существующие `_tokenize` + `stem_word`, основа
-          ≥4 символов). Порог 1 оставлял шум одного слова.
-        * Векторная строка (`subject_proxy=knn`) — ближайший сосед в окне.
-          Под `historical` порог §2 к ней НЕ применяется: иначе смысловой
-          путь отменён. Под `auto` решение L1 отсутствует, поэтому §4/§5
-          действуют буквально: «старый год входит только через §2» — там
-          порог обязателен для ЛЮБОЙ периодной строки (сосед без общих основ
-          — это чужой текущий разговор, а не ответ на вопрос о прошлом).
-        * Порядок обхода: сначала строки векторной ноги, затем лексические —
-          слоты `limit//5` забирает смысловой путь, а не случайное слово.
+        VMQ-MEM/TIME Slice A (15.11.2026): порог §2 (≥2 общих основы) больше не
+        единственный судья. Отбор живёт в `mca_retrieval_context.
+        select_period_rows`, чтобы потребитель, отчёт и трасса читали ОДНО
+        вычисление (тот же `stem_word`, те же коды причин):
 
-        VMQ-MEM next stage (§2, уточнение 12.11.2026): `stems_shared` —
-        ЛЕКСИЧЕСКАЯ релевантность (общие основы вопроса и текста), а не
-        независимость оснований. Значение считается ЗДЕСЬ существующим
-        `_rag_subject_shared` и пишется в саму строку (`stems_shared` +
-        `stems_shared_reason`), чтобы отчёт и JSON читали ОДНО вычисление, а
-        не пересчитывали по-своему. Где порог не применяется (векторная нога
-        под `historical`) — `None` + причина, а не выдуманный 0.
+        * явный год запроса (`intent.kind == "explicit_year"`) — строки
+          целевого года сохраняются (порядок — по числу общих основ), строки
+          другого года и с неизвестным временем отбрасываются с кодом
+          `out_of_target_year`/`unknown_year`: 2026-строка не выдаёт себя за
+          2023;
+        * исторический запрос (`historical`) — порог ≥2 сохраняется, но при
+          нехватке принятых строк добираются строки с одной общей основой
+          (`subject_soft_fallback`, bounded слотами);
+        * иначе (`none`, текущее состояние) — прежний порог §2 байт-в-байт:
+          словаря «сейчас» нет, ослабления нет.
 
-        Возвращает `(принятые, число_отклонённых_по_предмету)`."""
-        strict = str(policy or "") != "historical"
-        query_stems = _rag_subject_stems(query)
-        vector_rows = [row for row in extra_rows
-                       if _rag_subject_proxy_of(row) == "knn"]
-        lexical_rows = [row for row in extra_rows
-                        if _rag_subject_proxy_of(row) != "knn"]
-        accepted: list = []
-        rejected = 0
-        for row in vector_rows + lexical_rows:
-            knn_row = _rag_subject_proxy_of(row) == "knn"
-            if knn_row and not strict:
-                if isinstance(row, dict):
-                    row["stems_shared"] = None
-                    row["stems_shared_reason"] = "vector_leg_no_threshold"
-                accepted.append(row)
-                continue
-            shared = _rag_subject_shared(query_stems, row.get("fact"))
-            if isinstance(row, dict):
-                row["stems_shared"] = int(shared)
-                row["stems_shared_reason"] = "lexical_threshold_applied"
-            if shared >= cls._RAG_PERIOD_MIN_STEMS:
-                accepted.append(row)
-            else:
-                rejected += 1
-        return accepted, rejected
+        `stems_shared`/`stems_shared_reason` пишутся в саму строку тем же
+        вычислением; где порог не применяется (векторная нога под
+        `historical`) — `None` + причина, а не выдуманный 0.
+
+        Возвращает `(принятые, число_отклонённых_по_предмету)`; полная
+        статистика причин отсева — в `_rag_period_stats` вызывающего."""
+        accepted, stats = _mca_rc.select_period_rows(
+            extra_rows, query=str(query or ""), intent=intent, policy=policy,
+            slots=(2 if slots is None else slots))
+        return accepted, int((stats or {}).get("dropped_subject") or 0)
 
     @classmethod
     def _rag_append_period_rows(cls, rows: list, extra: list, limit: int,
