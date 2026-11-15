@@ -14228,6 +14228,16 @@ class DirectChatService:
                     selection.get("historical_quota") or 0),
                 "multi_year_quota": int(
                     selection.get("multi_year_quota") or 0),
+                # Slice D (15.11.2026): паритет обычного вопроса по материалу
+                # пула и ступени потери года (TIME-04): статус/давность/
+                # релевантность/бюджет — числа и коды, без текстов фактов.
+                "topic_quota": int(selection.get("topic_quota") or 0),
+                "topic_years": int(selection.get("topic_years") or 0),
+                "dropped_status": int(selection.get("dropped_status") or 0),
+                "dropped_budget": int(selection.get("dropped_budget") or 0),
+                "pool_status": dict(selection.get("pool_status") or {}),
+                "pool_expired": int(selection.get("pool_expired") or 0),
+                "age_policy": str(selection.get("age_policy") or ""),
                 "dropped_out_of_target_year": int(
                     selection.get("dropped_out_of_target_year") or 0),
                 "dropped_unknown_year": int(
@@ -14459,6 +14469,17 @@ class DirectChatService:
         # Субъектный материал — ПЕРВЫМ: иначе unattributed-контекст чата
         # занимает свободные слоты периода и факты о человеке не доходят.
         profile_rows = subject_rows + message_rows + about_rows
+        # Slice D (15.11.2026): субъектно-привязанный материал (факты о
+        # человеке и его собственные сообщения) сильнее общего периодного
+        # добора по теме: иначе `topic_parity_quota` (MEM-04) занимает оба
+        # слота, и профиль остаётся без собственных строк человека. Заменяем
+        # ТОЛЬКО generic period-строки и только когда есть что поставить
+        # (unattributed-контекст периодные строки не вытесняет).
+        bound = any(row.get("subject_role") or row.get("authored_by_subject")
+                    for row in profile_rows)
+        if bound:
+            rows = [row for row in rows
+                    if not (isinstance(row, dict) and row.get("period_fill"))]
         return self._rag_append_period_rows(rows, profile_rows, limit)
 
     @staticmethod

@@ -511,13 +511,24 @@ PERIOD_DROP_OUT_OF_TARGET_YEAR = "out_of_target_year"
 PERIOD_DROP_UNKNOWN_YEAR = "unknown_year"
 PERIOD_DROP_SUBJECT = "subject_mismatch"
 PERIOD_DROP_POOL_CAP = "period_pool_cap"
+#: Slice D: статус строки не участвует в исторической выдаче (не
+#: `confirmed`/`archived_*`). SQL-каналы такие строки и так не отдают; отбор
+#: обязан вести себя так же, если строка пришла от другого канала.
+PERIOD_DROP_STATUS = "status_not_usable"
 #: Как строка вошла: год-цель сохранён / мягкий предметный fallback / вектор /
-#: ограниченная историческая квота / multi-year квота.
+#: ограниченная историческая квота / multi-year квота / паритет обычного
+#: вопроса (Slice D).
 PERIOD_KEEP_IN_TARGET = "in_target_year"
 PERIOD_KEEP_SOFT_FALLBACK = "subject_soft_fallback"
 PERIOD_KEEP_VECTOR = "vector_leg_no_threshold"
 PERIOD_KEEP_HISTORICAL_QUOTA = "historical_quota"
 PERIOD_KEEP_MULTI_YEAR = "multi_year_quota"
+#: Slice D (15.11.2026): обычный вопрос без исторической формы получает
+#: ограниченный вклад старого периода, если САМ ПУЛ показывает многолетнюю
+#: предметную непрерывность (≥2 строки «того же предмета» из ≥2 разных лет).
+#: Это не словарь и не догадка о формулировке: сигнал берётся из материала,
+#: который уже найден существующим retrieval; квота — те же слоты.
+PERIOD_KEEP_TOPIC_PARITY = "topic_parity_quota"
 
 #: Порог «тот же предмет, не то же слово» (действующий §2: ≥2 общих основы).
 PERIOD_MIN_SHARED_STEMS = 2
@@ -744,12 +755,23 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
       меньше слотов и пул даёт не меньше двух строк с одной общей основой,
       добираются они (`subject_soft_fallback`, bounded) — «тот же предмет»
       без потери темы; одна слабая строка блок не собирает;
-    * `none` — прежний путь байт-в-байт (порог ≥2, векторная строка под
-      `auto` тоже проходит порог): текущее состояние не ослабляется, словаря
-      «сейчас» нет.
+    * `none` — прежний путь (порог ≥2, векторная строка под `auto` тоже
+      проходит порог): текущее состояние не ослабляется, словаря «сейчас»
+      нет. Slice D (15.11.2026): если САМ ПУЛ показывает многолетнюю
+      предметную непрерывность (не меньше двух строк «того же предмета» из
+      не меньше двух разных незавершённых лет), обычный вопрос получает тот
+      же ограниченный вклад старого периода (`topic_parity_quota`), что и
+      исторический: сигнал берётся из уже найденного материала, а не из
+      формулировки. Одна строка или один год паритет не включают.
 
     Возвращает ``(принятые, статистика)``; статистика — только коды и числа
-    (`dropped_*`, `kept_*`, `soft_fallback`, `intent`), без текстов фактов."""
+    (`dropped_*`, `kept_*`, `soft_fallback`, `intent`), без текстов фактов.
+    Ступени потери года различимы: `pool_status`/`dropped_status` (статус
+    материала), `pool_expired` (давность известна, но не является штрафом —
+    `age_policy=not_applied`), `dropped_subject` (релевантность),
+    `dropped_pool_cap` и `dropped_budget` (бюджет),
+    `dropped_out_of_target_year`/`dropped_unknown_year` (время).
+    """
     intent = intent or resolve_period_intent(query, memory_scope=policy)
     slots = max(1, int(slots or 1))
     query_stems = period_subject_stems(query)
@@ -757,6 +779,13 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     vector_rows = [row for row in rows if period_row_proxy(row) == "knn"]
     lexical_rows = [row for row in rows if period_row_proxy(row) != "knn"]
     ordered = vector_rows + lexical_rows
+    if reference_year is not None:
+        try:
+            current_year = int(reference_year)
+        except (TypeError, ValueError):
+            current_year = datetime.datetime.now(datetime.timezone.utc).year
+    else:
+        current_year = datetime.datetime.now(datetime.timezone.utc).year
     stats = {
         "intent": intent.as_dict(),
         "rows": len(rows),
@@ -767,11 +796,42 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "dropped_unknown_year": 0,
         "dropped_subject": 0,
         "dropped_pool_cap": 0,
+        "dropped_status": 0,
+        "dropped_budget": 0,
+        "pool_status": {"confirmed": 0, "archived": 0, "other": 0},
+        "pool_expired": 0,
+        "age_policy": "not_applied",
         "soft_fallback": 0,
         "historical_quota": 0,
         "multi_year_quota": 0,
+        "topic_quota": 0,
+        "topic_years": 0,
         "lexical_strict_passed": 0,
     }
+    now_ts = int(time.time())
+    eligible: list = []
+    for row in ordered:
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("status") or "").strip().lower()
+        if not status or status == "confirmed":
+            stats["pool_status"]["confirmed"] += 1
+        elif status in ("archived_fact", "archived_belief"):
+            stats["pool_status"]["archived"] += 1
+        else:
+            stats["pool_status"]["other"] += 1
+            stats["dropped_status"] += 1
+            _mark_period_row(row, None, PERIOD_DROP_STATUS)
+            continue
+        expires_at = row.get("expires_at")
+        if expires_at not in (None, ""):
+            try:
+                if int(expires_at) <= now_ts:
+                    stats["pool_expired"] += 1
+            except (TypeError, ValueError):
+                pass
+        eligible.append(row)
+    ordered = eligible
     accepted: list = []
     # ── явный год: время-цель первым, предмет только упорядочивает ──────────
     if intent.is_explicit_year:
@@ -798,6 +858,9 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
                 continue
             accepted.append(row)
             stats["kept_in_target"] += 1
+        # Бюджет для явного года — тот же `period_pool_cap` (под-категория,
+        # а не второй счётчик: суммы причин не удваиваются).
+        stats["dropped_budget"] = stats["dropped_pool_cap"]
         stats["kept"] = len(accepted)
         return accepted, stats
     # ── historical / none: действующий порог §2 + bounded мягкий fallback ────
@@ -824,8 +887,20 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             lexical_strict_passed += 1
             continue
         stats["dropped_subject"] += 1
-        if intent.wants_year_diverse and shared >= 1:
+        if shared >= 1:
             soft_pool.append((shared, index, row))
+    # Slice D: многолетняя предметная непрерывность — свойство ПУЛА, а не
+    # формулировки. Считаем только строки «того же предмета» (≥1 основа),
+    # у которых известен год, отличный от текущего, и требуем ≥2 разных лет.
+    topic_years = sorted({
+        year for _shared, _index, row in soft_pool
+        for year in (period_row_year(row),)
+        if year is not None and year != current_year})
+    stats["topic_years"] = len(topic_years)
+    topic_parity = (intent.kind == PERIOD_INTENT_NONE
+                    and str(policy or "").strip().lower() != "operative"
+                    and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS
+                    and len(topic_years) >= 2)
     if intent.is_historical and soft_pool and len(accepted) < slots \
             and lexical_strict_passed == 0 \
             and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
@@ -840,8 +915,12 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             accepted.append(row)
             stats["soft_fallback"] += 1
             stats["dropped_subject"] -= 1
-    if intent.wants_year_diverse and soft_pool and len(accepted) < slots \
-            and (lexical_strict_passed > 0 or intent.is_multi_year) \
+    want_quota = intent.wants_year_diverse or topic_parity
+    #: Строки «того же предмета» старого года, ещё не вошедшие в набор.
+    quota_pool: list[tuple[int, int, dict]] = []
+    if want_quota and soft_pool and len(accepted) < slots \
+            and (lexical_strict_passed > 0 or intent.is_multi_year
+                 or topic_parity) \
             and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
         # Slice B: ограниченная историческая/multi-year квота. Строгий порог
         # §2 уже дал строку (owner-формулировка A1: 2024), поэтому мягкий
@@ -850,14 +929,10 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         # строки «того же предмета» (≥1 основа), не текущий год и только годы,
         # которых ещё нет в принятом наборе; одна слабая строка блок не
         # собирает (тот же контракт §2/§5).
-        try:
-            current_year = int(reference_year) if reference_year is not None \
-                else datetime.datetime.now(datetime.timezone.utc).year
-        except (TypeError, ValueError):                   # pragma: no cover
-            current_year = datetime.datetime.now(datetime.timezone.utc).year
+        # Slice D: для обычного вопроса (intent=none) та же квота включается
+        # только при многолетней предметной непрерывности пула (topic_parity).
         seen_years = {period_row_year(row) for row in accepted}
         seen_years.discard(None)
-        quota_pool: list[tuple[int, int, dict]] = []
         for shared, index, row in soft_pool:
             year = period_row_year(row)
             if year is None or year == current_year or year in seen_years:
@@ -865,10 +940,15 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             quota_pool.append((shared, index, row))
         quota_pool.sort(key=lambda item: (-item[0], period_row_year(
             item[2]) or 9999, item[1]))
-        keep_reason = (PERIOD_KEEP_MULTI_YEAR if intent.is_multi_year
-                       else PERIOD_KEEP_HISTORICAL_QUOTA)
-        quota_stat = ("multi_year_quota" if intent.is_multi_year
-                      else "historical_quota")
+        if intent.is_multi_year:
+            keep_reason, quota_stat = (PERIOD_KEEP_MULTI_YEAR,
+                                       "multi_year_quota")
+        elif intent.is_historical:
+            keep_reason, quota_stat = (PERIOD_KEEP_HISTORICAL_QUOTA,
+                                       "historical_quota")
+        else:
+            keep_reason, quota_stat = (PERIOD_KEEP_TOPIC_PARITY,
+                                       "topic_quota")
         need = slots - len(accepted)
         for shared, _index, row in quota_pool:
             if need <= 0:
@@ -882,6 +962,12 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             stats["dropped_subject"] -= 1
             seen_years.add(year)
             need -= 1
+    # Бюджет: строки «того же предмета» старого года, не вошедшие из-за
+    # заполненных слотов (под-категория `dropped_subject`, не второй счётчик:
+    # суммы причин не удваиваются).
+    admitted_quota = (stats["historical_quota"] + stats["multi_year_quota"]
+                      + stats["topic_quota"])
+    stats["dropped_budget"] += max(0, len(quota_pool) - admitted_quota)
     stats["lexical_strict_passed"] = lexical_strict_passed
     stats["kept"] = len(accepted)
     return accepted, stats
@@ -1875,9 +1961,19 @@ def _dedup(candidates: list) -> list:
 
 
 def _apply_filters(candidates: list, request: RetrievalRequest) -> list:
-    """Фильтры по времени (событийное `sent_at`) и участникам (`author_id`)."""
+    """Фильтры по времени (событийное `sent_at`) и участникам (`author_id`).
+
+    VMQ-MEM/TIME Slice D (15.11.2026): при ЗАДАННОМ временном окне кандидат с
+    неизвестным временем (`sent_at == 0`) отклоняется fail-closed. Раньше он
+    проходил оба сравнения и мог попасть в блок, посвящённый конкретному году
+    (`<Old_Episode>` явного года): «время неизвестно» выдавалось за событие
+    года. Для запроса без окна поведение прежнее (неизвестное время не
+    отбрасывается — байт-паритет прежних путей, `test_history_isolation`)."""
     out = []
+    windowed = request.time_from is not None or request.time_to is not None
     for cand in candidates:
+        if windowed and not cand.sent_at:
+            continue
         if request.time_from is not None and cand.sent_at and \
                 cand.sent_at < int(request.time_from):
             continue

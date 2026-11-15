@@ -1,0 +1,87 @@
+{
+  "schema": "vmq-slice-d-labeled/1",
+  "purpose": "Independently labeled historical questions with expected periods and topics for VMQ-TIME-07 precision measurement. Synthetic (R17): no real chats, names or facts.",
+  "reference_year": 2026,
+  "cases": [
+    {
+      "id": "shiz_conf",
+      "query": "что за шизы были на конфе?",
+      "topic_stems": ["шиз", "конф"],
+      "seed_years": [2023, 2024],
+      "distractor_years": [2022, 2025],
+      "topic_texts": ["шизы обсуждали", "на конфе шумели"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2023, 2024]
+    },
+    {
+      "id": "conflict_2023",
+      "query": "из-за чего мы ссорились и ругались в 2023 году",
+      "topic_stems": ["ссор", "ругал"],
+      "seed_years": [2023],
+      "distractor_years": [2024, 2025],
+      "topic_texts": ["ссорились из-за ерунды", "ругались вечером"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2023]
+    },
+    {
+      "id": "event_e1",
+      "query": "что за история с E1, напомни?",
+      "topic_stems": ["истори"],
+      "seed_years": [2023, 2024],
+      "distractor_years": [2022, 2025],
+      "topic_texts": ["история с E1", "E1 тогда уехал"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2023, 2024]
+    },
+    {
+      "id": "work_profile",
+      "query": "где работал и чем занимался?",
+      "topic_stems": ["работал", "занималс"],
+      "seed_years": [2024, 2025],
+      "distractor_years": [2022, 2023],
+      "topic_texts": ["работал на заводе", "занимался ремонтом"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2024, 2025]
+    },
+    {
+      "id": "dog_story",
+      "query": "что за история с собакой?",
+      "topic_stems": ["собак"],
+      "seed_years": [2023, 2024],
+      "distractor_years": [2022, 2025],
+      "topic_texts": ["собака лаяла", "с собакой гуляли"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2023, 2024]
+    },
+    {
+      "id": "move_city",
+      "query": "когда переехал в другой город?",
+      "topic_stems": ["переех", "город"],
+      "seed_years": [2023, 2024],
+      "distractor_years": [2022, 2025],
+      "topic_texts": ["переехал в другой город", "город сменился"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2023, 2024]
+    },
+    {
+      "id": "job_change",
+      "query": "что за история со сменой работы?",
+      "topic_stems": ["смен", "работ"],
+      "seed_years": [2024, 2025],
+      "distractor_years": [2022, 2023],
+      "topic_texts": ["сменил работу весной", "работа поменялась"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2024, 2025]
+    },
+    {
+      "id": "trip_2023",
+      "query": "что за поездка была в 2023 году?",
+      "topic_stems": ["поездк", "поехал"],
+      "seed_years": [2023],
+      "distractor_years": [2024, 2025],
+      "topic_texts": ["поездка сорвалась", "поехал на юг"],
+      "distractor_text": "погода и дорога",
+      "expected_years": [2023]
+    }
+  ]
+}

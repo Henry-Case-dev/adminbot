@@ -4159,9 +4159,15 @@ class ToolRouter:
         if not facts:
             extra = self._memory_lookup_overview_extra(result)
             extra["subject_material"] = subject_material
+            # VMQ-MEM/TIME Slice D (15.11.2026): у ИЗВЕСТНОГО человека
+            # (resolved uid) отсутствие материала — это `no_subject_bound_material`,
+            # а не «unknown_person»: причина потери названа, а не замаскирована.
+            empty_reason = ("no_subject_bound_material"
+                            if person.get("user_id") is not None
+                            else "unknown_person")
             return self._memory_lookup_payload(
                 "ok", "biography", person, [], [], no_data=True,
-                empty_reason="unknown_person", extra=extra)
+                empty_reason=empty_reason, extra=extra)
         extra = dict(self._memory_lookup_dossier_extra(facts))
         extra.update(self._memory_lookup_overview_extra(result))
         extra["subject_material"] = subject_material
