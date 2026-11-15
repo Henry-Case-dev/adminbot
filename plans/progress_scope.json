@@ -990,22 +990,28 @@
     },
     {
       "id": "vmq-onto-01",
-      "status": "BUILDING",
+      "status": "WAITING_EXTERNAL",
       "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
       "source_sha256": "11FD732FED30E5EA2B78B1951D2E8DF8B483FF55FEA92285F6DA57FCC7637CD0",
       "maps": [
         "plans/features/vmq-onto-01/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 PENDING); IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-15T08:20:00+12:00",
+      "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 REVIEW); IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
+      "updated": "2026-11-15T15:31:31+12:00",
       "queue_position": 5,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
-      "execution_state": "implementing",
-      "active_work": "Owner resumed the project queue on 2026-11-15 with VMQ-ONTO-01 as the next task after SMART-CORRECTIVE-01. Reconciliation found M1 (cfec9a1a) and NEXT-02/05 (96c8bc72) are already ancestors of the deployed c97c06e4/2.58.203 line; PM is binding the deployed state, Builder is re-verifying the focused suites on the deployed code, then the next dependency-ready slice continues.",
+      "execution_state": "paused_by_owner",
+      "active_work": "Paused by the owner on 2026-11-15: stop the post-deploy probe, record the current state, update plans/memory and await the next command. 2.58.204 is deployed and verified at 2b419aa2; M-04/M-05/O-01/O-02/O-03/VMQ-A-01 are VERIFIED; O-04 is READY_FOR_LIVE (route/fingerprint pass, live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. The VMQ epic is not DONE.",
+      "owner_pause": {
+        "at": "2026-11-15T15:31:31+12:00",
+        "command": "stop post-deploy work; record current state; bring plans/memory in order; await command",
+        "active_lanes": [],
+        "next_action": "await owner command; no new work"
+      },
       "position_basis": "owner decision",
       "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate. | 2026-11-14 re-entry: no live lane since 2026-11-13 16:46; approved candidates M1 cfec9a1a and NEXT-02/05 96c8bc72 await release batching decision inside the current release line; worktrees preserved. | 2026-11-15 RESUME: SMART-CORRECTIVE-01 engineering delivered at 2.58.203/c97c06e4. Git ancestry shows both VMQ candidates are already in the deployed line (merged in the 2.58.199 train and carried through 2.58.200-203); their map deployed=false is stale. PM binds the deployed state and proposes the next dependency-ready VMQ slice; Builder re-verifies the focused suites on the deployed code. IBM QPU hardware stays blocked_external; VMQ-MEM-TIME evidence remains open.",
       "postdeploy_monitoring": {
@@ -1088,19 +1094,23 @@
       ],
       "queue_after_note": "Владелец 2026-11-12: сразу после самодиагностики. Уточнение владельца: «квантовые рандомы» — это именно VMQ-ONTO-01, не goodmorning-quantum-media.",
       "progress": {
-        "verified_rows": 1,
-        "review_rows": 6,
+        "verified_rows": 12,
+        "review_rows": 7,
+        "ready_for_live_rows": 1,
         "failed_rows": 0,
-        "pending_rows": 63,
-        "real_gap_rows": 54,
+        "pending_rows": 50,
         "total_rows": 70,
-        "deployed_commit": "234776589c934024ed0e8dceba189fb9d70d3215"
+        "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+        "deployed_version": "2.58.204",
+        "note": "2026-11-15: 2.58.204 deployed and verified; M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open; owner paused the project."
       },
       "slice_status": {
-        "VMQ-M1": "3 REVIEW (cfec9a1a) deploy-gate errors=0, not deployed",
-        "VMQ-MEM-NEXT": "NEXT-02/05 REVIEW approved (96c8bc72); NEXT-01 postrelease, NEXT-03 no candidate-bound approval on new candidate, NEXT-04 PENDING",
-        "NEXT-03": "REVIEW on base 23477658 only (controlled case)",
-        "epic": "1 VERIFIED / 6 REVIEW / 0 FAILED / 63 PENDING; 54 owner-mandated REAL_GAP rows unimplemented"
+        "VMQ-M1": "VERIFIED on deployed c97c06e4",
+        "VMQ-ONTO-A/B": "VERIFIED on deployed 2b419aa2 (train)",
+        "VMQ-M2": "M-04/M-05 VERIFIED, O-04 READY_FOR_LIVE; delivery PASS with deferred O-04",
+        "VMQ-MEM-NEXT": "NEXT-02/05 VERIFIED; NEXT-01 postrelease, NEXT-03 REVIEW, NEXT-04 PENDING",
+        "VMQ-V": "V-01..V-04 REVIEW; no real production voice event",
+        "epic": "12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING; open memory and V evidence; not DONE"
       }
     },
     {

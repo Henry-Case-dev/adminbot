@@ -2,20 +2,20 @@
 
 Task: vmq-onto-01 (queue 5, P0) — resumed after SMART-CORRECTIVE-01 engineering closure; parent smart-execution-reliability-01 parked with live acceptance
 Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + amendments 2026-11-10..13; owner continuity instruction 2026-11-15
-Status: in_progress
-Primary phase: postdeploy evidence (owner-requested pause pending)
+Status: waiting_external
+Primary phase: paused_by_owner
 Active feature: vmq-onto-01
-Active lanes: DevOps postdeploy O-04/L1 probe ses_e22c50daaffe4jcEdIQ0egdFym
-Join barriers: O-04 correction-effect and live L1 probe -> Slice D (ordinary memory twin/person facts/trace/relevance); V rows await a real voice event; memory epic remains open
-Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
-Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. Deployed 2b419aa2/2.58.204: M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (route/fingerprint pass, live correction effect unobserved); V-01..V-04 REVIEW; MEM-01 REVIEW, MEM-02..08 PENDING, TIME-03 REVIEW, TIME-01/02/04..09 PENDING. Release gates: VMQ-A/ONTO-A/ONTO-B 0; M2 release 1 (O-04) with delivery PASS and deferred O-04; MEM/TIME red on open rows. Full epic not DONE.
-Next unlocks: after the DevOps O-04/L1 probe: reconcile its evidence, update progress_scope/plans/workflow state and durable memory, then stop and await the owner command. No new product work is dispatched.
-Next execution: awaiting_children
-Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
+Active lanes: none
+Join barriers: none
+Last verified: 2.58.204 deployed at 2b419aa2 (health 200/2.58.204, schema 47, identity verified_deployed, NRestarts 0, settings/prompt preserved); rollback c97c06e4/2.58.203 known.
+Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. Release gates: VMQ-A/ONTO-A/ONTO-B 0; M2 release 1 (O-04) with delivery PASS and deferred O-04; MEM/TIME red on open rows. Full epic not DONE.
+Next unlocks: owner command. No new work is dispatched. Open state: O-04 READY_FOR_LIVE, V-01..V-04 REVIEW, MEM-04/TIME-01/02/04..09 open; the owner cancelled the post-deploy probe.
+Next execution: none
+Review: M1/NEXT2 VERIFIED; ONTO-A/B/M2/A/B/C independently reviewed and deployed/accepted for the released slices; M2 delivery PASS with only O-04 deferred; no new review verdict is pending.
 Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T15:31:31+12:00
+Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 paused_by_owner with 12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING; corrective parked delivered_awaiting_evidence.
+Updated: 2026-11-15T15:35:00+12:00
 
 ## Facts
 
@@ -186,3 +186,6 @@ Deployed 2b419aa2 / 2.58.204 (branch release/vmq-onto-01-2.58.204), base c97c06e
 ## Owner pause command (2026-11-15)
 
 Owner instruction: let the current DevOps task finish, then bring the plans in order, actualize durable memory, and stop and await the next command. No new product work is dispatched. Current active lane: DevOps postdeploy O-04/live-L1 probe (ses_e22c50daaffe4jcEdIQ0egdFym). After its result: reconcile O-04 (observed/unobserved), update progress_scope/plan/workflow state, write a durable memory delta, set Next execution: none and stop. VMQ epic remains open; memory MEM-04/TIME-01/02/04..09 and V-01..V-04 are not claimed closed. Deployment 2.58.204 at 2b419aa2 remains verified; rollback c97c06e4.
+## Owner stop (2026-11-15, final)
+
+Owner cancelled the post-deploy probe ("нет времени") and ordered: record the current state, bring plans/memory in order, stop and await the command. No active lanes. Current state: 2.58.204 deployed and verified at 2b419aa2 (health 200/2.58.204, schema 47, identity verified_deployed, NRestarts 0, settings and manual prompt rev:d31300ef35a0 intact, rollback c97c06e4). Map 50 PENDING / 7 REVIEW / 12 VERIFIED / 1 READY_FOR_LIVE: M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE with the live correction effect unobserved (probe cancelled by owner); V-01..V-04 REVIEW (no real voice event); MEM-04/TIME-01/02/04..09 open. M2 delivery PASS with deferred O-04; VMQ-A/ONTO-A/ONTO-B release gates 0; MEM/TIME gates red on open rows. The VMQ epic is not DONE. The project is paused by the owner; Next execution: none. Durable memory is updated with this checkpoint.
