@@ -1,10 +1,10 @@
 {
-  "captured_at_commit": "bfcccb38",
+  "captured_at_commit": "d294e17fd934e4810dde11f59a1c5dac29dca748",
   "command": "python tools/release_manifest.py --dry-run",
   "deploy_dir_created": false,
   "manifest": {
-    "deployed_at": "2026-11-15T09:15:22.252755Z",
-    "deployed_sha": "bfcccb38d5b423dd64d96edabb52f07184248edb",
+    "deployed_at": "2026-11-15T09:38:57.203963Z",
+    "deployed_sha": "d294e17fd934e4810dde11f59a1c5dac29dca748",
     "dirty_tracked": false,
     "effect": "deploy",
     "previous_sha": null,
@@ -13,5 +13,5 @@
     "schema": 1,
     "version": "2.58.205"
   },
-  "note": "previous_* are null because this dev worktree has no local .deploy/release.json (the production manifest was never read). The dry-run was repeated on the final branch tip after this evidence commit: version=2.58.205, dirty_tracked=false, release_branch=release/vmq-slice-d-2.58.205, deployed_sha equals the tip reported in the Builder handoff."
+  "note": "Captured at the content-frozen tip d294e17f (all E1/E2/E3/E4/E5 changes included), dirty_tracked=false. The final branch tip differs from d294e17f only by this metadata file and the matching deployed_sha in tests-2.58.205.json/assembly.md; a file cannot contain the SHA of the commit that adds it (cryptographic fixed point). The deploy-time manifest on the production checkout records the actually deployed commit itself. previous_* are null because this dev worktree has no local .deploy/release.json (the production manifest was never read)."
 }

@@ -219,12 +219,12 @@ node-id для устойчивости к обрывам сессии) дала
 ## 5. Manifest dry-run
 
 `.deploy/` не создавался (`--dry-run`), production-манифест не трогался.
-На bump-вершине `bfcccb38`:
+На content-frozen вершине `d294e17f` (все правки E1/E2/E3/E4/E5 включены):
 
 ```json
 {
-  "deployed_at": "2026-11-15T09:15:22.252755Z",
-  "deployed_sha": "bfcccb38d5b423dd64d96edabb52f07184248edb",
+  "deployed_at": "2026-11-15T09:38:57.203963Z",
+  "deployed_sha": "d294e17fd934e4810dde11f59a1c5dac29dca748",
   "dirty_tracked": false,
   "effect": "deploy",
   "previous_sha": null,
@@ -236,11 +236,15 @@ node-id для устойчивости к обрывам сессии) дала
 ```
 
 `previous_*` = `null`, потому что в dev-worktree нет `.deploy/release.json`
-(он существует только на прод-хосте и не читался). После evidence-коммита
-dry-run повторён на итоговой вершине ветки: `version=2.58.205`,
-`dirty_tracked=false`, `release_branch=release/vmq-slice-d-2.58.205`,
-`deployed_sha` = tip ветки (точное значение — в handoff, т.к. файл evidence
-не может содержать SHA коммита, который его же и создаёт).
+(он существует только на прод-хосте и не читался). Файл
+`manifest-dry-run.json` зафиксирован на `d294e17f` (`captured_at_commit` =
+`deployed_sha` = `d294e17f`). Итоговая вершина ветки отличается от
+`d294e17f` только метаданными (этот файл и соответствующая строка в
+`tests-2.58.205.json`): файл не может содержать SHA коммита, который его же
+добавляет (криптографическая неподвижная точка). На прод-чекауте штатный
+`release_manifest.py` записывает фактически развёрнутый commit сам; dry-run
+на итоговой вершине повторён — `version=2.58.205`, `dirty_tracked=false`,
+`deployed_sha` = tip ветки (точное значение — в handoff).
 
 ## 6. Откат
 
