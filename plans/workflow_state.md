@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: DevOps deploy 2.58.204 ses_e22e6d517ffeIjPhCMsI1wKhMt
+Active lanes: PM bind postdeploy 2.58.204 ses_e2466fc41ffe29CK1Vz4tDm4SW
 Join barriers: Q1/Q2 Reviewer decisions + train 2.58.204 assembly -> delta review -> controlled deploy -> postdeploy e2e; memory rows stay open and are not claimed fixed
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 50 PENDING, 11 REVIEW, 2 READY_FOR_LIVE, 7 VERIFIED. VMQ-A-01 is VERIFIED as a document artifact (audit-head §13 + V review 9bdd76f0); M1/M-01..03/NEXT-02/05 VERIFIED; ONTO-A/B/M2 and Slices A/B/C approved; TIME-03 REVIEW; M-04/O-04 READY_FOR_LIVE with approved postrelease wait; MEM-04/TIME-01/02/04/06/07 open and not claimed fixed; V-01..V-04 REVIEW. Train 2.58.204 tip 2b419aa2; delta review pending; gate cannot bind a top-level train candidate (per-slice deploy gates: VMQ-A/ONTO-A 0; ONTO-B 2 on O-01/O-02; M2 3 on O-01/O-02/O-03; V 4 live).
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
-Deployment: 2.58.203 verified at c97c06e4; the approved 2.58.204 train is deploying now (rollback c97c06e4).
+Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T14:46:22+12:00
+Updated: 2026-11-15T15:17:15+12:00
 
 ## Facts
 
@@ -180,3 +180,6 @@ PM bound VMQ-A-01 VERIFIED as a document artifact (audit-head §13 sha d93d837b.
 ## Train delta review Approved; deploying 2.58.204 (2026-11-15)
 
 Delta review of exact tip 2b419aa2 Approved (artifact evidence/release-2.58.204/delta-review-r1.md sha 4BAC1DE3...): ONTO-A/B, M2, Slice A/B/C and the bump inspected; 156 train tests passed, 1752/4 identical pre-existing, two independent mutations (chat_scope removal 12 failed/29 passed; wants_overview=False 10 failed/5 passed), DDL 0/schema 47, SELECT-only database changes, 1:1 source_ref_id move, no second store/LLM/flags/composer changes; no blocking findings. Incidental: Slice C evidence is on master, not in the frozen code composition; docs bookkeeping only. Deploy admission is the delta review + per-slice predeploy approvals, with the intra-train O-01/O-02/O-03 dependency ordering documented (they become VERIFIED only after deployment); the requirements gate cannot bind a top-level train candidate, and no fake gate pass is claimed. DevOps is deploying exact 2b419aa2 (2.58.204) with DB backup, manifest before restart, health/schema/identity/journal/settings checks, rollback c97c06e4; postdeploy read-only e2e per the approved M-04/O-04 wait (person-overview, temporal, exact owner query, current-state negative, one retrieve/one bundle, O-04 route/correction, explicit-year period_fill, Old_Episode). Memory epic remains open (MEM-04/TIME-01/02/04/06/07); not claimed fixed.
+## 2.58.204 deployed; postdeploy e2e (2026-11-15)
+
+Deployed 2b419aa2 / 2.58.204 (branch release/vmq-onto-01-2.58.204), base c97c06e4/2.58.203, rollback c97c06e4. Backup integrity ok; health local/public 200 version 2.58.204; schema 47 pending=[]; identity verified_deployed; NRestarts=0; journal 0 traceback/ERROR/CRITICAL (1 known summary_memory warning); bot_settings/chat_profiles digests unchanged; manual prompt rev:d31300ef35a0 12,469/31d17506 intact; effective budgets/caps/capacity pre==post; recheck after ~7 min clean. Postdeploy read-only e2e 32 checks/0 failed on a verified backup copy (no Telegram messages): exact owner query one overview retrieve/same result/one bundle, coverage 2023:83/2024:92/2025:9/2026:16, independent_periods 4, 5 counterexamples, 8 limitations, 20 episode refs; temporal 2023 in_target_year; biography/general one retrieve with overview, identity negative; current-state no overview/period_fill 0/episode reads 0; O-04 20/20 episode_source_fingerprint match, stale 0; cross-chat clean. Honest gaps: e2e is in-process on a backup copy, not the live systemd process/L1; no live post-correction event observed; current-state pre-plan block had 7x2026 + 3 old history_import rows (open memory epic observation, not an M-04/O-04 blocker). Release/delivery gates red only on map binding; PM is rebinding top-level candidate/deployed to 2b419aa2 and binding M-04/O-04/M-05/O-01..O-03 evidence, keeping V REVIEW and memory rows open.
