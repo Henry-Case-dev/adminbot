@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM release-train assessment ses_e2466fc41ffe29CK1Vz4tDm4SW; Reviewer M2 postrelease wait ses_e23d0bf57ffebAD7AXjJn1sL4I
+Active lanes: PM bind M2 waits/train ses_e2466fc41ffe29CK1Vz4tDm4SW; DevOps C corpus ses_e230158b3ffeG4QMQn2VYI1fDL
 Join barriers: PM binds B/C; push C -> DevOps C corpus (exact owner query overview, current-state negative); then release readiness; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 50 PENDING, 14 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on deployed c97c06e4; ONTO-A/B/M2 and Slices A/B/C are approved at REVIEW; Slice B corpus confirms TIME-03 (one event class) at REVIEW; MEM-04, TIME-01/02/04/06/07 and live vector/production L1/Writer remain open. The exact owner query now gets 2023+2024+2026; the ordinary twin and Chronicle parity are still not equivalent.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T14:21:44+12:00
+Updated: 2026-11-15T14:23:23+12:00
 
 ## Facts
 
@@ -156,3 +156,6 @@ origin/vmq/mem-c = 8bc2bcf7 (code 16931216 included; no force). PM is binding B/
 ## Slice B/C binding and release readiness (2026-11-15)
 
 PM bound Slice B: slice_candidate_bindings.mem_b (d159ea8a, tip 182fcbf9, REVIEW), covered VMQ-TIME-03 with corpus/test/review evidence; left MEM-04, TIME-01/02/04/06/07 PENDING with exact gaps (A1P ordinary twin still 2026, 2 old rows vs 148 Chronicle; only P1 measured for TIME-02; subject facts 0 -> no_subject_bound_material; TIME-04 categories; TIME-06 vector inventory; TIME-07 labeled relevance). Slice C: mem_c (16931216, tip 8bc2bcf7, REVIEW) supports M-04/O-04 clauses but closes no new rows; review gate candidate mismatch/no-bound is a binding-shape fact (the M2 slice candidate remains f7a9c596; control gate errors=2 live positions, no regression). Counts 50 PENDING / 14 REVIEW / 6 VERIFIED. Evidence provenance note: the actual slice-b-review-r1.md sha is 22308263 (the self-declared f5ca6886/09399b68 are not reproducible; the addendum append was committed as the real file). Relese-train positions remain: VMQ-A-01 REVIEW, V-01..V-04 REVIEW (code already in 2.58.203), M-04/O-04 live, memory rows open. PM is assessing the minimal coherent train; the M2 Reviewer is deciding whether a controlled-deployment postrelease wait is legitimate for M-04/O-04 with a concrete e2e trigger and rollback. No wait or VERIFIED is added without that decision.
+## M2 postrelease wait approved (2026-11-15)
+
+Reviewer addendum sha 2E980F19...: M-04/O-04 may proceed to controlled deployment with approved_postrelease_wait (nonblocking; trigger after 2.58.204: agent-owned e2e for person-overview, temporal query, exact owner query, current-state negative; one retrieve, one bundle, coverage/periods/counterexamples/limitations; O-04 one-route trace, no second search/router/DB/LLM, correction/version applied; owner DevOps; contracts MAN-M-04/MAN-O-04). Conditions: baseline c97c06e4 -> 2.58.204, DDL 0, rollback c97c06e4, read-only e2e, live evidence bound to the deployed SHA; rollback on health failure, missing bundle fields, route count != 1, historical leak into current-state, missing correction/version trace, cross-chat leak or any extra retrieval/search/model call. M-05 needs no wait. PM is binding the exact wait objects and finalizing the train plan/gates; DevOps C corpus is still running. No VERIFIED is added before deployed evidence.
