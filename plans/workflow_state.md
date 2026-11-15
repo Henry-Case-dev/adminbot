@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer Slice B ses_e2325ffa6ffeWgKFoHLrkNOSju
-Join barriers: Reviewer Slice B -> PM bind; corpus re-measure on the production host -> Slice C M2 trigger; release held
+Active lanes: Builder push Slice B ses_e2352d544ffesVmrbEue0ow5ir; Builder Slice C ses_e2320901affeJvpgR6rnfoUWMb
+Join barriers: push Slice B -> DevOps corpus re-measure; Slice C -> Reviewer; PM binds A/B/C after corpus; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 51 PENDING, 13 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on the deployed c97c06e4; ONTO-A/B/M2 and Slice A are approved at REVIEW; MEM-04, TIME-01/02/03/04/07/08/09 remain open. The memory measurement proved the exact owner multi-year defect is not fixed yet; Slice B is implementing it.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T13:37:24+12:00
+Updated: 2026-11-15T13:50:00+12:00
 
 ## Facts
 
@@ -131,3 +131,7 @@ PM bound only VMQ-MEM-01 at REVIEW on 570a49db (the five-class matrix is genuine
 ## Slice B candidate (2026-11-15)
 
 Builder implemented Slice B on vmq/mem-b from 570a49db: code d159ea8a, tip 182fcbf9, worktree ...-ea418824. mca_retrieval_context.py: multi_year intent from existing request.intent/mode and L1Plan.response_act=historical_recall (no new word lists), bounded historical_quota/multi_year_quota, year_time_bounds, SQL lexical_time_window, edges.last_updated. direct_chat_service.py: Old_Episode explicit-year UTC/SQL window with P0-HA precedence, historical_recall rebuilds the RAG block even at memory_scope=auto, reply profile gets subject facts and own messages. database.py: read-only get_subject_profile_facts and get_author_message_periods (exact uid, 2024/2023/2022), last_updated in get_persona_card. tool_router.py: biography/general carry subject_ref_id/speaker_author_id/as_of_year/subject_material; relationships returns temporal_projection (edges_total/year_bearing/years/reason/invented=0), no synthesized edges. 21 tests, RED 20 failed/1 passed on base, GREEN 21, focused 23 files 634 passed/0 failed, broad 2261 passed + 5 pre-existing failures + 1 error reproduced on base; 6 mutation seams killed. Limits: corpus numbers not re-measured (no schema-47 copy locally), T2 corpus needs a real L1 plan, vector live unverified. Reviewer r1 running.
+
+## Slice B r1 Approved; Slice C started (2026-11-15)
+
+Reviewer r1 Approved for predeploy REVIEW of Slice B on d159ea8a (tip 182fcbf9): bounded historical/multi-year quota, structured request_intent/mode/L1Plan.response_act, Old_Episode UTC/SQL window with P0-HA, subject/speaker profile SQL, sourced temporal relations, current-state unchanged; 21 tests + 370 affected passed; mutation PERIOD_SOFT_FALLBACK_MIN_ROWS=999999 makes historical_quota=1 fail. Artifact evidence/vmq-mem/slice-b-review-r1.md sha f5ca6886.... Schema-47 corpus re-measure and live vector remain separate UNVERIFIED. Builder is pushing vmq/mem-b for the read-only corpus re-measure. Slice C (M2 overview trigger by structured intent) started on vmq/mem-c from 182fcbf9: the exact owner query must get overview slots with actual coverage/limitations, current-state must not, no new lexical word list, one retrieve/one bundle.
