@@ -1,0 +1,17 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-MEM-570a49db
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM --candidate 570a49db9aa0d1d487e43e2d0ffae0dffcb00497 --repo . --strict-evidence
+# exit: 1
+# note: Slice A candidate 570a49db (branch vmq/mem-a, base M2 tip 8b56fc73, production ancestor c97c06e4); candidate НЕ выложен; live_required у VMQ-MEM-01 сохранён честно
+
+FAIL: VMQ-MEM-01: live requirement lacks evidence for stage review
+FAIL: VMQ-MEM-02: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-03: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-05: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-06: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-07: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+stage=review inventory=380 manual=69 scoped=8 errors=8
+

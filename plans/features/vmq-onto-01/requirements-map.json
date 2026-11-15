@@ -1340,8 +1340,40 @@
       "acceptance": "Unified retrieval отвечает на person overview и temporal queries через существующий retrieve()/get_user_context: Writer bundle содержит coverage, независимые периоды, контрпримеры и limitations; повтор одного мема не считается независимым подтверждением.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md §Соответствие приёмке, §RED → GREEN, §Мутационная проверка, §Затронутые suite, §Честные ограничения",
+          "observation": "Person overview/temporal через существующий retrieve(): RetrievalOverview/overview_from_views/build_retrieval_overview и доставка того же RetrievalResult в единый EvidenceBundle (coverage, independent_periods, counterexamples, limitations, episode_refs, semantic_hints) и в person-overview инструмент (biography/general envelope). Coverage по времени исходных сообщений с честным пропуском года; повтор мема не добавляет независимой опоры; при ошибке episode-view overview=None и retrieval остаётся ok; coverage['complete']=False с причиной; 21 focused passed на f7a9c596; RED на базе 64dab0eb — 14 failed (TypeError include_overview), RED доставки на a82a9319 — 6 failed / 15 passed; мутации A/B/E/F/G/H killed (повтор мема как независимая опора, coverage.complete=True, ненаполненный seam bundle, срез coverage, biography без overview, игнор include_overview)",
+          "type_detail": "candidate-bound unit/integration на exact candidate f7a9c596 (in-memory DB, реальные владельцы; production не задействован)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md",
+          "artifact_sha256": "bfd9781fb64f837778ca3827937f1c5bc0be0f2416bf09fd5cbfff5c6362a7e5",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-person-overview-bundles.json",
+          "observation": "Кандидатский probe-artifact (artifact_kind=candidate_probe_not_live): person-overview bundle на фикстуре chat -889101/subject 777, периоды 2021/2023 с пропуском 2022, реальный вывод того же кандидата; live/preprod-доказательством НЕ является и так и помечен",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-person-overview-bundles.json",
+          "artifact_sha256": "9a754d9cfcb570df2bdb03626a3b2f929eb94abc6418962a6bc0ff705cf2a34e",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 Approved for predeploy REVIEW (candidate f7a9c596 / delivery 8b56fc73)",
+          "observation": "M-04 Approved на R1 (predeploy REVIEW): аудит retrieve→rag retrieve→unified rows→evidence bundle→Writer, тот же RetrievalResult и один bundle; мутация forwarding overview true→false убила delivery-assertion; production не задействован. Reviewer прямо фиксирует: live artifacts absent, никогда VERIFIED",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "artifact_sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -1376,7 +1408,35 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
-      }
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+        "evidence_tip": "8b56fc7320722494d0191f320e6da3355cc1a654",
+        "branch": "vmq/m2",
+        "base_commit": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+        "base_code_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+        "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed": false,
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "verdict": "Approved for predeploy REVIEW",
+          "ledger": "M-04/M-05/O-04 — REVIEW approved; never VERIFIED; live artifacts absent"
+        },
+        "known_limitations": [
+          "кандидат не выложен: production-поведение и effective config прода не наблюдались",
+          "live/preprod-доказательство отсутствует: приложены только candidate_probe_not_live артефакты",
+          "активация overview в direct-chat опирается на существующую эвристику is_history_query/historical: «исторические» формулировки получают 2 дополнительных bounded episode-чтения на ход (кандидаты/порядок/каналы не меняются)",
+          "общий no-fact путь остаётся прежним legacy-fallback без overview (это не overview-цель)",
+          "typed relations ONTO-B в overview не включены: отдельный API project_relation не дублируется, иначе появилось бы второе чтение edges",
+          "independent_periods консервативен лексически: точная переформулировка одного факта другими словами считается независимой (семантическое сравнение вне контракта)",
+          "историческое multi-period чтение профиля не возвращает chat_id, в hints подставляется фактический scope чтения (request.chat_id)"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED означает подтверждённое поведение на выложенном кандидате",
+        "owner_action_required": false
+      },
+      "live_evidence_status_2026_11_15": "live_required=true / live_when=preprod оставлен без изменений: живое/preprod-доказательство для будущей выкладки ещё не снято (есть только candidate_probe_not_live). postrelease_wait не добавляется: Reviewer одобрил REVIEW, а не deferral; фальшивое ожидание не вводится. Следствие: scoped review-гейт честно показывает live-ошибку по этой строке"
     },
     {
       "source_id": "MAN-M-05",
@@ -1390,8 +1450,40 @@
       "acceptance": "Нет массовой перегенерации embeddings, деструктивного переписывания архива и cross-chat утечек: проверка БД и ресурсов показывает отсутствие полного reembedding и записей из другого чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md §Соответствие приёмке, §RED → GREEN, §Мутационная проверка, §Затронутые suite, §Честные ограничения",
+          "observation": "Нет mass re-embedding/destructive rewrite/cross-chat: векторный канал остаётся один (retrieve_fact_candidates), embed_text/upsert_fact_vector/rebuild_index не вызываются; ноль write-SQL за два overview-вызова, PRAGMA user_version 47→47, строки smart_messages/mca_episodes/graph_facts/mca_source_refs те же; overview ровно chat_id запроса, ACL из >1 чата не сливается; MCA_EPISODES_ENABLED=OFF → overview=None и ноль чтений mca_episodes. Тесты test_overview_reads_are_read_only, test_foreign_chat_rows_never_leak_into_overview, test_multi_chat_acl_scope_is_not_merged, test_overview_gate_off_keeps_zero_episode_reads",
+          "type_detail": "candidate-bound unit/integration на exact candidate f7a9c596 (in-memory DB, реальные владельцы; production не задействован)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md",
+          "artifact_sha256": "bfd9781fb64f837778ca3827937f1c5bc0be0f2416bf09fd5cbfff5c6362a7e5",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-onto-single-retrieval-e2e.json",
+          "observation": "probe-onto-single-retrieval-e2e.json → db_resource_check: файловая БД WAL, user_version 47→47, journal_mode=wal, WAL-байты и counts до/после равны; artifact_kind=candidate_probe_not_live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-onto-single-retrieval-e2e.json",
+          "artifact_sha256": "6311674d9166ee4a9146627980149aa46dc9c45509799d9445ef381b3b0ea877",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 Approved for predeploy REVIEW (candidate f7a9c596 / delivery 8b56fc73)",
+          "observation": "M-05 Approved на R1: аудит подтвердил отсутствие DDL/записей/embedding и второго роутера; все 21 тело тестов прочитаны; независимая мутация доставки убита. production не задействован",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "artifact_sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "test",
@@ -1419,6 +1511,33 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §4 (эпизоды/линии/досье/unified retrieval): «не случайным соседям», «coverage across years, evidence/counterexamples», «no mass reembedding» — owner-формулировки."
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+        "evidence_tip": "8b56fc7320722494d0191f320e6da3355cc1a654",
+        "branch": "vmq/m2",
+        "base_commit": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+        "base_code_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+        "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed": false,
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "verdict": "Approved for predeploy REVIEW",
+          "ledger": "M-04/M-05/O-04 — REVIEW approved; never VERIFIED; live artifacts absent"
+        },
+        "known_limitations": [
+          "кандидат не выложен: production-поведение и effective config прода не наблюдались",
+          "live/preprod-доказательство отсутствует: приложены только candidate_probe_not_live артефакты",
+          "активация overview в direct-chat опирается на существующую эвристику is_history_query/historical: «исторические» формулировки получают 2 дополнительных bounded episode-чтения на ход (кандидаты/порядок/каналы не меняются)",
+          "общий no-fact путь остаётся прежним legacy-fallback без overview (это не overview-цель)",
+          "typed relations ONTO-B в overview не включены: отдельный API project_relation не дублируется, иначе появилось бы второе чтение edges",
+          "independent_periods консервативен лексически: точная переформулировка одного факта другими словами считается независимой (семантическое сравнение вне контракта)",
+          "историческое multi-period чтение профиля не возвращает chat_id, в hints подставляется фактический scope чтения (request.chat_id)"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED означает подтверждённое поведение на выложенном кандидате",
+        "owner_action_required": false
       }
     },
     {
@@ -1627,10 +1746,33 @@
       "req_id": "O-03",
       "slice": "VMQ-ONTO-B",
       "acceptance": "Отношения типизированы и несут направление, автора утверждения, время и provenance: cooccurrence не становится фактом отношений, legacy-связи помечены как не подтверждённые, конфликты определений видны в данных.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-onto-b/typed-relations-provenance.md §Соответствие приёмке O-03, §RED → GREEN, §Мутационная проверка, §Затронутые suite, §Честные ограничения",
+          "observation": "Typed/directed relation поверх существующего RelationView: relation_type из edges, концы — типизированные EntityRef в одном chat scope, direction=directed из edges.source_id→target_id без переворота; asserted_by из speaker оснований (subject его не подменяет), нет автора — пусто, не догадка; time.asserted_at/event_time из оснований, расхождение → None + relation_assertion_time_ambiguous; provenance_class/origin_class из graphrag_provenance; cooccurrence/mentions → relation_kind=cooccurrence_hint, is_relation_fact=False, verification=unknown; legacy без оснований → legacy_unverified/legacy=True; definition_conflicts (contradicts/supersedes, статусы contradicted|superseded|rejected) видны и не дают verified; duplicate root/repost/bot output не добавляют независимого подтверждения; read-only: счётчики nodes/edges/mca_source_refs/mca_evidence_links не меняются. RED на базе d67262cb — 14 failed / 26 passed (модуль без ONTO-B); GREEN на d15b13da — 41 passed; мутация «_is_relation_assertion → True» — 2 failed / 39 passed (cooccurrence и counter-evidence); затронутые suite на кандидате: 41+64+68+32+181 = 386 passed",
+          "type_detail": "candidate-bound contract/integration на exact candidate d15b13da (новый API + новые тесты; существующие владельцы не модифицированы)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-onto-b/typed-relations-provenance.md",
+          "artifact_sha256": "610cf2261c0c2ee6072e001f3feb847b5a73bc4d3e4fafffedf4f05b62917a60",
+          "candidate_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md — O-03 Approved for predeploy REVIEW (candidate d15b13da, tip 64dab0eb)",
+          "observation": "Reviewer независимо проверил SemanticRelation/project_relation против замороженного O-03 и прочитал все 15 тел тестов на реальном SQLite evidence-пути; в одноразовой копии мутация _is_relation_assertion → unconditional True дала 2 failed / 39 passed (cooccurrence и counter-evidence); его же прогон набора: 386 passed; diff ограничен services/semantic_contracts.py и tests/test_semantic_contracts.py, AST не нашёл SQL, mca_retrieval_context/database/relation_evidence не менялись. Historical archive reconciliation и unmapped_sources propagation — N/A_WITH_REASON как явные границы среза; production/live-проверка не применима",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md",
+          "artifact_sha256": "e7284c77cc5d4481b5aa81462d4c977c0fea2167b9b19333316cf0adeeb9565c",
+          "candidate_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -1659,7 +1801,57 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
-      }
+      },
+      "live_required_reconciliation_2026_11_15": {
+        "field": "live_required",
+        "from": true,
+        "to": false,
+        "live_when_kept": "preprod (историческое значение; при live_required=false live-проверка гейта не применяется — та же конвенция, что у M-01..M-03, VMQ-NEXT-02/05 и O-01/O-02)",
+        "changed_at": "2026-11-15",
+        "by": "PM при биндинге одобренного кандидата d15b13da",
+        "authority": {
+          "contract_path": "plans/features/vmq-onto-01/architecture-onto-ab.md",
+          "lines": "64 (O-03: directed typed relation с source refs/independent root, provenance class и time; проверять через существующие graphrag_provenance и relation-evidence path), 71-76 (таблица handoff REVIEW: для O-03 — candidate-bound tests по direction + real existing provenance fixtures, а «приёмка всех persisted исторических relations/коррекция корпуса не входит в A/B»), 78 («данный дизайн не создаёт нового окна наблюдения»; production/effective state — только после разрешённого релиза)",
+          "review_artifact": {
+            "path": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md",
+            "sha256": "e7284c77cc5d4481b5aa81462d4c977c0fea2167b9b19333316cf0adeeb9565c",
+            "verdict": "Approved for predeploy REVIEW"
+          },
+          "row_expected_evidence_note": "expected_evidence строки помечала артефакт как type=live, хотя фактический артефакт — source-recon/contract-тесты и implementation-доказательство; это planning-метка, а не требование живого события",
+          "precedent": "та же bookkeeping-сверка, что live_required_override у M-01..M-03 и live_required_reconciliation_2026_11_15 у VMQ-NEXT-02/05"
+        },
+        "why": "O-03 — read-only typed-проекция поверх уже собранных relation view/evidence; контракт прямо говорит, что приёмка persisted исторических связей и коррекция архива не входят в A/B, а нового окна наблюдения дизайн не создаёт. Live/preprod-события для этой строки контрактом не предусмотрено",
+        "no_postrelease_wait": "postrelease_wait не добавляется: отложенного живого события в контракте нет",
+        "what_this_does_not_do": "не отменяет обязательных проверок строки и не превращает ограничение охвата в приёмку продукции: исторические relations, архивная коррекция и unmapped_sources-пропагация остаются честно непроверенными (см. known_limitations)",
+        "reverted_by": "только новый owner-input или изменение контракта Architect'а"
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+        "evidence_tip": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+        "branch": "vmq/onto-b",
+        "base_commit": "d67262cb491ac558b578340414d604a7caab21c9",
+        "base_code_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+        "deployed": false,
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md",
+          "sha256": "e7284c77cc5d4481b5aa81462d4c977c0fea2167b9b19333316cf0adeeb9565c",
+          "verdict": "Approved for predeploy REVIEW"
+        },
+        "known_limitations": [
+          "edges.relation_type — свободная строка существующей схемы: проекция несёт предикат, но не классифицирует его в закрытый словарь (иначе новый лексический список)",
+          "«конфликт определений» выводится только из данных основания (contradicts/supersedes, противоречивый статус); два разных relation_type на пару без опровергающего основания конфликтом не объявляются",
+          "verified не требует известного автора/времени: существующий evidence-контракт (R-1) этого не требует; отсутствие показывается честно (asserted_by=() / asserted_at=None + degraded-код)",
+          "build_relation_view не переносит unmapped_sources: ребро с неразрешимыми evidence-строками может выглядеть подтверждённым — ограничение существующего публичного view, ремонт вне write scope ONTO-B",
+          "время события берётся только из существующего valid_from факта; у edges поля времени события нет → unknown",
+          "натуральные исторические relations и коррекция архивного корпуса не проверялись (вне A/B)",
+          "кандидат не выложен: production-поведение и effective config не наблюдались"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате",
+        "owner_action_required": false,
+        "artifact_note": "review-r1.md записан одной строкой с литералами `n` вместо переводов строк; содержимое читается и sha256 совпадает с заявленным, но форматирование артефакта дефектное (файл Reviewer'а не переписывался)"
+      },
+      "production_scope_limitation_2026_11_15": "исторические relations, архивная коррекция и unmapped_sources-пропагация не проверялись; заявление о качестве продукции не делается — это граница охвата контракта (architecture-onto-ab.md строки 71-76)"
     },
     {
       "source_id": "MAN-O-04",
@@ -1673,8 +1865,40 @@
       "acceptance": "Единственный retrieval использует семантические определения как подсказку (без второго роутера, БД и search engine), а исправления и версии терминов применяются к последующим запросам; e2e-трасса показывает один маршрут.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md §Соответствие приёмке, §RED → GREEN, §Мутационная проверка, §Затронутые suite, §Честные ограничения",
+          "observation": "Один retrieval, definitions как hints: _semantic_hints через существующий semantic_contracts (project_identity/project_fact_meaning), кандидаты и порядок идентичны с hints и без (test_semantic_hints_do_not_change_candidates); второго роутера/БД/search нет, SQL — только существующие чтения mca_episodes (test_one_route_no_extra_search_or_model_calls); alias/имя не повышаются до verified, неоднозначный субъект не выбирается; corrections/versions применяются к последующим запросам через существующие revisions/fingerprints без отдельного журнала; bounded caps и JSON-совместимость (test_overview_bounded); мутации C/D killed (legacy-факт выброшен из hints; source_fingerprint выпадает из overview)",
+          "type_detail": "candidate-bound unit/integration на exact candidate f7a9c596 (in-memory DB, реальные владельцы; production не задействован)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md",
+          "artifact_sha256": "bfd9781fb64f837778ca3827937f1c5bc0be0f2416bf09fd5cbfff5c6362a7e5",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-onto-single-retrieval-e2e.json",
+          "observation": "probe-onto-single-retrieval-e2e.json: SQL-трасса одного retrieve() + counters и e2e-след одного маршрута; artifact_kind=candidate_probe_not_live",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-onto-single-retrieval-e2e.json",
+          "artifact_sha256": "6311674d9166ee4a9146627980149aa46dc9c45509799d9445ef381b3b0ea877",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 Approved for predeploy REVIEW (candidate f7a9c596 / delivery 8b56fc73)",
+          "observation": "O-04 Approved на R1: независимо проверено, что definitions остаются hints, а не роутером; один retrieve на ход, тот же результат уходит в bundle; обычный путь байт-идентичен и без лишних чтений; cross-chat утечек нет. production не задействован",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "artifact_sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -1707,7 +1931,35 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Реестр §14 + §5 (typed смыслы/отношения/один retrieval); негативные примеры и provenance — owner-формулировки реестра."
-      }
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+        "evidence_tip": "8b56fc7320722494d0191f320e6da3355cc1a654",
+        "branch": "vmq/m2",
+        "base_commit": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+        "base_code_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+        "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed": false,
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "verdict": "Approved for predeploy REVIEW",
+          "ledger": "M-04/M-05/O-04 — REVIEW approved; never VERIFIED; live artifacts absent"
+        },
+        "known_limitations": [
+          "кандидат не выложен: production-поведение и effective config прода не наблюдались",
+          "live/preprod-доказательство отсутствует: приложены только candidate_probe_not_live артефакты",
+          "активация overview в direct-chat опирается на существующую эвристику is_history_query/historical: «исторические» формулировки получают 2 дополнительных bounded episode-чтения на ход (кандидаты/порядок/каналы не меняются)",
+          "общий no-fact путь остаётся прежним legacy-fallback без overview (это не overview-цель)",
+          "typed relations ONTO-B в overview не включены: отдельный API project_relation не дублируется, иначе появилось бы второе чтение edges",
+          "independent_periods консервативен лексически: точная переформулировка одного факта другими словами считается независимой (семантическое сравнение вне контракта)",
+          "историческое multi-period чтение профиля не возвращает chat_id, в hints подставляется фактический scope чтения (request.chat_id)"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED означает подтверждённое поведение на выложенном кандидате",
+        "owner_action_required": false
+      },
+      "live_evidence_status_2026_11_15": "live_required=true / live_when=preprod сохранён: живое/preprod-доказательство ожидается после будущей выкладки; есть только candidate_probe_not_live. postrelease_wait не добавляется (нет одобренного deferral); фальшивое ожидание не вводится. Scoped review-гейт честно показывает live-ошибку по строке"
     },
     {
       "source_id": "MAN-Q-01",
@@ -3138,8 +3390,42 @@
       "acceptance": "На одном и том же историческом наборе (те же участники, темы, периоды и источник — реальный архив чата около 2,07 млн сообщений) прогоняются все пять классов формулировок: юмористический рассказ о шизах конфы (включая точный запрос владельца), обычный пересказ истории, характеристика участника, восстановление конкретного конфликта, изменение отношений или взглядов за годы. Каждый прогон зафиксирован в матрице отдельной строкой с классом, запросом и идентификатором набора данных, и ни один класс не подменяется другим набором фактов.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "REVIEW",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-2026-11-15.md §3 RED → GREEN, §4 что проверяют тесты; plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-tests-2026-11-15.json",
+          "observation": "Slice A: 20 новых CONTRACT/REGRESSION тестов (tests/test_vmq_mem_period_intent.py) + правка ожиданий test_mem_time_policy.py; RED на базе — 18 failed / 1 passed, GREEN — 20 passed; фокусный набор 600 passed на ветке против 580 на базе; мутация правила сохранения года даёт 2 failed (строки 2026 принимаются вместе с 2023). Проверено: явный 2023 сохраняет целевой год, 2026 не занимает периодный слот (out_of_target_year), unknown_year fail-closed, bounded soft fallback исторического намерения, «что сейчас» остаётся свежедоминированным (intent=none), честные reason-коды, id ⊆ поданных строк, честная ветка векторного допуска (insufficient → KNN не вызывается, compatible → один вызов)",
+          "type_detail": "candidate-bound unit/integration на exact candidate 570a49db",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-2026-11-15.md",
+          "artifact_sha256": "b83d6383165b773682b813ce4c03a28c381a584e1549a066c1a9d110bfb01b30",
+          "candidate_commit": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+          "candidate_deployed": false,
+          "covers_row_acceptance": true
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-mem/corpus-run-2026-11-15.md §3 (матрица классов), §5 (проверка заявленных пунктов), §6 (границы); plans/features/vmq-onto-01/evidence/vmq-mem/corpus-run-2026-11-15.json",
+          "observation": "Матрица пяти классов формулировок на ОДНОМ И ТОМ ЖЕ реальном архиве (чат -1002661910336, 2 075 648 сообщений, 2022-12-07…2026-11-15): юмористический рассказ о шизах конфы включая точный owner-запрос (A1_creative_owner), обычный двойник (A1P_plain_twin), общая творческая (A2), пересказ истории (B_retell), характеристика участника (C_person_profile), восстановление конфликта 2023 (D_conflict_2023), изменение отношений и взглядов за годы (E_relations_years), плюс негативные контроли T2/T3. Для каждого прогона в JSON зафиксированы класс, запрос, база/кандидат (sha и tree), корпус (chat_id, sha копий, состав), годы в каждом блоке, периодный вклад, причина-коды и old_episode; ни один класс не подменяется другим набором фактов. Read-only копия прод-БД (schema 47): ни одной записи в живые данные, ни перезапуска, ни изменения конфига; consumer-путь тот же (_rag_unified_rows → _rag_retrieve → retrieve → _build_rag_block)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/corpus-run-2026-11-15.md",
+          "artifact_sha256": "54a3d494c290508e25db6c92e2bce2af8cf9ff7741cdac5a0e2f1062d22984f6",
+          "candidate_commit": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+          "candidate_deployed": false,
+          "supporting_artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/corpus-run-2026-11-15.json",
+          "supporting_artifact_sha256": "00e70ebe6119eb5064b2010dfa06736a04dcd24227db1d786c6108fe0864f453"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-review-r1.md — R1 Approved for predeploy REVIEW (candidate 570a49db)",
+          "observation": "Reviewer независимо проверил resolve_period_intent/select_period_rows, делегирование direct-chat и векторный допуск до KNN; прочитал 20 тел тестов и обновлённые time-policy ожидания; его прогон: 99 focused passed; независимая мутация period_row_year изменила результат с [1] на [2,1] (годовой контракт фальсифицируем); ledger: target-year, reason-coded drops, bounded historical fallback, current-state strictness, shared selector, insufficient-no-KNN, compatible-KNN, no-generation A06 = VERIFIED (REVIEW); live vector admission и реальный корпус — UNVERIFIED, отдельный владелец. Production не задействован",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-review-r1.md",
+          "artifact_sha256": "f80a85d1b6818646390c73a681f931c97338775c7ee032bc6e367d788cd4959a",
+          "candidate_commit": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+          "candidate_deployed": false
+        }
+      ],
       "expected_evidence": [
         {
           "type": "live",
@@ -3182,7 +3468,31 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
-      }
+      },
+      "candidate_bound_review_2026_11_15": {
+        "at": "2026-11-15",
+        "candidate_commit": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+        "branch": "vmq/mem-a",
+        "base_commit": "8b56fc7320722494d0191f320e6da3355cc1a654",
+        "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+        "deployed": false,
+        "review": {
+          "path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-review-r1.md",
+          "sha256": "f80a85d1b6818646390c73a681f931c97338775c7ee032bc6e367d788cd4959a",
+          "verdict": "Approved for predeploy REVIEW"
+        },
+        "covered_clause": "матрица пяти классов формулировок на одном и том же историческом наборе, с классом/запросом/идентификатором набора на каждый прогон",
+        "known_limitations": [
+          "один чат и по одной формулировке на класс (A1/A1P/A2 — варианты одного класса): статистического обобщения нет",
+          "корпусный прогон сделан на read-only копии прод-БД: это не живой процесс (Global_Context, hot-cache, бюджеты и Writer-промпт не участвовали)",
+          "текст ответа не генерировался: MEM-05 и качество формулировок не проверялись",
+          "живой допуск/участие векторной ноги не проверены (только ветка допуска и честная причина)",
+          "кандидат не выложен: production-поведение не наблюдалось"
+        ],
+        "why_review_not_verified": "кандидат не выложен; VERIFIED означает подтверждённое поведение на выложенном кандидате. Живой/постдеп-слой для строки не снимался",
+        "owner_action_required": false
+      },
+      "live_evidence_status_2026_11_15": "live_required=true / live_when=preprod сохранён честно: матрица снята на read-only копии прод-БД, а не в живом процессе (копия ≠ live). postrelease_wait не добавлялся. Следствие: scoped review-гейт среза честно показывает live-ошибку по этой строке"
     },
     {
       "source_id": "MAN-MEM-02",
@@ -3609,7 +3919,8 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Существующий source_line (эпос L474) указывает на клаузу о многолетнем person overview и не является точной клаузой этой строки; источник требования — уточнение L9-L11."
-      }
+      },
+      "slice_a_partial_2026_11_15": "Slice A закрывает историческую половину: A1/A2/B/E (исторические формулировки без года) впервые получают старые строки (2022/2023/2024/2025) через bounded soft fallback, «что сейчас» остаётся 10/10 2026 (intent=none), приоритет свежести ограничен явно объявленным правилом (period intent + target-year + reason-коды), механических повышений квот нет. Person-половина НЕ закрыта: C_person_profile («что ты знаешь про P1?») остаётся 2026:10, потому что в графе у P1 только 2026-факты при 44 577 сообщениях 2023-2024 — это producer gap, а root-cause §7 прямо называет TIME-01 непроходимым до Slice B. Статус остаётся PENDING"
     },
     {
       "source_id": "MAN-TIME-02",
@@ -3798,7 +4109,8 @@
         "quote": "Разделить историческую значимость, фактическую достоверность и актуальность на сегодняшний день. Старый факт не должен получать низкую историческую з…",
         "mandatory": true,
         "grounding": "owner_clause"
-      }
+      },
+      "slice_a_partial_2026_11_15": "Explicit-year механика доказана на D («ссорились в 2023»): пул 24 строки целевого года, 74 отброшены out_of_target_year, доставлена строка 2023 с причиной in_target_year, 2026 не занимает периодный слот. Но TIME-03 требует вопросов о событиях БЕЗ года: T2 («что вообще было с E1, напомни?») не изменился (intent=none, 10/10 2026). Статус остаётся PENDING (по указанию не закрывать)"
     },
     {
       "source_id": "MAN-TIME-04",
@@ -3893,7 +4205,8 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Суть (годы + причины) — owner-клауза L23; машинная per-block трасса — инженерная форма. Пересечение с VMQ-TIME-09 (та же клауза, другой потребитель): не дубль, проверять вместе."
-      }
+      },
+      "slice_a_partial_2026_11_15": "Трасса Slice A машинно-читаемая: по каждому классу годы в блоке RAG_Memory, периодный вклад с причинами (out_of_target_year/unknown_year/pool_cap/subject_soft_fallback/rejected_subject), old_episode состав, SQL-пробы и probes (profile/dig/relations). Ступень потери года определяется. Но владельческая клауза о категориях (квота/статус/давность/релевантность/бюджет) не покрыта, и путь Old_Episode для 2023 остаётся 2025+2026. Статус остаётся PENDING"
     },
     {
       "source_id": "MAN-TIME-05",
@@ -4083,7 +4396,8 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Запрет перестройки embeddings/повторного ingest дополнительно закреплён в эпосе L245."
-      }
+      },
+      "slice_a_partial_2026_11_15": "Негативная проверка Slice A подтверждает: нет новой системы памяти/второго роутера/отдельного summary-пайплайна/повторного ingest, embeddings не перестраиваются (код не вызывает embed), настройки не менялись, «что сейчас» не подменено сортировкой по дате. Не покрыто: явная инвентаризация числа векторов до/после и формальный поиск новых таблиц по диффу, а также вопрос «словарных триггеров годов» (resolve_period_intent разбирает явный год и повествовательные формы). Статус остаётся PENDING"
     },
     {
       "source_id": "MAN-TIME-07",
@@ -4178,7 +4492,8 @@
         "mandatory": true,
         "grounding": "owner_clause",
         "note": "Матрица «до/после» — инженерная форма; owner-требование — независимая проверка на разнообразных реальных вопросах (L14) и системная оценка Reviewer (L22)."
-      }
+      },
+      "slice_a_partial_2026_11_15": "Матрица до/после на копии прод-БД есть: класс, запрос, годы в каждом блоке, покрытие периодов, число непроверяемых ссылок (absent=0), контрпример. Не хватает релевантности по размеченному эталону, а порог строки прямо опирается на TIME-02/03 (материал 2023-2024 по человеку и событию без года), которые остаются открытыми. Статус остаётся PENDING"
     },
     {
       "source_id": "MAN-TIME-08",
@@ -12491,6 +12806,88 @@
       },
       "reason_current_note_2026_11_15": "reason_current_2026_11_15 закрыт: фокусные прогоны на exact c97c06e4 и одобрение Reviewer на позднюю SMART-дельту получены (evidence/vmq-deployed-review-2026-11-15.md). Статус среза — VERIFIED."
     },
+    "mem_a": {
+      "slice": "VMQ-MEM",
+      "candidate_commit": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+      "candidate_short": "570a49db",
+      "branch": "vmq/mem-a",
+      "base_commit": "8b56fc7320722494d0191f320e6da3355cc1a654",
+      "base_commit_note": "база — принятая линия M2 (tip 8b56fc73 / код f7a9c596), стоящая на ONTO-B/ONTO-A и production c97c06e4",
+      "base_code_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+      "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed": false,
+      "deployed_note": "кандидат не выложен; верхнеуровневые candidate_commit/deployed_commit карты остаются c97c06e4",
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "rows": [
+        "VMQ-MEM-01"
+      ],
+      "covered_rows": [
+        "VMQ-MEM-01"
+      ],
+      "partial_rows": {},
+      "code_scope": [
+        "services/mca_retrieval_context.py",
+        "services/direct_chat_service.py",
+        "tests/test_vmq_mem_period_intent.py",
+        "tests/test_mem_time_policy.py"
+      ],
+      "scope_note": "Заявленный scope — mca_retrieval_context.py + retrieval tests/evidence. services/direct_chat_service.py тронут как доказуемо необходимый потребитель: причина потери 15/16 строк (_rag_period_subject_filter) физически живёт там; это одобренное минимальное расширение (подтверждено в slice-a-2026-11-15.md §Границы записи), не новый слой. tool_router.py, database.py, M2-файлы, схема и флаги не менялись. slice-graph.json не правился (вне write scope PM)",
+      "ddl": 0,
+      "embeddings": 0,
+      "ddl_evidence": "git diff --name-status 8b56fc73..570a49db = только services/mca_retrieval_context.py (+419), services/direct_chat_service.py (155), tests/test_vmq_mem_period_intent.py (новый), tests/test_mem_time_policy.py (21), evidence/vmq-mem/slice-a-*; services/database.py и миграций нет; schema 47",
+      "embeddings_evidence": "код не вызывает embed/upsert/rebuild; корпусный прогон read-only (vec.available=true, dim=3072, gemini-embedding-001), перестройки векторов нет",
+      "tests": {
+        "focused": "20 passed (новый файл), 600 passed на ветке против 580 на базе в фокусном наборе; мутация правила года — 2 failed",
+        "reviewer_run": "99 focused passed (test_vmq_mem_period_intent + test_mem_time_policy + test_mca07)",
+        "corpus": "read-only копия прод-БД: 2 086 958 сообщений, 29 424 факта, 201 эпизод, schema 47; 9 классов, два прогона (замороженный cfg и live-route parity)"
+      },
+      "not_covered": [
+        "MEM-04: точная owner-формулировка не получает 2023 (1×2024 до и после) — паритет с творческим путём не достигнут",
+        "TIME-03: событие без года (T2) не изменилось — intent=none, 10/10 2026",
+        "Old_Episode: для D-2023 блок остаётся 2025+2026 (82 сообщения, 0 из 2023) — путь эпизодов не менялся (это же исключает TIME-04)",
+        "TIME-01/02: person-профиль P1 остаётся 2026-only из-за producer gap (нет исторических фактов) — Slice B",
+        "TIME-07/08/09: нет размеченного эталона релевантности, независимого повторного прогона Reviewer и UI-разбивки",
+        "live vector admission и живое участие семантической ноги: compat_not_proven был артефактом неполного cfg харнесса; живой реестр compatible/ADMITTED_COMPATIBLE (space e540, conn a934, checked 12, mean/min 1.0), но KNN в харнессе упал provider_unavailable из-за отсутствия PG-ключа в cfg — участие не доказано",
+        "кандидат не выложен: production-поведение не наблюдалось"
+      ],
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-review-r1.md",
+        "sha256": "f80a85d1b6818646390c73a681f931c97338775c7ee032bc6e367d788cd4959a",
+        "verdict": "Approved for predeploy REVIEW",
+        "artifact_format_defect": "хвост артефакта (R1-блок) записан в cp1251 внутри UTF-8 файла и читается как mojibake; sha совпадает с заявленным, файл Reviewer'а не переписывался"
+      },
+      "vector_admission_correction": {
+        "claim": "compat_not_proven — дефект не индекса, а неполного cfg харнесса",
+        "evidence": "живой реестр: ACTIVE-поколение 1, dims 3072, gemini-embedding-001, fingerprint 96f80838f683; durable admission space e540d4ad890e121d, conn a93485483697c3c3, checked 12, mean/min 1.0; PCI от PG = a934 (валиден), от .env = d2e6 (невалиден); в run2 кандидат корректно признал допуск (ADMITTED_COMPATIBLE, proven=true) и вызвал KNN",
+        "limits": "живое участие семантической ноги не доказано: вызов упал provider_unavailable из-за отсутствия PG API-ключа в cfg; индекс не признан несовместимым, live-семантика остаётся UNVERIFIED"
+      },
+      "why_review_not_verified": "Кандидат не выложен; матрица снята на read-only копии прод-БД, а не в живом процессе. VERIFIED не заявляется",
+      "next_role": "Builder (Slice B) → Reviewer; затем release-решение Orchestrator",
+      "gates_2026_11_15": {
+        "review_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM --candidate 570a49db9aa0d1d487e43e2d0ffae0dffcb00497 --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-MEM-01: live requirement lacks evidence for stage review",
+            "FAIL: VMQ-MEM-02: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "FAIL: VMQ-MEM-03..08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)",
+            "stage=review inventory=380 manual=69 scoped=8 errors=8"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-mem-a-570a49db-2026-11-15.txt",
+          "reading": "Ошибок привязки по VMQ-MEM-01 нет: state REVIEW, candidate-bound implementation/corpus evidence и независимый approval сходятся на 570a49db. Красное — честный live-остаток строки (матрица снята на копии, не в живом процессе) и семь незакрытых строк среза VMQ-MEM (04 — паритет, 02/03 — Slice B, 05 — протокол, 06 — инварианты, 07 — Reviewer-прогон, 08 — отрицательный контроль)",
+          "not_a_binding_failure": true
+        },
+        "deploy_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM --candidate 570a49db9aa0d1d487e43e2d0ffae0dffcb00497 --repo . --strict-evidence",
+          "output_summary": "stage=deploy inventory=380 manual=69 scoped=8 errors=19",
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-mem-a-570a49db-2026-11-15.txt",
+          "reading": "11 ошибок замыкания зависимостей (VMQ-A-01, M2 M-04/M-05/O-04, ONTO-A O-01/O-02, ONTO-B O-03, V-01..V-04) + 1 live + 7 PENDING строк среза; ошибок привязки нет",
+          "not_a_binding_failure": true
+        }
+      }
+    },
     "next2": {
       "slice": "VMQ-MEM-NEXT",
       "rows": [
@@ -13069,6 +13466,232 @@
           "not_a_binding_failure": true
         }
       }
+    },
+    "onto_b": {
+      "slice": "VMQ-ONTO-B",
+      "candidate_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+      "candidate_short": "d15b13da",
+      "evidence_tip": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+      "branch": "vmq/onto-b",
+      "base_commit": "d67262cb491ac558b578340414d604a7caab21c9",
+      "base_commit_note": "база — принятая линия ONTO-A: tip d67262cb / код 8cb9e00d; та, в свою очередь, стоит на c97c06e4 (2.58.203)",
+      "base_code_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+      "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed": false,
+      "deployed_note": "кандидат не выложен; верхнеуровневые candidate_commit/deployed_commit карты остаются c97c06e4",
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "rows": [
+        "O-03"
+      ],
+      "covered_rows": [
+        "O-03"
+      ],
+      "code_scope": [
+        "services/semantic_contracts.py",
+        "tests/test_semantic_contracts.py"
+      ],
+      "contract": {
+        "path": "plans/features/vmq-onto-01/architecture-onto-ab.md",
+        "clauses": "строки 64 (O-03), 71-76 (handoff REVIEW / что остаётся вне), 78 (дизайн не создаёт нового окна наблюдения)",
+        "confirmation": "plans/features/vmq-onto-01/evidence/onto-a-contract-confirmation-2026-11-15.md",
+        "owner_source": "plans/current_task.md §14 строка 9358"
+      },
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md",
+        "sha256": "e7284c77cc5d4481b5aa81462d4c977c0fea2167b9b19333316cf0adeeb9565c",
+        "verdict": "Approved for predeploy REVIEW",
+        "reviewer": "независимая сессия Reviewer (R1)",
+        "recorded_at": "2026-11-15",
+        "artifact_format_defect": "одна строка с литералами `n`; содержимое читаемо, sha совпадает"
+      },
+      "implementation": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-onto-b/typed-relations-provenance.md",
+        "sha256": "610cf2261c0c2ee6072e001f3feb847b5a73bc4d3e4fafffedf4f05b62917a60",
+        "origin": "перенесён побайтово из 64dab0eb (blob 9ff4e0d4) в checkout master для проверяемого artifact_path; содержимое не переписывалось",
+        "files": {
+          "services/semantic_contracts.py": "c0f2e6dd",
+          "tests/test_semantic_contracts.py": "2b35fa64"
+        },
+        "delta": "+523 строки модуля / +521 строка тестов относительно d67262cb; только добавления"
+      },
+      "tests": {
+        "focused": "41 passed на exact candidate d15b13da (tests/test_semantic_contracts.py; 15 новых O-03 тестов)",
+        "affected": "386 passed: semantic_contracts 41, memory_contracts 64, mca04a_provenance 68, memory_attribution 32, graphrag_memory 181",
+        "red": "14 failed / 26 passed на базе d67262cb (модуль без ONTO-B; AttributeError: project_relation)",
+        "red_arithmetic_note": "в implementation.md RED напечатан как 14 failed / 26 passed (в сумме 40 при 41 собранном тесте на кандидате) — арифметическая нестыковка самого evidence-документа; на приёмку не влияет: независимый Reviewer воспроизвёл 41 passed и мутацию 2 failed / 39 passed",
+        "mutation": "независимая мутация Reviewer'а: _is_relation_assertion → unconditional True → 2 failed / 39 passed (cooccurrence, counter-evidence). В implementation.md также зафиксированы мутации B–E (конфликты, время, verified-инвариант, direct-origin) с падениями 2/1/1/1",
+        "not_run": "полный suite репозитория не запускался (production-код не менялся); production не задействован"
+      },
+      "ddl": 0,
+      "embeddings": 0,
+      "ddl_evidence": "git diff --name-status d67262cb..d15b13da = только services/semantic_contracts.py и tests/test_semantic_contracts.py; services/database.py, relation_evidence.py, memory_contracts.py, graphrag_provenance.py, provenance.py не менялись; schema 47, миграций нет",
+      "embeddings_evidence": "проекция читает уже собранные RelationView/evidence-links; нет backfill/переиндексации/embedding-вызовов (AST-guard зелёный)",
+      "not_covered": [
+        "кандидат не выложен: production-поведение не наблюдалось",
+        "relation_type — свободная строка: нет закрытого словаря предикатов (это было бы новым лексическим списком/онтологией)",
+        "конфликты определений выводятся только из данных основания (contradicts/supersedes), а не из лексических противопоставлений",
+        "verified не требует известного автора/времени — существующий evidence-контракт R-1 этого не требует (честный missing-код, без подстановок)",
+        "build_relation_view не переносит unmapped_sources: нераскрытые основания не видны в публичном view (ремонт вне write scope ONTO-B)",
+        "исторические/архивные relations и коррекция корпуса не проверялись",
+        "интеграции в retrieval нет — O-04 (M2); relation persistence не добавлялась"
+      ],
+      "why_review_not_verified": "Кандидат одобрен независимым Reviewer на predeploy-стадии (Approved for predeploy REVIEW), но не выложен: VERIFIED означает подтверждённое поведение на выложенном кандидате. Дальше — release handoff ONTO-A+ONTO-B одной линией.",
+      "next_role": "DevOps (release handoff ONTO-A+ONTO-B) после решения Orchestrator",
+      "gates_2026_11_15": {
+        "review_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-ONTO-B --candidate d15b13da3e709c4311f347e307e356a895e28a24 --repo . --strict-evidence",
+          "output": "stage=review inventory=380 manual=69 scoped=1 errors=0",
+          "exit": 0,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-onto-b-d15b13da-2026-11-15.txt",
+          "reading": "Привязка чистая: state REVIEW, candidate-bound implementation evidence и независимый approval сходятся на d15b13da; live-обязательства сняты по контракту (строки 64, 71-76, 78)"
+        },
+        "deploy_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-ONTO-B --candidate d15b13da3e709c4311f347e307e356a895e28a24 --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED",
+            "FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "stage=deploy inventory=380 manual=69 scoped=1 errors=3"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-onto-b-d15b13da-2026-11-15.txt",
+          "reading": "Все три ошибки — замыкание зависимостей графа (VMQ-A-01 и ONTO-A O-01/O-02 в REVIEW), не дефект привязки ONTO-B. Плюс кандидат не выложен, поэтому deploy-стадия к нему физически не применима",
+          "not_a_binding_failure": true
+        }
+      }
+    },
+    "m2": {
+      "slice": "VMQ-M2",
+      "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+      "candidate_short": "f7a9c596",
+      "evidence_tip": "8b56fc7320722494d0191f320e6da3355cc1a654",
+      "branch": "vmq/m2",
+      "base_commit": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+      "base_commit_note": "база — принятая линия ONTO-B (tip 64dab0eb / код d15b13da), стоящая на ONTO-A d67262cb/8cb9e00d и production c97c06e4",
+      "base_code_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
+      "prod_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "deployed": false,
+      "deployed_note": "кандидат не выложен; верхнеуровневые candidate_commit/deployed_commit карты остаются c97c06e4",
+      "status": "REVIEW",
+      "recorded_at": "2026-11-15",
+      "rows": [
+        "M-04",
+        "M-05",
+        "O-04"
+      ],
+      "covered_rows": [
+        "M-04",
+        "M-05",
+        "O-04"
+      ],
+      "code_scope": [
+        "services/mca_retrieval_context.py",
+        "services/direct_chat_service.py",
+        "services/tool_router.py",
+        "tests/test_memory_unified_retrieval.py"
+      ],
+      "scope_note": "Фактический scope шире графа: доставка overview в живой Writer bundle и person-overview инструмент потребовала минимальных правок services/direct_chat_service.py и services/tool_router.py (расширение одобрено Orchestrator 15.11.2026, зафиксировано в implementation.md). services/direct_context_composer.py и services/database.py, перечисленные в write_scope графа для M2, кандидатом НЕ менялись. slice-graph.json этой привязкой не правился (вне write scope PM)",
+      "contract": {
+        "confirmation": "plans/features/vmq-onto-01/evidence/m2-contract-confirmation-2026-11-15.md",
+        "confirmation_sha256_prefix": "1ac37764…bceef",
+        "clauses": "architecture-m1-episodes.md, architecture-onto-ab.md §49-66, plan.md §2/§3, строки MAN-M-04/MAN-M-05/MAN-O-04",
+        "decision": "ARCH_REUSE_CONFIRMED"
+      },
+      "review": {
+        "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+        "sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+        "verdict": "Approved for predeploy REVIEW",
+        "reviewer": "независимая сессия Reviewer (R1)",
+        "recorded_at": "2026-11-15",
+        "ledger": {
+          "M-04": "REVIEW approved",
+          "M-05": "REVIEW approved",
+          "O-04": "REVIEW approved",
+          "verdict_on_verified": "never VERIFIED; live artifacts absent"
+        }
+      },
+      "implementation": {
+        "path": "plans/features/vmq-onto-01/evidence/vmq-m2/implementation.md",
+        "sha256": "bfd9781fb64f837778ca3827937f1c5bc0be0f2416bf09fd5cbfff5c6362a7e5",
+        "origin": "перенесён побайтово из 8b56fc73 (blob 7eef8150) в checkout master для проверяемого artifact_path; содержимое не переписывалось",
+        "probe_artifacts": [
+          {
+            "path": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-person-overview-bundles.json",
+            "sha256": "9a754d9cfcb570df2bdb03626a3b2f929eb94abc6418962a6bc0ff705cf2a34e",
+            "kind": "candidate_probe_not_live"
+          },
+          {
+            "path": "plans/features/vmq-onto-01/evidence/vmq-m2/probe-onto-single-retrieval-e2e.json",
+            "sha256": "6311674d9166ee4a9146627980149aa46dc9c45509799d9445ef381b3b0ea877",
+            "kind": "candidate_probe_not_live"
+          }
+        ],
+        "code_blobs": {
+          "services/mca_retrieval_context.py": "043e7655",
+          "services/direct_chat_service.py": "e0381d2a",
+          "services/tool_router.py": "98c3885d",
+          "tests/test_memory_unified_retrieval.py": "00d3ce86"
+        },
+        "delta": "относительно 64dab0eb: M mca_retrieval_context.py, M direct_chat_service.py, M tool_router.py, A tests/test_memory_unified_retrieval.py (972 строки, 21 тест), A evidence/vmq-m2/*"
+      },
+      "tests": {
+        "focused": "21 passed на exact candidate f7a9c596 (tests/test_memory_unified_retrieval.py)",
+        "affected": "727 passed, 1 deselected (24 файла, --timeout=180); отдельно 283 passed delivery-набор",
+        "pre_existing_failures": "1 failed test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken (StopIteration; в финальном прогоне deselected) и 2 failed test_tool_coordinator_round1026 (forbidden_paths_out_of_diff, canon_twelve_tools) — воспроизводятся на базе без правок M2",
+        "red": "модульная часть: 14 failed на 64dab0eb (TypeError include_overview); доставка: 6 failed / 15 passed на a82a9319",
+        "mutation": "4 модульные мутации и 1 независимая мутация доставки killed (A повтор мема как независимая опора, B coverage.complete=True, C legacy-факт выброшен из hints, D source_fingerprint выпадает, E–H seam/bundle/tool/флаг); всего 8 мутаций в implementation.md",
+        "not_run": "полный suite репозитория не запускался; production не задействован"
+      },
+      "ddl": 0,
+      "embeddings": 0,
+      "ddl_evidence": "нет CREATE/ALTER/DROP и write-SQL; PRAGMA user_version 47→47, counts и WAL-байты равны до/после (probe db_resource_check); services/database.py не менялся",
+      "embeddings_evidence": "embed_text/upsert_fact_vector/rebuild_index не вызываются; векторный канал остаётся один (retrieve_fact_candidates); массовой переиндексации нет",
+      "not_covered": [
+        "кандидат не выложен: production-верификация не проводилась",
+        "live/preprod-доказательство отсутствует: только candidate_probe_not_live",
+        "эвристика is_history_query добавляет 2 bounded episode-чтения на «исторический» ход (кандидаты/порядок не меняются)",
+        "общий no-fact путь использует прежний legacy-fallback без overview",
+        "typed relations ONTO-B в overview не включены (отдельный API project_relation)",
+        "independent_periods лексически консервативен: переформулировка факта считается независимой",
+        "историческое multi-period чтение не возвращает chat_id — в hints подставляется request.chat_id"
+      ],
+      "why_review_not_verified": "Кандидат одобрен независимым Reviewer на predeploy-стадии, но не выложен, а live/preprod-доказательство отсутствует. Верхнеуровневые поля карты остаются c97c06e4; дальше — release handoff линии ONTO-A+ONTO-B+M2.",
+      "next_role": "DevOps (release handoff линии ONTO-A+ONTO-B+M2) после решения Orchestrator",
+      "gates_2026_11_15": {
+        "review_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence",
+          "output": [
+            "FAIL: M-04: live requirement lacks evidence for stage review",
+            "FAIL: O-04: live requirement lacks evidence for stage review",
+            "stage=review inventory=380 manual=69 scoped=3 errors=2"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-m2-f7a9c596-2026-11-15.txt",
+          "reading": "Ошибок привязки нет (state/implementation/approval сходятся на f7a9c596). Красное — ровно две честные live-обязанности M-04/O-04: живое/preprod-доказательство не снималось (есть только candidate_probe_not_live). M-05 проходит полностью",
+          "not_a_binding_failure": true
+        },
+        "deploy_candidate": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED",
+            "FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "FAIL: O-03: required dependency VMQ-ONTO-B is not evidenced VERIFIED",
+            "FAIL: V-01: required dependency VMQ-V is not evidenced VERIFIED",
+            "FAIL: V-02: required dependency VMQ-V is not evidenced VERIFIED",
+            "FAIL: V-03: required dependency VMQ-V is not evidenced VERIFIED",
+            "FAIL: V-04: required dependency VMQ-V is not evidenced VERIFIED",
+            "FAIL: M-04: live requirement lacks evidence for stage deploy",
+            "FAIL: O-04: live requirement lacks evidence for stage deploy",
+            "stage=deploy inventory=380 manual=69 scoped=3 errors=10"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-m2-f7a9c596-2026-11-15.txt",
+          "reading": "8 ошибок — замыкание зависимостей графа (VMQ-A-01, ONTO-A O-01/O-02, ONTO-B O-03, VMQ-V V-01..V-04 в REVIEW); 2 — те же честные live-обязанности M-04/O-04. Ошибок привязки нет. Кандидат не выложен, поэтому deploy-стадия к нему неприменима",
+          "not_a_binding_failure": true
+        }
+      }
     }
   },
   "metric_contract_2026_11_13": {
@@ -13314,7 +13937,13 @@
       "plans/features/vmq-onto-01/evidence/gates/deploy-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
       "plans/features/vmq-onto-01/evidence/gates/release-next2-c97c06e4-after-live-reconciliation-2026-11-15.txt",
       "plans/features/vmq-onto-01/evidence/gates/review-onto-a-8cb9e00d-2026-11-15.txt",
-      "plans/features/vmq-onto-01/evidence/gates/deploy-onto-a-8cb9e00d-2026-11-15.txt"
+      "plans/features/vmq-onto-01/evidence/gates/deploy-onto-a-8cb9e00d-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-onto-b-d15b13da-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-onto-b-d15b13da-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-m2-f7a9c596-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-m2-f7a9c596-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-mem-a-570a49db-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-mem-a-570a49db-2026-11-15.txt"
     ],
     "gate_summary_after_binding_2026_11_15": {
       "VMQ-A": "review errors=0, deploy errors=0 — привязка REVIEW чистая",
@@ -13322,7 +13951,10 @@
       "VMQ-M1": "review errors=0, deploy errors=0, release errors=0 — срез принят на выложенном кандидате",
       "VMQ-MEM-NEXT": "после live_required_reconciliation_2026_11_15: review/deploy/release красные только на NEXT-01 PENDING, NEXT-03 (нет candidate-bound кейса), NEXT-04 PENDING и на замыкании зависимостей графа; live-ошибки NEXT-02/05 сняты",
       "plan": "errors=0",
-      "VMQ-ONTO-A": "review candidate 8cb9e00d errors=0 (привязка чистая); deploy errors=1 — только зависимость VMQ-A-01 (REVIEW). Кандидат не выложен, поэтому VERIFIED не заявляется"
+      "VMQ-ONTO-A": "review candidate 8cb9e00d errors=0 (привязка чистая); deploy errors=1 — только зависимость VMQ-A-01 (REVIEW). Кандидат не выложен, поэтому VERIFIED не заявляется",
+      "VMQ-ONTO-B": "review candidate d15b13da errors=0 (привязка чистая); deploy errors=3 — только зависимости VMQ-A-01 и ONTO-A (O-01/O-02). Кандидат не выложен, VERIFIED не заявляется",
+      "VMQ-M2": "review f7a9c596 errors=2 — только live-обязанности M-04/O-04 (не привязка); deploy errors=10 — 8 зависимостей графа + те же 2 live. Кандидат не выложен, VERIFIED не заявляется",
+      "VMQ-MEM (Slice A)": "review 570a49db errors=8 — VMQ-MEM-01 live-остаток + 7 незакрытых строк среза; deploy errors=19 — 11 зависимостей + live + 7 PENDING. Ошибок привязки нет; TIME-строки не привязаны и остаются PENDING с клаузальным разбором"
     },
     "live_flags_reconciled_2026_11_15": {
       "rows": [
@@ -13337,8 +13969,29 @@
       "limitation_kept": "production-архив/effective flags и постдеп-тайминги не измерялись; заявление о качестве продукции не делается"
     },
     "slice_bindings_added_2026_11_15": [
-      "slice_candidate_bindings.onto_a: O-01/O-02 привязаны к невыложенному кандидату 8cb9e00d (ветка vmq/onto-a, tip d67262cb), статус REVIEW"
-    ]
+      "slice_candidate_bindings.onto_a: O-01/O-02 привязаны к невыложенному кандидату 8cb9e00d (ветка vmq/onto-a, tip d67262cb), статус REVIEW",
+      "slice_candidate_bindings.onto_b: O-03 привязана к невыложенному кандидату d15b13da (ветка vmq/onto-b, tip 64dab0eb), статус REVIEW; live_required снят по architecture-onto-ab.md (строки 64, 71-76, 78)",
+      "slice_candidate_bindings.m2: M-04/M-05/O-04 привязаны к невыложенному кандидату f7a9c596 (ветка vmq/m2, tip 8b56fc73), статус REVIEW; live_required у M-04/O-04 сохранён честно, postrelease_wait не добавлялся",
+      "slice_candidate_bindings.mem_a: VMQ-MEM-01 привязана к невыложенному кандидату 570a49db (ветка vmq/mem-a, база 8b56fc73); TIME-01/03/04/06/07 получили клаузальный разбор Slice A и остаются PENDING"
+    ],
+    "release_train_snapshot_2026_11_15": {
+      "line": "ONTO-A 8cb9e00d (tip d67262cb) -> ONTO-B d15b13da (tip 64dab0eb) -> M2 f7a9c596 (tip 8b56fc73), производная от c97c06e4",
+      "code_readiness": "линия линейная, каждый шаг одобрен Reviewer'ом на predeploy REVIEW; DDL 0, embeddings 0, схемных/флаговых изменений нет; кандидаты не выложены",
+      "gate_blockers": [
+        "VMQ-A-01 остаётся REVIEW: scoped deploy/release-гейты ONTO-A/ONTO-B/M2 требуют его VERIFIED (нужен Reviewer на уровне VERIFIED по delta-карте)",
+        "V-01..V-04 остаются REVIEW: нужно реальное production-голосовое событие (код VMQ-V уже в проде 2.58.203, наблюдение — агент)",
+        "M-04/O-04 live/preprod-доказательство: без выкладки его не существует; вариант — Reviewer-approved deferral (READY_FOR_LIVE + postrelease_wait), которого сейчас нет"
+      ],
+      "not_blocking": "M1 VERIFIED и его scoped release-гейт зелёный; сама линия ONTO/M2 кодом готова к handoff",
+      "decision_owner": "Orchestrator/DevOps (порядок выпуска), не PM"
+    },
+    "memory_measurement_readiness_2026_11_15": {
+      "answer": "доказательный замер VMQ-MEM/VMQ-MEM-TIME технически не заблокирован и может идти сейчас; но он измеряет выложенную линию c97c06e4 (2.58.203), в которой нет overview/bundle-доставки M2",
+      "why_not_blocked": "измерение read-only: harness на копии прод-БД, write scope VMQ-MEM — evidence/; M1-эпизоды и периодная нога в проде с 2.58.199/2.58.203",
+      "scope_caveat": "если приёмке нужен эффект M2 (overview/bundle), «после» придётся снимать либо на кандидате f7a9c596 (candidate-bound, не production), либо после выпуска линии; сейчас корректно снимается baseline прода и year-coverage TIME-01..08",
+      "write_conflict": "правка services/mca_retrieval_context.py (если дефект найден в VMQ-MEM) сериализуется после линии M2 — тот же файл",
+      "next_action": "Builder: read-only harness на копии прод-БД c97c06e4 -> formulation-class-matrix.json, run-retrieval-trace.json, metrics-comparison.json + year before/after; Reviewer: независимое повторное измерение"
+    }
   },
   "next_actions_2026_11_15": {
     "recorded_at": "2026-11-15",
@@ -13612,6 +14265,27 @@
       "review": 8,
       "verified": 6,
       "note": "O-01/O-02 переведены из PENDING в REVIEW после биндинга одобренного кандидата; эпик открыт"
+    },
+    "open_rows_2026_11_15_onto_b": {
+      "total_required": 70,
+      "pending": 55,
+      "review": 9,
+      "verified": 6,
+      "note": "O-03 переведена PENDING → REVIEW после биндинга одобренного кандидата; ONTO-A/B ждут одного release handoff"
+    },
+    "open_rows_2026_11_15_m2": {
+      "total_required": 70,
+      "pending": 52,
+      "review": 12,
+      "verified": 6,
+      "note": "M-04/M-05/O-04 переведены PENDING → REVIEW; линия ONTO-A+ONTO-B+M2 готова к release handoff"
+    },
+    "open_rows_2026_11_15_mem_a": {
+      "total_required": 70,
+      "pending": 51,
+      "review": 13,
+      "verified": 6,
+      "note": "Slice A даёт VMQ-MEM-01 (матрица формулировок) и частичные доказательства для TIME-01/03/04/06/07; TIME-строки остаются PENDING"
     }
   },
   "candidate_commit_history": [

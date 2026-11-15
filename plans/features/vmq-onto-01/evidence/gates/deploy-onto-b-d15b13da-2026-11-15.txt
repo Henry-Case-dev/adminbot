@@ -1,0 +1,12 @@
+﻿# VMQ-ONTO-01 gate: deploy-VMQ-ONTO-B-d15b13da
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-ONTO-B --candidate d15b13da3e709c4311f347e307e356a895e28a24 --repo . --strict-evidence
+# exit: 1
+# note: ONTO-B candidate d15b13da (branch vmq/onto-b, tip 64dab0eb), base ONTO-A tip d67262cb / code 8cb9e00d / prod ancestor c97c06e4; candidate НЕ выложен
+
+FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED
+FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+stage=deploy inventory=380 manual=69 scoped=1 errors=3
+

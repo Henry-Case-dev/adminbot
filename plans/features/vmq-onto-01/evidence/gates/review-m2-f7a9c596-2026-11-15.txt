@@ -1,0 +1,11 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-M2-f7a9c596
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence
+# exit: 1
+# note: M2 candidate f7a9c596 (branch vmq/m2, evidence tip 8b56fc73), base ONTO-B 64dab0eb, production ancestor c97c06e4; candidate НЕ выложен; live_required у M-04/O-04 сохранён честно
+
+FAIL: M-04: live requirement lacks evidence for stage review
+FAIL: O-04: live requirement lacks evidence for stage review
+stage=review inventory=380 manual=69 scoped=3 errors=2
+

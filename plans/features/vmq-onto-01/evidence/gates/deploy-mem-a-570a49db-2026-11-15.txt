@@ -1,0 +1,28 @@
+﻿# VMQ-ONTO-01 gate: deploy-VMQ-MEM-570a49db
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-MEM --candidate 570a49db9aa0d1d487e43e2d0ffae0dffcb00497 --repo . --strict-evidence
+# exit: 1
+# note: Slice A candidate 570a49db (branch vmq/mem-a, base M2 tip 8b56fc73, production ancestor c97c06e4); candidate НЕ выложен; live_required у VMQ-MEM-01 сохранён честно
+
+FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED
+FAIL: M-04: required dependency VMQ-M2 is not evidenced VERIFIED
+FAIL: M-05: required dependency VMQ-M2 is not evidenced VERIFIED
+FAIL: O-04: required dependency VMQ-M2 is not evidenced VERIFIED
+FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-03: required dependency VMQ-ONTO-B is not evidenced VERIFIED
+FAIL: V-01: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-02: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-03: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-04: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: VMQ-MEM-01: live requirement lacks evidence for stage deploy
+FAIL: VMQ-MEM-02: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-03: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-05: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-06: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-07: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+stage=deploy inventory=380 manual=69 scoped=8 errors=19
+

@@ -1,0 +1,9 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-ONTO-B-d15b13da
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-ONTO-B --candidate d15b13da3e709c4311f347e307e356a895e28a24 --repo . --strict-evidence
+# exit: 0
+# note: финальный прогон после биндинга O-03 (live_required снят по architecture-onto-ab.md ст��оки 64, 71-76, 78)
+
+stage=review inventory=380 manual=69 scoped=1 errors=0
+

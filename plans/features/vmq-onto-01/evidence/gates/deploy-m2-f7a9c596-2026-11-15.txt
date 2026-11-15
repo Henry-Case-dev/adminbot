@@ -1,0 +1,19 @@
+﻿# VMQ-ONTO-01 gate: deploy-VMQ-M2-f7a9c596
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence
+# exit: 1
+# note: M2 candidate f7a9c596 (branch vmq/m2, evidence tip 8b56fc73), base ONTO-B 64dab0eb, production ancestor c97c06e4; candidate НЕ выложен; live_required у M-04/O-04 сохранён честно
+
+FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED
+FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-03: required dependency VMQ-ONTO-B is not evidenced VERIFIED
+FAIL: V-01: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-02: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-03: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: V-04: required dependency VMQ-V is not evidenced VERIFIED
+FAIL: M-04: live requirement lacks evidence for stage deploy
+FAIL: O-04: live requirement lacks evidence for stage deploy
+stage=deploy inventory=380 manual=69 scoped=3 errors=10
+
