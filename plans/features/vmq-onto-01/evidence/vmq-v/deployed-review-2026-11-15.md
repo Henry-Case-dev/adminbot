@@ -30,3 +30,28 @@
 - PM should bind the five rows as candidate-bound `REVIEW` based on this artifact; do not convert them to `VERIFIED` without the required real event evidence.
 - Housekeeping unchanged: retained disposable c97 evidence at `C:\Users\main\.config\opencode\WorkspaceData\runs\c742e4de9e92c489\vmq-onto-01-3689dd92710d\temp-afd409e420`.
 
+
+
+## Q1/Q2 release-gate decisions (2026-11-15)
+
+### Q1 - VMQ-A-01: Needs Evidence, not VERIFIED-eligible
+
+The artifact audit-head.md contains the required 12 sections, including sections 6, 7, and 9. It is not VERIFIED-eligible because its header still pins c816e83c / 2.58.168, while this review binds the deployed base to c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 / 2.58.203. It does not explicitly reconcile current HEAD, active MEMORY tasks, and production configuration against c97.
+
+Minimum correction: Architect/PM update the base/current-head pin to c97c06e4 / 2.58.203 and add an explicit c97 delta for done, in-progress, newly added MEMORY work, and production configuration. Then recheck the document. No application-code correction is indicated.
+
+### Q2 - graph correction preferred; no fabricated live evidence
+
+The M2-to-V edge is no longer technically necessary for the approved train. Exact ancestry confirms c97c06e4 is the deployed base of 16931216ab0015b4a3001c9947768305517e46eb. The c97-to-16931216 diff is empty for services/direct_context_composer.py and the V handler/transcript/test paths; only the shared services/database.py path changes. The deployed c97 tree contains the V implementation and test paths. This supports correcting the graph edge rather than holding M2 on unrelated future V production observation.
+
+This is a graph correction, not a status shortcut. V-01..V-04 remain candidate-bound REVIEW until a real production voice event and Writer/provider delivery are observed. They are not VERIFIED, and this artifact does not convert them to READY_FOR_LIVE without a separately approved wait object. After correction, V rows remain independent acceptance work and must not block M2 solely through the removed edge.
+
+### Three review pillars
+
+- Implementation: inspected exact c97 identity and the train diff across the composer, V handler/transcript/tests, and database seam; the V/composer paths are unchanged.
+- Test validity: inspected the existing V artifact assertions for revision/source-ref, grouping, payload, pending/failed/restart/stale states, and 48 exact-c97 passes. They prove local integration semantics, not production delivery.
+- Independent challenge: checked the stale Q1 pin against c97 and challenged the dependency with the exact c97-to-16931216 path diff. Live delivery remains unproven; deploy evidence reports outbound_delivered_to_telegram=0.
+
+### Release consequence
+
+Train 16931216ab0015b4a3001c9947768305517e46eb is safe to assemble/deploy with respect to Q2 once PM/Architect records the graph correction and reruns the train gate. Q1 remains the genuine pre-deploy documentation blocker for VMQ-A-01 binding, not a runtime blocker. No production access was used. The requirements map was not edited.
