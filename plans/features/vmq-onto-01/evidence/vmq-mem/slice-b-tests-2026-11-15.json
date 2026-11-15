@@ -1,0 +1,54 @@
+{
+  "artifact_kind": "candidate_probe_not_live",
+  "date": "2026-11-15",
+  "slice": "VMQ-MEM-TIME/Slice-B",
+  "branch": "vmq/mem-b",
+  "base_commit": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+  "production_commit_at_base": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "implementation_commit": "d159ea8ad8362616ec78b43cb64a3e54ec7de2e6",
+  "red": {
+    "where": "clean worktree of 570a49db",
+    "test_file": "tests/test_vmq_mem_slice_b.py",
+    "failed": 20,
+    "passed": 1
+  },
+  "green": {
+    "new_test_file": {"passed": 21, "failed": 0},
+    "focused_suite": {
+      "files": 23,
+      "passed": 634,
+      "failed": 0
+    },
+    "broad_keyword_suite": {
+      "keyword": "memory or retrieval or graphrag or persona or tool_router or mca07 or mca13 or mca22 or mem_time or mem08 or history_isolation or direct_chat",
+      "passed": 2261,
+      "failed": 5,
+      "errors": 1,
+      "pre_existing_on_base": true,
+      "pre_existing_failures": [
+        "tests/test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
+        "tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+        "tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools",
+        "tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+        "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken"
+      ],
+      "pre_existing_error": "tests/test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory"
+    }
+  },
+  "mutations": [
+    {"seam": "A1 historical quota", "mutation": "quota condition -> False", "failed": 1, "passed": 0},
+    {"seam": "T2 structured intent", "mutation": "request_intent/plan_act/request_mode branches -> False", "failed": 4, "passed": 2},
+    {"seam": "Old_Episode year window", "mutation": "explicit_year window -> False", "failed": 1, "passed": 0},
+    {"seam": "profile speaker leg", "mutation": "speaker_author_id leg -> False", "failed": 2, "passed": 0},
+    {"seam": "profile author messages", "mutation": "message_reader branch -> False", "failed": 1, "passed": 0},
+    {"seam": "relations temporal axis", "mutation": "edge ts -> None", "failed": 1, "passed": 1}
+  ],
+  "limits": {
+    "corpus_copy_run": "not performed locally: no schema-47 production copy",
+    "vector_live_admission": "UNVERIFIED",
+    "live_writer_corpus": "not exercised",
+    "t2_corpus_requires_plan_signal": true,
+    "profile_speaker_facts_presence_on_corpus": "UNVERIFIED",
+    "profile_author_messages_read": "bounded three-year (2024/2023/2022 for 2026) read by exact uid; corpus counts not measured locally"
+  }
+}
