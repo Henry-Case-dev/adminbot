@@ -1,0 +1,19 @@
+16931216 fix(vmq-mem): M2 overview trigger uses structured period intent (Slice C)
+182fcbf9 docs(vmq-mem): Slice B implementation and test evidence
+d159ea8a fix(vmq-mem): subject chronology and relations projection (Slice B)
+570a49db fix(vmq-mem): period intent keeps the target year; honest vector admission (Slice A)
+8b56fc73 docs(vmq-m2): fix delivery seam line references after compaction
+f8346e85 docs(vmq-m2): M-04 live delivery seam, tests and honest limits
+f7a9c596 refactor(vmq-m2): compact plan-scope rebuild call (no behaviour change)
+2b4abe4a fix(vmq-m2): skip overview reads when evidence-bundle kill switch is off
+49705d51 feat(vmq-m2): deliver retrieval overview into live Writer bundle and person-overview tool (M-04)
+a82a9319 docs(vmq-m2): candidate fingerprint and worktree retention for Reviewer handoff
+69ea617c feat(vmq-m2): bounded overview of unified retrieval with semantic hints (M-04, O-04)
+64dab0eb docs(onto-b): worktree retention record for Reviewer handoff
+abb59781 docs(onto-b): O-03 implementation evidence (typed relations, provenance, conflicts)
+d15b13da feat(onto-b): typed relation projection with direction/author/time/provenance (O-03)
+d67262cb docs(onto-a): R1 corrective evidence - chat_scope required for typed result
+8cb9e00d fix(onto-a): require chat_scope for every typed entity type (O-01 R1)
+98e19074 docs(onto-a): worktree retention record for Reviewer handoff
+8258fe69 docs(onto-a): implementation evidence for O-01/O-02 review
+a7a576b1 feat(onto-a): typed semantic projection with UID-first identity (O-01, O-02)

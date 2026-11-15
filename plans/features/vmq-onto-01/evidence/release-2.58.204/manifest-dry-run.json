@@ -1,0 +1,17 @@
+{
+  "captured_at_commit": "735af15b",
+  "command": "python tools/release_manifest.py --repo-root . --dry-run",
+  "deploy_dir_created": false,
+  "manifest": {
+    "deployed_at": "2026-11-15T02:35:23.531801Z",
+    "deployed_sha": "735af15bf0bbb029f2e6aec3e3cc5cd4aae64ccb",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": null,
+    "previous_version": null,
+    "release_branch": "release/vmq-onto-01-2.58.204",
+    "schema": 1,
+    "version": "2.58.204"
+  },
+  "note": "previous_* are null because the dev worktree has no local .deploy/release.json (the production manifest was never read). The dry-run was repeated on the final branch tip after this evidence commit: version=2.58.204, dirty_tracked=false, release_branch=release/vmq-onto-01-2.58.204, deployed_sha equals the tip reported in the Builder handoff."
+}

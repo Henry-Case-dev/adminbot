@@ -1,0 +1,134 @@
+{
+  "feature": "vmq-onto-01",
+  "release": "2.58.204",
+  "assembled_at": "2026-11-15",
+  "branch": "release/vmq-onto-01-2.58.204",
+  "base_commit": "c97c06e4",
+  "code_tip": "16931216",
+  "bump_commit": "735af15b",
+  "environment": {
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "venv": "C:/Code/Python/adminbot/.venv",
+    "cwd": "release worktree of vmq-onto-01 (see assembly.md)",
+    "node": "v24.16.0"
+  },
+  "compared_commits": ["16931216", "735af15b"],
+  "batches": [
+    {
+      "id": "train-contracts",
+      "purpose": "CONTRACT suites of the six approved slices",
+      "files": [
+        "tests/test_semantic_contracts.py",
+        "tests/test_memory_unified_retrieval.py",
+        "tests/test_mem_time_policy.py",
+        "tests/test_vmq_mem_period_intent.py",
+        "tests/test_vmq_mem_slice_b.py",
+        "tests/test_vmq_mem_slice_c.py"
+      ],
+      "file_count": 6,
+      "pre_bump": {"passed": 156, "failed": 0},
+      "bumped": {"passed": 156, "failed": 0}
+    },
+    {
+      "id": "direct-chat-tool-router",
+      "purpose": "INTEGRATION/REGRESSION on the touched delivery seams",
+      "files": [
+        "tests/test_direct_chat.py",
+        "tests/test_direct_chat_concurrency.py",
+        "tests/test_direct_chat_handlers.py",
+        "tests/test_direct_chat_lore_inject.py",
+        "tests/test_direct_chat_prompts.py",
+        "tests/test_direct_chat_relations_inject.py",
+        "tests/test_tool_router.py"
+      ],
+      "file_count": 7,
+      "pre_bump": {"passed": 355, "failed": 0},
+      "bumped": {"passed": 355, "failed": 0}
+    },
+    {
+      "id": "pin-guard",
+      "purpose": "version-pin wave (24 py files of the standard bump)",
+      "file_count": 24,
+      "pre_bump": {"passed": 856, "failed": 4},
+      "bumped": {"passed": 856, "failed": 4}
+    },
+    {
+      "id": "js-pins",
+      "purpose": "4 JS harnesses with escaped APP_VERSION regex",
+      "file_count": 4,
+      "pre_bump": {"passed": 4, "failed": 0},
+      "bumped": {"passed": 4, "failed": 0},
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+      ]
+    },
+    {
+      "id": "param-catalog",
+      "purpose": "parameter catalog / settings invariants (no new flags)",
+      "files": [
+        "tests/test_param_catalog.py",
+        "tests/test_summary_param_catalog_annotation_asap41.py",
+        "tests/test_settings_helpers.py"
+      ],
+      "file_count": 3,
+      "pre_bump": {"passed": 94, "failed": 0},
+      "bumped": {"passed": 94, "failed": 0}
+    },
+    {
+      "id": "memory-neighbourhood",
+      "purpose": "REGRESSION on memory/retrieval owners adjacent to the slices",
+      "files": [
+        "tests/test_memory_unified_retrieval_06.py",
+        "tests/test_vmq_mem_retrieval_fixes.py",
+        "tests/test_memory_period_vector_leg.py",
+        "tests/test_mem_time_asof.py",
+        "tests/test_mem_time_profile.py",
+        "tests/test_mem_time_l1_scope.py",
+        "tests/test_memory_contracts.py",
+        "tests/test_mca07_retrieval_context_round1027.py",
+        "tests/test_memory_attribution.py",
+        "tests/test_mca18_memory_subject_block_b_round1042.py"
+      ],
+      "file_count": 10,
+      "pre_bump": {"passed": 291, "failed": 0},
+      "bumped": {"passed": 291, "failed": 0}
+    }
+  ],
+  "totals": {
+    "pre_bump": {"passed": 1752, "failed": 4},
+    "bumped": {"passed": 1752, "failed": 4},
+    "new_failures_after_bump": 0
+  },
+  "pre_existing_failures": [
+    "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+    "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+    "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+    "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline"
+  ],
+  "pre_existing_failure_note": "Identical test IDs fail on the pre-bump tip 16931216: tool-canon and diff-vs-baseline pins from earlier releases. Not caused by this candidate; not fixed here (out of scope).",
+  "static_checks": {
+    "py_compile": {
+      "files": [
+        "config/settings.py",
+        "services/semantic_contracts.py",
+        "services/mca_retrieval_context.py",
+        "services/direct_chat_service.py",
+        "services/tool_router.py",
+        "services/database.py"
+      ],
+      "exit_code": 0
+    },
+    "git_diff_check": {"exit_code": 0},
+    "app_version_import": "2.58.204",
+    "catalog": {"REGISTRY": 645, "GROUPS": 121, "TAB_BY_GROUP": 119, "TAB_RULES": 22, "settings_fields": 472}
+  },
+  "limits": [
+    "Focused suites only, not the whole project test suite.",
+    "No deployment, no live Telegram/provider/UI proof in this assembly step.",
+    "4 pre-existing pin failures remain untouched."
+  ]
+}
