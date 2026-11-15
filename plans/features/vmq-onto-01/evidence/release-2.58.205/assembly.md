@@ -48,10 +48,20 @@
 `harness-slice-d-2026-11-15/` (README, `measure.py`, `vector_inventory.py`,
 `l1_measure.py`), `l1-measure-2026-11-15.json`.
 
-Отсутствовали только review-вердикты (`slice-d-review-r1/r2/r3.md`): они
-лежат в плановой линии (`master`, коммит `e8f3027b`) и скопированы в дерево
-**байт-в-байт** (sha256 совпадает; файлы не переписывались). Итоговый
-docs-коммит сборки добавляет их и этот отчёт.
+Отсутствовали review-вердикты (`slice-d-review-r1/r2/r3.md`): они лежат в
+плановой линии (`master`, коммит `e8f3027b`) и скопированы в дерево
+**байт-в-байт** (sha256 совпадает; файлы не переписывались).
+
+Финальный вердикт Reviewer для post-N9 вершины добавлен отдельно из плановой
+линии: `plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-final-approval.md`
+(источник — `master`, коммит `b9e4fb49`; скопирован байт-в-байт,
+sha256 `E5C99B6C80E158BF4DF17568CEEE1444CE570D2CF589A24BD1DD82D60BAE446F`).
+Он фиксирует **Approved (predeploy)** для product `456cf769` / evidence tip
+`69b5c9f9`, закрытие N9 и перечень неподтверждённых строк (MEM-04/TIME-01,
+TIME-02 reply, TIME-07).
+
+Итоговый docs-коммит сборки добавляет review-файлы, финальный вердикт и этот
+отчёт.
 
 ## 2. Кумулятивный дифф против базы `2b419aa2`
 
@@ -246,10 +256,10 @@ dry-run повторён на итоговой вершине ветки: `versi
   Telegram/провайдера/UI нет. VERIFIED не заявляется.
 - `services/database.py` в Slice D **менялся** (+10/−3, read-only loop fix) —
   это отличается от предположения handoff и зафиксировано в §2.1.
-- В дереве нет файла с вердиктом Reviewer для post-N9 вершины `69b5c9f9`:
-  последний сохранённый review — `slice-d-review-r3.md` (Needs Fixes для
-  `8fbd2ffb`, до N9). Handoff ссылается на Approved (predeploy); для
-  deploy-гейта нужен актуальный вердикт с явным SHA.
+- Финальный вердикт Reviewer для post-N9 вершины сохранён:
+  `slice-d-final-approval.md` (Approved (predeploy) для `456cf769` /
+  `69b5c9f9`, N9 закрыт). Это predeploy-одобрение, а не VERIFIED:
+  MEM-04/TIME-01, TIME-02 reply и TIME-07 в нём явно не подтверждены.
 - L1 `memory_scope` на пяти запросах не измерен (нет ключа LLM; в копии БД
   нет durable L1-плана) — отдельная находка Slice D, не блокер сборки.
 - Векторная нога `compat_not_proven`; семантика на лексическом пути
