@@ -1,0 +1,102 @@
+{
+  "artifact_kind": "candidate_probe_not_live",
+  "date": "2026-11-15",
+  "slice": "VMQ-MEM-TIME/Slice-C",
+  "branch": "vmq/mem-c",
+  "base_commit": "182fcbf976c7d21c4edeabf2a4f64d330d6af286",
+  "production_commit_at_base": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "implementation_commit": "16931216ab0015b4a3001c9947768305517e46eb",
+  "behavior_change": {
+    "before": "M2 overview trigger = mca_retrieval_context.is_history_query(query) (lexical _HISTORY_MARKERS)",
+    "after": "M2 overview trigger = resolve_period_intent(query, memory_scope, plan_act).wants_overview (structured PeriodIntent, Slice A/B)",
+    "owner_query": "напиши юмористический рассказ об основных шизах конфы",
+    "owner_query_trigger_before": false,
+    "owner_query_trigger_after": true,
+    "new_word_list_added": false,
+    "retrieval_selection_changed": false
+  },
+  "red": {
+    "where": "clean worktree of 182fcbf9 (implementation stashed)",
+    "test_file": "tests/test_vmq_mem_slice_c.py",
+    "failed": 11,
+    "passed": 4,
+    "failing_targets": [
+      "test_owner_creative_query_gets_overview_with_real_coverage",
+      "test_narrative_and_temporal_formulations_trigger_overview[owner]",
+      "test_narrative_and_temporal_formulations_trigger_overview[за все годы]",
+      "test_narrative_and_temporal_formulations_trigger_overview[2023]",
+      "test_plan_signal_triggers_overview_without_lexical_markers",
+      "test_historical_scope_triggers_overview",
+      "test_no_structured_signal_keeps_overview_off",
+      "test_empty_corpus_reports_no_invented_coverage",
+      "test_plan_rescope_enriches_the_same_bundle",
+      "test_intent_source_names_existing_signal",
+      "test_trigger_adds_no_retrieve_and_no_second_bundle"
+    ],
+    "passing_on_base": [
+      "test_narrative_and_temporal_formulations_trigger_overview[расскажи смешную историю...]",
+      "test_current_state_query_keeps_ordinary_path[2 forms]",
+      "test_trigger_does_not_change_candidates_order_or_channels"
+    ]
+  },
+  "green": {
+    "new_test_file": {"passed": 15, "failed": 0},
+    "focused_suite": {
+      "files": 5,
+      "list": [
+        "tests/test_vmq_mem_slice_c.py",
+        "tests/test_memory_unified_retrieval.py",
+        "tests/test_vmq_mem_period_intent.py",
+        "tests/test_vmq_mem_slice_b.py",
+        "tests/test_mem_time_policy.py"
+      ],
+      "passed": 115,
+      "failed": 0
+    },
+    "broad_keyword_suite": {
+      "keyword": "memory or retrieval or graphrag or persona or tool_router or mca07 or mca13 or mca22 or mem_time or mem08 or history_isolation or direct_chat",
+      "passed": 2261,
+      "failed": 5,
+      "errors": 1,
+      "pre_existing_on_base": true,
+      "pre_existing_failures": [
+        "tests/test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
+        "tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+        "tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools",
+        "tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+        "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken"
+      ],
+      "pre_existing_error": "tests/test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory",
+      "pre_existing_check": "same 6 nodes re-run on stashed base 182fcbf9: 5 failed, 1 error (identical)"
+    }
+  },
+  "mutations": [
+    {"seam": "structured trigger", "mutation": "PeriodIntent.wants_overview -> False", "failed": 10, "passed": 5},
+    {"seam": "bundle coverage slots", "mutation": "overview_bundle_slots appends invented period '2019: эпизодов 2'", "failed": 1, "passed": 14, "caught_by": "test_empty_corpus_reports_no_invented_coverage"},
+    {"seam": "trigger reverted to lexical markers", "mutation": "old is_history_query trigger (= RED run on base)", "failed": 11, "passed": 4},
+    {"seam": "negative path (no over-triggering)", "mutation": "overview_on = True for every query", "failed": 4, "passed": 11, "caught_by": "test_current_state_query_keeps_ordinary_path (2 forms), test_no_structured_signal_keeps_overview_off, test_plan_rescope_enriches_the_same_bundle"}
+  ],
+  "effective_config": {
+    "MCA_EVIDENCE_BUNDLE_ENABLED": {"default": true, "observed_in_tests": true, "off_path_proof": "tests/test_memory_unified_retrieval.py::TestM04LiveDelivery::test_build_rag_block_activates_overview_only_for_history_queries (bundle OFF -> no overview reads)"},
+    "MCA_EPISODES_ENABLED": {"default": true, "observed_in_tests": true, "note": "flags.episodes_enabled module catalog default true"},
+    "flags.graph_rag_enabled": {"default": true, "observed_in_tests": true},
+    "new_flags": "none"
+  },
+  "limits": {
+    "deployed": false,
+    "corpus_effect_measured": false,
+    "writer_output_quality": "not claimed",
+    "live_delivery_seam": "existing M2 seam (_bundle_scoped_slice -> memory_hints) not re-proven on a live process",
+    "request_intent_request_mode_available_at_call_site": false,
+    "real_trigger_sources_on_direct_path": ["query_year", "plan_act", "memory_scope", "query_marker"],
+    "extra_reads_for_year_bearing_queries": "two bounded M1 projection reads per such turn; corpus cost not measured",
+    "empty_corpus_proof": "synthetic in-memory DB only"
+  },
+  "housekeeping": {
+    "worktree": "WorkspaceData/worktrees/c742e4de9e92c489/vmq-onto-01-3689dd92710d-2b733b15",
+    "unit": "vmq-mem-c",
+    "runs_allocated": [],
+    "pytest_cache_removed": true,
+    "worktree_kept_for": "Reviewer"
+  }
+}
