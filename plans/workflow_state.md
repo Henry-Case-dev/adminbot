@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Builder push Slice B ses_e2352d544ffesVmrbEue0ow5ir; Builder Slice C ses_e2320901affeJvpgR6rnfoUWMb
-Join barriers: push Slice B -> DevOps corpus re-measure; Slice C -> Reviewer; PM binds A/B/C after corpus; release held
+Active lanes: DevOps corpus Slice B ses_e23200784ffeHyiJZnRV9edID4; Builder Slice C ses_e2320901affeJvpgR6rnfoUWMb
+Join barriers: DevOps corpus Slice B -> PM bind B; Slice C -> Reviewer -> PM bind C; corpus re-measure C; then release readiness; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 51 PENDING, 13 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on the deployed c97c06e4; ONTO-A/B/M2 and Slice A are approved at REVIEW; MEM-04, TIME-01/02/03/04/07/08/09 remain open. The memory measurement proved the exact owner multi-year defect is not fixed yet; Slice B is implementing it.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T13:43:21+12:00
+Updated: 2026-11-15T13:50:00+12:00
 
 ## Facts
 
@@ -135,3 +135,7 @@ Builder implemented Slice B on vmq/mem-b from 570a49db: code d159ea8a, tip 182fc
 ## Slice B r1 Approved; Slice C started (2026-11-15)
 
 Reviewer r1 Approved for predeploy REVIEW of Slice B on d159ea8a (tip 182fcbf9): bounded historical/multi-year quota, structured request_intent/mode/L1Plan.response_act, Old_Episode UTC/SQL window with P0-HA, subject/speaker profile SQL, sourced temporal relations, current-state unchanged; 21 tests + 370 affected passed; mutation PERIOD_SOFT_FALLBACK_MIN_ROWS=999999 makes historical_quota=1 fail. Artifact evidence/vmq-mem/slice-b-review-r1.md sha f5ca6886.... Schema-47 corpus re-measure and live vector remain separate UNVERIFIED. Builder is pushing vmq/mem-b for the read-only corpus re-measure. Slice C (M2 overview trigger by structured intent) started on vmq/mem-c from 182fcbf9: the exact owner query must get overview slots with actual coverage/limitations, current-state must not, no new lexical word list, one retrieve/one bundle.
+
+## Slice B pushed; corpus B + Slice C started (2026-11-15)
+
+origin/vmq/mem-b = 182fcbf9 (code d159ea8a included; no force). DevOps is running the read-only corpus re-measure on the production host: baseline Slice A 570a49db vs candidate d159ea8a, same DB copy/query set, A1 exact owner query (historical quota), T2 with a real L1Plan response_act=historical_recall, P1 profile subject refs 2023/2024, relationships temporal_projection, Old_Episode 2023, current-state control; no deployment. Builder Slice C started on vmq/mem-c from 182fcbf9: overview trigger from the structured PeriodIntent/historical intent, exact owner query gets actual coverage/limitations, current-state does not, no new lexical marker list, one retrieve/one bundle.
