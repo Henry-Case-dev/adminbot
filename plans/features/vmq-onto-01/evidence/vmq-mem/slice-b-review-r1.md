@@ -1,0 +1,10 @@
+# VMQ-MEM/TIME Slice B Reviewer r1
+
+Approved - predeploy REVIEW for exact candidate d159ea8ad8362616ec78b43cb64a3e54ec7de2e6, tip 182fcbf976c7d21c4edeabf2a4f64d330d6af286, base 570a49db.
+Implementation: inspected mca_retrieval_context.py select_period_rows/resolve_period_intent/retrieve, direct_chat_service.py plan_act and Old_Episode, database.py read-only subject/profile/author SQL and edge timestamp, tool_router.py biography and relations. Bounded quota, structured intent, UTC window, subject/speaker refs, sourced temporal projection, and unchanged current-state semantics are enforced.
+Test validity: read all 21 test bodies/assertions in tests/test_vmq_mem_slice_b.py. Real in-memory DatabaseService, rows/edges/messages/SQL, negatives for foreign author/no subject/no edges/no-year/current state, assertions on years/refs/bounds/reasons/invented=0. No vacuous assertions.
+Independent challenge: disposable run probe-cd7479bd5a set PERIOD_SOFT_FALLBACK_MIN_ROWS=999999. Target assertion requiring historical_quota=1 failed with 0==1. Candidate unchanged; mutation restored in finally.
+Checks: focused slice 21 passed; affected suites 370 passed; both runs had 2 pytest config warnings. Initial nonexistent path command was not counted.
+Ledger: A1 VERIFIED REVIEW; T2 VERIFIED REVIEW; Old_Episode VERIFIED REVIEW; profile/reply refs and 2023/2024/no author=subject VERIFIED REVIEW; relations temporal projection/reason/invented=0 VERIFIED REVIEW; current-state VERIFIED REVIEW; no DDL/embeddings/flags/second store and DB additions read-only VERIFIED static diff; schema-47 corpus UNVERIFIED separate acceptance; live vector UNVERIFIED separate acceptance.
+Limitations: no production access, no UI change. Existing schema-bootstrap DDL is pre-existing; Slice B additions are SELECT-only. Orchestrator/PM bind candidate evidence and run stage-correct review gate. Own run probe-cd7479bd5a; candidate worktree retained.
+SHA256: f5ca68865619a49445568b1f769a6d373a8950b8f34328cf791be54f1ad15411
