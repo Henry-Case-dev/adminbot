@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM bind Slice B/C ses_e2466fc41ffe29CK1Vz4tDm4SW; Builder push Slice C ses_e2320901affeJvpgR6rnfoUWMb
+Active lanes: PM bind Slice B/C ses_e2466fc41ffe29CK1Vz4tDm4SW; DevOps C corpus ses_e230158b3ffeG4QMQn2VYI1fDL
 Join barriers: PM binds B/C; push C -> DevOps C corpus (exact owner query overview, current-state negative); then release readiness; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 51 PENDING, 13 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on the deployed c97c06e4; ONTO-A/B/M2 and Slice A are approved at REVIEW; MEM-04, TIME-01/02/03/04/07/08/09 remain open. The memory measurement proved the exact owner multi-year defect is not fixed yet; Slice B is implementing it.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T14:16:30+12:00
+Updated: 2026-11-15T14:17:35+12:00
 
 ## Facts
 
@@ -150,3 +150,6 @@ Reviewer addendum sha 09399b68...: profile 2023/2024 material is confirmed via t
 ## Slice C r1 Approved (2026-11-15)
 
 Reviewer r1 Approved for predeploy REVIEW of Slice C on code 16931216 (tip 8bc2bcf7, base 182fcbf9): the overview trigger now uses PeriodIntent.wants_overview (kind != none; source query_year/plan_act/request_intent/request_mode/memory_scope/query_marker), not a lexical marker list; the exact owner query gets actual coverage/limitations, "что сейчас" gets none, one retrieve/one bundle, no fake coverage, no flags/DDL/second pipeline. Focused 68 passed, independent mutation wants_overview=False fails the owner-query test. Artifact evidence/vmq-mem/slice-c-review-r1.md sha B48AB6CF.... Production corpus effect and live delivery remain UNVERIFIED. PM is binding B and C at REVIEW; Slice C is being pushed for a small read-only corpus probe of the exact owner query and the current-state negative.
+## Slice C pushed; C corpus probe running (2026-11-15)
+
+origin/vmq/mem-c = 8bc2bcf7 (code 16931216 included; no force). PM is binding B/C at REVIEW; DevOps is running the small read-only corpus probe: baseline Slice B d159ea8a vs Slice C 16931216, exact owner query overview slots/coverage/limitations vs baseline no-overview, "что сейчас" negative (no overview, no extra episode reads), one retrieve/one bundle, no fake coverage; vector live separate. Evidence will be committed on master; no deployment.
