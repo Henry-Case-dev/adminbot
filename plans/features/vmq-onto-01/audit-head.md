@@ -139,3 +139,92 @@
 ## 12. Классификация
 
 `VMQ READY FOR PM LEDGER` — карта снята с реального HEAD, архитектурная развилка одна (где живут derived-слои L1–L3 и как пересобирается провайдер), внешний блокер только IBM hardware acceptance; очередь эпика не меняется, поправка по QRNG-провайдерам входит в `VMQ-Q0`/`VMQ-U` и не создаёт второго модуля настроек.
+
+
+---
+
+## 13. Addendum 2026-11-15 — актуальная база `c97c06e4` / 2.58.203
+
+**Историческая база §1–§12 не переписана.** Ветка `integ/unify-release`, HEAD `c816e83c` (2.58.168)
+остаются датированной точкой аудита; пин сохранён. Ниже — дельта к текущей production-линии: что из
+прежних выводов уже сделано, что в работе и что добавлено. Код этим addendum не менялся.
+
+### 13.1 Текущая production-база и идентичность
+
+- Деплой: `c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5`, версия **2.58.203**, ветка
+  `release/smart-corrective-01`; `healthz` `200 {"status":"ok","version":"2.58.203"}`, `NRestarts=0`,
+  `ActiveEnterTimestamp: Sat 2026-11-14 18:56:49Z`; манифест/рантайм identity сходятся
+  (`verified_deployed`), рабочее дерево `dirty=1` — существующая запись, не трогалась.
+- Схема: `USER_VERSION=47`; миграционных шагов в линии 2.58.199–2.58.203 нет (DDL 0).
+- Откат: `0beed63d` (2.58.202), далее база поезда `c97c06e4`.
+- Источник: `plans/features/smart-corrective-01/release-evidence/2.58.203/deploy.md`;
+  `plans/workflow_state.md:10,15` (снимок 15.11.2026).
+
+### 13.2 MEMORY/VMQ-задачи и их фактические состояния (по карте VMQ на 15.11.2026)
+
+- `VMQ-A-01` — **REVIEW** (эта delta-карта; см. 13.5).
+- `M-01..M-03` (VMQ-M1) — **VERIFIED на c97c06e4** после deployed-delta review (34 теста + probe);
+  scoped release-гейт VMQ-M1 зелёный.
+- `VMQ-NEXT-02/05` — **VERIFIED на c97c06e4**; `NEXT-01` PENDING (ждёт реального хода с непустой
+  векторной ногой), `NEXT-03` REVIEW, `NEXT-04` PENDING.
+- `VMQ-MEM-01` — REVIEW (матрица пяти формулировок, снята на read-only копии прод-БД);
+  `MEM-02..08` PENDING (в частности MEM-04: паритет обычного пути не достигнут).
+- `VMQ-TIME-03` — REVIEW (событие без года: T2 через реальный L1Plan + Old_Episode 2023);
+  `TIME-01/02/04..09` PENDING с зафиксированными пробелами.
+- `M-04`, `O-04` — **READY_FOR_LIVE** с approved_postrelease_wait (controlled deployment 2.58.204,
+  read-only agent e2e у DevOps); `M-05` REVIEW.
+- `O-01..O-03` (ONTO-A/B) — REVIEW на одобренных кандидатах, не выложены.
+- `V-01..V-04` — REVIEW: код в проде с 2.58.170, открыт только факт реального голосового события;
+  ребро `VMQ-M2 → VMQ-V` снято 15.11.2026 (13.4).
+- `Q0/Q0-IBM/Q1/O/U/R` — как в §1–§12: PENDING, IBM — `blocked_external`.
+
+### 13.3 Production-конфигурация, существенная для дельты
+
+- `flags.chat_rag_rerank_enabled = true`: глобальная строка `bot_settings` от 2026-09-06, env-override
+  нет, чатовых переопределений нет (3 профиля `rerank_override=false`), заводской дефолт true
+  с 2.58.186; resolver отдаёт `True` из `global`.
+- `graph_rag_facts_limit=10` → периодных слотов 2; `MCA_EPISODES_ENABLED` default ON (эпизоды и
+  Old_Episode); `MCA_RETRIEVAL_CONTEXT_ENABLED` / `MCA_EVIDENCE_BUNDLE_ENABLED` default ON
+  (путь overview/bundle).
+- Индекс эмбеддингов: ACTIVE-поколение 1, `gemini-embedding-001`, dims 3072, space
+  `e540d4ad890e121d`, `ADMITTED_COMPATIBLE`, `needs_probe=false`; живой PCI `a93485483697c3c3`
+  (`apinet_paid`); состояние не менялось.
+- Пояс чата `-1002661910336`: `Asia/Yekaterinburg` (`global_legacy`) — важен для годовых границ.
+- Схема 47; DDL в дельте 0, новых флагов/настроек нет.
+
+### 13.4 Что уже сделано в линии (относительно §1–§12)
+
+- **VOICE (`VMQ-V`)**: транскрипт как версия source-ref (`transcript_status/revision/updated_at`,
+  миграция v45), групповой резолв 2–3 соседних голосовых, доставка в Writer, честные
+  pending/failed/restart; выкачено 2.58.170, код есть в `c97c06e4`. Остаток — реальное голосовое
+  событие в проде.
+- **ONTO-A/B**: `services/semantic_contracts.py` — typed read-only проекция смыслов
+  (`user|topic|event|fact`, speaker≠subject, honest unknown) и отношений
+  (direction/author/time/provenance/conflicts, cooccurrence ≠ факт); без второго хранилища,
+  резолвера и поиска. Одобрено на predeploy REVIEW (`O-01..O-03`).
+- **M2**: единый `retrieve()` с `include_overview`; `EvidenceBundle` с
+  `coverage/independent_periods/counterexamples/limitations`; person-overview и temporal через тот же
+  маршрут; один bundle, без второго retrieve/search/LLM.
+- **Memory correctives (Slice A/B/C)**: структурный периодный intent
+  (`explicit_year|historical|multi_year`), сохранение целевого года, bounded historical/multi_year
+  квота, Old_Episode как год-окно, read-only субъектные чтения профиля и связей, overview-триггер от
+  intent вместо эвристики; корпусные прогоны на копиях прод-архива (2023:1/2024:1, T2 2023+2024,
+  Old_Episode `{2023:18}`, Slice C — bundle coverage 2023:83/2024:92/2025:9/2026:16).
+- В линии поезда нет DDL, новых флагов/настроек, второго store/router/LLM.
+
+### 13.5 Что в работе и что добавлено этим addendum
+
+- В работе: сборка поезда **2.58.204** из одобренных кандидатов (ONTO-A `8cb9e00d` → ONTO-B
+  `d15b13da` → M2 `f7a9c596` → Slice A `570a49db` → Slice B `d159ea8a` → Slice C `16931216`).
+- Добавлено этим addendum: актуальная дельта-карта к `c97c06e4`/2.58.203; снятие устаревшего ребра
+  `VMQ-M2 → VMQ-V` (см. `slice-graph.json#dependency_edges_removed` и
+  `requirements-map.json#graph_correction_2026_11_15`); корпусное доказательство Slice C
+  (`evidence/vmq-mem/corpus-run-slice-c-2026-11-15.md/.json`).
+- **Статус `VMQ-A-01` этим разделом не меняется — остаётся REVIEW.** VERIFIED по строке может дать
+  только focused recheck Reviewer'а. Вопрос Reviewer'у: принимается ли delta-карта с этим датированным
+  addendum как достаточное доказательство acceptance `VMQ-A-01`.
+
+### 13.6 Исторические ссылки
+
+§1–§12 верны для `c816e83c` / 2.58.168; §13 — для `c97c06e4` / 2.58.203. Пин `c816e83c` сохранён
+как история и не переписывался.

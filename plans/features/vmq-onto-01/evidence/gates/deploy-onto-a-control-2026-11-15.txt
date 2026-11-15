@@ -1,0 +1,10 @@
+﻿# VMQ-ONTO-01 gate: deploy-VMQ-ONTO-A-control
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-ONTO-A --candidate 8cb9e00d38cc59d1ee1b564a824debc47f539003 --repo . --strict-evidence
+# exit: 1
+# note: после Q1 (audit-head addendum), Q2 (снятие ребра M2->V + write_scope коррекция) и привязки C-corpus
+
+FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED
+stage=deploy inventory=380 manual=69 scoped=2 errors=1
+

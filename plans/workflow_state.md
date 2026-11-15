@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM Q1/Q2 gate corrections ses_e2466fc41ffe29CK1Vz4tDm4SW; Builder train 2.58.204 ses_e22f9396effeK1G4IK4jUOmAaB
+Active lanes: Reviewer Q1/Q2 recheck ses_e2458ffb8ffePCAmFsGKCEIUHk; Builder train 2.58.204 ses_e22f9396effeK1G4IK4jUOmAaB
 Join barriers: Q1/Q2 Reviewer decisions + train 2.58.204 assembly -> delta review -> controlled deploy -> postdeploy e2e; memory rows stay open and are not claimed fixed
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 50 PENDING, 12 REVIEW, 2 READY_FOR_LIVE, 6 VERIFIED. M1/M-01..03/NEXT-02/05 VERIFIED on c97c06e4; ONTO-A/B/M2 and Slices A/B/C approved; Slice B TIME-03 REVIEW; M-04/O-04 READY_FOR_LIVE with Reviewer-approved postrelease wait; MEM-04/TIME-01/02/04/06/07 remain open as evidence/product gaps and are not claimed fixed. Q1 (VMQ-A-01 document row) and Q2 (V row dependency/wait) are with the Reviewer; the train 2.58.204 is being assembled.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T14:31:50+12:00
+Updated: 2026-11-15T14:38:35+12:00
 
 ## Facts
 
@@ -165,3 +165,6 @@ PM finalized: M-04/O-04 READY_FOR_LIVE with exact approved_postrelease_wait (add
 ## Q1/Q2 decisions and corrections (2026-11-15)
 
 V Reviewer updated evidence/vmq-v/deployed-review-2026-11-15.md (sha 031e803e...): VMQ-A-01 is UNVERIFIED/Needs Evidence because audit-head.md is pinned to c816e83c/2.58.168 and lacks an explicit current-HEAD/MEMORY/production-config delta for c97c06e4/2.58.203; V-01..V-04 stay REVIEW (real voice/Writer evidence absent); Q2 graph correction is preferred (remove the obsolete M2->V edge; V code is already in deployed c97, composer unchanged in the train, V paths unchanged), then repeat the scoped graph/gate. Both are in-scope PM/Architect corrections; the train cannot be deploy-bound until they are done. PM is updating audit-head.md with a dated current-base addendum (historical pin preserved), removing the M2->V edge with exact evidence, and adding the Slice C corpus probe (commit 8a9a6d2b: exact owner query coverage 2023:83/2024:92/2025:9/2026:16, independent_periods, 5 counterexamples, 8 limitations, current-state negative, one retrieve; vector UNVERIFIED) to mem_c and M-04/O-04 without changing the approved wait. Builder is assembling the 2.58.204 train (bump/pins/tests/manifest). No VERIFIED is added for Q1/V; no fake closure.
+## Q1/Q2 corrections applied (2026-11-15)
+
+PM updated audit-head.md with §13 for c97c06e4/2.58.203 (current identity, MEMORY states, production config, done/in-progress/added; historical c816e83c preserved); VMQ-A-01 remains REVIEW pending the V Reviewer recheck. Graph correction: VMQ-M2.depends_on = [VMQ-M1, VMQ-ONTO-B] (V edge removed with authority/evidence); composer removed from M2.write_scope and kept in history (the M2 code_scope/train do not touch composer); V-01..V-04 remain REVIEW/live_required. Gates: plan 0; review M2 0; deploy M2 errors=4 (VMQ-A-01, O-01/O-02/O-03; V no longer in closure); V control errors=5; ONTO-A control errors=1. C corpus bound to mem_c/M-04/O-04 (commit 8a9a6d2b; provenance text has swapped json/copy shas, binding to actual files). Counts 50/12/2/6. V Reviewer is rechecking Q1/Q2; Builder is assembling 2.58.204.

@@ -12,11 +12,25 @@
   "serialized_files": [
     "services/database.py — миграции/индексы: три владельца последовательно — VMQ-M1 не пишет его вовсе (diff cfec9a1a его не содержит), затем VMQ-M2 (зависимость M2->M1), затем VMQ-MEM-NEXT (зависимость MEM-NEXT->MEM-TIME->MEM->M2). Параллельная запись запрещена; порядок задан зависимостями графа, а не календарём",
     "services/mca_random_source.py — VMQ-Q0, затем VMQ-Q0-IBM (зависимость Q0-IBM->Q0)",
-    "services/direct_context_composer.py — VMQ-V, затем VMQ-M2 (зависимость M2->V)",
+    "services/direct_context_composer.py — исторически VMQ-V, затем VMQ-M2; ребро зависимости M2->V снято 15.11.2026 (composer не менялся ни линией V, ни поездом 2.58.204); V-строки остаются REVIEW",
     "web/app.js, web/index.html, handlers/web.py — VMQ-Q0 (настройки провайдеров), затем VMQ-U (Статус/Аналитика)",
     "services/mca_dream_random.py — VMQ-Q0, затем VMQ-Q1",
     "plans/features/vmq-onto-01/* — VMQ-A владеет map/graph/plan/audit-head, VMQ-R владеет evidence/ и reports/",
     "plans/features/vmq-onto-01/evidence/vmq-mem/time/ — только VMQ-MEM-TIME (реестр дефекта, по-блочная видимость годов, повторное измерение); VMQ-MEM пишет в evidence/vmq-mem/ вне вложенного time/, файлы исправления переходят в write_scope VMQ-MEM-TIME только после подтверждённой первопричины"
+  ],
+  "dependency_edges_removed": [
+    {
+      "edge": "VMQ-M2 → VMQ-V",
+      "removed_at": "2026-11-15",
+      "authority": "Reviewer Q2 (graph correction preferred over postrelease_wait); evidence/vmq-v/deployed-review-2026-11-15.md",
+      "evidence": {
+        "v_code_in_prod": "git merge-base --is-ancestor 42f068df c97c06e4 = 0 (VMQ-V shipped in 2.58.170)",
+        "train_does_not_touch_v_paths": "git diff --name-only c97c06e4 16931216 -- services/voice_transcripts.py handlers/voice_transcription.py services/direct_context_composer.py = пусто",
+        "no_voice_changes_in_consumer": "git diff c97c06e4 16931216 -- services/direct_chat_service.py не содержит voice/_prepare_turn_voice строк"
+      },
+      "kept": "VMQ-V остаётся срезом с V-01..V-04 REVIEW; строки не VERIFIED",
+      "write_scope_followup": "services/direct_context_composer.py убран из VMQ-M2.write_scope как планировочный остаток (см. VMQ-M2.write_scope_history); composer остаётся за VMQ-V"
+    }
   ],
   "note_2026_11_13": "Bookkeeping-правки PM (код и прод не менялись): (1) VMQ-M1.write_scope переписан с несуществующих services/memory_episodes.py и tests/test_memory_episodes.py на фактические файлы кандидата cfec9a1a, прежний список сохранён в write_scope_history; (2) в serialized_files для services/database.py назван третий владелец VMQ-MEM-NEXT, который и так присутствовал в его write_scope; (3) VMQ-M1.next_role = DevOps (release handoff) вместо устаревшего Builder. depends_on, статусы строк и остальные write_scope не менялись.",
   "external_blockers": [
@@ -137,12 +151,20 @@
       "id": "VMQ-M2",
       "title": "Unified retrieval + ONTO-C/D grounding, coverage and evidence bundle",
       "owner_role": "Builder + Architect (ONTO-C/D внутри одного маршрута)",
-      "depends_on": ["VMQ-M1", "VMQ-ONTO-B", "VMQ-V"],
+      "depends_on": ["VMQ-M1", "VMQ-ONTO-B"],
+      "note_edge_removed_2026_11_15": "Ребро VMQ-M2 → VMQ-V снято 15.11.2026 по решению Reviewer (Q2, graph correction preferred): код VMQ-V выкачен в 2.58.170 и присутствует в production-базе c97c06e4; поезд 2.58.204 не меняет services/direct_context_composer.py и V-пути; serial-join был реализационным и уже исторически выполнен. V-01..V-04 остаются REVIEW",
       "write_scope": [
         "services/mca_retrieval_context.py",
-        "services/direct_context_composer.py",
         "services/database.py",
         "tests/test_memory_unified_retrieval.py"
+      ],
+      "write_scope_history": [
+        {
+          "at": "2026-11-15",
+          "removed": "services/direct_context_composer.py",
+          "why": "После снятия ребра M2->V граф увидел пересечение write_scope с VMQ-V на composer. Одобренный кандидат M2 (f7a9c596) composer не менял (code_scope: mca_retrieval_context/direct_chat_service/tool_router/tests), поезд c97c06e4..16931216 composer тоже не трогает. Планировочный остаток снят; composer остаётся историческим владельцем VMQ-V",
+          "evidence": "slice_candidate_bindings.m2.code_scope; git diff --name-only c97c06e4 16931216 -- services/direct_context_composer.py = пусто; Reviewer Q2 в evidence/vmq-v/deployed-review-2026-11-15.md"
+        }
       ],
       "requirements": ["M-04", "M-05", "O-04"],
       "acceptance": "Один retrieve() отвечает на person_overview/temporal_change из coverage и evidence expansion, Writer получает bundle с ограничениями, семантические подсказки не создают второго роутера, массового reembedding и cross-chat утечек нет.",

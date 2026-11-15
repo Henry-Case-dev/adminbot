@@ -1,0 +1,9 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-M2-after-graph-correction
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence
+# exit: 0
+# note: после Q1 (audit-head addendum), Q2 (снятие ребра M2->V + write_scope коррекция) и привязки C-corpus
+
+stage=review inventory=380 manual=69 scoped=3 errors=0
+
