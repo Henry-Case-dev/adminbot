@@ -5,11 +5,11 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: active
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Slice D Builder (starting); read-only recovery reviewers closed
+Active lanes: Slice D independent Reviewer (candidate dbaf1a6d); Builder done
 Join barriers: none
 Last verified: 2.58.204 deployed at 2b419aa2 (health 200/2.58.204, schema 47, identity verified_deployed, NRestarts 0, settings/prompt preserved); rollback c97c06e4/2.58.203 known.
 Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. Recovery pass confirmed ONTO-A/B, M2/O-04, Slice A/B/C at review level and did not raise map statuses. Release gates unchanged. Full epic not DONE.
-Next unlocks: Slice D fixes the remaining memory/temporal defects on top of 2b419aa2; O-04/V live remain parked observations.
+Next unlocks: Slice D verdict -> PM binding of the genuinely covered MEM/TIME rows -> release decision; O-04/V live remain parked observations.
 Next execution: runnable
 Review: M1/NEXT2 VERIFIED; ONTO-A/B/M2/A/B/C deployed/accepted for released slices; M2 delivery PASS with O-04 deferred. REVIEW RECOVERY PASS 2026-11-15: three independent DeepSeek V4 Pro sessions, all Approved, no blocking defects; Slice C evidence bookkeeping gap and live-vector/live-delivery gaps recorded.
 Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
@@ -201,6 +201,10 @@ Artefacts: `plans/features/vmq-onto-01/evidence/review-recovery-pass-2026-11-15.
 ## Git lineage reconciliation (2026-11-15)
 
 The reported `master ahead 860, behind 143` is fully explained and is not data loss: local `master` is the canonical **planning/docs line** (874 docs commits ahead, none pushed); `origin/master` diverged at merge-base `924b3b51` and stopped at the 2.58.128-era integration snapshot (143 commits). Neither line contains the deployed runtime: `2b419aa2`/`c97c06e4`/`aca13702`/`d20a7f73` are NOT ancestors of `master`, whose runtime snapshot is APP_VERSION 2.58.111. The authoritative product line is the release-branch chain ending in `release/vmq-onto-01-2.58.204` = `2b419aa2` (pushed to origin). No reset/rebase/force-push was performed; the main checkout had no tracked modifications (141 untracked items are agent artifacts/product files to be handled separately). Consequence for all agents: never run product tests in the main checkout; use a release-tip worktree.
+
+## Slice D candidate under independent review (2026-11-15)
+
+Builder implemented the remaining VMQ memory/time gaps on `vmq/slice-d` from `2b419aa2`: code `693b70e1` (+775/−23), evidence `bfd87014`, harness `dbaf1a6d` (tip, clean). Files: `services/mca_retrieval_context.py`, `direct_chat_service.py`, `database.py` (SELECT only), `tool_router.py`, new `tests/test_vmq_mem_slice_d.py` + labeled fixture; DDL 0, no new flags, one retrieve path. Claimed results: A1P 2026:10 -> 2023:1+2024:1+2026:8 via bounded data-driven `topic_parity_quota`; P1 message years fixed to 2023/2024/2025 with speaker/subject separation (0 confirmed subject facts — data boundary, honest); fail-closed time window and machine-readable period statuses; vector inventory (21,771 rowids, 21,152/21,704 vectored, dims 3072, gemini-embedding-001; KNN=0 due to `compat_not_proven`/conn mismatch, not index verdict); labeled relevance fixture precision/coverage 1.0 on 8 questions. Tests: 18 new passed, RED 13 failed/5 passed on base, focused 413 passed, broad 2261 passed with the same six pre-existing failures as Slice B; 6 mutations each killed one target test. Risks flagged for review: parity quota leaking old material into ordinary/current-state answers; subject rows displacing generic period rows; T2 without plan signal now also receiving 2023/2024. Independent Reviewer is running on the exact candidate; no VERIFIED and no deployment.
 
 ## OpenViking effective permissions verified (2026-11-15)
 
