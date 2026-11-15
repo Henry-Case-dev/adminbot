@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: DevOps corpus proof ses_e2370be71ffe7Wf93VwTSBVzqX
+Active lanes: PM bind Slice A ses_e2466fc41ffe29CK1Vz4tDm4SW
 Join barriers: corpus proof -> PM bind A; Slice B (subject/chronology/relations) -> Slice C (M2 trigger) -> re-measure; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T12:20:29+12:00
+Updated: 2026-11-15T12:47:24+12:00
 
 ## Facts
 
@@ -120,3 +120,7 @@ origin/vmq/mem-a = 570a49db (includes Slice A code/tests/evidence; base 8b56fc73
 ## Slice A review Approved (2026-11-15)
 
 Reviewer r1 Approved for predeploy REVIEW of Slice A on 570a49db (base 8b56fc73): period intent/target-year preservation, bounded historical fallback, current-state strictness, shared selector delegation, vector admission gate (no KNN when insufficient/incompatible; prior A06 for no-generation/source-empty) all inspected; 20 tests + time-policy assertions are load-bearing; 99 passed, no pre-existing failures in the focused set; adversarial year mutation [1] -> [2,1] detected. Artifact evidence/vmq-mem/slice-a-review-r1.md sha f80a85d1.... UNVERIFIED: live vector admission and the real corpus run (the latter is running under DevOps). No map status changed. Next: PM binds Slice A at REVIEW after the corpus result; Slice B starts after the corpus proof.
+
+## Slice A corpus proof (2026-11-15)
+
+Read-only corpus proof on a fresh prod copy (2,086,958 messages, 29,424 facts, 201 episodes, schema 47), baseline c97c06e4 vs candidate 570a49db, committed 328190aa. Fixed: explicit "ссорились в 2023" now yields 2023 rows (base 2025; candidate 2023:1 + 2026:8, in_target_year 2023); the 2023 pool accepts 8 rows (24 rows 2023, 74 dropped out_of_target_year) instead of 1 wrong-year row; A2/B/E historical queries get 2 subject_soft_fallback old rows (base 0); "что сейчас" remains 10/10 2026 with intent=none; no fabricated source (all delivered ids exist in graph_facts). Still open: A1 exact owner query unchanged (1x2024; strict row exists so the soft fallback does not trigger - MEM-04 parity not closed); T2 event without year unchanged (10/10 2026 - TIME-03 open); the Old_Episode path for 2023 still returns 2025+2026; vector live participation unverified. Vector admission correction: compat_not_proven was a harness cfg gap (frozen cfg) - with live routing the registry is compatible/ADMITTED_COMPATIBLE (space e540, conn a934, checked 12, mean/min 1.0); the live KNN failed provider_unavailable only because the cfg lacked the PG key. Live semantics participation remains UNVERIFIED; the index is not proven incompatible. PM is binding the proven Slice A rows at REVIEW; Slice B starts for A1/T2, subject/profile, relations and the Old_Episode chronology.
