@@ -1339,8 +1339,8 @@
       "slice": "VMQ-M2",
       "acceptance": "Unified retrieval отвечает на person overview и temporal queries через существующий retrieve()/get_user_context: Writer bundle содержит coverage, независимые периоды, контрпримеры и limitations; повтор одного мема не считается независимым подтверждением.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "REVIEW",
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "type": "test",
@@ -1366,12 +1366,20 @@
           "type": "review",
           "reviewer_role": "Reviewer",
           "verdict": "Approved",
-          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 Approved for predeploy REVIEW (candidate f7a9c596 / delivery 8b56fc73)",
-          "observation": "M-04 Approved на R1 (predeploy REVIEW): аудит retrieve→rag retrieve→unified rows→evidence bundle→Writer, тот же RetrievalResult и один bundle; мутация forwarding overview true→false убила delivery-assertion; production не задействован. Reviewer прямо фиксирует: live artifacts absent, никогда VERIFIED",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 + addendum 2026-11-15: controlled deployment decision (M-04)",
+          "observation": "M-04 Approved на R1 (predeploy REVIEW): аудит retrieve→rag retrieve→unified rows→evidence bundle→Writer, тот же RetrievalResult и один bundle; мутация forwarding overview true→false убила delivery-assertion; production не задействован. Reviewer прямо фиксирует: live artifacts absent, никогда VERIFIED Addendum 2026-11-15: Reviewer признал postrelease wait для этой строки законным — live-доказательство требует выложенного процесса, преддеплойного implementation/test evidence достаточно для controlled deployment; точный approved_postrelease_wait записан в карте.",
           "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
-          "artifact_sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
           "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
-          "candidate_deployed": false
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "preprod-only live Writer/person-overview and temporal proof requires the deployed process; no user message is needed",
+            "trigger": "after 2.58.204 is deployed at the candidate SHA, run agent-owned e2e for person-overview, temporal query, exact owner query, and current-state negative",
+            "next_check": "DevOps runs the four-case e2e, captures one retrieve/one bundle, coverage, independent_periods, counterexamples, limitations, and current-state negative; then run release gate",
+            "owner": "DevOps",
+            "contract_ref": "MAN-M-04 / requirements-map.json acceptance; m2-contract-confirmation-2026-11-15.md"
+          }
         }
       ],
       "expected_evidence": [
@@ -1437,7 +1445,45 @@
         "owner_action_required": false
       },
       "live_evidence_status_2026_11_15": "live_required=true / live_when=preprod оставлен без изменений: живое/preprod-доказательство для будущей выкладки ещё не снято (есть только candidate_probe_not_live). postrelease_wait не добавляется: Reviewer одобрил REVIEW, а не deferral; фальшивое ожидание не вводится. Следствие: scoped review-гейт честно показывает live-ошибку по этой строке",
-      "slice_c_support_2026_11_15": "Slice C (16931216, Approved for predeploy REVIEW at code level): overview-триггер потребляет PeriodIntent.wants_overview; точная owner-формулировка получает overview с фактическим coverage и limitations, вопрос о текущем состоянии — нет, один retrieve/один bundle, coverage не выдумывается. Это аддитивное доказательство клаузы, статус строки не меняется (REVIEW на кандидате M2 f7a9c596)"
+      "slice_c_support_2026_11_15": "Slice C (16931216, Approved for predeploy REVIEW at code level): overview-триггер потребляет PeriodIntent.wants_overview; точная owner-формулировка получает overview с фактическим coverage и limitations, вопрос о текущем состоянии — нет, один retrieve/один bundle, coverage не выдумывается. Это аддитивное доказательство клаузы, статус строки не меняется (REVIEW на кандидате M2 f7a9c596)",
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "preprod-only live Writer/person-overview and temporal proof requires the deployed process; no user message is needed",
+        "trigger": "after 2.58.204 is deployed at the candidate SHA, run agent-owned e2e for person-overview, temporal query, exact owner query, and current-state negative",
+        "next_check": "DevOps runs the four-case e2e, captures one retrieve/one bundle, coverage, independent_periods, counterexamples, limitations, and current-state negative; then run release gate",
+        "owner": "DevOps",
+        "contract_ref": "MAN-M-04 / requirements-map.json acceptance; m2-contract-confirmation-2026-11-15.md"
+      },
+      "reviewer_decision_2026_11_15": {
+        "at": "2026-11-15",
+        "decision": "controlled deployment with approved_postrelease_wait",
+        "artifact": {
+          "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
+          "section": "Addendum 2026-11-15: controlled deployment decision"
+        },
+        "wait_copied_verbatim": true,
+        "conditions": {
+          "baseline": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "target": "2.58.204",
+          "ddl": 0,
+          "rollback": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "execution": "read-only agent e2e only; no user message",
+          "evidence_binding": "live evidence must be bound to the deployed SHA"
+        },
+        "rollback_triggers": [
+          "health failure",
+          "any case lacks required bundle fields",
+          "route count is not one",
+          "current-state negative leaks historical overview",
+          "correction/version trace absent or contradictory",
+          "cross-chat leak",
+          "extra retrieval/search/model call",
+          "evidence not bound to deployed SHA"
+        ],
+        "approval_invalidated_by": "any code or config change affecting these paths",
+        "not_verified": "строка НЕ VERIFIED: приёмка ждёт реального postdeploy e2e"
+      }
     },
     {
       "source_id": "MAN-M-05",
@@ -1477,10 +1523,10 @@
           "type": "review",
           "reviewer_role": "Reviewer",
           "verdict": "Approved",
-          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 Approved for predeploy REVIEW (candidate f7a9c596 / delivery 8b56fc73)",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 (M-05 REVIEW approved; no postrelease wait: predeploy negative evidence complete)",
           "observation": "M-05 Approved на R1: аудит подтвердил отсутствие DDL/записей/embedding и второго роутера; все 21 тело тестов прочитаны; независимая мутация доставки убита. production не задействован",
           "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
-          "artifact_sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
           "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
           "candidate_deployed": false
         }
@@ -1865,8 +1911,8 @@
       "slice": "VMQ-M2",
       "acceptance": "Единственный retrieval использует семантические определения как подсказку (без второго роутера, БД и search engine), а исправления и версии терминов применяются к последующим запросам; e2e-трасса показывает один маршрут.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "REVIEW",
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "type": "test",
@@ -1892,12 +1938,20 @@
           "type": "review",
           "reviewer_role": "Reviewer",
           "verdict": "Approved",
-          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 Approved for predeploy REVIEW (candidate f7a9c596 / delivery 8b56fc73)",
-          "observation": "O-04 Approved на R1: независимо проверено, что definitions остаются hints, а не роутером; один retrieve на ход, тот же результат уходит в bundle; обычный путь байт-идентичен и без лишних чтений; cross-chat утечек нет. production не задействован",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — R1 + addendum 2026-11-15: controlled deployment decision (O-04)",
+          "observation": "O-04 Approved на R1: независимо проверено, что definitions остаются hints, а не роутером; один retrieve на ход, тот же результат уходит в bundle; обычный путь байт-идентичен и без лишних чтений; cross-chat утечек нет. production не задействован Addendum 2026-11-15: Reviewer признал postrelease wait для этой строки законным — live-доказательство требует выложенного процесса, преддеплойного implementation/test evidence достаточно для controlled deployment; точный approved_postrelease_wait записан в карте.",
           "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
-          "artifact_sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+          "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
           "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
-          "candidate_deployed": false
+          "candidate_deployed": false,
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "one-route e2e and corrections/versioning must be observed through the deployed L1/Writer process",
+            "trigger": "same 2.58.204 deployed-process e2e, including exact owner query and a subsequent corrected/versioned query",
+            "next_check": "DevOps captures route trace showing one retrieve, one bundle, no second search/router/DB/LLM, and correction/version effect; then run release gate",
+            "owner": "DevOps",
+            "contract_ref": "MAN-O-04 / requirements-map.json acceptance; m2-contract-confirmation-2026-11-15.md"
+          }
         }
       ],
       "expected_evidence": [
@@ -1961,7 +2015,45 @@
         "owner_action_required": false
       },
       "live_evidence_status_2026_11_15": "live_required=true / live_when=preprod сохранён: живое/preprod-доказательство ожидается после будущей выкладки; есть только candidate_probe_not_live. postrelease_wait не добавляется (нет одобренного deferral); фальшивое ожидание не вводится. Scoped review-гейт честно показывает live-ошибку по строке",
-      "slice_c_support_2026_11_15": "Slice C (16931216, Approved for predeploy REVIEW at code level): overview-триггер потребляет PeriodIntent.wants_overview; точная owner-формулировка получает overview с фактическим coverage и limitations, вопрос о текущем состоянии — нет, один retrieve/один bundle, coverage не выдумывается. Это аддитивное доказательство клаузы, статус строки не меняется (REVIEW на кандидате M2 f7a9c596)"
+      "slice_c_support_2026_11_15": "Slice C (16931216, Approved for predeploy REVIEW at code level): overview-триггер потребляет PeriodIntent.wants_overview; точная owner-формулировка получает overview с фактическим coverage и limitations, вопрос о текущем состоянии — нет, один retrieve/один bundle, coverage не выдумывается. Это аддитивное доказательство клаузы, статус строки не меняется (REVIEW на кандидате M2 f7a9c596)",
+      "postrelease_wait": {
+        "nonblocking": true,
+        "reason": "one-route e2e and corrections/versioning must be observed through the deployed L1/Writer process",
+        "trigger": "same 2.58.204 deployed-process e2e, including exact owner query and a subsequent corrected/versioned query",
+        "next_check": "DevOps captures route trace showing one retrieve, one bundle, no second search/router/DB/LLM, and correction/version effect; then run release gate",
+        "owner": "DevOps",
+        "contract_ref": "MAN-O-04 / requirements-map.json acceptance; m2-contract-confirmation-2026-11-15.md"
+      },
+      "reviewer_decision_2026_11_15": {
+        "at": "2026-11-15",
+        "decision": "controlled deployment with approved_postrelease_wait",
+        "artifact": {
+          "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
+          "section": "Addendum 2026-11-15: controlled deployment decision"
+        },
+        "wait_copied_verbatim": true,
+        "conditions": {
+          "baseline": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "target": "2.58.204",
+          "ddl": 0,
+          "rollback": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+          "execution": "read-only agent e2e only; no user message",
+          "evidence_binding": "live evidence must be bound to the deployed SHA"
+        },
+        "rollback_triggers": [
+          "health failure",
+          "any case lacks required bundle fields",
+          "route count is not one",
+          "current-state negative leaks historical overview",
+          "correction/version trace absent or contradictory",
+          "cross-chat leak",
+          "extra retrieval/search/model call",
+          "evidence not bound to deployed SHA"
+        ],
+        "approval_invalidated_by": "any code or config change affecting these paths",
+        "not_verified": "строка НЕ VERIFIED: приёмка ждёт реального postdeploy e2e"
+      }
     },
     {
       "source_id": "MAN-Q-01",
@@ -13665,7 +13757,7 @@
       },
       "review": {
         "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
-        "sha256": "4f392da115d22dacfa43932b0e3984ee26584a192ee813f06eb35e9f2c214da3",
+        "sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
         "verdict": "Approved for predeploy REVIEW",
         "reviewer": "независимая сессия Reviewer (R1)",
         "recorded_at": "2026-11-15",
@@ -13674,6 +13766,12 @@
           "M-05": "REVIEW approved",
           "O-04": "REVIEW approved",
           "verdict_on_verified": "never VERIFIED; live artifacts absent"
+        },
+        "addendum_2026_11_15": {
+          "decision": "controlled deployment for M-04/O-04 with approved_postrelease_wait",
+          "m05": "no postrelease wait — predeploy negative evidence complete",
+          "conditions": "baseline c97c06e4, target 2.58.204, DDL 0, rollback c97c06e4; health + read-only agent e2e only; no user message; live evidence bound to deployed SHA",
+          "rollback": "restore c97c06e4 on health failure, missing bundle fields, route count != 1, historical overview leak into current-state, missing correction/version trace, cross-chat leak or extra retrieval/search/model call"
         }
       },
       "implementation": {
@@ -13755,8 +13853,35 @@
           "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-m2-f7a9c596-2026-11-15.txt",
           "reading": "8 ошибок — замыкание зависимостей графа (VMQ-A-01, ONTO-A O-01/O-02, ONTO-B O-03, VMQ-V V-01..V-04 в REVIEW); 2 — те же честные live-обязанности M-04/O-04. Ошибок привязки нет. Кандидат не выложен, поэтому deploy-стадия к нему неприменима",
           "not_a_binding_failure": true
+        },
+        "review_after_approved_wait": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence",
+          "output": "stage=review inventory=380 manual=69 scoped=3 errors=0",
+          "exit": 0,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/review-m2-f7a9c596-after-wait-2026-11-15.txt",
+          "reading": "Срез VMQ-M2 зелёный на predeploy REVIEW: M-04/O-04 READY_FOR_LIVE с approved_postrelease_wait (копия из addendum), M-05 REVIEW без wait"
+        },
+        "deploy_after_approved_wait": {
+          "command": "python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M2 --candidate f7a9c596638ea733de5673c5fd31675c746e20a7 --repo . --strict-evidence",
+          "output": [
+            "FAIL: VMQ-A-01: required dependency VMQ-A is not evidenced VERIFIED",
+            "FAIL: O-01/O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED",
+            "FAIL: O-03: required dependency VMQ-ONTO-B is not evidenced VERIFIED",
+            "FAIL: V-01..V-04: required dependency VMQ-V is not evidenced VERIFIED",
+            "stage=deploy inventory=380 manual=69 scoped=3 errors=8"
+          ],
+          "exit": 1,
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/deploy-m2-f7a9c596-after-wait-2026-11-15.txt",
+          "reading": "Остались только 8 ошибок замыкания зависимостей; live-ошибок M-04/O-04 больше нет. Это формальная фиксация «строка не VERIFIED до выкладки», а не дефект поезда",
+          "not_a_binding_failure": true
         }
-      }
+      },
+      "rows_state_2026_11_15": {
+        "M-04": "READY_FOR_LIVE (approved wait)",
+        "M-05": "REVIEW",
+        "O-04": "READY_FOR_LIVE (approved wait)"
+      },
+      "reason_current_note_2026_11_15": "M-04/O-04 переведены в READY_FOR_LIVE с approved_postrelease_wait по addendum Reviewer'а; M-05 остаётся REVIEW без wait. Scoped review-гейт среза становится зелёным, deploy-гейт остаётся красным только на замыкании зависимостей (ONTO-B/V) и на невыложенности"
     },
     "mem_b": {
       "slice": "VMQ-MEM-TIME",
@@ -14172,7 +14297,9 @@
       "plans/features/vmq-onto-01/evidence/gates/review-mem-b-d159ea8a-2026-11-15.txt",
       "plans/features/vmq-onto-01/evidence/gates/deploy-mem-b-d159ea8a-2026-11-15.txt",
       "plans/features/vmq-onto-01/evidence/gates/review-mem-c-16931216-2026-11-15.txt",
-      "plans/features/vmq-onto-01/evidence/gates/review-m2-f7a9c596-control-2026-11-15.txt"
+      "plans/features/vmq-onto-01/evidence/gates/review-m2-f7a9c596-control-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/review-m2-f7a9c596-after-wait-2026-11-15.txt",
+      "plans/features/vmq-onto-01/evidence/gates/deploy-m2-f7a9c596-after-wait-2026-11-15.txt"
     ],
     "gate_summary_after_binding_2026_11_15": {
       "VMQ-A": "review errors=0, deploy errors=0 — привязка REVIEW чистая",
@@ -14185,7 +14312,8 @@
       "VMQ-M2": "review f7a9c596 errors=2 — только live-обязанности M-04/O-04 (не привязка); deploy errors=10 — 8 зависимостей графа + те же 2 live. Кандидат не выложен, VERIFIED не заявляется",
       "VMQ-MEM (Slice A)": "review 570a49db errors=8 — VMQ-MEM-01 live-остаток + 7 незакрытых строк среза; deploy errors=19 — 11 зависимостей + live + 7 PENDING. Ошибок привязки нет; TIME-строки не привязаны и остаются PENDING с клаузальным разбором",
       "VMQ-MEM-TIME (Slice B)": "review d159ea8a errors=9 — live TIME-03 + 8 PENDING; deploy errors=28 — 19 зависимостей + 8 PENDING + live. Ошибок привязки нет",
-      "VMQ-M2 (Slice C, кандидат позже binding)": "review 16931216 errors=4 — candidate mismatch + 3 unbound (binding-shape, не live/не deployment); контроль на f7a9c596 — прежние 2 live"
+      "VMQ-M2 (Slice C, кандидат позже binding)": "review 16931216 errors=4 — candidate mismatch + 3 unbound (binding-shape, не live/не deployment); контроль на f7a9c596 — прежние 2 live",
+      "VMQ-M2 (approved wait)": "review f7a9c596 errors=0 (зелёный); deploy errors=8 — только зависимости VMQ-A-01, ONTO-A, ONTO-B, V. M-04/O-04 ждут postdeploy e2e"
     },
     "live_flags_reconciled_2026_11_15": {
       "rows": [
@@ -14559,5 +14687,217 @@
       "until": "2026-11-14"
     }
   ],
-  "top_level_binding_note_2026_11_15": "candidate_commit и deployed_commit переведены на выложенную линию c97c06e4 (2.58.203). Прежние значения сохранены в candidate_commit_history/deployed_commit_history и в датированных блоках (candidate_note, deployed_commit_note_2026_11_11, current_production_2026_11_13/2026_11_15). Причина перевода: строки M-01..M-03 и VMQ-NEXT-02/05 получили уровень VERIFIED на точном выложенном кандидате по независимому ревью; release/delivery-гейты читают верхнеуровневые поля, поэтому без перевода гейт не мог бы проверить уже принятые строки. Это bookkeeping-перевод привязки, а не переоценка закрытых ранее evidence."
+  "top_level_binding_note_2026_11_15": "candidate_commit и deployed_commit переведены на выложенную линию c97c06e4 (2.58.203). Прежние значения сохранены в candidate_commit_history/deployed_commit_history и в датированных блоках (candidate_note, deployed_commit_note_2026_11_11, current_production_2026_11_13/2026_11_15). Причина перевода: строки M-01..M-03 и VMQ-NEXT-02/05 получили уровень VERIFIED на точном выложенном кандидате по независимому ревью; release/delivery-гейты читают верхнеуровневые поля, поэтому без перевода гейт не мог бы проверить уже принятые строки. Это bookkeeping-перевод привязки, а не переоценка закрытых ранее evidence.",
+  "release_train_plan_2026_11_15": {
+    "recorded_at": "2026-11-15",
+    "status": "assessment + approved postrelease waits bound; статусы иных строк не менялись, выкладки не было",
+    "author_role": "PM (read-only planning)",
+    "approved_candidates": [
+      {
+        "slice": "VMQ-ONTO-A",
+        "code": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
+        "tip": "d67262cb491ac558b578340414d604a7caab21c9",
+        "rows": [
+          "O-01",
+          "O-02"
+        ],
+        "state": "REVIEW (approved predeploy)"
+      },
+      {
+        "slice": "VMQ-ONTO-B",
+        "code": "d15b13da3e709c4311f347e307e356a895e28a24",
+        "tip": "64dab0eb756894ae700991931dddbf58ccd46bf4",
+        "rows": [
+          "O-03"
+        ],
+        "state": "REVIEW (approved predeploy)"
+      },
+      {
+        "slice": "VMQ-M2",
+        "code": "f7a9c596638ea733de5673c5fd31675c746e20a7",
+        "tip": "8b56fc7320722494d0191f320e6da3355cc1a654",
+        "rows": [
+          "M-04",
+          "M-05",
+          "O-04"
+        ],
+        "state": "M-04/O-04 READY_FOR_LIVE (approved wait), M-05 REVIEW"
+      },
+      {
+        "slice": "VMQ-MEM Slice A",
+        "code": "570a49db9aa0d1d487e43e2d0ffae0dffcb00497",
+        "rows": [
+          "VMQ-MEM-01"
+        ],
+        "state": "REVIEW (approved predeploy)"
+      },
+      {
+        "slice": "VMQ-MEM-TIME Slice B",
+        "code": "d159ea8ad8362616ec78b43cb64a3e54ec7de2e6",
+        "tip": "182fcbf976c7d21c4edeabf2a4f64d330d6af286",
+        "rows": [
+          "VMQ-TIME-03"
+        ],
+        "state": "REVIEW (approved predeploy, breadth partial)"
+      },
+      {
+        "slice": "VMQ-MEM Slice C",
+        "code": "16931216ab0015b4a3001c9947768305517e46eb",
+        "tip": "8bc2bcf700a19732ad4b4eb684a7f954d89463e3",
+        "rows": [],
+        "supports": [
+          "M-04",
+          "O-04"
+        ],
+        "state": "REVIEW (approved predeploy)"
+      }
+    ],
+    "chain": "c97c06e4 (2.58.203) → 8cb9e00d → d15b13da → f7a9c596 → 570a49db → d159ea8a → 16931216; каждый шаг — предок следующего (merge-base --is-ancestor = 0)",
+    "train": {
+      "proposed_tip": "16931216ab0015b4a3001c9947768305517e46eb",
+      "version_target": "2.58.204",
+      "base_version": "2.58.203",
+      "version_note": "config/settings.py в линии не менялся (APP_VERSION = 2.58.203); нужен отдельный bump-коммит 2.58.204 с волной пинов (24 python-пина, 4 JS-пина, param-registry meta), как в прошлых релизах",
+      "cumulative_diff": {
+        "files": 23,
+        "insertions": 8996,
+        "deletions": 198,
+        "product": [
+          "services/semantic_contracts.py (новый typed read-only контракт ONTO-A/B)",
+          "services/mca_retrieval_context.py (period intent, overview, relations ts, multi_year, trigger)",
+          "services/direct_chat_service.py (consumer, Old_Episode окно, профиль reply, overview delivery)",
+          "services/tool_router.py (subject facts/messages, temporal projection, overview envelope)",
+          "services/database.py (+210/−25, только SELECT-чтения)"
+        ],
+        "tests": "test_semantic_contracts (41), test_memory_unified_retrieval (21), test_vmq_mem_period_intent (20), test_vmq_mem_slice_b (21), test_vmq_mem_slice_c (11 функций / 15 collected), test_mem_time_policy (изменены ожидания)",
+        "evidence_docs": "11 файлов evidence/vmq-onto-a, /vmq-onto-b, /vmq-m2, /vmq-mem (slice-a/b)"
+      },
+      "ddl": 0,
+      "ddl_evidence": "в диффе services/database.py нет CREATE/ALTER/DROP/PRAGMA user_version; все добавленные SQL — SELECT; _SCHEMA_VERSION_SEMANTIC_SCHEDULE=47 не менялся",
+      "schema": 47,
+      "flags_settings": "config/, services/mca_gates.py, services/hot_config.py не менялись — новых флагов и дефолтов нет",
+      "overlap_check": "mca_retrieval_context.py и direct_chat_service.py правились несколькими срезами ПОСЛЕДОВАТЕЛЬНО в одной линии; composer и миграции не затронуты; параллельных писателей нет",
+      "unreviewed_work": "нет — все шесть кандидатов имеют Approved predeploy REVIEW"
+    },
+    "delta_review_scope": [
+      "кумулятивный дифф c97c06e4..16931216 + bump-коммит 2.58.204",
+      "интеграция шести срезов: ONTO-A typed contracts → ONTO-B relations → M2 unified retrieval/overview → Slice A period intent → Slice B subject/chronology → Slice C overview trigger",
+      "проверить, что Slice C не меняет семантику M2 сверх заявленного, а Slice A/B не ослабляют strict-порог §2 и current-state",
+      "переиспользовать candidate-bound доказательства срезов; новые прогоны — только на изменённых швах и стыках",
+      "пины версии/param-registry meta, чтобы пин-тесты не покраснели"
+    ],
+    "gate_plan": {
+      "predeploy_per_slice": {
+        "review VMQ-ONTO-A @ 8cb9e00d": "errors=0",
+        "review VMQ-ONTO-B @ d15b13da": "errors=0",
+        "review VMQ-M2 @ f7a9c596": "после approved wait ожидается errors=0 (M-04/O-04 READY_FOR_LIVE с wait, M-05 REVIEW)",
+        "review VMQ-MEM @ 570a49db": "errors=8 — live MEM-01 + 7 PENDING",
+        "review VMQ-MEM-TIME @ d159ea8a": "errors=9 — live TIME-03 + 8 PENDING",
+        "review VMQ-M2 @ 16931216": "errors=4 — candidate mismatch + unbound (binding-shape; кандидат среза = f7a9c596)",
+        "plan": "errors=0"
+      },
+      "deploy_closure_state": {
+        "deploy VMQ-ONTO-A": "1 — зависимость VMQ-A-01",
+        "deploy VMQ-ONTO-B": "3 — VMQ-A-01 + O-01/O-02",
+        "deploy VMQ-M2": "8 — VMQ-A-01, O-01..O-03, V-01..V-04 (live-ошибки M-04/O-04 сняты wait-решением)",
+        "причина": "зависимые строки не могут стать VERIFIED до выкладки (VERIFIED = поведение на выложенном кандидате); это формальная фиксация, не дефект поезда"
+      },
+      "full_epic_release_gate": "не проходит и не должен имитироваться: 50 PENDING / 12 REVIEW / 2 READY_FOR_LIVE / 6 VERIFIED",
+      "certification_path": "пред-деплой: delta/integration review кумулятивного диффа + predeploy-одобрения; после деплоя: deployed-delta review на 2.58.204 → привязка O-01..O-04/M-04/M-05 → scoped release-гейты по срезам → postdeploy e2e по wait-объектам"
+    },
+    "blocker_classification": {
+      "VMQ-A-01": {
+        "class": "a — резолвится существующим артефактом, нужно решение Reviewer",
+        "detail": "delta-карта/контракт, не runtime: acceptance закрывается audit-head.md (12 разделов, §6 сценарий→тест, §7 дубли, §9 DAG) с фиксацией исторического пина c816e83c и текущей базы",
+        "blocking": "единственная зависимость VMQ-A; без неё scoped deploy ONTO-A красный",
+        "owner": "Reviewer",
+        "exact_question": "Можно ли перевести VMQ-A-01 в VERIFIED на основании delta-карты audit-head.md как документа-артефакта (без runtime-доказательства)?"
+      },
+      "V-01..V-04": {
+        "class": "b — исторический долг доказательств на уже выложенном коде",
+        "detail": "код VMQ-V в проде с 2.58.170 и есть в c97c06e4; открыт только факт реального production-голосового события; live_required=true/preprod",
+        "legitimate_paths": [
+          "Reviewer одобряет postrelease_wait (live_when=postdeploy) с триггером «первое реальное голосовое: transcript ready + Writer-блок голоса», owner DevOps",
+          "либо graph-correction: снять ребро VMQ-M2 → VMQ-V, доказав, что services/direct_context_composer.py не менялся ни одним срезом и serial-join уже выполнен (V выкачен раньше M2). Решение Architect/Orchestrator"
+        ],
+        "owner": "Reviewer (+ Architect/Orchestrator для графа)",
+        "exact_question": "Одобрить postrelease_wait для V-01..V-04 или снять ребро M2→V как исторически выполненный serial-join?"
+      },
+      "M-04/O-04": {
+        "class": "c — подлинно пост-деплойное доказательство; РЕШЕНО",
+        "detail": "Reviewer-approved controlled deployment: строки READY_FOR_LIVE с approved_postrelease_wait (копия из addendum), M-05 без wait",
+        "resolved_by": {
+          "path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
+          "section": "Addendum 2026-11-15: controlled deployment decision"
+        },
+        "evidence_plan": "agent-owned e2e после 2.58.204: person-overview, temporal, exact owner query, current-state negative; один retrieve/один bundle; coverage/independent_periods/counterexamples/limitations; O-04 — route trace и correction/version"
+      },
+      "memory_rows": {
+        "class": "d — реальные доказательные пробелы; НЕ блокируют поезд кода, но не могут заявляться закрытыми",
+        "rows": {
+          "MEM-04": "паритет обычного пути не достигнут (A1P 2026-only; 2 старые строки против Chronicle 148)",
+          "TIME-01": "обычный исторический вопрос без года (A1P) остаётся 2026:10",
+          "TIME-02": "измерен только P1; ≥3 участников и subject-bound факты 2023/2024 не закрыты",
+          "TIME-04": "категории статуса/давности/бюджета и инструментальные источники в трассе отсутствуют",
+          "TIME-06": "не снято число векторов до/после и нет отдельной инвентаризации владельцев",
+          "TIME-07": "нет релевантности по размеченному эталону; порог опирается на TIME-02/03",
+          "TIME-03": "REVIEW, breadth: 1 событие без года из требуемых ≥3"
+        },
+        "decision_needed": "Orchestrator: считать ли память блокером релиза кода; если да — отдельный Slice D"
+      }
+    },
+    "postdeploy_proof_plan": {
+      "target": "2.58.204 @ train tip; baseline/rollback c97c06e4 / 2.58.203",
+      "immediate": [
+        "healthz/version 2.58.204, NRestarts=0, schema 47, целостность БД, effective flags не перезаписаны",
+        "read-only agent e2e по M-04/O-04 (четыре кейса; один retrieve/один bundle; coverage/independent_periods/counterexamples/limitations; current-state negative)",
+        "O-04: route trace (один retrieve, без второго search/router/DB/LLM) + correction/version effect на следующем запросе",
+        "explicit-year вопрос → period_fill 2023 in_target_year, без 2026 в периодных слотах; «что сейчас» → добора нет",
+        "Old_Episode для явного года → year_window целевого года"
+      ],
+      "deferred_agent_observations": [
+        "первое реальное голосовое сообщение → transcript ready + Writer-блок голоса (V-строки)",
+        "живое участие векторной ноги (KNN с рабочим провайдером)",
+        "production L1 emission для T2 (план из живого L1)"
+      ],
+      "rollback_triggers": [
+        "health failure",
+        "missing bundle fields",
+        "route count != 1",
+        "current-state leak of historical overview",
+        "missing/contradictory correction-version trace",
+        "cross-chat leak",
+        "extra retrieval/search/model call",
+        "evidence not bound to deployed SHA"
+      ]
+    },
+    "split_option": {
+      "preferred": "единый поезд 16931216 + bump 2.58.204 (все шесть кандидатов одобрены, линия линейная, DDL 0, новых флагов нет)",
+      "smaller_safe_unit": "unit 1 = f7a9c596 (ONTO-A+B+M2), unit 2 = 16931216 (Slice A/B/C); порядок обязателен; unit 1 без Slice C использует одобренную эвристику M2"
+    },
+    "nonblocking_open_rows": {
+      "note": "не входят в приёмку поезда и не мешают выкладке кода",
+      "rows": [
+        "VMQ-MEM-02..08",
+        "VMQ-TIME-01,02,04..09",
+        "VMQ-NEXT-01,03,04",
+        "VMQ-Q0 (11)",
+        "VMQ-Q0-IBM (6; Q-04/QM-08 blocked_external IBM)",
+        "VMQ-Q1 (7)",
+        "VMQ-O (3)",
+        "VMQ-U (2)",
+        "VMQ-R (4)"
+      ],
+      "external": "IBM QPU (Q-04, QM-08) — blocked_external, не связан с поездом"
+    },
+    "next_actions": [
+      "1. Orchestrator: решить вопрос памяти (Q4) и передать Reviewer вопросы Q1 (VMQ-A-01) и Q2 (V-строки)",
+      "2. Reviewer: закрыть Q1/Q2 — без них deploy-гейты остаются красными на VMQ-A-01 и V",
+      "3. DevOps: bump 2.58.204 + delta/integration review кумулятивного диффа → controlled deployment точного SHA (health + agent e2e, без сообщений пользователю)",
+      "4. После деплоя: deployed-delta review на 2.58.204 → привязка O-01..O-04/M-04/M-05 → scoped release-гейты → postdeploy e2e по approved wait",
+      "5. Builder (если Q4 = память до релиза): Slice D — паритет обычного пути, наборы ≥3 участников/событий, категории трассы, эталон релевантности"
+    ],
+    "not_changed": "изменены только M-04/O-04 (READY_FOR_LIVE + approved wait) и записи M2-binding; plan.md, slice-graph.json, progress_scope.json, workflow_state.md не правились"
+  }
 }

@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM bind M2 waits/train ses_e2466fc41ffe29CK1Vz4tDm4SW; DevOps C corpus ses_e230158b3ffeG4QMQn2VYI1fDL
-Join barriers: PM binds B/C; push C -> DevOps C corpus (exact owner query overview, current-state negative); then release readiness; release held
+Active lanes: Reviewer Q1/Q2 ses_e2458ffb8ffePCAmFsGKCEIUHk; Builder train 2.58.204 ses_e22f9396effeK1G4IK4jUOmAaB; DevOps C corpus ses_e230158b3ffeG4QMQn2VYI1fDL
+Join barriers: Q1/Q2 Reviewer decisions + train 2.58.204 assembly -> delta review -> controlled deploy -> postdeploy e2e; memory rows stay open and are not claimed fixed
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
-Acceptance: VMQ map 70 required rows: 50 PENDING, 14 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on deployed c97c06e4; ONTO-A/B/M2 and Slices A/B/C are approved at REVIEW; Slice B corpus confirms TIME-03 (one event class) at REVIEW; MEM-04, TIME-01/02/04/06/07 and live vector/production L1/Writer remain open. The exact owner query now gets 2023+2024+2026; the ordinary twin and Chronicle parity are still not equivalent.
+Acceptance: VMQ map 70 required rows: 50 PENDING, 12 REVIEW, 2 READY_FOR_LIVE, 6 VERIFIED. M1/M-01..03/NEXT-02/05 VERIFIED on c97c06e4; ONTO-A/B/M2 and Slices A/B/C approved; Slice B TIME-03 REVIEW; M-04/O-04 READY_FOR_LIVE with Reviewer-approved postrelease wait; MEM-04/TIME-01/02/04/06/07 remain open as evidence/product gaps and are not claimed fixed. Q1 (VMQ-A-01 document row) and Q2 (V row dependency/wait) are with the Reviewer; the train 2.58.204 is being assembled.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T14:23:23+12:00
+Updated: 2026-11-15T14:26:19+12:00
 
 ## Facts
 
@@ -159,3 +159,6 @@ PM bound Slice B: slice_candidate_bindings.mem_b (d159ea8a, tip 182fcbf9, REVIEW
 ## M2 postrelease wait approved (2026-11-15)
 
 Reviewer addendum sha 2E980F19...: M-04/O-04 may proceed to controlled deployment with approved_postrelease_wait (nonblocking; trigger after 2.58.204: agent-owned e2e for person-overview, temporal query, exact owner query, current-state negative; one retrieve, one bundle, coverage/periods/counterexamples/limitations; O-04 one-route trace, no second search/router/DB/LLM, correction/version applied; owner DevOps; contracts MAN-M-04/MAN-O-04). Conditions: baseline c97c06e4 -> 2.58.204, DDL 0, rollback c97c06e4, read-only e2e, live evidence bound to the deployed SHA; rollback on health failure, missing bundle fields, route count != 1, historical leak into current-state, missing correction/version trace, cross-chat leak or any extra retrieval/search/model call. M-05 needs no wait. PM is binding the exact wait objects and finalizing the train plan/gates; DevOps C corpus is still running. No VERIFIED is added before deployed evidence.
+## Release train 2.58.204 and Q4 decision (2026-11-15)
+
+PM finalized: M-04/O-04 READY_FOR_LIVE with exact approved_postrelease_wait (addendum sha 2e980f19...), M-05 REVIEW, M2 review gate errors=0. Train: c97c06e4 -> 8cb9e00d -> d15b13da -> f7a9c596 -> 570a49db -> d159ea8a -> 16931216, target 2.58.204, cumulative 23 files +8996/-198, DDL 0, schema 47, no new flags. Counts 50 PENDING / 12 REVIEW / 2 READY_FOR_LIVE / 6 VERIFIED. Q1 (VMQ-A-01 delta-map document -> VERIFIED?) and Q2 (V-01..V-04: reviewer-approved postrelease wait vs graph edge correction) are with the V Reviewer. Q4 Orchestrator decision: ship the reviewed code train with the remaining memory rows OPEN and explicitly not claimed fixed; the core MEM-04/A1P ordinary-twin and TIME-01/02/04/06/07 gaps stay in the epic and will be a follow-up Slice D after this release, not silently closed. Builder is assembling the 2.58.204 train (bump/pins/tests/manifest) on release/vmq-onto-01-2.58.204 from 16931216; DevOps C corpus is still running.
