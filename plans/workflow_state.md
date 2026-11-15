@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: DevOps corpus Slice B ses_e23200784ffeHyiJZnRV9edID4; Builder Slice C ses_e2320901affeJvpgR6rnfoUWMb
-Join barriers: DevOps corpus Slice B -> PM bind B; Slice C -> Reviewer -> PM bind C; corpus re-measure C; then release readiness; release held
+Active lanes: Reviewer Slice C ses_e23086a8cffemJ4nd3urMDQXMr; Reviewer Slice B corpus addendum ses_e2325ffa6ffeWgKFoHLrkNOSju
+Join barriers: Slice B corpus addendum -> PM bind B; Slice C review -> PM bind C; C corpus; then release readiness; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 51 PENDING, 13 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on the deployed c97c06e4; ONTO-A/B/M2 and Slice A are approved at REVIEW; MEM-04, TIME-01/02/03/04/07/08/09 remain open. The memory measurement proved the exact owner multi-year defect is not fixed yet; Slice B is implementing it.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T13:43:56+12:00
+Updated: 2026-11-15T14:10:52+12:00
 
 ## Facts
 
@@ -139,3 +139,7 @@ Reviewer r1 Approved for predeploy REVIEW of Slice B on d159ea8a (tip 182fcbf9):
 ## Slice B pushed; corpus B + Slice C started (2026-11-15)
 
 origin/vmq/mem-b = 182fcbf9 (code d159ea8a included; no force). DevOps is running the read-only corpus re-measure on the production host: baseline Slice A 570a49db vs candidate d159ea8a, same DB copy/query set, A1 exact owner query (historical quota), T2 with a real L1Plan response_act=historical_recall, P1 profile subject refs 2023/2024, relationships temporal_projection, Old_Episode 2023, current-state control; no deployment. Builder Slice C started on vmq/mem-c from 182fcbf9: overview trigger from the structured PeriodIntent/historical intent, exact owner query gets actual coverage/limitations, current-state does not, no new lexical marker list, one retrieve/one bundle.
+
+## Slice B corpus result (2026-11-15)
+
+Committed c4cacd6f: evidence/vmq-mem/corpus-run-slice-b-2026-11-15.md/.json. Baseline Slice A 570a49db vs Slice B d159ea8a on a fresh 2,075,717-message prod copy. A1 exact owner query: 2024:1+2026:8 -> 2023:1+2024:1+2026:8 (historical_quota id 3210 2023); T2 with a real L1Plan.historical_recall: 2023:1+2024:1+2026:8 (multi_year_quota=2), no signal 2026-only; T3 "что сейчас" stays 2026; Old_Episode 2023: {2025:19,2026:63} -> {2023:18}, year_window=[2023]; P1 profile: get_subject_profile_facts 0, get_author_message_periods 6 rows 2022/2023/2024 with exact uid, biography limitation=no_subject_bound_material, general 4 rows with subject_ref_id 15612/15856 vs canonical 15616 (under Reviewer interpretation); no author=subject; relationships raw 0, temporal_projection edges_total 0/no_edges/invented 0 while the corpus has 71,262 edges all last_updated 2026 (reason nuance under review); vector compat_not_proven/provider_unavailable, vector_rows=0, still UNVERIFIED. No fabricated sources; years/ids consistent. Reviewer B is issuing a corpus addendum on the profile subject_ref mismatch and the relationships reason; Reviewer C is reviewing the structured overview trigger. A leftover mutation in the master worktree's services/mca_retrieval_context.py was restored from HEAD (compile ok; production untouched); the map was committed (51/13/6).
