@@ -498,16 +498,25 @@ _HISTORY_MARKERS = (
 PERIOD_INTENT_NONE = "none"
 PERIOD_INTENT_YEAR = "explicit_year"
 PERIOD_INTENT_HISTORICAL = "historical"
+#: Slice B (15.11.2026): структурный multi-year intent для вопроса о событии
+#: БЕЗ года. Источник — существующий request/plan-сигнал
+#: (`RetrievalRequest.intent`/`mode`, `L1Plan.response_act`), НЕ словарь
+#: «напомни/что было»: `_HISTORY_MARKERS` и `_PERIOD_HISTORY_MARKERS` не
+#: расширяются.
+PERIOD_INTENT_MULTI_YEAR = "multi_year"
 
 #: Коды причин отсева периодного пула (наружу — только коды и числа).
 PERIOD_DROP_OUT_OF_TARGET_YEAR = "out_of_target_year"
 PERIOD_DROP_UNKNOWN_YEAR = "unknown_year"
 PERIOD_DROP_SUBJECT = "subject_mismatch"
 PERIOD_DROP_POOL_CAP = "period_pool_cap"
-#: Как строка вошла: год-цель сохранён / мягкий предметный fallback / вектор.
+#: Как строка вошла: год-цель сохранён / мягкий предметный fallback / вектор /
+#: ограниченная историческая квота / multi-year квота.
 PERIOD_KEEP_IN_TARGET = "in_target_year"
 PERIOD_KEEP_SOFT_FALLBACK = "subject_soft_fallback"
 PERIOD_KEEP_VECTOR = "vector_leg_no_threshold"
+PERIOD_KEEP_HISTORICAL_QUOTA = "historical_quota"
+PERIOD_KEEP_MULTI_YEAR = "multi_year_quota"
 
 #: Порог «тот же предмет, не то же слово» (действующий §2: ≥2 общих основы).
 PERIOD_MIN_SHARED_STEMS = 2
@@ -545,19 +554,47 @@ class PeriodIntent:
     def is_historical(self) -> bool:
         return self.kind == PERIOD_INTENT_HISTORICAL
 
+    @property
+    def is_multi_year(self) -> bool:
+        return self.kind == PERIOD_INTENT_MULTI_YEAR
+
+    @property
+    def wants_year_diverse(self) -> bool:
+        """Исторический/много летний вопрос: нужен bounded multi-year вклад."""
+        return self.is_historical or self.is_multi_year
+
     def as_dict(self) -> dict:
         return {"kind": self.kind, "years": list(self.years),
                 "source": self.source}
 
 
-def resolve_period_intent(query, *, memory_scope: str = "auto") -> PeriodIntent:
-    """Детерминированное периодное намерение запроса (без LLM и без словарей
-    «сейчас»). Приоритет: явный год → `memory_scope=historical` → маркеры
-    исторического/мемуарного запроса → `none` (прежний путь)."""
+def resolve_period_intent(query, *, memory_scope: str = "auto",
+                          request_intent: str = "", request_mode: str = "",
+                          plan_act: str = "") -> PeriodIntent:
+    """Детерминированное периодное намерение запроса (без LLM и без словаря
+    «сейчас»). Приоритет: явный год → СТРУКТУРНЫЙ request/plan-сигнал →
+    `memory_scope=historical` → маркеры исторического/мемуарного запроса →
+    `none` (прежний путь).
+
+    Slice B: `request_intent` (`what-happened|history`), `request_mode`
+    (`history|episodic`) и `plan_act` (`historical_recall`) — существующие
+    закрытые значения retrieval/L1-плана, а не новый список слов. Вопрос о
+    событии без года получает `multi_year` независимо от того, назван ли год
+    или слово «вспомни»."""
     text = str(query or "").casefold()
     years = tuple(sorted({int(y) for y in _YEAR_IN_QUERY_RE.findall(text)}))
     if years:
         return PeriodIntent(PERIOD_INTENT_YEAR, years, "query_year")
+    intent_kind = str(request_intent or "").strip().lower()
+    if intent_kind in ("what-happened", "history"):
+        return PeriodIntent(PERIOD_INTENT_MULTI_YEAR, (),
+                            "request_intent")
+    plan_kind = str(plan_act or "").strip().lower()
+    if plan_kind == "historical_recall":
+        return PeriodIntent(PERIOD_INTENT_MULTI_YEAR, (), "plan_act")
+    mode_kind = str(request_mode or "").strip().lower()
+    if mode_kind in ("history", "episodic"):
+        return PeriodIntent(PERIOD_INTENT_MULTI_YEAR, (), "request_mode")
     try:
         scope = str(_mc.normalize_memory_scope(memory_scope).value)
     except Exception:                                     # pragma: no cover
@@ -568,6 +605,29 @@ def resolve_period_intent(query, *, memory_scope: str = "auto") -> PeriodIntent:
         if marker in text:
             return PeriodIntent(PERIOD_INTENT_HISTORICAL, (), "query_marker")
     return PeriodIntent()
+
+
+def year_time_bounds(year) -> tuple[int, int] | None:
+    """UTC-границы календарного года `[start, end]` (секунды) или None.
+
+    Один примитив для явного года: используется периодным отбором и
+    `<Old_Episode>`, чтобы окно не собиралось в двух местах по-разному.
+    Невалидный/нечисловой год → None (fail-closed, без догадки)."""
+    try:
+        value = int(year)
+    except (TypeError, ValueError):
+        return None
+    if value < 1970 or value > 9999:
+        return None
+    try:
+        start = int(datetime.datetime(
+            value, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
+        end = int(datetime.datetime(
+            value, 12, 31, 23, 59, 59,
+            tzinfo=datetime.timezone.utc).timestamp())
+    except (ValueError, OverflowError, OSError):          # pragma: no cover
+        return None
+    return start, end
 
 
 def period_row_year(row) -> int | None:
@@ -652,7 +712,8 @@ def _mark_period_row(row, shared, reason: str) -> None:
 
 
 def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" = None,
-                       policy: str = "auto", slots: int = 2) -> tuple[list, dict]:
+                       policy: str = "auto", slots: int = 2,
+                       reference_year: int | None = None) -> tuple[list, dict]:
     """Отбор периодного пула: время-цель ПЕРВЫМ, предмет — с мягким fallback.
 
     VMQ-MEM/TIME Slice A (15.11.2026). Прежний безусловный порог ≥2 основ
@@ -690,6 +751,8 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "dropped_subject": 0,
         "dropped_pool_cap": 0,
         "soft_fallback": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
         "lexical_strict_passed": 0,
     }
     accepted: list = []
@@ -744,7 +807,7 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             lexical_strict_passed += 1
             continue
         stats["dropped_subject"] += 1
-        if intent.is_historical and shared >= 1:
+        if intent.wants_year_diverse and shared >= 1:
             soft_pool.append((shared, index, row))
     if intent.is_historical and soft_pool and len(accepted) < slots \
             and lexical_strict_passed == 0 \
@@ -760,6 +823,48 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             accepted.append(row)
             stats["soft_fallback"] += 1
             stats["dropped_subject"] -= 1
+    if intent.wants_year_diverse and soft_pool and len(accepted) < slots \
+            and (lexical_strict_passed > 0 or intent.is_multi_year) \
+            and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
+        # Slice B: ограниченная историческая/multi-year квота. Строгий порог
+        # §2 уже дал строку (owner-формулировка A1: 2024), поэтому мягкий
+        # fallback не включался — но исторический вопрос обязан получить
+        # материал ДРУГОГО старого года. Квота bounded слотами, берёт только
+        # строки «того же предмета» (≥1 основа), не текущий год и только годы,
+        # которых ещё нет в принятом наборе; одна слабая строка блок не
+        # собирает (тот же контракт §2/§5).
+        try:
+            current_year = int(reference_year) if reference_year is not None \
+                else datetime.datetime.now(datetime.timezone.utc).year
+        except (TypeError, ValueError):                   # pragma: no cover
+            current_year = datetime.datetime.now(datetime.timezone.utc).year
+        seen_years = {period_row_year(row) for row in accepted}
+        seen_years.discard(None)
+        quota_pool: list[tuple[int, int, dict]] = []
+        for shared, index, row in soft_pool:
+            year = period_row_year(row)
+            if year is None or year == current_year or year in seen_years:
+                continue
+            quota_pool.append((shared, index, row))
+        quota_pool.sort(key=lambda item: (-item[0], period_row_year(
+            item[2]) or 9999, item[1]))
+        keep_reason = (PERIOD_KEEP_MULTI_YEAR if intent.is_multi_year
+                       else PERIOD_KEEP_HISTORICAL_QUOTA)
+        quota_stat = ("multi_year_quota" if intent.is_multi_year
+                      else "historical_quota")
+        need = slots - len(accepted)
+        for shared, _index, row in quota_pool:
+            if need <= 0:
+                break
+            year = period_row_year(row)
+            if year in seen_years:
+                continue
+            _mark_period_row(row, shared, keep_reason)
+            accepted.append(row)
+            stats[quota_stat] += 1
+            stats["dropped_subject"] -= 1
+            seen_years.add(year)
+            need -= 1
     stats["lexical_strict_passed"] = lexical_strict_passed
     stats["kept"] = len(accepted)
     return accepted, stats
@@ -875,6 +980,12 @@ class RetrievalRequest:
     #: периода сохраняет строки целевого года до предметного порога, а
     #: строки другого года отбрасываются с кодом причины (2026 ≠ 2023).
     period_intent: "PeriodIntent | None" = None
+    #: VMQ-MEM/TIME Slice B (15.11.2026): лексический канал учитывает
+    #: `time_from`/`time_to` В SQL (`search_messages_fts(since_ts/until_ts,
+    #: order='time')`) вместо пост-фильтра top-N. Нужен только явному
+    #: временному окну (`<Old_Episode>` по году вопроса); default False —
+    #: все прочие вызывающие байт-идентичны.
+    lexical_time_window: bool = False
     #: VMQ-M2 (M-04/O-04; ARCH_REUSE_CONFIRMED): запросить bounded
     #: overview-проекцию покрытия/периодов/контрпримеров/ограничений и
     #: semantic-hints в ТОМ ЖЕ `retrieve()`. Default False — прочие
@@ -1199,6 +1310,33 @@ def typed_rank_score(candidate: RetrievalCandidate, request: RetrievalRequest,
     return score
 
 
+def _edge_timestamp(value) -> int | None:
+    """`edges.last_updated` (SQLite TEXT UTC) → epoch seconds или None.
+
+    Год ребра — существующая колонка `last_updated`, а не выдуманная дата.
+    Невалидная/пустая строка → None (честное «времени нет»)."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            stamp = int(value)
+        except (TypeError, ValueError):
+            return None
+        return stamp if stamp > 0 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S.%f"):
+        try:
+            moment = datetime.datetime.strptime(text, fmt).replace(
+                tzinfo=datetime.timezone.utc)
+            return int(moment.timestamp())
+        except (ValueError, OverflowError, OSError):
+            continue
+    return None
+
+
 def project_relations(links, limit: int = 20) -> tuple[dict, ...]:
     """MEMORY-06 (§7.5): санкционированная проекция связей субъекта.
 
@@ -1207,7 +1345,10 @@ def project_relations(links, limit: int = 20) -> tuple[dict, ...]:
     ребра (`legacy_ids` — edge/fact id, `has_unsupported_sources` — «источник
     не указан»), чтобы потребитель не выдавал ребро без основания за
     подтверждённое знание. Порядок входа сохраняется, размер ограничен.
-    """
+
+    VMQ-MEM/TIME Slice B: `last_updated` существующего ребра проецируется как
+    `ts`/`year` (временная ось отношений). Никаких синтезированных рёбер и
+    дат: нет валидного `last_updated` → `ts=None`, год не выдумывается."""
     out: list[dict] = []
     for link in links or ():
         if len(out) >= max(1, int(limit or 1)):
@@ -1225,6 +1366,15 @@ def project_relations(links, limit: int = 20) -> tuple[dict, ...]:
         legacy_ids = [str(v) for v in (edge_id, fact_id) if v not in (None, "")]
         supported = (fact_id not in (None, "") or
                      (bool(origin) and origin != "legacy_unknown"))
+        ts = _edge_timestamp(link.get("last_updated") or link.get("created_at")
+                             or link.get("ts"))
+        year = None
+        if ts is not None:
+            try:
+                year = datetime.datetime.fromtimestamp(
+                    ts, datetime.timezone.utc).year
+            except (ValueError, OSError, OverflowError):  # pragma: no cover
+                year = None
         out.append({
             "text": f"{source_name} ({relation}) {target_name}".strip(),
             "edge_id": edge_id,
@@ -1234,6 +1384,8 @@ def project_relations(links, limit: int = 20) -> tuple[dict, ...]:
             "legacy_ids": legacy_ids,
             "has_unsupported_sources": not supported,
             "source_basis": "" if supported else "источник не указан",
+            "ts": ts,
+            "year": year,
         })
     return tuple(out)
 
@@ -1246,8 +1398,23 @@ async def _relations_projection(db, request: RetrievalRequest, limit: int
     if not callable(getter) or not name:
         return ()
     try:
-        card = await getter(int(request.chat_id), name, max(1, int(limit)),
-                            int(time.time()))
+        uids = tuple(int(v) for v in (request.subject_entity_ids or ())
+                     if v is not None)
+    except (TypeError, ValueError):
+        uids = ()
+    uid = uids[0] if len(uids) == 1 else None
+    try:
+        if uid is not None:
+            try:
+                card = await getter(int(request.chat_id), name,
+                                    max(1, int(limit)), int(time.time()),
+                                    user_id=int(uid))
+            except TypeError:
+                card = await getter(int(request.chat_id), name,
+                                    max(1, int(limit)), int(time.time()))
+        else:
+            card = await getter(int(request.chat_id), name,
+                                max(1, int(limit)), int(time.time()))
     except Exception:
         logger.warning("[mca07] relations projection failed", exc_info=True)
         return ()
@@ -2277,7 +2444,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     period_intent = None
     if request.period_fill:
         period_intent = request.period_intent or resolve_period_intent(
-            request.query, memory_scope=policy)
+            request.query, memory_scope=policy,
+            request_intent=request.intent, request_mode=request.mode)
     #: Счётчики причин исключения (§10): policy→status→expired→relevance→
     #: budget. Только числа, без текстов фактов; уходят в durable-событие.
     excluded: dict = {}
@@ -2428,10 +2596,26 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         period_stats["fts_words_dropped"] = max(
             0, len(keywords) - len(period_keywords))
     if _allow("lexical") and match:
+        # VMQ-MEM/TIME Slice B: явное временное окно (год вопроса) уходит в
+        # SQL существующего чтения, а не режет уже полученный top-N. `order=
+        # "time"` — bounded план по `idx_smart_messages_chat_ts` (дефект 3);
+        # default False → прежний байт-идентичный вызов.
+        _fts_window: dict = {}
+        if request.lexical_time_window and request.time_from is not None \
+                and request.time_to is not None:
+            _fts_window = {"since_ts": int(request.time_from),
+                           "until_ts": int(request.time_to),
+                           "order": "time"}
         for chat_id in chat_ids:
             try:
-                rows = await db.search_messages_fts(
-                    chat_id, match, max(1, fetch_k * 2))
+                try:
+                    rows = await db.search_messages_fts(
+                        chat_id, match, max(1, fetch_k * 2), **_fts_window)
+                except TypeError:
+                    # Двойник без kw-окна: прежний вызов, окно режет
+                    # существующий пост-фильтр (не второй поиск).
+                    rows = await db.search_messages_fts(
+                        chat_id, match, max(1, fetch_k * 2))
                 for pos, row in enumerate(rows or []):
                     raw.append(_message_candidate(row, "lexical", pos,
                                                   resolve_item_id))
@@ -3445,6 +3629,9 @@ __all__ = [
     "overview_bundle_slots",
     # VMQ-MEM/TIME Slice A (15.11.2026): структурированный периодный intent
     "PERIOD_INTENT_NONE", "PERIOD_INTENT_YEAR", "PERIOD_INTENT_HISTORICAL",
+    # VMQ-MEM/TIME Slice B (15.11.2026): multi-year intent + квоты
+    "PERIOD_INTENT_MULTI_YEAR", "PERIOD_KEEP_HISTORICAL_QUOTA",
+    "PERIOD_KEEP_MULTI_YEAR", "year_time_bounds",
     "PERIOD_DROP_OUT_OF_TARGET_YEAR", "PERIOD_DROP_UNKNOWN_YEAR",
     "PERIOD_DROP_SUBJECT", "PERIOD_DROP_POOL_CAP",
     "PERIOD_KEEP_IN_TARGET", "PERIOD_KEEP_SOFT_FALLBACK", "PERIOD_KEEP_VECTOR",

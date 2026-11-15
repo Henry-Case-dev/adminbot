@@ -4137,6 +4137,16 @@ class ToolRouter:
             channels=_MEMORY_LOOKUP_SUBJECT_CHANNELS, include_overview=True)
         facts, sources = await self._memory_lookup_unified_items(
             ctx, result, max_items, entity_types=("graph_fact",))
+        # VMQ-MEM/TIME Slice B: субъектный multi-year материал (включая
+        # собственную атрибуцию `speaker_author_id`, годы 2023/2024). Это
+        # ОДНО существующее чтение БД, не второй поиск/резолвер. Субъектные
+        # строки идут ПЕРВЫМИ: иначе unattributed-контекст чата занимает весь
+        # бюджет envelope и материал о человеке не доходит.
+        profile_facts, profile_sources = \
+            await self._memory_lookup_subject_profile_facts(
+                ctx, person, max_items)
+        facts, sources = self._memory_lookup_merge_items(
+            profile_facts, profile_sources, facts, sources, max_items)
         db = getattr(self.deps, "db", None)
         dossier = await self._memory_lookup_generated_dossier(db, ctx, person)
         if dossier:
@@ -4145,13 +4155,16 @@ class ToolRouter:
                 "kind": "dossier_portrait", "ref": "dossier_portrait",
                 "origin": "dossier_portrait",
                 "ts": int(dossier.get("updated_at") or 0) or None})
+        subject_material = self._memory_lookup_subject_material(facts)
         if not facts:
+            extra = self._memory_lookup_overview_extra(result)
+            extra["subject_material"] = subject_material
             return self._memory_lookup_payload(
                 "ok", "biography", person, [], [], no_data=True,
-                empty_reason="unknown_person",
-                extra=self._memory_lookup_overview_extra(result))
+                empty_reason="unknown_person", extra=extra)
         extra = dict(self._memory_lookup_dossier_extra(facts))
         extra.update(self._memory_lookup_overview_extra(result))
+        extra["subject_material"] = subject_material
         return self._memory_lookup_payload(
             "ok", "biography", person, facts, sources, extra=extra)
 
@@ -4170,29 +4183,65 @@ class ToolRouter:
             ctx, person, purpose="relationships", max_items=max_items,
             channels=(), include_relations=True)
         facts, sources = [], []
+        years: list[int] = []
         for rel in getattr(result, "relations", ()) or ():
             if len(facts) >= max_items:
                 break
             legacy_ids = [str(v) for v in (rel.get("legacy_ids") or [])]
             unsupported = bool(rel.get("has_unsupported_sources"))
+            ts = rel.get("ts")
+            try:
+                ts = int(ts) if ts not in (None, "") else None
+            except (TypeError, ValueError):
+                ts = None
+            year = None
+            if ts:
+                try:
+                    year = datetime.datetime.fromtimestamp(
+                        ts, datetime.timezone.utc).year
+                except (ValueError, OSError, OverflowError):
+                    year = None
+            if year:
+                years.append(year)
             facts.append({
                 "text": str(rel.get("text") or ""),
                 "confidence": "unknown", "weight": rel.get("weight"),
-                "time": None, "source_id": str(rel.get("fact_id") or ""),
+                "time": ts, "as_of_year": year,
+                "source_id": str(rel.get("fact_id") or ""),
                 "legacy_ids": legacy_ids,
                 "has_unsupported_sources": unsupported,
                 "source_basis": str(rel.get("source_basis") or "")})
             sources.append({"kind": "edge",
                             "ref": str(rel.get("edge_id") or ""),
                             "origin": str(rel.get("origin") or "graph_edge"),
-                            "ts": None, "legacy_ids": legacy_ids,
+                            "ts": ts, "year": year,
+                            "legacy_ids": legacy_ids,
                             "has_unsupported_sources": unsupported})
+        edges_total = len(getattr(result, "relations", ()) or ())
+        year_bearing = len(years)
+        if not edges_total:
+            reason = "no_edges"
+        elif not year_bearing:
+            reason = "no_year_bearing_edges"
+        else:
+            reason = "ok"
+        temporal = {
+            "edges_total": edges_total,
+            "year_bearing": year_bearing,
+            "years": sorted(set(years)),
+            "reason": reason,
+            # Выдуманных рёбер нет по построению: проекция только читает
+            # существующие edges; знаменатель — реальные рёбра, не 0/0.
+            "invented": 0,
+        }
         if not facts:
             return self._memory_lookup_payload(
                 "ok", "relationships", person, [], [], no_data=True,
-                empty_reason="empty")
+                empty_reason="empty",
+                extra={"temporal_projection": temporal})
         return self._memory_lookup_payload(
-            "ok", "relationships", person, facts, sources)
+            "ok", "relationships", person, facts, sources,
+            extra={"temporal_projection": temporal})
 
     async def _memory_lookup_unified(self, ctx, person: dict, *,
                                      purpose: str, max_items: int,
@@ -4391,14 +4440,21 @@ class ToolRouter:
         unified = await self._memory_lookup_unified(
             ctx, person, purpose="general", max_items=max_items,
             preserve_channel_order=False, include_overview=True)
+        subject_facts, subject_sources = \
+            await self._memory_lookup_subject_profile_facts(
+                ctx, person, max_items)
         if unified is not None:
             facts, sources = await self._memory_lookup_unified_items(
                 ctx, unified, max_items,
                 entity_types=("graph_fact", "message"))
+            facts, sources = self._memory_lookup_merge_items(
+                subject_facts, subject_sources, facts, sources, max_items)
             if facts:
+                extra = self._memory_lookup_overview_extra(unified)
+                extra["subject_material"] = \
+                    self._memory_lookup_subject_material(facts)
                 return self._memory_lookup_payload(
-                    "ok", "general", person, facts, sources,
-                    extra=self._memory_lookup_overview_extra(unified))
+                    "ok", "general", person, facts, sources, extra=extra)
         memory = getattr(self.deps, "memory", None)
         name = person.get("name") or ""
         # SXR-C2-01: число сообщений = явный/дефолтный max_items запроса,
@@ -4447,12 +4503,17 @@ class ToolRouter:
                     "source_id": "rag:context"})
                 sources.append({"kind": "rag", "ref": "rag:context",
                                 "origin": "rag", "ts": None})
+        facts, sources = self._memory_lookup_merge_items(
+            subject_facts, subject_sources, facts, sources, max_items)
+        subject_material = self._memory_lookup_subject_material(facts)
         if not facts:
             return self._memory_lookup_payload(
                 "ok", "general", person, [], [], no_data=True,
-                empty_reason="empty")
+                empty_reason="empty",
+                extra={"subject_material": subject_material})
         return self._memory_lookup_payload(
-            "ok", "general", person, facts, sources)
+            "ok", "general", person, facts, sources,
+            extra={"subject_material": subject_material})
 
     async def _memory_lookup_speech_style(self, ctx, person,
                                           max_items) -> dict:
@@ -4555,6 +4616,19 @@ class ToolRouter:
             "status": status,
             "valid_now": bool(valid_now),
             "as_of_year": as_of_year,
+            # VMQ-MEM/TIME Slice B (15.11.2026): субъектные ссылки строки.
+            # `subject_ref_id`/`target_user` — о ком факт, `speaker_author_id` —
+            # кто его сообщил (роль приходит отдельно, `subject_role`).
+            # `author=subject` здесь не подставляется: отсутствие ссылки
+            # остаётся отсутствием.
+            "subject_ref_id": row.get("subject_ref_id"),
+            "speaker_author_id": row.get("speaker_author_id"),
+            "target_user": str(row.get("target_user") or "") or None,
+            "attribution_method": str(row.get("attribution_method") or "")
+                                  or None,
+            "provenance_channel": str(row.get("provenance_channel") or "")
+                                  or None,
+            "subject_role": str(row.get("subject_role") or "") or None,
             # VMQ-MEM-TIME (§5, блокер 3 ре-ревью 10.11.2026): строка —
             # исторический контекст ЧАТА без привязки к субъекту (архив
             # импортирован без `subject_ref_id`/`target_user`/автора).
@@ -4563,13 +4637,148 @@ class ToolRouter:
         }
 
     def _memory_lookup_source_item(self, row: dict) -> dict:
+        ts = int(row.get("message_timestamp")
+                 or row.get("created_at") or 0) or None
+        year = None
+        if ts:
+            try:
+                year = datetime.datetime.fromtimestamp(
+                    ts, datetime.timezone.utc).year
+            except (ValueError, OSError, OverflowError):
+                year = None
         return {
             "kind": "graph_fact",
             "ref": resolve_item_id(tg_message_id=row.get("tg_message_id"),
                                    fact_id=row.get("id")),
             "origin": str(row.get("origin") or ""),
-            "ts": int(row.get("message_timestamp")
-                      or row.get("created_at") or 0) or None,
+            "ts": ts,
+            "year": year,
+            "subject_ref_id": row.get("subject_ref_id"),
+            "speaker_author_id": row.get("speaker_author_id"),
+            "subject_role": str(row.get("subject_role") or "") or None,
+        }
+
+    async def _memory_lookup_subject_profile_facts(self, ctx, person,
+                                                   max_items) -> tuple:
+        """VMQ-MEM/TIME Slice B: субъектный материал нескольких периодов.
+
+        Единственное чтение — `DatabaseService.get_subject_profile_facts`
+        (факты О субъекте + его собственная атрибуция `speaker_author_id`,
+        годовая квота). Чужие строки не подмешиваются; роль
+        `subject|speaker` остаётся в факте. Двойник без чтения → пусто
+        (честная деградация, второй поиск не создаётся)."""
+        db = getattr(self.deps, "db", None)
+        reader = getattr(db, "get_subject_profile_facts", None)
+        name = str(person.get("name") or "").strip()
+        if not callable(reader) or not name:
+            return [], []
+        uid = person.get("user_id")
+        try:
+            rows = await reader(
+                int(ctx.chat_id), name, max(1, int(max_items)),
+                int(time.time()),
+                user_id=(int(uid) if uid is not None else None))
+        except Exception:
+            logger.warning("[tools] subject profile read failed | chat=%s",
+                           getattr(ctx, "chat_id", None))
+            return [], []
+        facts: list = []
+        sources: list = []
+        for row in rows or ():
+            try:
+                data = dict(row)
+            except (TypeError, ValueError):
+                continue
+            if not str(data.get("fact") or "").strip():
+                continue
+            facts.append(self._memory_lookup_fact_item(data))
+            sources.append(self._memory_lookup_source_item(data))
+            if len(facts) >= max(1, int(max_items)):
+                break
+        # Канонические сообщения самого автора (P1): профиль не ограничен
+        # graph_facts, где за 2023/2024 фактов о нём может не быть. Это
+        # ТОЧНЫЙ uid, не author=subject fallback. Читаем только если
+        # субъектные факты не дали ни одного не-текущего года (bounded).
+        message_reader = getattr(db, "get_author_message_periods", None)
+        current_year = datetime.datetime.now(datetime.timezone.utc).year
+        covered_old = any(
+            fact.get("as_of_year") and int(fact["as_of_year"]) != current_year
+            for fact in facts)
+        if callable(message_reader) and uid is not None \
+                and not covered_old \
+                and len(facts) < max(1, int(max_items)):
+            try:
+                message_rows = await message_reader(
+                    int(ctx.chat_id), int(uid), max(1, int(max_items)))
+            except Exception:
+                logger.warning("[tools] subject message read failed | "
+                               "chat=%s", getattr(ctx, "chat_id", None))
+                message_rows = []
+            for row in message_rows or ():
+                if len(facts) >= max(1, int(max_items)):
+                    break
+                built = self._memory_lookup_message_item(row)
+                if built is None:
+                    continue
+                fact = built["fact"]
+                fact.update({
+                    "as_of_year": row.get("as_of_year"),
+                    "speaker_author_id": int(uid),
+                    "subject_role": "speaker",
+                    "authored_by_subject": True,
+                })
+                source = built["source"]
+                source.update({"speaker_author_id": int(uid),
+                               "year": row.get("as_of_year"),
+                               "subject_role": "speaker"})
+                facts.append(fact)
+                sources.append(source)
+        return facts, sources
+
+    @staticmethod
+    def _memory_lookup_merge_items(facts, sources, extra_facts, extra_sources,
+                                   max_items) -> tuple:
+        """Слить два набора fact/source без дублей по `source_id`.
+
+        Порядок первого набора сохраняется; субъектные строки добавляются
+        после, только если их источника ещё нет. Размер ограничен
+        `max_items` (бюджет envelope не расширяется)."""
+        merged_facts = list(facts or ())
+        merged_sources = list(sources or ())
+        seen = {str(f.get("source_id") or "") for f in merged_facts
+                if isinstance(f, dict)}
+        for fact, source in zip(extra_facts or (), extra_sources or ()):
+            if len(merged_facts) >= max(1, int(max_items)):
+                break
+            key = str((fact or {}).get("source_id") or "")
+            if key and key in seen:
+                continue
+            merged_facts.append(fact)
+            merged_sources.append(source)
+            if key:
+                seen.add(key)
+        return merged_facts, merged_sources
+
+    @staticmethod
+    def _memory_lookup_subject_material(facts) -> dict:
+        """Покрытие субъектного материала: сколько строк с реальной ссылкой
+        на субъекта/его речь и какие годы. Нет таких строк → честная причина,
+        а не author=subject fallback."""
+        bound: list = []
+        for fact in facts or ():
+            if not isinstance(fact, dict):
+                continue
+            if fact.get("unattributed"):
+                continue
+            if (fact.get("subject_ref_id") or fact.get("speaker_author_id")
+                    or fact.get("target_user") or fact.get("subject_role")):
+                bound.append(fact)
+        years = sorted({int(fact["as_of_year"]) for fact in bound
+                        if fact.get("as_of_year")})
+        return {
+            "subject_bound": len(bound),
+            "years": years,
+            "limitation": ("" if bound else "no_subject_bound_material"),
         }
 
     def _memory_lookup_rag_fact_item(self, entry):

@@ -12556,6 +12556,7 @@ class DatabaseService:
         cursor = await self.db.execute(
             "SELECT e.relation_type, "
             "e.id AS edge_id, e.fact_id, e.origin, e.weight, "
+            "e.last_updated, "
             "s.entity_name AS source_name, t.entity_name AS target_name "
             "FROM edges e "
             "JOIN nodes s ON s.id = e.source_id "
@@ -12570,6 +12571,38 @@ class DatabaseService:
         links = [dict(row) for row in await cursor.fetchall()]
         return {"facts": facts, "links": links}
 
+    async def _subject_ref_id(self, chat_id, name, *, user_id=None):
+        """Устойчивый `mca_source_refs.source_ref_id` субъекта (или None).
+
+        Nothing is guessed: ref exists only when provenance resolved the uid
+        and the source ref row exists for this chat. Legacy rows are filtered
+        by `target_user`/`subject_ref_id IS NULL` in the caller.
+        """
+        from services import mca_gates, provenance
+        if not mca_gates.fact_attribution_enabled():
+            return None
+        if user_id is None:
+            try:
+                ref = await provenance.resolve_subject_ref(self, chat_id, name)
+                if ref.resolution == "resolved":
+                    user_id = ref.entity_id
+            except Exception:
+                logger.debug("[database] subject resolve failed",
+                             exc_info=True)
+        if user_id is None:
+            return None
+        try:
+            cursor = await self.db.execute(
+                "SELECT source_ref_id FROM mca_source_refs WHERE "
+                "store = 'telegram' AND entity_type = 'user' AND "
+                "entity_id = ? AND COALESCE(chat_id, -1) = "
+                "COALESCE(?, -1) LIMIT 1", (str(user_id), chat_id))
+            row = await cursor.fetchone()
+        except Exception:
+            logger.debug("[database] subject ref lookup failed", exc_info=True)
+            return None
+        return int(row["source_ref_id"]) if row is not None else None
+
     async def _person_scope_clause(self, chat_id, name, *, user_id=None):
         """Субъект-scope для чтения личных фактов (MCA-04a FIX п.2, spec §4.6).
 
@@ -12577,31 +12610,7 @@ class DatabaseService:
         `subject_ref_id` (устойчивый ID); legacy (`subject_ref_id IS NULL`) —
         по `target_user`-имени. Общие знания (`world_knowledge`) и ответы бота
         (`bot_self_reply`) исключаются всегда (A85)."""
-        from services import mca_gates, provenance
-        ref_id = None
-        if mca_gates.fact_attribution_enabled():
-            if user_id is None:
-                try:
-                    ref = await provenance.resolve_subject_ref(self, chat_id,
-                                                               name)
-                    if ref.resolution == "resolved":
-                        user_id = ref.entity_id
-                except Exception:
-                    logger.debug("[database] subject resolve failed",
-                                 exc_info=True)
-            if user_id is not None:
-                try:
-                    cursor = await self.db.execute(
-                        "SELECT source_ref_id FROM mca_source_refs WHERE "
-                        "store = 'telegram' AND entity_type = 'user' AND "
-                        "entity_id = ? AND COALESCE(chat_id, -1) = "
-                        "COALESCE(?, -1) LIMIT 1", (str(user_id), chat_id))
-                    row = await cursor.fetchone()
-                    if row is not None:
-                        ref_id = int(row["source_ref_id"])
-                except Exception:
-                    logger.debug("[database] subject ref lookup failed",
-                                 exc_info=True)
+        ref_id = await self._subject_ref_id(chat_id, name, user_id=user_id)
         clauses = []
         params: list = []
         if ref_id is not None:
@@ -12661,6 +12670,157 @@ class DatabaseService:
             "ORDER BY weight DESC, created_at DESC LIMIT ?",
             [int(chat_id), *sparams, int(now_ts), int(limit)])
         return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_subject_profile_facts(self, chat_id: int, target_user: str,
+                                        limit: int, now_ts: int, *,
+                                        user_id: int | None = None) -> list:
+        """VMQ-MEM/TIME Slice B: субъектный материал НЕСКОЛЬКИХ периодов.
+
+        Отличие от `get_user_context_facts(scope='historical')`: кроме фактов
+        О субъекте (`subject_ref_id`/legacy `target_user`) читается его
+        собственная атрибуция `speaker_author_id` — факты, которые человек
+        сам сообщил. Это НЕ fallback `author=subject`: роль строки
+        возвращается явно (`subject_role=subject|speaker`), устойчивые ссылки
+        (`subject_ref_id`/`speaker_author_id`) сохраняются, а строки другого
+        автора не подмешиваются.
+
+        Одно bounded-чтение с годовой квотой `limit//5` (та же политика §5,
+        что у профиля): покрытие 2023/2024 не достигается повышением квоты
+        или снятием возрастного штрафа. `archived_fact` участвует (квота —
+        оперативный набор, не граница истории); expired/unconfirmed — нет.
+        Реальные источники (`message_timestamp`/`created_at`, `tg_message_id`)
+        остаются в строке. Read-only, без DDL и без второго поиска."""
+        target = str(target_user or "").strip()
+        if not target:
+            return []
+        limit = max(1, int(limit))
+        scope, exclude, sparams = await self._person_scope_clause(
+            chat_id, target, user_id=user_id)
+        ref_id = await self._subject_ref_id(chat_id, target, user_id=user_id)
+        speaker_sql = ""
+        params: list = []
+        if user_id is not None:
+            speaker_sql = " OR speaker_author_id = ?"
+            params.append(int(user_id))
+        year_expr = ("CAST(strftime('%Y', COALESCE(NULLIF(message_timestamp,0),"
+                     "NULLIF(created_at,0)),'unixepoch') AS INT)")
+        valid_now = ("CASE WHEN status='confirmed' "
+                     "AND (expires_at IS NULL OR expires_at > ?) "
+                     "THEN 1 ELSE 0 END")
+        columns = self._USER_CONTEXT_COLUMNS
+        per_year = max(1, limit // 5)
+        base_where = (
+            f"FROM graph_facts WHERE chat_id = ? AND (({scope}){speaker_sql}) "
+            f"AND {exclude} "
+            "AND ((status='confirmed' AND (expires_at IS NULL "
+            "OR expires_at > ?)) OR status='archived_fact')")
+        import sqlite3 as _sqlite3
+        if _sqlite3.sqlite_version_info >= (3, 25):
+            sql = (
+                "WITH cand AS ("
+                f"SELECT {columns}, {year_expr} AS yr, {valid_now} AS valid_now "
+                f"{base_where}), "
+                "ranked AS (SELECT *, ROW_NUMBER() OVER ("
+                "PARTITION BY COALESCE(yr,0) ORDER BY valid_now DESC, "
+                "weight DESC, COALESCE(NULLIF(message_timestamp,0), "
+                "created_at) DESC, id DESC) AS rn FROM cand) "
+                "SELECT * FROM ranked "
+                "ORDER BY CASE WHEN rn <= ? THEN 0 ELSE 1 END, "
+                "COALESCE(yr,0) DESC, rn LIMIT ?")
+            cursor = await self.db.execute(
+                sql, [int(now_ts), int(chat_id), *sparams, *params,
+                      int(now_ts), int(per_year), int(limit)])
+            rows = [dict(row) for row in await cursor.fetchall()]
+        else:                                             # pragma: no cover
+            sql = (
+                f"SELECT {columns}, {year_expr} AS yr, {valid_now} AS valid_now "
+                f"{base_where} "
+                "ORDER BY valid_now DESC, weight DESC, "
+                "COALESCE(NULLIF(message_timestamp,0), created_at) DESC, "
+                "id DESC LIMIT ?")
+            cursor = await self.db.execute(
+                sql, [int(now_ts), int(chat_id), *sparams, *params,
+                      int(now_ts), int(per_year) * max(1, limit)])
+            rows = [dict(row) for row in await cursor.fetchall()]
+            rank_by_year: dict = {}
+            for row in rows:
+                key = int(row.get("yr") or 0)
+                rank_by_year[key] = rank_by_year.get(key, 0) + 1
+                row["rn"] = rank_by_year[key]
+            rows.sort(key=lambda row: (
+                int(row.get("rn") or 0) > per_year,
+                -int(row.get("yr") or 0), int(row.get("rn") or 0)))
+            rows = rows[:limit]
+        for row in rows:
+            is_subject = (
+                (ref_id is not None and row.get("subject_ref_id") == ref_id)
+                or (row.get("subject_ref_id") is None
+                    and str(row.get("target_user") or "") == target))
+            row["subject_role"] = "subject" if is_subject else "speaker"
+        return rows
+
+    async def get_author_message_periods(self, chat_id: int, user_id: int,
+                                         limit: int, *,
+                                         reference_year: int | None = None
+                                         ) -> list:
+        """VMQ-MEM/TIME Slice B: bounded сообщения АВТОРА по годам.
+
+        Профиль человека строится не только из `graph_facts`: у известного
+        автора (P1: 44 577 сообщений 2023-2024) канонический материал этих лет
+        существует в `smart_messages`, даже если фактов о нём за те годы нет.
+        Это чтение по ТОЧНОМУ `user_id` (не `author=subject` fallback): каждая
+        строка — его собственное сообщение с `speaker_author_id=user_id`.
+
+        Одно чтение на год (три последних завершённых года; для 2026 это
+        2024/2023/2022 — целевые 2023/2024 входят), каждое — диапазон
+        существующего индекса `(chat_id, timestamp)` и `LIMIT` годовой квоты
+        `limit//5`; пустой текст не возвращается. `limit` не растёт; годовая
+        квота та же, что у профиля (не повышение квоты ради покрытия).
+        Read-only, без DDL."""
+        try:
+            uid = int(user_id)
+        except (TypeError, ValueError):
+            return []
+        limit = max(1, int(limit))
+        per_year = max(1, limit // 5)
+        try:
+            base_year = int(reference_year) if reference_year is not None \
+                else datetime.datetime.now(datetime.timezone.utc).year
+        except (TypeError, ValueError):                   # pragma: no cover
+            base_year = datetime.datetime.now(datetime.timezone.utc).year
+        out: list = []
+        for year in range(base_year - 2, base_year - 5, -1):
+            bounds = None
+            try:
+                start = int(datetime.datetime(
+                    year, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
+                end = int(datetime.datetime(
+                    year, 12, 31, 23, 59, 59,
+                    tzinfo=datetime.timezone.utc).timestamp())
+                bounds = (start, end)
+            except (ValueError, OverflowError, OSError):
+                continue
+            cursor = await self.db.execute(
+                "SELECT id, user_id, chat_id, text, timestamp, author_name, "
+                "tg_message_id "
+                "FROM smart_messages WHERE chat_id = ? AND user_id = ? "
+                "AND timestamp >= ? AND timestamp <= ? AND text <> '' "
+                "ORDER BY timestamp DESC, id DESC LIMIT ?",
+                (int(chat_id), uid, bounds[0], bounds[1], per_year))
+            for row in await cursor.fetchall():
+                item = dict(row)
+                item["fact"] = str(item.get("text") or "")
+                item["message_timestamp"] = item.get("timestamp")
+                item["created_at"] = item.get("timestamp")
+                item["origin"] = "chat_history"
+                item["speaker_author_id"] = uid
+                item["subject_role"] = "speaker"
+                item["authored_by_subject"] = True
+                item["as_of_year"] = year
+                out.append(item)
+            if len(out) >= limit:
+                break
+        return out
 
     async def _user_context_facts_multiperiod(self, chat_id: int, scope: str,
                                               exclude: str, sparams: list,

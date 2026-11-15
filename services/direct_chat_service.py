@@ -82,6 +82,7 @@ lore_runtime (не установлен/ошибка → блока нет, 0 в
 import asyncio
 import contextvars
 import datetime
+import dataclasses
 import hashlib
 import json
 import logging
@@ -10478,17 +10479,37 @@ class DirectChatService:
         text = str(query or "").strip()
         if not text:
             return "", stats
+        # VMQ-MEM/TIME Slice B (15.11.2026): явный год вопроса задаёт
+        # временное окно episode-retrieval. Раньше 8 слотов занимал свежий
+        # аналог, а пост-фильтр не добирал материал (замер: `<Old_Episode>`
+        # для вопроса про 2023 = 2025+2026, 0 строк 2023).
+        period_intent = _mca_rc.resolve_period_intent(text)
+        stats["period_intent"] = period_intent.as_dict()
         # P0-HA ISOLATION (§3): связка реальных краёв выборки; некорректные
         # поля → запрос без связки (прежний путь, capture даёт валидные).
         request = _mca_rc.RetrievalRequest(
             chat_id=chat_id, query=text, mode="history", top_k=8,
             reply_depth=0)
+        year_window: tuple[int, ...] = ()
+        if period_intent.is_explicit_year:
+            year = int(period_intent.years[0])
+            bounds = _mca_rc.year_time_bounds(year)
+            if bounds is not None:
+                request = dataclasses.replace(
+                    request, time_from=bounds[0], time_to=bounds[1],
+                    lexical_time_window=True)
+                year_window = (year,)
+                stats["year_window"] = [year]
         win: tuple | None = None
         sample_id = ""
         if isinstance(history_sample, dict):
             request = _mca_rc.bind_quantitative_range(
                 request, time_from=history_sample.get("oldest_ts"),
                 time_to=history_sample.get("anchor_ts"))
+            # P0-HA ISOLATION: количественная выборка сильнее года вопроса —
+            # её реальные края заменяют окно, а не смешиваются с ним.
+            year_window = ()
+            stats.pop("year_window", None)
             try:
                 win = (int(history_sample["anchor_ts"]),
                        int(history_sample.get("anchor_id") or 0),
@@ -14036,7 +14057,8 @@ class DirectChatService:
                                 memory_scope: str | None = None,
                                 subject_name: str | None = None,
                                 subject_uid: int | None = None,
-                                include_overview: bool = False):
+                                include_overview: bool = False,
+                                plan_act: str = ""):
         """MEMORY-06 (§7.5): отбор фактов direct-RAG через ЕДИНЫЙ `retrieve`.
 
         Возвращает кандидатов в прежней форме `get_rag_facts(with_meta=True)`
@@ -14163,7 +14185,8 @@ class DirectChatService:
             # смысл. Для запроса без года и без исторической формы намерение
             # `none`: прежний порог §2 не ослабляется.
             period_intent = _mca_rc.resolve_period_intent(query,
-                                                         memory_scope=policy)
+                                                         memory_scope=policy,
+                                                         plan_act=plan_act)
             if extra_rows is None:
                 extra = await self._rag_retrieve(
                     db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
@@ -14201,6 +14224,10 @@ class DirectChatService:
                 "period_intent": dict(selection.get("intent") or {}),
                 "kept_in_target": int(selection.get("kept_in_target") or 0),
                 "soft_fallback": int(selection.get("soft_fallback") or 0),
+                "historical_quota": int(
+                    selection.get("historical_quota") or 0),
+                "multi_year_quota": int(
+                    selection.get("multi_year_quota") or 0),
                 "dropped_out_of_target_year": int(
                     selection.get("dropped_out_of_target_year") or 0),
                 "dropped_unknown_year": int(
@@ -14346,33 +14373,92 @@ class DirectChatService:
     async def _rag_append_profile_rows(self, db, rows: list, chat_id: int,
                                        subject_name, subject_uid,
                                        limit: int) -> list:
-        """Добрать периоды профиля субъекта (существующее чтение, §5)."""
+        """Добрать периоды профиля субъекта (существующее чтение, §5).
+
+        VMQ-MEM/TIME Slice B (15.11.2026): кроме фактов О субъекте
+        (`get_user_context_facts`, где у P1 бывают только свежие строки)
+        читается его собственная атрибуция (`get_subject_profile_facts`:
+        `speaker_author_id`), с годами 2023/2024 и явной ролью
+        `subject|speaker`. Это не fallback `author=subject`: чужие строки не
+        подмешиваются, роль остаётся в строке. Нет субъектных данных → добора
+        нет (честное пусто), второй поиск не создаётся."""
         name = str(subject_name or "").strip()
+        if not name:
+            return rows
+        about_rows: list = []
         reader = getattr(db, "get_user_context_facts", None)
-        if not name or not callable(reader):
-            return rows
-        try:
-            profile = await reader(int(chat_id), name, max(1, int(limit)),
-                                  int(time.time()),
-                                  user_id=(int(subject_uid)
-                                           if subject_uid is not None
-                                           else None),
-                                  scope="historical")
-        except TypeError:
-            return rows
-        except Exception:
-            logger.warning("direct: profile period rows failed | chat=%s",
-                           chat_id, exc_info=True)
-            return rows
-        profile_rows = []
-        for row in profile or ():
-            if not isinstance(row, dict):
-                continue
-            meta = self._rag_meta_from_record(row, int(row.get("id") or 0),
-                                              0, limit)
-            if row.get("unattributed"):
-                meta["unattributed"] = True
-            profile_rows.append(meta)
+        if callable(reader):
+            try:
+                profile = await reader(int(chat_id), name, max(1, int(limit)),
+                                       int(time.time()),
+                                       user_id=(int(subject_uid)
+                                                if subject_uid is not None
+                                                else None),
+                                       scope="historical")
+            except TypeError:
+                profile = []
+            except Exception:
+                logger.warning("direct: profile period rows failed | chat=%s",
+                               chat_id, exc_info=True)
+                profile = []
+            for row in profile or ():
+                if not isinstance(row, dict):
+                    continue
+                meta = self._rag_meta_from_record(
+                    row, int(row.get("id") or 0), 0, limit)
+                if row.get("unattributed"):
+                    meta["unattributed"] = True
+                about_rows.append(meta)
+        subject_rows: list = []
+        subject_reader = getattr(db, "get_subject_profile_facts", None)
+        if callable(subject_reader):
+            try:
+                raw_subject_rows = await subject_reader(
+                    int(chat_id), name, max(1, int(limit)),
+                    int(time.time()),
+                    user_id=(int(subject_uid)
+                             if subject_uid is not None else None))
+            except Exception:
+                logger.warning("direct: subject profile rows failed | "
+                               "chat=%s", chat_id, exc_info=True)
+                raw_subject_rows = []
+            for row in raw_subject_rows or ():
+                if not isinstance(row, dict):
+                    continue
+                meta = self._rag_meta_from_record(
+                    row, int(row.get("id") or 0), 0, limit)
+                meta["subject_role"] = str(
+                    row.get("subject_role") or "subject")
+                subject_rows.append(meta)
+        message_rows: list = []
+        message_reader = getattr(db, "get_author_message_periods", None)
+        current_year = datetime.datetime.now(datetime.timezone.utc).year
+        covered_old = any(
+            meta.get("message_timestamp")
+            and datetime.datetime.fromtimestamp(
+                int(meta["message_timestamp"]), datetime.timezone.utc).year
+            != current_year
+            for meta in subject_rows)
+        if callable(message_reader) and subject_uid is not None \
+                and not covered_old:
+            try:
+                raw_messages = await message_reader(
+                    int(chat_id), int(subject_uid), max(1, int(limit)))
+            except Exception:
+                logger.warning("direct: subject message periods failed | "
+                               "chat=%s", chat_id, exc_info=True)
+                raw_messages = []
+            for row in raw_messages or ():
+                if not isinstance(row, dict):
+                    continue
+                meta = self._rag_meta_from_record(
+                    row, int(row.get("id") or 0), 0, limit)
+                meta["subject_role"] = "speaker"
+                meta["authored_by_subject"] = True
+                message_rows.append(meta)
+        # Субъектный материал — ПЕРВЫМ: иначе unattributed-контекст чата
+        # занимает свободные слоты периода и факты о человеке не доходят.
+        profile_rows = subject_rows + message_rows + about_rows
         return self._rag_append_period_rows(rows, profile_rows, limit)
 
     @staticmethod
@@ -14432,7 +14518,8 @@ class DirectChatService:
                                subject_name: str | None = None,
                                subject_uid: int | None = None,
                                out_memory: dict | None = None,
-                               include_overview: bool = False
+                               include_overview: bool = False,
+                               plan_act: str = ""
                                ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
@@ -14499,7 +14586,8 @@ class DirectChatService:
                 memory_scope=memory_scope,
                 subject_name=subject_name,
                 subject_uid=subject_uid,
-                include_overview=overview_on)
+                include_overview=overview_on,
+                plan_act=plan_act)
         except TypeError:
             # Двойник/альтернативная реализация без поля политики/субъекта:
             # прежний вызов (политика не навязывается несовместимому API).
@@ -14752,7 +14840,12 @@ class DirectChatService:
             return user_blocks
         plan_scope = _mca_rc._mc.normalize_memory_scope(
             str(getattr(l1_plan, "memory_scope", "") or "")).value
-        if plan_scope == "auto":
+        plan_act = str(getattr(l1_plan, "response_act", "") or "")
+        # VMQ-MEM/TIME Slice B: `historical_recall` — существующий plan-сигнал
+        # multi-year материала даже при `memory_scope=auto` (L1 не обязан
+        # называть год или слово «вспомни»). Пересборка идёт тем же чтением;
+        # периодный пул переиспользуется, второй векторной ноги нет.
+        if plan_scope == "auto" and plan_act != "historical_recall":
             return user_blocks
         blocks = list(user_blocks or ())
         position = next((index for index, block in enumerate(blocks)
@@ -14772,16 +14865,29 @@ class DirectChatService:
                 "subject_name": rag_ctx.get("subject_name"),
                 "subject_uid": rag_ctx.get("subject_uid"),
             }
+            # VMQ-MEM/TIME Slice B: существующий plan-сигнал
+            # (`L1Plan.response_act=historical_recall`) → структурный
+            # multi-year intent; это не словарь и не повторная классификация
+            # запроса. Старый двойник без поля получает прежний вызов.
+            _plan_kwargs = {
+                "plan_act": str(getattr(l1_plan, "response_act", "") or "")}
             try:
                 block, _hint = await self._build_rag_block(
                     rag_ctx["chat_id"], rag_ctx["message"],
-                    rag_ctx["global_ctx"], **_rag_kwargs,
+                    rag_ctx["global_ctx"], **_rag_kwargs, **_plan_kwargs,
                     **({"include_overview": True}
                        if plan_scope == "historical" else {}))
             except TypeError:
-                block, _hint = await self._build_rag_block(
-                    rag_ctx["chat_id"], rag_ctx["message"],
-                    rag_ctx["global_ctx"], **_rag_kwargs)
+                try:
+                    block, _hint = await self._build_rag_block(
+                        rag_ctx["chat_id"], rag_ctx["message"],
+                        rag_ctx["global_ctx"], **_rag_kwargs,
+                        **({"include_overview": True}
+                           if plan_scope == "historical" else {}))
+                except TypeError:
+                    block, _hint = await self._build_rag_block(
+                        rag_ctx["chat_id"], rag_ctx["message"],
+                        rag_ctx["global_ctx"], **_rag_kwargs)
         except Exception:
             logger.warning("direct: rag rescope failed — keep auto block | "
                            "policy=%s", plan_scope, exc_info=True)
