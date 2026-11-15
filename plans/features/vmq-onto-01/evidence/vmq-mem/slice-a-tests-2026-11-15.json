@@ -1,0 +1,55 @@
+{
+ "slice": "VMQ-MEM/TIME Slice A",
+ "branch": "vmq/mem-a",
+ "base_commit": "8b56fc7320722494d0191f320e6da3355cc1a654",
+ "test_file": "tests/test_vmq_mem_period_intent.py",
+ "red_on_base": {
+  "failed": 18,
+  "passed": 1,
+  "failed_tests": [
+   "tests/test_vmq_mem_period_intent.py::TestPeriodIntentResolution::test_explicit_year_wins_and_is_structured",
+   "tests/test_vmq_mem_period_intent.py::TestPeriodIntentResolution::test_owner_creative_formulation_is_historical",
+   "tests/test_vmq_mem_period_intent.py::TestPeriodIntentResolution::test_plain_question_and_current_state_stay_none",
+   "tests/test_vmq_mem_period_intent.py::TestPeriodIntentResolution::test_memory_scope_historical_is_intent",
+   "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_target_year_survives_subject_threshold",
+   "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_2026_rows_do_not_masquerade_as_2023",
+   "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_unknown_time_is_fail_closed_for_explicit_year",
+   "tests/test_vmq_mem_period_intent.py::TestExplicitYearPreserved::test_retrieval_period_pool_filters_out_of_target_years",
+   "tests/test_vmq_mem_period_intent.py::TestHistoricalSoftFallback::test_bounded_fallback_needs_two_rows",
+   "tests/test_vmq_mem_period_intent.py::TestHistoricalSoftFallback::test_single_weak_row_does_not_assemble_block",
+   "tests/test_vmq_mem_period_intent.py::TestHistoricalSoftFallback::test_strict_match_is_not_replaced_by_fallback",
+   "tests/test_vmq_mem_period_intent.py::TestHistoricalSoftFallback::test_owner_formulation_contributes_bounded_old_rows",
+   "tests/test_vmq_mem_period_intent.py::TestCurrentStateControl::test_fresh_slice_dominates_and_no_period_rows",
+   "tests/test_vmq_mem_period_intent.py::TestVectorAdmission::test_insufficient_admission_is_honest_and_skips_leg",
+   "tests/test_vmq_mem_period_intent.py::TestVectorAdmission::test_compatible_admission_lets_leg_participate",
+   "tests/test_vmq_mem_period_intent.py::TestVectorAdmission::test_missing_admission_registry_defers_to_existing_gate",
+   "tests/test_vmq_mem_period_intent.py::TestReasonCodedDrops::test_counts_add_up_and_sources_are_real",
+   "tests/test_vmq_mem_period_intent.py::TestReasonCodedDrops::test_pool_cap_is_recorded_not_silent"
+  ],
+  "primary_defect_observed": "explicit-2023 question: after the subject threshold only 2026 rows were accepted (3001, 3002, 3003), 0 of 13 target rows"
+ },
+ "green_on_branch": {
+  "passed": 20
+ },
+ "mutation": {
+  "rule": "explicit-year preservation (if year not in target: drop)",
+  "mutated_to": "if False (all years accepted)",
+  "failed_tests": 2,
+  "observed": "2026 rows accepted alongside 2023 -> target tests red"
+ },
+ "focused_suites": {
+  "branch": {
+   "passed": 600
+  },
+  "base_commit": {
+   "passed": 580
+  },
+  "new_tests_on_branch": 20,
+  "known_preexisting_failures": []
+ },
+ "corpus_probe": {
+  "status": "NOT_AVAILABLE",
+  "reason": "no local copy with the production schema (graph_facts.subject_ref_id etc.): local_database_2026-09-04_history.db has an older graph_facts schema (search_graph_facts_fts raises 'no such column: f.subject_ref_id'), backups/local_database_20260920.db has 1 fact, pre_migration_20261007_010900.db has 0 facts; the archived harness needs a fresh production copy on the host",
+  "live_vector_admission": "UNPROVEN (no provider/credentials here)"
+ }
+}

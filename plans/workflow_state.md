@@ -5,17 +5,17 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: PM bind Slice A ses_e2466fc41ffe29CK1Vz4tDm4SW; Builder Slice B ses_e2352d544ffesVmrbEue0ow5ir
-Join barriers: PM binds proven Slice A rows at REVIEW; Builder Slice B (A1/T2, profile, relations, Old_Episode) -> Reviewer -> re-measure; release held
+Active lanes: Builder Slice B ses_e2352d544ffesVmrbEue0ow5ir
+Join barriers: Builder Slice B (A1/T2, profile, relations, Old_Episode) -> Reviewer -> corpus re-measure -> Slice C M2 trigger; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
-Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
+Acceptance: VMQ map 70 required rows: 51 PENDING, 13 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on the deployed c97c06e4; ONTO-A/B/M2 and Slice A are approved at REVIEW; MEM-04, TIME-01/02/03/04/07/08/09 remain open. The memory measurement proved the exact owner multi-year defect is not fixed yet; Slice B is implementing it.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T12:48:38+12:00
+Updated: 2026-11-15T13:05:00+12:00
 
 ## Facts
 
@@ -124,3 +124,6 @@ Reviewer r1 Approved for predeploy REVIEW of Slice A on 570a49db (base 8b56fc73)
 ## Slice A corpus proof (2026-11-15)
 
 Read-only corpus proof on a fresh prod copy (2,086,958 messages, 29,424 facts, 201 episodes, schema 47), baseline c97c06e4 vs candidate 570a49db, committed 328190aa. Fixed: explicit "ссорились в 2023" now yields 2023 rows (base 2025; candidate 2023:1 + 2026:8, in_target_year 2023); the 2023 pool accepts 8 rows (24 rows 2023, 74 dropped out_of_target_year) instead of 1 wrong-year row; A2/B/E historical queries get 2 subject_soft_fallback old rows (base 0); "что сейчас" remains 10/10 2026 with intent=none; no fabricated source (all delivered ids exist in graph_facts). Still open: A1 exact owner query unchanged (1x2024; strict row exists so the soft fallback does not trigger - MEM-04 parity not closed); T2 event without year unchanged (10/10 2026 - TIME-03 open); the Old_Episode path for 2023 still returns 2025+2026; vector live participation unverified. Vector admission correction: compat_not_proven was a harness cfg gap (frozen cfg) - with live routing the registry is compatible/ADMITTED_COMPATIBLE (space e540, conn a934, checked 12, mean/min 1.0); the live KNN failed provider_unavailable only because the cfg lacked the PG key. Live semantics participation remains UNVERIFIED; the index is not proven incompatible. PM is binding the proven Slice A rows at REVIEW; Slice B starts for A1/T2, subject/profile, relations and the Old_Episode chronology.
+## Slice A binding (2026-11-15)
+
+PM bound only VMQ-MEM-01 at REVIEW on 570a49db (the five-class matrix is genuinely covered by the corpus run); counts 51 PENDING / 13 REVIEW / 6 VERIFIED. No TIME row was closed: TIME-01 still lacks the person half (P1 profile 2026-only; producer gap), TIME-03 T2 event-without-year unchanged, TIME-04 Old_Episode still 2025+2026 and the owner category clause uncovered, TIME-07 lacks a labeled relevance reference, TIME-06 lacks a vector-count/new-table inventory and the year-trigger question. MEM-04/TIME-02/05/08/09 not bound. MEM-01 has a live remainder (copy != live process). Review gate scoped=8 errors=8, deploy errors=19 are live/dependency/open-row positions, no binding errors. Vector correction recorded: compat_not_proven was a harness cfg gap; live registry compatible/ADMITTED_COMPATIBLE; KNN provider_unavailable due to a missing PG key; live semantics UNVERIFIED. Slice B must close MEM-04, the person half of TIME-01/02, TIME-03, TIME-04/Old_Episode; TIME-07/08 follow a Reviewer independent run; live vector/TIME-09/UI after deployment.

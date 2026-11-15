@@ -1,0 +1,11 @@
+{
+ "cleanup_retained": [
+  {
+   "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d-759667c0",
+   "owner": "Builder (vmq/mem-a)",
+   "reason": "branch vmq/mem-a holds the Slice A candidate commit; Reviewer independently inspects and tests this exact checkout (handoff requires keeping it)",
+   "evidence": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-a-2026-11-15.md",
+   "next_event": "after independent review verdict and branch integration into the VMQ release train, the owning lane retires the checkout via unit-close"
+  }
+ ]
+}
