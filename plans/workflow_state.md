@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Builder Slice B ses_e2352d544ffesVmrbEue0ow5ir
-Join barriers: Builder Slice B (A1/T2, profile, relations, Old_Episode) -> Reviewer -> corpus re-measure -> Slice C M2 trigger; release held
+Active lanes: Reviewer Slice B ses_e2325ffa6ffeWgKFoHLrkNOSju
+Join barriers: Reviewer Slice B -> PM bind; corpus re-measure on the production host -> Slice C M2 trigger; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 51 PENDING, 13 REVIEW, 6 VERIFIED. M1/M-01..03/NEXT-02/05 are VERIFIED on the deployed c97c06e4; ONTO-A/B/M2 and Slice A are approved at REVIEW; MEM-04, TIME-01/02/03/04/07/08/09 remain open. The memory measurement proved the exact owner multi-year defect is not fixed yet; Slice B is implementing it.
 Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T12:54:51+12:00
+Updated: 2026-11-15T13:10:00+12:00
 
 ## Facts
 
@@ -127,3 +127,7 @@ Read-only corpus proof on a fresh prod copy (2,086,958 messages, 29,424 facts, 2
 ## Slice A binding (2026-11-15)
 
 PM bound only VMQ-MEM-01 at REVIEW on 570a49db (the five-class matrix is genuinely covered by the corpus run); counts 51 PENDING / 13 REVIEW / 6 VERIFIED. No TIME row was closed: TIME-01 still lacks the person half (P1 profile 2026-only; producer gap), TIME-03 T2 event-without-year unchanged, TIME-04 Old_Episode still 2025+2026 and the owner category clause uncovered, TIME-07 lacks a labeled relevance reference, TIME-06 lacks a vector-count/new-table inventory and the year-trigger question. MEM-04/TIME-02/05/08/09 not bound. MEM-01 has a live remainder (copy != live process). Review gate scoped=8 errors=8, deploy errors=19 are live/dependency/open-row positions, no binding errors. Vector correction recorded: compat_not_proven was a harness cfg gap; live registry compatible/ADMITTED_COMPATIBLE; KNN provider_unavailable due to a missing PG key; live semantics UNVERIFIED. Slice B must close MEM-04, the person half of TIME-01/02, TIME-03, TIME-04/Old_Episode; TIME-07/08 follow a Reviewer independent run; live vector/TIME-09/UI after deployment.
+
+## Slice B candidate (2026-11-15)
+
+Builder implemented Slice B on vmq/mem-b from 570a49db: code d159ea8a, tip 182fcbf9, worktree ...-ea418824. mca_retrieval_context.py: multi_year intent from existing request.intent/mode and L1Plan.response_act=historical_recall (no new word lists), bounded historical_quota/multi_year_quota, year_time_bounds, SQL lexical_time_window, edges.last_updated. direct_chat_service.py: Old_Episode explicit-year UTC/SQL window with P0-HA precedence, historical_recall rebuilds the RAG block even at memory_scope=auto, reply profile gets subject facts and own messages. database.py: read-only get_subject_profile_facts and get_author_message_periods (exact uid, 2024/2023/2022), last_updated in get_persona_card. tool_router.py: biography/general carry subject_ref_id/speaker_author_id/as_of_year/subject_material; relationships returns temporal_projection (edges_total/year_bearing/years/reason/invented=0), no synthesized edges. 21 tests, RED 20 failed/1 passed on base, GREEN 21, focused 23 files 634 passed/0 failed, broad 2261 passed + 5 pre-existing failures + 1 error reproduced on base; 6 mutation seams killed. Limits: corpus numbers not re-measured (no schema-47 copy locally), T2 corpus needs a real L1 plan, vector live unverified. Reviewer r1 running.
