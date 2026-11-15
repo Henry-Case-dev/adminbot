@@ -14559,12 +14559,18 @@ class DirectChatService:
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return "", ""
         query = getattr(message, "text", None) or ""
-        # VMQ-M2 (M-04): overview запрашивается ТОЛЬКО на overview-пути —
-        # временной/исторический вопрос по УЖЕ существующей эвристике
-        # `retrieve` (`is_history_query`) либо явное решение L1 передано
-        # вызывающим. Обычный путь `include_overview=False`: ноль новых
-        # чтений, кандидаты/порядок байт-идентичны.
-        overview_on = bool(include_overview) or _mca_rc.is_history_query(query)
+        # VMQ-M2 (M-04): overview запрашивается ТОЛЬКО на overview-пути.
+        # VMQ-MEM/TIME Slice C (15.11.2026): допустимость обзора решает
+        # СТРУКТУРНОЕ периодное намерение (Slice A/B), а не повторное чтение
+        # словаря: явный год, историческая/повествовательная форма, политика
+        # `historical` или принятый план `historical_recall`. Своего списка
+        # слов у этого потребителя нет (прежний `is_history_query` здесь
+        # дублировал маркеры и не видел «рассказ ... шизах»); `kind=none` —
+        # сигнала нет, обзора нет. Обычный путь `include_overview=False`:
+        # ноль новых чтений, кандидаты/порядок байт-идентичны.
+        period_intent = _mca_rc.resolve_period_intent(
+            query, memory_scope=memory_scope, plan_act=plan_act)
+        overview_on = bool(include_overview) or period_intent.wants_overview
         if overview_on and not mca_gates.evidence_bundle_enabled():
             # Kill-switch bundle OFF → overview некому доставить: прежние
             # чтения байт-в-байт (никакой бесполезной проекции).

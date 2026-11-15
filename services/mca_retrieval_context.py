@@ -493,8 +493,9 @@ _HISTORY_MARKERS = (
 # ── VMQ-MEM/TIME Slice A (15.11.2026): структурированный периодный intent ───
 # Явный год или обнаруженный мемуарный/исторический запрос передаются в
 # периодный добор отдельным значением, а не угадываются потребителем повторно.
-# `_HISTORY_MARKERS` выше НЕ расширяется: M2-триггер (Slice C) остаётся
-# прежним; набор форм ниже относится ТОЛЬКО к отбору периодного пула.
+# `_HISTORY_MARKERS` выше НЕ расширяется: набор форм ниже добавляет только
+# повествовательные словоформы, и с Slice C тот же `PeriodIntent` (а не
+# отдельный словарь потребителя) решает и допустимость M2-обзора.
 PERIOD_INTENT_NONE = "none"
 PERIOD_INTENT_YEAR = "explicit_year"
 PERIOD_INTENT_HISTORICAL = "historical"
@@ -535,13 +536,16 @@ _YEAR_IN_QUERY_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
 
 @dataclasses.dataclass(frozen=True)
 class PeriodIntent:
-    """Структурированное намерение периода для периодного добора (Slice A).
+    """Структурированное намерение периода (Slice A/B): отбор пула и M2-обзор.
 
-    ``kind`` — закрытый набор `none|explicit_year|historical`; ``years`` —
-    явные годы запроса (только для `explicit_year`); ``source`` — откуда
-    намерение взялось (`query_year|query_marker|memory_scope`). Пустой
-    `PeriodIntent()` — прежнее поведение: отбор по одному порогу основ.
-    """
+    ``kind`` — закрытый набор `none|explicit_year|historical|multi_year`;
+    ``years`` — явные годы запроса (только для `explicit_year`); ``source`` —
+    откуда намерение взялось (`query_year|request_intent|plan_act|
+    request_mode|memory_scope|query_marker`). Пустой `PeriodIntent()` —
+    прежнее поведение: отбор по одному порогу основ.
+
+    Slice C: тот же объект — единственный структурный сигнал допустимости
+    M2-обзора (`wants_overview`); второго словаря у потребителя нет."""
     kind: str = PERIOD_INTENT_NONE
     years: tuple[int, ...] = ()
     source: str = ""
@@ -562,6 +566,19 @@ class PeriodIntent:
     def wants_year_diverse(self) -> bool:
         """Исторический/много летний вопрос: нужен bounded multi-year вклад."""
         return self.is_historical or self.is_multi_year
+
+    @property
+    def wants_overview(self) -> bool:
+        """VMQ-MEM/TIME Slice C: структурный сигнал bounded-обзора (M2/O-04).
+
+        Обзор покрытия допустим ровно тогда, когда периодное намерение
+        распознано: явный год, исторический/много летний вопрос или принятое
+        решение (план `historical_recall`, политика `historical`). `source`
+        называет сработавший СУЩЕСТВУЮЩИЙ сигнал (`query_year`, `plan_act`,
+        `request_intent`, `request_mode`, `memory_scope`, `query_marker`).
+        `none` — сигнала нет: обзор НЕ запрашивается (никакого нового списка
+        слов и никакой догадки о «творческом» запросе)."""
+        return self.kind != PERIOD_INTENT_NONE
 
     def as_dict(self) -> dict:
         return {"kind": self.kind, "years": list(self.years),
