@@ -1,0 +1,67 @@
+{
+  "artifact_kind": "read_only_inventory",
+  "db": "dbcopy.db (sqlite3 .backup from the read-only prod snapshot of 10.11.2026)",
+  "rows": {
+    "graph_facts_vec_rowids": 21771,
+    "facts_with_vector": 21152,
+    "facts_total": 21704,
+    "facts_confirmed": 20998,
+    "embedding_cache": 7543
+  },
+  "generations": [
+    {
+      "generation": 2,
+      "status": "building",
+      "dims": 3072,
+      "model": "gemini-embedding-001",
+      "namespace": "default",
+      "index_name": "smart_archive"
+    },
+    {
+      "generation": 1,
+      "status": "building",
+      "dims": 3072,
+      "model": "gemini-embedding-001",
+      "namespace": "default",
+      "index_name": "smart_archive"
+    },
+    {
+      "generation": 1,
+      "status": "active",
+      "dims": 3072,
+      "model": "gemini-embedding-001",
+      "namespace": "default",
+      "index_name": "graph_facts_vec"
+    }
+  ],
+  "admission": {
+    "space": "e540d4ad890e121d",
+    "conn": "a93485483697c3c3",
+    "checked": 12,
+    "mean": 1.0,
+    "min": 1.0,
+    "hit5": 1.0,
+    "at": 1792734815
+  },
+  "compat": {
+    "state": "insufficient",
+    "reason_code": "compat_not_proven",
+    "class": "COMPATIBILITY_UNKNOWN",
+    "action": "retry_canary",
+    "needs_probe": true,
+    "serviceable": false,
+    "space": "e540d4ad890e121d",
+    "conn": "d2e6314e3586c547",
+    "dims": 3072,
+    "current_fp": "2d0efab0e8179490f357cc1257461c614d44dd088497be9372cab0988fa0a7c1"
+  },
+  "model_now": {
+    "space": "e540d4ad890e121d",
+    "conn": "d2e6314e3586c547"
+  },
+  "verdict": {
+    "vectors_present": true,
+    "knn_zero_reason": "compat_not_proven (admission refused before KNN)",
+    "provider_unavailable": "separate embed-call failure, not an index compatibility verdict"
+  }
+}

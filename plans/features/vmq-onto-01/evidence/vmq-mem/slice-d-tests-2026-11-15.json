@@ -1,0 +1,103 @@
+{
+  "artifact_kind": "test_results",
+  "epic": "VMQ-ONTO-01",
+  "slice": "VMQ-MEM/TIME Slice D",
+  "date": "2026-11-15",
+  "python": "3.12.0",
+  "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "candidate_commit": "693b70e1debd8b3133ff8c988020762a21fb47e7",
+  "red_on_base": {
+    "command": "python -m pytest tests/test_vmq_mem_slice_d.py -q",
+    "worktree": "vmq-slice-d-base-0aabd526eefb-ebe13480 (2b419aa2, tests copied)",
+    "result": "13 failed, 5 passed",
+    "failed": [
+      "TestPlainQuestionParity::test_measured_plain_pool_gets_bounded_old_material",
+      "TestPlainQuestionParity::test_creative_and_plain_formulations_get_comparable_material",
+      "TestPlainQuestionParity::test_bounded_by_slots_and_never_duplicates_years",
+      "TestPlainQuestionParity::test_single_old_year_does_not_trigger_parity",
+      "TestPlainQuestionParity::test_current_state_pool_is_untouched",
+      "TestPlainQuestionParity::test_two_old_years_without_shared_stem_do_not_trigger",
+      "TestPlainQuestionParity::test_operative_policy_is_not_weakened",
+      "TestYearLossTrace::test_year_loss_categories_are_machine_readable",
+      "TestYearLossTrace::test_unknown_time_is_not_presented_as_year_event",
+      "TestSubjectHalf::test_author_messages_cover_three_completed_years",
+      "TestSubjectHalf::test_subject_material_replaces_generic_period_row",
+      "TestSubjectHalf::test_known_person_without_bound_material_is_named",
+      "TestLabeledRelevance::test_precision_and_period_coverage_on_labeled_set"
+    ],
+    "passed": [
+      "TestPlainQuestionParity::test_one_stem_row_is_still_rejected (preserved negative)",
+      "TestYearLossTrace::test_apply_filters_without_window_keeps_old_behaviour",
+      "TestSubjectHalf::test_unconfirmed_subject_facts_are_not_biography",
+      "TestSubjectHalf::test_confirmed_subject_years_are_returned_with_roles",
+      "TestVectorLegAndYearTrigger::test_year_in_question_is_the_only_window_trigger"
+    ]
+  },
+  "green_on_candidate": {
+    "command": "python -m pytest tests/test_vmq_mem_slice_d.py -q",
+    "result": "18 passed"
+  },
+  "focused": [
+    {
+      "command": "python -m pytest tests/test_semantic_contracts.py tests/test_memory_unified_retrieval.py tests/test_memory_unified_retrieval_06.py tests/test_vmq_mem_period_intent.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_slice_d.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py tests/test_history_isolation.py tests/test_mca07_retrieval_context_round1027.py tests/test_memory_lookup_round1026.py tests/test_mem_time_profile.py tests/test_mem_time_asof.py tests/test_memory_attribution.py -q",
+      "result": "413 passed"
+    },
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_period_intent.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py -q",
+      "result": "142 passed"
+    }
+  ],
+  "broad_selection": {
+    "command": "python -m pytest -q -k \"memory or retrieval or graphrag or persona or tool_router or mca07 or mca13 or mca22 or mem_time or mem08 or history_isolation or direct_chat\" tests",
+    "result": "2261 passed, 5 failed, 1 error, 19273 deselected",
+    "failed_preexisting": [
+      "test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
+      "test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+      "test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools",
+      "test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+      "test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken"
+    ],
+    "error_preexisting": [
+      "test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory"
+    ],
+    "note": "The same six were reproduced on the Slice B base (570a49db) and are documented in slice-b-2026-11-15.md; they are not related to this diff. The broad run used the code candidate before the final year-order tweak; the touched tests (slice_b/slice_d) were rerun after it: 39 passed."
+  },
+  "mutations": [
+    {
+      "seam": "topic parity year diversity",
+      "mutation": "len(topic_years) >= 2 -> >= 1",
+      "killed": 1,
+      "test": "test_single_old_year_does_not_trigger_parity"
+    },
+    {
+      "seam": "year window fail-closed",
+      "mutation": "if windowed and not cand.sent_at -> and False",
+      "killed": 1,
+      "test": "test_unknown_time_is_not_presented_as_year_event"
+    },
+    {
+      "seam": "message year window",
+      "mutation": "range(base_year-1,..) -> range(base_year-2,..)",
+      "killed": 1,
+      "test": "test_author_messages_cover_three_completed_years"
+    },
+    {
+      "seam": "subject priority over generic period rows",
+      "mutation": "if bound: -> if False and bound:",
+      "killed": 1,
+      "test": "test_subject_material_replaces_generic_period_row"
+    },
+    {
+      "seam": "status category in trace",
+      "mutation": "elif status in (archived_fact, archived_belief) -> elif status:",
+      "killed": 1,
+      "test": "test_year_loss_categories_are_machine_readable"
+    },
+    {
+      "seam": "honest empty reason",
+      "mutation": "no_subject_bound_material -> unknown_person",
+      "killed": 1,
+      "test": "test_known_person_without_bound_material_is_named"
+    }
+  ]
+}
