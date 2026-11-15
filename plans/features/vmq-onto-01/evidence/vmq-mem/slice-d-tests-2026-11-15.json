@@ -6,6 +6,8 @@
   "python": "3.12.0",
   "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
   "candidate_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
+  "code_tip": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
+  "code_tip_note": "period_replace_allowed aligned literally with the decision (try/except removed; normalize_memory_scope is total). Behaviour unchanged; affected files re-run after the tip.",
   "review_r2": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r2.md",
   "red_on_base": {
     "command": "python -m pytest tests/test_vmq_mem_slice_d.py -v --tb=no",
@@ -50,6 +52,11 @@
     {
       "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py -q",
       "result": "146 passed"
+    },
+    {
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_memory_period_vector_leg.py tests/test_mem_time_policy.py tests/test_vmq_mem_period_intent.py -q",
+      "result": "110 passed",
+      "note": "after the code tip 456cf769 (predicate alignment; no behaviour change)"
     }
   ],
   "broad_selection": {

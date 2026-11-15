@@ -5,6 +5,7 @@
   "date": "2026-11-15",
   "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
   "candidate_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
+  "code_tip": "456cf769358d6c381c13f7d6ec62cac2fad255eb",
   "copy": {
     "db": "dbcopy.db (sqlite3 .backup from the read-only prod snapshot of 10.11.2026)",
     "bytes": 1670549504,
