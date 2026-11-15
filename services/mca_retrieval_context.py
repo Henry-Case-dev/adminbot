@@ -648,10 +648,7 @@ def period_replace_allowed(intent, policy: str) -> bool:
     намерение пришло из структурного решения L1/плана или явного года
     (`PERIOD_REPLACE_SOURCES`), но не из словарного `query_marker`. Никогда не
     бросает: неизвестная политика нормализуется в `auto`."""
-    try:
-        scope = _mc.normalize_memory_scope(policy).value
-    except Exception:                                     # pragma: no cover
-        scope = "auto"
+    scope = _mc.normalize_memory_scope(policy).value
     if scope == "operative":
         return False
     if scope == "historical":
