@@ -1,87 +1,118 @@
 {
-  "schema": "vmq-slice-d-labeled/1",
-  "purpose": "Independently labeled historical questions with expected periods and topics for VMQ-TIME-07 precision measurement. Synthetic (R17): no real chats, names or facts.",
+  "schema": "vmq-slice-d-labeled/2",
+  "purpose": "Labeled historical questions for VMQ-TIME-07. Labels (expected years/topics) are authored independently of the selector; competing distractors share query stems but are off-topic or from a non-expected period, so precision can fall below 1.0. Synthetic (R17): no real chats, names or facts.",
   "reference_year": 2026,
   "cases": [
     {
       "id": "shiz_conf",
+      "kind": "core",
       "query": "что за шизы были на конфе?",
       "topic_stems": ["шиз", "конф"],
       "seed_years": [2023, 2024],
-      "distractor_years": [2022, 2025],
       "topic_texts": ["шизы обсуждали", "на конфе шумели"],
+      "extra_rows": [],
+      "distractor_years": [2022, 2025],
       "distractor_text": "погода и дорога",
       "expected_years": [2023, 2024]
     },
     {
       "id": "conflict_2023",
+      "kind": "core",
       "query": "из-за чего мы ссорились и ругались в 2023 году",
       "topic_stems": ["ссор", "ругал"],
       "seed_years": [2023],
-      "distractor_years": [2024, 2025],
       "topic_texts": ["ссорились из-за ерунды", "ругались вечером"],
+      "extra_rows": [],
+      "distractor_years": [2024, 2025],
       "distractor_text": "погода и дорога",
       "expected_years": [2023]
     },
     {
       "id": "event_e1",
+      "kind": "core",
       "query": "что за история с E1, напомни?",
       "topic_stems": ["истори"],
       "seed_years": [2023, 2024],
-      "distractor_years": [2022, 2025],
       "topic_texts": ["история с E1", "E1 тогда уехал"],
+      "extra_rows": [],
+      "distractor_years": [2022, 2025],
       "distractor_text": "погода и дорога",
       "expected_years": [2023, 2024]
     },
     {
       "id": "work_profile",
+      "kind": "core",
       "query": "где работал и чем занимался?",
       "topic_stems": ["работал", "занималс"],
       "seed_years": [2024, 2025],
-      "distractor_years": [2022, 2023],
       "topic_texts": ["работал на заводе", "занимался ремонтом"],
+      "extra_rows": [],
+      "distractor_years": [2022, 2023],
       "distractor_text": "погода и дорога",
       "expected_years": [2024, 2025]
     },
     {
       "id": "dog_story",
+      "kind": "core",
       "query": "что за история с собакой?",
       "topic_stems": ["собак"],
       "seed_years": [2023, 2024],
-      "distractor_years": [2022, 2025],
       "topic_texts": ["собака лаяла", "с собакой гуляли"],
+      "extra_rows": [],
+      "distractor_years": [2022, 2025],
       "distractor_text": "погода и дорога",
       "expected_years": [2023, 2024]
     },
     {
       "id": "move_city",
+      "kind": "core",
       "query": "когда переехал в другой город?",
       "topic_stems": ["переех", "город"],
       "seed_years": [2023, 2024],
-      "distractor_years": [2022, 2025],
       "topic_texts": ["переехал в другой город", "город сменился"],
+      "extra_rows": [],
+      "distractor_years": [2022, 2025],
       "distractor_text": "погода и дорога",
       "expected_years": [2023, 2024]
     },
     {
-      "id": "job_change",
-      "query": "что за история со сменой работы?",
-      "topic_stems": ["смен", "работ"],
+      "id": "hard_later_analogue",
+      "kind": "hard",
+      "query": "что за шизы были на конфе?",
+      "topic_stems": ["шиз", "конф"],
       "seed_years": [2024, 2025],
-      "distractor_years": [2022, 2023],
-      "topic_texts": ["сменил работу весной", "работа поменялась"],
+      "topic_texts": ["шизы и конф", "шизы и конф снова"],
+      "extra_rows": [],
+      "distractor_years": [2022],
       "distractor_text": "погода и дорога",
-      "expected_years": [2024, 2025]
+      "expected_years": [2024]
     },
     {
-      "id": "trip_2023",
-      "query": "что за поездка была в 2023 году?",
-      "topic_stems": ["поездк", "поехал"],
-      "seed_years": [2023],
-      "distractor_years": [2024, 2025],
-      "topic_texts": ["поездка сорвалась", "поехал на юг"],
+      "id": "hard_generic_competitor",
+      "kind": "hard",
+      "query": "что за шизы были на конфе?",
+      "topic_stems": ["шиз", "конф"],
+      "seed_years": [2024],
+      "topic_texts": ["шизы и конф", "конфа шумела"],
+      "extra_rows": [
+        {"year": 2023, "text": "были гости"},
+        {"year": 2025, "text": "были новости"}
+      ],
+      "distractor_years": [2022],
       "distractor_text": "погода и дорога",
-      "expected_years": [2023]
+      "expected_years": [2024]
+    },
+    {
+      "id": "current_state_control",
+      "kind": "current",
+      "query": "что сейчас с Алиной?",
+      "topic_stems": ["алин"],
+      "seed_years": [2022, 2023],
+      "topic_texts": ["Алиной и её дела", "Алиной снова"],
+      "extra_rows": [],
+      "distractor_years": [],
+      "distractor_text": "погода и дорога",
+      "expected_years": []
     }
   ]
 }

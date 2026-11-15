@@ -838,6 +838,20 @@ def _sel_block(item, *, cuts: dict | None = None,
     tokens = _sel_int(item.get("tokens"))
     if tokens is not None:
         row["tokens"] = tokens
+    # TIME-04 (review r1): per-block состав годов — bounded словарь
+    # год→число строк, без текстов/ссылок. Не выдуман: приходит только из
+    # реальных строк блока (`direct_chat_service._block_years`).
+    raw_years = item.get("years")
+    if isinstance(raw_years, dict):
+        clean_years: dict = {}
+        for year_raw, count_raw in list(raw_years.items())[:8]:
+            year = _sel_int(year_raw)
+            count = _sel_int(count_raw)
+            if year is None or count is None or year <= 0 or count <= 0:
+                continue
+            clean_years[year] = count
+        if clean_years:
+            row["years"] = dict(sorted(clean_years.items()))
     # Основания идут НЕ в блок, а в отдельный bounded-список события; здесь
     # они только нормализуются — иначе allowlist снова их выбросит.
     if out_grounds is not None:
@@ -999,6 +1013,54 @@ def _sel_self_outputs(items, *, cuts: dict | None = None) -> list:
     return rows
 
 
+def _sel_memory_period(value) -> dict | None:
+    """TIME-04 (review r1): ступени отбора периода для durable-трассы.
+
+    Закрытый allowlist: только коды и числа, никаких текстов/запросов.
+    Возвращает ``None``, если полей нет (прочие пути не меняются)."""
+    if not isinstance(value, dict):
+        return None
+    out: dict = {}
+    intent = value.get("intent")
+    if isinstance(intent, dict):
+        clean_intent: dict = {}
+        kind = _code(intent.get("kind"), 32)
+        if kind:
+            clean_intent["kind"] = kind
+        years = [_sel_int(year) for year in
+                 _sel_items(intent.get("years"), 8)]
+        years = [year for year in years if year is not None]
+        if years:
+            clean_intent["years"] = years
+        source = _code(intent.get("source"), 32)
+        if source:
+            clean_intent["source"] = source
+        if clean_intent:
+            out["intent"] = clean_intent
+    for key in ("pool", "kept", "topic_quota", "topic_years",
+                "topic_common_stems", "historical_quota", "multi_year_quota",
+                "dropped_subject", "dropped_budget", "dropped_status",
+                "current_state_guard",
+                "dropped_out_of_target_year", "dropped_unknown_year",
+                "pool_expired", "vector_rows"):
+        number = _sel_int(value.get(key))
+        if number is not None:
+            out[key] = number
+    pool_status = value.get("pool_status")
+    if isinstance(pool_status, dict):
+        clean_status = {key: _sel_int(pool_status.get(key))
+                        for key in ("confirmed", "archived", "other")}
+        clean_status = {key: number for key, number in clean_status.items()
+                        if number is not None}
+        if clean_status:
+            out["pool_status"] = clean_status
+    for key in ("age_policy", "vector_leg", "vector_unavailable_reason"):
+        code = _code(value.get(key), 32)
+        if code:
+            out[key] = code
+    return out or None
+
+
 def _selection_payload(raw) -> dict:
     """Нормализовать payload события выбора: лимиты списков и только коды.
 
@@ -1110,6 +1172,9 @@ def _selection_payload(raw) -> dict:
     policy_version = _code(data.get("policy_version"), 32)
     if policy_version:
         payload["policy_version"] = policy_version
+    memory_period = _sel_memory_period(data.get("memory_period"))
+    if memory_period:
+        payload["memory_period"] = memory_period
     if cuts:
         payload["truncated"] = True
     # Если payload не влезает в `usage_json`, сначала сокращаются ВТОРОСТЕПЕННЫЕ

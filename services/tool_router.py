@@ -4703,42 +4703,69 @@ class ToolRouter:
                 break
         # Канонические сообщения самого автора (P1): профиль не ограничен
         # graph_facts, где за 2023/2024 фактов о нём может не быть. Это
-        # ТОЧНЫЙ uid, не author=subject fallback. Читаем только если
-        # субъектные факты не дали ни одного не-текущего года (bounded).
+        # ТОЧНЫЙ uid, не author=subject fallback.
+        # Slice D (review r1, TIME-02): субъектные факты могут заполнить ВЕСЬ
+        # envelope одним годом (топ-автор: 10/10 фактов 2026) — тогда сообщения
+        # не читались вовсе (`len(facts) < max_items`). Теперь для известного
+        # uid резервируется годовая квота `max_items // 5` под недостающие
+        # старые годы; релевантные факты вытесняются только в пределах этой
+        # резервации. Если субъектных фактов нет — берутся все сообщения.
         message_reader = getattr(db, "get_author_message_periods", None)
         current_year = datetime.datetime.now(datetime.timezone.utc).year
-        covered_old = any(
-            fact.get("as_of_year") and int(fact["as_of_year"]) != current_year
-            for fact in facts)
-        if callable(message_reader) and uid is not None \
-                and not covered_old \
-                and len(facts) < max(1, int(max_items)):
+        limit_items = max(1, int(max_items))
+        covered_years = {int(fact["as_of_year"]) for fact in facts
+                         if fact.get("as_of_year")}
+        covered_old = any(year != current_year for year in covered_years)
+        if callable(message_reader) and uid is not None and not covered_old:
             try:
                 message_rows = await message_reader(
-                    int(ctx.chat_id), int(uid), max(1, int(max_items)))
+                    int(ctx.chat_id), int(uid), limit_items)
             except Exception:
                 logger.warning("[tools] subject message read failed | "
                                "chat=%s", getattr(ctx, "chat_id", None))
                 message_rows = []
+            reserve = (limit_items if not facts
+                       else max(1, limit_items // 5))
+            additions: list = []
+            seen_years = set(covered_years)
+            # Если субъектных фактов нет, важнее сохранить все собственные
+            # строки человека (в т.ч. несколько за год); multi-period квота
+            # «один год — одна строка» нужна только когда факты уже есть.
+            multi_year_only = bool(facts)
             for row in message_rows or ():
-                if len(facts) >= max(1, int(max_items)):
+                if len(additions) >= reserve:
                     break
+                try:
+                    year = (int(row.get("as_of_year"))
+                            if row.get("as_of_year") is not None else None)
+                except (TypeError, ValueError):
+                    year = None
+                if year is None or year == current_year \
+                        or (multi_year_only and year in seen_years):
+                    continue
                 built = self._memory_lookup_message_item(row)
                 if built is None:
                     continue
                 fact = built["fact"]
                 fact.update({
-                    "as_of_year": row.get("as_of_year"),
+                    "as_of_year": year,
                     "speaker_author_id": int(uid),
                     "subject_role": "speaker",
                     "authored_by_subject": True,
                 })
                 source = built["source"]
                 source.update({"speaker_author_id": int(uid),
-                               "year": row.get("as_of_year"),
+                               "year": year,
                                "subject_role": "speaker"})
-                facts.append(fact)
-                sources.append(source)
+                additions.append((fact, source))
+                seen_years.add(year)
+            if additions:
+                keep = max(0, limit_items - len(additions))
+                facts = facts[:keep]
+                sources = sources[:len(facts)]
+                for fact, source in additions:
+                    facts.append(fact)
+                    sources.append(source)
         return facts, sources
 
     @staticmethod

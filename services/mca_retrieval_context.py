@@ -515,6 +515,10 @@ PERIOD_DROP_POOL_CAP = "period_pool_cap"
 #: `confirmed`/`archived_*`). SQL-каналы такие строки и так не отдают; отбор
 #: обязан вести себя так же, если строка пришла от другого канала.
 PERIOD_DROP_STATUS = "status_not_usable"
+#: Slice D (review r1, D1): строка старого года не допускается в вопрос о
+#: настоящем под `auto`, даже если прошла строгий порог основ. Причина
+#: называется явно, а не маскируется «релевантностью».
+PERIOD_DROP_CURRENT_STATE = "current_state_guard"
 #: Как строка вошла: год-цель сохранён / мягкий предметный fallback / вектор /
 #: ограниченная историческая квота / multi-year квота / паритет обычного
 #: вопроса (Slice D).
@@ -542,6 +546,30 @@ PERIOD_SOFT_FALLBACK_MIN_ROWS = 2
 _PERIOD_HISTORY_MARKERS = _HISTORY_MARKERS + (
     "рассказ", "за все годы", "за эти годы", "биограф",
 )
+#: Slice D (15.11.2026): НЕГАТИВНЫЙ guard текущего состояния. Это не выбор
+#: материала и не триггер года: набор только ПОДАВЛЯЕТ паритет обычного
+#: вопроса (`topic_parity_quota`), когда вопрос спрашивает о настоящем.
+#: Существующий L1 `memory_scope=operative` остаётся главным сигналом; guard —
+#: консервативный fallback для `auto`, когда L1 не принял решения (иначе
+#: старые строки вытесняли текущие в вопросах «что сейчас…»). Историческое
+#: намерение (`historical`/`multi_year` из плана) сильнее guard'а и сюда не
+#: попадает: паритет по определению включается только при `intent=none`.
+_PERIOD_CURRENT_MARKERS = (
+    "сейчас", "теперь", "текущ", "на данный момент", "в данный момент",
+    "на сегодня",
+)
+
+
+def is_current_state_query(query) -> bool:
+    """Вопрос о настоящем (закрытый класс указателей времени, не темы/годы).
+
+    Используется ТОЛЬКО как отрицательный guard паритета обычного вопроса:
+    не добавляет материал, не выбирает годы и не заменяет решение L1
+    (`memory_scope=operative|historical`). Никогда не бросает."""
+    text = str(query or "").casefold()
+    return any(marker in text for marker in _PERIOD_CURRENT_MARKERS)
+
+
 _YEAR_IN_QUERY_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
 
 
@@ -797,6 +825,7 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "dropped_subject": 0,
         "dropped_pool_cap": 0,
         "dropped_status": 0,
+        "current_state_guard": 0,
         "dropped_budget": 0,
         "pool_status": {"confirmed": 0, "archived": 0, "other": 0},
         "pool_expired": 0,
@@ -806,6 +835,7 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "multi_year_quota": 0,
         "topic_quota": 0,
         "topic_years": 0,
+        "topic_common_stems": 0,
         "lexical_strict_passed": 0,
     }
     now_ts = int(time.time())
@@ -868,7 +898,32 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     # его (контракт C1 — «чужой текущий разговор» не входит). Обнаруженное
     # историческое намерение даёт только мягкий fallback ниже, а не отмену
     # порога: текущее состояние не ослабляется.
+    if str(policy or "").strip().lower() == "operative":
+        # Slice D: явная политика «только действующее» НЕ получает старый
+        # материал даже синтетически (пул периода в норме и так исключает
+        # текущий год). Строка текущего года остаётся; чужой год — отсев.
+        for row in ordered:
+            year = period_row_year(row)
+            if year == current_year:
+                shared = period_subject_shared(query_stems,
+                                               (row or {}).get("fact"))
+                _mark_period_row(row, shared, PERIOD_KEEP_IN_TARGET)
+                accepted.append(row)
+            else:
+                stats["dropped_out_of_target_year"] += 1
+                _mark_period_row(row, None, PERIOD_DROP_OUT_OF_TARGET_YEAR)
+        stats["kept"] = len(accepted)
+        return accepted, stats
     strict = str(policy or "") != "historical"
+    # D1 (review r1): под `auto` вопрос о настоящем не получает старый
+    # материал НИ через строгий порог, ни через паритет. Это структурный
+    # guard, независимый от L1 `operative`: если L1 не принял решения,
+    # текущий блок не теряет свои строки. Явный `historical`/`multi_year`
+    # сигнал сильнее и сюда не попадает.
+    current_state_guard = (
+        intent.kind == PERIOD_INTENT_NONE
+        and str(policy or "").strip().lower() == "auto"
+        and is_current_state_query(query))
     soft_pool: list[tuple[int, int, dict]] = []
     lexical_strict_passed = 0
     for index, row in enumerate(ordered):
@@ -883,6 +938,11 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         shared = period_subject_shared(query_stems, (row or {}).get("fact"))
         _mark_period_row(row, shared, "lexical_threshold_applied")
         if shared >= PERIOD_MIN_SHARED_STEMS:
+            if current_state_guard:
+                stats["dropped_subject"] += 1
+                stats["current_state_guard"] += 1
+                _mark_period_row(row, shared, PERIOD_DROP_CURRENT_STATE)
+                continue
             accepted.append(row)
             lexical_strict_passed += 1
             continue
@@ -897,8 +957,23 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         for year in (period_row_year(row),)
         if year is not None and year != current_year})
     stats["topic_years"] = len(topic_years)
+    # D2 (review r1): «тот же предмет» обязан подтверждаться ПЕРЕСЕЧЕНИЕМ
+    # основ МЕЖДУ старыми строками, а не только совпадением каждой с
+    # вопросом. Иначе «шизы обсуждали» (2023) + «на конфе шумели» (2024)
+    # принимались как один предмет, хотя их объединяет только запрос.
+    years_by_stem: dict = {}
+    for _shared, _index, row in soft_pool:
+        year = period_row_year(row)
+        if year is None:
+            continue
+        for stem in period_subject_stems((row or {}).get("fact")):
+            years_by_stem.setdefault(stem, set()).add(year)
+    topic_common_stems = {stem for stem, years in years_by_stem.items()
+                          if len(years) >= 2}
+    stats["topic_common_stems"] = len(topic_common_stems)
     topic_parity = (intent.kind == PERIOD_INTENT_NONE
                     and str(policy or "").strip().lower() != "operative"
+                    and not is_current_state_query(query)
                     and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS
                     and len(topic_years) >= 2)
     if intent.is_historical and soft_pool and len(accepted) < slots \
@@ -938,6 +1013,13 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             if year is None or year == current_year or year in seen_years:
                 continue
             quota_pool.append((shared, index, row))
+        if topic_parity:
+            # D2: в паритет входят только строки, несущие общую предметную
+            # основу, которая реально встречается в старом материале ≥2 лет.
+            quota_pool = [
+                item for item in quota_pool
+                if topic_common_stems & period_subject_stems(
+                    (item[2] or {}).get("fact"))]
         quota_pool.sort(key=lambda item: (-item[0], period_row_year(
             item[2]) or 9999, item[1]))
         if intent.is_multi_year:

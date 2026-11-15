@@ -282,19 +282,27 @@ class TestSubjectThreshold:
         """§4/§5: под `auto` решения L1 нет — старый год входит ТОЛЬКО через
         §2, в том числе векторный сосед. Иначе на вопрос о текущем состоянии
         добавлялась бы чужая строка без общих основ (наблюдалось на C1)."""
-        rows = [_period_row(7388, "наблюдается за поведением участников чата",
+        query = "что говорили про участников чата?"
+        rows = [_period_row(7388, "наблюдается за поведением",
                             year=2025, source="vector")]
-        query = "что сейчас происходит в чате?"
         accepted, rejected = dcs.DirectChatService._rag_period_subject_filter(
             query, rows, "auto")
         assert accepted == [] and rejected == 1
         # С двумя основами тот же сосед проходит и под `auto`.
         accepted, rejected = dcs.DirectChatService._rag_period_subject_filter(
             query,
-            [_period_row(7388, "происходит в чате обсуждение", year=2025,
+            [_period_row(7388, "обсуждение участников чата", year=2025,
                          source="vector")], "auto")
         assert [row["id"] for row in accepted] == [7388]
         assert rejected == 0
+        # D1 (review r1): на вопрос о НАСТОЯЩЕМ тот же сосед не входит даже
+        # с двумя основами — guard текущего состояния сильнее паритета.
+        current_accepted, _rejected = \
+            dcs.DirectChatService._rag_period_subject_filter(
+                "что сейчас происходит в чате?",
+                [_period_row(7388, "происходит в чате обсуждение",
+                             year=2025, source="vector")], "auto")
+        assert current_accepted == []
 
     def test_current_state_row_cut_by_stems_not_by_now_dictionary(self):
         """§4: наблюдаемая строка 2025 года («… ноют сейчас») не проходит

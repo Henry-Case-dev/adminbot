@@ -41,6 +41,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from services import mca_retrieval_context as mrc
+from services import direct_chat_service as _dcs
 from services.database import DatabaseService
 from services.tool_router import ToolContext, ToolDeps, ToolRouter
 
@@ -50,6 +51,7 @@ SLOT_DIV = 5
 A1_CREATIVE = "напиши юмористический рассказ об основных шизах конфы"
 A1P_PLAIN = "что за шизы были на конфе?"
 CURRENT_STATE = "что сейчас происходит с E1?"
+CURRENT_ALINA = "что сейчас с Алиной?"
 CONFLICT_2023 = "из-за чего мы ссорились и ругались в 2023 году"
 LABELED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "fixtures", "vmq_slice_d_labeled.json")
@@ -162,10 +164,14 @@ class TestPlainQuestionParity:
         assert len(accepted) == 2, stats
         assert stats["topic_quota"] == 2, stats
         assert stats["topic_years"] >= 2, stats
+        assert stats["topic_common_stems"] >= 1, stats
         assert _old_material_stats(accepted)["years"] == [2023, 2024]
         assert all(row["stems_shared_reason"] == mrc.PERIOD_KEEP_TOPIC_PARITY
                    for row in accepted)
         assert all(row["stems_shared"] >= 1 for row in accepted)
+        # D2: старые строки обязаны делить ОБЩУЮ основу между собой.
+        row_stems = [mrc.period_subject_stems(row["fact"]) for row in accepted]
+        assert set.intersection(*row_stems), row_stems
 
     def test_creative_and_plain_formulations_get_comparable_material(self):
         """Один и тот же пул: творческая формулировка (historical) и обычная
@@ -224,36 +230,115 @@ class TestPlainQuestionParity:
         assert stats["topic_years"] == 1
 
     def test_current_state_pool_is_untouched(self):
-        """Одна старая строка «что сейчас» (наблюдённый кейс 8436) остаётся
-        отклонённой: ослабления текущего пути нет."""
-        pool = [_row(8436, "выгнали сами и ноют сейчас", year=2025)]
+        """D1/D8: ДВЕ старые строки из ДВУХ лет (с общей основой между собой
+        и с вопросом) под `auto` не вытесняют текущий блок: guard текущего
+        состояния сильнее паритета. Прежний T3 не задействовал механизм
+        (`period_stats={}`), здесь он реально доходит до отбора."""
+        pool = [
+            _row(8001, "Алина была в 2022", year=2022),
+            _row(8002, "Алина снова в 2023", year=2023),
+        ]
         accepted, stats = mrc.select_period_rows(
-            pool, query=CURRENT_STATE, policy="auto", slots=2,
+            pool, query=CURRENT_ALINA, policy="auto", slots=2,
             reference_year=2026)
         assert accepted == []
         assert stats["topic_quota"] == 0
         assert stats["intent"]["kind"] == mrc.PERIOD_INTENT_NONE
+        # Механизм был бы доступен без guard: общая основа и два года есть.
+        assert stats["topic_years"] == 2
+        assert stats["topic_common_stems"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_full_path_current_state_keeps_current_ids(self, monkeypatch):
+        """D1 (BLOCKER): полный путь `_rag_unified_rows` под `auto` не теряет
+        текущие строки 8008/8009, хотя периодный пул дал бы паритет. Контроль:
+        тот же пул без указателя настоящего — паритет срабатывает."""
+        import types
+        import services.direct_chat_service as _dcs
+
+        service = _dcs.DirectChatService(
+            memory=object(),
+            db=types.SimpleNamespace(search_messages_fts=lambda *a, **k: None),
+            llm=None, aliases=None)
+        current_rows = [_row(8000 + i, f"текущее событие {i}", year=2026)
+                        for i in range(10)]
+        old_rows = [_row(8101, "Алина была в 2022", year=2022),
+                    _row(8102, "Алина снова в 2023", year=2023)]
+
+        class _Result:
+            def __init__(self, fact_rows, period_fill=None):
+                self.fact_rows = tuple(fact_rows)
+                self.period_fill = period_fill
+
+        async def fake(db, memory, chat_id, query, channels, limit, policy,
+                       *, period_fill=False, period_intent=None, **_kwargs):
+            if period_fill:
+                return _Result(old_rows,
+                               period_fill={"vector_leg": "compat_not_proven",
+                                            "vector_rows": 0})
+            return _Result(current_rows)
+
+        monkeypatch.setattr(service, "_rag_retrieve", fake)
+        rows = await service._rag_unified_rows(
+            CHAT, CURRENT_ALINA, None, memory_scope="auto")
+        ids = {row["id"] for row in rows}
+        assert {8008, 8009} <= ids, ids
+        assert not any(row.get("period_fill") for row in rows), rows
+
+        # Контроль: тот же пул без указателя настоящего получает паритет.
+        rows = await service._rag_unified_rows(
+            CHAT, "Алина и её дела", None, memory_scope="auto")
+        assert any(row.get("period_fill") for row in rows), rows
+        assert {2022, 2023} <= {mrc.period_row_year(row) for row in rows
+                                if row.get("period_fill")}
+
+    def test_current_state_suppresses_strict_old_row(self):
+        """D1: строгая строка старого года (≥2 общих основы) тоже не входит
+        в вопрос о настоящем под `auto` — иначе она вытесняет текущую."""
+        pool = [_row(8436, "мулянкой и сейчас и дела", year=2025)]
+        accepted, stats = mrc.select_period_rows(
+            pool, query="как сейчас дела с мулянкой?", policy="auto",
+            slots=2, reference_year=2026)
+        assert accepted == []
+        assert stats["current_state_guard"] == 1
+        assert stats["topic_quota"] == 0
 
     def test_two_old_years_without_shared_stem_do_not_trigger(self):
+        """D2/D8: обе строки делят основу С ВОПРОСОМ, но не между собой —
+        паритет не включается (это и есть дефект «шизы vs конфа»)."""
         pool = [
-            _row(1, "погода и дорога", year=2023),
-            _row(2, "музыка играла", year=2024),
+            _row(1, "шизы обсуждали", year=2023),
+            _row(2, "на конфе шумели", year=2024),
         ]
         accepted, stats = mrc.select_period_rows(
             pool, query=A1P_PLAIN, policy="auto", slots=2,
             reference_year=2026)
         assert accepted == []
         assert stats["topic_quota"] == 0
+        assert stats["topic_years"] == 2
+        assert stats["topic_common_stems"] == 0
 
     def test_operative_policy_is_not_weakened(self):
-        """`operative` — явное «сейчас»: старый материал в срез не добирается
-        даже при многолетнем пуле (политику выбирает существующий L1)."""
-        pool = _measured_plain_pool()
+        """D8: `operative` не добирает старый материал, даже если строгая
+        строка его бы прошла. Тест не вакуумный: текущая строка принята, а на
+        том же пуле под `auto` старая строка принимается."""
+        pool = [
+            _row(1, "текущий факт 2026", year=2026),
+            _row(2, "шизы и конф в 2023", year=2023),
+        ]
         accepted, stats = mrc.select_period_rows(
             pool, query=A1P_PLAIN, policy="operative", slots=2,
             reference_year=2026)
+        assert accepted, "текущая строка должна остаться"
+        assert {mrc.period_row_year(row) for row in accepted} == {2026}
         assert stats["topic_quota"] == 0
         assert all(mrc.period_row_year(row) == 2026 for row in accepted)
+
+        auto_accepted, auto_stats = mrc.select_period_rows(
+            pool, query=A1P_PLAIN, policy="auto", slots=2,
+            reference_year=2026)
+        assert any(mrc.period_row_year(row) == 2023
+                   for row in auto_accepted), auto_stats
 
 
 # ── TIME-04: ступени потери года различимы ────────────────────────────────
@@ -263,24 +348,31 @@ class TestYearLossTrace:
     def test_year_loss_categories_are_machine_readable(self):
         future = int(time.time()) + 3600
         past = int(time.time()) - 3600
-        pool = _measured_plain_pool()
-        pool.append(_row(9001, "шизы обсуждали", year=2024,
-                         status="archived_fact"))
-        pool.append(_row(9002, "шизы на конфе", year=2024,
-                         status="tentative"))
-        pool.append(_row(9003, "шиза была", year=2024, expires_at=past))
-        pool.append(_row(9004, "шиза снова", year=2024, expires_at=future))
-        _accepted, stats = mrc.select_period_rows(
+        pool = [
+            _row(1, "конфа шумела", year=2023),
+            _row(2, "на конфе шумели", year=2024),
+            _row(3, "конфа снова", year=2024),
+            _row(4, "конфа опять", year=2025),
+            _row(5, "конфа ещё", year=2025),
+            _row(6, "конфа архив", year=2024, status="archived_fact"),
+            _row(7, "конфа слух", year=2024, status="tentative"),
+            _row(8, "конфа старая", year=2024, expires_at=past),
+            _row(9, "конфа новая", year=2024, expires_at=future),
+        ]
+        accepted, stats = mrc.select_period_rows(
             pool, query=A1P_PLAIN, policy="auto", slots=2,
             reference_year=2026)
-        assert stats["pool_status"]["confirmed"] >= 1
-        assert stats["pool_status"]["archived"] >= 1
-        assert stats["pool_status"]["other"] == 1
+        assert stats["pool_status"] == {"confirmed": 7, "archived": 1,
+                                        "other": 1}, stats["pool_status"]
         assert stats["dropped_status"] == 1
         assert stats["pool_expired"] == 1
         assert stats["age_policy"] == "not_applied"
-        assert isinstance(stats["dropped_budget"], int)
-        assert stats["dropped_budget"] >= 0
+        # 8 строк «того же предмета» старого года (archived/expired/future
+        # входят; tentative отсеян по статусу), принято 2 → 6 по бюджету.
+        assert len(accepted) == 2, stats
+        assert stats["topic_quota"] == 2
+        assert stats["dropped_budget"] == 6, stats
+        assert stats["dropped_subject"] == 6, stats
 
     @pytest.mark.asyncio
     async def test_unknown_time_is_not_presented_as_year_event(self, db):
@@ -362,6 +454,31 @@ class TestSubjectHalf:
         assert generic not in out
         assert any(row.get("subject_role") == "speaker" for row in out)
         assert len(out) <= 10
+
+    @pytest.mark.asyncio
+    async def test_tool_biography_reserves_multi_period_slots(self, db):
+        """D3: топ-автор имеет 10/10 фактов 2026 — раньше сообщения 2024/2025
+        не читались (`len(facts) < max_items`). Теперь годовая квота
+        зарезервирована, релевантные факты не вытесняются целиком."""
+        for index in range(10):
+            await _fact(db, f"факт о Лёхе {index}", year=2026,
+                        target="Лёха", speaker=UID)
+        await db.save_smart_message(
+            UID, CHAT, "в 2024 сменил работу", None, _ts(2024, 5, 1), "text",
+            "Лёха", message_id=53_001)
+        await db.save_smart_message(
+            UID, CHAT, "в 2025 переехал", None, _ts(2025, 5, 1), "text",
+            "Лёха", message_id=53_002)
+        router = _router(db)
+        raw = await router._get_user_context(
+            {"person": "Лёха", "purpose": "biography", "user_id": UID},
+            ToolContext(CHAT, "что ты знаешь про Лёху?"))
+        payload = json.loads(raw)
+        years = {fact.get("as_of_year") for fact in payload["facts"]}
+        assert {2024, 2025} <= years, years
+        assert 2026 in years, "релевантные факты не должны исчезнуть целиком"
+        assert len(payload["facts"]) <= 10
+        assert payload["subject_material"]["subject_bound"] >= 10
 
     @pytest.mark.asyncio
     async def test_known_person_without_bound_material_is_named(self, db):
@@ -461,6 +578,76 @@ class TestVectorLegAndYearTrigger:
         assert plain_result.period_fill["vector_unavailable"] == 1
 
 
+# ── TIME-04: ступени и per-block годы в продуктовой трассе ─────────────────
+
+
+class TestProductTrace:
+    def test_period_trace_carries_stage_fields_and_block_years(self):
+        """D5: ступени отбора и годы RAG-блока формируются в том же ходе и
+        уходят в существующую трассу (не остаются в локальном dict)."""
+        stats = {
+            "period_intent": {"kind": "none", "years": [], "source": ""},
+            "selection_rows": 16,
+            "selection_kept": 2,
+            "topic_quota": 2,
+            "topic_years": 3,
+            "topic_common_stems": 1,
+            "historical_quota": 0,
+            "multi_year_quota": 0,
+            "rejected_subject": 14,
+            "dropped_budget": 6,
+            "dropped_status": 1,
+            "dropped_out_of_target_year": 0,
+            "dropped_unknown_year": 0,
+            "pool_status": {"confirmed": 14, "archived": 1, "other": 1},
+            "pool_expired": 1,
+            "age_policy": "not_applied",
+            "vector_leg": "compat_not_proven",
+            "vector_rows": 0,
+            "vector_unavailable_reason": "compat_not_proven",
+        }
+        kept = [("chat_history", "факт 2023", _ts(2023), "chat_history"),
+                ("chat_history", "факт 2023", _ts(2023), "chat_history"),
+                ("chat_history", "факт 2026", _ts(2026), "chat_history")]
+        period, years = _dcs._period_trace(stats, kept)
+        assert period["topic_quota"] == 2
+        assert period["topic_common_stems"] == 1
+        assert period["dropped_budget"] == 6
+        assert period["dropped_status"] == 1
+        assert period["pool_status"]["archived"] == 1
+        assert period["age_policy"] == "not_applied"
+        assert years == {2023: 2, 2026: 1}
+
+    def test_selection_trace_allowlist_keeps_period_and_block_years(self):
+        """D5: durable-событие выбора сохраняет memory_period и per-block
+        годы; текстов/запросов в трассе нет."""
+        from services import turn_trace as tt
+        payload = tt._selection_payload({
+            "memory_period": {
+                "intent": {"kind": "none", "years": [], "source": ""},
+                "pool": 16, "kept": 2, "topic_quota": 2,
+                "pool_status": {"confirmed": 14, "archived": 1, "other": 1},
+                "age_policy": "not_applied",
+                "vector_leg": "compat_not_proven",
+                "query": "не должно попасть",
+            },
+            "blocks": [{"kind": "rag", "rendered": True,
+                        "years": {2023: 2, 2026: 8}}],
+        })
+        assert payload["memory_period"]["topic_quota"] == 2
+        assert payload["memory_period"]["pool_status"]["archived"] == 1
+        assert "query" not in payload["memory_period"]
+        assert payload["blocks"][0]["years"] == {2023: 2, 2026: 8}
+
+    def test_prepared_payload_carries_memory_period_to_snapshot_fields(self):
+        prepared = _dcs._prepared_turn_payload(
+            chat_id=CHAT, correlation_id="trace-1", blocks=[],
+            event_blocks=[], available_item_ids=(), window_messages=0,
+            budget={}, dropped=(), self_outputs=(),
+            memory_period={"topic_quota": 2, "pool": 16})
+        assert prepared.memory_period == {"topic_quota": 2, "pool": 16}
+
+
 # ── TIME-07: размеченная релевантность (precision, не «сколько строк») ────
 
 
@@ -471,11 +658,14 @@ def _labels():
 
 class TestLabeledRelevance:
     @pytest.mark.asyncio
-    async def test_precision_and_period_coverage_on_labeled_set(self, db):
-        """Размеченный набор: у каждого вопроса ожидаемые темы и периоды.
-        Метрика — precision доставленного старого материала и покрытие
-        ожидаемых периодов; дистракторы (другая тема/другой год) в корпусе
-        присутствуют, поэтому случайный добор точность роняет."""
+    async def test_precision_on_independent_labeled_set(self, db):
+        """D6: размеченный набор с КОНКУРИРУЮЩИМИ дистракторами.
+
+        Метки (ожидаемые темы/периоды) заданы независимо от селектора; часть
+        дистракторов делит основы с вопросом и с темой (generic-слово,
+        поздний аналог), поэтому precision не может быть структурной 1.0.
+        Метрика считается по строкам, реально доходящим до среза
+        (`_rag_append_period_rows`), включая T3-контроль."""
         cases = _labels()
         for index, case in enumerate(cases):
             chat_id = CHAT - (index + 1)
@@ -485,11 +675,18 @@ class TestLabeledRelevance:
                     await _fact(db, f"{text} #{year}-{offset}", year=year,
                                 origin="history_import", target=None,
                                 ts=_ts(year, 4, 1 + offset), chat_id=chat_id)
+            for extra in case.get("extra_rows") or ():
+                year = int(extra["year"])
+                await _fact(db, f"{extra['text']} #{case['id']}-{year}",
+                            year=year, origin="history_import", target=None,
+                            ts=_ts(year, 6, 1), chat_id=chat_id)
             for year in case["distractor_years"]:
                 await _fact(db, f"{case['distractor_text']} {case['id']} "
                                 f"#{year}",
                             year=year, origin="history_import", target=None,
                             ts=_ts(year, 5, 1), chat_id=chat_id)
+        service = _dcs.DirectChatService(memory=object(), db=None, llm=None,
+                                         aliases=None)
         measured = []
         for case in cases:
             request = mrc.RetrievalRequest(
@@ -501,35 +698,55 @@ class TestLabeledRelevance:
             accepted, stats = mrc.select_period_rows(
                 list(result.fact_rows), query=case["query"],
                 policy="auto", slots=2, reference_year=2026)
-            years = [mrc.period_row_year(row) for row in accepted]
+            # До среза доходят не все принятые: срез ограничен слотами.
+            delivered = service._rag_append_period_rows(
+                [], accepted, 10, slots=2)
+            years = [mrc.period_row_year(row) for row in delivered]
             relevant = [
-                1 for row, year in zip(accepted, years)
+                1 for row, year in zip(delivered, years)
                 if any(stem.casefold() in str(row.get("fact") or "").casefold()
                        for stem in case["topic_stems"])
                 and year in case["expected_years"]]
             measured.append({
                 "id": case["id"],
+                "kind": case["kind"],
                 "pool": len(result.fact_rows),
-                "delivered": len(accepted),
+                "delivered": len(delivered),
                 "relevant": len(relevant),
                 "expected_years": case["expected_years"],
                 "delivered_years": sorted({y for y in years if y}),
                 "intent": stats["intent"]["kind"],
-                "quota": int(stats["topic_quota"]
-                             + stats["historical_quota"]
-                             + stats["multi_year_quota"]),
+                "topic_quota": int(stats["topic_quota"]),
+                "common_stems": int(stats["topic_common_stems"]),
             })
-        total = sum(item["delivered"] for item in measured)
-        good = sum(item["relevant"] for item in measured)
-        assert total > 0, measured
-        precision = good / total
-        assert precision >= 0.9, (precision, measured)
+        core = [item for item in measured if item["kind"] == "core"]
+        hard = [item for item in measured if item["kind"] == "hard"]
+        current = [item for item in measured
+                   if item["kind"] == "current"][0]
+
+        def _precision(items):
+            total = sum(item["delivered"] for item in items)
+            good = sum(item["relevant"] for item in items)
+            return (good, total, (good / total) if total else 0.0)
+
+        core_good, core_total, core_precision = _precision(core)
+        assert core_total > 0, measured
+        assert core_precision >= 0.9, (core_precision, core)
+        hard_good, hard_total, hard_precision = _precision(hard)
+        assert hard_total > 0, measured
+        # Метрика обязана различать: конкурирующие дистракторы реально
+        # попадают в срез, поэтому precision строго ниже 1.0 — не структурная.
+        assert 0.0 < hard_precision < 1.0, (hard_precision, hard)
+        total = core_total + hard_total
+        good = core_good + hard_good
+        assert good / total >= 0.8, (good / total, measured)
+        labelled = [item for item in measured if item["kind"] != "current"]
         covered = sum(
-            1 for item in measured
+            1 for item in labelled
             if set(item["expected_years"]) & set(item["delivered_years"]))
-        coverage = covered / len(measured)
-        assert coverage >= 0.8, (coverage, measured)
-        # Каждый доставленный периодный год — из ожидаемых или из текущего.
-        for item in measured:
-            assert set(item["delivered_years"]) <= (
-                set(item["expected_years"]) | {2026}), item
+        assert covered / len(labelled) >= 0.8, (covered, labelled)
+        # T3 (измерен тем же путём): указатель настоящего — ноль периода,
+        # причём пул НЕ пуст (механизм реально задействован).
+        assert current["pool"] > 0, current
+        assert current["delivered"] == 0, current
+        assert current["topic_quota"] == 0, current

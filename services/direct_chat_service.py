@@ -2658,7 +2658,7 @@ def _sel_row_ids(rows, *, bot_user_id=None, limit: int | None = None) -> list:
 
 def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
                rows=(), tokens: int = 0, bot_user_id=None,
-               grounds=None) -> dict:
+               grounds=None, years=None) -> dict:
     """Блок контекста хода: kind/role/rendered/ids/даты/токены (без текста).
 
     `source_ids`/`first_ts`/`last_ts` берутся из РЕАЛЬНЫХ строк, попавших в
@@ -2684,6 +2684,8 @@ def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
         "first_ts": (min(stamps) if stamps else 0),
         "last_ts": (max(stamps) if stamps else 0),
         "tokens": int(tokens or 0),
+        # TIME-04 (review r1): состав годов блока (bounded) для трассы хода.
+        "years": dict(sorted((years or {}).items())),
         # ДЕФЕКТ 12.11.2026: основания решения несли только id (`source_ids`),
         # без происхождения, поэтому независимость нельзя было проверить ни в
         # отчёте, ни в JSON. Здесь — записи `provenance.ground_record` (id +
@@ -2691,6 +2693,86 @@ def _sel_block(*, kind: str, role: str, rendered: bool, skip_reason: str = "",
         "grounds": [dict(item) for item in (grounds or ())
                     if isinstance(item, dict)],
     }
+
+
+def _utc_year(ts) -> int | None:
+    """Год UTC по timestamp (None для 0/мусора). Не зависит от `time.gmtime`,
+    который тесты подменяют своим `FakeTime` (наблюдение не должно падать)."""
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(ts), datetime.timezone.utc).year
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def _block_years(rows, *, limit: int = 8) -> dict:
+    """Состав годов блока по времени РЕАЛЬНО вошедших строк (не тексту).
+
+    Bounded: не больше `limit` разных лет, ключи — годы (int), значения —
+    число строк; без текстов и id. `rows` — те же строки, из которых блок
+    рендерился; время берётся существующим `_sel_row_ref`."""
+    hist: dict = {}
+    for row in list(rows or ()):
+        try:
+            _sid, _tg, ts = _sel_row_ref(row)
+        except Exception:      # pragma: no cover - защитная ветка
+            continue
+        if not ts:
+            continue
+        year = _utc_year(ts)
+        if year is None:
+            continue
+        hist[year] = hist.get(year, 0) + 1
+        if len(hist) >= max(1, int(limit)):
+            break
+    return dict(sorted(hist.items()))
+
+
+def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
+    """Ступени TIME-04 + состав годов RAG-блока для существующей трассы.
+
+    Возвращает ``(period, years)``: только коды и числа. `period` — ровно те
+    ступени, которые посчитал `select_period_rows` (пул → принято →
+    отброшено по статусу/давности/релевантности/бюджету); `years` — годы
+    фактически вошедших в `<RAG_Memory>` строк, по времени самой строки."""
+    stats = dict(period_stats or {})
+    period = {
+        "intent": dict(stats.get("period_intent") or {}),
+        "pool": int(stats.get("selection_rows") or 0),
+        "kept": int(stats.get("selection_kept") or 0),
+        "topic_quota": int(stats.get("topic_quota") or 0),
+        "topic_years": int(stats.get("topic_years") or 0),
+        "topic_common_stems": int(stats.get("topic_common_stems") or 0),
+        "historical_quota": int(stats.get("historical_quota") or 0),
+        "multi_year_quota": int(stats.get("multi_year_quota") or 0),
+        "dropped_subject": int(stats.get("rejected_subject") or 0),
+        "dropped_budget": int(stats.get("dropped_budget") or 0),
+        "dropped_status": int(stats.get("dropped_status") or 0),
+        "current_state_guard": int(stats.get("current_state_guard") or 0),
+        "dropped_out_of_target_year": int(
+            stats.get("dropped_out_of_target_year") or 0),
+        "dropped_unknown_year": int(stats.get("dropped_unknown_year") or 0),
+        "pool_status": dict(stats.get("pool_status") or {}),
+        "pool_expired": int(stats.get("pool_expired") or 0),
+        "age_policy": str(stats.get("age_policy") or ""),
+        "vector_leg": str(stats.get("vector_leg") or ""),
+        "vector_rows": int(stats.get("vector_rows") or 0),
+        "vector_unavailable_reason": (
+            str(stats.get("vector_unavailable_reason") or "") or None),
+    }
+    years: dict = {}
+    for item in kept or ():
+        try:
+            ts = int(item[2] or 0)
+        except (TypeError, ValueError, IndexError):
+            ts = 0
+        if not ts:
+            continue
+        year = _utc_year(ts)
+        if year is None:
+            continue
+        years[year] = years.get(year, 0) + 1
+    return period, dict(sorted(years.items()))
 
 
 def _rag_ground_records(rows: list, kept: list, chat_id) -> list:
@@ -2952,6 +3034,9 @@ class PreparedTurnPayload:
     dropped: tuple
     self_outputs: tuple
     policy_version: str
+    #: TIME-04 (review r1): ступени отбора периода того же хода (только числа/
+    #: коды). Default пусто — прочие пути/двойники не меняются.
+    memory_period: dict = dataclasses.field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -2973,6 +3058,7 @@ class DeliveredTurnSnapshot:
     identity_complete: bool
     event_blocks: tuple
     policy_version: str
+    memory_period: dict = dataclasses.field(default_factory=dict)
 
 
 def _counts_as_message(block_kind, item_id) -> bool:
@@ -3107,7 +3193,7 @@ def _rendered_quote_fragments(lines):
 def _prepared_turn_payload(*, chat_id, correlation_id, blocks, event_blocks,
                            available_item_ids, window_messages, budget, dropped,
                            self_outputs, chain_rendered=None, projection=None,
-                           policy_version=None) -> PreparedTurnPayload:
+                           policy_version=None, memory_period=None) -> PreparedTurnPayload:
     """Собрать ``PreparedTurnPayload`` из финальных (kind, text) блоков.
 
     Событий не эмитит — это вход селектора (`_settle_delivered_turn`)."""
@@ -3131,7 +3217,8 @@ def _prepared_turn_payload(*, chat_id, correlation_id, blocks, event_blocks,
         budget=dict(budget or {}),
         dropped=tuple(dict(item) for item in (dropped or ())),
         self_outputs=tuple(dict(item) for item in (self_outputs or ())),
-        policy_version=str(policy_version or _composer.COMPOSER_POLICY_VERSION))
+        policy_version=str(policy_version or _composer.COMPOSER_POLICY_VERSION),
+        memory_period=dict(memory_period or {}))
 
 
 class L2WriterResult(tuple):
@@ -3301,7 +3388,8 @@ def _settle_delivered_turn(receipt, prepared, style_outcome):
         delivered_quote_ids=tuple(sorted(delivered_quotes)),
         identity_complete=bool(complete),
         event_blocks=tuple(event_blocks),
-        policy_version=prepared.policy_version)
+        policy_version=prepared.policy_version,
+        memory_period=dict(prepared.memory_period or {}))
 
 
 def _project_style_snapshot(style_outcome, *, chat_id, correlation_id) -> None:
@@ -3355,6 +3443,7 @@ def _project_delivered_turn(snapshot, style_outcome=None) -> None:
                 "dropped": [dict(item) for item in snapshot.dropped],
                 "self_outputs": [dict(item) for item in snapshot.self_outputs],
                 "policy_version": snapshot.policy_version,
+                "memory_period": dict(snapshot.memory_period or {}),
             })
     except Exception:      # pragma: no cover - трасса не рвёт ход
         logger.warning("direct: selection projection failed | chat=%s",
@@ -10646,6 +10735,20 @@ class DirectChatService:
                     "first_ts": _span["first_ts"],
                     "last_ts": _span["last_ts"],
                 })
+                # TIME-04 (review r1): состав годов вошедших эпизодов (только
+                # годы и числа) — для per-block трассы хода.
+                span_years = stats.setdefault("years", {})
+                for _row in span_rows:
+                    try:
+                        _ts = _sel_row_ref(_row)[2]
+                    except Exception:      # pragma: no cover - защита
+                        continue
+                    if not _ts:
+                        continue
+                    _year = _utc_year(_ts)
+                    if _year is None:
+                        continue
+                    span_years[_year] = span_years.get(_year, 0) + 1
             except Exception:      # pragma: no cover - наблюдение не рвёт сборку
                 pass
             logger.info(
@@ -11278,6 +11381,7 @@ class DirectChatService:
                     bot_user_id=_bot_id)
                 if _kind in ("global_tail", "global_middle"):
                     _full_ids[_kind] = _sel_row_ids(_rows, bot_user_id=_bot_id)
+                    _block["years"] = _block_years(_rows)
                 if _kind == "rag" and isinstance(rag_memory, dict):
                     # Факты памяти: id/даты считает сам `_build_rag_block`
                     # (после дедупа/реранка/сортировки). Это НЕ сообщения —
@@ -11291,6 +11395,7 @@ class DirectChatService:
                         dict(item) for item in
                         (rag_memory.get("grounds") or ())
                         if isinstance(item, dict)][:_MAX_SELECTION_IDS]
+                    _block["years"] = dict(rag_memory.get("years") or {})
                     _full_ids[_kind] = _rag_ids
                 elif _kind == "episode":
                     # Спаны фактически вошедших эпизодов (без текста строк).
@@ -11305,6 +11410,7 @@ class DirectChatService:
                     _block["source_ids"] = _ids[:_MAX_SELECTION_IDS]
                     _block["first_ts"] = min(_stamps) if _stamps else 0
                     _block["last_ts"] = max(_stamps) if _stamps else 0
+                    _block["years"] = dict(episode_stats.get("years") or {})
                     _full_ids[_kind] = _ids
                 elif _kind == "global_head":
                     # UR-20.5 (доработка шага 1): конспект покрывает ДИАПАЗОН
@@ -11317,6 +11423,15 @@ class DirectChatService:
                     _head_last = _sel_int(global_parts.get("window_end_ts"))
                     _block["first_ts"] = _head_first or 0
                     _block["last_ts"] = _head_last or 0
+                    _head_years: dict = {}
+                    for _ts in (_head_first, _head_last):
+                        if not _ts:
+                            continue
+                        _year = _utc_year(_ts)
+                        if _year is None:
+                            continue
+                        _head_years[_year] = _head_years.get(_year, 0) + 1
+                    _block["years"] = dict(sorted(_head_years.items()))
                 elif _kind == "thread":
                     # Ветка ответов: id/даты — из тех же `ChainItem`, что
                     # рендерились в блок (формула id композера).
@@ -11368,6 +11483,17 @@ class DirectChatService:
                         # `allocation.excluded` (двойного счёта нет).
                         _thread_cut = _lost
                 _sel_blocks.append(_block)
+            # TIME-04 (review r1): per-block состав годов в существующий лог
+            # (RAG_Memory/Old_Episode/Global_Context и прочие блоки с датами).
+            # Только годы и числа; блоки без дат честно отсутствуют.
+            try:
+                logger.info(
+                    "direct: context block years | %s | chat=%s",
+                    [(row.get("kind"), dict(row.get("years") or {}))
+                     for row in _sel_blocks if row.get("years")],
+                    chat_id)
+            except Exception:      # pragma: no cover - наблюдение не рвёт ход
+                logger.debug("direct: block years log failed", exc_info=True)
             # Счётчики. «Доступно» — размер ОБЪЕДИНЕНИЯ id четырёх пулов
             # (tail/middle/chain/спаны эпизодов), а не сумма их размеров: одни и
             # те же сообщения приходят и в хвосте, и в ветке, и в эпизоде, и
@@ -11435,6 +11561,7 @@ class DirectChatService:
                     chat_id=chat_id, correlation_id=correlation_id,
                     blocks=_final_blocks, event_blocks=_sel_blocks,
                     available_item_ids=_pool_ids,
+                    memory_period=(rag_memory or {}).get("period"),
                     window_messages=len(list(window or ())),
                     budget={
                         "slot": "direct.primary",
@@ -14233,7 +14360,11 @@ class DirectChatService:
                 # релевантность/бюджет — числа и коды, без текстов фактов.
                 "topic_quota": int(selection.get("topic_quota") or 0),
                 "topic_years": int(selection.get("topic_years") or 0),
+                "topic_common_stems": int(
+                    selection.get("topic_common_stems") or 0),
                 "dropped_status": int(selection.get("dropped_status") or 0),
+                "current_state_guard": int(
+                    selection.get("current_state_guard") or 0),
                 "dropped_budget": int(selection.get("dropped_budget") or 0),
                 "pool_status": dict(selection.get("pool_status") or {}),
                 "pool_expired": int(selection.get("pool_expired") or 0),
@@ -14788,11 +14919,17 @@ class DirectChatService:
             logger.warning("direct: rag context truncated to %d chars | chat=%s",
                            cap, chat_id)
             content = content[:cap]
+        period_trace, rag_years = _period_trace(period_stats, kept)
         logger.info(
             "direct: rag block | facts=%d | period_kept=%d | "
             "period_rejected_subject=%d | period_kept_despite_empty=%d | "
             "vector_pool_miss=%d | period_vector_knn=%d | "
-            "period_vector_leg=%s | subject_proxy=%s | chat=%s",
+            "period_vector_leg=%s | subject_proxy=%s | "
+            "period_topic=%d | period_topic_years=%d | "
+            "period_topic_common=%d | period_current_guard=%d | "
+            "period_dropped_budget=%d | "
+            "period_dropped_status=%d | period_pool_expired=%d | "
+            "period_age_policy=%s | rag_years=%s | chat=%s",
             len(kept), period_kept,
             int(period_stats.get("rejected_subject") or 0),
             period_kept_despite_empty,
@@ -14800,7 +14937,24 @@ class DirectChatService:
             int(period_stats.get("vector_kept") or 0),
             str(period_stats.get("vector_leg") or "n/a"),
             _subject_proxy_histogram(rows, kept),
-            chat_id)
+            period_trace["topic_quota"], period_trace["topic_years"],
+            period_trace["topic_common_stems"],
+            period_trace["current_state_guard"],
+            period_trace["dropped_budget"], period_trace["dropped_status"],
+            period_trace["pool_expired"], period_trace["age_policy"] or "n/a",
+            rag_years, chat_id)
+        if period_stats:
+            # TIME-04 (review r1): ступени отбора обязаны доходить до
+            # существующей durable-трассы, а не оставаться в локальном dict.
+            # Тот же `emit_stage_event`/`mca_events`, без нового хранилища.
+            try:
+                _mca_rc.emit_stage_event(
+                    "retrieval", "selection", reason_code="period_selection",
+                    chat_id=chat_id,
+                    usage_json={"period_trace": period_trace,
+                                "years": rag_years})
+            except Exception:      # pragma: no cover - наблюдение не рвёт блок
+                logger.debug("direct: period trace emit failed", exc_info=True)
         # UR-F шаг 1 (UR-20.5/20.7): какие ИМЕННО факты памяти вошли в блок —
         # id и даты (текст факта не копируется). Out-параметр, потому что
         # второй проход по фактам после рендера запрещён (порядок/метки уже
@@ -14825,6 +14979,10 @@ class DirectChatService:
                 out_memory["source_ids"] = ids
                 out_memory["first_ts"] = min(stamps) if stamps else 0
                 out_memory["last_ts"] = max(stamps) if stamps else 0
+                # TIME-04 (review r1): ступени отбора и годы блока — в том же
+                # out-параметре хода (существующая трасса), без текста фактов.
+                out_memory["period"] = dict(period_trace)
+                out_memory["years"] = dict(rag_years)
                 # Основания решения: id + происхождение каждого вошедшего
                 # факта (R17: без текста). Раньше здесь были только id.
                 out_memory["grounds"] = _rag_ground_records(
