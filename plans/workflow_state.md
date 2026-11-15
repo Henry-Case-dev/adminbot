@@ -15,7 +15,7 @@ Review: M1/NEXT2 VERIFIED; ONTO-A/B/M2/A/B/C independently reviewed and deployed
 Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 paused_by_owner with 12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T15:35:00+12:00
+Updated: 2026-11-15T16:04:08+12:00
 
 ## Facts
 
