@@ -1,0 +1,206 @@
+# VMQ-MEM / VMQ-MEM-TIME — Slice A: периодный intent и честный вектор (2026-11-15)
+
+Статус: реализация + тесты. Карта требований НЕ правилась (привязку делает PM
+после Reviewer). Production не менялся, деплоя не было.
+
+Основание: `root-cause-2026-11-15.md` §2/§4 (Slice A), `measurement-2026-11-15.md`
+§4/§8 (дефекты 1, 2, 5), `next-stage-design.md` §1–§5 (действующий контракт §2).
+
+Ветка: `vmq/mem-a`, база `8b56fc7320722494d0191f320e6da3355cc1a654`
+(M2 tip, code `f7a9c596`; родитель — ONTO-B/ONTO-A/`c97c06e4`).
+
+## 1. Что подтверждено и что исправлено
+
+Дефект (измерение на копии прод-БД): вопрос «из-за чего мы ссорились и ругались в
+2023 году» — в периодном пуле 13 строк 2023, после отбора по предмету принято 0;
+15 из 16 строк отклонены порогом «≥2 общих основы». Точная формулировка владельца
+получала 1 старую строку, событие без года оставалось 2026-доминированным.
+
+Исправлено в этой ступени:
+
+* **Структурированное периодное намерение.** `PeriodIntent` (`kind =
+  none|explicit_year|historical`, `years`, `source`) + `resolve_period_intent()`
+  (явный год → `memory_scope=historical` → существующие исторические маркеры +
+  повествовательные формы «рассказ/за все годы/за эти годы/биограф» → `none`).
+  Поле `RetrievalRequest.period_intent` аддитивно (default `None`): все прочие
+  вызывающие байт-идентичны; `period_fill=False` не меняется вовсе.
+  `_HISTORY_MARKERS` (M2-триггер, Slice C) НЕ расширялся.
+* **Время-цель первым.** При `explicit_year` пул периода сохраняет строки
+  целевого года (порядок — по числу общих основ), строки другого года и с
+  неизвестным временем отбрасываются с кодами `out_of_target_year` /
+  `unknown_year`. Отсев применяется и в `retrieve(period_fill=True)` (до выдачи),
+  и в отборе потребителя: 2026-строка не занимает периодные слоты и не выдаёт
+  себя за 2023.
+* **Мягкий fallback исторического намерения (bounded).** Действующий порог §2
+  (≥2 общих основы) сохранён как основной. Fallback включается только когда он
+  не дал ни одной строки И пул даёт не меньше двух строк с одной общей основой:
+  добираются лучшие (не более слотов) с кодом `subject_soft_fallback`. Одна
+  слабая строка блок не собирает (действующий контракт §2/§5).
+* **Честная векторная нога.** Перед KNN читается существующий
+  `embedding_control_plane.resolve_index_compat` (read-only, без записи):
+  `state=compatible` (`class=admitted|instant`) → нога участвует (`proven=true`);
+  `insufficient`/`incompatible` → нога НЕ вызывается, наружу
+  `vector_unavailable` + `vector_unavailable_reason` (`compat_not_proven` и т.п.);
+  `no_generation`/`source_empty` → доказательства нет ни в одну сторону, решает
+  прежний гейт A06 внутри `MemoryManager` (`admitted=null`, `proven=false`).
+  Прежний ключ `vector_leg` сохранён; новые ключи аддитивны.
+* **Один отбор.** `select_period_rows()` в retrieval-контракте — единственная
+  политика; `DirectChatService._rag_period_subject_filter` теперь тонкий фасад
+  (тот же `stem_word`, те же коды, одно вычисление `stems_shared`), поэтому
+  отчёт/трасса/строка `stems_shared` не расходятся.
+
+Текущее состояние не ослаблено: словаря «сейчас» нет, при `intent=none` порог §2
+и прежний путь байт-идентичны (C1/T3 остаются свежедоминированными), `operative`
+до добора не доходит.
+
+## 2. Файлы и объём
+
+```
+services/mca_retrieval_context.py | +419   (контракт/политика/диагностика; сюда же
+                                            перенесено вычисление года/основ)
+services/direct_chat_service.py   |  155   (потребитель: intent → request → отбор;
+                                            фасады года/основ; статистика причин)
+tests/test_vmq_mem_period_intent.py | новый (20 CONTRACT/REGRESSION тестов)
+tests/test_mem_time_policy.py       |  21   (ожидание периода дополнено
+                                            period_intent, прежние 4 флага целы)
+```
+
+Ключевые точки: `mca_retrieval_context.resolve_period_intent`,
+`PeriodIntent`, `select_period_rows`, `_period_vector_admission`,
+`retrieve()` (фильтр целевого года + диагностика `period_fill`);
+`direct_chat_service._rag_unified_rows` (intent → `_rag_retrieve` → отбор),
+`_rag_period_subject_filter` (фасад), `_rag_row_year`/`_rag_subject_stems`/
+`_rag_subject_shared` (фасады к одному вычислению).
+
+### Границы записи
+
+Заявленный scope — `services/mca_retrieval_context.py` + retrieval tests/evidence,
+admission только в рамках существующего контракта `embedding_control_plane.py`
+(он не менялся). Файл `services/direct_chat_service.py` тронут как **доказуемо
+необходимый потребитель**: подтверждённая причина потери 15/16 строк
+(`_rag_period_subject_filter`) физически живёт там, и без его делегирования
+исправление недостижимо. `tool_router.py`, `database.py`, M2-файлы, схема, флаги
+не менялись. Других активных писателей в этих файлах не было (M2 tip — база
+ветки; рабочее дерево M2 чистое).
+
+## 3. RED → GREEN, мутация, прогоны
+
+Тест-файл: `tests/test_vmq_mem_period_intent.py` (20 тестов). RED получен
+возвратом двух файлов к базе (patch сохранён и восстановлен, рабочее дерево
+чистое до коммита):
+
+* база: **18 failed, 1 passed**; первичный дефект виден прямо в ассерте —
+  «из-за чего… в 2023 году» после порога принимает только строки 2026
+  (`(3001, 3002, 3003)`), 0 из 13 строк целевого года;
+* ветка: **20 passed**; интеграционный тест документированной формы пула
+  (13 строк 2023 + 3 строки 2026) показывает `rows_in_target = 13`,
+  `dropped_out_of_target_year = 3`, в срез доезжают строки 2023.
+
+Мутация правила сохранения года (`if year not in years:` → `if False:` в
+`select_period_rows`): **2 failed** — строки 2026 принимаются вместе с 2023,
+целевые тесты краснеют. Мутация откачена (файл восстановлен побайтно).
+
+Фокусные наборы (тот же `.venv`, без сети):
+
+```
+pytest tests/test_memory_period_vector_leg.py tests/test_vmq_mem_period_intent.py
+       tests/test_mem_time_policy.py tests/test_mem_time_asof.py
+       tests/test_mem_time_l1_scope.py tests/test_mem_time_profile.py
+       tests/test_memory_unified_retrieval.py tests/test_memory_unified_retrieval_06.py
+       tests/test_vmq_mem_retrieval_fixes.py tests/test_evidence_grounds_persistence.py
+       tests/test_mca07_retrieval_context_round1027.py tests/test_memory_contracts.py
+       tests/test_memory_attribution.py tests/test_memory_communities_retrieval.py
+       tests/test_webapp_memory_overview_api.py tests/test_mem08_search_read_model.py
+       tests/test_memory_lookup_round1026.py tests/test_rlr_observability.py
+       tests/test_ur_f_inspector_step1.py tests/test_ur_f_inspector_step2.py
+       tests/test_ur_d_writer.py tests/test_ur_e_speech.py
+```
+
+* ветка: **600 passed** (включая 20 новых), 0 failed;
+* база `8b56fc73` (чистый shared-клон в run-каталоге, без нового тест-файла):
+  **580 passed**, 0 failed. Известных предсуществующих падений в этих наборах нет.
+
+Машинная сводка: `slice-a-tests-2026-11-15.json` (sha256
+`e9159192b9b041a75ecc5c82877e86d94c565ef43e50200e1c4362dac7c5c39c`).
+
+## 4. Что тесты реально проверяют
+
+* явный 2023: целевой год сохраняется, порядок по основам, `rejected_subject=0`;
+* 2026 при явном 2023 не принимается; причина `out_of_target_year` посчитана;
+* неизвестное время при явном годе — fail-closed (`unknown_year`);
+* интеграция `retrieve(period_fill=True)`: в `fact_rows` только целевой год,
+  `rows_in_target`/`dropped_*` в `usage_json.period_fill`;
+* форма измеренного пула (13+3) проходит весь путь до добора в срез;
+* owner-формулировка («…рассказ…»): намерение историческое, fallback bounded
+  слотами, строки помечены `period_fill`; одна слабая строка блок не собирает;
+  при уже принятой строгой строке fallback не подмешивает шум;
+* «что сейчас»: `intent=none`, одна основа отклоняется, срез остаётся 2026;
+* вектор: `insufficient` → KNN не вызывается ни разу, `vector_unavailable=1`,
+  причина `compat_not_proven`, `proven=false`, лексика работает;
+  `compatible` → ровно один вызов, `admitted/proven=true`, строка доставлена;
+  `no_generation` → решает прежний гейт A06, `proven=false` (не выдаётся за допуск);
+* причины отсева согласованы: `rows = kept + dropped_out_of_target_year +
+  dropped_unknown_year + dropped_pool_cap`; принятые id ⊆ реально поданных строк;
+  cap пула записывается как `period_pool_cap`, а не молчание.
+
+Чего тесты НЕ доказывают (честно): реальную достаточность семантической ноги на
+живом индексе, фактический live admission, качество сгенерированного ответа и
+поведение на живом корпусе (см. §5).
+
+## 5. Корпусный прогон: недоступен локально (честная граница)
+
+Архивный harness (`harness-2026-11-15/`) требует свежую копию прод-БД со schema
+47, снятую на прод-хосте. Локально такой копии нет:
+
+* `local_database_2026-09-04_history.db` (1.9 млн сообщений, факты 2022–2026) —
+  старая схема `graph_facts` без `subject_ref_id`: `search_graph_facts_fts`
+  падает `no such column: f.subject_ref_id`, реальный retrieval-путь не
+  воспроизводится;
+* `pre_migration_20261007_010900.db` — 0 фактов; `backups/local_database_20260920.db`
+  — 1 факт.
+
+Поэтому корпусное измерение «13 строк 2023 в пуле» здесь НЕ повторялось и не
+заявляется. Воспроизведение формы пула (13+3) сделано на синтетических данных
+через реальный код (`mca_retrieval_context.retrieve` →
+`_rag_period_subject_filter` → `_rag_append_period_rows`). Для Reviewer/PM:
+корпусный прогон и **live admission** остаются отдельным обязательным шагом
+(`vector`-зависимая приёмка без него не закрывается; копия ≠ live).
+
+## 6. Приёмка Slice A (что покрыто, что нет)
+
+| пункт | статус | основание |
+|---|---|---|
+| явный 2023 сохраняется, 0 потерь целевого года | covered | RED base (0 из 13, приняты только 2026) → GREEN (13 в пуле, строки 2023 в срезе) |
+| 2026 не маскируется под 2023 | covered | `dropped_out_of_target_year`, интеграция `retrieve` |
+| точная owner-формулировка получает bounded старый вклад | covered (unit) | `test_owner_formulation_contributes_bounded_old_rows`, `soft_fallback` |
+| «что сейчас» остаётся свежедоминированным | covered | `intent=none`, порог §2 без изменений, срез 2026 |
+| вектор: `insufficient` → честный `vector_unavailable`, `compatible` → участвует | covered (unit, ECP-контракт) | `TestVectorAdmission` |
+| live admission / реальный корпус | **UNVERIFIED** | нет копии schema 47 и провайдера в этой среде; live не трогали |
+| причина-коды, нет выдуманного источника | covered | `TestReasonCodedDrops`, id ⊆ входных строк |
+
+Карта требований не менялась; строки VMQ-TIME-01/03/04/06 и VMQ-MEM-04
+привязывает PM после независимого ревью.
+
+## 7. Конфигурация и откат
+
+Новых флагов/настроек нет. Значимые effective-значения не менялись: путь
+`period_fill` по-прежнему включается только для `historical/auto` и только при
+`usable >= limit//2` для `auto`; `operative` не добора не делает. Тестовые
+прогоны шли с дефолтной конфигурацией тестов (флаги из `conftest` — off), живой
+`chat_rag_rerank_enabled`/`memory_scope` не переключались. Откат — revert коммита:
+схема, данные и индексы не менялись, durable-состояния нет.
+
+## 8. Housekeeping
+
+Одноразовый run-каталог (`probe-a99dc133e6`: копия БД, shared-клон базы,
+RED/GREEN-логи, патчи) закрыт через `run-close --confirmed-idle
+--confirmed-evidence --apply` после переноса доказательств в этот файл и
+`slice-a-tests-2026-11-15.json`; сырые логи удалены как одноразовые.
+Worktree ветки `vmq/mem-a` сохранён для Reviewer — запись удержания:
+`slice-a-retention-2026-11-15.json` (триггер освобождения — вердикт ревью и
+интеграция ветки).
+
+## ����������� ����� R1
+
+�������: Approved ��� predeploy REVIEW ��������� 570a49db9aa0d1d487e43e2d0ffae0dffcb00497. Implementation: ��������� resolve_period_intent/select_period_rows, direct-chat delegation, retrieve vector admission �� KNN; DDL/������ pipeline/����� ���� �����������. Test validity: 20 ����� ������ � ���������� time-policy ���� ���������; 99 focused tests passed (58 feature + 41 adjacent), assertions ��������� ids/years/reasons/KNN spy, �� tautology. Independent challenge: managed mutation monkeypatch period_row_year -> result changed [1] to [2,1], so year contract falsified by mutation; run closed. Ledger: target-year, reason-coded drops, bounded historical fallback, current-state strictness, shared selector, insufficient no-KNN, compatible KNN, no-generation A06 = VERIFIED (REVIEW); live vector admission and real corpus = UNVERIFIED, separate owner. Command: python -m pytest tests/test_vmq_mem_period_intent.py tests/test_mem_time_policy.py tests/test_mca07_retrieval_context_round1027.py -q -> 99 passed, 2 config warnings, 6.31s. No pre-existing focused failures. No production access/deploy. PM must bind statuses; Orchestrator must run review gate. 
+
