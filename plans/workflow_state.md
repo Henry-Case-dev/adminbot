@@ -3,19 +3,19 @@
 Task: vmq-onto-01 (queue 5, P0) — resumed after SMART-CORRECTIVE-01 engineering closure; parent smart-execution-reliability-01 parked with live acceptance
 Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + amendments 2026-11-10..13; owner continuity instruction 2026-11-15
 Status: in_progress
-Primary phase: implementation
+Primary phase: postdeploy evidence (owner-requested pause pending)
 Active feature: vmq-onto-01
 Active lanes: DevOps postdeploy O-04/L1 probe ses_e22c50daaffe4jcEdIQ0egdFym
 Join barriers: O-04 correction-effect and live L1 probe -> Slice D (ordinary memory twin/person facts/trace/relevance); V rows await a real voice event; memory epic remains open
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. Deployed 2b419aa2/2.58.204: M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (route/fingerprint pass, live correction effect unobserved); V-01..V-04 REVIEW; MEM-01 REVIEW, MEM-02..08 PENDING, TIME-03 REVIEW, TIME-01/02/04..09 PENDING. Release gates: VMQ-A/ONTO-A/ONTO-B 0; M2 release 1 (O-04) with delivery PASS and deferred O-04; MEM/TIME red on open rows. Full epic not DONE.
-Next unlocks: (1) PM binds proven Slice A rows at REVIEW; (2) Builder Slice B (A1 historical quota, T2 multi-year, profile subject binding, relationships, Old_Episode) -> Reviewer -> re-measure; (3) Slice C M2 trigger after B; release held until A+B are fixed and independently verified.
+Next unlocks: after the DevOps O-04/L1 probe: reconcile its evidence, update progress_scope/plans/workflow state and durable memory, then stop and await the owner command. No new product work is dispatched.
 Next execution: awaiting_children
 Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; deployed-line re-verification running; no new review verdict yet.
 Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T15:22:44+12:00
+Updated: 2026-11-15T15:31:31+12:00
 
 ## Facts
 
@@ -183,3 +183,6 @@ Delta review of exact tip 2b419aa2 Approved (artifact evidence/release-2.58.204/
 ## 2.58.204 deployed; postdeploy e2e (2026-11-15)
 
 Deployed 2b419aa2 / 2.58.204 (branch release/vmq-onto-01-2.58.204), base c97c06e4/2.58.203, rollback c97c06e4. Backup integrity ok; health local/public 200 version 2.58.204; schema 47 pending=[]; identity verified_deployed; NRestarts=0; journal 0 traceback/ERROR/CRITICAL (1 known summary_memory warning); bot_settings/chat_profiles digests unchanged; manual prompt rev:d31300ef35a0 12,469/31d17506 intact; effective budgets/caps/capacity pre==post; recheck after ~7 min clean. Postdeploy read-only e2e 32 checks/0 failed on a verified backup copy (no Telegram messages): exact owner query one overview retrieve/same result/one bundle, coverage 2023:83/2024:92/2025:9/2026:16, independent_periods 4, 5 counterexamples, 8 limitations, 20 episode refs; temporal 2023 in_target_year; biography/general one retrieve with overview, identity negative; current-state no overview/period_fill 0/episode reads 0; O-04 20/20 episode_source_fingerprint match, stale 0; cross-chat clean. Honest gaps: e2e is in-process on a backup copy, not the live systemd process/L1; no live post-correction event observed; current-state pre-plan block had 7x2026 + 3 old history_import rows (open memory epic observation, not an M-04/O-04 blocker). Release/delivery gates red only on map binding; PM is rebinding top-level candidate/deployed to 2b419aa2 and binding M-04/O-04/M-05/O-01..O-03 evidence, keeping V REVIEW and memory rows open.
+## Owner pause command (2026-11-15)
+
+Owner instruction: let the current DevOps task finish, then bring the plans in order, actualize durable memory, and stop and await the next command. No new product work is dispatched. Current active lane: DevOps postdeploy O-04/live-L1 probe (ses_e22c50daaffe4jcEdIQ0egdFym). After its result: reconcile O-04 (observed/unobserved), update progress_scope/plan/workflow state, write a durable memory delta, set Next execution: none and stop. VMQ epic remains open; memory MEM-04/TIME-01/02/04..09 and V-01..V-04 are not claimed closed. Deployment 2.58.204 at 2b419aa2 remains verified; rollback c97c06e4.
