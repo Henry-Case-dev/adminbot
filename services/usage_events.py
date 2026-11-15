@@ -65,6 +65,10 @@ PLAN_META_FIELDS = frozenset({
     "l1_reply_chars_cap", "l1_line_chars_cap",
     "l1_reply_total_chars", "l1_reply_delivered_chars",
     "l1_reply_truncated", "l1_kept_mid",
+    # VMQ Slice D (ARCH_DECISION): авторитет «настоящее vs историческое» —
+    # решение L1 (`memory_scope`); durable-ось нужна для проверки, что старый
+    # материал не замещает текущий срез по словарю. Значение — enum-код.
+    "memory_scope",
 })
 _PLAN_META_LIST_FIELDS = frozenset({"capabilities", "tools"})
 _PLAN_META_NUM_FIELDS = frozenset(

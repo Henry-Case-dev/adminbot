@@ -669,7 +669,8 @@ def note_clock_stage(correlation_id, stage: str) -> None:
 def note_l1(correlation_id, *, action: str = "", response_act: str = "",
             structure: str = "", plan_source: str = "",
             execution_mode: str = "", override: str = "", model: str = "",
-            fallback: str = "", slot: str = "") -> None:
+            fallback: str = "", slot: str = "",
+            memory_scope: str = "") -> None:
     """L1 action/plan этого хода (план — не авторская речь, §7).
 
     Значения L1 приходят из ответа модели, поэтому каждое проверяется как
@@ -694,6 +695,8 @@ def note_l1(correlation_id, *, action: str = "", response_act: str = "",
             "model": _code(model, 64),
             "fallback": _code(fallback, 64),
             "slot": _code(slot, 24),
+            # Slice D: авторитет охвата памяти (operative|historical|auto).
+            "memory_scope": _code(memory_scope, 16),
         }
     except Exception:      # pragma: no cover
         pass
@@ -1014,10 +1017,13 @@ def _sel_self_outputs(items, *, cuts: dict | None = None) -> list:
 
 
 def _sel_memory_period(value) -> dict | None:
-    """TIME-04 (review r1): ступени отбора периода для durable-трассы.
+    """TIME-04: ступени отбора периода для durable-трассы.
 
     Закрытый allowlist: только коды и числа, никаких текстов/запросов.
-    Возвращает ``None``, если полей нет (прочие пути не меняются)."""
+    Slice D (ARCH_DECISION): `policy`/`replace_allowed`/`period_skipped`/
+    `intent_source` показывают, ПОЧЕМУ старый материал не участвовал
+    (L1-авторитет), а не догадку по формулировке. Возвращает ``None``, если
+    полей нет (прочие пути не меняются)."""
     if not isinstance(value, dict):
         return None
     out: dict = {}
@@ -1037,15 +1043,17 @@ def _sel_memory_period(value) -> dict | None:
             clean_intent["source"] = source
         if clean_intent:
             out["intent"] = clean_intent
-    for key in ("pool", "kept", "topic_quota", "topic_years",
-                "topic_common_stems", "historical_quota", "multi_year_quota",
-                "dropped_subject", "dropped_budget", "dropped_status",
-                "current_state_guard",
-                "dropped_out_of_target_year", "dropped_unknown_year",
-                "pool_expired", "vector_rows"):
+    for key in ("replace_allowed", "pool", "kept", "historical_quota",
+                "multi_year_quota", "dropped_subject", "dropped_budget",
+                "dropped_status", "dropped_out_of_target_year",
+                "dropped_unknown_year", "pool_expired", "vector_rows"):
         number = _sel_int(value.get(key))
         if number is not None:
             out[key] = number
+    for key in ("policy", "period_skipped", "intent_source"):
+        code = _code(value.get(key), 32)
+        if code:
+            out[key] = code
     pool_status = value.get("pool_status")
     if isinstance(pool_status, dict):
         clean_status = {key: _sel_int(pool_status.get(key))

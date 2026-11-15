@@ -734,6 +734,8 @@ def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
         # ветка без предмета (её и нужно видеть отдельно).
         "needs_clar": getattr(p, "needs_clarification", False) is True,
         "clar_target_present": _clar_target_present(p),
+        # Slice D (ARCH_DECISION): durable-ось авторитета охвата памяти.
+        "memory_scope": str(getattr(p, "memory_scope", "auto") or "auto"),
     }
     fb_reason = str(meta.get("planner_fallback_reason") or "")
     if fb_reason:
@@ -2737,18 +2739,20 @@ def _period_trace(period_stats: dict, kept) -> tuple[dict, dict]:
     фактически вошедших в `<RAG_Memory>` строк, по времени самой строки."""
     stats = dict(period_stats or {})
     period = {
+        "policy": str(stats.get("policy") or ""),
+        "replace_allowed": int(stats.get("replace_allowed") or 0),
+        "period_skipped": str(stats.get("period_skipped") or ""),
         "intent": dict(stats.get("period_intent") or {}),
+        "intent_source": str(stats.get("intent_source")
+                             or (stats.get("period_intent") or {}).get(
+                                 "source") or ""),
         "pool": int(stats.get("selection_rows") or 0),
         "kept": int(stats.get("selection_kept") or 0),
-        "topic_quota": int(stats.get("topic_quota") or 0),
-        "topic_years": int(stats.get("topic_years") or 0),
-        "topic_common_stems": int(stats.get("topic_common_stems") or 0),
         "historical_quota": int(stats.get("historical_quota") or 0),
         "multi_year_quota": int(stats.get("multi_year_quota") or 0),
         "dropped_subject": int(stats.get("rejected_subject") or 0),
         "dropped_budget": int(stats.get("dropped_budget") or 0),
         "dropped_status": int(stats.get("dropped_status") or 0),
-        "current_state_guard": int(stats.get("current_state_guard") or 0),
         "dropped_out_of_target_year": int(
             stats.get("dropped_out_of_target_year") or 0),
         "dropped_unknown_year": int(stats.get("dropped_unknown_year") or 0),
@@ -5827,7 +5831,9 @@ class DirectChatService:
                     model=str(l1_meta.get("l1_model")
                               or getattr(self.llm, "_chat_model", "") or ""),
                     fallback=str(l1_meta.get("fallback") or ""),
-                    slot=str(l1_meta.get("slot") or ""))
+                    slot=str(l1_meta.get("slot") or ""),
+                    memory_scope=str(getattr(l1_plan, "memory_scope",
+                                            "auto") or "auto"))
                 if _l1_action == "silent":
                     if l1_plan.confidence_bucket == "low":
                         # §1.3: low confidence — SILENT демотируется в дет.
@@ -5918,7 +5924,9 @@ class DirectChatService:
                     model=str(l1_meta.get("l1_model")
                               or getattr(self.llm, "_chat_model", "") or ""),
                     fallback=str(l1_meta.get("fallback") or ""),
-                    slot=str(l1_meta.get("slot") or ""))
+                    slot=str(l1_meta.get("slot") or ""),
+                    memory_scope=str(getattr(l1_plan, "memory_scope",
+                                            "auto") or "auto"))
             # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
             # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
             # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
@@ -14256,26 +14264,49 @@ class DirectChatService:
                 return self._rag_rows_from_result(base, limit)
             rows = self._rag_rows_from_result(base, limit)
             if policy == "historical":
-                period_slots = max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
-            else:
-                # `auto` = L1 не принял решения. Периодный добор включается,
-                # только когда собственный срез уже содержателен (не меньше
-                # половины лимита фактов, не являющихся прошлыми ответами
-                # бота): иначе один старый факт стал бы главным источником
-                # ответа на текущий вопрос. Потолок тот же, что у
-                # `historical` (`limit // 5`): при 8 текущих строках это
-                # ровно 20 % среза, т.е. ≥80 % остаётся текущим годом
-                # (замер 11.11.2026: со слотом 1 в `auto` второй недостающий
-                # период не помещался и известный факт 2023 не доходил).
-                usable = sum(1 for row in rows
-                             if not _prov.is_self_referential_origin(
-                                 row.get("origin")))
-                if usable < max(1, int(limit) // 2):
+                # `historical` — L1 явно разрешил исторический охват.
+                pass
+            # Slice D (ARCH_DECISION 15.11.2026): право ЗАМЕЩАТЬ текущий срез
+            # старым материалом даёт только структурный сигнал L1/плана или
+            # явный год (`period_replace_allowed`), не словарь формулировки.
+            period_intent = _mca_rc.resolve_period_intent(
+                query, memory_scope=policy, plan_act=plan_act)
+            replace_allowed = _mca_rc.period_replace_allowed(
+                period_intent, policy)
+            period_slots = (max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
+                            if replace_allowed else 0)
+            usable = sum(1 for row in rows
+                         if not _prov.is_self_referential_origin(
+                             row.get("origin")))
+            trace_base = {
+                "policy": policy,
+                "replace_allowed": int(bool(replace_allowed)),
+                "period_skipped": "",
+                "period_intent": period_intent.as_dict(),
+                "intent_source": str(period_intent.source or ""),
+            }
+            if not replace_allowed:
+                # Основной срез НЕ режем. Полный/тонкий срез — периодного
+                # чтения нет вовсе; иначе старые строки не замещают текущие,
+                # а профиль может добирать только свободные слоты.
+                if len(rows) >= int(limit):
+                    skipped = "auto_full_slice"
+                elif usable < max(1, int(limit) // 2):
+                    skipped = "auto_thin_slice"
+                else:
+                    skipped = "auto_no_replace"
+                self._rag_period_stats = dict(
+                    trace_base, period_skipped=skipped,
+                    selection_rows=0, selection_kept=0)
+                if skipped in ("auto_full_slice", "auto_thin_slice"):
                     return rows
-                period_slots = max(1, int(limit) // self._RAG_PERIOD_SLOT_DIV)
-            # Слоты под ДРУГОЙ период резервируются только в пробной копии:
-            # если добрать нечего, состав среза остаётся прежним (паритет
-            # принятой выдачи direct-RAG).
+                trial = await self._rag_append_profile_rows(
+                    db, rows, chat_id, subject_name, subject_uid, limit,
+                    allow_replace=False)
+                return trial if len(trial) > len(rows) else rows
+            # Слоты под другой период резервируются только когда замена
+            # разрешена структурным сигналом: если добрать нечего, состав
+            # среза остаётся прежним (паритет принятой выдачи direct-RAG).
             trimmed = rows[:max(1, int(limit) - period_slots)]
             # (1) периодный добор из того же retrieval: старый факт, который
             #     найден по смыслу/тексту, но не попал в срез основного канала.
@@ -14309,11 +14340,7 @@ class DirectChatService:
             # VMQ-MEM/TIME Slice A (15.11.2026): структурированное периодное
             # намерение (явный год / исторический запрос) передаётся И в
             # retrieval-контракт, И в отбор пула — одно вычисление, один
-            # смысл. Для запроса без года и без исторической формы намерение
-            # `none`: прежний порог §2 не ослабляется.
-            period_intent = _mca_rc.resolve_period_intent(query,
-                                                         memory_scope=policy,
-                                                         plan_act=plan_act)
+            # смысл.
             if extra_rows is None:
                 extra = await self._rag_retrieve(
                     db, memory, chat_id, query, self._RAG_PERIOD_CHANNELS,
@@ -14337,6 +14364,7 @@ class DirectChatService:
             selection = dict(selection or {})
             rejected = int(selection.get("dropped_subject") or 0)
             self._rag_period_stats = {
+                **trace_base,
                 "rejected_subject": rejected,
                 "vector_pool_miss": int(period_meta.get("vector_pool_miss")
                                         or 0),
@@ -14348,23 +14376,13 @@ class DirectChatService:
                     period_meta.get("vector_unavailable"))),
                 "vector_unavailable_reason": str(
                     period_meta.get("vector_unavailable_reason") or ""),
-                "period_intent": dict(selection.get("intent") or {}),
                 "kept_in_target": int(selection.get("kept_in_target") or 0),
                 "soft_fallback": int(selection.get("soft_fallback") or 0),
                 "historical_quota": int(
                     selection.get("historical_quota") or 0),
                 "multi_year_quota": int(
                     selection.get("multi_year_quota") or 0),
-                # Slice D (15.11.2026): паритет обычного вопроса по материалу
-                # пула и ступени потери года (TIME-04): статус/давность/
-                # релевантность/бюджет — числа и коды, без текстов фактов.
-                "topic_quota": int(selection.get("topic_quota") or 0),
-                "topic_years": int(selection.get("topic_years") or 0),
-                "topic_common_stems": int(
-                    selection.get("topic_common_stems") or 0),
                 "dropped_status": int(selection.get("dropped_status") or 0),
-                "current_state_guard": int(
-                    selection.get("current_state_guard") or 0),
                 "dropped_budget": int(selection.get("dropped_budget") or 0),
                 "pool_status": dict(selection.get("pool_status") or {}),
                 "pool_expired": int(selection.get("pool_expired") or 0),
@@ -14386,7 +14404,8 @@ class DirectChatService:
             #     помечается `unattributed`, чтобы не читалось как сведение
             #     о человеке).
             trial = await self._rag_append_profile_rows(
-                db, trial, chat_id, subject_name, subject_uid, limit)
+                db, trial, chat_id, subject_name, subject_uid, limit,
+                allow_replace=True)
             return trial if len(trial) > len(trimmed) else rows
         except Exception:
             logger.warning(
@@ -14513,7 +14532,8 @@ class DirectChatService:
 
     async def _rag_append_profile_rows(self, db, rows: list, chat_id: int,
                                        subject_name, subject_uid,
-                                       limit: int) -> list:
+                                       limit: int,
+                                       allow_replace: bool = True) -> list:
         """Добрать периоды профиля субъекта (существующее чтение, §5).
 
         VMQ-MEM/TIME Slice B (15.11.2026): кроме фактов О субъекте
@@ -14522,7 +14542,14 @@ class DirectChatService:
         `speaker_author_id`), с годами 2023/2024 и явной ролью
         `subject|speaker`. Это не fallback `author=subject`: чужие строки не
         подмешиваются, роль остаётся в строке. Нет субъектных данных → добора
-        нет (честное пусто), второй поиск не создаётся."""
+        нет (честное пусто), второй поиск не создаётся.
+
+        Slice D (ARCH_DECISION): `allow_replace` — право замещать текущий
+        срез (структурный сигнал L1). При `False` и полном срезе чтения не
+        выполняются вовсе; добор возможен только в свободные слоты и никогда
+        не вытесняет текущие строки."""
+        if not allow_replace and len(list(rows or ())) >= max(1, int(limit)):
+            return rows
         name = str(subject_name or "").strip()
         if not name:
             return rows
@@ -14600,15 +14627,13 @@ class DirectChatService:
         # Субъектный материал — ПЕРВЫМ: иначе unattributed-контекст чата
         # занимает свободные слоты периода и факты о человеке не доходят.
         profile_rows = subject_rows + message_rows + about_rows
-        # Slice D (15.11.2026): субъектно-привязанный материал (факты о
-        # человеке и его собственные сообщения) сильнее общего периодного
-        # добора по теме: иначе `topic_parity_quota` (MEM-04) занимает оба
-        # слота, и профиль остаётся без собственных строк человека. Заменяем
-        # ТОЛЬКО generic period-строки и только когда есть что поставить
-        # (unattributed-контекст периодные строки не вытесняет).
+        # Slice D (ARCH_DECISION 15.11.2026): вытеснять generic period-строки
+        # субъектным материалом можно ТОЛЬКО когда замена разрешена
+        # структурным сигналом L1 (`allow_replace`). Иначе профиль добирает
+        # лишь свободные слоты и не трогает текущий срез.
         bound = any(row.get("subject_role") or row.get("authored_by_subject")
                     for row in profile_rows)
-        if bound:
+        if allow_replace and bound:
             rows = [row for row in rows
                     if not (isinstance(row, dict) and row.get("period_fill"))]
         return self._rag_append_period_rows(rows, profile_rows, limit)
@@ -14925,8 +14950,8 @@ class DirectChatService:
             "period_rejected_subject=%d | period_kept_despite_empty=%d | "
             "vector_pool_miss=%d | period_vector_knn=%d | "
             "period_vector_leg=%s | subject_proxy=%s | "
-            "period_topic=%d | period_topic_years=%d | "
-            "period_topic_common=%d | period_current_guard=%d | "
+            "memory_policy=%s | replace_allowed=%d | period_skipped=%s | "
+            "intent_source=%s | period_historical=%d | period_multi_year=%d | "
             "period_dropped_budget=%d | "
             "period_dropped_status=%d | period_pool_expired=%d | "
             "period_age_policy=%s | rag_years=%s | chat=%s",
@@ -14937,9 +14962,12 @@ class DirectChatService:
             int(period_stats.get("vector_kept") or 0),
             str(period_stats.get("vector_leg") or "n/a"),
             _subject_proxy_histogram(rows, kept),
-            period_trace["topic_quota"], period_trace["topic_years"],
-            period_trace["topic_common_stems"],
-            period_trace["current_state_guard"],
+            period_trace["policy"] or "n/a",
+            period_trace["replace_allowed"],
+            period_trace["period_skipped"] or "-",
+            period_trace["intent_source"] or "-",
+            period_trace["historical_quota"],
+            period_trace["multi_year_quota"],
             period_trace["dropped_budget"], period_trace["dropped_status"],
             period_trace["pool_expired"], period_trace["age_policy"] or "n/a",
             rag_years, chat_id)

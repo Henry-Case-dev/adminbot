@@ -515,24 +515,13 @@ PERIOD_DROP_POOL_CAP = "period_pool_cap"
 #: `confirmed`/`archived_*`). SQL-каналы такие строки и так не отдают; отбор
 #: обязан вести себя так же, если строка пришла от другого канала.
 PERIOD_DROP_STATUS = "status_not_usable"
-#: Slice D (review r1, D1): строка старого года не допускается в вопрос о
-#: настоящем под `auto`, даже если прошла строгий порог основ. Причина
-#: называется явно, а не маскируется «релевантностью».
-PERIOD_DROP_CURRENT_STATE = "current_state_guard"
 #: Как строка вошла: год-цель сохранён / мягкий предметный fallback / вектор /
-#: ограниченная историческая квота / multi-year квота / паритет обычного
-#: вопроса (Slice D).
+#: ограниченная историческая квота / multi-year квота.
 PERIOD_KEEP_IN_TARGET = "in_target_year"
 PERIOD_KEEP_SOFT_FALLBACK = "subject_soft_fallback"
 PERIOD_KEEP_VECTOR = "vector_leg_no_threshold"
 PERIOD_KEEP_HISTORICAL_QUOTA = "historical_quota"
 PERIOD_KEEP_MULTI_YEAR = "multi_year_quota"
-#: Slice D (15.11.2026): обычный вопрос без исторической формы получает
-#: ограниченный вклад старого периода, если САМ ПУЛ показывает многолетнюю
-#: предметную непрерывность (≥2 строки «того же предмета» из ≥2 разных лет).
-#: Это не словарь и не догадка о формулировке: сигнал берётся из материала,
-#: который уже найден существующим retrieval; квота — те же слоты.
-PERIOD_KEEP_TOPIC_PARITY = "topic_parity_quota"
 
 #: Порог «тот же предмет, не то же слово» (действующий §2: ≥2 общих основы).
 PERIOD_MIN_SHARED_STEMS = 2
@@ -546,30 +535,6 @@ PERIOD_SOFT_FALLBACK_MIN_ROWS = 2
 _PERIOD_HISTORY_MARKERS = _HISTORY_MARKERS + (
     "рассказ", "за все годы", "за эти годы", "биограф",
 )
-#: Slice D (15.11.2026): НЕГАТИВНЫЙ guard текущего состояния. Это не выбор
-#: материала и не триггер года: набор только ПОДАВЛЯЕТ паритет обычного
-#: вопроса (`topic_parity_quota`), когда вопрос спрашивает о настоящем.
-#: Существующий L1 `memory_scope=operative` остаётся главным сигналом; guard —
-#: консервативный fallback для `auto`, когда L1 не принял решения (иначе
-#: старые строки вытесняли текущие в вопросах «что сейчас…»). Историческое
-#: намерение (`historical`/`multi_year` из плана) сильнее guard'а и сюда не
-#: попадает: паритет по определению включается только при `intent=none`.
-_PERIOD_CURRENT_MARKERS = (
-    "сейчас", "теперь", "текущ", "на данный момент", "в данный момент",
-    "на сегодня",
-)
-
-
-def is_current_state_query(query) -> bool:
-    """Вопрос о настоящем (закрытый класс указателей времени, не темы/годы).
-
-    Используется ТОЛЬКО как отрицательный guard паритета обычного вопроса:
-    не добавляет материал, не выбирает годы и не заменяет решение L1
-    (`memory_scope=operative|historical`). Никогда не бросает."""
-    text = str(query or "").casefold()
-    return any(marker in text for marker in _PERIOD_CURRENT_MARKERS)
-
-
 _YEAR_IN_QUERY_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
 
 
@@ -661,6 +626,37 @@ def resolve_period_intent(query, *, memory_scope: str = "auto",
         if marker in text:
             return PeriodIntent(PERIOD_INTENT_HISTORICAL, (), "query_marker")
     return PeriodIntent()
+
+
+#: Slice D (ARCH_DECISION 15.11.2026): источники `PeriodIntent`, которым
+#: разрешено ЗАМЕЩАТЬ текущий срез старым материалом. Авторитет «настоящее vs
+#: историческое» — только решение L1 (`memory_scope`, `response_act`) и явный
+#: год запроса. `query_marker` (словарная эвристика) в множество НЕ входит:
+#: формулировка не имеет права вытеснять текущий срез; она может лишь
+#: запросить overview (M2/Slice C), который сам по себе не замещает факты.
+PERIOD_REPLACE_SOURCES = frozenset({
+    "query_year", "request_intent", "plan_act", "request_mode",
+    "memory_scope",
+})
+
+
+def period_replace_allowed(intent, policy: str) -> bool:
+    """Можно ли этому намерению замещать текущий срез старым материалом.
+
+    Единственный предикат на все пути (retrieval-консьюмер, профиль, трасса):
+    `operative` — никогда; `historical` — всегда; `auto` — только если
+    намерение пришло из структурного решения L1/плана или явного года
+    (`PERIOD_REPLACE_SOURCES`), но не из словарного `query_marker`. Никогда не
+    бросает: неизвестная политика нормализуется в `auto`."""
+    try:
+        scope = _mc.normalize_memory_scope(policy).value
+    except Exception:                                     # pragma: no cover
+        scope = "auto"
+    if scope == "operative":
+        return False
+    if scope == "historical":
+        return True
+    return str(getattr(intent, "source", "") or "") in PERIOD_REPLACE_SOURCES
 
 
 def year_time_bounds(year) -> tuple[int, int] | None:
@@ -785,12 +781,10 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
       без потери темы; одна слабая строка блок не собирает;
     * `none` — прежний путь (порог ≥2, векторная строка под `auto` тоже
       проходит порог): текущее состояние не ослабляется, словаря «сейчас»
-      нет. Slice D (15.11.2026): если САМ ПУЛ показывает многолетнюю
-      предметную непрерывность (не меньше двух строк «того же предмета» из
-      не меньше двух разных незавершённых лет), обычный вопрос получает тот
-      же ограниченный вклад старого периода (`topic_parity_quota`), что и
-      исторический: сигнал берётся из уже найденного материала, а не из
-      формулировки. Одна строка или один год паритет не включают.
+      нет. Slice D (ARCH_DECISION 15.11.2026): паритет обычного вопроса
+      удалён — замещать текущий срез имеет право только структурный сигнал
+      L1/плана/явного года (`period_replace_allowed` у потребителя), а не
+      формулировка запроса. Здесь `none` больше не даёт старого вклада.
 
     Возвращает ``(принятые, статистика)``; статистика — только коды и числа
     (`dropped_*`, `kept_*`, `soft_fallback`, `intent`), без текстов фактов.
@@ -825,7 +819,6 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "dropped_subject": 0,
         "dropped_pool_cap": 0,
         "dropped_status": 0,
-        "current_state_guard": 0,
         "dropped_budget": 0,
         "pool_status": {"confirmed": 0, "archived": 0, "other": 0},
         "pool_expired": 0,
@@ -833,9 +826,6 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         "soft_fallback": 0,
         "historical_quota": 0,
         "multi_year_quota": 0,
-        "topic_quota": 0,
-        "topic_years": 0,
-        "topic_common_stems": 0,
         "lexical_strict_passed": 0,
     }
     now_ts = int(time.time())
@@ -915,15 +905,6 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         stats["kept"] = len(accepted)
         return accepted, stats
     strict = str(policy or "") != "historical"
-    # D1 (review r1): под `auto` вопрос о настоящем не получает старый
-    # материал НИ через строгий порог, ни через паритет. Это структурный
-    # guard, независимый от L1 `operative`: если L1 не принял решения,
-    # текущий блок не теряет свои строки. Явный `historical`/`multi_year`
-    # сигнал сильнее и сюда не попадает.
-    current_state_guard = (
-        intent.kind == PERIOD_INTENT_NONE
-        and str(policy or "").strip().lower() == "auto"
-        and is_current_state_query(query))
     soft_pool: list[tuple[int, int, dict]] = []
     lexical_strict_passed = 0
     for index, row in enumerate(ordered):
@@ -938,64 +919,48 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         shared = period_subject_shared(query_stems, (row or {}).get("fact"))
         _mark_period_row(row, shared, "lexical_threshold_applied")
         if shared >= PERIOD_MIN_SHARED_STEMS:
-            if current_state_guard:
-                stats["dropped_subject"] += 1
-                stats["current_state_guard"] += 1
-                _mark_period_row(row, shared, PERIOD_DROP_CURRENT_STATE)
-                continue
             accepted.append(row)
             lexical_strict_passed += 1
             continue
         stats["dropped_subject"] += 1
         if shared >= 1:
             soft_pool.append((shared, index, row))
-    # Slice D: многолетняя предметная непрерывность — свойство ПУЛА, а не
-    # формулировки. Считаем только строки «того же предмета» (≥1 основа),
-    # у которых известен год, отличный от текущего, и требуем ≥2 разных лет.
-    topic_years = sorted({
-        year for _shared, _index, row in soft_pool
-        for year in (period_row_year(row),)
-        if year is not None and year != current_year})
-    stats["topic_years"] = len(topic_years)
-    # D2 (review r1): «тот же предмет» обязан подтверждаться ПЕРЕСЕЧЕНИЕМ
-    # основ МЕЖДУ старыми строками, а не только совпадением каждой с
-    # вопросом. Иначе «шизы обсуждали» (2023) + «на конфе шумели» (2024)
-    # принимались как один предмет, хотя их объединяет только запрос.
-    years_by_stem: dict = {}
-    for _shared, _index, row in soft_pool:
-        year = period_row_year(row)
-        if year is None:
-            continue
-        for stem in period_subject_stems((row or {}).get("fact")):
-            years_by_stem.setdefault(stem, set()).add(year)
-    topic_common_stems = {stem for stem, years in years_by_stem.items()
-                          if len(years) >= 2}
-    stats["topic_common_stems"] = len(topic_common_stems)
-    topic_parity = (intent.kind == PERIOD_INTENT_NONE
-                    and str(policy or "").strip().lower() != "operative"
-                    and not is_current_state_query(query)
-                    and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS
-                    and len(topic_years) >= 2)
+    # Slice D (ARCH_DECISION 15.11.2026): словарный `query_marker` больше не
+    # имеет права замещать текущий срез; паритет обычного вопроса удалён.
+    # Здесь остаётся только исторический/много-летний вклад, разрешённый
+    # структурным сигналом (его проверяет потребитель через
+    # `period_replace_allowed`).
     if intent.is_historical and soft_pool and len(accepted) < slots \
             and lexical_strict_passed == 0 \
             and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
         # Мягкий fallback: порог §2 не дал ни одной лексической строки, но пул
         # даёт не меньше двух строк «одного предмета» с одной основой. Тогда
         # добираем лучшие из них (bounded слотами) с явным кодом причины.
-        # Одна слабая строка блок не собирает — контракт §2/§5 сохранён.
+        # Slice D (ARCH_DECISION): исторический вопрос обязан получить РАЗНЫЕ
+        # старые годы, поэтому порядок — год по возрастанию (более старый
+        # материал), затем индекс пула. Одна слабая строка блок не собирает —
+        # контракт §2/§5 сохранён.
         need = slots - len(accepted)
-        soft_pool.sort(key=lambda item: (-item[0], item[1]))
-        for shared, _index, row in soft_pool[:need]:
+        soft_pool.sort(key=lambda item: (
+            -item[0], period_row_year(item[2]) or 9999, item[1]))
+        seen_soft_years: set = set()
+        for shared, _index, row in soft_pool:
+            if len(accepted) >= slots or need <= 0:
+                break
+            year = period_row_year(row)
+            if year in seen_soft_years:
+                continue
             _mark_period_row(row, shared, PERIOD_KEEP_SOFT_FALLBACK)
             accepted.append(row)
             stats["soft_fallback"] += 1
             stats["dropped_subject"] -= 1
-    want_quota = intent.wants_year_diverse or topic_parity
+            seen_soft_years.add(year)
+            need -= 1
+    want_quota = intent.wants_year_diverse
     #: Строки «того же предмета» старого года, ещё не вошедшие в набор.
     quota_pool: list[tuple[int, int, dict]] = []
     if want_quota and soft_pool and len(accepted) < slots \
-            and (lexical_strict_passed > 0 or intent.is_multi_year
-                 or topic_parity) \
+            and (lexical_strict_passed > 0 or intent.is_multi_year) \
             and len(soft_pool) >= PERIOD_SOFT_FALLBACK_MIN_ROWS:
         # Slice B: ограниченная историческая/multi-year квота. Строгий порог
         # §2 уже дал строку (owner-формулировка A1: 2024), поэтому мягкий
@@ -1004,8 +969,6 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
         # строки «того же предмета» (≥1 основа), не текущий год и только годы,
         # которых ещё нет в принятом наборе; одна слабая строка блок не
         # собирает (тот же контракт §2/§5).
-        # Slice D: для обычного вопроса (intent=none) та же квота включается
-        # только при многолетней предметной непрерывности пула (topic_parity).
         seen_years = {period_row_year(row) for row in accepted}
         seen_years.discard(None)
         for shared, index, row in soft_pool:
@@ -1013,24 +976,14 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
             if year is None or year == current_year or year in seen_years:
                 continue
             quota_pool.append((shared, index, row))
-        if topic_parity:
-            # D2: в паритет входят только строки, несущие общую предметную
-            # основу, которая реально встречается в старом материале ≥2 лет.
-            quota_pool = [
-                item for item in quota_pool
-                if topic_common_stems & period_subject_stems(
-                    (item[2] or {}).get("fact"))]
         quota_pool.sort(key=lambda item: (-item[0], period_row_year(
             item[2]) or 9999, item[1]))
         if intent.is_multi_year:
             keep_reason, quota_stat = (PERIOD_KEEP_MULTI_YEAR,
                                        "multi_year_quota")
-        elif intent.is_historical:
+        else:
             keep_reason, quota_stat = (PERIOD_KEEP_HISTORICAL_QUOTA,
                                        "historical_quota")
-        else:
-            keep_reason, quota_stat = (PERIOD_KEEP_TOPIC_PARITY,
-                                       "topic_quota")
         need = slots - len(accepted)
         for shared, _index, row in quota_pool:
             if need <= 0:
@@ -1047,8 +1000,7 @@ def select_period_rows(rows, *, query: str = "", intent: "PeriodIntent | None" =
     # Бюджет: строки «того же предмета» старого года, не вошедшие из-за
     # заполненных слотов (под-категория `dropped_subject`, не второй счётчик:
     # суммы причин не удваиваются).
-    admitted_quota = (stats["historical_quota"] + stats["multi_year_quota"]
-                      + stats["topic_quota"])
+    admitted_quota = (stats["historical_quota"] + stats["multi_year_quota"])
     stats["dropped_budget"] += max(0, len(quota_pool) - admitted_quota)
     stats["lexical_strict_passed"] = lexical_strict_passed
     stats["kept"] = len(accepted)

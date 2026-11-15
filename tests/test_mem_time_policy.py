@@ -928,8 +928,16 @@ class TestLexicalStemPeriodFill:
             period = [call for call in calls
                       if call[0] == ("lexical", "vector")]
             assert base and base[0][2] == {}, base
-            if policy == "operative":
-                assert period == [], "operative до добора не доходит"
+            if policy in ("operative", "auto"):
+                # Slice D (ARCH_DECISION): `operative` не доходит до добора;
+                # `auto` без L1-сигнала тоже не платит периодную ногу —
+                # словарная формулировка («что было…») права замещения не даёт.
+                expected_skip = ("auto_no_replace"
+                                 if policy == "auto" else None)
+                assert period == [], calls
+                if expected_skip:
+                    assert service._rag_period_stats.get("period_skipped") == \
+                        expected_skip
             else:
                 assert period, calls
                 # VMQ-MEM/TIME Slice A: периодный вызов несёт ещё и
@@ -939,9 +947,7 @@ class TestLexicalStemPeriodFill:
                 intent = period_kwargs.get("period_intent")
                 assert intent is not None, period
                 assert intent.kind == "historical", intent
-                assert intent.source == ("query_marker"
-                                         if policy == "auto"
-                                         else "memory_scope"), intent
+                assert intent.source == "memory_scope", intent
                 assert {key: value for key, value in period_kwargs.items()
                         if key != "period_intent"} == {
                     "lexical_stem": True,

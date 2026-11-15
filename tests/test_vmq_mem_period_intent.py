@@ -344,7 +344,10 @@ class TestHistoricalSoftFallback:
             pool, query=OWNER_CREATIVE, policy="auto", slots=2)
         assert stats["intent"]["kind"] == mrc.PERIOD_INTENT_HISTORICAL
         assert stats["soft_fallback"] == 2
-        assert [row["id"] for row in accepted] == [1, 2]
+        # Slice D (ARCH_DECISION): исторический fallback берёт РАЗНЫЕ старые
+        # годы, порядок — год по возрастанию (2022, затем 2023), а не индекс.
+        assert {row["id"] for row in accepted} == {1, 2}
+        assert [mrc.period_row_year(row) for row in accepted] == [2022, 2023]
         assert all(row["stems_shared_reason"] ==
                    mrc.PERIOD_KEEP_SOFT_FALLBACK for row in accepted)
         assert stats["dropped_subject"] == 2

@@ -4724,29 +4724,31 @@ class ToolRouter:
                 logger.warning("[tools] subject message read failed | "
                                "chat=%s", getattr(ctx, "chat_id", None))
                 message_rows = []
-            reserve = (limit_items if not facts
-                       else max(1, limit_items // 5))
+            reserve = max(1, limit_items // 5)
+            # Slice D / N2 (ARCH_DECISION): `reserve` — ПОЛ, а не потолок.
+            # Свободный конверт сначала: при неполном facts-конверте добираем
+            # до свободного места, при полном — прежние `reserve` слотов.
+            free_slots = max(0, limit_items - len(facts))
+            target = max(1, reserve, free_slots)
             additions: list = []
+            added_refs: set = set()
             seen_years = set(covered_years)
-            # Если субъектных фактов нет, важнее сохранить все собственные
-            # строки человека (в т.ч. несколько за год); multi-period квота
-            # «один год — одна строка» нужна только когда факты уже есть.
-            multi_year_only = bool(facts)
-            for row in message_rows or ():
-                if len(additions) >= reserve:
-                    break
+
+            def _build_addition(row):
                 try:
                     year = (int(row.get("as_of_year"))
                             if row.get("as_of_year") is not None else None)
                 except (TypeError, ValueError):
                     year = None
-                if year is None or year == current_year \
-                        or (multi_year_only and year in seen_years):
-                    continue
+                if year is None or year == current_year:
+                    return None
                 built = self._memory_lookup_message_item(row)
                 if built is None:
-                    continue
+                    return None
                 fact = built["fact"]
+                ref = str(fact.get("source_id") or "")
+                if not ref or ref in added_refs:
+                    return None
                 fact.update({
                     "as_of_year": year,
                     "speaker_author_id": int(uid),
@@ -4757,8 +4759,31 @@ class ToolRouter:
                 source.update({"speaker_author_id": int(uid),
                                "year": year,
                                "subject_role": "speaker"})
+                return fact, source, year, ref
+
+            # Проход 1 — разнообразие: по одной строке на недостающий год.
+            for row in message_rows or ():
+                if len(additions) >= reserve:
+                    break
+                built = _build_addition(row)
+                if built is None:
+                    continue
+                fact, source, year, ref = built
+                if year in seen_years:
+                    continue
                 additions.append((fact, source))
+                added_refs.add(ref)
                 seen_years.add(year)
+            # Проход 2 — добить свободные слоты остальными старыми строками.
+            for row in message_rows or ():
+                if len(additions) >= target:
+                    break
+                built = _build_addition(row)
+                if built is None:
+                    continue
+                fact, source, _year, ref = built
+                additions.append((fact, source))
+                added_refs.add(ref)
             if additions:
                 keep = max(0, limit_items - len(additions))
                 facts = facts[:keep]

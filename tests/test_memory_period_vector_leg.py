@@ -295,19 +295,24 @@ class TestSubjectThreshold:
                          source="vector")], "auto")
         assert [row["id"] for row in accepted] == [7388]
         assert rejected == 0
-        # D1 (review r1): на вопрос о НАСТОЯЩЕМ тот же сосед не входит даже
-        # с двумя основами — guard текущего состояния сильнее паритета.
+        # N6: селектор сам словаря не содержит — 2 основы проходят и на
+        # «сейчас»-вопросе; замещение запрещает АВТОРИТЕТ (`period_replace_allowed`),
+        # а не ключевое слово.
         current_accepted, _rejected = \
             dcs.DirectChatService._rag_period_subject_filter(
                 "что сейчас происходит в чате?",
                 [_period_row(7388, "происходит в чате обсуждение",
                              year=2025, source="vector")], "auto")
-        assert current_accepted == []
+        assert [row["id"] for row in current_accepted] == [7388]
+        assert mrc.period_replace_allowed(
+            mrc.resolve_period_intent("что сейчас происходит в чате?"),
+            "auto") is False
 
     def test_current_state_row_cut_by_stems_not_by_now_dictionary(self):
         """§4: наблюдаемая строка 2025 года («… ноют сейчас») не проходит
         порог основ. Тот же текст с второй основой проходит — значит режет
-        порог, а не словарь «сейчас»/времени."""
+        порог, а не словарь «сейчас»/времени. Авторитет «настоящее» задаёт
+        L1/структурный источник, не этот селектор."""
         query = "что сейчас происходит в чате?"
         noisy, _rejected = dcs.DirectChatService._rag_period_subject_filter(
             query, [_period_row(8436, "выгнали сами и ноют сейчас",
@@ -318,6 +323,11 @@ class TestSubjectThreshold:
                                 year=2025)])
         assert [row["id"] for row in accepted] == [8436]
         assert rejected == 0
+        # N6: отсутствие «сейчас»-словаря проверяется на уровне авторитета.
+        marker_intent = mrc.resolve_period_intent(
+            "расскажи, что сейчас в чате?")
+        assert marker_intent.source == "query_marker"
+        assert mrc.period_replace_allowed(marker_intent, "auto") is False
 
 
 # ── §1: SQL-окно года у search_graph_facts_fts — до ORDER BY/LIMIT ─────────
@@ -776,7 +786,10 @@ class TestBlockIntegration:
             CHAT, _Msg("что сейчас происходит в чате?"), "",
             memory_scope="auto")
         assert "ноют сейчас" not in block, (block, "периодных строк быть 0")
-        assert service._rag_period_stats.get("rejected_subject") == 1
+        # Slice D: auto не платит периодную ногу и не режет срез.
+        stats = service._rag_period_stats
+        assert stats.get("replace_allowed") == 0
+        assert stats.get("period_skipped") == "auto_full_slice"
 
     @pytest.mark.asyncio
     async def test_empty_verdict_keeps_row_model_never_saw(
@@ -918,20 +931,16 @@ class TestOnePeriodLegPerTurn:
         block, _hint = await service._build_rag_block(
             CHAT, _Msg(question), "", memory_scope="auto")
         period = self._period_calls(calls)
-        assert len(period) == 1, (calls, "auto платит одну периодную ногу")
-        # Пул — контрактная константа 32 (VMQ-MEM next stage), не `limit*2`:
-        # проверяется фактический аргумент вызова.
-        assert period[0]["limit"] == 32, (
-            period[0], "пул периодной ноги фиксирован")
-        assert service._rag_period_pool, "пул сохранён для пересборки"
+        assert period == [], (calls, "auto без L1 не платит периодную ногу")
+        assert not getattr(service, "_rag_period_pool", None)
         out = await service._apply_plan_memory_scope(
             ["<Current_Question>%s</Current_Question>" % question, block],
             {"chat_id": CHAT, "message": _Msg(question), "global_ctx": ""},
             types.SimpleNamespace(memory_scope="historical"))
         period = self._period_calls(calls)
         assert len(period) == 1, (
-            calls, "пересборка НЕ платит вторую векторную ногу")
-        assert [call["policy"] for call in period] == ["auto"]
+            calls, "historical-пересборка платит одну периодную ногу")
+        assert [call["policy"] for call in period] == ["historical"]
         assert period[0]["limit"] == 32
         assert period[0]["kwargs"].get("period_fill") is True
         base = [call for call in calls if call["channels"] == ("vector",)]
@@ -960,8 +969,7 @@ class TestOnePeriodLegPerTurn:
             {"chat_id": CHAT, "message": _Msg(question), "global_ctx": ""},
             types.SimpleNamespace(memory_scope="operative"))
         period = self._period_calls(calls)
-        assert len(period) == 1, (
-            calls, "operative-план не добавляет второй периодной ноги")
+        assert period == [], (calls, "periodная нога не оплачивается")
         operative_base = [call for call in calls
                           if call["channels"] == ("vector",)
                           and call["policy"] == "operative"]
