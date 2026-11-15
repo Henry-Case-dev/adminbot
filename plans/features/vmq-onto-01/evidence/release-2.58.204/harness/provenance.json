@@ -1,0 +1,20 @@
+{
+ "deploy_probe": {
+  "path": "harness/",
+  "note": "read-only postdeploy probes run on the production host against a copy of the verified backup"
+ },
+ "probe_slice_c": {
+  "source": "plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/probe_slice_c.py",
+  "sha256": "2e3e651ab362e49c277480252a9508fd355001e64a4e760fedef10349fedd486",
+  "identical_to_committed": true
+ },
+ "sha256": {
+  "build_postdeploy_evidence.py": "7e1680c124db27a4d179b7df2150ad7150a27660bc593d32e00f9646cf89e610",
+  "cfg_probe.py": "73f56bc9694b73253ad5e3ec8bf0f264adef6269fdf5bbca7f78bb89bffe7312",
+  "entities.py": "95bb81c97d2a242ef1b12b1ec36827e2ad9d1e4e804fdcfe34c5b24609133aab",
+  "identity.py": "a73ec97e8939bc6f9051a629305311411a298428d9e5ca97bf3d6c9444d5d4b0",
+  "snapshot.py": "99721a885d5f3bcc94849e6145a0767138974808b50bb6ff83d1380844416f63",
+  "tool_overview_probe.py": "e2055fe86e8946c5c8977c3d64b2ef29e840693e0b006c46d43d8cbc8b695409"
+ },
+ "note": "cfg_probe.py and entities.py are byte-identical to the already committed harness files plans/features/vmq-onto-01/evidence/vmq-mem/harness-2026-11-15/ (not duplicated here)"
+}

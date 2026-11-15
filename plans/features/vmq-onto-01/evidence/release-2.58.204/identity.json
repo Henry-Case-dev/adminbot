@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "code": "verified_deployed",
+ "reason": "",
+ "repo_origin": "Henry-Case-dev/adminbot",
+ "deployed_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+ "checkout_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+ "dirty": false,
+ "upstream_head": {
+  "sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "ref": "refs/remotes/origin/release/vmq-onto-01-2.58.204",
+  "observed_at": "2026-11-15T03:00:13.947401Z",
+  "reason": ""
+ },
+ "version_provenance": {
+  "runtime": "2.58.204",
+  "manifest": "2.58.204",
+  "consistent": true
+ },
+ "local_source_verification": "verified_deployed",
+ "artifact": {
+  "kind": "git_checkout",
+  "release_branch": "release/vmq-onto-01-2.58.204",
+  "schema_version": null
+ },
+ "deployed_at": "2026-11-15T03:00:14.096313Z",
+ "process_started_at": "2026-11-15T03:00:16Z",
+ "observed_at": "2026-11-15T03:00:26.842592Z",
+ "sources": [
+  "release_manifest",
+  "git_head",
+  "git_cli",
+  "runtime_app_version",
+  "process_start"
+ ],
+ "conflict": [],
+ "local_identity": {
+  "checkout_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "dirty": false,
+  "checkout_mtime": "2026-11-15T03:00:13.988401Z",
+  "branch": "release/vmq-onto-01-2.58.204"
+ },
+ "effect": "deploy",
+ "previous_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+ "previous_version": "2.58.203",
+ "_process_started_at_source": {
+  "raw": "Sun 2026-11-15 03:00:16 UTC",
+  "iso": "2026-11-15T03:00:16Z"
+ }
+}

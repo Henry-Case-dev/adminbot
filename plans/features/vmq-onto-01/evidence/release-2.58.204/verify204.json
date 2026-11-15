@@ -1,0 +1,432 @@
+{
+ "ok": true,
+ "failed": [],
+ "n_checks": 44,
+ "checks": [
+  {
+   "check": "deploy_stage_completed",
+   "ok": true,
+   "detail": [
+    "DONE_STAGE_DEPLOY"
+   ]
+  },
+  {
+   "check": "pre_snapshot_present",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "post_snapshot_present",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "version_258204",
+   "ok": true,
+   "detail": "2.58.204"
+  },
+  {
+   "check": "head_candidate",
+   "ok": true,
+   "detail": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+  },
+  {
+   "check": "branch_release",
+   "ok": true,
+   "detail": "release/vmq-onto-01-2.58.204"
+  },
+  {
+   "check": "checkout_clean",
+   "ok": true,
+   "detail": 0
+  },
+  {
+   "check": "health_local_200",
+   "ok": true,
+   "detail": {
+    "code": 200,
+    "body": "{\"status\":\"ok\",\"version\":\"2.58.204\"}"
+   }
+  },
+  {
+   "check": "health_public_200",
+   "ok": true,
+   "detail": {
+    "code": 200,
+    "body": "{\"status\":\"ok\",\"version\":\"2.58.204\"}"
+   }
+  },
+  {
+   "check": "schema_user_version_47",
+   "ok": true,
+   "detail": {
+    "user_version": 47,
+    "tables": 130,
+    "schema_migrations_rows": 36,
+    "schema_migrations_max": 47
+   }
+  },
+  {
+   "check": "schema_tables_130",
+   "ok": true,
+   "detail": 130
+  },
+  {
+   "check": "schema_migrations_36_47",
+   "ok": true,
+   "detail": {
+    "rows": 36,
+    "max": 47
+   }
+  },
+  {
+   "check": "unit_active",
+   "ok": true,
+   "detail": "active"
+  },
+  {
+   "check": "nrestarts_zero",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "check": "backup_integrity_ok",
+   "ok": true,
+   "detail": {
+    "integrity": "ok",
+    "uv": "47",
+    "tables": "130",
+    "size": "3289239552",
+    "sha256": "93604b36a6a573758b8603509bb251bda6881cf7572ec65ff1df610b44f8f200"
+   }
+  },
+  {
+   "check": "backup_schema_47_tables_130",
+   "ok": true,
+   "detail": {
+    "uv": "47",
+    "tables": "130"
+   }
+  },
+  {
+   "check": "startup_pending_empty",
+   "ok": true,
+   "detail": [
+    "Nov 15 03:00:20 vps159032-gqg python[991458]: 2026-11-15 03:00:20,017 - services.database - INFO - [database] migrations: start | current user_version=47 | pending=[]"
+   ]
+  },
+  {
+   "check": "settings_count_stable",
+   "ok": true,
+   "detail": {
+    "pre": 548,
+    "post": 548
+   }
+  },
+  {
+   "check": "settings_digest_unchanged",
+   "ok": true,
+   "detail": {
+    "pre": "e98edf0ec3ea95d161a7bf7a61840df7dc9cd40a6ad01e1a9097645527627460",
+    "post": "e98edf0ec3ea95d161a7bf7a61840df7dc9cd40a6ad01e1a9097645527627460"
+   }
+  },
+  {
+   "check": "profiles_count_digest_unchanged",
+   "ok": true,
+   "detail": {
+    "pre": 3,
+    "post": 3
+   }
+  },
+  {
+   "check": "prompt_revisions_unchanged",
+   "ok": true,
+   "detail": {
+    "pre_rows": 5,
+    "post_rows": 5
+   }
+  },
+  {
+   "check": "manual_revision_unchanged",
+   "ok": true,
+   "detail": {
+    "revision_id": "rev:d31300ef35a0",
+    "origin": "manual",
+    "scope": "chat",
+    "retired": false,
+    "factory_revision": "",
+    "reason": "owner_edit",
+    "chars": 12469,
+    "sha256": "31d1750654615bf4e69e861ae66f393b31546b34982c7d5613052b67133b3701",
+    "created": "2026-11-14 06:11:54.954581+00"
+   }
+  },
+  {
+   "check": "no_new_prompt_revision_bodies",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "budgets_off_everywhere",
+   "ok": true,
+   "detail": {
+    "global": false,
+    "chats": [
+     {
+      "alias": "CHAT_C1",
+      "value": false,
+      "source": "chat",
+      "chat_override": true
+     },
+     {
+      "alias": "CHAT_C2",
+      "value": false,
+      "source": "chat",
+      "chat_override": true
+     },
+     {
+      "alias": "CHAT_C3",
+      "value": false,
+      "source": "global",
+      "chat_override": false
+     }
+    ]
+   }
+  },
+  {
+   "check": "budgets_unchanged_vs_pre",
+   "ok": true,
+   "detail": {
+    "pre": [
+     {
+      "alias": "CHAT_C1",
+      "value": false,
+      "source": "chat",
+      "chat_override": true
+     },
+     {
+      "alias": "CHAT_C2",
+      "value": false,
+      "source": "chat",
+      "chat_override": true
+     },
+     {
+      "alias": "CHAT_C3",
+      "value": false,
+      "source": "global",
+      "chat_override": false
+     }
+    ],
+    "post": [
+     {
+      "alias": "CHAT_C1",
+      "value": false,
+      "source": "chat",
+      "chat_override": true
+     },
+     {
+      "alias": "CHAT_C2",
+      "value": false,
+      "source": "chat",
+      "chat_override": true
+     },
+     {
+      "alias": "CHAT_C3",
+      "value": false,
+      "source": "global",
+      "chat_override": false
+     }
+    ]
+   }
+  },
+  {
+   "check": "mca_caps_zero",
+   "ok": true,
+   "detail": {
+    "budgets_enabled": false,
+    "limits_enforced": false,
+    "max_total_calls": 0,
+    "max_metered_calls": 0,
+    "max_same_call": 0,
+    "fuse_seconds": 0.0
+   }
+  },
+  {
+   "check": "capacity_intact",
+   "ok": true,
+   "detail": {
+    "model": "z-ai/glm-5.3-flash-uncensored",
+    "base_url_host": "nano-gpt.com",
+    "window": 1048576,
+    "max_output": 32768,
+    "declared": 1048576,
+    "runtime": null,
+    "source": "provider_catalog",
+    "confidence": "verified",
+    "fallback_used": false,
+    "override_value": null,
+    "proven_limit": null
+   }
+  },
+  {
+   "check": "identity_verified_deployed",
+   "ok": true,
+   "detail": {
+    "code": "verified_deployed",
+    "reason": ""
+   }
+  },
+  {
+   "check": "identity_sha_is_candidate",
+   "ok": true,
+   "detail": {
+    "deployed": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "checkout": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+   }
+  },
+  {
+   "check": "identity_not_dirty",
+   "ok": true,
+   "detail": false
+  },
+  {
+   "check": "identity_version_consistent",
+   "ok": true,
+   "detail": {
+    "runtime": "2.58.204",
+    "manifest": "2.58.204",
+    "consistent": true
+   }
+  },
+  {
+   "check": "identity_previous_258203",
+   "ok": true,
+   "detail": {
+    "sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "version": "2.58.203"
+   }
+  },
+  {
+   "check": "identity_upstream_matches",
+   "ok": true,
+   "detail": {
+    "sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "ref": "refs/remotes/origin/release/vmq-onto-01-2.58.204",
+    "observed_at": "2026-11-15T03:00:13.947401Z",
+    "reason": ""
+   }
+  },
+  {
+   "check": "identity_no_conflict",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "check": "manifest_candidate",
+   "ok": true,
+   "detail": {
+    "deployed_at": "2026-11-15T03:00:14.096313Z",
+    "deployed_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "deployer": "devops",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "previous_version": "2.58.203",
+    "release_branch": "release/vmq-onto-01-2.58.204",
+    "schema": 1,
+    "version": "2.58.204"
+   }
+  },
+  {
+   "check": "manifest_previous_258203",
+   "ok": true,
+   "detail": {
+    "deployed_at": "2026-11-15T03:00:14.096313Z",
+    "deployed_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "deployer": "devops",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "previous_version": "2.58.203",
+    "release_branch": "release/vmq-onto-01-2.58.204",
+    "schema": 1,
+    "version": "2.58.204"
+   }
+  },
+  {
+   "check": "journal_no_traceback",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "check": "journal_no_critical",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "check": "journal_no_db_locked",
+   "ok": true,
+   "detail": "0"
+  },
+  {
+   "check": "service_alive_after_e2e",
+   "ok": true,
+   "detail": "{\"status\":\"ok\",\"version\":\"2.58.204\"}"
+  },
+  {
+   "check": "e2e_present",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "check": "e2e_ok",
+   "ok": true,
+   "detail": {
+    "failed": [],
+    "checks": 32
+   }
+  },
+  {
+   "check": "e2e_bound_to_deployed_sha",
+   "ok": true,
+   "detail": {
+    "sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "version": "2.58.204",
+    "branch": "release/vmq-onto-01-2.58.204"
+   }
+  },
+  {
+   "check": "e2e_db_copy_schema_47",
+   "ok": true,
+   "detail": {
+    "path_ref": "backup copy (server-side)",
+    "bytes": 3289321472,
+    "user_version": 47,
+    "journal_mode": "wal",
+    "integrity": "ok",
+    "messages": 2087057,
+    "episodes": 201,
+    "revisions_gt1": 1645,
+    "sha256": "564e2d7a9b291d2a8361b0474e602dcaab373cfc285962b94328a32d693a9c10"
+   }
+  }
+ ],
+ "deployed": {
+  "sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "version": "2.58.204",
+  "branch": "release/vmq-onto-01-2.58.204"
+ },
+ "rollback": {
+  "sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "version": "2.58.203"
+ },
+ "journal": {
+  "lines": "156",
+  "traceback": "0",
+  "error": "0",
+  "critical": "0",
+  "warning": "1",
+  "locked": "0"
+ }
+}

@@ -1,0 +1,10 @@
+window_start=2026-11-15 03:00:16
+lines=156
+traceback=0
+error=0
+critical=0
+warning=1
+database_locked=0
+Nov 15 03:00:20 vps159032-gqg python[991458]: 2026-11-15 03:00:20,017 - services.database - INFO - [database] migrations: start | current user_version=47 | pending=[]
+--- severity lines ---
+Nov 15 03:00:20 vps159032-gqg python[991458]: 2026-11-15 03:00:20,180 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=superseded | gen_fp=2d0efab0e817 new_fp=2d0efab0e817 — FTS-only (A06) | build pending — source empty (nothing to vectorize)

@@ -1,0 +1,1 @@
+{"deployed_at": "2026-11-15T03:00:14.096313Z", "deployed_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5", "previous_version": "2.58.203", "release_branch": "release/vmq-onto-01-2.58.204", "schema": 1, "version": "2.58.204"}

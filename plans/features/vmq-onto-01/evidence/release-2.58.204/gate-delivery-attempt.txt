@@ -1,0 +1,55 @@
+engineering_delivery=FAIL
+acceptance=RUN_RELEASE_GATE
+deferred_req_ids=[]
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: VMQ-A-01: no evidence bound to reviewed candidate
+FAIL: V-01: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: V-02: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: V-03: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: V-04: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: M-01: no evidence bound to reviewed candidate
+FAIL: M-02: no evidence bound to reviewed candidate
+FAIL: M-03: no evidence bound to reviewed candidate
+FAIL: M-04: no evidence bound to reviewed candidate
+FAIL: M-05: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: O-01: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: O-02: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: O-03: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: O-04: no evidence bound to reviewed candidate
+FAIL: Q-01: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-02: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-03: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-04: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-05: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-06: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-07: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-08: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: I-01: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: I-02: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: I-03: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: I-04: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: I-05: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: I-06: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: Q-09: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: S-01: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: S-02: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: S-03: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: U-01: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: U-02: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: R-01: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: R-02: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: R-03: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: R-04: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-01: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-02: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-03: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-04: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-05: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-06: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-07: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-08: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: QM-09: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: VMQ-MEM-01: mandatory not ['VERIFIED'] (got REVIEW)
+FAIL: VMQ-MEM-02: mandatory not ['VERIFIED'] (got PENDING)
+... and 23 more
+stage=delivery inventory=380 manual=69 scoped=70 errors=73
