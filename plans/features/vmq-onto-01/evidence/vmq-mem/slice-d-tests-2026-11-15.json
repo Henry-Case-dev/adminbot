@@ -1,62 +1,60 @@
 {
   "artifact_kind": "test_results",
   "epic": "VMQ-ONTO-01",
-  "slice": "VMQ-MEM/TIME Slice D (review r1 fixes)",
+  "slice": "VMQ-MEM/TIME Slice D (ARCH_DECISION: L1 authority)",
   "date": "2026-11-15",
   "python": "3.12.0",
   "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
-  "candidate_commit": "743a3d1ae4fdf6776267c1ed057f937ce7c2b873",
-  "review_r1": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r1.md",
+  "candidate_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
+  "review_r2": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-review-r2.md",
   "red_on_base": {
     "command": "python -m pytest tests/test_vmq_mem_slice_d.py -v --tb=no",
     "worktree": "vmq-slice-d-base-0aabd526eefb-ebe13480 (2b419aa2, final tests copied)",
-    "result": "19 failed, 5 passed",
+    "result": "16 failed, 6 passed",
     "passed": [
-      "TestPlainQuestionParity::test_reason_codes_stay_consistent",
-      "TestYearLossTrace::test_apply_filters_without_window_keeps_old_behaviour",
+      "TestPlanSignal::test_apply_plan_memory_scope_replaces_and_reuses_pool",
+      "TestOperativeParity::test_operative_returns_base_slice_only",
       "TestSubjectHalf::test_unconfirmed_subject_facts_are_not_biography",
       "TestSubjectHalf::test_confirmed_subject_years_are_returned_with_roles",
+      "TestYearLossTrace::test_apply_filters_without_window_keeps_old_behaviour",
       "TestVectorLegAndYearTrigger::test_year_in_question_is_the_only_window_trigger"
     ],
     "failed": [
-      "TestPlainQuestionParity::test_measured_plain_pool_gets_bounded_old_material",
-      "TestPlainQuestionParity::test_creative_and_plain_formulations_get_comparable_material",
-      "TestPlainQuestionParity::test_bounded_by_slots_and_never_duplicates_years",
-      "TestPlainQuestionParity::test_single_old_year_does_not_trigger_parity",
-      "TestPlainQuestionParity::test_current_state_pool_is_untouched",
-      "TestPlainQuestionParity::test_full_path_current_state_keeps_current_ids",
-      "TestPlainQuestionParity::test_current_state_suppresses_strict_old_row",
-      "TestPlainQuestionParity::test_two_old_years_without_shared_stem_do_not_trigger",
-      "TestPlainQuestionParity::test_operative_policy_is_not_weakened",
-      "TestYearLossTrace::test_year_loss_categories_are_machine_readable",
-      "TestYearLossTrace::test_unknown_time_is_not_presented_as_year_event",
+      "TestReplaceAuthority::test_sources_and_policy_matrix",
+      "TestCurrentStatePaths::test_build_rag_block_auto_keeps_slice_historical_control",
+      "TestCurrentStatePaths::test_unmarked_present_questions_keep_ids_and_skip",
+      "TestCurrentStatePaths::test_marker_present_question_auto_vs_historical",
+      "TestCurrentStatePaths::test_profile_reads_not_called_on_full_auto_slice",
+      "TestCurrentStatePaths::test_a1p_historical_vs_auto",
+      "TestPlanSignal::test_plan_act_multi_year_quota",
       "TestSubjectHalf::test_author_messages_cover_three_completed_years",
-      "TestSubjectHalf::test_subject_material_replaces_generic_period_row",
-      "TestSubjectHalf::test_tool_biography_reserves_multi_period_slots",
       "TestSubjectHalf::test_known_person_without_bound_material_is_named",
-      "TestProductTrace::test_period_trace_carries_stage_fields_and_block_years",
-      "TestProductTrace::test_selection_trace_allowlist_keeps_period_and_block_years",
-      "TestProductTrace::test_prepared_payload_carries_memory_period_to_snapshot_fields",
-      "TestLabeledRelevance::test_precision_on_independent_labeled_set"
+      "TestSubjectHalf::test_biography_fills_free_envelope_beyond_reserve",
+      "TestSubjectHalf::test_subject_material_replaces_generic_period_row",
+      "TestYearLossTrace::test_unknown_time_is_not_presented_as_year_event",
+      "TestYearLossTrace::test_period_trace_carries_authority_fields",
+      "TestYearLossTrace::test_selection_payload_keeps_authority_and_block_years",
+      "TestYearLossTrace::test_l1_card_carries_memory_scope",
+      "TestLabeledRelevance::test_precision_under_historical_authority"
     ]
   },
   "green_on_candidate": {
     "command": "python -m pytest tests/test_vmq_mem_slice_d.py -q",
-    "result": "24 passed"
+    "result": "22 passed"
   },
   "focused": [
     {
       "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_semantic_contracts.py tests/test_memory_unified_retrieval.py tests/test_memory_unified_retrieval_06.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py tests/test_history_isolation.py tests/test_mca07_retrieval_context_round1027.py tests/test_memory_lookup_round1026.py tests/test_mem_time_profile.py tests/test_mem_time_asof.py tests/test_memory_attribution.py -q",
-      "result": "419 passed"
+      "result": "417 passed"
     },
     {
-      "command": "python -m pytest tests/test_memory_period_vector_leg.py tests/test_vmq_mem_slice_d.py -q",
-      "result": "54 passed"
+      "command": "python -m pytest tests/test_vmq_mem_slice_d.py tests/test_vmq_mem_slice_b.py tests/test_vmq_mem_slice_c.py tests/test_vmq_mem_period_intent.py tests/test_mem_time_policy.py tests/test_memory_period_vector_leg.py -q",
+      "result": "146 passed"
     }
   ],
   "broad_selection": {
     "command": "python -m pytest -q -k \"memory or retrieval or graphrag or persona or tool_router or mca07 or mca13 or mca22 or mem_time or mem08 or history_isolation or direct_chat or turn_trace or selection\" tests",
-    "result": "2363 passed, 5 failed, 1 error, 19177 deselected",
+    "result": "2364 passed, 5 failed, 1 error, 19174 deselected",
     "failed_preexisting": [
       "test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
       "test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
@@ -67,54 +65,21 @@
     "error_preexisting": [
       "test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory"
     ],
-    "note": "Same six pre-existing failures reproduced on the Slice B base and in review r1; no new failures. An intermediate run exposed two extra test_speech_p0_a2_memory failures caused by time.gmtime under a FakeTime stub; fixed by switching the new helpers to datetime (broad rerun above is after the fix)."
+    "note": "Same six pre-existing failures reproduced on base and in r1/r2; no new failures."
   },
   "mutations": [
-    {
-      "seam": "D1 current-state guard",
-      "mutation": "is_current_state_query -> always False",
-      "killed": 5,
-      "tests": [
-        "test_current_state_pool_is_untouched",
-        "test_full_path_current_state_keeps_current_ids",
-        "test_current_state_suppresses_strict_old_row",
-        "test_precision_on_independent_labeled_set",
-        "test_auto_requires_two_stems_even_for_vector_row"
-      ]
-    },
-    {
-      "seam": "D2 shared stem between old rows",
-      "mutation": "skip quota_pool common-stem filter",
-      "killed": 1,
-      "tests": [
-        "test_two_old_years_without_shared_stem_do_not_trigger"
-      ]
-    },
-    {
-      "seam": "D3 multi-period reserve",
-      "mutation": "message reader only when len(facts) < max_items",
-      "killed": 1,
-      "tests": [
-        "test_tool_biography_reserves_multi_period_slots"
-      ]
-    },
-    {
-      "seam": "D5 product trace",
-      "mutation": "drop memory_period from selection payload",
-      "killed": 1,
-      "tests": [
-        "test_selection_trace_allowlist_keeps_period_and_block_years"
-      ]
-    }
+    {"seam": "A1 period_replace_allowed", "mutation": "always True", "killed": 7, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_unmarked_present_questions_keep_ids_and_skip", "test_marker_present_question_auto_vs_historical", "test_profile_reads_not_called_on_full_auto_slice", "test_a1p_historical_vs_auto", "test_sources_and_policy_matrix", "test_precision_under_historical_authority"]},
+    {"seam": "A2 replace=False", "mutation": "always False", "killed": 8, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota", "test_apply_plan_memory_scope_replaces_and_reuses_pool", "test_sources_and_policy_matrix", "test_single_foreign_row_does_not_assemble_block", "test_auto_then_historical_pays_one_period_leg"]},
+    {"seam": "A2 full/profile gates", "mutation": "remove both gates", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_unmarked_present_questions_keep_ids_and_skip", "test_profile_reads_not_called_on_full_auto_slice", "test_a1p_historical_vs_auto"]},
+    {"seam": "A4 reserve floor", "mutation": "target = reserve", "killed": 1, "tests": ["test_biography_fills_free_envelope_beyond_reserve"]},
+    {"seam": "A2 trimmed under historical", "mutation": "trimmed = rows", "killed": 4, "tests": ["test_build_rag_block_auto_keeps_slice_historical_control", "test_marker_present_question_auto_vs_historical", "test_a1p_historical_vs_auto", "test_plan_act_multi_year_quota"]}
   ],
-  "review_r1_fixes": {
-    "D1": "BLOCKER fixed: under auto, present-time queries get no old rows (strict and quota); T3 measured with a non-empty pool; current ids 8008/8009 preserved",
-    "D2": "topic parity requires a stem shared between old rows (topic_common_stems filter)",
-    "D3": "tool biography reserves max_items//5 slots for own messages when subject facts cover only 2026",
-    "D4": "3 participants measured: P1, top author, participant with 2023-2024 history",
-    "D5": "stage fields in the product log, durable selection trace (memory_period) and per-block years (RAG/episode/global)",
-    "D6": "labeled set v2 with competing distractors: core 1.0, hard 0.5, aggregate 0.867, T3 0",
-    "D7": "passed list corrected (13/5 -> final 19/5 with the real passing tests)",
-    "D8": "negatives strengthened: two rows/two years under auto, shared-with-query-not-each-other, non-vacuous operative, exact dropped_budget"
+  "arch_decision_fixes": {
+    "authority": "memory_scope + PeriodIntent.source; query_marker excluded; topic_parity/topic keys/guard/current markers removed",
+    "unified_rows": "auto full/thin => no period retrieve, slice untouched, period_skipped named; historical keeps trimmed slice",
+    "profile": "allow_replace gate: no reads on full auto; replacement only when allowed",
+    "trace": "policy/replace_allowed/period_skipped/intent_source in log+selection; memory_scope in L1 card/usage",
+    "N2": "reserve is a floor; two-pass fill of free envelope",
+    "L1_measurement": "UNKNOWN: local LLM key absent; no durable L1 memory_scope in the DB copy (see l1-measure.json)"
   }
 }

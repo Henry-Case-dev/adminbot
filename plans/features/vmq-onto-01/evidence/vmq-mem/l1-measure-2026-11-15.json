@@ -1,0 +1,33 @@
+{
+  "model": "deepseek-v4-flash",
+  "base_url_present": true,
+  "key_present": false,
+  "context": "minimal build_l1_context(query) — no live bundle",
+  "rows": [
+    {
+      "class": "A1",
+      "error": "LLMTransportError",
+      "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+    },
+    {
+      "class": "A1P",
+      "error": "LLMTransportError",
+      "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+    },
+    {
+      "class": "P1",
+      "error": "LLMTransportError",
+      "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+    },
+    {
+      "class": "P2",
+      "error": "LLMTransportError",
+      "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+    },
+    {
+      "class": "P3",
+      "error": "LLMTransportError",
+      "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+    }
+  ]
+}

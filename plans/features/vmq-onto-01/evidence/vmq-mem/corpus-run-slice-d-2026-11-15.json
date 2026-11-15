@@ -4,7 +4,7 @@
   "slice": "VMQ-MEM/TIME Slice D",
   "date": "2026-11-15",
   "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
-  "candidate_commit": "743a3d1ae4fdf6776267c1ed057f937ce7c2b873",
+  "candidate_commit": "ef568e6ffbe17f216348cf94b5adb173134f19bd",
   "copy": {
     "db": "dbcopy.db (sqlite3 .backup from the read-only prod snapshot of 10.11.2026)",
     "bytes": 1670549504,
@@ -19,7 +19,7 @@
       "db_bytes": 1670549504,
       "chat": -1002661910336,
       "vec_ok": true,
-      "generated_at": 1794728189
+      "generated_at": 1794731696
     }
   },
   "config": {
@@ -30,7 +30,7 @@
     "vector_leg_before_after": "compat_not_proven / vector_rows=0"
   },
   "classes_before": {
-    "A1_creative": {
+    "A1_auto": {
       "rows": 10,
       "row_years": {
         "2023": 1,
@@ -38,13 +38,13 @@
         "2026": 8
       },
       "intent": "historical",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": 2,
       "historical_quota": 1,
       "multi_year_quota": 0,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": null,
@@ -65,23 +65,95 @@
         }
       ]
     },
-    "A1P_plain": {
+    "A1_historical": {
+      "rows": 10,
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 2,
+      "historical_quota": 1,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": [
+        {
+          "id": 3775,
+          "year": 2024,
+          "reason": "lexical_threshold_applied",
+          "subject_role": null,
+          "origin": "history_import"
+        },
+        {
+          "id": 3210,
+          "year": 2023,
+          "reason": "historical_quota",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
+    },
+    "A1P_auto": {
       "rows": 10,
       "row_years": {
         "2026": 10
       },
       "intent": "none",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": 0,
       "historical_quota": 0,
       "multi_year_quota": 0,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
-      "product_trace": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 7,
+        "block_chars": 1021
+      },
       "period_rows": []
+    },
+    "A1P_historical": {
+      "rows": 9,
+      "row_years": {
+        "2025": 1,
+        "2026": 8
+      },
+      "intent": "historical",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": 2,
+      "historical_quota": 0,
+      "multi_year_quota": 0,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 6,
+        "block_chars": 871
+      },
+      "period_rows": [
+        {
+          "id": 8056,
+          "year": 2025,
+          "reason": "subject_soft_fallback",
+          "subject_role": null,
+          "origin": "history_import"
+        }
+      ]
     },
     "D_2023": {
       "rows": 9,
@@ -90,13 +162,13 @@
         "2026": 8
       },
       "intent": "explicit_year",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": 8,
       "historical_quota": 0,
       "multi_year_quota": 0,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": null,
@@ -110,19 +182,19 @@
         }
       ]
     },
-    "T2_no_signal": {
+    "T2_auto": {
       "rows": 10,
       "row_years": {
         "2026": 10
       },
       "intent": "none",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": 0,
       "historical_quota": 0,
       "multi_year_quota": 0,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": null,
@@ -136,13 +208,13 @@
         "2026": 8
       },
       "intent": "multi_year",
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": 2,
       "historical_quota": 0,
       "multi_year_quota": 2,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": null,
@@ -169,21 +241,81 @@
         "2026": 10
       },
       "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": null,
       "historical_quota": null,
       "multi_year_quota": null,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": null,
       "period_rows": []
+    },
+    "T3_alina": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 9,
+        "block_chars": 1367
+      },
+      "period_rows": []
+    },
+    "T3_mulyanka": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": null,
+        "years": null,
+        "source_ids": 8,
+        "block_chars": 952
+      },
+      "period_rows": []
     }
   },
   "classes_after": {
-    "A1_creative": {
+    "A1_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "historical",
+      "intent_source": "query_marker",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "A1_historical": {
       "rows": 10,
       "row_years": {
         "2023": 1,
@@ -191,13 +323,13 @@
         "2026": 8
       },
       "intent": "historical",
+      "intent_source": "memory_scope",
+      "policy": "historical",
+      "replace_allowed": 1,
+      "period_skipped": "",
       "kept": 2,
       "historical_quota": 1,
       "multi_year_quota": 0,
-      "topic_quota": 0,
-      "topic_years": 3,
-      "topic_common_stems": 5,
-      "current_state_guard": 0,
       "dropped_status": 0,
       "dropped_budget": 11,
       "product_trace": null,
@@ -218,41 +350,91 @@
         }
       ]
     },
-    "A1P_plain": {
+    "A1P_auto": {
+      "rows": 10,
+      "row_years": {
+        "2026": 10
+      },
+      "intent": "none",
+      "intent_source": "",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": {
+          "policy": "auto",
+          "replace_allowed": 0,
+          "period_skipped": "auto_full_slice",
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "intent_source": "",
+          "pool": 0,
+          "kept": 0,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 0,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {},
+          "pool_expired": 0,
+          "age_policy": "",
+          "vector_leg": "",
+          "vector_rows": 0,
+          "vector_unavailable_reason": null
+        },
+        "years": {
+          "2026": 7
+        },
+        "source_ids": 7,
+        "block_chars": 1021
+      },
+      "period_rows": []
+    },
+    "A1P_historical": {
       "rows": 10,
       "row_years": {
         "2023": 1,
         "2024": 1,
         "2026": 8
       },
-      "intent": "none",
+      "intent": "historical",
+      "intent_source": "memory_scope",
+      "policy": "historical",
+      "replace_allowed": 1,
+      "period_skipped": "",
       "kept": 2,
       "historical_quota": 0,
       "multi_year_quota": 0,
-      "topic_quota": 2,
-      "topic_years": 3,
-      "topic_common_stems": 1,
-      "current_state_guard": 0,
       "dropped_status": 0,
-      "dropped_budget": 5,
+      "dropped_budget": 0,
       "product_trace": {
         "period": {
+          "policy": "historical",
+          "replace_allowed": 1,
+          "period_skipped": "",
           "intent": {
-            "kind": "none",
+            "kind": "historical",
             "years": [],
-            "source": ""
+            "source": "memory_scope"
           },
+          "intent_source": "memory_scope",
           "pool": 16,
           "kept": 2,
-          "topic_quota": 2,
-          "topic_years": 3,
-          "topic_common_stems": 1,
           "historical_quota": 0,
           "multi_year_quota": 0,
           "dropped_subject": 14,
-          "dropped_budget": 5,
+          "dropped_budget": 0,
           "dropped_status": 0,
-          "current_state_guard": 0,
           "dropped_out_of_target_year": 0,
           "dropped_unknown_year": 0,
           "pool_status": {
@@ -278,14 +460,14 @@
         {
           "id": 2859,
           "year": 2023,
-          "reason": "topic_parity_quota",
+          "reason": "subject_soft_fallback",
           "subject_role": null,
           "origin": "history_import"
         },
         {
           "id": 3324,
           "year": 2024,
-          "reason": "topic_parity_quota",
+          "reason": "subject_soft_fallback",
           "subject_role": null,
           "origin": "history_import"
         }
@@ -298,13 +480,13 @@
         "2026": 8
       },
       "intent": "explicit_year",
+      "intent_source": "query_year",
+      "policy": "auto",
+      "replace_allowed": 1,
+      "period_skipped": "",
       "kept": 8,
       "historical_quota": 0,
       "multi_year_quota": 0,
-      "topic_quota": 0,
-      "topic_years": 0,
-      "topic_common_stems": 0,
-      "current_state_guard": 0,
       "dropped_status": 0,
       "dropped_budget": 2,
       "product_trace": null,
@@ -318,40 +500,23 @@
         }
       ]
     },
-    "T2_no_signal": {
+    "T2_auto": {
       "rows": 10,
       "row_years": {
-        "2023": 1,
-        "2024": 1,
-        "2026": 8
+        "2026": 10
       },
       "intent": "none",
-      "kept": 2,
-      "historical_quota": 0,
-      "multi_year_quota": 0,
-      "topic_quota": 2,
-      "topic_years": 3,
-      "topic_common_stems": 5,
-      "current_state_guard": 0,
-      "dropped_status": 0,
-      "dropped_budget": 7,
+      "intent_source": "",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "dropped_status": null,
+      "dropped_budget": null,
       "product_trace": null,
-      "period_rows": [
-        {
-          "id": 2721,
-          "year": 2023,
-          "reason": "topic_parity_quota",
-          "subject_role": null,
-          "origin": "history_import"
-        },
-        {
-          "id": 4700,
-          "year": 2024,
-          "reason": "topic_parity_quota",
-          "subject_role": null,
-          "origin": "history_import"
-        }
-      ]
+      "period_rows": []
     },
     "T2_plan_hist": {
       "rows": 10,
@@ -361,13 +526,13 @@
         "2026": 8
       },
       "intent": "multi_year",
+      "intent_source": "plan_act",
+      "policy": "auto",
+      "replace_allowed": 1,
+      "period_skipped": "",
       "kept": 2,
       "historical_quota": 0,
       "multi_year_quota": 2,
-      "topic_quota": 0,
-      "topic_years": 3,
-      "topic_common_stems": 5,
-      "current_state_guard": 0,
       "dropped_status": 0,
       "dropped_budget": 9,
       "product_trace": null,
@@ -393,14 +558,14 @@
       "row_years": {
         "2026": 10
       },
-      "intent": null,
-      "kept": null,
+      "intent": "none",
+      "intent_source": "",
+      "policy": "auto",
+      "replace_allowed": 0,
+      "period_skipped": "auto_full_slice",
+      "kept": 0,
       "historical_quota": null,
       "multi_year_quota": null,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": null,
@@ -410,45 +575,41 @@
       "rows": null,
       "row_years": null,
       "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": null,
       "historical_quota": null,
       "multi_year_quota": null,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": {
         "period": {
+          "policy": "auto",
+          "replace_allowed": 0,
+          "period_skipped": "auto_full_slice",
           "intent": {
             "kind": "none",
             "years": [],
             "source": ""
           },
-          "pool": 16,
+          "intent_source": "",
+          "pool": 0,
           "kept": 0,
-          "topic_quota": 0,
-          "topic_years": 4,
-          "topic_common_stems": 6,
           "historical_quota": 0,
           "multi_year_quota": 0,
-          "dropped_subject": 16,
+          "dropped_subject": 0,
           "dropped_budget": 0,
           "dropped_status": 0,
-          "current_state_guard": 0,
           "dropped_out_of_target_year": 0,
           "dropped_unknown_year": 0,
-          "pool_status": {
-            "confirmed": 16,
-            "archived": 0,
-            "other": 0
-          },
+          "pool_status": {},
           "pool_expired": 0,
-          "age_policy": "not_applied",
-          "vector_leg": "compat_not_proven",
+          "age_policy": "",
+          "vector_leg": "",
           "vector_rows": 0,
-          "vector_unavailable_reason": "compat_not_proven"
+          "vector_unavailable_reason": null
         },
         "years": {
           "2026": 8
@@ -462,45 +623,41 @@
       "rows": null,
       "row_years": null,
       "intent": null,
+      "intent_source": null,
+      "policy": null,
+      "replace_allowed": null,
+      "period_skipped": null,
       "kept": null,
       "historical_quota": null,
       "multi_year_quota": null,
-      "topic_quota": null,
-      "topic_years": null,
-      "topic_common_stems": null,
-      "current_state_guard": null,
       "dropped_status": null,
       "dropped_budget": null,
       "product_trace": {
         "period": {
+          "policy": "auto",
+          "replace_allowed": 0,
+          "period_skipped": "auto_full_slice",
           "intent": {
             "kind": "none",
             "years": [],
             "source": ""
           },
-          "pool": 16,
+          "intent_source": "",
+          "pool": 0,
           "kept": 0,
-          "topic_quota": 0,
-          "topic_years": 4,
-          "topic_common_stems": 6,
           "historical_quota": 0,
           "multi_year_quota": 0,
-          "dropped_subject": 16,
+          "dropped_subject": 0,
           "dropped_budget": 0,
           "dropped_status": 0,
-          "current_state_guard": 1,
           "dropped_out_of_target_year": 0,
           "dropped_unknown_year": 0,
-          "pool_status": {
-            "confirmed": 16,
-            "archived": 0,
-            "other": 0
-          },
+          "pool_status": {},
           "pool_expired": 0,
-          "age_policy": "not_applied",
-          "vector_leg": "compat_not_proven",
+          "age_policy": "",
+          "vector_leg": "",
           "vector_rows": 0,
-          "vector_unavailable_reason": "compat_not_proven"
+          "vector_unavailable_reason": null
         },
         "years": {
           "2026": 8
@@ -527,6 +684,11 @@
         }
       },
       "reply_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "reply_historical_years": {
         "2023": 1,
         "2024": 1,
         "2026": 8
@@ -661,6 +823,11 @@
         "2025": 1,
         "2026": 8
       },
+      "reply_historical_years": {
+        "2024": 1,
+        "2025": 1,
+        "2026": 8
+      },
       "tool_biography": {
         "status": "ok",
         "no_data": false,
@@ -786,6 +953,11 @@
         "2024": 1,
         "2026": 8
       },
+      "reply_historical_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
       "tool_biography": {
         "status": "ok",
         "no_data": false,
@@ -839,6 +1011,9 @@
         }
       },
       "reply_years": {
+        "2026": 10
+      },
+      "reply_historical_years": {
         "2023": 1,
         "2024": 1,
         "2026": 8
@@ -869,20 +1044,7 @@
           "limitation": ""
         }
       },
-      "reply_period": [
-        {
-          "id": 1967903,
-          "year": 2023,
-          "subject_role": "speaker",
-          "origin": "chat_history"
-        },
-        {
-          "id": 1438186,
-          "year": 2024,
-          "subject_role": "speaker",
-          "origin": "chat_history"
-        }
-      ]
+      "reply_period": []
     },
     "P2_top_author": {
       "uid": 138811255,
@@ -969,6 +1131,9 @@
         }
       },
       "reply_years": {
+        "2026": 10
+      },
+      "reply_historical_years": {
         "2024": 1,
         "2025": 1,
         "2026": 8
@@ -998,20 +1163,7 @@
           "limitation": ""
         }
       },
-      "reply_period": [
-        {
-          "id": 1439224,
-          "year": 2024,
-          "subject_role": "speaker",
-          "origin": "chat_history"
-        },
-        {
-          "id": 620856,
-          "year": 2025,
-          "subject_role": "speaker",
-          "origin": "chat_history"
-        }
-      ]
+      "reply_period": []
     },
     "P3_history_2023_2024": {
       "uid": 1313107079,
@@ -1099,6 +1251,9 @@
         }
       },
       "reply_years": {
+        "2026": 10
+      },
+      "reply_historical_years": {
         "2023": 1,
         "2024": 1,
         "2026": 8
@@ -1128,115 +1283,298 @@
           "limitation": ""
         }
       },
-      "reply_period": [
-        {
-          "id": 1988959,
-          "year": 2023,
-          "subject_role": "speaker",
-          "origin": "chat_history"
-        },
-        {
-          "id": 1439255,
-          "year": 2024,
-          "subject_role": "speaker",
-          "origin": "chat_history"
-        }
-      ]
+      "reply_period": []
     }
   },
-  "d1_current_state_after": {
-    "A1P": {
-      "stems": [
-        "были",
-        "конф",
-        "шизы"
-      ],
-      "years": {
+  "authority_measurement": {
+    "A1_auto": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "query_marker",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": null
+    },
+    "A1_historical": {
+      "row_years": {
         "2023": 1,
         "2024": 1,
         "2026": 8
       },
       "period_stats": {
-        "current_state_guard": 0,
-        "topic_quota": 2,
-        "topic_common_stems": 1,
+        "policy": "historical",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "memory_scope",
         "selection_kept": 2,
         "selection_rows": 16
       },
-      "period_rows": [
-        {
-          "id": 2859,
-          "year": 2023,
-          "reason": "topic_parity_quota"
-        },
-        {
-          "id": 3324,
-          "year": 2024,
-          "reason": "topic_parity_quota"
-        }
-      ]
+      "product_trace": null
     },
-    "T3_mulyanka": {
-      "stems": [
-        "дела",
-        "мулянк",
-        "сейчас"
-      ],
-      "years": {
+    "A1P_auto": {
+      "row_years": {
         "2026": 10
       },
       "period_stats": {
-        "current_state_guard": 1,
-        "topic_quota": 0,
-        "topic_common_stems": 6,
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "",
         "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent": {
+          "kind": "none",
+          "years": [],
+          "source": ""
+        },
+        "intent_source": "",
+        "pool": 0,
+        "kept": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 0,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {},
+        "pool_expired": 0,
+        "age_policy": "",
+        "vector_leg": "",
+        "vector_rows": 0,
+        "vector_unavailable_reason": null
+      }
+    },
+    "A1P_historical": {
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "historical",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "memory_scope",
+        "selection_kept": 2,
         "selection_rows": 16
       },
-      "period_rows": []
+      "product_trace": {
+        "policy": "historical",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent": {
+          "kind": "historical",
+          "years": [],
+          "source": "memory_scope"
+        },
+        "intent_source": "memory_scope",
+        "pool": 16,
+        "kept": 2,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 14,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {
+          "confirmed": 16,
+          "archived": 0,
+          "other": 0
+        },
+        "pool_expired": 0,
+        "age_policy": "not_applied",
+        "vector_leg": "compat_not_proven",
+        "vector_rows": 0,
+        "vector_unavailable_reason": "compat_not_proven"
+      }
+    },
+    "D_2023": {
+      "row_years": {
+        "2023": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "query_year",
+        "selection_kept": 8,
+        "selection_rows": 10
+      },
+      "product_trace": null
+    },
+    "T2_auto": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": null
+    },
+    "T2_plan_hist": {
+      "row_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 1,
+        "period_skipped": "",
+        "intent_source": "plan_act",
+        "selection_kept": 2,
+        "selection_rows": 11
+      },
+      "product_trace": null
+    },
+    "T3_current": {
+      "row_years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent_source": "",
+        "selection_kept": 0,
+        "selection_rows": 0
+      },
+      "product_trace": null
     },
     "T3_alina": {
-      "stems": [
-        "алин",
-        "сейчас"
-      ],
-      "years": {
-        "2026": 10
-      },
+      "row_years": null,
       "period_stats": {
-        "current_state_guard": 0,
-        "topic_quota": 0,
-        "topic_common_stems": 6,
-        "selection_kept": 0,
-        "selection_rows": 16
-      },
-      "period_rows": []
-    },
-    "T3_E1": {
-      "stems": [
-        "происходит",
-        "сейчас"
-      ],
-      "years": {
-        "2026": 10
-      },
-      "period_stats": {
-        "current_state_guard": null,
-        "topic_quota": null,
-        "topic_common_stems": null,
+        "policy": null,
+        "replace_allowed": null,
+        "period_skipped": null,
+        "intent_source": null,
         "selection_kept": null,
         "selection_rows": null
       },
-      "period_rows": []
+      "product_trace": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent": {
+          "kind": "none",
+          "years": [],
+          "source": ""
+        },
+        "intent_source": "",
+        "pool": 0,
+        "kept": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 0,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {},
+        "pool_expired": 0,
+        "age_policy": "",
+        "vector_leg": "",
+        "vector_rows": 0,
+        "vector_unavailable_reason": null
+      }
+    },
+    "T3_mulyanka": {
+      "row_years": null,
+      "period_stats": {
+        "policy": null,
+        "replace_allowed": null,
+        "period_skipped": null,
+        "intent_source": null,
+        "selection_kept": null,
+        "selection_rows": null
+      },
+      "product_trace": {
+        "policy": "auto",
+        "replace_allowed": 0,
+        "period_skipped": "auto_full_slice",
+        "intent": {
+          "kind": "none",
+          "years": [],
+          "source": ""
+        },
+        "intent_source": "",
+        "pool": 0,
+        "kept": 0,
+        "historical_quota": 0,
+        "multi_year_quota": 0,
+        "dropped_subject": 0,
+        "dropped_budget": 0,
+        "dropped_status": 0,
+        "dropped_out_of_target_year": 0,
+        "dropped_unknown_year": 0,
+        "pool_status": {},
+        "pool_expired": 0,
+        "age_policy": "",
+        "vector_leg": "",
+        "vector_rows": 0,
+        "vector_unavailable_reason": null
+      }
     }
   },
-  "review_r1_fixes": {
-    "D1": "current-state guard: topic parity AND strict old rows are suppressed under auto for present-time queries; current rows 8008/8009 preserved (unit + real copy)",
-    "D2": "topic parity requires a stem shared between the old rows (topic_common_stems filter)",
-    "D3": "tool biography reserves max_items//5 slots for own messages when subject facts cover only the current year",
-    "D5": "stage fields + block year composition in product log and selection trace (memory_period, block years)",
-    "D6": "labeled set v2 with competing distractors; core 1.0, hard 0.5, aggregate 0.867, T3 0",
-    "D7": "evidence passed-test list corrected",
-    "D4": "3 participants measured (P1, P2 top author, P3 2023-2024)"
+  "l1_measurement": {
+    "model": "deepseek-v4-flash",
+    "base_url_present": true,
+    "key_present": false,
+    "context": "minimal build_l1_context(query) — no live bundle",
+    "rows": [
+      {
+        "class": "A1",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "A1P",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "P1",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "P2",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      },
+      {
+        "class": "P3",
+        "error": "LLMTransportError",
+        "error_text": "LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://nano-gpt.com/api/v1/chat/completions"
+      }
+    ]
+  },
+  "arch_decision_fixes": {
+    "A1": "authority = memory_scope + PeriodIntent.source; query_marker cannot replace (topic_parity removed)",
+    "A2": "_rag_unified_rows: replace=period_replace_allowed; auto full/thin => no period retrieve, period_skipped named; historical keeps trimmed slice",
+    "A3": "L1 card/usage allowlist carries memory_scope",
+    "A4": "tool biography reserve is a floor: fill free envelope, two passes (year diversity, then remaining old rows)",
+    "A5": "current-state and A1P parity under auto are not claimed; L1 historical/historical_recall is the only replacement authority",
+    "A6": "topic_parity/topic keys/guard/current markers removed (N3 by construction)"
   },
   "vector_leg": {
     "rowids": 21771,
@@ -1294,6 +1632,7 @@
     "copy, not the live systemd process: L1 emission, Global_Context, hot-cache, rerank and Writer generation did not participate",
     "vector leg refused (compat_not_proven); provider embed failed (EMBED_API_FAILED) — semantic path not exercised",
     "one chat, one formulation per class, one run per configuration",
-    "TIME-07 precision is measured on the controlled labeled fixture, not on human annotation of the real archive"
+    "TIME-07 precision is measured on the controlled labeled fixture, not on human annotation of the real archive",
+    "live L1 memory_scope for A1/A1P/P1/P2/P3 is UNKNOWN: local LLM key is empty (LLMTransportError) and the DB copy has no durable L1 plan; the authority matrix is measured by passing memory_scope explicitly"
   ]
 }

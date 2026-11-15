@@ -127,13 +127,22 @@ class PoolSpy:
 
 
 QUERIES = (
-    ("A1_creative", "напиши юмористический рассказ об основных шизах конфы", {}),
-    ("A1P_plain", "что за шизы были на конфе?", {}),
-    ("D_2023", "из-за чего мы ссорились и ругались в 2023 году", {}),
-    ("T2_no_signal", "что вообще было с E1, напомни?", {}),
+    ("A1_auto", "напиши юмористический рассказ об основных шизах конфы",
+     {"memory_scope": "auto"}),
+    ("A1_historical", "напиши юмористический рассказ об основных шизах конфы",
+     {"memory_scope": "historical"}),
+    ("A1P_auto", "что за шизы были на конфе?",
+     {"memory_scope": "auto"}),
+    ("A1P_historical", "что за шизы были на конфе?",
+     {"memory_scope": "historical"}),
+    ("D_2023", "из-за чего мы ссорились и ругались в 2023 году",
+     {"memory_scope": "auto"}),
+    ("T2_auto", "что вообще было с E1, напомни?",
+     {"memory_scope": "auto"}),
     ("T2_plan_hist", "что вообще было с E1, напомни?",
-     {"plan_act": "historical_recall"}),
-    ("T3_current", "что сейчас происходит с E1?", {}),
+     {"memory_scope": "auto", "plan_act": "historical_recall"}),
+    ("T3_current", "что сейчас происходит с E1?",
+     {"memory_scope": "auto"}),
 )
 
 
@@ -174,10 +183,13 @@ async def main():
     for key, query, extra in QUERIES:
         stub.text = query
         entry = {"query_class": key}
+        call_kwargs = dict(extra)
+        scope = str(call_kwargs.pop("memory_scope", "auto"))
         with PoolSpy() as spy:
             try:
                 rows = await asyncio.wait_for(svc._rag_unified_rows(
-                    CHAT, query, stub, memory_scope="auto", **extra), 300)
+                    CHAT, query, stub, memory_scope=scope,
+                    **call_kwargs), 300)
             except Exception as exc:                      # noqa: BLE001
                 rows = None
                 entry["error"] = "%s: %s" % (type(exc).__name__,
@@ -207,14 +219,22 @@ async def main():
         out["classes"][key] = entry
 
     # D5: продуктовая трасса того же хода (`out_memory` из `_build_rag_block`).
-    for key, query in (("A1P_plain", "что за шизы были на конфе?"),
-                       ("T3_alina", "что сейчас с Алиной?"),
-                       ("T3_mulyanka", "как сейчас дела с мулянкой?")):
+    for key, query, subject in (
+            ("A1P_auto", "что за шизы были на конфе?", None),
+            ("A1P_historical", "что за шизы были на конфе?", None),
+            ("T3_alina", "что сейчас с Алиной?",
+             ("Alina", 485008070)),
+            ("T3_mulyanka", "как сейчас дела с мулянкой?", None)):
         stub.text = query
         trace: dict = {}
+        scope = "historical" if key.endswith("_historical") else "auto"
+        kwargs = {"memory_scope": scope, "out_memory": trace}
+        if subject:
+            kwargs["subject_name"] = subject[0]
+            kwargs["subject_uid"] = subject[1]
         try:
             block, _hint = await asyncio.wait_for(svc._build_rag_block(
-                CHAT, stub, "", memory_scope="auto", out_memory=trace), 300)
+                CHAT, stub, "", **kwargs), 300)
             out["classes"].setdefault(key, {})
             out["classes"][key]["product_trace"] = {
                 "period": trace.get("period"),
@@ -336,6 +356,25 @@ async def main():
                                   if isinstance(r, dict)
                                   and r.get("period_fill")]
         person["reply_stats"] = dict(
+            getattr(svc, "_rag_period_stats", None) or {})
+        # D1: тот же вопрос под historical — контроль не вакуумный.
+        with PoolSpy() as spy:
+            try:
+                hist_rows = await asyncio.wait_for(svc._rag_unified_rows(
+                    CHAT, stub.text, stub, memory_scope="historical",
+                    subject_name=name, subject_uid=uid), 300)
+            except Exception as exc:                      # noqa: BLE001
+                hist_rows = None
+                person["reply_historical_error"] = type(exc).__name__
+        hist_rows = list(hist_rows or ())
+        person["reply_historical_years"] = hist(
+            [year_of((r or {}).get("rag_ts")
+                     or (r or {}).get("message_timestamp"))
+             for r in hist_rows if isinstance(r, dict)])
+        person["reply_historical_period"] = [
+            brief(r) for r in hist_rows
+            if isinstance(r, dict) and r.get("period_fill")]
+        person["reply_historical_stats"] = dict(
             getattr(svc, "_rag_period_stats", None) or {})
         # D3/D4: продуктовый tool-envelope `biography` (top-author single-year
         # regression) — тот же `_get_user_context`, без второго поиска.
