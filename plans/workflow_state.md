@@ -1,21 +1,21 @@
 # Workflow State
 
-Task: vmq-onto-01 (queue 5, P0) — resumed after SMART-CORRECTIVE-01 engineering closure; parent smart-execution-reliability-01 parked with live acceptance
-Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + amendments 2026-11-10..13; owner continuity instruction 2026-11-15
-Status: waiting_external
-Primary phase: paused_by_owner
+Task: vmq-onto-01 (queue 5, P0) — owner resumed the whole queue 2026-11-15; REVIEW RECOVERY PASS completed; Slice D (MEM-04, TIME-01/02/04/06/07) is the active engineering slice
+Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + amendments 2026-11-10..13; owner continuity/recovery instruction 2026-11-15
+Status: active
+Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: none
+Active lanes: Slice D Builder (starting); read-only recovery reviewers closed
 Join barriers: none
 Last verified: 2.58.204 deployed at 2b419aa2 (health 200/2.58.204, schema 47, identity verified_deployed, NRestarts 0, settings/prompt preserved); rollback c97c06e4/2.58.203 known.
-Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. Release gates: VMQ-A/ONTO-A/ONTO-B 0; M2 release 1 (O-04) with delivery PASS and deferred O-04; MEM/TIME red on open rows. Full epic not DONE.
-Next unlocks: owner command. No new work is dispatched. Open state: O-04 READY_FOR_LIVE, V-01..V-04 REVIEW, MEM-04/TIME-01/02/04..09 open; the owner cancelled the post-deploy probe.
-Next execution: none
-Review: M1/NEXT2 VERIFIED; ONTO-A/B/M2/A/B/C independently reviewed and deployed/accepted for the released slices; M2 delivery PASS with only O-04 deferred; no new review verdict is pending.
+Acceptance: VMQ map 70 required rows: 50 PENDING, 7 REVIEW, 12 VERIFIED, 1 READY_FOR_LIVE. M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE (live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. Recovery pass confirmed ONTO-A/B, M2/O-04, Slice A/B/C at review level and did not raise map statuses. Release gates unchanged. Full epic not DONE.
+Next unlocks: Slice D fixes the remaining memory/temporal defects on top of 2b419aa2; O-04/V live remain parked observations.
+Next execution: runnable
+Review: M1/NEXT2 VERIFIED; ONTO-A/B/M2/A/B/C deployed/accepted for released slices; M2 delivery PASS with O-04 deferred. REVIEW RECOVERY PASS 2026-11-15: three independent DeepSeek V4 Pro sessions, all Approved, no blocking defects; Slice C evidence bookkeeping gap and live-vector/live-delivery gaps recorded.
 Deployment: 2.58.204 verified at 2b419aa2 (health 200, schema 47, identity verified, NRestarts 0); rollback c97c06e4/2.58.203 known.
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 paused_by_owner with 12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T16:04:08+12:00
+Progress scope: plans/progress_scope.json | vmq-onto-01 active (12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING); corrective parked delivered_awaiting_evidence; recovery pass recorded without status inflation.
+Updated: 2026-11-15T17:05:00+12:00
 
 ## Facts
 
@@ -189,3 +189,19 @@ Owner instruction: let the current DevOps task finish, then bring the plans in o
 ## Owner stop (2026-11-15, final)
 
 Owner cancelled the post-deploy probe ("нет времени") and ordered: record the current state, bring plans/memory in order, stop and await the command. No active lanes. Current state: 2.58.204 deployed and verified at 2b419aa2 (health 200/2.58.204, schema 47, identity verified_deployed, NRestarts 0, settings and manual prompt rev:d31300ef35a0 intact, rollback c97c06e4). Map 50 PENDING / 7 REVIEW / 12 VERIFIED / 1 READY_FOR_LIVE: M-04/M-05/O-01/O-02/O-03/VMQ-A-01 VERIFIED; O-04 READY_FOR_LIVE with the live correction effect unobserved (probe cancelled by owner); V-01..V-04 REVIEW (no real voice event); MEM-04/TIME-01/02/04..09 open. M2 delivery PASS with deferred O-04; VMQ-A/ONTO-A/ONTO-B release gates 0; MEM/TIME gates red on open rows. The VMQ epic is not DONE. The project is paused by the owner; Next execution: none. Durable memory is updated with this checkpoint.
+
+## REVIEW RECOVERY PASS completed (2026-11-15, owner resumed queue)
+
+Owner resumed the whole queue and ordered a trust-recovery pass on the already accepted SMART/VMQ work, real OpenViking use, real temp cleanup and continuation. Three fresh independent Reviewer sessions ran on the exact deployed code `2b419aa2` (APP_VERSION 2.58.204) with DeepSeek V4 Pro (`opencode-go/deepseek-v4-pro`), each in its own clean worktree:
+- VMQ (ses_e228ff98bffeLLjuKDL1tR7BNp): ONTO-A `8cb9e00d`, ONTO-B `d15b13da`, M2/O-04 `f7a9c596`, Slice A `570a49db`, Slice B `d159ea8a`, Slice C `16931216` — all **Approved**. Independently: 56+100 passed focused; 4 known pin-guard failures reproduced. Own counterexamples: unscoped entity -> tentative/unknown; explicit 2023 rejects 2026 and unknown-year (`dropped_out=1/dropped_unknown=1`); "что сейчас" -> wants_overview=False. Findings: the 4 pin-guard failures are BACKLOG_ONLY (prompt_readback already in `c97c06e4`, tool_schemas/web untouched by the train); Slice C evidence trio lives on `8bc2bcf7`, not in the frozen `2b419aa2` tree although the code is byte-identical (`git diff 16931216 8bc2bcf7 -- services/ tests/` empty) — bookkeeping, not a product defect; live vector leg and live overview delivery remain UNVERIFIED.
+- SMART execution (ses_e228ff98affe1vm338onVOk2OF): budgets ON/OFF, SourceReader/local-first/GitHub-by-deployed-SHA, SSRF/DNS pinning, checkup continuation, evidence S13-S17, I1-I6 — all CONFIRMED; 578 targeted tests passed; last-known-valid counterexample reproduced. BACKLOG_ONLY: stale `_render_thread(projection=)` stub in `test_budget_global_toggle_round1024` (VMQ delta) and write-point audit-pin drift; 118/25 classification sampled, not fully re-run.
+- SMART corrective (ses_e228ff988ffeMM3uyvHsR5Crn3): factcheck S13-S17/SFC-12-09/FC Anchor, watchdog S5A-S5D, prompts S6 Delivery/Guard/Activation/Checkup Label, input/completion — all CONFIRMED (predeploy review level); 101 tests passed; `test_smart_exec_learning_incidents` strengthened, not weakened. Expected gaps only: live postdeploy activation/metrics and W-12 production data; FC anchor wiring test uses `inspect.getsource`, covered by planner/integration tests.
+Artefacts: `plans/features/vmq-onto-01/evidence/review-recovery-pass-2026-11-15.md`, `plans/features/smart-execution-reliability-01/evidence/review-recovery-pass-2026-11-15.md`, `plans/features/smart-corrective-01/evidence/review-recovery-pass-2026-11-15.md`. No map status was raised or lowered; no code/tests/plans were edited by reviewers.
+
+## Git lineage reconciliation (2026-11-15)
+
+The reported `master ahead 860, behind 143` is fully explained and is not data loss: local `master` is the canonical **planning/docs line** (874 docs commits ahead, none pushed); `origin/master` diverged at merge-base `924b3b51` and stopped at the 2.58.128-era integration snapshot (143 commits). Neither line contains the deployed runtime: `2b419aa2`/`c97c06e4`/`aca13702`/`d20a7f73` are NOT ancestors of `master`, whose runtime snapshot is APP_VERSION 2.58.111. The authoritative product line is the release-branch chain ending in `release/vmq-onto-01-2.58.204` = `2b419aa2` (pushed to origin). No reset/rebase/force-push was performed; the main checkout had no tracked modifications (141 untracked items are agent artifacts/product files to be handled separately). Consequence for all agents: never run product tests in the main checkout; use a release-tip worktree.
+
+## Housekeeping result (2026-11-15)
+
+Real cleanup performed with the installed housekeeping tool plus verified targeted removal. Worktrees: 56 agent worktrees removed (all clean after preserving unique local review artefacts; branches and commits kept). 12 unique files were absent from the planning line and were copied there (integration-review, fc-12-09/fc-anchor/fc-evidence reviewer probes, review-i1-a3841613, etc.); 3 disposable diffs saved as patches under `WorkspaceData/backups/recovery-artifacts-2026-11-15/`; two identical untracked `test_smart_e_local_first_source.py` copies quarantined. Kept: the three recovery review worktrees, the 2.58.204 release-train worktree, and the VMQ corpus run copy for Slice D measurement. Runs: 205 tool-owned runs inspected, 130+ closed, 36 mutation-copy runs purged after preserving their small metadata; the 10 GB VMQ corpus copy is retained deliberately. Free disk grew from 56.1 GB to ~131 GB (~75 GB freed). Remaining large retained item: the VMQ prod-DB corpus copy (needed for Slice D re-measurement, reproducible from prod if deleted later).

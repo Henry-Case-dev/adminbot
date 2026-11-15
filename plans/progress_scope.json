@@ -63,9 +63,32 @@
       "position_status": "owner_ordered",
       "position_basis": "owner directive: immediate continuation of the current corrective contour (parent smart-execution-reliability-01, queue 1)",
       "execution_state": "delivered_awaiting_evidence",
-      "deferred_req_ids": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16", "AC-17", "AC-18", "AC-21", "AC-22", "AC-23", "AC-24"],
+      "deferred_req_ids": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14",
+        "AC-15",
+        "AC-16",
+        "AC-17",
+        "AC-18",
+        "AC-21",
+        "AC-22",
+        "AC-23",
+        "AC-24"
+      ],
       "delivery_gate_ref": "plans/features/smart-corrective-01/evidence/gates/delivery-corrective-c97c06e4.txt",
-      "queue_note": "Registered 2026-11-14 from the owner's SMART-CORRECTIVE-01 task: fix the live checkup self-research defect (SourceReader fallback/content search, effective budget propagation, checkup completion semantics, input completeness, prompt delivery) and the watchdog incidents. Mandatory read-only investigation of the two production runs before implementation; PM map vs SMART/SELF-DIAG and Architect plan required; 2.58.200 delivery evidence stays valid. | 2026-11-14: PM map accepted (384 required rows, 24 AC, 14 slices, plan gate errors=0); Architect S5 contract extended. | 2026-11-15 FINALIZATION: 2.58.203 deployed at c97c06e4; 355 REVIEW->VERIFIED + 4 live rows verified (SC-ART-09/10, AC-19/20); 362/384 VERIFIED, 22 live observations deferred with approved waits; deploy gate 0, delivery gate PASS (engineering delivered, acceptance pending future evidence); corrective engineering cycle stopped per owner finalization.",
+      "queue_note": "Registered 2026-11-14 from the owner's SMART-CORRECTIVE-01 task: fix the live checkup self-research defect (SourceReader fallback/content search, effective budget propagation, checkup completion semantics, input completeness, prompt delivery) and the watchdog incidents. Mandatory read-only investigation of the two production runs before implementation; PM map vs SMART/SELF-DIAG and Architect plan required; 2.58.200 delivery evidence stays valid. | 2026-11-14: PM map accepted (384 required rows, 24 AC, 14 slices, plan gate errors=0); Architect S5 contract extended. | 2026-11-15 FINALIZATION: 2.58.203 deployed at c97c06e4; 355 REVIEW->VERIFIED + 4 live rows verified (SC-ART-09/10, AC-19/20); 362/384 VERIFIED, 22 live observations deferred with approved waits; deploy gate 0, delivery gate PASS (engineering delivered, acceptance pending future evidence); corrective engineering cycle stopped per owner finalization. | 2026-11-15 recovery pass: independent DeepSeek V4 Pro reviewer Approved predeploy-level factcheck/watchdog/prompts/input on 2b419aa2 (101 tests, tests not weakened); live postdeploy observations and W-12 remain postrelease waits; no status change.",
       "owner_input": "plans/owner_inputs/2026-11-14-smart-corrective-01.md",
       "created": "2026-11-14T18:16:46+12:00",
       "updated": "2026-11-15T07:55:00+12:00",
@@ -990,7 +1013,7 @@
     },
     {
       "id": "vmq-onto-01",
-      "status": "WAITING_EXTERNAL",
+      "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
       "source_sha256": "11FD732FED30E5EA2B78B1951D2E8DF8B483FF55FEA92285F6DA57FCC7637CD0",
       "maps": [
@@ -998,22 +1021,16 @@
       ],
       "coverage_complete": true,
       "source_note": "Owner epic VMQ-ONTO-01 (FINAL 1.0, 09.11.2026), current_task.md lines 8282-9482, 1201 lines + provider-management amendment. Reconciled into plans/features/vmq-onto-01/requirements-map.json: 70 required rows (69 manual + VMQ-A-01), 16 slices, slice-graph and plan.md; plan gate PASS (inventory=380 manual=69 scoped=0 errors=0). Mapping artifact plans/features/vmq-onto-01/audit-head.md. Queue position unchanged at the end area; VMQ-V deployed in 2.58.170 @ 42f068df and remains an evidence gap (V-01..V-04 REVIEW); IBM hardware verification is blocked_external. MEMORY-07 default-off/quality repair stays inside the MEMORY epic.",
-      "updated": "2026-11-15T15:31:31+12:00",
+      "updated": "2026-11-15T17:10:00+12:00",
       "queue_position": 5,
       "priority": "P0",
       "blocked_by": [],
       "position_status": "chained",
       "blocker_sources": {},
-      "execution_state": "paused_by_owner",
-      "active_work": "Paused by the owner on 2026-11-15: stop the post-deploy probe, record the current state, update plans/memory and await the next command. 2.58.204 is deployed and verified at 2b419aa2; M-04/M-05/O-01/O-02/O-03/VMQ-A-01 are VERIFIED; O-04 is READY_FOR_LIVE (route/fingerprint pass, live correction effect unobserved); V-01..V-04 REVIEW; MEM-04/TIME-01/02/04..09 open. The VMQ epic is not DONE.",
-      "owner_pause": {
-        "at": "2026-11-15T15:31:31+12:00",
-        "command": "stop post-deploy work; record current state; bring plans/memory in order; await command",
-        "active_lanes": [],
-        "next_action": "await owner command; no new work"
-      },
+      "execution_state": "active",
+      "active_work": "Owner resumed the whole queue 2026-11-15 and ordered a REVIEW RECOVERY PASS + cleanup + continuation. Three independent DeepSeek V4 Pro reviewers re-checked the deployed 2b419aa2 code: ONTO-A/B, M2/O-04, Slice A/B/C and SMART execution/corrective contracts are Approved with no blocking defects. Slice C evidence bookkeeping gap and live-vector/live-delivery gaps recorded without status inflation. Active engineering slice is now Slice D: MEM-04 (A1P ordinary twin / subject-bound multi-year parity), TIME-01/02/04/06/07; O-04 and V-01..V-04 stay parked.",
       "position_basis": "owner decision",
-      "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate. | 2026-11-14 re-entry: no live lane since 2026-11-13 16:46; approved candidates M1 cfec9a1a and NEXT-02/05 96c8bc72 await release batching decision inside the current release line; worktrees preserved. | 2026-11-15 RESUME: SMART-CORRECTIVE-01 engineering delivered at 2.58.203/c97c06e4. Git ancestry shows both VMQ candidates are already in the deployed line (merged in the 2.58.199 train and carried through 2.58.200-203); their map deployed=false is stale. PM binds the deployed state and proposes the next dependency-ready VMQ slice; Builder re-verifies the focused suites on the deployed code. IBM QPU hardware stays blocked_external; VMQ-MEM-TIME evidence remains open.",
+      "queue_note": "2026-11-13: two approved vmq candidates ready for release handoff (M1 cfec9a1a; NEXT-02/05 96c8bc72). Map gates: plan errors=0; review/deploy VMQ-M1 errors=0; VMQ-MEM-NEXT review red only on NEXT-01 (postrelease), NEXT-03 (candidate-bound approval missing) and NEXT-04 (no archive positive case). Epic not DONE: 54 gaps. self-diag corrective P0 runs in parallel; release batching decision pending its core candidate. | 2026-11-14 re-entry: no live lane since 2026-11-13 16:46; approved candidates M1 cfec9a1a and NEXT-02/05 96c8bc72 await release batching decision inside the current release line; worktrees preserved. | 2026-11-15 RESUME: SMART-CORRECTIVE-01 engineering delivered at 2.58.203/c97c06e4. Git ancestry shows both VMQ candidates are already in the deployed line (merged in the 2.58.199 train and carried through 2.58.200-203); their map deployed=false is stale. PM binds the deployed state and proposes the next dependency-ready VMQ slice; Builder re-verifies the focused suites on the deployed code. IBM QPU hardware stays blocked_external; VMQ-MEM-TIME evidence remains open. | 2026-11-15 REVIEW RECOVERY PASS: three independent DeepSeek V4 Pro reviewers on deployed 2b419aa2 — Approved, no blocking defects; 4 pin-guard failures confirmed pre-existing; Slice C evidence lives on 8bc2bcf7 (code byte-identical), bookkeeping only; live vector and live overview delivery remain unverified. Owner resumed queue; Slice D active.",
       "postdeploy_monitoring": {
         "blocking": false,
         "why": "Implementation is finished, the frozen candidate is deployed (2.58.182, hotfixed in 2.58.183) and every available check passed: 53+ tests, an independent 15-question sample, byte-identical operative behaviour. What remains is a larger real-traffic sample for share/latency figures, which is observation, not a mechanism failure.",
@@ -1111,6 +1128,43 @@
         "VMQ-MEM-NEXT": "NEXT-02/05 VERIFIED; NEXT-01 postrelease, NEXT-03 REVIEW, NEXT-04 PENDING",
         "VMQ-V": "V-01..V-04 REVIEW; no real production voice event",
         "epic": "12 VERIFIED / 7 REVIEW / 1 READY_FOR_LIVE / 50 PENDING; open memory and V evidence; not DONE"
+      },
+      "recovery_pass_2026_11_15": {
+        "verdict": "approved_no_blockers",
+        "reviewers": [
+          {
+            "scope": "VMQ ONTO-A/B, M2/O-04, Slice A/B/C",
+            "model": "opencode-go/deepseek-v4-pro",
+            "session": "ses_e228ff98bffeLLjuKDL1tR7BNp",
+            "runs": {
+              "vmq_focused": "56 passed",
+              "semantic_retrieval_time": "100 passed",
+              "pin_guard": "4 failed / 75 passed"
+            }
+          },
+          {
+            "scope": "SMART execution budgets/SourceReader/checkup/S13-S17/I1-I6",
+            "model": "opencode-go/deepseek-v4-pro",
+            "session": "ses_e228ff98affe1vm338onVOk2OF",
+            "runs": {
+              "targeted_total": "578 passed, 0 failed"
+            }
+          },
+          {
+            "scope": "SMART corrective factcheck/watchdog/prompts/input",
+            "model": "opencode-go/deepseek-v4-pro",
+            "session": "ses_e228ff988ffeMM3uyvHsR5Crn3",
+            "runs": {
+              "targeted_total": "101 passed"
+            }
+          }
+        ],
+        "artifacts": [
+          "plans/features/vmq-onto-01/evidence/review-recovery-pass-2026-11-15.md",
+          "plans/features/smart-execution-reliability-01/evidence/review-recovery-pass-2026-11-15.md",
+          "plans/features/smart-corrective-01/evidence/review-recovery-pass-2026-11-15.md"
+        ],
+        "no_status_change": true
       }
     },
     {
@@ -2177,7 +2231,7 @@
       "blocker_sources": {},
       "owner_input": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
       "source_note": "plans/current_task.md lines 11750-13308 (owner-authored). Stages A-M: budgets/tool-loop/evidence, model capacity, local-first own code, GitHub SafeFetch, finalization, SELF-DIAG H, production defects I1-I6, anti-hardcode J, acceptance L, order/DoD M. One epic; no duplicate correctives.",
-      "queue_note": "2026-11-14: map/plan/slice-graph committed (99 reqs, 13 slices); contract parts 1-2 frozen; production recon committed (budgets OFF everywhere but tool-chain limits active; capacity 16384 vs catalog 1048576; SafeFetch single-DNS-snapshot cause; I2 backlog; I4 unmapped codes). Wave 1 building: A+B budgets/tool-loop, D capacity, C1 SourceReader, F SafeFetch. Baseline = production d20a7f73. | 2026-11-14: FACTCHECK-REQUEST-INTEGRITY v2 FULL amendment captured; it is part of this epic (not a separate task) and is executed after the core stages; PM mapping pending. | FACTCHECK v2 mapped: 87 reqs, S13-S17, separate map with own source; wave after core. | 2026-11-14 07:48 wave 2 dispatched: C2/C3 (resume smart/c-source from ca1ee920), I5+I6/I7 (smart/i56-memory-learning), FC S13 (smart/fc-s13-request); PM binding lane for S0 + I1-02/I2-02. H starts after C2/C3 review. | 2026-11-14: production deployed 2.58.200 at 0e4a144db476a1535ae3a2b79a7cce30354ad866 (release/2.58.200); healthz 200, manifest=HEAD, schema 47, settings preserved. Engineering delivery PASS; acceptance pending live canaries. Next (agent-owned, on command): rebind row evidence to deployed SHA with bound_from_candidate, run release and delivery gates, then live canaries (factcheck S13-S17, Telegram/LLM/search, journal, L1-L8, checkup).",
+      "queue_note": "2026-11-14: map/plan/slice-graph committed (99 reqs, 13 slices); contract parts 1-2 frozen; production recon committed (budgets OFF everywhere but tool-chain limits active; capacity 16384 vs catalog 1048576; SafeFetch single-DNS-snapshot cause; I2 backlog; I4 unmapped codes). Wave 1 building: A+B budgets/tool-loop, D capacity, C1 SourceReader, F SafeFetch. Baseline = production d20a7f73. | 2026-11-14: FACTCHECK-REQUEST-INTEGRITY v2 FULL amendment captured; it is part of this epic (not a separate task) and is executed after the core stages; PM mapping pending. | FACTCHECK v2 mapped: 87 reqs, S13-S17, separate map with own source; wave after core. | 2026-11-14 07:48 wave 2 dispatched: C2/C3 (resume smart/c-source from ca1ee920), I5+I6/I7 (smart/i56-memory-learning), FC S13 (smart/fc-s13-request); PM binding lane for S0 + I1-02/I2-02. H starts after C2/C3 review. | 2026-11-14: production deployed 2.58.200 at 0e4a144db476a1535ae3a2b79a7cce30354ad866 (release/2.58.200); healthz 200, manifest=HEAD, schema 47, settings preserved. Engineering delivery PASS; acceptance pending live canaries. Next (agent-owned, on command): rebind row evidence to deployed SHA with bound_from_candidate, run release and delivery gates, then live canaries (factcheck S13-S17, Telegram/LLM/search, journal, L1-L8, checkup). | 2026-11-15 recovery pass: independent DeepSeek V4 Pro reviewer Approved the deployed 2b419aa2 implementation (578 targeted tests, last-known-valid counterexample); two BACKLOG_ONLY test-hygiene findings recorded; no status change.",
       "created": "2026-11-14T00:16:56+12:00",
       "updated": "2026-11-14T19:00:00+12:00",
       "source_path": "plans/owner_inputs/2026-11-14-smart-execution-reliability-01.md",
