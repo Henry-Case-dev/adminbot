@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "code": "verified_deployed",
+ "reason": "",
+ "repo_origin": "Henry-Case-dev/adminbot",
+ "deployed_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+ "checkout_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+ "dirty": false,
+ "upstream_head": {
+  "sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "ref": "refs/remotes/origin/release/vmq-slice-d-2.58.205",
+  "observed_at": "2026-11-15T09:47:15.161203Z",
+  "reason": ""
+ },
+ "version_provenance": {
+  "runtime": "2.58.205",
+  "manifest": "2.58.205",
+  "consistent": true
+ },
+ "local_source_verification": "verified_deployed",
+ "artifact": {
+  "kind": "git_checkout",
+  "release_branch": "release/vmq-slice-d-2.58.205",
+  "schema_version": null
+ },
+ "deployed_at": "2026-11-15T09:47:15.317949Z",
+ "process_started_at": "2026-11-15T09:47:17Z",
+ "observed_at": "2026-11-15T09:47:26.869537Z",
+ "sources": [
+  "release_manifest",
+  "git_head",
+  "git_cli",
+  "runtime_app_version",
+  "process_start"
+ ],
+ "conflict": [],
+ "local_identity": {
+  "checkout_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1",
+  "dirty": false,
+  "checkout_mtime": "2026-11-15T09:47:15.210202Z",
+  "branch": "release/vmq-slice-d-2.58.205"
+ },
+ "effect": "deploy",
+ "previous_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+ "previous_version": "2.58.204",
+ "_process_started_at_source": {
+  "raw": "Sun 2026-11-15 09:47:17 UTC",
+  "iso": "2026-11-15T09:47:17Z"
+ }
+}

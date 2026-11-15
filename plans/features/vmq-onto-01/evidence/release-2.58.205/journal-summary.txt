@@ -1,0 +1,15 @@
+Journal summary — admin_bot since 2026-11-15T09:47:17Z (unit restart, deploy 2.58.205)
+Host: vps159032-gqg, MainPID 1075058, ExecMainStartTimestamp Sun 2026-11-15 09:47:17 UTC
+Lines: 159 | Traceback: 0 | ERROR: 0 | CRITICAL: 0 | WARNING: 1 | 'database is locked': 0
+
+--- migration startup line ---
+Nov 15 09:47:21 vps159032-gqg python[1075058]: 2026-11-15 09:47:21,367 - services.database - INFO - [database] migrations: start | current user_version=47 | pending=[]
+
+--- prompt release ---
+Nov 15 09:47:21 vps159032-gqg python[1075058]: 2026-11-15 09:47:21,354 - services.prompt_release_policy - INFO - [prompt_release] релиз применён | release=evol-016-cutover | blocks=112 | changed=0 | retired=0
+
+--- only WARNING (known pre-existing class, same as 2.58.204 deploy) ---
+Nov 15 09:47:21 vps159032-gqg python[1075058]: 2026-11-15 09:47:21,570 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=superseded | gen_fp=2d0efab0e817 new_fp=2d0efab0e8...
+
+--- startup marker ---
+Nov 15 09:47:17 vps159032-gqg systemd[1]: Started admin_bot.service - Telegram Admin Bot.

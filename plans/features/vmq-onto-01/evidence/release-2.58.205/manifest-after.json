@@ -1,0 +1,1 @@
+﻿{"deployed_at": "2026-11-15T09:47:15.317949Z", "deployed_sha": "bca18c1e271fdfafa4939b07c88a0d3f2a92b8a1", "deployer": "devops", "dirty_tracked": false, "effect": "deploy", "previous_sha": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0", "previous_version": "2.58.204", "release_branch": "release/vmq-slice-d-2.58.205", "schema": 1, "version": "2.58.205"}
