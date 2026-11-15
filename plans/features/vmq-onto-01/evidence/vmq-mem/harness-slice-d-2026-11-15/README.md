@@ -10,7 +10,9 @@
 $env:VMQ_CLONE = "<worktree кандидата или базы>"
 $env:VMQ_DB    = "<путь к dbcopy.db>"
 $env:PROBE_OUT = "<куда писать JSON>"
-python measure.py            # классы A1/A1P/D/T2/T3, Old_Episode, профиль, вектор
+python measure.py            # классы A1/A1P/D/T2/T3, Old_Episode, профиль, вектор,
+                             # D3 tool-биография, D5 product_trace
+python probe_current_state.py  # D1: current-state вопросы под auto
 python vector_inventory.py   # TIME-06: таблицы/счётчики/допуск/причина отказа
 ```
 

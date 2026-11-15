@@ -14,9 +14,8 @@ import sys
 import time
 from types import SimpleNamespace
 
-CLONE = os.environ.get("VMQ_CLONE") or os.getcwd()
-DBPATH = os.environ.get("VMQ_DB") or os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "dbcopy.db")
+CLONE = os.environ.get("VMQ_CLONE") or r"C:\Users\main\.config\opencode\WorkspaceData\worktrees\c742e4de9e92c489\vmq-slice-d-963e66a7a511-6602ef7e"
+DBPATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dbcopy.db")
 OUT = os.environ.get("PROBE_OUT") or os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "measure.json")
 CHAT = -1002661910336
@@ -207,6 +206,28 @@ async def main():
         })
         out["classes"][key] = entry
 
+    # D5: продуктовая трасса того же хода (`out_memory` из `_build_rag_block`).
+    for key, query in (("A1P_plain", "что за шизы были на конфе?"),
+                       ("T3_alina", "что сейчас с Алиной?"),
+                       ("T3_mulyanka", "как сейчас дела с мулянкой?")):
+        stub.text = query
+        trace: dict = {}
+        try:
+            block, _hint = await asyncio.wait_for(svc._build_rag_block(
+                CHAT, stub, "", memory_scope="auto", out_memory=trace), 300)
+            out["classes"].setdefault(key, {})
+            out["classes"][key]["product_trace"] = {
+                "period": trace.get("period"),
+                "years": trace.get("years"),
+                "source_ids": len(trace.get("source_ids") or ()),
+                "block_chars": len(block or ""),
+            }
+        except Exception as exc:                          # noqa: BLE001
+            out["classes"].setdefault(key, {})
+            out["classes"][key]["product_trace"] = {
+                "error": type(exc).__name__, "text": str(exc)[:200]}
+
+
     for key, query in (("Old_Episode_2023",
                         "из-за чего мы ссорились и ругались в 2023 году"),
                        ("Old_Episode_plain", "что за шизы были на конфе?")):
@@ -237,7 +258,24 @@ async def main():
         }
 
     now = int(time.time())
-    for uid, alias in ((485008070, "P1"), (138811255, "P2_top_author")):
+    from services.tool_router import ToolContext, ToolDeps, ToolRouter
+
+    class _Aliases:
+        def __init__(self, mapping):
+            self._aliases = {str(k): str(v) for k, v in mapping.items()}
+
+        def resolve(self, user_id, nickname=None, username=None,
+                    memory_name=None):
+            return self._aliases.get(str(user_id),
+                                     nickname or str(user_id))
+
+        def canon_name(self, name):
+            return str(name or "").strip()
+
+    router = ToolRouter(ToolDeps(search=None, memory=memory,
+                                 aliases=_Aliases({}), db=db))
+    for uid, alias in ((485008070, "P1"), (138811255, "P2_top_author"),
+                       (1313107079, "P3_history_2023_2024")):
         row = await db.db.execute(
             "SELECT author_name FROM smart_messages WHERE user_id=? AND "
             "chat_id=? AND COALESCE(author_name,'')<>'' "
@@ -299,6 +337,30 @@ async def main():
                                   and r.get("period_fill")]
         person["reply_stats"] = dict(
             getattr(svc, "_rag_period_stats", None) or {})
+        # D3/D4: продуктовый tool-envelope `biography` (top-author single-year
+        # regression) — тот же `_get_user_context`, без второго поиска.
+        router.deps.aliases._aliases[str(uid)] = name
+        try:
+            raw = await asyncio.wait_for(router._get_user_context(
+                {"person": name, "purpose": "biography",
+                 "user_id": uid},
+                ToolContext(CHAT, "что ты знаешь про %s?" % name)), 300)
+            payload = json.loads(raw or "{}")
+            facts = payload.get("facts") or []
+            person["tool_biography"] = {
+                "status": payload.get("status"),
+                "no_data": payload.get("no_data"),
+                "empty_reason": payload.get("empty_reason"),
+                "facts": len(facts),
+                "years": hist([fact.get("as_of_year") for fact in facts]),
+                "roles": hist([fact.get("subject_role") for fact in facts
+                               if fact.get("subject_role")]),
+                "unattributed": sum(1 for fact in facts
+                                    if fact.get("unattributed")),
+                "subject_material": payload.get("subject_material"),
+            }
+        except Exception as exc:                          # noqa: BLE001
+            person["tool_biography"] = {"error": type(exc).__name__}
         out["people"][alias] = person
 
     import sqlite3

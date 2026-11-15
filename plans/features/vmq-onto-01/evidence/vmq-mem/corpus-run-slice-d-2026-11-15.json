@@ -4,7 +4,7 @@
   "slice": "VMQ-MEM/TIME Slice D",
   "date": "2026-11-15",
   "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
-  "candidate_commit": "693b70e1debd8b3133ff8c988020762a21fb47e7",
+  "candidate_commit": "743a3d1ae4fdf6776267c1ed057f937ce7c2b873",
   "copy": {
     "db": "dbcopy.db (sqlite3 .backup from the read-only prod snapshot of 10.11.2026)",
     "bytes": 1670549504,
@@ -19,7 +19,7 @@
       "db_bytes": 1670549504,
       "chat": -1002661910336,
       "vec_ok": true,
-      "generated_at": 1794723205
+      "generated_at": 1794728189
     }
   },
   "config": {
@@ -43,7 +43,11 @@
       "multi_year_quota": 0,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 3775,
@@ -72,7 +76,11 @@
       "multi_year_quota": 0,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
       "period_rows": []
     },
     "D_2023": {
@@ -87,7 +95,11 @@
       "multi_year_quota": 0,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 3037,
@@ -109,7 +121,11 @@
       "multi_year_quota": 0,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
       "period_rows": []
     },
     "T2_plan_hist": {
@@ -125,7 +141,11 @@
       "multi_year_quota": 2,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 2721,
@@ -154,7 +174,11 @@
       "multi_year_quota": null,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
       "period_rows": []
     }
   },
@@ -172,7 +196,11 @@
       "multi_year_quota": 0,
       "topic_quota": 0,
       "topic_years": 3,
+      "topic_common_stems": 5,
+      "current_state_guard": 0,
+      "dropped_status": 0,
       "dropped_budget": 11,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 3775,
@@ -203,7 +231,49 @@
       "multi_year_quota": 0,
       "topic_quota": 2,
       "topic_years": 3,
+      "topic_common_stems": 1,
+      "current_state_guard": 0,
+      "dropped_status": 0,
       "dropped_budget": 5,
+      "product_trace": {
+        "period": {
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "pool": 16,
+          "kept": 2,
+          "topic_quota": 2,
+          "topic_years": 3,
+          "topic_common_stems": 1,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 14,
+          "dropped_budget": 5,
+          "dropped_status": 0,
+          "current_state_guard": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {
+            "confirmed": 16,
+            "archived": 0,
+            "other": 0
+          },
+          "pool_expired": 0,
+          "age_policy": "not_applied",
+          "vector_leg": "compat_not_proven",
+          "vector_rows": 0,
+          "vector_unavailable_reason": "compat_not_proven"
+        },
+        "years": {
+          "2023": 1,
+          "2024": 1,
+          "2026": 5
+        },
+        "source_ids": 7,
+        "block_chars": 1060
+      },
       "period_rows": [
         {
           "id": 2859,
@@ -233,7 +303,11 @@
       "multi_year_quota": 0,
       "topic_quota": 0,
       "topic_years": 0,
+      "topic_common_stems": 0,
+      "current_state_guard": 0,
+      "dropped_status": 0,
       "dropped_budget": 2,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 3037,
@@ -257,7 +331,11 @@
       "multi_year_quota": 0,
       "topic_quota": 2,
       "topic_years": 3,
-      "dropped_budget": 9,
+      "topic_common_stems": 5,
+      "current_state_guard": 0,
+      "dropped_status": 0,
+      "dropped_budget": 7,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 2721,
@@ -288,7 +366,11 @@
       "multi_year_quota": 2,
       "topic_quota": 0,
       "topic_years": 3,
+      "topic_common_stems": 5,
+      "current_state_guard": 0,
+      "dropped_status": 0,
       "dropped_budget": 9,
+      "product_trace": null,
       "period_rows": [
         {
           "id": 2721,
@@ -317,7 +399,115 @@
       "multi_year_quota": null,
       "topic_quota": null,
       "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
       "dropped_budget": null,
+      "product_trace": null,
+      "period_rows": []
+    },
+    "T3_alina": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "topic_quota": null,
+      "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": {
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "pool": 16,
+          "kept": 0,
+          "topic_quota": 0,
+          "topic_years": 4,
+          "topic_common_stems": 6,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 16,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "current_state_guard": 0,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {
+            "confirmed": 16,
+            "archived": 0,
+            "other": 0
+          },
+          "pool_expired": 0,
+          "age_policy": "not_applied",
+          "vector_leg": "compat_not_proven",
+          "vector_rows": 0,
+          "vector_unavailable_reason": "compat_not_proven"
+        },
+        "years": {
+          "2026": 8
+        },
+        "source_ids": 8,
+        "block_chars": 1299
+      },
+      "period_rows": []
+    },
+    "T3_mulyanka": {
+      "rows": null,
+      "row_years": null,
+      "intent": null,
+      "kept": null,
+      "historical_quota": null,
+      "multi_year_quota": null,
+      "topic_quota": null,
+      "topic_years": null,
+      "topic_common_stems": null,
+      "current_state_guard": null,
+      "dropped_status": null,
+      "dropped_budget": null,
+      "product_trace": {
+        "period": {
+          "intent": {
+            "kind": "none",
+            "years": [],
+            "source": ""
+          },
+          "pool": 16,
+          "kept": 0,
+          "topic_quota": 0,
+          "topic_years": 4,
+          "topic_common_stems": 6,
+          "historical_quota": 0,
+          "multi_year_quota": 0,
+          "dropped_subject": 16,
+          "dropped_budget": 0,
+          "dropped_status": 0,
+          "current_state_guard": 1,
+          "dropped_out_of_target_year": 0,
+          "dropped_unknown_year": 0,
+          "pool_status": {
+            "confirmed": 16,
+            "archived": 0,
+            "other": 0
+          },
+          "pool_expired": 0,
+          "age_policy": "not_applied",
+          "vector_leg": "compat_not_proven",
+          "vector_rows": 0,
+          "vector_unavailable_reason": "compat_not_proven"
+        },
+        "years": {
+          "2026": 8
+        },
+        "source_ids": 8,
+        "block_chars": 899
+      },
       "period_rows": []
     }
   },
@@ -340,6 +530,33 @@
         "2023": 1,
         "2024": 1,
         "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 11,
+        "years": {
+          "2022": 2,
+          "2023": 2,
+          "2024": 2,
+          "2025": 2,
+          "2026": 2,
+          "no_date": 1
+        },
+        "roles": {
+          "speaker": 6
+        },
+        "unattributed": 4,
+        "subject_material": {
+          "subject_bound": 6,
+          "years": [
+            2022,
+            2023,
+            2024
+          ],
+          "limitation": ""
+        }
       },
       "reply_period": [
         {
@@ -444,6 +661,26 @@
         "2025": 1,
         "2026": 8
       },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2026": 10
+        },
+        "roles": {
+          "subject": 10
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2026
+          ],
+          "limitation": ""
+        }
+      },
       "reply_period": [
         {
           "id": 1439224,
@@ -456,6 +693,132 @@
           "year": 2025,
           "subject_role": null,
           "origin": "history_import"
+        }
+      ]
+    },
+    "P3_history_2023_2024": {
+      "uid": 1313107079,
+      "subject_profile_facts": [
+        {
+          "id": 20921,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20920,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20917,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20010,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19776,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19774,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19458,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19448,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19447,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19384,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        }
+      ],
+      "author_message_periods": {
+        "count": 6,
+        "years": {
+          "2022": 2,
+          "2023": 2,
+          "2024": 2
+        },
+        "roles": {
+          "speaker": 6
+        }
+      },
+      "reply_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2026": 10
+        },
+        "roles": {
+          "speaker": 3,
+          "subject": 7
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2026
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": [
+        {
+          "id": 1439255,
+          "year": 2024,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        },
+        {
+          "id": 1988959,
+          "year": 2023,
+          "subject_role": "speaker",
+          "origin": "chat_history"
         }
       ]
     }
@@ -479,6 +842,32 @@
         "2023": 1,
         "2024": 1,
         "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 11,
+        "years": {
+          "2023": 2,
+          "2024": 2,
+          "2025": 4,
+          "2026": 2,
+          "no_date": 1
+        },
+        "roles": {
+          "speaker": 6
+        },
+        "unattributed": 4,
+        "subject_material": {
+          "subject_bound": 6,
+          "years": [
+            2023,
+            2024,
+            2025
+          ],
+          "limitation": ""
+        }
       },
       "reply_period": [
         {
@@ -584,6 +973,31 @@
         "2025": 1,
         "2026": 8
       },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2024": 1,
+          "2025": 1,
+          "2026": 8
+        },
+        "roles": {
+          "speaker": 2,
+          "subject": 8
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2024,
+            2025,
+            2026
+          ],
+          "limitation": ""
+        }
+      },
       "reply_period": [
         {
           "id": 1439224,
@@ -598,7 +1012,231 @@
           "origin": "chat_history"
         }
       ]
+    },
+    "P3_history_2023_2024": {
+      "uid": 1313107079,
+      "subject_profile_facts": [
+        {
+          "id": 20921,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20920,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20917,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "speaker",
+          "subject_ref_id": 16487
+        },
+        {
+          "id": 20010,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19776,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19774,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19458,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19448,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19447,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        },
+        {
+          "id": 19384,
+          "year": 2026,
+          "status": "confirmed",
+          "subject_role": "subject",
+          "subject_ref_id": 16186
+        }
+      ],
+      "author_message_periods": {
+        "count": 6,
+        "years": {
+          "2023": 2,
+          "2024": 2,
+          "2025": 2
+        },
+        "roles": {
+          "speaker": 6
+        }
+      },
+      "reply_years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "tool_biography": {
+        "status": "ok",
+        "no_data": false,
+        "empty_reason": "",
+        "facts": 10,
+        "years": {
+          "2023": 1,
+          "2024": 1,
+          "2026": 8
+        },
+        "roles": {
+          "speaker": 5,
+          "subject": 5
+        },
+        "unattributed": 0,
+        "subject_material": {
+          "subject_bound": 10,
+          "years": [
+            2023,
+            2024,
+            2026
+          ],
+          "limitation": ""
+        }
+      },
+      "reply_period": [
+        {
+          "id": 1988959,
+          "year": 2023,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        },
+        {
+          "id": 1439255,
+          "year": 2024,
+          "subject_role": "speaker",
+          "origin": "chat_history"
+        }
+      ]
     }
+  },
+  "d1_current_state_after": {
+    "A1P": {
+      "stems": [
+        "были",
+        "конф",
+        "шизы"
+      ],
+      "years": {
+        "2023": 1,
+        "2024": 1,
+        "2026": 8
+      },
+      "period_stats": {
+        "current_state_guard": 0,
+        "topic_quota": 2,
+        "topic_common_stems": 1,
+        "selection_kept": 2,
+        "selection_rows": 16
+      },
+      "period_rows": [
+        {
+          "id": 2859,
+          "year": 2023,
+          "reason": "topic_parity_quota"
+        },
+        {
+          "id": 3324,
+          "year": 2024,
+          "reason": "topic_parity_quota"
+        }
+      ]
+    },
+    "T3_mulyanka": {
+      "stems": [
+        "дела",
+        "мулянк",
+        "сейчас"
+      ],
+      "years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "current_state_guard": 1,
+        "topic_quota": 0,
+        "topic_common_stems": 6,
+        "selection_kept": 0,
+        "selection_rows": 16
+      },
+      "period_rows": []
+    },
+    "T3_alina": {
+      "stems": [
+        "алин",
+        "сейчас"
+      ],
+      "years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "current_state_guard": 0,
+        "topic_quota": 0,
+        "topic_common_stems": 6,
+        "selection_kept": 0,
+        "selection_rows": 16
+      },
+      "period_rows": []
+    },
+    "T3_E1": {
+      "stems": [
+        "происходит",
+        "сейчас"
+      ],
+      "years": {
+        "2026": 10
+      },
+      "period_stats": {
+        "current_state_guard": null,
+        "topic_quota": null,
+        "topic_common_stems": null,
+        "selection_kept": null,
+        "selection_rows": null
+      },
+      "period_rows": []
+    }
+  },
+  "review_r1_fixes": {
+    "D1": "current-state guard: topic parity AND strict old rows are suppressed under auto for present-time queries; current rows 8008/8009 preserved (unit + real copy)",
+    "D2": "topic parity requires a stem shared between the old rows (topic_common_stems filter)",
+    "D3": "tool biography reserves max_items//5 slots for own messages when subject facts cover only the current year",
+    "D5": "stage fields + block year composition in product log and selection trace (memory_period, block years)",
+    "D6": "labeled set v2 with competing distractors; core 1.0, hard 0.5, aggregate 0.867, T3 0",
+    "D7": "evidence passed-test list corrected",
+    "D4": "3 participants measured (P1, P2 top author, P3 2023-2024)"
   },
   "vector_leg": {
     "rowids": 21771,
