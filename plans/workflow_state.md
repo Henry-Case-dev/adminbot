@@ -5,8 +5,8 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Builder VMQ Slice A ses_e23a8029dffe38UM57AB0XPUiR
-Join barriers: Slice A (period/vector) -> Reviewer; Slice B (subject/chronology/relations) -> Slice C (M2 trigger) -> re-measure; VMQ release train held
+Active lanes: Reviewer Slice A ses_e2371c855ffeEZIjQY9IKvQqgK; Builder push Slice A ses_e23a8029dffe38UM57AB0XPUiR
+Join barriers: Slice A review + corpus proof -> PM bind A; Slice B (subject/chronology/relations) -> Slice C (M2 trigger) -> re-measure; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
 Next unlocks: (1) ONTO-A review verdict -> PM binds O-01/O-02; (2) Builder ONTO-B (O-03) after approval; (3) memory evidence measurement (MEM/TIME) and M2 after ONTO-B.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T11:15:25+12:00
+Updated: 2026-11-15T11:25:00+12:00
 
 ## Facts
 
@@ -109,3 +109,7 @@ Read-only measurement on a fresh prod DB copy (2,075,621 messages, 2022-12-07..2
 ## Root cause confirmed; Slice A started (2026-11-15)
 
 Architect verdict ARCHITECT_ADJUSTMENT_REQUIRED (root-cause-2026-11-15.md sha 764f88d8...): the core VMQ-MEM/TIME contract is not met. Confirmed product defects: explicit 2023 period rows lost after the subject filter (13 pool -> 0 accepted; 15/16 rejected); profile/reply path lacks subject-bound multi-year material (0/10 rows about P1; graph 0 P1 facts 2023-2024); relationships consumer has no temporal relation series (honest empty, but no data); event without year remains 2026-dominant; M2 overview trigger is lexical (_HISTORY_MARKERS) and misses the exact owner formulation. compat_not_proven/EMBED_API_FAILED are measurement degradation, not a proven live defect; a live read-only admission check is required. Corrective train: A period selection + vector admission honesty (mca_retrieval_context.py, serialized); B subject/chronology/relations (tool_router.py, database.py read query/projection, existing producer only if tracing proves missing data); C M2 overview trigger (vmq/m2) after A's structured intent flag. Release train ONTO-A -> ONTO-B -> M2 held until A and B are fixed and independently verified. Builder Slice A started on vmq/mem-a from 8b56fc73 (M2 tip); no other writer on mca_retrieval_context.py.
+
+## Slice A candidate (2026-11-15)
+
+Builder implemented Slice A on vmq/mem-a from 8b56fc73: candidate 570a49db. mca_retrieval_context.py gets PeriodIntent/resolve_period_intent (explicit year -> memory_scope=historical -> historical markers/narrative forms -> none), RetrievalRequest.period_intent additive, target-year preservation with out_of_target_year/unknown_year drops, soft subject fallback only for detected historical intent after the >=2-stem filter yields zero (>=2 one-stem rows, bounded slots, reason subject_soft_fallback), and an honest vector admission gate via embedding_control_plane.resolve_index_compat (insufficient/incompatible -> zero KNN + vector_unavailable reason; no_generation/source_empty -> prior A06). select_period_rows is shared; the direct_chat_service consumer filter delegates to it (approved minimal scope expansion; no tool_router/database/M2/schema changes). Tests: 20 new, RED 18 failed/1 passed on base (0/13 2023 rows), GREEN 20 passed, year-preservation mutation 2 failures; focused 22 files 600 passed vs 580 base, 0 failed. Limits: no corpus run (no fresh schema-47 local copy), live vector admission UNVERIFIED. Reviewer r1 running; branch being pushed for a read-only corpus proof on the production host.
