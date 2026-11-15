@@ -1,0 +1,11 @@
+{
+  "cleanup_retained": [
+    {
+      "path": "C:\\Users\\main\\.config\\opencode\\WorkspaceData\\worktrees\\c742e4de9e92c489\\vmq-onto-01-3689dd92710d-3177a5d0",
+      "owner": "Builder (VMQ-ONTO-01 release train 2.58.204) -> Reviewer/DevOps",
+      "reason": "Clean worktree of branch release/vmq-onto-01-2.58.204 (bump 735af15b, evidence 44fb6741, pushed to origin) retained for the delta review of the exact 2.58.204 candidate and the following deployment; it is the only checked-out copy of this train and must not be retired before release.",
+      "evidence": "plans/features/vmq-onto-01/evidence/release-2.58.204/assembly.md; origin/release/vmq-onto-01-2.58.204",
+      "next_event": "After Reviewer delta verdict and the 2.58.204 deployment (or rejection) is recorded, the owning role runs unit-close/unit-check on vmq-onto-01-release-2.58.204 and retires the worktree."
+    }
+  ]
+}

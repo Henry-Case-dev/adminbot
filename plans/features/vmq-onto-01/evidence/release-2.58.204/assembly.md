@@ -217,7 +217,8 @@ dry-run повторён после evidence-коммита: `version=2.58.204`,
 
 - worktree сохранён для Reviewer/DevOps (ветка
   `release/vmq-onto-01-2.58.204`, зарегистрирован как unit
-  `vmq-onto-01-release-2.58.204`);
+  `vmq-onto-01-release-2.58.204`); явная запись об удержании —
+  `retention.json` рядом с этим файлом (path/owner/reason/evidence/next_event);
 - одноразовые probe-артефакты сборки (скрипт bump, DDL-проба, логи наборов,
   dry-run вывод) лежат в `WorkspaceData/runs/.../probe-4c97a7ca64` и
   закрываются штатным `run-close` после передачи чисел в этот документ;
