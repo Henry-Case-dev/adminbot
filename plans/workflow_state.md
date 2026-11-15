@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer Slice A ses_e2371c855ffeEZIjQY9IKvQqgK; Builder push Slice A ses_e23a8029dffe38UM57AB0XPUiR
+Active lanes: Reviewer Slice A ses_e2371c855ffeEZIjQY9IKvQqgK; DevOps corpus proof ses_e2370be71ffe7Wf93VwTSBVzqX
 Join barriers: Slice A review + corpus proof -> PM bind A; Slice B (subject/chronology/relations) -> Slice C (M2 trigger) -> re-measure; release held
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 63 PENDING, 6 REVIEW, 1 VERIFIED before reconciliation. Git ancestry confirms M1 cfec9a1a and NEXT2 96c8bc72 are already in the deployed line (merged in 2.58.199, carried through 2.58.203); map deployed=false is stale. Deployed line has later SMART deltas (mca_episode_jobs fencing, mca_retrieval_context preview-cap relocation) under interaction check.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T12:14:52+12:00
+Updated: 2026-11-15T12:15:46+12:00
 
 ## Facts
 
@@ -113,3 +113,7 @@ Architect verdict ARCHITECT_ADJUSTMENT_REQUIRED (root-cause-2026-11-15.md sha 76
 ## Slice A candidate (2026-11-15)
 
 Builder implemented Slice A on vmq/mem-a from 8b56fc73: candidate 570a49db. mca_retrieval_context.py gets PeriodIntent/resolve_period_intent (explicit year -> memory_scope=historical -> historical markers/narrative forms -> none), RetrievalRequest.period_intent additive, target-year preservation with out_of_target_year/unknown_year drops, soft subject fallback only for detected historical intent after the >=2-stem filter yields zero (>=2 one-stem rows, bounded slots, reason subject_soft_fallback), and an honest vector admission gate via embedding_control_plane.resolve_index_compat (insufficient/incompatible -> zero KNN + vector_unavailable reason; no_generation/source_empty -> prior A06). select_period_rows is shared; the direct_chat_service consumer filter delegates to it (approved minimal scope expansion; no tool_router/database/M2/schema changes). Tests: 20 new, RED 18 failed/1 passed on base (0/13 2023 rows), GREEN 20 passed, year-preservation mutation 2 failures; focused 22 files 600 passed vs 580 base, 0 failed. Limits: no corpus run (no fresh schema-47 local copy), live vector admission UNVERIFIED. Reviewer r1 running; branch being pushed for a read-only corpus proof on the production host.
+
+## Slice A pushed; corpus proof running (2026-11-15)
+
+origin/vmq/mem-a = 570a49db (includes Slice A code/tests/evidence; base 8b56fc73; no merge/deploy). Reviewer r1 is running on the exact candidate. DevOps is running the read-only corpus proof on the production host: fresh SQLite backup copy, baseline c97c06e4 vs candidate 570a49db, the committed harness, explicit 2023 conflict, the exact owner query, the "что сейчас" control; expect 2023 rows to survive, no 2026 masquerade, bounded old-period contribution for the owner query, fresh current-state, honest vector admission state. SSH discipline: one recon + one main session.
