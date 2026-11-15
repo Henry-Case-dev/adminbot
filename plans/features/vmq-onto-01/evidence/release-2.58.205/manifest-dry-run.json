@@ -1,0 +1,17 @@
+{
+  "captured_at_commit": "bfcccb38",
+  "command": "python tools/release_manifest.py --dry-run",
+  "deploy_dir_created": false,
+  "manifest": {
+    "deployed_at": "2026-11-15T09:15:22.252755Z",
+    "deployed_sha": "bfcccb38d5b423dd64d96edabb52f07184248edb",
+    "dirty_tracked": false,
+    "effect": "deploy",
+    "previous_sha": null,
+    "previous_version": null,
+    "release_branch": "release/vmq-slice-d-2.58.205",
+    "schema": 1,
+    "version": "2.58.205"
+  },
+  "note": "previous_* are null because this dev worktree has no local .deploy/release.json (the production manifest was never read). The dry-run was repeated on the final branch tip after this evidence commit: version=2.58.205, dirty_tracked=false, release_branch=release/vmq-slice-d-2.58.205, deployed_sha equals the tip reported in the Builder handoff."
+}

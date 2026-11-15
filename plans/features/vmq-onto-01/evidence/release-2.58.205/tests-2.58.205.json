@@ -1,0 +1,159 @@
+{
+  "feature": "vmq-onto-01",
+  "release": "2.58.205",
+  "slice": "VMQ-MEM/TIME Slice D (L1 memory_scope authority)",
+  "assembled_at": "2026-11-15",
+  "branch": "release/vmq-slice-d-2.58.205",
+  "base_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "code_tip": "69b5c9f9",
+  "product_code_tip": "456cf769",
+  "bump_commit": "bfcccb38",
+  "environment": {
+    "python": "3.12.0",
+    "pytest": "9.1.1",
+    "venv": "C:/Code/Python/adminbot/.venv",
+    "cwd": "release worktree vmq-slice-d-release-7cbfe0890b57-dd600808",
+    "node": "v24.16.0"
+  },
+  "batches": [
+    {
+      "id": "slice-d-memory-focus",
+      "purpose": "CONTRACT/REGRESSION on Slice D and adjacent memory/retrieval owners",
+      "files": [
+        "tests/test_vmq_mem_slice_d.py",
+        "tests/test_vmq_mem_slice_b.py",
+        "tests/test_vmq_mem_slice_c.py",
+        "tests/test_vmq_mem_period_intent.py",
+        "tests/test_mem_time_policy.py",
+        "tests/test_memory_period_vector_leg.py",
+        "tests/test_memory_unified_retrieval.py",
+        "tests/test_memory_unified_retrieval_06.py",
+        "tests/test_memory_contracts.py",
+        "tests/test_mem_time_asof.py",
+        "tests/test_mem_time_profile.py",
+        "tests/test_mem_time_l1_scope.py",
+        "tests/test_mca07_retrieval_context_round1027.py",
+        "tests/test_memory_attribution.py",
+        "tests/test_history_isolation.py",
+        "tests/test_mca18_memory_subject_block_b_round1042.py",
+        "tests/test_vmq_mem_retrieval_fixes.py"
+      ],
+      "file_count": 17,
+      "result": {"passed": 447, "failed": 0}
+    },
+    {
+      "id": "direct-chat-tool-router",
+      "purpose": "INTEGRATION/REGRESSION on the touched delivery seams",
+      "files": [
+        "tests/test_direct_chat.py",
+        "tests/test_direct_chat_concurrency.py",
+        "tests/test_direct_chat_handlers.py",
+        "tests/test_direct_chat_lore_inject.py",
+        "tests/test_direct_chat_prompts.py",
+        "tests/test_direct_chat_relations_inject.py",
+        "tests/test_tool_router.py"
+      ],
+      "file_count": 7,
+      "result": {"passed": 355, "failed": 0}
+    },
+    {
+      "id": "pin-guard",
+      "purpose": "version-pin wave (24 py files of the standard bump)",
+      "file_count": 24,
+      "result": {"passed": 856, "failed": 4},
+      "note": "the same 4 IDs fail on base 2b419aa2 (verified: 4 failed); not caused by this candidate"
+    },
+    {
+      "id": "js-pins",
+      "purpose": "4 JS harnesses with escaped APP_VERSION regex",
+      "file_count": 4,
+      "result": {"passed": 4, "failed": 0},
+      "markers": [
+        "HOTFIX7-SHELL-GLASS-HEARTBEAT-OK",
+        "HOTFIX8-SHELL-AURORA-OK",
+        "HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK",
+        "HOTFIX10-GLASS-GEOMETRY-BG-OK"
+      ]
+    },
+    {
+      "id": "param-catalog",
+      "purpose": "parameter catalog / settings invariants (no new flags)",
+      "files": [
+        "tests/test_param_catalog.py",
+        "tests/test_summary_param_catalog_annotation_asap41.py",
+        "tests/test_settings_helpers.py"
+      ],
+      "file_count": 3,
+      "result": {"passed": 94, "failed": 0}
+    },
+    {
+      "id": "broad-selection",
+      "purpose": "broad -k selection used for Slice D and the previous release neighbourhood",
+      "selection": "memory or retrieval or graphrag or persona or tool_router or mca07 or mca13 or mca22 or mem_time or mem08 or history_isolation or direct_chat or turn_trace or selection",
+      "collected": 2370,
+      "execution": "split into 4 node-id batches for resilience; same -k selection",
+      "batches": [
+        {"file": "batch1.txt", "passed": 592, "failed": 1, "errors": 0},
+        {"file": "batch2.txt", "passed": 591, "failed": 2, "errors": 0},
+        {"file": "batch3.txt", "passed": 593, "failed": 0, "errors": 0},
+        {"file": "batch4.txt", "passed": 588, "failed": 2, "errors": 1}
+      ],
+      "result": {"passed": 2364, "failed": 5, "errors": 1}
+    }
+  ],
+  "totals": {
+    "focused_excluding_broad": {"passed": 1752, "failed": 4},
+    "broad": {"passed": 2364, "failed": 5, "errors": 1},
+    "new_failures_after_bump": 0
+  },
+  "pre_existing_failures": [
+    "tests/test_tool_coordinator_round1026.py::TestBounds::test_canon_twelve_tools",
+    "tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff",
+    "tests/test_unified_image_request_round1026.py::TestToolDescriptionU21::test_canon_unchanged",
+    "tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline",
+    "tests/test_asap5_graphrag_recovery.py::test_warning_coalesced_not_repeated",
+    "tests/test_graphrag_rebuild_asap32.py::test_not_serviceable_warning_coalesced",
+    "tests/test_image_generation_round1023.py::TestPreGateIntegration::test_direct_chat_image_off_eight_tools",
+    "tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona",
+    "tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_style_anchors_not_broken"
+  ],
+  "pre_existing_errors": [
+    "tests/test_youtube_multimodal_download_round1024.py::TestDownloadPublishMultimodal::test_multimodal_success_writes_no_memory"
+  ],
+  "pre_existing_note": "The 4 pin-guard IDs fail identically on base 2b419aa2. The broad 5 failures + 1 error are the same six reproduced in the previous Slice D broad run; none is caused by this candidate and none was fixed here (out of scope).",
+  "static_checks": {
+    "py_compile": {
+      "files": [
+        "config/settings.py",
+        "services/database.py",
+        "services/direct_chat_service.py",
+        "services/mca_retrieval_context.py",
+        "services/tool_router.py",
+        "services/turn_trace.py",
+        "services/usage_events.py"
+      ],
+      "exit_code": 0
+    },
+    "git_diff_check": {"exit_code": 0},
+    "app_version_import": "2.58.205",
+    "pins": {"changed_files": 30, "changed_lines": 31, "replacements": 32},
+    "catalog": {"REGISTRY": 645, "GROUPS": 121, "TAB_BY_GROUP": 119, "TAB_RULES": 22, "settings_fields": 472},
+    "schema": {"target_user_version_constant": 47, "observed_user_version": 47, "table_count": 101, "ddl": 0},
+    "database_py_diff": {"files": 1, "added": 10, "removed": 3, "ddl": 0, "note": "read-only get_author_message_periods year-range fix in 693b70e1; contradicts the handoff assumption that database.py was unchanged"}
+  },
+  "manifest": {
+    "version": "2.58.205",
+    "dirty_tracked": false,
+    "release_branch": "release/vmq-slice-d-2.58.205",
+    "deployed_sha": "bfcccb38d5b423dd64d96edabb52f07184248edb",
+    "schema": 1
+  },
+  "limits": [
+    "Focused + broad -k suites only, not the whole project test suite.",
+    "No deployment, no live Telegram/provider/UI proof in this assembly step.",
+    "Reviewer verdict for the post-N9 tip is not stored as a file in the tree (latest stored is r3 for 8fbd2ffb); deploy gate needs the actual verdict with an explicit SHA.",
+    "Live L1 memory_scope is UNKNOWN (no local LLM key, no durable L1 plan in the DB copy).",
+    "Vector leg compat_not_proven; lexical path limited by stems.",
+    "4 pin-guard failures and broad 5+1 are pre-existing and untouched."
+  ]
+}
