@@ -1,0 +1,9 @@
+﻿# VMQ-ONTO-01 gate: release-VMQ-M2-2b419aa2
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage release --slice VMQ-M2 --candidate 2b419aa2627f627eb6ea5e2f46b5e01118da2bf0 --deployed-commit 2b419aa2627f627eb6ea5e2f46b5e01118da2bf0 --repo . --strict-evidence
+# exit: 1
+
+FAIL: O-04: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+stage=release inventory=380 manual=69 scoped=3 errors=1
+

@@ -1,0 +1,11 @@
+﻿# VMQ-ONTO-01 gate: delivery-VMQ-M2-2b419aa2
+# date: 2026-11-15
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage delivery --slice VMQ-M2 --candidate 2b419aa2627f627eb6ea5e2f46b5e01118da2bf0 --deployed-commit 2b419aa2627f627eb6ea5e2f46b5e01118da2bf0 --repo . --strict-evidence
+# exit: 0
+# note: M-04/M-05 VERIFIED на deployed 2b419aa2; O-04 остаётся READY_FOR_LIVE (correction effect не наблюдался)
+
+engineering_delivery=PASS
+acceptance=PENDING_FUTURE_EVIDENCE
+deferred_req_ids=["O-04"]
+stage=delivery inventory=380 manual=69 scoped=3 errors=0
+

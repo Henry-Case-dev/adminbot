@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-11-09-vmq-onto-01.md",
   "source_sha256": "11fd732fed30e5ea2b78b1951d2e8df8b483ff55fea92285f6da57fcc7637cd0",
-  "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
-  "deployed_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+  "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
   "deployed_commit_note_2026_11_11": "[историческая запись: верна до 2026-11-15] Верхнеуровневый deployed_commit карты = 952b9ebd (2.58.187) с 11.11.2026: на проде выкачена следующая ступень памяти — периодный добор с векторной ногой. Прежнее значение 0fed5845 (2.58.183) остаётся исторической записью слайса VMQ-MEM-TIME в deployment_evidence.follow_up_2_58_183 и не переоценивается: привязки девяти строк VMQ-TIME-01..09 к замороженному кандидату 709865f6 сохраняются. candidate_commit карты по-прежнему указывает на кандидата в ревью замороженного слайса (709865f6), поэтому проверка release-гейта «deployed == candidate» для этой карты заведомо не сходится: одна карта несёт разные кандидаты разных ступеней, и это открытый bookkeeping-факт, а не признак неверной выкладки или неверного кандидата. Release-гейт ступени проверяется по строке-кандидату этой ступени, а не по верхнеуровневому полю. [2026-11-11, продолжение] Прод после этого ушёл на 2.58.188 @ c087253d (ступень SELF-DIAG-01 D2, рестарт 09:21:08Z): 952b9ebd — его предок, файлы памяти 2.58.188 не меняет. Верхнеуровневый deployed_commit оставлен 952b9ebd как привязка ИМЕННО этой ступени памяти, а не как «текущая версия прода»; фактическая версия прода фиксируется в deployment_evidence.follow_up_2_58_187.prod_after_2026_11_11.",
   "current_production_2026_11_13": {
     "version": "2.58.198",
@@ -1340,7 +1340,7 @@
       "acceptance": "Unified retrieval отвечает на person overview и temporal queries через существующий retrieve()/get_user_context: Writer bundle содержит coverage, независимые периоды, контрпримеры и limitations; повтор одного мема не считается независимым подтверждением.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1393,6 +1393,35 @@
           "candidate_deployed": false,
           "evidence_class": "candidate_corpus_probe_read_only",
           "provenance_note": "md цитирует sha json как d5ace2a5… и указывает sha копии БД 4e644e52…; фактический sha256 файла json = 4e644e52…, а sha копии БД в самом json — e16284958208dd8def242bac3211a5003fb031a97a3f88e504394d36678f0505. Привязка сделана к реальному файлу; оба расхождения в тексте документа зафиксированы как artifact defect"
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json — postdeploy read-only e2e (32 checks, 0 failed); plans/features/vmq-onto-01/evidence/release-2.58.204/deploy.md §8",
+          "observation": "Четырёхкейсовый agent e2e на deployed 2b419aa2 (in-process на верифицированной копии БД, без сообщений в Telegram): exact owner query — один overview-retrieve, тот же RetrievalResult, один bundle: coverage 2023:83/2024:92/2025:9/2026:16, independent_periods 4, 5 контрпримеров, 8 limitations, 20 episode_refs; temporal 2023 — period_fill 1 строка in_target_year; biography/general — по одному retrieve с overview, identity — честный negative; current-state — overview нет, period_fill 0, episode reads 0. Условия approved wait (четыре кейса, один retrieve/один bundle, поля bundle, current-state negative) выполнены",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json",
+          "artifact_sha256": "29a215b2e3b1d17635a352ffed9984d3ec9d9102a7cfc0e7b971a0c5dbf7ef93",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — Approved + addendum; wait next_check: «запустить e2e … затем release gate»",
+          "observation": "Reviewer заранее одобрил последовательность для M-04: controlled deployment, затем четырёхкейсовый e2e и release gate. E2E выполнен на deployed 2b419aa2 и покрыл все поля next_check. Живой запуск — DevOps, сообщений пользователю не отправлялось",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
         }
       ],
       "expected_evidence": [
@@ -1497,7 +1526,21 @@
         "approval_invalidated_by": "any code or config change affecting these paths",
         "not_verified": "строка НЕ VERIFIED: приёмка ждёт реального postdeploy e2e"
       },
-      "slice_c_corpus_2026_11_15": "Predeploy corpus-доказательство Slice C (16931216): триггер overview от PeriodIntent, точный owner-запрос получает coverage/independent_periods/counterexamples/limitations из того же RetrievalResult, «что сейчас» — без overview, один retrieve/один bundle, покрытие сверено SQL. Live Writer/overview доставка остаётся postdeploy (approved_postrelease_wait не менялся)"
+      "slice_c_corpus_2026_11_15": "Predeploy corpus-доказательство Slice C (16931216): триггер overview от PeriodIntent, точный owner-запрос получает coverage/independent_periods/counterexamples/limitations из того же RetrievalResult, «что сейчас» — без overview, один retrieve/один bundle, покрытие сверено SQL. Live Writer/overview доставка остаётся postdeploy (approved_postrelease_wait не менялся)",
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+        "deployed_version": "2.58.204",
+        "wait_satisfied": true,
+        "e2e": {
+          "path": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json",
+          "sha256": "29a215b2e3b1d17635a352ffed9984d3ec9d9102a7cfc0e7b971a0c5dbf7ef93",
+          "checks": "32 checks, 0 failed"
+        },
+        "basis": "approved postrelease_wait выполнен: четыре кейса, один retrieve/один bundle, coverage/independent_periods/counterexamples/limitations, current-state negative",
+        "limitations": "e2e не прогоняет production L1-план; один чат/один прогон; векторная нога активна в этом прогоне"
+      }
     },
     {
       "source_id": "MAN-M-05",
@@ -1511,7 +1554,7 @@
       "acceptance": "Нет массовой перегенерации embeddings, деструктивного переписывания архива и cross-chat утечек: проверка БД и ресурсов показывает отсутствие полного reembedding и записей из другого чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1543,6 +1586,37 @@
           "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
           "candidate_commit": "f7a9c596638ea733de5673c5fd31675c746e20a7",
           "candidate_deployed": false
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/state-pre.json / plans/features/vmq-onto-01/evidence/release-2.58.204/state-post.json — parity; plans/features/vmq-onto-01/evidence/release-2.58.204/deploy.md §2.2 (DDL 0) и §8 (cross-chat)",
+          "observation": "Pre/post деплоя: bot_settings digest e98edf0e… и excluding-checkup fefe4bca… идентичны, профили и промпты идентичны, budgets/caps/capacity pre==post; sqlite user_version 47, 130 таблиц, schema_migrations 36/max 47 до и после; в e2e cross-chat refs чистые, vector leg не пересобиралась. В диффе нет write-путей/embedding-вызовов (delta review: SELECT-only, no DDL/second store)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/state-post.json",
+          "artifact_sha256": "7af6c165f74fc8c12d38b3a35eccd489c3aa6c1364edfaea248edb3d8718320a",
+          "supporting_artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/state-pre.json",
+          "supporting_artifact_sha256": "2bd3bfb56120a240806295075fc44dacfef69e345ae6974c35f5cd325847e4dd",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — M-05 REVIEW approved (predeploy negative complete); delta review SELECT-only/no DDL",
+          "observation": "Срезовый Reviewer подтвердил отсутствие reembedding/деструктивных записей/cross-chat; дельта-ревью 2b419aa2 подтвердило SELECT-only и отсутствие второго store",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
         }
       ],
       "expected_evidence": [
@@ -1599,6 +1673,14 @@
         ],
         "why_review_not_verified": "кандидат не выложен; VERIFIED означает подтверждённое поведение на выложенном кандидате",
         "owner_action_required": false
+      },
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+        "deployed_version": "2.58.204",
+        "basis": "predeploy negative evidence + deployment: SELECT-only diff, no DDL/second store, DB/resource parity, cross-chat clean",
+        "limitations": "отдельного счётчика числа векторов до/после нет; отрицание опирается на отсутствие write-путей в диффе, AST/subprocess guard и неизменность digest'ов БД"
       }
     },
     {
@@ -1613,7 +1695,7 @@
       "acceptance": "Семантическая проекция различает user/topic/event/fact и роли speaker/subject по typed-проверкам; тип определяется chat_scope, идентичностью участника и временем, а не совпадением строки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1636,6 +1718,36 @@
           "artifact_sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
           "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
           "candidate_deployed": false
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4; exact deployed tree содержит services/semantic_contracts.py (blob 4e70fa2f… по files_sha256_16 из e2e)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/delta-review-r1.md — Delta review R1: Approved for controlled deployment, ledger VERIFIED: ONTO-A/ONTO-B",
+          "observation": "Независимое дельта-ревью exact train tip 2b419aa2: inspected semantic_contracts.py и швы ONTO-A/B→M2; подтверждено, что деплой содержит ту же композицию; мутация «снять chat_scope в ONTO-A» дала 12 failed / 29 passed на exact candidate; 156 contract-тестов прошли. Вердикт артефакта: Approved for controlled deployment only (не acceptance-вердикт), ledger строкой VERIFIED для ONTO-A/ONTO-B",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/delta-review-r1.md",
+          "artifact_sha256": "4bac1de32d31c3b5d8c358941da74c08238ca0d0ca1b4eb9d01e5831e3e69c9f",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md — slice review Approved; применяется к deployed train 2b419aa2 по delta review",
+          "observation": "Срезовый Reviewer Approved подтверждает контракт: typed meanings user/topic/event/fact, speaker≠subject, chat_scope обязателен для всех четырёх типов (R1 fix), honest unknown/rejected. Дельта-ревью 2b419aa2 подтвердило, что выложенная композиция содержит тот же код (mutations на exact candidate), поэтому одобрение применяется к deployed candidate 2b419aa2",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+          "artifact_sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "original_candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003"
         }
       ],
       "expected_evidence": [
@@ -1697,6 +1809,14 @@
         ],
         "why_review_not_verified": "кандидат не выложен; VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате",
         "owner_action_required": false
+      },
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+        "deployed_version": "2.58.204",
+        "basis": "exact deployed identity + независимое дельта-ревью + срезовый Reviewer Approved (код-контракт, runtime-событие не требуется)",
+        "limitations": "контракт проверен тестами/мутациями на exact deployed дереве; живого пользовательского события строка не требует"
       }
     },
     {
@@ -1711,7 +1831,7 @@
       "acceptance": "Alias и обычное существительное не сливаются, два разных человека с одинаковым именем различаются, неоднозначный термин остаётся ambiguous; негативные примеры не дают ложного canonical-объекта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1734,6 +1854,36 @@
           "artifact_sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
           "candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003",
           "candidate_deployed": false
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4; exact deployed tree содержит services/semantic_contracts.py (blob 4e70fa2f… по files_sha256_16 из e2e)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/delta-review-r1.md — Delta review R1: Approved for controlled deployment, ledger VERIFIED: ONTO-A/ONTO-B",
+          "observation": "Независимое дельта-ревью exact train tip 2b419aa2: inspected semantic_contracts.py и швы ONTO-A/B→M2; подтверждено, что деплой содержит ту же композицию; мутация «снять chat_scope в ONTO-A» дала 12 failed / 29 passed на exact candidate; 156 contract-тестов прошли. Вердикт артефакта: Approved for controlled deployment only (не acceptance-вердикт), ledger строкой VERIFIED для ONTO-A/ONTO-B",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/delta-review-r1.md",
+          "artifact_sha256": "4bac1de32d31c3b5d8c358941da74c08238ca0d0ca1b4eb9d01e5831e3e69c9f",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md — slice review Approved; применяется к deployed train 2b419aa2 по delta review",
+          "observation": "Срезовый Reviewer Approved подтверждает контракт: alias как hint без canonical, common noun ≠ user, одинаковые имена различаются UID/scope, ambiguity без случайного выбора. Дельта-ревью 2b419aa2 подтвердило, что выложенная композиция содержит тот же код (mutations на exact candidate), поэтому одобрение применяется к deployed candidate 2b419aa2",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-a/review-r2.md",
+          "artifact_sha256": "08d05f5c2260ff57de9893d237a6bf10d5c35605681e7e855c2c4d1c1acd84c2",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "original_candidate_commit": "8cb9e00d38cc59d1ee1b564a824debc47f539003"
         }
       ],
       "expected_evidence": [
@@ -1795,6 +1945,14 @@
         ],
         "why_review_not_verified": "кандидат не выложен; VERIFIED в этой карте означает подтверждённое поведение на выложенном кандидате",
         "owner_action_required": false
+      },
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+        "deployed_version": "2.58.204",
+        "basis": "exact deployed identity + независимое дельта-ревью + срезовый Reviewer Approved (код-контракт, runtime-событие не требуется)",
+        "limitations": "контракт проверен тестами/мутациями на exact deployed дереве; живого пользовательского события строка не требует"
       }
     },
     {
@@ -1809,7 +1967,7 @@
       "acceptance": "Отношения типизированы и несут направление, автора утверждения, время и provenance: cooccurrence не становится фактом отношений, legacy-связи помечены как не подтверждённые, конфликты определений видны в данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -1832,6 +1990,36 @@
           "artifact_sha256": "e7284c77cc5d4481b5aa81462d4c977c0fea2167b9b19333316cf0adeeb9565c",
           "candidate_commit": "d15b13da3e709c4311f347e307e356a895e28a24",
           "candidate_deployed": false
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4; exact deployed tree содержит services/semantic_contracts.py (blob 4e70fa2f… по files_sha256_16 из e2e)",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "inspection",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/delta-review-r1.md — Delta review R1: Approved for controlled deployment, ledger VERIFIED: ONTO-A/ONTO-B",
+          "observation": "Независимое дельта-ревью exact train tip 2b419aa2: inspected semantic_contracts.py и швы ONTO-A/B→M2; подтверждено, что деплой содержит ту же композицию; мутация «снять chat_scope в ONTO-A» дала 12 failed / 29 passed на exact candidate; 156 contract-тестов прошли. Вердикт артефакта: Approved for controlled deployment only (не acceptance-вердикт), ledger строкой VERIFIED для ONTO-A/ONTO-B",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/delta-review-r1.md",
+          "artifact_sha256": "4bac1de32d31c3b5d8c358941da74c08238ca0d0ca1b4eb9d01e5831e3e69c9f",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md — slice review Approved; применяется к deployed train 2b419aa2 по delta review",
+          "observation": "Срезовый Reviewer Approved подтверждает контракт: typed/directed relations с assert author/time, provenance/independent roots, cooccurrence ≠ факт, legacy unverified, конфликты видны. Дельта-ревью 2b419aa2 подтвердило, что выложенная композиция содержит тот же код (mutations на exact candidate), поэтому одобрение применяется к deployed candidate 2b419aa2",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/onto-b/review-r1.md",
+          "artifact_sha256": "e7284c77cc5d4481b5aa81462d4c977c0fea2167b9b19333316cf0adeeb9565c",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "original_candidate_commit": "d15b13da3e709c4311f347e307e356a895e28a24"
         }
       ],
       "expected_evidence": [
@@ -1912,7 +2100,15 @@
         "owner_action_required": false,
         "artifact_note": "review-r1.md записан одной строкой с литералами `n` вместо переводов строк; содержимое читается и sha256 совпадает с заявленным, но форматирование артефакта дефектное (файл Reviewer'а не переписывался)"
       },
-      "production_scope_limitation_2026_11_15": "исторические relations, архивная коррекция и unmapped_sources-пропагация не проверялись; заявление о качестве продукции не делается — это граница охвата контракта (architecture-onto-ab.md строки 71-76)"
+      "production_scope_limitation_2026_11_15": "исторические relations, архивная коррекция и unmapped_sources-пропагация не проверялись; заявление о качестве продукции не делается — это граница охвата контракта (architecture-onto-ab.md строки 71-76)",
+      "verified_binding_2026_11_15": {
+        "at": "2026-11-15",
+        "status": "VERIFIED",
+        "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+        "deployed_version": "2.58.204",
+        "basis": "exact deployed identity + независимое дельта-ревью + срезовый Reviewer Approved (код-контракт, runtime-событие не требуется)",
+        "limitations": "контракт проверен тестами/мутациями на exact deployed дереве; живого пользовательского события строка не требует"
+      }
     },
     {
       "source_id": "MAN-O-04",
@@ -1979,6 +2175,43 @@
           "candidate_deployed": false,
           "evidence_class": "candidate_corpus_probe_read_only",
           "provenance_note": "md цитирует sha json как d5ace2a5… и указывает sha копии БД 4e644e52…; фактический sha256 файла json = 4e644e52…, а sha копии БД в самом json — e16284958208dd8def242bac3211a5003fb031a97a3f88e504394d36678f0505. Привязка сделана к реальному файлу; оба расхождения в тексте документа зафиксированы как artifact defect"
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json — tool route/overview и correction_effect; plans/features/vmq-onto-01/evidence/release-2.58.204/deploy.md §8 (Corrections/versions)",
+          "observation": "Deployed e2e: biography/general — ровно один retrieve с include_overview, identity — negative; в tool-трассе один маршрут, второго search/router/DB/LLM нет; overview отдаёт episode_versions для 20 эпизодов, пересчёт episode_source_fingerprint по smart_messages.current_revision совпадает у всех 20 (all_fingerprints_match=true, stale 0, integrity ok). НО фактический post-correction переход на живых данных не наблюдался: в копии 1 438 сообщений с revision>1, ни одно не входит в source-refs сэмплированных эпизодов; correction_effect.observable=false",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json",
+          "artifact_sha256": "29a215b2e3b1d17635a352ffed9984d3ec9d9102a7cfc0e7b971a0c5dbf7ef93",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/m2/review-r1.md — Approved + addendum; approved_postrelease_wait O-04",
+          "observation": "Reviewer одобрил wait для O-04; next_check требовал route trace И correction/version effect. Route trace получен, correction/version effect на живых данных не наблюдался",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/m2/review-r1.md",
+          "artifact_sha256": "2e980f19bf8eb7a3fd87a6da5c473147f939c68679d40308edec99e704109106",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "approved_postrelease_wait": {
+            "nonblocking": true,
+            "reason": "one-route e2e and corrections/versioning must be observed through the deployed L1/Writer process",
+            "trigger": "same 2.58.204 deployed-process e2e, including exact owner query and a subsequent corrected/versioned query",
+            "next_check": "DevOps captures route trace showing one retrieve, one bundle, no second search/router/DB/LLM, and correction/version effect; then run release gate",
+            "owner": "DevOps",
+            "contract_ref": "MAN-O-04 / requirements-map.json acceptance; m2-contract-confirmation-2026-11-15.md"
+          }
         }
       ],
       "expected_evidence": [
@@ -2081,7 +2314,14 @@
         "approval_invalidated_by": "any code or config change affecting these paths",
         "not_verified": "строка НЕ VERIFIED: приёмка ждёт реального postdeploy e2e"
       },
-      "slice_c_corpus_2026_11_15": "Predeploy corpus-доказательство Slice C (16931216): триггер overview от PeriodIntent, точный owner-запрос получает coverage/independent_periods/counterexamples/limitations из того же RetrievalResult, «что сейчас» — без overview, один retrieve/один bundle, покрытие сверено SQL. Live Writer/overview доставка остаётся postdeploy (approved_postrelease_wait не менялся)"
+      "slice_c_corpus_2026_11_15": "Predeploy corpus-доказательство Slice C (16931216): триггер overview от PeriodIntent, точный owner-запрос получает coverage/independent_periods/counterexamples/limitations из того же RetrievalResult, «что сейчас» — без overview, один retrieve/один bundle, покрытие сверено SQL. Live Writer/overview доставка остаётся postdeploy (approved_postrelease_wait не менялся)",
+      "wait_satisfaction_2026_11_15": {
+        "route_trace": "PASS — один retrieve/один bundle, без второго search/router/DB/LLM",
+        "versions_fingerprints": "PASS — 20/20 episode_source_fingerprint match, stale 0, integrity ok",
+        "correction_effect": "NOT OBSERVED — correction_effect.observable=false: ни одно из 1 438 revision>1 сообщений не входит в source-refs сэмплированных эпизодов",
+        "verdict": "wait не закрыт полностью: клауза «исправления/версии применяются к последующим запросам» не наблюдалась на живых данных. Строка остаётся READY_FOR_LIVE",
+        "next_check": "Deployed 2b419aa2, read-only: найти эпизод, в source-refs которого есть сообщение с current_revision>1, и подтвердить, что следующий запрос отражает ревизию (fingerprint/version в overview или изменённый факт). Owner: DevOps/Builder → Reviewer"
+      }
     },
     {
       "source_id": "MAN-Q-01",
@@ -3785,7 +4025,8 @@
         "grounding": "owner_clause",
         "note": "Собственный owner-текст поправки; в карте продублирован через amendment_ref."
       },
-      "slice_b_partial_2026_11_15": "Паритет НЕ достигнут: творческий путь A1 получает 2023:1+2024:1 (историческая квота), а обычный двойник A1P остаётся 2026:10; при этом творческий путь в сравнении с Chronicle-материалом (148 строк 2022-2023 по measurement) несопоставим — 2 старые строки против 148. Покрытие/хронология/релевантность обычного пути не превысили творческий. Строка остаётся PENDING"
+      "slice_b_partial_2026_11_15": "Паритет НЕ достигнут: творческий путь A1 получает 2023:1+2024:1 (историческая квота), а обычный двойник A1P остаётся 2026:10; при этом творческий путь в сравнении с Chronicle-материалом (148 строк 2022-2023 по measurement) несопоставим — 2 старые строки против 148. Покрытие/хронология/релевантность обычного пути не превысили творческий. Строка остаётся PENDING",
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
     },
     {
       "source_id": "MAN-MEM-05",
@@ -4044,7 +4285,8 @@
         "note": "Существующий source_line (эпос L474) указывает на клаузу о многолетнем person overview и не является точной клаузой этой строки; источник требования — уточнение L9-L11."
       },
       "slice_a_partial_2026_11_15": "Slice A закрывает историческую половину: A1/A2/B/E (исторические формулировки без года) впервые получают старые строки (2022/2023/2024/2025) через bounded soft fallback, «что сейчас» остаётся 10/10 2026 (intent=none), приоритет свежести ограничен явно объявленным правилом (period intent + target-year + reason-коды), механических повышений квот нет. Person-половина НЕ закрыта: C_person_profile («что ты знаешь про P1?») остаётся 2026:10, потому что в графе у P1 только 2026-факты при 44 577 сообщениях 2023-2024 — это producer gap, а root-cause §7 прямо называет TIME-01 непроходимым до Slice B. Статус остаётся PENDING",
-      "slice_b_partial_2026_11_15": "Улучшено: A1 и профиль/reply получают старые строки, «что сейчас» остаётся 2026. Не закрыто: обычный исторический вопрос без года (A1P «что за шизы были на конфе?») остаётся 2026:10, т.е. person/history-половина закрыта не полностью. Строка остаётся PENDING"
+      "slice_b_partial_2026_11_15": "Улучшено: A1 и профиль/reply получают старые строки, «что сейчас» остаётся 2026. Не закрыто: обычный исторический вопрос без года (A1P «что за шизы были на конфе?») остаётся 2026:10, т.е. person/history-половина закрыта не полностью. Строка остаётся PENDING",
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
     },
     {
       "source_id": "MAN-TIME-02",
@@ -4140,7 +4382,8 @@
         "grounding": "owner_clause",
         "note": "Конкретные участники/топ-автор в acceptance — инженерная конкретизация выборки."
       },
-      "slice_b_partial_2026_11_15": "Профиль получает субъектные строки нескольких периодов: reply-путь — 2023/2024 с точным uid и subject_role=speaker; tool-envelope честно отдаёт limitation=no_subject_bound_material, author=subject нигде нет; get_subject_profile_facts на копии вернул 0 строк (35 фактов о P1 2026 найдены по target_user, но в чтение не вошли). Не закрыто: измерен только P1 (нужно ≥3 участников, включая топ-автора 138811255), источники 2023/2024 — собственные сообщения субъекта (не subject-bound факты), релевантность вопросу не оценена. Строка остаётся PENDING"
+      "slice_b_partial_2026_11_15": "Профиль получает субъектные строки нескольких периодов: reply-путь — 2023/2024 с точным uid и subject_role=speaker; tool-envelope честно отдаёт limitation=no_subject_bound_material, author=subject нигде нет; get_subject_profile_facts на копии вернул 0 строк (35 фактов о P1 2026 найдены по target_user, но в чтение не вошли). Не закрыто: измерен только P1 (нужно ≥3 участников, включая топ-автора 138811255), источники 2023/2024 — собственные сообщения субъекта (не subject-bound факты), релевантность вопросу не оценена. Строка остаётся PENDING",
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
     },
     {
       "source_id": "MAN-TIME-03",
@@ -4389,7 +4632,8 @@
         "note": "Суть (годы + причины) — owner-клауза L23; машинная per-block трасса — инженерная форма. Пересечение с VMQ-TIME-09 (та же клауза, другой потребитель): не дубль, проверять вместе."
       },
       "slice_a_partial_2026_11_15": "Трасса Slice A машинно-читаемая: по каждому классу годы в блоке RAG_Memory, периодный вклад с причинами (out_of_target_year/unknown_year/pool_cap/subject_soft_fallback/rejected_subject), old_episode состав, SQL-пробы и probes (profile/dig/relations). Ступень потери года определяется. Но владельческая клауза о категориях (квота/статус/давность/релевантность/бюджет) не покрыта, и путь Old_Episode для 2023 остаётся 2025+2026. Статус остаётся PENDING",
-      "slice_b_partial_2026_11_15": "Клауза Old_Episode теперь закрыта: трасса показывает year_window=[2023] и состав {2023:18}; причины периода несут quota/relevance коды (historical_quota, multi_year_quota, rejected_subject). Не закрыто: категории статуса/давности/контекстного бюджета и инструментальные источники (Летописец, dig) в трассе отсутствуют. Строка остаётся PENDING"
+      "slice_b_partial_2026_11_15": "Клауза Old_Episode теперь закрыта: трасса показывает year_window=[2023] и состав {2023:18}; причины периода несут quota/relevance коды (historical_quota, multi_year_quota, rejected_subject). Не закрыто: категории статуса/давности/контекстного бюджета и инструментальные источники (Летописец, dig) в трассе отсутствуют. Строка остаётся PENDING",
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
     },
     {
       "source_id": "MAN-TIME-05",
@@ -4581,7 +4825,8 @@
         "note": "Запрет перестройки embeddings/повторного ingest дополнительно закреплён в эпосе L245."
       },
       "slice_a_partial_2026_11_15": "Негативная проверка Slice A подтверждает: нет новой системы памяти/второго роутера/отдельного summary-пайплайна/повторного ingest, embeddings не перестраиваются (код не вызывает embed), настройки не менялись, «что сейчас» не подменено сортировкой по дате. Не покрыто: явная инвентаризация числа векторов до/после и формальный поиск новых таблиц по диффу, а также вопрос «словарных триггеров годов» (resolve_period_intent разбирает явный год и повествовательные формы). Статус остаётся PENDING",
-      "slice_b_partial_2026_11_15": "Подтверждено: маршрут существующий, второго store/пайплайна/словаря годов нет (intent из плана), database.py-добавления только SELECT (Reviewer static diff), настройки/флаги не менялись, текущее состояние не подменено сортировкой по дате (в т.ч. при сигнале плана). Не закрыто: не снято число векторов до/после (только модель/размерность 3072) и нет отдельного артефакта инвентаризации владельцев данных. Строка остаётся PENDING"
+      "slice_b_partial_2026_11_15": "Подтверждено: маршрут существующий, второго store/пайплайна/словаря годов нет (intent из плана), database.py-добавления только SELECT (Reviewer static diff), настройки/флаги не менялись, текущее состояние не подменено сортировкой по дате (в т.ч. при сигнале плана). Не закрыто: не снято число векторов до/после (только модель/размерность 3072) и нет отдельного артефакта инвентаризации владельцев данных. Строка остаётся PENDING",
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
     },
     {
       "source_id": "MAN-TIME-07",
@@ -4678,7 +4923,8 @@
         "note": "Матрица «до/после» — инженерная форма; owner-требование — независимая проверка на разнообразных реальных вопросах (L14) и системная оценка Reviewer (L22)."
       },
       "slice_a_partial_2026_11_15": "Матрица до/после на копии прод-БД есть: класс, запрос, годы в каждом блоке, покрытие периодов, число непроверяемых ссылок (absent=0), контрпример. Не хватает релевантности по размеченному эталону, а порог строки прямо опирается на TIME-02/03 (материал 2023-2024 по человеку и событию без года), которые остаются открытыми. Статус остаётся PENDING",
-      "slice_b_partial_2026_11_15": "Матрица до/после расширена (Slice A 570a49db → Slice B d159ea8a): классы, годы по блокам, квоты, Old_Episode, сверка id/годов с SQL. Не закрыто: нет релевантности по размеченному эталону, а порог строки опирается на TIME-02/03, которые остаются частичными. Строка остаётся PENDING"
+      "slice_b_partial_2026_11_15": "Матрица до/после расширена (Slice A 570a49db → Slice B d159ea8a): классы, годы по блокам, квоты, Old_Episode, сверка id/годов с SQL. Не закрыто: нет релевантности по размеченному эталону, а порог строки опирается на TIME-02/03, которые остаются частичными. Строка остаётся PENDING",
+      "current_state_observation_2026_11_15": "Postdeploy e2e current-state pre-plan блок: 7×2026 + 3 старые history_import строки (в pre-deploy corpus-замере было 10×2026, потому что векторная нога была недоступна; здесь она активна). Это наблюдение ОТКРЫТОГО memory-эпика (MEM/TIME), не блокер M-04/O-04; строки не закрываются"
     },
     {
       "source_id": "MAN-TIME-08",
@@ -10412,6 +10658,26 @@
           "candidate_commit": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
           "candidate_deployed": true,
           "evidence_class": "document_artifact"
+        },
+        {
+          "type": "production",
+          "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json — deployed 2.58.204 identity/health/schema",
+          "observation": "deployed_sha=2b419aa2627f627eb6ea5e2f46b5e01118da2bf0, версия 2.58.204, ветка release/vmq-onto-01-2.58.204; identity verified_deployed (checkout=origin=2b419aa2, dirty=false); health 200/2.58.204; schema 47, pending=[]; NRestarts=0; журнал 0 traceback/ERROR/CRITICAL; bot_settings/profiles/prompts digests pre==post; БД backup integrity ok; rollback c97c06e4; документ-артефакт не менялся, deployed base линия содержит c97c06e4",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+          "artifact_sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+        },
+        {
+          "type": "review",
+          "reviewer_role": "Reviewer",
+          "verdict": "Approved",
+          "ref": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md — Final Q1/Q2 recheck (Q1 VERIFIED-eligible)",
+          "observation": "Q1-вердикт Reviewer'а сохраняется: audit-head §13 достаточен; deployed 2b419aa2 содержит базу c97c06e4/2.58.203, к которой относится документ",
+          "artifact_path": "plans/features/vmq-onto-01/evidence/vmq-v/deployed-review-2026-11-15.md",
+          "artifact_sha256": "9bdd76f05e338bf074ea432918ddfb57441f9c5045a81b38a08f4cfb9ff74e1b",
+          "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+          "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
         }
       ],
       "expected_evidence": [
@@ -13625,6 +13891,12 @@
             "exit": 0,
             "reading": "VMQ-A-01 VERIFIED как документ-артефакт; срез VMQ-A зелёный на review и deploy"
           }
+        },
+        "release_2b419aa2": {
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-vmq-a-2b419aa2-2026-11-15.txt",
+          "output": "stage=release errors=0",
+          "exit": 0,
+          "reading": "Срез VMQ-A принят на deployed 2b419aa2 / 2.58.204"
         }
       }
     },
@@ -13733,6 +14005,12 @@
           "output": "stage=deploy inventory=380 manual=69 scoped=2 errors=0",
           "exit": 0,
           "reading": "VMQ-A-01 исчез из замыкания ONTO-A — срез ONTO-A впервые зелёный на deploy-стадии"
+        },
+        "release_2b419aa2": {
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-onto-a-2b419aa2-2026-11-15.txt",
+          "output": "stage=release errors=0",
+          "exit": 0,
+          "reading": "Срез VMQ-ONTO-A принят на deployed 2b419aa2 / 2.58.204"
         }
       }
     },
@@ -13837,6 +14115,12 @@
           ],
           "exit": 1,
           "reading": "Остались только O-01/O-02 (строки ONTO-A в REVIEW, станут VERIFIED после выкладки); ошибок привязки и VMQ-A-01 нет"
+        },
+        "release_2b419aa2": {
+          "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-onto-b-2b419aa2-2026-11-15.txt",
+          "output": "stage=release errors=0",
+          "exit": 0,
+          "reading": "Срез VMQ-ONTO-B принят на deployed 2b419aa2 / 2.58.204"
         }
       }
     },
@@ -14028,6 +14312,19 @@
           ],
           "exit": 1,
           "reading": "Замыкание M2: только O-01/O-02 (ONTO-A) и O-03 (ONTO-B); VMQ-A-01 и V-строки отсутствуют"
+        },
+        "postdeploy_2b419aa2": {
+          "release": {
+            "artifact_path": "plans/features/vmq-onto-01/evidence/gates/release-m2-2b419aa2-2026-11-15.txt",
+            "output": "stage=release scoped=3 errors=1 — O-04 READY_FOR_LIVE",
+            "exit": 1
+          },
+          "delivery": {
+            "artifact_path": "plans/features/vmq-onto-01/evidence/gates/delivery-m2-2b419aa2-2026-11-15.txt",
+            "output": "engineering_delivery=PASS, acceptance=PENDING_FUTURE_EVIDENCE, deferred_req_ids=[O-04], errors=0",
+            "exit": 0
+          },
+          "reading": "M-04/M-05 VERIFIED на deployed candidate; O-04 честно остаётся READY_FOR_LIVE (correction effect не наблюдался), поэтому release среза красный ровно на одной строке, а delivery фиксирует инженерную поставку с одним отложенным доказательством"
         }
       },
       "rows_state_2026_11_15": {
@@ -14565,6 +14862,23 @@
       "scope_caveat": "если приёмке нужен эффект M2 (overview/bundle), «после» придётся снимать либо на кандидате f7a9c596 (candidate-bound, не production), либо после выпуска линии; сейчас корректно снимается baseline прода и year-coverage TIME-01..08",
       "write_conflict": "правка services/mca_retrieval_context.py (если дефект найден в VMQ-MEM) сериализуется после линии M2 — тот же файл",
       "next_action": "Builder: read-only harness на копии прод-БД c97c06e4 -> formulation-class-matrix.json, run-retrieval-trace.json, metrics-comparison.json + year before/after; Reviewer: независимое повторное измерение"
+    },
+    "deployed_2026_11_15": {
+      "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "version": "2.58.204",
+      "verified_in_this_pass": [
+        "VMQ-A-01",
+        "O-01",
+        "O-02",
+        "O-03",
+        "M-04",
+        "M-05"
+      ],
+      "kept_open": {
+        "O-04": "READY_FOR_LIVE — correction/version effect не наблюдался",
+        "V-01..V-04": "REVIEW — нет реального голосового",
+        "memory": "MEM-04/TIME-01/02/04/06/07 не закрываются"
+      }
     }
   },
   "next_actions_2026_11_15": {
@@ -14875,6 +15189,11 @@
       "role": "замороженный кандидат слайса VMQ-MEM-TIME (в ревью с 11.11.2026, девять строк TIME-01..09 остаются PENDING)",
       "until": "2026-11-15",
       "why_replaced": "верхнеуровневый candidate_commit переведён на выложенную линию: строки M-01..M-03 и VMQ-NEXT-02/05 приняты VERIFIED на c97c06e4; привязки TIME-строк к 709865f6 сохраняются в самих строках"
+    },
+    {
+      "value": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "until": "2026-11-15",
+      "why_replaced": "поезд 2.58.204 выложен: верхнеуровневый кандидат = deployed tip 2b419aa2"
     }
   ],
   "deployed_commit_history": [
@@ -14898,6 +15217,12 @@
       "value": "234776589c934024ed0e8dceba189fb9d70d3215",
       "version": "2.58.198",
       "until": "2026-11-14"
+    },
+    {
+      "value": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "version": "2.58.203",
+      "until": "2026-11-15",
+      "why_replaced": "2.58.204 deployed 2026-11-15"
     }
   ],
   "top_level_binding_note_2026_11_15": "candidate_commit и deployed_commit переведены на выложенную линию c97c06e4 (2.58.203). Прежние значения сохранены в candidate_commit_history/deployed_commit_history и в датированных блоках (candidate_note, deployed_commit_note_2026_11_11, current_production_2026_11_13/2026_11_15). Причина перевода: строки M-01..M-03 и VMQ-NEXT-02/05 получили уровень VERIFIED на точном выложенном кандидате по независимому ревью; release/delivery-гейты читают верхнеуровневые поля, поэтому без перевода гейт не мог бы проверить уже принятые строки. Это bookkeeping-перевод привязки, а не переоценка закрытых ранее evidence.",
@@ -15010,11 +15335,13 @@
         "plan": "errors=0"
       },
       "deploy_closure_state": {
-        "deploy VMQ-A": "errors=0",
-        "deploy VMQ-ONTO-A": "errors=0",
-        "deploy VMQ-ONTO-B": "errors=2 — O-01/O-02",
-        "deploy VMQ-M2": "errors=3 — O-01/O-02/O-03",
-        "deploy VMQ-V": "errors=4 — только live V-01..V-04"
+        "release VMQ-A": "0",
+        "release ONTO-A": "0",
+        "release ONTO-B": "0",
+        "release VMQ-M2": "1 (O-04)",
+        "delivery VMQ-M2": "PASS при deferred O-04",
+        "release VMQ-MEM": "9 (O-04 + memory)",
+        "release VMQ-MEM-TIME": "18 (closure + TIME)"
       },
       "full_epic_release_gate": "не проходит и не должен имитироваться: 50 PENDING / 12 REVIEW / 2 READY_FOR_LIVE / 6 VERIFIED",
       "certification_path": "пред-деплой: delta/integration review кумулятивного диффа + predeploy-одобрения; после деплоя: deployed-delta review на 2.58.204 → привязка O-01..O-04/M-04/M-05 → scoped release-гейты по срезам → postdeploy e2e по wait-объектам"
@@ -15216,6 +15543,43 @@
       "verdict": "VERIFIED-eligible (Final Q1/Q2 recheck, sha 9bdd76f0…)",
       "bound": "VMQ-A-01 переведена в VERIFIED как документ-артефакт (audit-head §13 + review)",
       "effect": "VMQ-A-01 исчезает из замыкания ONTO-A/ONTO-B/M2"
+    },
+    "deployed_2026_11_15": {
+      "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "version": "2.58.204",
+      "branch": "release/vmq-onto-01-2.58.204",
+      "deployed_at": "2026-11-15",
+      "base": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+      "rollback": "c97c06e4 / 2.58.203 (restore point backups/pre_deploy_258204_20261115T025835Z.db, integrity ok)",
+      "schema": 47,
+      "ddl": 0,
+      "health": "200 / 2.58.204; identity verified_deployed; NRestarts=0; journal clean",
+      "state_parity": "bot_settings/profiles/prompts digests pre==post; budgets/caps/capacity pre==post",
+      "e2e": {
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json",
+        "sha256": "29a215b2e3b1d17635a352ffed9984d3ec9d9102a7cfc0e7b971a0c5dbf7ef93",
+        "checks": "32 checks, 0 failed"
+      },
+      "wait_status": {
+        "M-04": "approved wait satisfied — VERIFIED",
+        "O-04": "route trace и 20/20 fingerprint match получены, НО correction/version effect не наблюдался (correction_effect.observable=false) — остаётся READY_FOR_LIVE",
+        "V-01..V-04": "реального голосового события не было — REVIEW"
+      },
+      "gate_results": {
+        "release VMQ-A": "errors=0",
+        "release VMQ-ONTO-A": "errors=0",
+        "release VMQ-ONTO-B": "errors=0",
+        "release VMQ-M2": "errors=1 — O-04 READY_FOR_LIVE (не VERIFIED)",
+        "delivery VMQ-M2": "engineering_delivery=PASS, acceptance=PENDING_FUTURE_EVIDENCE, deferred O-04 (errors=0)",
+        "release VMQ-MEM": "errors=9 — O-04 dependency + MEM-01..08 не VERIFIED",
+        "release VMQ-MEM-TIME": "errors=18 — closure (O-04 + MEM) + TIME-01..09 не VERIFIED"
+      },
+      "remaining_open": {
+        "O-04": "correction/version effect на живых данных",
+        "V-01..V-04": "реальное production voice-событие",
+        "memory": "MEM-01 REVIEW, MEM-02..08 PENDING, TIME-03 REVIEW, TIME-01/02/04..09 PENDING; Slice D не начат",
+        "observation": "current-state pre-plan 7×2026 + 3 старые history_import строки — открытое наблюдение memory-эпика (не блокер M-04/O-04)"
+      }
     }
   },
   "graph_correction_2026_11_15": {
@@ -15247,5 +15611,52 @@
       "deploy VMQ-V (контроль)": "errors=5 — VMQ-A-01 + 4 live; approval проходит",
       "deploy VMQ-ONTO-A (контроль)": "errors=1 — VMQ-A-01"
     }
-  }
+  },
+  "current_production_2026_11_15_deployed": {
+    "version": "2.58.204",
+    "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+    "branch": "release/vmq-onto-01-2.58.204",
+    "base": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "rollback": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+    "schema": 47,
+    "ddl": 0,
+    "health": "200 / 2.58.204",
+    "identity": "verified_deployed (checkout=origin=2b419aa2, dirty=false)",
+    "nrestarts": 0,
+    "journal": "0 traceback/ERROR/CRITICAL",
+    "db_backup": "integrity ok, schema 47; restore point pre_deploy_258204_20261115T025835Z.db",
+    "state_parity": "bot_settings/profiles/prompts digests pre==post; budgets/caps/capacity pre==post",
+    "evidence": {
+      "dir": "plans/features/vmq-onto-01/evidence/release-2.58.204/",
+      "identity": {
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.204/identity.json",
+        "sha256": "e09ddcd67e088fd8923c071bcf959997227f8722f15ca0cb862598019c191b81"
+      },
+      "deploy": {
+        "path": "plans/features/vmq-onto-01/evidence/release-2.58.204/deploy.md",
+        "sha256": "e3168272c614fdd16a703834700c1b3211f5879907bd2c8252a45bacb0cb921a"
+      }
+    },
+    "not_an_owner_input": "факт производства, а не требование владельца"
+  },
+  "delivery_evidence": [
+    {
+      "type": "production",
+      "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/deploy.md — 2.58.204 deploy record",
+      "observation": "deployed 2b419aa2627f627eb6ea5e2f46b5e01118da2bf0 / 2.58.204 на ветке release/vmq-onto-01-2.58.204; health 200/2.58.204, identity verified_deployed (checkout=origin, dirty=false), schema 47 pending=[], NRestarts=0, журнал 0 traceback/ERROR/CRITICAL, БД backup integrity ok, state pre==post, rollback c97c06e4",
+      "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/deploy.md",
+      "artifact_sha256": "e3168272c614fdd16a703834700c1b3211f5879907bd2c8252a45bacb0cb921a",
+      "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+    },
+    {
+      "type": "production",
+      "ref": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json — read-only postdeploy e2e (32 checks, 0 failed)",
+      "observation": "agent-owned read-only e2e на deployed дереве: exact owner query — один overview-retrieve и один bundle с coverage/independent_periods/counterexamples/limitations; temporal 2023 — period_fill in_target_year; biography/general — один retrieve с overview, identity negative; current-state — overview нет, period_fill 0, episode reads 0; cross-chat чисто; сообщений в Telegram не отправлялось",
+      "artifact_path": "plans/features/vmq-onto-01/evidence/release-2.58.204/postdeploy-e2e.json",
+      "artifact_sha256": "29a215b2e3b1d17635a352ffed9984d3ec9d9102a7cfc0e7b971a0c5dbf7ef93",
+      "candidate_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0",
+      "deployed_commit": "2b419aa2627f627eb6ea5e2f46b5e01118da2bf0"
+    }
+  ]
 }
