@@ -5,7 +5,7 @@ Task source: plans/owner_inputs/2026-11-09-vmq-onto-01.md (sha 11FD732F...) + am
 Status: in_progress
 Primary phase: implementation
 Active feature: vmq-onto-01
-Active lanes: Reviewer Q1 recheck ses_e2458ffb8ffePCAmFsGKCEIUHk; Reviewer train delta ses_e22ecb68effenwi47HYZsyjyfs; PM preserve train evidence ses_e2466fc41ffe29CK1Vz4tDm4SW
+Active lanes: Reviewer train delta ses_e22ecb68effenwi47HYZsyjyfs; PM bind VMQ-A/gate ses_e2466fc41ffe29CK1Vz4tDm4SW
 Join barriers: Q1/Q2 Reviewer decisions + train 2.58.204 assembly -> delta review -> controlled deploy -> postdeploy e2e; memory rows stay open and are not claimed fixed
 Last verified: 2.58.203 deployed at c97c06e4 (health 200, schema 47, verifier 33/33, identity verified_deployed); SMART corrective delivered 362/384 with 22 live observations parked; no engineering blockers.
 Acceptance: VMQ map 70 required rows: 50 PENDING, 12 REVIEW, 2 READY_FOR_LIVE, 6 VERIFIED. M1/M-01..03/NEXT-02/05 VERIFIED on c97c06e4; ONTO-A/B/M2 and Slices A/B/C approved; Slice B TIME-03 REVIEW; M-04/O-04 READY_FOR_LIVE with Reviewer-approved postrelease wait; MEM-04/TIME-01/02/04/06/07 remain open as evidence/product gaps and are not claimed fixed. Q1 (VMQ-A-01 document row) and Q2 (V row dependency/wait) are with the Reviewer; the train 2.58.204 is being assembled.
@@ -15,7 +15,7 @@ Review: M1 cfec9a1a and NEXT2 96c8bc72 were independently Approved predeploy; de
 Deployment: 2.58.203 verified at c97c06e4; VMQ candidate code is already in this deployed line, not awaiting a new release train.
 Human gate: none
 Progress scope: plans/progress_scope.json | fresh; vmq-onto-01 set BUILDING/implementing; corrective parked delivered_awaiting_evidence.
-Updated: 2026-11-15T14:40:07+12:00
+Updated: 2026-11-15T14:41:00+12:00
 
 ## Facts
 
@@ -171,3 +171,6 @@ PM updated audit-head.md with §13 for c97c06e4/2.58.203 (current identity, MEMO
 ## Train 2.58.204 assembled (2026-11-15)
 
 Builder assembled release/vmq-onto-01-2.58.204 tip 2b419aa2 (bump 735af15b + evidence 44fb6741 + retention 2b419aa2), base c97c06e4; origin has the same SHA. Composition c97c06e4 -> 8cb9e00d -> d15b13da -> f7a9c596 -> 570a49db -> d159ea8a -> 16931216; cumulative 23 files +8996/-198; DDL 0, schema 47; no composer/config/gates/hot_config/migrations changes; database.py SELECT-only with the source_ref_id move 1:1; bump is the standard 30-file/31-line wave. Tests 1752 passed/4 known pre-existing on both pre-bump and bumped tips; pin 856/4; JS 4 OK; manifest dry-run 2.58.204/dirty=false. Known docs gap: Slice C evidence trio lives on vmq/mem-c tip 8bc2bcf7, not in the frozen 16931216 composition; PM is copying it and the train assembly evidence to master. Delta review r1 and the V Reviewer Q1 recheck are running; Q2 graph correction is applied. No deployment until both verdicts and the controlled-deploy binding.
+## Q1/Q2 recheck Approved (2026-11-15)
+
+V Reviewer final verdict: Approved for train deploy binding, parent not DONE. Q1: audit-head.md §13 is sufficient; VMQ-A-01 is VERIFIED-eligible as a document artifact on c97c06e4/2.58.203. Q2: M2.depends_on = [VMQ-M1, VMQ-ONTO-B], V absent; the train diff c97c06e4..16931216 does not touch voice_transcripts.py, handlers/voice_transcription.py or direct_context_composer.py; the composer write-scope removal is correct; V-01..V-04 stay REVIEW/live_required and are not closed by the graph correction. Slice C corpus binding is to the actual JSON 4e644e52... (MD 6bda4ce1..., provenance text swaps the JSON/DB-copy hashes; binding correct). V review artifact sha 9bdd76f0.... PM is binding VMQ-A-01 VERIFIED, updating V references to 9bdd76f0, re-running the scoped gates and preparing the combined train deploy binding; the delta review r1 of 2b419aa2 is running. Deploy not yet.

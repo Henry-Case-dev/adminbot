@@ -55,3 +55,29 @@ This is a graph correction, not a status shortcut. V-01..V-04 remain candidate-b
 ### Release consequence
 
 Train 16931216ab0015b4a3001c9947768305517e46eb is safe to assemble/deploy with respect to Q2 once PM/Architect records the graph correction and reruns the train gate. Q1 remains the genuine pre-deploy documentation blocker for VMQ-A-01 binding, not a runtime blocker. No production access was used. The requirements map was not edited.
+
+## Final Q1/Q2 recheck (2026-11-15)
+
+### Q1 - VERIFIED-eligible at document-review level
+
+The focused recheck accepts audit-head.md section 13 as sufficient for VMQ-A-01. It binds the deployed base c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 / 2.58.203, release branch and runtime identity; records health/version, restart/schema/DDL/rollback facts; maps current MEMORY/VMQ states; records effective production configuration; and separates done, in-progress, and added work. The historical c816e83c / 2.58.168 pin is explicitly preserved as the dated section 1-12 audit, not used as the current base. Event/fixture, no-duplicate, and DAG material is retained.
+
+Verdict: VMQ-A-01 is VERIFIED-eligible as a document artifact. PM must bind the existing map row to VERIFIED; Reviewer did not edit the map.
+
+### Q2 - dependency correction confirmed
+
+The current slice graph has VMQ-M2.depends_on = [VMQ-M1, VMQ-ONTO-B]; VMQ-V is absent from the M2 dependency closure. Independent recheck of c97..16931216 found no changed files in services/voice_transcripts.py, handlers/voice_transcription.py, or services/direct_context_composer.py. Removing composer from M2.write_scope matches the approved M2 code scope and the train diff; composer remains historical VMQ-V ownership. V-01..V-04 remain independent REVIEW rows with live_required=true and are not falsely closed or converted to VERIFIED.
+
+### Slice C corpus binding
+
+The actual corpus JSON file hash is 4e644e52c057381aaea78d264310cd41f847b028c2c0066caa8f46170a9cafdd, matching the PM binding. The JSON records the copied DB hash e16284958208dd8def242bac3211a5003fb031a97a3f88e504394d36678f0505. The Markdown provenance text swaps these references and cites an older JSON digest; this is a documented provenance-text defect, but binding is to the actual files and their contents. The observed behavior supports structural-signal interpretation: historical, explicit-year, and relationship flows activate overview while the no-signal current-state negative does not; the report explicitly rejects a dictionary trigger. Vector KNN and live delivery remain unverified.
+
+### Final train gate disposition
+
+Approved for train deploy binding, with PM ledger synchronization required. Q1 document evidence and Q2 dependency correction are clear. Train 16931216ab0015b4a3001c9947768305517e46eb may proceed to controlled deploy binding after PM records VMQ-A-01 as VERIFIED and reruns the scoped gate. Reported M2 deploy-gate errors for VMQ-A-01/O-01/O-02/O-03 are remaining ledger/dependency acceptance rows, not a VMQ-V or M2-to-V blocker. V live acceptance remains open: V-01..V-04 are REVIEW, not VERIFIED. Slice C evidence is candidate-bound and structurally valid, but its own map rows and live/vector limitations retain their existing statuses.
+
+### Three review pillars
+
+- Implementation: inspected section 13, slice-graph M2 dependency/write-scope, exact c97..16931216 path diff, and the V/M2 ownership seam.
+- Test validity: inspected Q1 document contents and Slice C report/JSON assertions for identity, effective config, one-retrieve/one-bundle, period coverage, negative current-state behavior, and structural signal; limitations remain explicit.
+- Independent challenge: independently recomputed the train path diff and SHA-256 of the actual Slice C JSON/Markdown files, and checked swapped provenance claims against file contents; no V/composer train change or false corpus binding was found.
