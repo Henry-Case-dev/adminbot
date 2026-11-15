@@ -1,0 +1,1812 @@
+{
+ "artifact_kind": "corpus_probe_candidate_vs_baseline_not_live",
+ "epic": "vmq-onto-01",
+ "slice": "VMQ-MEM / VMQ-MEM-TIME Slice C (M2 overview trigger)",
+ "run_utc": {
+  "recon": "2026-11-15T02:23:33Z",
+  "driver_start": "2026-11-15T02:23:49Z",
+  "driver_end": "2026-11-15T02:28:14Z",
+  "cleanup": "2026-11-15T02:28:40Z"
+ },
+ "production": {
+  "deployed_head": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "deployed_head_after": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5",
+  "branch": "release/smart-corrective-01",
+  "nrestarts": "0",
+  "nrestarts_after": "0",
+  "active_enter": "Sat 2026-11-14 18:56:49 UTC",
+  "deployed_dirty_files": 1,
+  "deploy_performed": false,
+  "healthz_http": 200,
+  "healthz_checked_from": "recon session, 127.0.0.1:8000/api/health"
+ },
+ "candidates": {
+  "baseline_branch": "vmq/mem-b",
+  "baseline_tip": "182fcbf976c7d21c4edeabf2a4f64d330d6af286",
+  "baseline_code_commit": "d159ea8ad8362616ec78b43cb64a3e54ec7de2e6",
+  "baseline_tree": "c0d93fb9684ce986898b9c5a8fb5f2d9e612b215",
+  "candidate_branch": "vmq/mem-c",
+  "candidate_tip": "8bc2bcf700a19732ad4b4eb684a7f954d89463e3",
+  "candidate_code_commit": "16931216ab0015b4a3001c9947768305517e46eb",
+  "candidate_tree": "7fc79ec9e45060b44b4c3b5e890963793c9ad567",
+  "merge_base": "d159ea8ad8362616ec78b43cb64a3e54ec7de2e6",
+  "deployed_ancestor": "c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5"
+ },
+ "copy": {
+  "method": "sqlite3 .backup from a read-only connection",
+  "source": "/var/www/admin_bot/local_database.db",
+  "sha256_line": "e16284958208dd8def242bac3211a5003fb031a97a3f88e504394d36678f0505",
+  "counters": {
+   "messages_total": 2075744,
+   "episodes_total": 200,
+   "episodes_by_year": [
+    {
+     "k": "2023",
+     "n": 83
+    },
+    {
+     "k": "2024",
+     "n": 92
+    },
+    {
+     "k": "2025",
+     "n": 9
+    },
+    {
+     "k": "2026",
+     "n": 16
+    }
+   ],
+   "messages_by_year": [
+    {
+     "k": "2022",
+     "n": 21383
+    },
+    {
+     "k": "2023",
+     "n": 314090
+    },
+    {
+     "k": "2024",
+     "n": 382046
+    },
+    {
+     "k": "2025",
+     "n": 810831
+    },
+    {
+     "k": "2026",
+     "n": 547394
+    }
+   ]
+  },
+  "chat_timezone": {
+   "iana": "Asia/Yekaterinburg",
+   "source": "global_legacy"
+  }
+ },
+ "effective_config": {
+  "keys": {
+   "flags.graph_rag_enabled": "true",
+   "flags.chat_rag_rerank_enabled": "true",
+   "limits.graph_rag_facts_limit": "10",
+   "limits.graph_rag_context_max_chars": "2000",
+   "limits.chat_episode_max_count": 2,
+   "limits.chat_episode_max_messages": 40,
+   "limits.chat_episode_gap_seconds": 300,
+   "limits.dig_max_snippets": "15",
+   "limits.dig_max_symbols": "5000",
+   "limits.chat_rag_dedup_overlap_ratio": "0.8"
+  },
+  "gates_runtime": {
+   "evidence_bundle": true,
+   "episodes": true
+  },
+  "env_flags": {
+   "MCA_RETRIEVAL_CONTEXT_ENABLED": null,
+   "MCA_EVIDENCE_BUNDLE_ENABLED": null,
+   "MCA_EPISODES_ENABLED": null
+  },
+  "pg": "ok",
+  "precedence": "chat override -> bot_settings -> Settings default",
+  "route_config_run": false,
+  "note": "single frozen config (13 keys, parity with corpus-run-2026-11-15); embedding route keys not exercised"
+ },
+ "triggers": {
+  "A1_creative_owner": {
+   "query": "напиши юмористический рассказ об основных шизах конфы",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "historical",
+    "years": [],
+    "source": "query_marker",
+    "wants_overview": true
+   },
+   "intent_plan_historical_recall": {
+    "kind": "multi_year",
+    "years": [],
+    "source": "plan_act",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "historical",
+    "years": [],
+    "source": "memory_scope",
+    "wants_overview": true
+   }
+  },
+  "A1P_plain_twin": {
+   "query": "что за шизы были на конфе?",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "none",
+    "years": [],
+    "source": "",
+    "wants_overview": false
+   },
+   "intent_plan_historical_recall": {
+    "kind": "multi_year",
+    "years": [],
+    "source": "plan_act",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "historical",
+    "years": [],
+    "source": "memory_scope",
+    "wants_overview": true
+   }
+  },
+  "D_conflict_2023": {
+   "query": "из-за чего мы ссорились и ругались в 2023 году",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "explicit_year",
+    "years": [
+     2023
+    ],
+    "source": "query_year",
+    "wants_overview": true
+   },
+   "intent_plan_historical_recall": {
+    "kind": "explicit_year",
+    "years": [
+     2023
+    ],
+    "source": "query_year",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "explicit_year",
+    "years": [
+     2023
+    ],
+    "source": "query_year",
+    "wants_overview": true
+   }
+  },
+  "T2_event_no_year": {
+   "query": "что вообще было с E1, напомни?",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "none",
+    "years": [],
+    "source": "",
+    "wants_overview": false
+   },
+   "intent_plan_historical_recall": {
+    "kind": "multi_year",
+    "years": [],
+    "source": "plan_act",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "historical",
+    "years": [],
+    "source": "memory_scope",
+    "wants_overview": true
+   }
+  },
+  "T3_current": {
+   "query": "что сейчас происходит с E1?",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "none",
+    "years": [],
+    "source": "",
+    "wants_overview": false
+   },
+   "intent_plan_historical_recall": {
+    "kind": "multi_year",
+    "years": [],
+    "source": "plan_act",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "historical",
+    "years": [],
+    "source": "memory_scope",
+    "wants_overview": true
+   }
+  },
+  "P1_profile_reply": {
+   "query": "что ты знаешь про P1?",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "none",
+    "years": [],
+    "source": "",
+    "wants_overview": false
+   },
+   "intent_plan_historical_recall": {
+    "kind": "multi_year",
+    "years": [],
+    "source": "plan_act",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "historical",
+    "years": [],
+    "source": "memory_scope",
+    "wants_overview": true
+   }
+  },
+  "E_relations_years": {
+   "query": "как менялись наши отношения и взгляды за эти годы",
+   "baseline_is_history_query": false,
+   "intent_auto": {
+    "kind": "historical",
+    "years": [],
+    "source": "query_marker",
+    "wants_overview": true
+   },
+   "intent_plan_historical_recall": {
+    "kind": "multi_year",
+    "years": [],
+    "source": "plan_act",
+    "wants_overview": true
+   },
+   "intent_historical_scope": {
+    "kind": "historical",
+    "years": [],
+    "source": "memory_scope",
+    "wants_overview": true
+   }
+  }
+ },
+ "baseline_classes": {
+  "A1_creative_owner": {
+   "query": "напиши юмористический рассказ об основных шизах конфы",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2023": 1,
+    "2024": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    12664,
+    30508,
+    30157,
+    29139,
+    29099,
+    27812,
+    27457,
+    27294,
+    3775,
+    3210
+   ],
+   "period_fill": 2,
+   "block_chars": 1220,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "81a51571e9dd1784182f37c908e2a311",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "A1P_plain_twin": {
+   "query": "что за шизы были на конфе?",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2026": 10
+   },
+   "row_ids": [
+    21284,
+    15856,
+    28966,
+    28785,
+    28663,
+    28339,
+    27968,
+    27062,
+    26771,
+    23535
+   ],
+   "period_fill": 0,
+   "block_chars": 1018,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "e08d3870c16ba9ba6fd61dc02e28fcee",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "D_conflict_2023": {
+   "query": "из-за чего мы ссорились и ругались в 2023 году",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 9,
+   "row_years": {
+    "2023": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    15750,
+    21135,
+    15176,
+    22989,
+    15180,
+    15174,
+    15170,
+    14392,
+    3037
+   ],
+   "period_fill": 1,
+   "block_chars": 1143,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "0d27ca669f91ac4973ec4b580d5accd1",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "T2_no_signal": {
+   "query": "что вообще было с E1, напомни?",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2026": 10
+   },
+   "row_ids": [
+    16955,
+    30174,
+    29013,
+    27893,
+    27600,
+    25699,
+    25563,
+    25453,
+    24980,
+    24912
+   ],
+   "period_fill": 0,
+   "block_chars": 896,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "26d9dc947f3210b257cd09fbabfa8ce9",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "T3_current_no_signal": {
+   "query": "что сейчас происходит с E1?",
+   "retrieve_calls": 1,
+   "retrieve_include_overview": [
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2026": 10
+   },
+   "row_ids": [
+    28541,
+    19808,
+    18261,
+    18259,
+    17506,
+    13836,
+    15856,
+    30059,
+    29233,
+    28300
+   ],
+   "period_fill": 0,
+   "block_chars": 321,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "8701cad842ae54c5065b06553e761384",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "P1_profile_reply": {
+   "query": "что ты знаешь про P1?",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2023": 1,
+    "2024": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    15217,
+    15210,
+    15186,
+    29291,
+    29278,
+    28620,
+    28241,
+    28258,
+    1438186,
+    1967903
+   ],
+   "period_fill": 2,
+   "block_chars": 1291,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "4df520c540ea438d7ff43495d1a35dfe",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "E_relations_years": {
+   "query": "как менялись наши отношения и взгляды за эти годы",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2023": 1,
+    "2025": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    30409,
+    28342,
+    27878,
+    26948,
+    26832,
+    25087,
+    24486,
+    24005,
+    2843,
+    7966
+   ],
+   "period_fill": 2,
+   "block_chars": 1173,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "50766234cc32189cbd1f02bb56bc0fcd",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  }
+ },
+ "candidate_classes": {
+  "A1_creative_owner": {
+   "query": "напиши юмористический рассказ об основных шизах конфы",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    true,
+    false
+   ],
+   "include_overview_forwarded": true,
+   "overview_result_present": true,
+   "overview_result_is_first_retrieve": true,
+   "episode_reads": {
+    "list_episode_views": 1,
+    "subject_longitudinal_view": 1
+   },
+   "rows": 10,
+   "row_years": {
+    "2023": 1,
+    "2024": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    12664,
+    30508,
+    30157,
+    29139,
+    29099,
+    27812,
+    27457,
+    27294,
+    3775,
+    3210
+   ],
+   "period_fill": 2,
+   "block_chars": 1220,
+   "overview": {
+    "state": "ok",
+    "present_periods": [
+     {
+      "period": "2023",
+      "episodes": 83,
+      "episode_refs": 20
+     },
+     {
+      "period": "2024",
+      "episodes": 92,
+      "episode_refs": 20
+     },
+     {
+      "period": "2025",
+      "episodes": 9,
+      "episode_refs": 9
+     },
+     {
+      "period": "2026",
+      "episodes": 16,
+      "episode_refs": 16
+     }
+    ],
+    "missing_periods": [],
+    "unknown_time_episode_refs": 0,
+    "earliest_year": 2023,
+    "latest_year": 2026,
+    "complete": false,
+    "complete_reason": "archive_bounds_unknown",
+    "timezone": "Asia/Yekaterinburg",
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "period_support": [
+     {
+      "period": "2023",
+      "independent": 248,
+      "repeated": 2
+     },
+     {
+      "period": "2024",
+      "independent": 509,
+      "repeated": 7
+     },
+     {
+      "period": "2025",
+      "independent": 88,
+      "repeated": 0
+     },
+     {
+      "period": "2026",
+      "independent": 111,
+      "repeated": 0
+     }
+    ],
+    "episode_refs_count": 20,
+    "support_source_refs_count": 20,
+    "independent_support_count": 956,
+    "repeated_claims": 9,
+    "counterexamples_count": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_versions_count": 200,
+    "episode_versions_stale": 154,
+    "semantic_hints_count": 10,
+    "semantic_hints_kinds": {
+     "fact_definition": 10
+    }
+   },
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_refs_count": 20,
+    "semantic_hints_count": 10,
+    "context_version": "81a51571e9dd1784182f37c908e2a311",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": true
+   }
+  },
+  "A1P_plain_twin": {
+   "query": "что за шизы были на конфе?",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2026": 10
+   },
+   "row_ids": [
+    21284,
+    15856,
+    28966,
+    28785,
+    28663,
+    28339,
+    27968,
+    27062,
+    26771,
+    23535
+   ],
+   "period_fill": 0,
+   "block_chars": 1018,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "e08d3870c16ba9ba6fd61dc02e28fcee",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "D_conflict_2023": {
+   "query": "из-за чего мы ссорились и ругались в 2023 году",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    true,
+    false
+   ],
+   "include_overview_forwarded": true,
+   "overview_result_present": true,
+   "overview_result_is_first_retrieve": true,
+   "episode_reads": {
+    "list_episode_views": 1,
+    "subject_longitudinal_view": 1
+   },
+   "rows": 9,
+   "row_years": {
+    "2023": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    15750,
+    21135,
+    15176,
+    22989,
+    15180,
+    15174,
+    15170,
+    14392,
+    3037
+   ],
+   "period_fill": 1,
+   "block_chars": 1143,
+   "overview": {
+    "state": "ok",
+    "present_periods": [
+     {
+      "period": "2023",
+      "episodes": 83,
+      "episode_refs": 20
+     },
+     {
+      "period": "2024",
+      "episodes": 92,
+      "episode_refs": 20
+     },
+     {
+      "period": "2025",
+      "episodes": 9,
+      "episode_refs": 9
+     },
+     {
+      "period": "2026",
+      "episodes": 16,
+      "episode_refs": 16
+     }
+    ],
+    "missing_periods": [],
+    "unknown_time_episode_refs": 0,
+    "earliest_year": 2023,
+    "latest_year": 2026,
+    "complete": false,
+    "complete_reason": "archive_bounds_unknown",
+    "timezone": "Asia/Yekaterinburg",
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "period_support": [
+     {
+      "period": "2023",
+      "independent": 248,
+      "repeated": 2
+     },
+     {
+      "period": "2024",
+      "independent": 509,
+      "repeated": 7
+     },
+     {
+      "period": "2025",
+      "independent": 88,
+      "repeated": 0
+     },
+     {
+      "period": "2026",
+      "independent": 111,
+      "repeated": 0
+     }
+    ],
+    "episode_refs_count": 20,
+    "support_source_refs_count": 20,
+    "independent_support_count": 956,
+    "repeated_claims": 9,
+    "counterexamples_count": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_versions_count": 200,
+    "episode_versions_stale": 154,
+    "semantic_hints_count": 10,
+    "semantic_hints_kinds": {
+     "fact_definition": 10
+    }
+   },
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_refs_count": 20,
+    "semantic_hints_count": 10,
+    "context_version": "0d27ca669f91ac4973ec4b580d5accd1",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": true
+   }
+  },
+  "T2_no_signal": {
+   "query": "что вообще было с E1, напомни?",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2026": 10
+   },
+   "row_ids": [
+    16955,
+    30174,
+    29013,
+    27893,
+    27600,
+    25699,
+    25563,
+    25453,
+    24980,
+    24912
+   ],
+   "period_fill": 0,
+   "block_chars": 896,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "26d9dc947f3210b257cd09fbabfa8ce9",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "T3_current_no_signal": {
+   "query": "что сейчас происходит с E1?",
+   "retrieve_calls": 1,
+   "retrieve_include_overview": [
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2026": 10
+   },
+   "row_ids": [
+    28541,
+    19808,
+    18261,
+    18259,
+    17506,
+    13836,
+    15856,
+    30059,
+    29233,
+    28300
+   ],
+   "period_fill": 0,
+   "block_chars": 321,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "8701cad842ae54c5065b06553e761384",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "P1_profile_reply": {
+   "query": "что ты знаешь про P1?",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    false,
+    false
+   ],
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rows": 10,
+   "row_years": {
+    "2023": 1,
+    "2024": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    15217,
+    15210,
+    15186,
+    29291,
+    29278,
+    28620,
+    28241,
+    28258,
+    1438186,
+    1967903
+   ],
+   "period_fill": 2,
+   "block_chars": 1291,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "4df520c540ea438d7ff43495d1a35dfe",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "E_relations_years": {
+   "query": "как менялись наши отношения и взгляды за эти годы",
+   "retrieve_calls": 2,
+   "retrieve_include_overview": [
+    true,
+    false
+   ],
+   "include_overview_forwarded": true,
+   "overview_result_present": true,
+   "overview_result_is_first_retrieve": true,
+   "episode_reads": {
+    "list_episode_views": 1,
+    "subject_longitudinal_view": 1
+   },
+   "rows": 10,
+   "row_years": {
+    "2023": 1,
+    "2025": 1,
+    "2026": 8
+   },
+   "row_ids": [
+    30409,
+    28342,
+    27878,
+    26948,
+    26832,
+    25087,
+    24486,
+    24005,
+    2843,
+    7966
+   ],
+   "period_fill": 2,
+   "block_chars": 1173,
+   "overview": {
+    "state": "ok",
+    "present_periods": [
+     {
+      "period": "2023",
+      "episodes": 83,
+      "episode_refs": 20
+     },
+     {
+      "period": "2024",
+      "episodes": 92,
+      "episode_refs": 20
+     },
+     {
+      "period": "2025",
+      "episodes": 9,
+      "episode_refs": 9
+     },
+     {
+      "period": "2026",
+      "episodes": 16,
+      "episode_refs": 16
+     }
+    ],
+    "missing_periods": [],
+    "unknown_time_episode_refs": 0,
+    "earliest_year": 2023,
+    "latest_year": 2026,
+    "complete": false,
+    "complete_reason": "archive_bounds_unknown",
+    "timezone": "Asia/Yekaterinburg",
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "period_support": [
+     {
+      "period": "2023",
+      "independent": 248,
+      "repeated": 2
+     },
+     {
+      "period": "2024",
+      "independent": 509,
+      "repeated": 7
+     },
+     {
+      "period": "2025",
+      "independent": 88,
+      "repeated": 0
+     },
+     {
+      "period": "2026",
+      "independent": 111,
+      "repeated": 0
+     }
+    ],
+    "episode_refs_count": 20,
+    "support_source_refs_count": 20,
+    "independent_support_count": 956,
+    "repeated_claims": 9,
+    "counterexamples_count": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_versions_count": 200,
+    "episode_versions_stale": 154,
+    "semantic_hints_count": 10,
+    "semantic_hints_kinds": {
+     "fact_definition": 10
+    }
+   },
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_refs_count": 20,
+    "semantic_hints_count": 10,
+    "context_version": "50766234cc32189cbd1f02bb56bc0fcd",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": true
+   }
+  }
+ },
+ "baseline_plan_flows": {
+  "T2_plan_historical_recall": {
+   "query": "что вообще было с E1, напомни?",
+   "response_act": "historical_recall",
+   "pre_plan_overview": false,
+   "pre_plan_episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rebuilt": true,
+   "rebuild_rows": 10,
+   "rebuild_row_years": {
+    "2023": 1,
+    "2024": 1,
+    "2026": 8
+   },
+   "plan_act_forwarded": "historical_recall",
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "retrieve_calls": 1,
+   "retrieve_include_overview": [
+    false
+   ],
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "row_ids": [
+    16955,
+    30174,
+    29013,
+    27893,
+    27600,
+    25699,
+    25563,
+    25453,
+    1961,
+    4700
+   ],
+   "final_block_chars": 1169,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "67a6381f31e8015e6b4f9b834a734ad4",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  },
+  "T3_current_plan_historical_recall": {
+   "query": "что сейчас происходит с E1?",
+   "response_act": "historical_recall",
+   "pre_plan_overview": false,
+   "pre_plan_episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rebuilt": false,
+   "rebuild_rows": 10,
+   "rebuild_row_years": {
+    "2026": 10
+   },
+   "plan_act_forwarded": "historical_recall",
+   "include_overview_forwarded": false,
+   "overview_result_present": false,
+   "overview_result_is_first_retrieve": false,
+   "retrieve_calls": 1,
+   "retrieve_include_overview": [
+    false
+   ],
+   "episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "row_ids": [
+    28541,
+    19808,
+    18261,
+    18259,
+    17506,
+    13836,
+    15856,
+    30059,
+    29233,
+    28300
+   ],
+   "final_block_chars": 321,
+   "overview": null,
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [],
+    "independent_periods": [],
+    "counterexamples": 0,
+    "limitations": [],
+    "episode_refs_count": 0,
+    "semantic_hints_count": 0,
+    "context_version": "8701cad842ae54c5065b06553e761384",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": false
+   }
+  }
+ },
+ "candidate_plan_flows": {
+  "T2_plan_historical_recall": {
+   "query": "что вообще было с E1, напомни?",
+   "response_act": "historical_recall",
+   "pre_plan_overview": false,
+   "pre_plan_episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rebuilt": true,
+   "rebuild_rows": 10,
+   "rebuild_row_years": {
+    "2023": 1,
+    "2024": 1,
+    "2026": 8
+   },
+   "plan_act_forwarded": "historical_recall",
+   "include_overview_forwarded": true,
+   "overview_result_present": true,
+   "overview_result_is_first_retrieve": true,
+   "retrieve_calls": 1,
+   "retrieve_include_overview": [
+    true
+   ],
+   "episode_reads": {
+    "list_episode_views": 1,
+    "subject_longitudinal_view": 1
+   },
+   "row_ids": [
+    16955,
+    30174,
+    29013,
+    27893,
+    27600,
+    25699,
+    25563,
+    25453,
+    1961,
+    4700
+   ],
+   "final_block_chars": 1169,
+   "overview": {
+    "state": "ok",
+    "present_periods": [
+     {
+      "period": "2023",
+      "episodes": 83,
+      "episode_refs": 20
+     },
+     {
+      "period": "2024",
+      "episodes": 92,
+      "episode_refs": 20
+     },
+     {
+      "period": "2025",
+      "episodes": 9,
+      "episode_refs": 9
+     },
+     {
+      "period": "2026",
+      "episodes": 16,
+      "episode_refs": 16
+     }
+    ],
+    "missing_periods": [],
+    "unknown_time_episode_refs": 0,
+    "earliest_year": 2023,
+    "latest_year": 2026,
+    "complete": false,
+    "complete_reason": "archive_bounds_unknown",
+    "timezone": "Asia/Yekaterinburg",
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "period_support": [
+     {
+      "period": "2023",
+      "independent": 248,
+      "repeated": 2
+     },
+     {
+      "period": "2024",
+      "independent": 509,
+      "repeated": 7
+     },
+     {
+      "period": "2025",
+      "independent": 88,
+      "repeated": 0
+     },
+     {
+      "period": "2026",
+      "independent": 111,
+      "repeated": 0
+     }
+    ],
+    "episode_refs_count": 20,
+    "support_source_refs_count": 20,
+    "independent_support_count": 956,
+    "repeated_claims": 9,
+    "counterexamples_count": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_versions_count": 200,
+    "episode_versions_stale": 154,
+    "semantic_hints_count": 10,
+    "semantic_hints_kinds": {
+     "fact_definition": 10
+    }
+   },
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_refs_count": 20,
+    "semantic_hints_count": 10,
+    "context_version": "67a6381f31e8015e6b4f9b834a734ad4",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": true
+   }
+  },
+  "T3_current_plan_historical_recall": {
+   "query": "что сейчас происходит с E1?",
+   "response_act": "historical_recall",
+   "pre_plan_overview": false,
+   "pre_plan_episode_reads": {
+    "list_episode_views": 0,
+    "subject_longitudinal_view": 0
+   },
+   "rebuilt": false,
+   "rebuild_rows": 10,
+   "rebuild_row_years": {
+    "2026": 10
+   },
+   "plan_act_forwarded": "historical_recall",
+   "include_overview_forwarded": true,
+   "overview_result_present": true,
+   "overview_result_is_first_retrieve": true,
+   "retrieve_calls": 1,
+   "retrieve_include_overview": [
+    true
+   ],
+   "episode_reads": {
+    "list_episode_views": 1,
+    "subject_longitudinal_view": 1
+   },
+   "row_ids": [
+    28541,
+    19808,
+    18261,
+    18259,
+    17506,
+    13836,
+    15856,
+    30059,
+    29233,
+    28300
+   ],
+   "final_block_chars": 321,
+   "overview": {
+    "state": "ok",
+    "present_periods": [
+     {
+      "period": "2023",
+      "episodes": 83,
+      "episode_refs": 20
+     },
+     {
+      "period": "2024",
+      "episodes": 92,
+      "episode_refs": 20
+     },
+     {
+      "period": "2025",
+      "episodes": 9,
+      "episode_refs": 9
+     },
+     {
+      "period": "2026",
+      "episodes": 16,
+      "episode_refs": 16
+     }
+    ],
+    "missing_periods": [],
+    "unknown_time_episode_refs": 0,
+    "earliest_year": 2023,
+    "latest_year": 2026,
+    "complete": false,
+    "complete_reason": "archive_bounds_unknown",
+    "timezone": "Asia/Yekaterinburg",
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "period_support": [
+     {
+      "period": "2023",
+      "independent": 248,
+      "repeated": 2
+     },
+     {
+      "period": "2024",
+      "independent": 509,
+      "repeated": 7
+     },
+     {
+      "period": "2025",
+      "independent": 88,
+      "repeated": 0
+     },
+     {
+      "period": "2026",
+      "independent": 111,
+      "repeated": 0
+     }
+    ],
+    "episode_refs_count": 20,
+    "support_source_refs_count": 20,
+    "independent_support_count": 956,
+    "repeated_claims": 9,
+    "counterexamples_count": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_versions_count": 200,
+    "episode_versions_stale": 154,
+    "semantic_hints_count": 10,
+    "semantic_hints_kinds": {
+     "fact_definition": 10
+    }
+   },
+   "bundle": {
+    "gate": true,
+    "coverage_lines": [
+     "2023: эпизодов 83",
+     "2024: эпизодов 92",
+     "2025: эпизодов 9",
+     "2026: эпизодов 16",
+     "границы: 01.02.2023 — 01.09.2026"
+    ],
+    "independent_periods": [
+     "2023",
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "counterexamples": 5,
+    "limitations": [
+     "periods_are_calendar_buckets_not_entities",
+     "missing_period_means_no_episode_not_no_event",
+     "summary_title_claims_are_derived",
+     "coverage_complete_unknown_until_archive_bounds_proven",
+     "topic_refs_empty_until_onto_contract",
+     "repeated_claims_present",
+     "episode_source_integrity_partial",
+     "episodes_stale"
+    ],
+    "episode_refs_count": 20,
+    "semantic_hints_count": 10,
+    "context_version": "8701cad842ae54c5065b06553e761384",
+    "schema_version": "mca07-bundle-1",
+    "has_overview_slots": true
+   }
+  }
+ },
+ "equality": {
+  "row_ids_equal": {
+   "A1_creative_owner": true,
+   "A1P_plain_twin": true,
+   "D_conflict_2023": true,
+   "T2_no_signal": true,
+   "T3_current_no_signal": true,
+   "P1_profile_reply": true,
+   "E_relations_years": true
+  },
+  "block_chars_equal": {
+   "A1_creative_owner": true,
+   "A1P_plain_twin": true,
+   "D_conflict_2023": true,
+   "T2_no_signal": true,
+   "T3_current_no_signal": true,
+   "P1_profile_reply": true,
+   "E_relations_years": true
+  }
+ },
+ "coverage_sql_check": {
+  "A1_creative_owner": {
+   "status": "no_overview"
+  },
+  "A1P_plain_twin": {
+   "status": "no_overview"
+  },
+  "D_conflict_2023": {
+   "status": "no_overview"
+  },
+  "T2_no_signal": {
+   "status": "no_overview"
+  },
+  "T3_current_no_signal": {
+   "status": "no_overview"
+  },
+  "P1_profile_reply": {
+   "status": "no_overview"
+  },
+  "E_relations_years": {
+   "status": "no_overview"
+  },
+  "T2_plan_historical_recall": {
+   "status": "checked",
+   "window_rows": 200,
+   "sql_periods": {
+    "2023": 83,
+    "2024": 92,
+    "2025": 9,
+    "2026": 16
+   },
+   "sql_unknown_time": 0,
+   "claimed_periods": {
+    "2023": 83,
+    "2024": 92,
+    "2025": 9,
+    "2026": 16
+   },
+   "claimed_unknown_time": 0,
+   "periods_match": true,
+   "unknown_match": true,
+   "claimed_periods_not_in_sql": [],
+   "sql_periods_not_claimed": [],
+   "episode_refs_checked": 20,
+   "episode_refs_absent": [],
+   "independent_subset_ok": true,
+   "complete_claimed": false
+  },
+  "T3_current_plan_historical_recall": {
+   "status": "checked",
+   "window_rows": 200,
+   "sql_periods": {
+    "2023": 83,
+    "2024": 92,
+    "2025": 9,
+    "2026": 16
+   },
+   "sql_unknown_time": 0,
+   "claimed_periods": {
+    "2023": 83,
+    "2024": 92,
+    "2025": 9,
+    "2026": 16
+   },
+   "claimed_unknown_time": 0,
+   "periods_match": true,
+   "unknown_match": true,
+   "claimed_periods_not_in_sql": [],
+   "sql_periods_not_claimed": [],
+   "episode_refs_checked": 20,
+   "episode_refs_absent": [],
+   "independent_subset_ok": true,
+   "complete_claimed": false
+  }
+ },
+ "coverage_sql_check_baseline": {
+  "A1_creative_owner": {
+   "status": "no_overview"
+  },
+  "A1P_plain_twin": {
+   "status": "no_overview"
+  },
+  "D_conflict_2023": {
+   "status": "no_overview"
+  },
+  "T2_no_signal": {
+   "status": "no_overview"
+  },
+  "T3_current_no_signal": {
+   "status": "no_overview"
+  },
+  "P1_profile_reply": {
+   "status": "no_overview"
+  },
+  "E_relations_years": {
+   "status": "no_overview"
+  },
+  "T2_plan_historical_recall": {
+   "status": "no_overview"
+  },
+  "T3_current_plan_historical_recall": {
+   "status": "no_overview"
+  }
+ },
+ "vector": {
+  "vec": {
+   "ok": true,
+   "reason": null,
+   "available": true,
+   "off_reason": null
+  },
+  "live_participation": "UNVERIFIED",
+  "observation": "EMBED_API_FAILED provider_unavailable during the run; period/vector leg values recorded, no live KNN proof"
+ },
+ "raw_artifacts": {
+  "base_frozen.json": "4e351d164cbb199b75c15f66f221cbac4524c69fb578e513e4b36bfbe66ec808",
+  "cand_frozen.json": "85ea4301de2fb8112c653c26dbb4ebe5dc657a96a19d3e18d01dbba38f55c8e9",
+  "cfg_frozen.json": "b7bf1e977b99052cea196312001e87ed16edf01b01b325e82196f0429abfe4e7",
+  "entities.json": "5d0890d0495a4a7cb98aa9081381898b83d05ada69a9a76cb73f630353840fc3",
+  "driver.log": "90eecf71c4b124c40901238ea467079f775f1665b77214e70fa30f4ba8a3c683",
+  "probe_slice_c.py": "2e3e651ab362e49c277480252a9508fd355001e64a4e760fedef10349fedd486",
+  "driver_slice_c.sh": "7594d245535e7d7f3554a671559da7f39d31b2f3101f3e4f68abc8376ff6e37e"
+ },
+ "harness_provenance": {
+  "entities_py": null,
+  "cfg_probe": "committed harness-2026-11-15/cfg_probe.py (uploaded verbatim)",
+  "entities": "committed harness-2026-11-15/entities.py (uploaded verbatim)",
+  "probe": "derived from harness-2026-11-15/probe_slice_b.py; only the Slice C invocation surface added"
+ },
+ "harness_limits": [
+  "per-class overview SQL cross-check row is 'no_overview' for classes (harness read the field at item.overview_on_result instead of item.rag.overview_on_result); the two plan-flow rows carry the verified cross-check over the same chat-scope window",
+  "coverage complete=False by contract: archive bounds are not proven",
+  "episodes_total == 200 == view cap: the window is the whole episode set on this copy, so no truncation beyond the cap",
+  "one chat, one wording per class, one run per variant: no statistics",
+  "copy != live process: Global_Context, hot cache, rerank/LLM and answer generation did not participate"
+ ],
+ "entities_redacted": {
+  "person_msgs_2023_2024": 44577,
+  "event_count_2023": 2086,
+  "event_count_2026": 3422
+ }
+}
