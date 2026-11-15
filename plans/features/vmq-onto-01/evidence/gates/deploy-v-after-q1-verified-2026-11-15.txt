@@ -1,0 +1,12 @@
+﻿# VMQ-ONTO-01 gate: deploy-V-after-q1-verified
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-V --candidate c97c06e45cdbbf45b4c9df500e11cdb1d0486ae5 --repo . --strict-evidence
+# exit: 1
+
+FAIL: V-01: live requirement lacks evidence for stage deploy
+FAIL: V-02: live requirement lacks evidence for stage deploy
+FAIL: V-03: live requirement lacks evidence for stage deploy
+FAIL: V-04: live requirement lacks evidence for stage deploy
+stage=deploy inventory=380 manual=69 scoped=4 errors=4
+

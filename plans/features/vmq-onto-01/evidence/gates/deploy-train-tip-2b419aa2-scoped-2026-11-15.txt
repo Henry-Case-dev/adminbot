@@ -1,0 +1,15 @@
+﻿# VMQ-ONTO-01 gate: deploy-train-tip-2b419aa2-scoped
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-M2 --candidate 2b419aa2627f627eb6ea5e2f46b5e01118da2bf0 --repo . --strict-evidence
+# exit: 1
+
+FAIL: O-01: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-02: required dependency VMQ-ONTO-A is not evidenced VERIFIED
+FAIL: O-03: required dependency VMQ-ONTO-B is not evidenced VERIFIED
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: M-04: no evidence bound to reviewed candidate
+FAIL: M-05: no evidence bound to reviewed candidate
+FAIL: O-04: no evidence bound to reviewed candidate
+stage=deploy inventory=380 manual=69 scoped=3 errors=7
+

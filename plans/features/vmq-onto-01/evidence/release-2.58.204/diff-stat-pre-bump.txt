@@ -1,0 +1,24 @@
+ .../vmq-onto-01/evidence/onto-a/implementation.md  |  270 +++
+ .../vmq-onto-01/evidence/onto-a/retention.json     |   11 +
+ .../vmq-onto-01/evidence/vmq-m2/implementation.md  |  311 ++++
+ .../vmq-m2/probe-onto-single-retrieval-e2e.json    |   83 +
+ .../vmq-m2/probe-person-overview-bundles.json      |  207 +++
+ .../evidence/vmq-mem/slice-a-2026-11-15.md         |  201 +++
+ .../vmq-mem/slice-a-retention-2026-11-15.json      |   11 +
+ .../evidence/vmq-mem/slice-a-tests-2026-11-15.json |   55 +
+ .../evidence/vmq-mem/slice-b-2026-11-15.md         |  204 +++
+ .../evidence/vmq-mem/slice-b-tests-2026-11-15.json |   54 +
+ .../vmq-onto-01/evidence/vmq-onto-b/retention.json |   13 +
+ .../vmq-onto-b/typed-relations-provenance.md       |  168 ++
+ services/database.py                               |  210 ++-
+ services/direct_chat_service.py                    |  477 ++++--
+ services/mca_retrieval_context.py                  | 1141 ++++++++++++-
+ services/semantic_contracts.py                     | 1746 ++++++++++++++++++++
+ services/tool_router.py                            |  282 +++-
+ tests/test_mem_time_policy.py                      |   21 +-
+ tests/test_memory_unified_retrieval.py             |  972 +++++++++++
+ tests/test_semantic_contracts.py                   | 1242 ++++++++++++++
+ tests/test_vmq_mem_period_intent.py                |  551 ++++++
+ tests/test_vmq_mem_slice_b.py                      |  558 +++++++
+ tests/test_vmq_mem_slice_c.py                      |  406 +++++
+ 23 files changed, 8996 insertions(+), 198 deletions(-)

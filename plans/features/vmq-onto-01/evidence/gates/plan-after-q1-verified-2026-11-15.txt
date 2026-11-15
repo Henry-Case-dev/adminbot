@@ -1,0 +1,8 @@
+﻿# VMQ-ONTO-01 gate: plan-after-q1-verified
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage plan --repo . --strict-evidence
+# exit: 0
+
+stage=plan inventory=380 manual=69 scoped=0 errors=0
+

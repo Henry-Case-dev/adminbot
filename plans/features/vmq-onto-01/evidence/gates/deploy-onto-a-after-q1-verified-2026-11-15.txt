@@ -1,0 +1,8 @@
+﻿# VMQ-ONTO-01 gate: deploy-ONTO-A-after-q1-verified
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage deploy --slice VMQ-ONTO-A --candidate 8cb9e00d38cc59d1ee1b564a824debc47f539003 --repo . --strict-evidence
+# exit: 0
+
+stage=deploy inventory=380 manual=69 scoped=2 errors=0
+
