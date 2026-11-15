@@ -1,0 +1,12 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-M2-16931216
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-M2 --candidate 16931216ab0015b4a3001c9947768305517e46eb --repo . --strict-evidence
+# exit: 1
+
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: M-04: no evidence bound to reviewed candidate
+FAIL: M-05: no evidence bound to reviewed candidate
+FAIL: O-04: no evidence bound to reviewed candidate
+stage=review inventory=380 manual=69 scoped=3 errors=4
+

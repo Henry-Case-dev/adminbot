@@ -1,0 +1,17 @@
+﻿# VMQ-ONTO-01 gate: review-VMQ-MEM-TIME-d159ea8a
+# date: 2026-11-15
+# map: plans/features/vmq-onto-01/requirements-map.json
+# command: python requirements_gate.py check --map plans/features/vmq-onto-01/requirements-map.json --stage review --slice VMQ-MEM-TIME --candidate d159ea8ad8362616ec78b43cb64a3e54ec7de2e6 --repo . --strict-evidence
+# exit: 1
+
+FAIL: VMQ-TIME-01: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-02: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-03: live requirement lacks evidence for stage review
+FAIL: VMQ-TIME-04: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-05: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-06: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-07: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-08: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+FAIL: VMQ-TIME-09: mandatory not ['REVIEW', 'VERIFIED'] (got PENDING)
+stage=review inventory=380 manual=69 scoped=9 errors=9
+
