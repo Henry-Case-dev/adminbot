@@ -148,10 +148,18 @@
     "deployed_sha": "bfcccb38d5b423dd64d96edabb52f07184248edb",
     "schema": 1
   },
+  "review_approval": {
+    "file": "plans/features/vmq-onto-01/evidence/vmq-mem/slice-d-final-approval.md",
+    "sha256": "E5C99B6C80E158BF4DF17568CEEE1444CE570D2CF589A24BD1DD82D60BAE446F",
+    "verdict": "Approved (predeploy)",
+    "product_code": "456cf769",
+    "evidence_tip": "69b5c9f9",
+    "n9": "closed (real retrieve on a non-empty pool; mutation period_replace_allowed->True fails delivered==0)"
+  },
   "limits": [
     "Focused + broad -k suites only, not the whole project test suite.",
     "No deployment, no live Telegram/provider/UI proof in this assembly step.",
-    "Reviewer verdict for the post-N9 tip is not stored as a file in the tree (latest stored is r3 for 8fbd2ffb); deploy gate needs the actual verdict with an explicit SHA.",
+    "Reviewer final approval is stored in the tree: slice-d-final-approval.md (sha256 E5C99B6C80E158BF4DF17568CEEE1444CE570D2CF589A24BD1DD82D60BAE446F), Approved (predeploy) for product 456cf769 / evidence tip 69b5c9f9; N9 closed.",
     "Live L1 memory_scope is UNKNOWN (no local LLM key, no durable L1 plan in the DB copy).",
     "Vector leg compat_not_proven; lexical path limited by stems.",
     "4 pin-guard failures and broad 5+1 are pre-existing and untouched."

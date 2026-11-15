@@ -61,7 +61,8 @@ sha256 `E5C99B6C80E158BF4DF17568CEEE1444CE570D2CF589A24BD1DD82D60BAE446F`).
 TIME-02 reply, TIME-07).
 
 Итоговый docs-коммит сборки добавляет review-файлы, финальный вердикт и этот
-отчёт.
+отчёт. Операционный runbook кандидата — `predeploy.md` (backup/read-back,
+откат `2b419aa2`, postdeploy checklist, L1-наблюдение).
 
 ## 2. Кумулятивный дифф против базы `2b419aa2`
 
